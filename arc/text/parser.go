@@ -1,5 +1,5 @@
-//go:generate antlr4 -Dlanguage=Go -o . -package parser SlateLexer.g4 SlateParser.g4
-package parser
+//go:generate antlr4 -Dlanguage=Go -o . -package text ArcLexer.g4 ArcParser.g4
+package text
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 
 func Parse(source string) (IProgramContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := NewSlateLexer(input)
+	lexer := NewArcLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := NewSlateParser(stream)
+	parser := NewArcParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)
@@ -40,9 +40,9 @@ func (e *ErrorListener) HasErrors() bool {
 // ParseExpression parses a single expression
 func ParseExpression(source string) (IExpressionContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := NewSlateLexer(input)
+	lexer := NewArcLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := NewSlateParser(stream)
+	parser := NewArcParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)
@@ -56,9 +56,9 @@ func ParseExpression(source string) (IExpressionContext, error) {
 // ParseStatement parses a single statement
 func ParseStatement(source string) (IStatementContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := NewSlateLexer(input)
+	lexer := NewArcLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := NewSlateParser(stream)
+	parser := NewArcParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)
@@ -72,9 +72,9 @@ func ParseStatement(source string) (IStatementContext, error) {
 // ParseBlock parses a block of statements
 func ParseBlock(source string) (IBlockContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := NewSlateLexer(input)
+	lexer := NewArcLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := NewSlateParser(stream)
+	parser := NewArcParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)

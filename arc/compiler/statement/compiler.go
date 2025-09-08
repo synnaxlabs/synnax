@@ -18,7 +18,7 @@ import (
 // Compile compiles a single statement
 func Compile(
 	ctx *core.Context,
-	stmt parser.IStatementContext,
+	stmt text.IStatementContext,
 ) error {
 	if stmt == nil {
 		return errors.New("cannot compile nil statement")
@@ -47,7 +47,7 @@ func Compile(
 }
 
 // CompileBlock compiles a block of statements
-func CompileBlock(ctx *core.Context, block parser.IBlockContext) error {
+func CompileBlock(ctx *core.Context, block text.IBlockContext) error {
 	if block == nil {
 		return nil
 	}

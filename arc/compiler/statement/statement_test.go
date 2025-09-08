@@ -12,18 +12,17 @@ package statement_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler/core"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func compile(source string) []byte {
-	stmt := MustSucceed(parser.ParseStatement(source))
-	result := analyzer.AnalyzeStatement(stmt, analyzer.Options{})
+	stmt := MustSucceed(text.ParseStatement(source))
+	result := text.AnalyzeStatement(stmt, text.Options{})
 	Expect(result.Ok()).To(BeTrue())
 	ctx := core.NewContext(result.Symbols, true)
 	Expect(statement.Compile(ctx, stmt)).To(Succeed())
@@ -31,8 +30,8 @@ func compile(source string) []byte {
 }
 
 func compileBlock(source string) []byte {
-	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-	result := analyzer.AnalyzeBlock(block, analyzer.Options{})
+	block := MustSucceed(text.ParseBlock("{" + source + "}"))
+	result := text.AnalyzeBlock(block, text.Options{})
 	Expect(result.Ok()).To(BeTrue())
 	ctx := core.NewContext(result.Symbols, true)
 	Expect(statement.CompileBlock(ctx, block)).To(Succeed())

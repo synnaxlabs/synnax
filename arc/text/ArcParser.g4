@@ -1,7 +1,7 @@
-parser grammar SlateParser;
+parser grammar ArcParser;
 
 options {
-    tokenVocab = SlateLexer;
+    tokenVocab = ArcLexer;
 }
 
 // =============================================================================

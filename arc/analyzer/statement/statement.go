@@ -23,7 +23,7 @@ import (
 func AnalyzeBlock(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	block parser.IBlockContext,
+	block text.IBlockContext,
 ) bool {
 	blockScope, err := parentScope.Add(symbol.Symbol{
 		Kind:       symbol.KindBlock,
@@ -45,7 +45,7 @@ func AnalyzeBlock(
 func Analyze(
 	blockScope *symbol.Scope,
 	result *result.Result,
-	ctx parser.IStatementContext,
+	ctx text.IStatementContext,
 ) bool {
 	if varDecl := ctx.VariableDeclaration(); varDecl != nil {
 		return analyzeVariableDeclaration(blockScope, result, varDecl)
@@ -66,7 +66,7 @@ func Analyze(
 func analyzeVariableDeclaration(
 	blockScope *symbol.Scope,
 	result *result.Result,
-	ctx parser.IVariableDeclarationContext,
+	ctx text.IVariableDeclarationContext,
 ) bool {
 	if local := ctx.LocalVariable(); local != nil {
 		return analyzeLocalVariable(blockScope, result, local)
@@ -80,8 +80,8 @@ func analyzeVariableDeclarationType(
 	parentScope *symbol.Scope,
 	result *result.Result,
 	declaration antlr.ParserRuleContext,
-	expression parser.IExpressionContext,
-	typeCtx parser.ITypeContext,
+	expression text.IExpressionContext,
+	typeCtx text.ITypeContext,
 ) (types.Type, bool) {
 	if typeCtx != nil {
 		var varType types.Type
@@ -119,7 +119,7 @@ func analyzeVariableDeclarationType(
 }
 
 // isLiteralExpression checks if an expression is a literal value (number, string, bool)
-func isLiteralExpression(expr parser.IExpressionContext) bool {
+func isLiteralExpression(expr text.IExpressionContext) bool {
 	if expr == nil {
 		return false
 	}
@@ -156,7 +156,7 @@ func isLiteralExpression(expr parser.IExpressionContext) bool {
 func analyzeLocalVariable(
 	blockScope *symbol.Scope,
 	result *result.Result,
-	localVar parser.ILocalVariableContext,
+	localVar text.ILocalVariableContext,
 ) bool {
 	name := localVar.IDENTIFIER().GetText()
 	expr := localVar.Expression()
@@ -213,7 +213,7 @@ func analyzeLocalVariable(
 }
 
 // isChannelIdentifier checks if an expression is a simple identifier that refers to a channel
-func isChannelIdentifier(scope *symbol.Scope, expr parser.IExpressionContext) bool {
+func isChannelIdentifier(scope *symbol.Scope, expr text.IExpressionContext) bool {
 	// Navigate through the expression tree to find an identifier
 	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
 		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
@@ -247,7 +247,7 @@ func isChannelIdentifier(scope *symbol.Scope, expr parser.IExpressionContext) bo
 }
 
 // getChannelType retrieves the channel type from an expression that is a channel identifier
-func getChannelType(scope *symbol.Scope, expr parser.IExpressionContext) *types.Chan {
+func getChannelType(scope *symbol.Scope, expr text.IExpressionContext) *types.Chan {
 	// Navigate through the expression tree to find the identifier and get its type
 	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
 		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
@@ -283,7 +283,7 @@ func getChannelType(scope *symbol.Scope, expr parser.IExpressionContext) *types.
 func analyzeStatefulVariable(
 	blockScope *symbol.Scope,
 	result *result.Result,
-	statefulVar parser.IStatefulVariableContext,
+	statefulVar text.IStatefulVariableContext,
 ) bool {
 	name := statefulVar.IDENTIFIER().GetText()
 	expr := statefulVar.Expression()
@@ -316,7 +316,7 @@ func analyzeStatefulVariable(
 func analyzeIfStatement(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx parser.IIfStatementContext,
+	ctx text.IIfStatementContext,
 ) bool {
 	// First analyze the condition expression
 	if expr := ctx.Expression(); expr != nil {
@@ -363,7 +363,7 @@ func analyzeIfStatement(
 func analyzeReturnStatement(
 	scope *symbol.Scope,
 	result *result.Result,
-	returnStmt parser.IReturnStatementContext,
+	returnStmt text.IReturnStatementContext,
 ) bool {
 	enclosingScope, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
@@ -429,7 +429,7 @@ func analyzeReturnStatement(
 func analyzeChannelOperation(
 	scope *symbol.Scope,
 	res *result.Result,
-	ctx parser.IChannelOperationContext,
+	ctx text.IChannelOperationContext,
 ) bool {
 	if write := ctx.ChannelWrite(); write != nil {
 		return analyzeChannelWrite(scope, res, write)
@@ -442,7 +442,7 @@ func analyzeChannelOperation(
 func analyzeChannelWrite(
 	scope *symbol.Scope,
 	res *result.Result,
-	ctx parser.IChannelWriteContext,
+	ctx text.IChannelWriteContext,
 ) bool {
 	// Get the channel name
 	var channelName string
@@ -499,7 +499,7 @@ func analyzeChannelWrite(
 func analyzeChannelRead(
 	scope *symbol.Scope,
 	res *result.Result,
-	ctx parser.IChannelReadContext,
+	ctx text.IChannelReadContext,
 ) bool {
 	if blocking := ctx.BlockingRead(); blocking != nil {
 		return analyzeBlockingRead(scope, res, blocking)
@@ -512,7 +512,7 @@ func analyzeChannelRead(
 func analyzeBlockingRead(
 	scope *symbol.Scope,
 	res *result.Result,
-	ctx parser.IBlockingReadContext,
+	ctx text.IBlockingReadContext,
 ) bool {
 	// Format: varName := <-channelName
 	ids := ctx.AllIDENTIFIER()
@@ -555,7 +555,7 @@ func analyzeBlockingRead(
 func analyzeNonBlockingRead(
 	scope *symbol.Scope,
 	res *result.Result,
-	ctx parser.INonBlockingReadContext,
+	ctx text.INonBlockingReadContext,
 ) bool {
 	// Format: varName := channelName
 	ids := ctx.AllIDENTIFIER()
@@ -598,7 +598,7 @@ func analyzeNonBlockingRead(
 func analyzeAssignment(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	assignment parser.IAssignmentContext,
+	assignment text.IAssignmentContext,
 ) bool {
 	name := assignment.IDENTIFIER().GetText()
 	varScope, err := parentScope.Resolve(name)

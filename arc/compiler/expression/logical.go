@@ -19,7 +19,7 @@ import (
 // compileLogicalOrImpl handles || operations with short-circuit evaluation
 func compileLogicalOrImpl(
 	ctx *core.Context,
-	expr parser.ILogicalOrExpressionContext,
+	expr text.ILogicalOrExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	ands := expr.AllLogicalAndExpression()
@@ -62,7 +62,7 @@ func compileLogicalOrImpl(
 }
 
 // compileLogicalAndImpl handles && operations with short-circuit evaluation
-func compileLogicalAndImpl(ctx *core.Context, expr parser.ILogicalAndExpressionContext, hint types.Type) (types.Type, error) {
+func compileLogicalAndImpl(ctx *core.Context, expr text.ILogicalAndExpressionContext, hint types.Type) (types.Type, error) {
 	eqs := expr.AllEqualityExpression()
 
 	// Compile first operand

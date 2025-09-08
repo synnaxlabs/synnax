@@ -20,9 +20,9 @@ import (
 )
 
 // Analyze processes a flow statement and returns true if successful
-func Analyze(scope *symbol.Scope, res *result.Result, stmt parser.IFlowStatementContext) bool {
+func Analyze(scope *symbol.Scope, res *result.Result, stmt text.IFlowStatementContext) bool {
 	for i, node := range stmt.AllFlowNode() {
-		var prevNode parser.IFlowNodeContext
+		var prevNode text.IFlowNodeContext
 		if i != 0 {
 			prevNode = stmt.FlowNode(i - 1)
 		}
@@ -36,8 +36,8 @@ func Analyze(scope *symbol.Scope, res *result.Result, stmt parser.IFlowStatement
 func analyzeNode(
 	scope *symbol.Scope,
 	res *result.Result,
-	prevNode parser.IFlowNodeContext,
-	currNode parser.IFlowNodeContext,
+	prevNode text.IFlowNodeContext,
+	currNode text.IFlowNodeContext,
 ) bool {
 	if taskInv := currNode.TaskInvocation(); taskInv != nil {
 		return parseTaskInvocation(
@@ -60,8 +60,8 @@ func analyzeNode(
 func parseTaskInvocation(
 	scope *symbol.Scope,
 	res *result.Result,
-	prevNode parser.IFlowNodeContext,
-	task parser.ITaskInvocationContext,
+	prevNode text.IFlowNodeContext,
+	task text.ITaskInvocationContext,
 ) bool {
 	// Step 1: Check that a symbol for the task exists and it has the right type
 	name := task.IDENTIFIER().GetText()
@@ -167,7 +167,7 @@ func parseTaskInvocation(
 	return true
 }
 
-func analyzeChannel(scope *symbol.Scope, res *result.Result, ch parser.IChannelIdentifierContext) bool {
+func analyzeChannel(scope *symbol.Scope, res *result.Result, ch text.IChannelIdentifierContext) bool {
 	name := ch.IDENTIFIER().GetText()
 	_, err := scope.Resolve(name)
 	if err != nil {

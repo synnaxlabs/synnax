@@ -19,7 +19,7 @@ import (
 
 func compileTypeCast(
 	ctx *core.Context,
-	cast parser.ITypeCastContext,
+	cast text.ITypeCastContext,
 ) (types.Type, error) {
 	targetType := extractType(cast.Type_())
 	if targetType == nil {
@@ -38,7 +38,7 @@ func compileTypeCast(
 	return targetType, nil
 }
 
-func extractType(typeCtx parser.ITypeContext) types.Type {
+func extractType(typeCtx text.ITypeContext) types.Type {
 	if prim := typeCtx.PrimitiveType(); prim != nil {
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {

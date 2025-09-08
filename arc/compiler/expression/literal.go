@@ -21,7 +21,7 @@ import (
 // compileLiteral compiles a literal value
 func compileLiteral(
 	ctx *core.Context,
-	lit parser.ILiteralContext,
+	lit text.ILiteralContext,
 	hint types.Type,
 ) (types.Type, error) {
 	if num := lit.NumericLiteral(); num != nil {
@@ -41,7 +41,7 @@ func compileLiteral(
 
 func compileNumericLiteral(
 	ctx *core.Context,
-	num parser.INumericLiteralContext,
+	num text.INumericLiteralContext,
 	hint types.Type,
 ) (types.Type, error) {
 	if intLit := num.INTEGER_LITERAL(); intLit != nil {

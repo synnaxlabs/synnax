@@ -1,6 +1,6 @@
-// Code generated from SlateLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package parser
+package text
 
 import (
 	"fmt"
@@ -14,14 +14,14 @@ var _ = fmt.Printf
 var _ = sync.Once{}
 var _ = unicode.IsLetter
 
-type SlateLexer struct {
+type ArcLexer struct {
 	*antlr.BaseLexer
 	channelNames []string
 	modeNames    []string
 	// TODO: EOF string
 }
 
-var SlateLexerLexerStaticData struct {
+var ArcLexerLexerStaticData struct {
 	once                   sync.Once
 	serializedATN          []int32
 	ChannelNames           []string
@@ -34,8 +34,8 @@ var SlateLexerLexerStaticData struct {
 	decisionToDFA          []*antlr.DFA
 }
 
-func slatelexerLexerInit() {
-	staticData := &SlateLexerLexerStaticData
+func arclexerLexerInit() {
+	staticData := &ArcLexerLexerStaticData
 	staticData.ChannelNames = []string{
 		"DEFAULT_TOKEN_CHANNEL", "HIDDEN",
 	}
@@ -284,95 +284,95 @@ func slatelexerLexerInit() {
 	}
 }
 
-// SlateLexerInit initializes any static state used to implement SlateLexer. By default the
+// ArcLexerInit initializes any static state used to implement ArcLexer. By default the
 // static state used to implement the lexer is lazily initialized during the first call to
-// NewSlateLexer(). You can call this function if you wish to initialize the static state ahead
+// NewArcLexer(). You can call this function if you wish to initialize the static state ahead
 // of time.
-func SlateLexerInit() {
-	staticData := &SlateLexerLexerStaticData
-	staticData.once.Do(slatelexerLexerInit)
+func ArcLexerInit() {
+	staticData := &ArcLexerLexerStaticData
+	staticData.once.Do(arclexerLexerInit)
 }
 
-// NewSlateLexer produces a new lexer instance for the optional input antlr.CharStream.
-func NewSlateLexer(input antlr.CharStream) *SlateLexer {
-	SlateLexerInit()
-	l := new(SlateLexer)
+// NewArcLexer produces a new lexer instance for the optional input antlr.CharStream.
+func NewArcLexer(input antlr.CharStream) *ArcLexer {
+	ArcLexerInit()
+	l := new(ArcLexer)
 	l.BaseLexer = antlr.NewBaseLexer(input)
-	staticData := &SlateLexerLexerStaticData
+	staticData := &ArcLexerLexerStaticData
 	l.Interpreter = antlr.NewLexerATNSimulator(l, staticData.atn, staticData.decisionToDFA, staticData.PredictionContextCache)
 	l.channelNames = staticData.ChannelNames
 	l.modeNames = staticData.ModeNames
 	l.RuleNames = staticData.RuleNames
 	l.LiteralNames = staticData.LiteralNames
 	l.SymbolicNames = staticData.SymbolicNames
-	l.GrammarFileName = "SlateLexer.g4"
+	l.GrammarFileName = "ArcLexer.g4"
 	// TODO: l.EOF = antlr.TokenEOF
 
 	return l
 }
 
-// SlateLexer tokens.
+// ArcLexer tokens.
 const (
-	SlateLexerFUNC                = 1
-	SlateLexerTASK                = 2
-	SlateLexerIF                  = 3
-	SlateLexerELSE                = 4
-	SlateLexerRETURN              = 5
-	SlateLexerNOW                 = 6
-	SlateLexerLEN                 = 7
-	SlateLexerCHAN                = 8
-	SlateLexerRECV_CHAN           = 9
-	SlateLexerSEND_CHAN           = 10
-	SlateLexerI8                  = 11
-	SlateLexerI16                 = 12
-	SlateLexerI32                 = 13
-	SlateLexerI64                 = 14
-	SlateLexerU8                  = 15
-	SlateLexerU16                 = 16
-	SlateLexerU32                 = 17
-	SlateLexerU64                 = 18
-	SlateLexerF32                 = 19
-	SlateLexerF64                 = 20
-	SlateLexerSTRING              = 21
-	SlateLexerTIMESTAMP           = 22
-	SlateLexerTIMESPAN            = 23
-	SlateLexerSERIES              = 24
-	SlateLexerARROW               = 25
-	SlateLexerRECV                = 26
-	SlateLexerDECLARE             = 27
-	SlateLexerSTATE_DECLARE       = 28
-	SlateLexerASSIGN              = 29
-	SlateLexerPLUS                = 30
-	SlateLexerMINUS               = 31
-	SlateLexerSTAR                = 32
-	SlateLexerSLASH               = 33
-	SlateLexerPERCENT             = 34
-	SlateLexerCARET               = 35
-	SlateLexerEQ                  = 36
-	SlateLexerNEQ                 = 37
-	SlateLexerLT                  = 38
-	SlateLexerGT                  = 39
-	SlateLexerLEQ                 = 40
-	SlateLexerGEQ                 = 41
-	SlateLexerAND                 = 42
-	SlateLexerOR                  = 43
-	SlateLexerNOT                 = 44
-	SlateLexerLPAREN              = 45
-	SlateLexerRPAREN              = 46
-	SlateLexerLBRACE              = 47
-	SlateLexerRBRACE              = 48
-	SlateLexerLBRACKET            = 49
-	SlateLexerRBRACKET            = 50
-	SlateLexerCOMMA               = 51
-	SlateLexerCOLON               = 52
-	SlateLexerSEMICOLON           = 53
-	SlateLexerTEMPORAL_LITERAL    = 54
-	SlateLexerFREQUENCY_LITERAL   = 55
-	SlateLexerINTEGER_LITERAL     = 56
-	SlateLexerFLOAT_LITERAL       = 57
-	SlateLexerSTRING_LITERAL      = 58
-	SlateLexerIDENTIFIER          = 59
-	SlateLexerSINGLE_LINE_COMMENT = 60
-	SlateLexerMULTI_LINE_COMMENT  = 61
-	SlateLexerWS                  = 62
+	ArcLexerFUNC                = 1
+	ArcLexerTASK                = 2
+	ArcLexerIF                  = 3
+	ArcLexerELSE                = 4
+	ArcLexerRETURN              = 5
+	ArcLexerNOW                 = 6
+	ArcLexerLEN                 = 7
+	ArcLexerCHAN                = 8
+	ArcLexerRECV_CHAN           = 9
+	ArcLexerSEND_CHAN           = 10
+	ArcLexerI8                  = 11
+	ArcLexerI16                 = 12
+	ArcLexerI32                 = 13
+	ArcLexerI64                 = 14
+	ArcLexerU8                  = 15
+	ArcLexerU16                 = 16
+	ArcLexerU32                 = 17
+	ArcLexerU64                 = 18
+	ArcLexerF32                 = 19
+	ArcLexerF64                 = 20
+	ArcLexerSTRING              = 21
+	ArcLexerTIMESTAMP           = 22
+	ArcLexerTIMESPAN            = 23
+	ArcLexerSERIES              = 24
+	ArcLexerARROW               = 25
+	ArcLexerRECV                = 26
+	ArcLexerDECLARE             = 27
+	ArcLexerSTATE_DECLARE       = 28
+	ArcLexerASSIGN              = 29
+	ArcLexerPLUS                = 30
+	ArcLexerMINUS               = 31
+	ArcLexerSTAR                = 32
+	ArcLexerSLASH               = 33
+	ArcLexerPERCENT             = 34
+	ArcLexerCARET               = 35
+	ArcLexerEQ                  = 36
+	ArcLexerNEQ                 = 37
+	ArcLexerLT                  = 38
+	ArcLexerGT                  = 39
+	ArcLexerLEQ                 = 40
+	ArcLexerGEQ                 = 41
+	ArcLexerAND                 = 42
+	ArcLexerOR                  = 43
+	ArcLexerNOT                 = 44
+	ArcLexerLPAREN              = 45
+	ArcLexerRPAREN              = 46
+	ArcLexerLBRACE              = 47
+	ArcLexerRBRACE              = 48
+	ArcLexerLBRACKET            = 49
+	ArcLexerRBRACKET            = 50
+	ArcLexerCOMMA               = 51
+	ArcLexerCOLON               = 52
+	ArcLexerSEMICOLON           = 53
+	ArcLexerTEMPORAL_LITERAL    = 54
+	ArcLexerFREQUENCY_LITERAL   = 55
+	ArcLexerINTEGER_LITERAL     = 56
+	ArcLexerFLOAT_LITERAL       = 57
+	ArcLexerSTRING_LITERAL      = 58
+	ArcLexerIDENTIFIER          = 59
+	ArcLexerSINGLE_LINE_COMMENT = 60
+	ArcLexerMULTI_LINE_COMMENT  = 61
+	ArcLexerWS                  = 62
 )

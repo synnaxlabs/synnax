@@ -18,7 +18,7 @@ import (
 )
 
 // compileVariableDeclaration handles both local (:=) and stateful ($=) variable declarations
-func compileVariableDeclaration(ctx *core.Context, decl parser.IVariableDeclarationContext) error {
+func compileVariableDeclaration(ctx *core.Context, decl text.IVariableDeclarationContext) error {
 	if localVar := decl.LocalVariable(); localVar != nil {
 		return compileLocalVariable(ctx, localVar)
 	}
@@ -29,7 +29,7 @@ func compileVariableDeclaration(ctx *core.Context, decl parser.IVariableDeclarat
 }
 
 // compileLocalVariable handles local variable declarations (x := expr)
-func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) error {
+func compileLocalVariable(ctx *core.Context, decl text.ILocalVariableContext) error {
 	name := decl.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(name)
 	if err != nil {
@@ -56,7 +56,7 @@ func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) 
 // compileStatefulVariable handles stateful variable declarations (x $= expr)
 func compileStatefulVariable(
 	ctx *core.Context,
-	decl parser.IStatefulVariableContext,
+	decl text.IStatefulVariableContext,
 ) error {
 	// Resolve the variable name
 	name := decl.IDENTIFIER().GetText()
@@ -95,7 +95,7 @@ func compileStatefulVariable(
 // compileAssignment handles variable assignments (x = expr)
 func compileAssignment(
 	ctx *core.Context,
-	assign parser.IAssignmentContext,
+	assign text.IAssignmentContext,
 ) error {
 	// Resolve the variable name
 	name := assign.IDENTIFIER().GetText()

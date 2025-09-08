@@ -12,8 +12,7 @@ package flow_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -77,10 +76,10 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Binary expression with channels", func() {
 		It("should convert comparison expression to synthetic task", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				ox_pt_1 > 100 -> alarm{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 			taskSymbol := MustSucceed(result.Symbols.Resolve("__expr_0"))
 			Expect(taskSymbol.Name).To(Equal("__expr_0"))
@@ -92,10 +91,10 @@ var _ = Describe("Expression Task Conversion", func() {
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				(ox_pt_1 + ox_pt_2) / 2 -> display{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
 			synthTask, err := result.Symbols.Resolve("__expr_0")
@@ -114,10 +113,10 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Complex logical expressions", func() {
 		It("should handle logical AND with multiple channels", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				ox_pt_1 > 100 && pressure > 50 -> alarm_ch
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
 			synthTask, err := result.Symbols.Resolve("__expr_0")
@@ -133,10 +132,10 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Error cases", func() {
 		It("should reject unknown channels in expressions", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				unknown_channel > 100 -> alarm{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			// Should have error for unknown channel
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("unknown"))
@@ -145,12 +144,12 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Multiple expressions in flow", func() {
 		It("should create separate tasks for each expression", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				ox_pt_1 > 100 -> alarm{}
 				pressure < 50 -> warning{}
 				temp_sensor * f32(1.8) + f32(32) -> display{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 
 			// May have warnings about type mismatches, but should still create tasks
 			// Check that multiple synthetic tasks were created
@@ -170,10 +169,10 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Parenthesized expressions", func() {
 		It("should handle nested parentheses correctly", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				((ox_pt_1 + ox_pt_2) * 2) > 100 -> alarm{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
 			synthTask, err := result.Symbols.Resolve("__expr_0")
@@ -189,10 +188,10 @@ var _ = Describe("Expression Task Conversion", func() {
 
 	Context("Channel type preservation", func() {
 		It("should preserve channel types in config", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				(temp_sensor) -> display{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
+			result := text.Analyze(ast, text.Options{Resolver: testResolver})
 			// May have type warning since display expects f64 but temp_sensor is f32
 
 			synthTask, err := result.Symbols.Resolve("__expr_0")

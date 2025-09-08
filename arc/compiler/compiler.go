@@ -10,20 +10,19 @@
 package compiler
 
 import (
-	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler/core"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 type Config struct {
-	Program            parser.IProgramContext
-	Analysis           *analyzer.Result
+	Program            text.IProgramContext
+	Analysis           *text.Result
 	DisableHostImports bool
 }
 
@@ -47,7 +46,7 @@ func Compile(cfg Config) ([]byte, error) {
 }
 
 // compileTopLevelItem dispatches compilation based on item type
-func compileTopLevelItem(ctx *core.Context, item parser.ITopLevelItemContext) error {
+func compileTopLevelItem(ctx *core.Context, item text.ITopLevelItemContext) error {
 	if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
 		return compileFunctionDeclaration(ctx, funcDecl)
 	}
@@ -63,7 +62,7 @@ func compileTopLevelItem(ctx *core.Context, item parser.ITopLevelItemContext) er
 // compileFunctionDeclaration compiles a function definition
 func compileFunctionDeclaration(
 	ctx *core.Context,
-	funcDecl parser.IFunctionDeclarationContext,
+	funcDecl text.IFunctionDeclarationContext,
 ) error {
 	name := funcDecl.IDENTIFIER().GetText()
 	funcScope, err := ctx.Scope.Resolve(name)
@@ -109,7 +108,7 @@ func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 // compileTaskDeclaration compiles a task definition
 func compileTaskDeclaration(
 	ctx *core.Context,
-	taskDecl parser.ITaskDeclarationContext,
+	taskDecl text.ITaskDeclarationContext,
 ) error {
 	name := taskDecl.IDENTIFIER().GetText()
 	taskScope, err := ctx.Scope.Resolve(name)
@@ -138,7 +137,7 @@ func compileTaskDeclaration(
 
 func compileFlowStatement(
 	ctx *core.Context,
-	stmt parser.IFlowStatementContext,
+	stmt text.IFlowStatementContext,
 ) error {
 	for _, node := range stmt.AllFlowNode() {
 		// Only flow nodes that we need to compile are expressions turned into anonymous
@@ -154,7 +153,7 @@ func compileFlowStatement(
 
 func compileFlowExpression(
 	ctx *core.Context,
-	expr parser.IExpressionContext,
+	expr text.IExpressionContext,
 ) error {
 	scope, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil {

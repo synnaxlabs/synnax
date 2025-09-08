@@ -16,9 +16,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -187,7 +186,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	diagnostics := []protocol.Diagnostic{}
 
 	// Parse the document
-	tree, err := parser.Parse(content)
+	tree, err := text.Parse(content)
 	if err != nil {
 		// Extract parse errors
 		errMsg := err.Error()
@@ -229,7 +228,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		}
 	} else {
 		// Run semantic analysis if parsing succeeded
-		res := analyzer.Analyze(tree, analyzer.Options{})
+		res := text.Analyze(tree, text.Options{})
 
 		// Store analysis results for other features (hover, completion, etc.)
 		s.mu.Lock()

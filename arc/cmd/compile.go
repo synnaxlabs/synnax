@@ -18,10 +18,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -43,11 +42,11 @@ var compileCmd = &cobra.Command{
 		if err != nil {
 			return errors.Newf("failed to read source file: %s", err)
 		}
-		prog, err := parser.Parse(string(source))
+		prog, err := text.Parse(string(source))
 		if err != nil {
 			return errors.Newf("parse error: %s", err)
 		}
-		analysis := analyzer.Analyze(prog, analyzer.Options{})
+		analysis := text.Analyze(prog, text.Options{})
 		if len(analysis.Diagnostics) > 0 {
 			return errors.Newf("analysis failed %s", analysis.String())
 		}

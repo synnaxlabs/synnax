@@ -1,6 +1,6 @@
-// Code generated from SlateParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package parser // SlateParser
+package text // ArcParser
 import (
 	"fmt"
 	"strconv"
@@ -14,11 +14,11 @@ var _ = fmt.Printf
 var _ = strconv.Itoa
 var _ = sync.Once{}
 
-type SlateParser struct {
+type ArcParser struct {
 	*antlr.BaseParser
 }
 
-var SlateParserParserStaticData struct {
+var ArcParserParserStaticData struct {
 	once                   sync.Once
 	serializedATN          []int32
 	LiteralNames           []string
@@ -29,8 +29,8 @@ var SlateParserParserStaticData struct {
 	decisionToDFA          []*antlr.DFA
 }
 
-func slateparserParserInit() {
-	staticData := &SlateParserParserStaticData
+func arcparserParserInit() {
+	staticData := &ArcParserParserStaticData
 	staticData.LiteralNames = []string{
 		"", "'func'", "'task'", "'if'", "'else'", "'return'", "'now'", "'len'",
 		"'chan'", "'<-chan'", "'->chan'", "'i8'", "'i16'", "'i32'", "'i64'",
@@ -315,163 +315,163 @@ func slateparserParserInit() {
 	}
 }
 
-// SlateParserInit initializes any static state used to implement SlateParser. By default the
+// ArcParserInit initializes any static state used to implement ArcParser. By default the
 // static state used to implement the parser is lazily initialized during the first call to
-// NewSlateParser(). You can call this function if you wish to initialize the static state ahead
+// NewArcParser(). You can call this function if you wish to initialize the static state ahead
 // of time.
-func SlateParserInit() {
-	staticData := &SlateParserParserStaticData
-	staticData.once.Do(slateparserParserInit)
+func ArcParserInit() {
+	staticData := &ArcParserParserStaticData
+	staticData.once.Do(arcparserParserInit)
 }
 
-// NewSlateParser produces a new parser instance for the optional input antlr.TokenStream.
-func NewSlateParser(input antlr.TokenStream) *SlateParser {
-	SlateParserInit()
-	this := new(SlateParser)
+// NewArcParser produces a new parser instance for the optional input antlr.TokenStream.
+func NewArcParser(input antlr.TokenStream) *ArcParser {
+	ArcParserInit()
+	this := new(ArcParser)
 	this.BaseParser = antlr.NewBaseParser(input)
-	staticData := &SlateParserParserStaticData
+	staticData := &ArcParserParserStaticData
 	this.Interpreter = antlr.NewParserATNSimulator(this, staticData.atn, staticData.decisionToDFA, staticData.PredictionContextCache)
 	this.RuleNames = staticData.RuleNames
 	this.LiteralNames = staticData.LiteralNames
 	this.SymbolicNames = staticData.SymbolicNames
-	this.GrammarFileName = "SlateParser.g4"
+	this.GrammarFileName = "ArcParser.g4"
 
 	return this
 }
 
-// SlateParser tokens.
+// ArcParser tokens.
 const (
-	SlateParserEOF                 = antlr.TokenEOF
-	SlateParserFUNC                = 1
-	SlateParserTASK                = 2
-	SlateParserIF                  = 3
-	SlateParserELSE                = 4
-	SlateParserRETURN              = 5
-	SlateParserNOW                 = 6
-	SlateParserLEN                 = 7
-	SlateParserCHAN                = 8
-	SlateParserRECV_CHAN           = 9
-	SlateParserSEND_CHAN           = 10
-	SlateParserI8                  = 11
-	SlateParserI16                 = 12
-	SlateParserI32                 = 13
-	SlateParserI64                 = 14
-	SlateParserU8                  = 15
-	SlateParserU16                 = 16
-	SlateParserU32                 = 17
-	SlateParserU64                 = 18
-	SlateParserF32                 = 19
-	SlateParserF64                 = 20
-	SlateParserSTRING              = 21
-	SlateParserTIMESTAMP           = 22
-	SlateParserTIMESPAN            = 23
-	SlateParserSERIES              = 24
-	SlateParserARROW               = 25
-	SlateParserRECV                = 26
-	SlateParserDECLARE             = 27
-	SlateParserSTATE_DECLARE       = 28
-	SlateParserASSIGN              = 29
-	SlateParserPLUS                = 30
-	SlateParserMINUS               = 31
-	SlateParserSTAR                = 32
-	SlateParserSLASH               = 33
-	SlateParserPERCENT             = 34
-	SlateParserCARET               = 35
-	SlateParserEQ                  = 36
-	SlateParserNEQ                 = 37
-	SlateParserLT                  = 38
-	SlateParserGT                  = 39
-	SlateParserLEQ                 = 40
-	SlateParserGEQ                 = 41
-	SlateParserAND                 = 42
-	SlateParserOR                  = 43
-	SlateParserNOT                 = 44
-	SlateParserLPAREN              = 45
-	SlateParserRPAREN              = 46
-	SlateParserLBRACE              = 47
-	SlateParserRBRACE              = 48
-	SlateParserLBRACKET            = 49
-	SlateParserRBRACKET            = 50
-	SlateParserCOMMA               = 51
-	SlateParserCOLON               = 52
-	SlateParserSEMICOLON           = 53
-	SlateParserTEMPORAL_LITERAL    = 54
-	SlateParserFREQUENCY_LITERAL   = 55
-	SlateParserINTEGER_LITERAL     = 56
-	SlateParserFLOAT_LITERAL       = 57
-	SlateParserSTRING_LITERAL      = 58
-	SlateParserIDENTIFIER          = 59
-	SlateParserSINGLE_LINE_COMMENT = 60
-	SlateParserMULTI_LINE_COMMENT  = 61
-	SlateParserWS                  = 62
+	ArcParserEOF                 = antlr.TokenEOF
+	ArcParserFUNC                = 1
+	ArcParserTASK                = 2
+	ArcParserIF                  = 3
+	ArcParserELSE                = 4
+	ArcParserRETURN              = 5
+	ArcParserNOW                 = 6
+	ArcParserLEN                 = 7
+	ArcParserCHAN                = 8
+	ArcParserRECV_CHAN           = 9
+	ArcParserSEND_CHAN           = 10
+	ArcParserI8                  = 11
+	ArcParserI16                 = 12
+	ArcParserI32                 = 13
+	ArcParserI64                 = 14
+	ArcParserU8                  = 15
+	ArcParserU16                 = 16
+	ArcParserU32                 = 17
+	ArcParserU64                 = 18
+	ArcParserF32                 = 19
+	ArcParserF64                 = 20
+	ArcParserSTRING              = 21
+	ArcParserTIMESTAMP           = 22
+	ArcParserTIMESPAN            = 23
+	ArcParserSERIES              = 24
+	ArcParserARROW               = 25
+	ArcParserRECV                = 26
+	ArcParserDECLARE             = 27
+	ArcParserSTATE_DECLARE       = 28
+	ArcParserASSIGN              = 29
+	ArcParserPLUS                = 30
+	ArcParserMINUS               = 31
+	ArcParserSTAR                = 32
+	ArcParserSLASH               = 33
+	ArcParserPERCENT             = 34
+	ArcParserCARET               = 35
+	ArcParserEQ                  = 36
+	ArcParserNEQ                 = 37
+	ArcParserLT                  = 38
+	ArcParserGT                  = 39
+	ArcParserLEQ                 = 40
+	ArcParserGEQ                 = 41
+	ArcParserAND                 = 42
+	ArcParserOR                  = 43
+	ArcParserNOT                 = 44
+	ArcParserLPAREN              = 45
+	ArcParserRPAREN              = 46
+	ArcParserLBRACE              = 47
+	ArcParserRBRACE              = 48
+	ArcParserLBRACKET            = 49
+	ArcParserRBRACKET            = 50
+	ArcParserCOMMA               = 51
+	ArcParserCOLON               = 52
+	ArcParserSEMICOLON           = 53
+	ArcParserTEMPORAL_LITERAL    = 54
+	ArcParserFREQUENCY_LITERAL   = 55
+	ArcParserINTEGER_LITERAL     = 56
+	ArcParserFLOAT_LITERAL       = 57
+	ArcParserSTRING_LITERAL      = 58
+	ArcParserIDENTIFIER          = 59
+	ArcParserSINGLE_LINE_COMMENT = 60
+	ArcParserMULTI_LINE_COMMENT  = 61
+	ArcParserWS                  = 62
 )
 
-// SlateParser rules.
+// ArcParser rules.
 const (
-	SlateParserRULE_program                  = 0
-	SlateParserRULE_topLevelItem             = 1
-	SlateParserRULE_functionDeclaration      = 2
-	SlateParserRULE_parameterList            = 3
-	SlateParserRULE_parameter                = 4
-	SlateParserRULE_returnType               = 5
-	SlateParserRULE_taskDeclaration          = 6
-	SlateParserRULE_configBlock              = 7
-	SlateParserRULE_configParameter          = 8
-	SlateParserRULE_flowStatement            = 9
-	SlateParserRULE_flowNode                 = 10
-	SlateParserRULE_channelIdentifier        = 11
-	SlateParserRULE_taskInvocation           = 12
-	SlateParserRULE_configValues             = 13
-	SlateParserRULE_namedConfigValues        = 14
-	SlateParserRULE_namedConfigValue         = 15
-	SlateParserRULE_anonymousConfigValues    = 16
-	SlateParserRULE_arguments                = 17
-	SlateParserRULE_argumentList             = 18
-	SlateParserRULE_block                    = 19
-	SlateParserRULE_statement                = 20
-	SlateParserRULE_variableDeclaration      = 21
-	SlateParserRULE_localVariable            = 22
-	SlateParserRULE_statefulVariable         = 23
-	SlateParserRULE_assignment               = 24
-	SlateParserRULE_channelOperation         = 25
-	SlateParserRULE_channelWrite             = 26
-	SlateParserRULE_channelRead              = 27
-	SlateParserRULE_blockingRead             = 28
-	SlateParserRULE_nonBlockingRead          = 29
-	SlateParserRULE_ifStatement              = 30
-	SlateParserRULE_elseIfClause             = 31
-	SlateParserRULE_elseClause               = 32
-	SlateParserRULE_returnStatement          = 33
-	SlateParserRULE_functionCall             = 34
-	SlateParserRULE_type                     = 35
-	SlateParserRULE_primitiveType            = 36
-	SlateParserRULE_numericType              = 37
-	SlateParserRULE_integerType              = 38
-	SlateParserRULE_floatType                = 39
-	SlateParserRULE_temporalType             = 40
-	SlateParserRULE_channelType              = 41
-	SlateParserRULE_seriesType               = 42
-	SlateParserRULE_expression               = 43
-	SlateParserRULE_logicalOrExpression      = 44
-	SlateParserRULE_logicalAndExpression     = 45
-	SlateParserRULE_equalityExpression       = 46
-	SlateParserRULE_relationalExpression     = 47
-	SlateParserRULE_additiveExpression       = 48
-	SlateParserRULE_multiplicativeExpression = 49
-	SlateParserRULE_powerExpression          = 50
-	SlateParserRULE_unaryExpression          = 51
-	SlateParserRULE_blockingReadExpr         = 52
-	SlateParserRULE_postfixExpression        = 53
-	SlateParserRULE_indexOrSlice             = 54
-	SlateParserRULE_functionCallSuffix       = 55
-	SlateParserRULE_primaryExpression        = 56
-	SlateParserRULE_typeCast                 = 57
-	SlateParserRULE_builtinFunction          = 58
-	SlateParserRULE_literal                  = 59
-	SlateParserRULE_numericLiteral           = 60
-	SlateParserRULE_temporalLiteral          = 61
-	SlateParserRULE_seriesLiteral            = 62
-	SlateParserRULE_expressionList           = 63
+	ArcParserRULE_program                  = 0
+	ArcParserRULE_topLevelItem             = 1
+	ArcParserRULE_functionDeclaration      = 2
+	ArcParserRULE_parameterList            = 3
+	ArcParserRULE_parameter                = 4
+	ArcParserRULE_returnType               = 5
+	ArcParserRULE_taskDeclaration          = 6
+	ArcParserRULE_configBlock              = 7
+	ArcParserRULE_configParameter          = 8
+	ArcParserRULE_flowStatement            = 9
+	ArcParserRULE_flowNode                 = 10
+	ArcParserRULE_channelIdentifier        = 11
+	ArcParserRULE_taskInvocation           = 12
+	ArcParserRULE_configValues             = 13
+	ArcParserRULE_namedConfigValues        = 14
+	ArcParserRULE_namedConfigValue         = 15
+	ArcParserRULE_anonymousConfigValues    = 16
+	ArcParserRULE_arguments                = 17
+	ArcParserRULE_argumentList             = 18
+	ArcParserRULE_block                    = 19
+	ArcParserRULE_statement                = 20
+	ArcParserRULE_variableDeclaration      = 21
+	ArcParserRULE_localVariable            = 22
+	ArcParserRULE_statefulVariable         = 23
+	ArcParserRULE_assignment               = 24
+	ArcParserRULE_channelOperation         = 25
+	ArcParserRULE_channelWrite             = 26
+	ArcParserRULE_channelRead              = 27
+	ArcParserRULE_blockingRead             = 28
+	ArcParserRULE_nonBlockingRead          = 29
+	ArcParserRULE_ifStatement              = 30
+	ArcParserRULE_elseIfClause             = 31
+	ArcParserRULE_elseClause               = 32
+	ArcParserRULE_returnStatement          = 33
+	ArcParserRULE_functionCall             = 34
+	ArcParserRULE_type                     = 35
+	ArcParserRULE_primitiveType            = 36
+	ArcParserRULE_numericType              = 37
+	ArcParserRULE_integerType              = 38
+	ArcParserRULE_floatType                = 39
+	ArcParserRULE_temporalType             = 40
+	ArcParserRULE_channelType              = 41
+	ArcParserRULE_seriesType               = 42
+	ArcParserRULE_expression               = 43
+	ArcParserRULE_logicalOrExpression      = 44
+	ArcParserRULE_logicalAndExpression     = 45
+	ArcParserRULE_equalityExpression       = 46
+	ArcParserRULE_relationalExpression     = 47
+	ArcParserRULE_additiveExpression       = 48
+	ArcParserRULE_multiplicativeExpression = 49
+	ArcParserRULE_powerExpression          = 50
+	ArcParserRULE_unaryExpression          = 51
+	ArcParserRULE_blockingReadExpr         = 52
+	ArcParserRULE_postfixExpression        = 53
+	ArcParserRULE_indexOrSlice             = 54
+	ArcParserRULE_functionCallSuffix       = 55
+	ArcParserRULE_primaryExpression        = 56
+	ArcParserRULE_typeCast                 = 57
+	ArcParserRULE_builtinFunction          = 58
+	ArcParserRULE_literal                  = 59
+	ArcParserRULE_numericLiteral           = 60
+	ArcParserRULE_temporalLiteral          = 61
+	ArcParserRULE_seriesLiteral            = 62
+	ArcParserRULE_expressionList           = 63
 )
 
 // IProgramContext is an interface to support dynamic dispatch.
@@ -498,13 +498,13 @@ type ProgramContext struct {
 func NewEmptyProgramContext() *ProgramContext {
 	var p = new(ProgramContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_program
+	p.RuleIndex = ArcParserRULE_program
 	return p
 }
 
 func InitEmptyProgramContext(p *ProgramContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_program
+	p.RuleIndex = ArcParserRULE_program
 }
 
 func (*ProgramContext) IsProgramContext() {}
@@ -515,7 +515,7 @@ func NewProgramContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_program
+	p.RuleIndex = ArcParserRULE_program
 
 	return p
 }
@@ -523,7 +523,7 @@ func NewProgramContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 func (s *ProgramContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ProgramContext) EOF() antlr.TerminalNode {
-	return s.GetToken(SlateParserEOF, 0)
+	return s.GetToken(ArcParserEOF, 0)
 }
 
 func (s *ProgramContext) AllTopLevelItem() []ITopLevelItemContext {
@@ -576,20 +576,20 @@ func (s *ProgramContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 }
 
 func (s *ProgramContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterProgram(s)
 	}
 }
 
 func (s *ProgramContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitProgram(s)
 	}
 }
 
-func (p *SlateParser) Program() (localctx IProgramContext) {
+func (p *ArcParser) Program() (localctx IProgramContext) {
 	localctx = NewProgramContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 0, SlateParserRULE_program)
+	p.EnterRule(localctx, 0, ArcParserRULE_program)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -615,7 +615,7 @@ func (p *SlateParser) Program() (localctx IProgramContext) {
 	}
 	{
 		p.SetState(134)
-		p.Match(SlateParserEOF)
+		p.Match(ArcParserEOF)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -659,13 +659,13 @@ type TopLevelItemContext struct {
 func NewEmptyTopLevelItemContext() *TopLevelItemContext {
 	var p = new(TopLevelItemContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_topLevelItem
+	p.RuleIndex = ArcParserRULE_topLevelItem
 	return p
 }
 
 func InitEmptyTopLevelItemContext(p *TopLevelItemContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_topLevelItem
+	p.RuleIndex = ArcParserRULE_topLevelItem
 }
 
 func (*TopLevelItemContext) IsTopLevelItemContext() {}
@@ -676,7 +676,7 @@ func NewTopLevelItemContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_topLevelItem
+	p.RuleIndex = ArcParserRULE_topLevelItem
 
 	return p
 }
@@ -740,20 +740,20 @@ func (s *TopLevelItemContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *TopLevelItemContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTopLevelItem(s)
 	}
 }
 
 func (s *TopLevelItemContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTopLevelItem(s)
 	}
 }
 
-func (p *SlateParser) TopLevelItem() (localctx ITopLevelItemContext) {
+func (p *ArcParser) TopLevelItem() (localctx ITopLevelItemContext) {
 	localctx = NewTopLevelItemContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 2, SlateParserRULE_topLevelItem)
+	p.EnterRule(localctx, 2, ArcParserRULE_topLevelItem)
 	p.SetState(139)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -761,21 +761,21 @@ func (p *SlateParser) TopLevelItem() (localctx ITopLevelItemContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserFUNC:
+	case ArcParserFUNC:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(136)
 			p.FunctionDeclaration()
 		}
 
-	case SlateParserTASK:
+	case ArcParserTASK:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(137)
 			p.TaskDeclaration()
 		}
 
-	case SlateParserNOW, SlateParserLEN, SlateParserCHAN, SlateParserRECV_CHAN, SlateParserSEND_CHAN, SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserSTRING, SlateParserTIMESTAMP, SlateParserTIMESPAN, SlateParserSERIES, SlateParserRECV, SlateParserMINUS, SlateParserNOT, SlateParserLPAREN, SlateParserLBRACKET, SlateParserTEMPORAL_LITERAL, SlateParserFREQUENCY_LITERAL, SlateParserINTEGER_LITERAL, SlateParserFLOAT_LITERAL, SlateParserSTRING_LITERAL, SlateParserIDENTIFIER:
+	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(138)
@@ -828,13 +828,13 @@ type FunctionDeclarationContext struct {
 func NewEmptyFunctionDeclarationContext() *FunctionDeclarationContext {
 	var p = new(FunctionDeclarationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionDeclaration
+	p.RuleIndex = ArcParserRULE_functionDeclaration
 	return p
 }
 
 func InitEmptyFunctionDeclarationContext(p *FunctionDeclarationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionDeclaration
+	p.RuleIndex = ArcParserRULE_functionDeclaration
 }
 
 func (*FunctionDeclarationContext) IsFunctionDeclarationContext() {}
@@ -845,7 +845,7 @@ func NewFunctionDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleC
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_functionDeclaration
+	p.RuleIndex = ArcParserRULE_functionDeclaration
 
 	return p
 }
@@ -853,19 +853,19 @@ func NewFunctionDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleC
 func (s *FunctionDeclarationContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *FunctionDeclarationContext) FUNC() antlr.TerminalNode {
-	return s.GetToken(SlateParserFUNC, 0)
+	return s.GetToken(ArcParserFUNC, 0)
 }
 
 func (s *FunctionDeclarationContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *FunctionDeclarationContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *FunctionDeclarationContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *FunctionDeclarationContext) Block() IBlockContext {
@@ -925,26 +925,26 @@ func (s *FunctionDeclarationContext) ToStringTree(ruleNames []string, recog antl
 }
 
 func (s *FunctionDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFunctionDeclaration(s)
 	}
 }
 
 func (s *FunctionDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFunctionDeclaration(s)
 	}
 }
 
-func (p *SlateParser) FunctionDeclaration() (localctx IFunctionDeclarationContext) {
+func (p *ArcParser) FunctionDeclaration() (localctx IFunctionDeclarationContext) {
 	localctx = NewFunctionDeclarationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 4, SlateParserRULE_functionDeclaration)
+	p.EnterRule(localctx, 4, ArcParserRULE_functionDeclaration)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(141)
-		p.Match(SlateParserFUNC)
+		p.Match(ArcParserFUNC)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -952,7 +952,7 @@ func (p *SlateParser) FunctionDeclaration() (localctx IFunctionDeclarationContex
 	}
 	{
 		p.SetState(142)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -960,7 +960,7 @@ func (p *SlateParser) FunctionDeclaration() (localctx IFunctionDeclarationContex
 	}
 	{
 		p.SetState(143)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -973,7 +973,7 @@ func (p *SlateParser) FunctionDeclaration() (localctx IFunctionDeclarationContex
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserIDENTIFIER {
+	if _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(144)
 			p.ParameterList()
@@ -982,7 +982,7 @@ func (p *SlateParser) FunctionDeclaration() (localctx IFunctionDeclarationContex
 	}
 	{
 		p.SetState(147)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1045,13 +1045,13 @@ type ParameterListContext struct {
 func NewEmptyParameterListContext() *ParameterListContext {
 	var p = new(ParameterListContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_parameterList
+	p.RuleIndex = ArcParserRULE_parameterList
 	return p
 }
 
 func InitEmptyParameterListContext(p *ParameterListContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_parameterList
+	p.RuleIndex = ArcParserRULE_parameterList
 }
 
 func (*ParameterListContext) IsParameterListContext() {}
@@ -1062,7 +1062,7 @@ func NewParameterListContext(parser antlr.Parser, parent antlr.ParserRuleContext
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_parameterList
+	p.RuleIndex = ArcParserRULE_parameterList
 
 	return p
 }
@@ -1111,11 +1111,11 @@ func (s *ParameterListContext) Parameter(i int) IParameterContext {
 }
 
 func (s *ParameterListContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserCOMMA)
+	return s.GetTokens(ArcParserCOMMA)
 }
 
 func (s *ParameterListContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserCOMMA, i)
+	return s.GetToken(ArcParserCOMMA, i)
 }
 
 func (s *ParameterListContext) GetRuleContext() antlr.RuleContext {
@@ -1127,20 +1127,20 @@ func (s *ParameterListContext) ToStringTree(ruleNames []string, recog antlr.Reco
 }
 
 func (s *ParameterListContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterParameterList(s)
 	}
 }
 
 func (s *ParameterListContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitParameterList(s)
 	}
 }
 
-func (p *SlateParser) ParameterList() (localctx IParameterListContext) {
+func (p *ArcParser) ParameterList() (localctx IParameterListContext) {
 	localctx = NewParameterListContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 6, SlateParserRULE_parameterList)
+	p.EnterRule(localctx, 6, ArcParserRULE_parameterList)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -1155,10 +1155,10 @@ func (p *SlateParser) ParameterList() (localctx IParameterListContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserCOMMA {
+	for _la == ArcParserCOMMA {
 		{
 			p.SetState(154)
-			p.Match(SlateParserCOMMA)
+			p.Match(ArcParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1213,13 +1213,13 @@ type ParameterContext struct {
 func NewEmptyParameterContext() *ParameterContext {
 	var p = new(ParameterContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_parameter
+	p.RuleIndex = ArcParserRULE_parameter
 	return p
 }
 
 func InitEmptyParameterContext(p *ParameterContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_parameter
+	p.RuleIndex = ArcParserRULE_parameter
 }
 
 func (*ParameterContext) IsParameterContext() {}
@@ -1230,7 +1230,7 @@ func NewParameterContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_parameter
+	p.RuleIndex = ArcParserRULE_parameter
 
 	return p
 }
@@ -1238,7 +1238,7 @@ func NewParameterContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 func (s *ParameterContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ParameterContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *ParameterContext) Type_() ITypeContext {
@@ -1266,24 +1266,24 @@ func (s *ParameterContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 }
 
 func (s *ParameterContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterParameter(s)
 	}
 }
 
 func (s *ParameterContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitParameter(s)
 	}
 }
 
-func (p *SlateParser) Parameter() (localctx IParameterContext) {
+func (p *ArcParser) Parameter() (localctx IParameterContext) {
 	localctx = NewParameterContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 8, SlateParserRULE_parameter)
+	p.EnterRule(localctx, 8, ArcParserRULE_parameter)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(161)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1329,13 +1329,13 @@ type ReturnTypeContext struct {
 func NewEmptyReturnTypeContext() *ReturnTypeContext {
 	var p = new(ReturnTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_returnType
+	p.RuleIndex = ArcParserRULE_returnType
 	return p
 }
 
 func InitEmptyReturnTypeContext(p *ReturnTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_returnType
+	p.RuleIndex = ArcParserRULE_returnType
 }
 
 func (*ReturnTypeContext) IsReturnTypeContext() {}
@@ -1346,7 +1346,7 @@ func NewReturnTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_returnType
+	p.RuleIndex = ArcParserRULE_returnType
 
 	return p
 }
@@ -1378,20 +1378,20 @@ func (s *ReturnTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *ReturnTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterReturnType(s)
 	}
 }
 
 func (s *ReturnTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitReturnType(s)
 	}
 }
 
-func (p *SlateParser) ReturnType() (localctx IReturnTypeContext) {
+func (p *ArcParser) ReturnType() (localctx IReturnTypeContext) {
 	localctx = NewReturnTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 10, SlateParserRULE_returnType)
+	p.EnterRule(localctx, 10, ArcParserRULE_returnType)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(164)
@@ -1440,13 +1440,13 @@ type TaskDeclarationContext struct {
 func NewEmptyTaskDeclarationContext() *TaskDeclarationContext {
 	var p = new(TaskDeclarationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_taskDeclaration
 	return p
 }
 
 func InitEmptyTaskDeclarationContext(p *TaskDeclarationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_taskDeclaration
 }
 
 func (*TaskDeclarationContext) IsTaskDeclarationContext() {}
@@ -1457,7 +1457,7 @@ func NewTaskDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_taskDeclaration
 
 	return p
 }
@@ -1465,19 +1465,19 @@ func NewTaskDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *TaskDeclarationContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *TaskDeclarationContext) TASK() antlr.TerminalNode {
-	return s.GetToken(SlateParserTASK, 0)
+	return s.GetToken(ArcParserTASK, 0)
 }
 
 func (s *TaskDeclarationContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *TaskDeclarationContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *TaskDeclarationContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *TaskDeclarationContext) Block() IBlockContext {
@@ -1553,26 +1553,26 @@ func (s *TaskDeclarationContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *TaskDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTaskDeclaration(s)
 	}
 }
 
 func (s *TaskDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTaskDeclaration(s)
 	}
 }
 
-func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
+func (p *ArcParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	localctx = NewTaskDeclarationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, SlateParserRULE_taskDeclaration)
+	p.EnterRule(localctx, 12, ArcParserRULE_taskDeclaration)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(166)
-		p.Match(SlateParserTASK)
+		p.Match(ArcParserTASK)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1580,7 +1580,7 @@ func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	}
 	{
 		p.SetState(167)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1593,7 +1593,7 @@ func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserLBRACE {
+	if _la == ArcParserLBRACE {
 		{
 			p.SetState(168)
 			p.ConfigBlock()
@@ -1602,7 +1602,7 @@ func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	}
 	{
 		p.SetState(171)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1615,7 +1615,7 @@ func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserIDENTIFIER {
+	if _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(172)
 			p.ParameterList()
@@ -1624,7 +1624,7 @@ func (p *SlateParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
 	}
 	{
 		p.SetState(175)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1687,13 +1687,13 @@ type ConfigBlockContext struct {
 func NewEmptyConfigBlockContext() *ConfigBlockContext {
 	var p = new(ConfigBlockContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_configBlock
 	return p
 }
 
 func InitEmptyConfigBlockContext(p *ConfigBlockContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_configBlock
 }
 
 func (*ConfigBlockContext) IsConfigBlockContext() {}
@@ -1704,7 +1704,7 @@ func NewConfigBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_configBlock
 
 	return p
 }
@@ -1712,11 +1712,11 @@ func NewConfigBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 func (s *ConfigBlockContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ConfigBlockContext) LBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserLBRACE, 0)
+	return s.GetToken(ArcParserLBRACE, 0)
 }
 
 func (s *ConfigBlockContext) RBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserRBRACE, 0)
+	return s.GetToken(ArcParserRBRACE, 0)
 }
 
 func (s *ConfigBlockContext) AllConfigParameter() []IConfigParameterContext {
@@ -1769,26 +1769,26 @@ func (s *ConfigBlockContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *ConfigBlockContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterConfigBlock(s)
 	}
 }
 
 func (s *ConfigBlockContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitConfigBlock(s)
 	}
 }
 
-func (p *SlateParser) ConfigBlock() (localctx IConfigBlockContext) {
+func (p *ArcParser) ConfigBlock() (localctx IConfigBlockContext) {
 	localctx = NewConfigBlockContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 14, SlateParserRULE_configBlock)
+	p.EnterRule(localctx, 14, ArcParserRULE_configBlock)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(181)
-		p.Match(SlateParserLBRACE)
+		p.Match(ArcParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1801,7 +1801,7 @@ func (p *SlateParser) ConfigBlock() (localctx IConfigBlockContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserIDENTIFIER {
+	for _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(182)
 			p.ConfigParameter()
@@ -1816,7 +1816,7 @@ func (p *SlateParser) ConfigBlock() (localctx IConfigBlockContext) {
 	}
 	{
 		p.SetState(188)
-		p.Match(SlateParserRBRACE)
+		p.Match(ArcParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1859,13 +1859,13 @@ type ConfigParameterContext struct {
 func NewEmptyConfigParameterContext() *ConfigParameterContext {
 	var p = new(ConfigParameterContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configParameter
+	p.RuleIndex = ArcParserRULE_configParameter
 	return p
 }
 
 func InitEmptyConfigParameterContext(p *ConfigParameterContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configParameter
+	p.RuleIndex = ArcParserRULE_configParameter
 }
 
 func (*ConfigParameterContext) IsConfigParameterContext() {}
@@ -1876,7 +1876,7 @@ func NewConfigParameterContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_configParameter
+	p.RuleIndex = ArcParserRULE_configParameter
 
 	return p
 }
@@ -1884,7 +1884,7 @@ func NewConfigParameterContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *ConfigParameterContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ConfigParameterContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *ConfigParameterContext) Type_() ITypeContext {
@@ -1912,24 +1912,24 @@ func (s *ConfigParameterContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *ConfigParameterContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterConfigParameter(s)
 	}
 }
 
 func (s *ConfigParameterContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitConfigParameter(s)
 	}
 }
 
-func (p *SlateParser) ConfigParameter() (localctx IConfigParameterContext) {
+func (p *ArcParser) ConfigParameter() (localctx IConfigParameterContext) {
 	localctx = NewConfigParameterContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 16, SlateParserRULE_configParameter)
+	p.EnterRule(localctx, 16, ArcParserRULE_configParameter)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(190)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1979,13 +1979,13 @@ type FlowStatementContext struct {
 func NewEmptyFlowStatementContext() *FlowStatementContext {
 	var p = new(FlowStatementContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_flowStatement
+	p.RuleIndex = ArcParserRULE_flowStatement
 	return p
 }
 
 func InitEmptyFlowStatementContext(p *FlowStatementContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_flowStatement
+	p.RuleIndex = ArcParserRULE_flowStatement
 }
 
 func (*FlowStatementContext) IsFlowStatementContext() {}
@@ -1996,7 +1996,7 @@ func NewFlowStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_flowStatement
+	p.RuleIndex = ArcParserRULE_flowStatement
 
 	return p
 }
@@ -2045,15 +2045,15 @@ func (s *FlowStatementContext) FlowNode(i int) IFlowNodeContext {
 }
 
 func (s *FlowStatementContext) AllARROW() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserARROW)
+	return s.GetTokens(ArcParserARROW)
 }
 
 func (s *FlowStatementContext) ARROW(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserARROW, i)
+	return s.GetToken(ArcParserARROW, i)
 }
 
 func (s *FlowStatementContext) SEMICOLON() antlr.TerminalNode {
-	return s.GetToken(SlateParserSEMICOLON, 0)
+	return s.GetToken(ArcParserSEMICOLON, 0)
 }
 
 func (s *FlowStatementContext) GetRuleContext() antlr.RuleContext {
@@ -2065,20 +2065,20 @@ func (s *FlowStatementContext) ToStringTree(ruleNames []string, recog antlr.Reco
 }
 
 func (s *FlowStatementContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFlowStatement(s)
 	}
 }
 
 func (s *FlowStatementContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFlowStatement(s)
 	}
 }
 
-func (p *SlateParser) FlowStatement() (localctx IFlowStatementContext) {
+func (p *ArcParser) FlowStatement() (localctx IFlowStatementContext) {
 	localctx = NewFlowStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 18, SlateParserRULE_flowStatement)
+	p.EnterRule(localctx, 18, ArcParserRULE_flowStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -2093,10 +2093,10 @@ func (p *SlateParser) FlowStatement() (localctx IFlowStatementContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for ok := true; ok; ok = _la == SlateParserARROW {
+	for ok := true; ok; ok = _la == ArcParserARROW {
 		{
 			p.SetState(194)
-			p.Match(SlateParserARROW)
+			p.Match(ArcParserARROW)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2121,10 +2121,10 @@ func (p *SlateParser) FlowStatement() (localctx IFlowStatementContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserSEMICOLON {
+	if _la == ArcParserSEMICOLON {
 		{
 			p.SetState(200)
-			p.Match(SlateParserSEMICOLON)
+			p.Match(ArcParserSEMICOLON)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2170,13 +2170,13 @@ type FlowNodeContext struct {
 func NewEmptyFlowNodeContext() *FlowNodeContext {
 	var p = new(FlowNodeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_flowNode
+	p.RuleIndex = ArcParserRULE_flowNode
 	return p
 }
 
 func InitEmptyFlowNodeContext(p *FlowNodeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_flowNode
+	p.RuleIndex = ArcParserRULE_flowNode
 }
 
 func (*FlowNodeContext) IsFlowNodeContext() {}
@@ -2187,7 +2187,7 @@ func NewFlowNodeContext(parser antlr.Parser, parent antlr.ParserRuleContext, inv
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_flowNode
+	p.RuleIndex = ArcParserRULE_flowNode
 
 	return p
 }
@@ -2251,20 +2251,20 @@ func (s *FlowNodeContext) ToStringTree(ruleNames []string, recog antlr.Recognize
 }
 
 func (s *FlowNodeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFlowNode(s)
 	}
 }
 
 func (s *FlowNodeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFlowNode(s)
 	}
 }
 
-func (p *SlateParser) FlowNode() (localctx IFlowNodeContext) {
+func (p *ArcParser) FlowNode() (localctx IFlowNodeContext) {
 	localctx = NewFlowNodeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 20, SlateParserRULE_flowNode)
+	p.EnterRule(localctx, 20, ArcParserRULE_flowNode)
 	p.SetState(206)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -2332,13 +2332,13 @@ type ChannelIdentifierContext struct {
 func NewEmptyChannelIdentifierContext() *ChannelIdentifierContext {
 	var p = new(ChannelIdentifierContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelIdentifier
+	p.RuleIndex = ArcParserRULE_channelIdentifier
 	return p
 }
 
 func InitEmptyChannelIdentifierContext(p *ChannelIdentifierContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelIdentifier
+	p.RuleIndex = ArcParserRULE_channelIdentifier
 }
 
 func (*ChannelIdentifierContext) IsChannelIdentifierContext() {}
@@ -2349,7 +2349,7 @@ func NewChannelIdentifierContext(parser antlr.Parser, parent antlr.ParserRuleCon
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_channelIdentifier
+	p.RuleIndex = ArcParserRULE_channelIdentifier
 
 	return p
 }
@@ -2357,7 +2357,7 @@ func NewChannelIdentifierContext(parser antlr.Parser, parent antlr.ParserRuleCon
 func (s *ChannelIdentifierContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ChannelIdentifierContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *ChannelIdentifierContext) GetRuleContext() antlr.RuleContext {
@@ -2369,24 +2369,24 @@ func (s *ChannelIdentifierContext) ToStringTree(ruleNames []string, recog antlr.
 }
 
 func (s *ChannelIdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterChannelIdentifier(s)
 	}
 }
 
 func (s *ChannelIdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitChannelIdentifier(s)
 	}
 }
 
-func (p *SlateParser) ChannelIdentifier() (localctx IChannelIdentifierContext) {
+func (p *ArcParser) ChannelIdentifier() (localctx IChannelIdentifierContext) {
 	localctx = NewChannelIdentifierContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 22, SlateParserRULE_channelIdentifier)
+	p.EnterRule(localctx, 22, ArcParserRULE_channelIdentifier)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(208)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -2430,13 +2430,13 @@ type TaskInvocationContext struct {
 func NewEmptyTaskInvocationContext() *TaskInvocationContext {
 	var p = new(TaskInvocationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_taskInvocation
 	return p
 }
 
 func InitEmptyTaskInvocationContext(p *TaskInvocationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_taskInvocation
 }
 
 func (*TaskInvocationContext) IsTaskInvocationContext() {}
@@ -2447,7 +2447,7 @@ func NewTaskInvocationContext(parser antlr.Parser, parent antlr.ParserRuleContex
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_taskInvocation
 
 	return p
 }
@@ -2455,7 +2455,7 @@ func NewTaskInvocationContext(parser antlr.Parser, parent antlr.ParserRuleContex
 func (s *TaskInvocationContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *TaskInvocationContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *TaskInvocationContext) ConfigValues() IConfigValuesContext {
@@ -2499,26 +2499,26 @@ func (s *TaskInvocationContext) ToStringTree(ruleNames []string, recog antlr.Rec
 }
 
 func (s *TaskInvocationContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTaskInvocation(s)
 	}
 }
 
 func (s *TaskInvocationContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTaskInvocation(s)
 	}
 }
 
-func (p *SlateParser) TaskInvocation() (localctx ITaskInvocationContext) {
+func (p *ArcParser) TaskInvocation() (localctx ITaskInvocationContext) {
 	localctx = NewTaskInvocationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 24, SlateParserRULE_taskInvocation)
+	p.EnterRule(localctx, 24, ArcParserRULE_taskInvocation)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(210)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -2531,7 +2531,7 @@ func (p *SlateParser) TaskInvocation() (localctx ITaskInvocationContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserLBRACE {
+	if _la == ArcParserLBRACE {
 		{
 			p.SetState(211)
 			p.ConfigValues()
@@ -2589,13 +2589,13 @@ type ConfigValuesContext struct {
 func NewEmptyConfigValuesContext() *ConfigValuesContext {
 	var p = new(ConfigValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_configValues
 	return p
 }
 
 func InitEmptyConfigValuesContext(p *ConfigValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_configValues
 }
 
 func (*ConfigValuesContext) IsConfigValuesContext() {}
@@ -2606,7 +2606,7 @@ func NewConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_configValues
 
 	return p
 }
@@ -2614,11 +2614,11 @@ func NewConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *ConfigValuesContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ConfigValuesContext) LBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserLBRACE, 0)
+	return s.GetToken(ArcParserLBRACE, 0)
 }
 
 func (s *ConfigValuesContext) RBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserRBRACE, 0)
+	return s.GetToken(ArcParserRBRACE, 0)
 }
 
 func (s *ConfigValuesContext) NamedConfigValues() INamedConfigValuesContext {
@@ -2662,20 +2662,20 @@ func (s *ConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *ConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterConfigValues(s)
 	}
 }
 
 func (s *ConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitConfigValues(s)
 	}
 }
 
-func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
+func (p *ArcParser) ConfigValues() (localctx IConfigValuesContext) {
 	localctx = NewConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 26, SlateParserRULE_configValues)
+	p.EnterRule(localctx, 26, ArcParserRULE_configValues)
 	p.SetState(227)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -2687,7 +2687,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(217)
-			p.Match(SlateParserLBRACE)
+			p.Match(ArcParserLBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2695,7 +2695,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		}
 		{
 			p.SetState(218)
-			p.Match(SlateParserRBRACE)
+			p.Match(ArcParserRBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2706,7 +2706,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(219)
-			p.Match(SlateParserLBRACE)
+			p.Match(ArcParserLBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2718,7 +2718,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		}
 		{
 			p.SetState(221)
-			p.Match(SlateParserRBRACE)
+			p.Match(ArcParserRBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2729,7 +2729,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(223)
-			p.Match(SlateParserLBRACE)
+			p.Match(ArcParserLBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2741,7 +2741,7 @@ func (p *SlateParser) ConfigValues() (localctx IConfigValuesContext) {
 		}
 		{
 			p.SetState(225)
-			p.Match(SlateParserRBRACE)
+			p.Match(ArcParserRBRACE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2790,13 +2790,13 @@ type NamedConfigValuesContext struct {
 func NewEmptyNamedConfigValuesContext() *NamedConfigValuesContext {
 	var p = new(NamedConfigValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedConfigValues
 	return p
 }
 
 func InitEmptyNamedConfigValuesContext(p *NamedConfigValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedConfigValues
 }
 
 func (*NamedConfigValuesContext) IsNamedConfigValuesContext() {}
@@ -2807,7 +2807,7 @@ func NewNamedConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleCon
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedConfigValues
 
 	return p
 }
@@ -2856,11 +2856,11 @@ func (s *NamedConfigValuesContext) NamedConfigValue(i int) INamedConfigValueCont
 }
 
 func (s *NamedConfigValuesContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserCOMMA)
+	return s.GetTokens(ArcParserCOMMA)
 }
 
 func (s *NamedConfigValuesContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserCOMMA, i)
+	return s.GetToken(ArcParserCOMMA, i)
 }
 
 func (s *NamedConfigValuesContext) GetRuleContext() antlr.RuleContext {
@@ -2872,20 +2872,20 @@ func (s *NamedConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.
 }
 
 func (s *NamedConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterNamedConfigValues(s)
 	}
 }
 
 func (s *NamedConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitNamedConfigValues(s)
 	}
 }
 
-func (p *SlateParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
+func (p *ArcParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
 	localctx = NewNamedConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 28, SlateParserRULE_namedConfigValues)
+	p.EnterRule(localctx, 28, ArcParserRULE_namedConfigValues)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -2900,10 +2900,10 @@ func (p *SlateParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserCOMMA {
+	for _la == ArcParserCOMMA {
 		{
 			p.SetState(230)
-			p.Match(SlateParserCOMMA)
+			p.Match(ArcParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -2959,13 +2959,13 @@ type NamedConfigValueContext struct {
 func NewEmptyNamedConfigValueContext() *NamedConfigValueContext {
 	var p = new(NamedConfigValueContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedConfigValue
 	return p
 }
 
 func InitEmptyNamedConfigValueContext(p *NamedConfigValueContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedConfigValue
 }
 
 func (*NamedConfigValueContext) IsNamedConfigValueContext() {}
@@ -2976,7 +2976,7 @@ func NewNamedConfigValueContext(parser antlr.Parser, parent antlr.ParserRuleCont
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedConfigValue
 
 	return p
 }
@@ -2984,11 +2984,11 @@ func NewNamedConfigValueContext(parser antlr.Parser, parent antlr.ParserRuleCont
 func (s *NamedConfigValueContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *NamedConfigValueContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *NamedConfigValueContext) COLON() antlr.TerminalNode {
-	return s.GetToken(SlateParserCOLON, 0)
+	return s.GetToken(ArcParserCOLON, 0)
 }
 
 func (s *NamedConfigValueContext) Expression() IExpressionContext {
@@ -3016,24 +3016,24 @@ func (s *NamedConfigValueContext) ToStringTree(ruleNames []string, recog antlr.R
 }
 
 func (s *NamedConfigValueContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterNamedConfigValue(s)
 	}
 }
 
 func (s *NamedConfigValueContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitNamedConfigValue(s)
 	}
 }
 
-func (p *SlateParser) NamedConfigValue() (localctx INamedConfigValueContext) {
+func (p *ArcParser) NamedConfigValue() (localctx INamedConfigValueContext) {
 	localctx = NewNamedConfigValueContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 30, SlateParserRULE_namedConfigValue)
+	p.EnterRule(localctx, 30, ArcParserRULE_namedConfigValue)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(237)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3041,7 +3041,7 @@ func (p *SlateParser) NamedConfigValue() (localctx INamedConfigValueContext) {
 	}
 	{
 		p.SetState(238)
-		p.Match(SlateParserCOLON)
+		p.Match(ArcParserCOLON)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3090,13 +3090,13 @@ type AnonymousConfigValuesContext struct {
 func NewEmptyAnonymousConfigValuesContext() *AnonymousConfigValuesContext {
 	var p = new(AnonymousConfigValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousConfigValues
 	return p
 }
 
 func InitEmptyAnonymousConfigValuesContext(p *AnonymousConfigValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousConfigValues
 }
 
 func (*AnonymousConfigValuesContext) IsAnonymousConfigValuesContext() {}
@@ -3107,7 +3107,7 @@ func NewAnonymousConfigValuesContext(parser antlr.Parser, parent antlr.ParserRul
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousConfigValues
 
 	return p
 }
@@ -3156,11 +3156,11 @@ func (s *AnonymousConfigValuesContext) Expression(i int) IExpressionContext {
 }
 
 func (s *AnonymousConfigValuesContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserCOMMA)
+	return s.GetTokens(ArcParserCOMMA)
 }
 
 func (s *AnonymousConfigValuesContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserCOMMA, i)
+	return s.GetToken(ArcParserCOMMA, i)
 }
 
 func (s *AnonymousConfigValuesContext) GetRuleContext() antlr.RuleContext {
@@ -3172,20 +3172,20 @@ func (s *AnonymousConfigValuesContext) ToStringTree(ruleNames []string, recog an
 }
 
 func (s *AnonymousConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterAnonymousConfigValues(s)
 	}
 }
 
 func (s *AnonymousConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitAnonymousConfigValues(s)
 	}
 }
 
-func (p *SlateParser) AnonymousConfigValues() (localctx IAnonymousConfigValuesContext) {
+func (p *ArcParser) AnonymousConfigValues() (localctx IAnonymousConfigValuesContext) {
 	localctx = NewAnonymousConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 32, SlateParserRULE_anonymousConfigValues)
+	p.EnterRule(localctx, 32, ArcParserRULE_anonymousConfigValues)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -3200,10 +3200,10 @@ func (p *SlateParser) AnonymousConfigValues() (localctx IAnonymousConfigValuesCo
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserCOMMA {
+	for _la == ArcParserCOMMA {
 		{
 			p.SetState(242)
-			p.Match(SlateParserCOMMA)
+			p.Match(ArcParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -3259,13 +3259,13 @@ type ArgumentsContext struct {
 func NewEmptyArgumentsContext() *ArgumentsContext {
 	var p = new(ArgumentsContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_arguments
+	p.RuleIndex = ArcParserRULE_arguments
 	return p
 }
 
 func InitEmptyArgumentsContext(p *ArgumentsContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_arguments
+	p.RuleIndex = ArcParserRULE_arguments
 }
 
 func (*ArgumentsContext) IsArgumentsContext() {}
@@ -3276,7 +3276,7 @@ func NewArgumentsContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_arguments
+	p.RuleIndex = ArcParserRULE_arguments
 
 	return p
 }
@@ -3284,11 +3284,11 @@ func NewArgumentsContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 func (s *ArgumentsContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ArgumentsContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *ArgumentsContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *ArgumentsContext) ArgumentList() IArgumentListContext {
@@ -3316,26 +3316,26 @@ func (s *ArgumentsContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 }
 
 func (s *ArgumentsContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterArguments(s)
 	}
 }
 
 func (s *ArgumentsContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitArguments(s)
 	}
 }
 
-func (p *SlateParser) Arguments() (localctx IArgumentsContext) {
+func (p *ArcParser) Arguments() (localctx IArgumentsContext) {
 	localctx = NewArgumentsContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 34, SlateParserRULE_arguments)
+	p.EnterRule(localctx, 34, ArcParserRULE_arguments)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(249)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3357,7 +3357,7 @@ func (p *SlateParser) Arguments() (localctx IArgumentsContext) {
 	}
 	{
 		p.SetState(253)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3402,13 +3402,13 @@ type ArgumentListContext struct {
 func NewEmptyArgumentListContext() *ArgumentListContext {
 	var p = new(ArgumentListContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_argumentList
+	p.RuleIndex = ArcParserRULE_argumentList
 	return p
 }
 
 func InitEmptyArgumentListContext(p *ArgumentListContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_argumentList
+	p.RuleIndex = ArcParserRULE_argumentList
 }
 
 func (*ArgumentListContext) IsArgumentListContext() {}
@@ -3419,7 +3419,7 @@ func NewArgumentListContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_argumentList
+	p.RuleIndex = ArcParserRULE_argumentList
 
 	return p
 }
@@ -3468,11 +3468,11 @@ func (s *ArgumentListContext) Expression(i int) IExpressionContext {
 }
 
 func (s *ArgumentListContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserCOMMA)
+	return s.GetTokens(ArcParserCOMMA)
 }
 
 func (s *ArgumentListContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserCOMMA, i)
+	return s.GetToken(ArcParserCOMMA, i)
 }
 
 func (s *ArgumentListContext) GetRuleContext() antlr.RuleContext {
@@ -3484,20 +3484,20 @@ func (s *ArgumentListContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *ArgumentListContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterArgumentList(s)
 	}
 }
 
 func (s *ArgumentListContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitArgumentList(s)
 	}
 }
 
-func (p *SlateParser) ArgumentList() (localctx IArgumentListContext) {
+func (p *ArcParser) ArgumentList() (localctx IArgumentListContext) {
 	localctx = NewArgumentListContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 36, SlateParserRULE_argumentList)
+	p.EnterRule(localctx, 36, ArcParserRULE_argumentList)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -3512,10 +3512,10 @@ func (p *SlateParser) ArgumentList() (localctx IArgumentListContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserCOMMA {
+	for _la == ArcParserCOMMA {
 		{
 			p.SetState(256)
-			p.Match(SlateParserCOMMA)
+			p.Match(ArcParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -3572,13 +3572,13 @@ type BlockContext struct {
 func NewEmptyBlockContext() *BlockContext {
 	var p = new(BlockContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_block
+	p.RuleIndex = ArcParserRULE_block
 	return p
 }
 
 func InitEmptyBlockContext(p *BlockContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_block
+	p.RuleIndex = ArcParserRULE_block
 }
 
 func (*BlockContext) IsBlockContext() {}
@@ -3589,7 +3589,7 @@ func NewBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, invoki
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_block
+	p.RuleIndex = ArcParserRULE_block
 
 	return p
 }
@@ -3597,11 +3597,11 @@ func NewBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, invoki
 func (s *BlockContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *BlockContext) LBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserLBRACE, 0)
+	return s.GetToken(ArcParserLBRACE, 0)
 }
 
 func (s *BlockContext) RBRACE() antlr.TerminalNode {
-	return s.GetToken(SlateParserRBRACE, 0)
+	return s.GetToken(ArcParserRBRACE, 0)
 }
 
 func (s *BlockContext) AllStatement() []IStatementContext {
@@ -3654,26 +3654,26 @@ func (s *BlockContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) 
 }
 
 func (s *BlockContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterBlock(s)
 	}
 }
 
 func (s *BlockContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitBlock(s)
 	}
 }
 
-func (p *SlateParser) Block() (localctx IBlockContext) {
+func (p *ArcParser) Block() (localctx IBlockContext) {
 	localctx = NewBlockContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 38, SlateParserRULE_block)
+	p.EnterRule(localctx, 38, ArcParserRULE_block)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(263)
-		p.Match(SlateParserLBRACE)
+		p.Match(ArcParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3701,7 +3701,7 @@ func (p *SlateParser) Block() (localctx IBlockContext) {
 	}
 	{
 		p.SetState(270)
-		p.Match(SlateParserRBRACE)
+		p.Match(ArcParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -3749,13 +3749,13 @@ type StatementContext struct {
 func NewEmptyStatementContext() *StatementContext {
 	var p = new(StatementContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_statement
+	p.RuleIndex = ArcParserRULE_statement
 	return p
 }
 
 func InitEmptyStatementContext(p *StatementContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_statement
+	p.RuleIndex = ArcParserRULE_statement
 }
 
 func (*StatementContext) IsStatementContext() {}
@@ -3766,7 +3766,7 @@ func NewStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_statement
+	p.RuleIndex = ArcParserRULE_statement
 
 	return p
 }
@@ -3894,20 +3894,20 @@ func (s *StatementContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 }
 
 func (s *StatementContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterStatement(s)
 	}
 }
 
 func (s *StatementContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitStatement(s)
 	}
 }
 
-func (p *SlateParser) Statement() (localctx IStatementContext) {
+func (p *ArcParser) Statement() (localctx IStatementContext) {
 	localctx = NewStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 40, SlateParserRULE_statement)
+	p.EnterRule(localctx, 40, ArcParserRULE_statement)
 	p.SetState(279)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4004,13 +4004,13 @@ type VariableDeclarationContext struct {
 func NewEmptyVariableDeclarationContext() *VariableDeclarationContext {
 	var p = new(VariableDeclarationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_variableDeclaration
+	p.RuleIndex = ArcParserRULE_variableDeclaration
 	return p
 }
 
 func InitEmptyVariableDeclarationContext(p *VariableDeclarationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_variableDeclaration
+	p.RuleIndex = ArcParserRULE_variableDeclaration
 }
 
 func (*VariableDeclarationContext) IsVariableDeclarationContext() {}
@@ -4021,7 +4021,7 @@ func NewVariableDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleC
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_variableDeclaration
+	p.RuleIndex = ArcParserRULE_variableDeclaration
 
 	return p
 }
@@ -4069,20 +4069,20 @@ func (s *VariableDeclarationContext) ToStringTree(ruleNames []string, recog antl
 }
 
 func (s *VariableDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterVariableDeclaration(s)
 	}
 }
 
 func (s *VariableDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitVariableDeclaration(s)
 	}
 }
 
-func (p *SlateParser) VariableDeclaration() (localctx IVariableDeclarationContext) {
+func (p *ArcParser) VariableDeclaration() (localctx IVariableDeclarationContext) {
 	localctx = NewVariableDeclarationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 42, SlateParserRULE_variableDeclaration)
+	p.EnterRule(localctx, 42, ArcParserRULE_variableDeclaration)
 	p.SetState(283)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4146,13 +4146,13 @@ type LocalVariableContext struct {
 func NewEmptyLocalVariableContext() *LocalVariableContext {
 	var p = new(LocalVariableContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_localVariable
+	p.RuleIndex = ArcParserRULE_localVariable
 	return p
 }
 
 func InitEmptyLocalVariableContext(p *LocalVariableContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_localVariable
+	p.RuleIndex = ArcParserRULE_localVariable
 }
 
 func (*LocalVariableContext) IsLocalVariableContext() {}
@@ -4163,7 +4163,7 @@ func NewLocalVariableContext(parser antlr.Parser, parent antlr.ParserRuleContext
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_localVariable
+	p.RuleIndex = ArcParserRULE_localVariable
 
 	return p
 }
@@ -4171,11 +4171,11 @@ func NewLocalVariableContext(parser antlr.Parser, parent antlr.ParserRuleContext
 func (s *LocalVariableContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *LocalVariableContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *LocalVariableContext) DECLARE() antlr.TerminalNode {
-	return s.GetToken(SlateParserDECLARE, 0)
+	return s.GetToken(ArcParserDECLARE, 0)
 }
 
 func (s *LocalVariableContext) Expression() IExpressionContext {
@@ -4219,20 +4219,20 @@ func (s *LocalVariableContext) ToStringTree(ruleNames []string, recog antlr.Reco
 }
 
 func (s *LocalVariableContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterLocalVariable(s)
 	}
 }
 
 func (s *LocalVariableContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitLocalVariable(s)
 	}
 }
 
-func (p *SlateParser) LocalVariable() (localctx ILocalVariableContext) {
+func (p *ArcParser) LocalVariable() (localctx ILocalVariableContext) {
 	localctx = NewLocalVariableContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 44, SlateParserRULE_localVariable)
+	p.EnterRule(localctx, 44, ArcParserRULE_localVariable)
 	p.SetState(293)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4244,7 +4244,7 @@ func (p *SlateParser) LocalVariable() (localctx ILocalVariableContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(285)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4252,7 +4252,7 @@ func (p *SlateParser) LocalVariable() (localctx ILocalVariableContext) {
 		}
 		{
 			p.SetState(286)
-			p.Match(SlateParserDECLARE)
+			p.Match(ArcParserDECLARE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4267,7 +4267,7 @@ func (p *SlateParser) LocalVariable() (localctx ILocalVariableContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(288)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4279,7 +4279,7 @@ func (p *SlateParser) LocalVariable() (localctx ILocalVariableContext) {
 		}
 		{
 			p.SetState(290)
-			p.Match(SlateParserDECLARE)
+			p.Match(ArcParserDECLARE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4332,13 +4332,13 @@ type StatefulVariableContext struct {
 func NewEmptyStatefulVariableContext() *StatefulVariableContext {
 	var p = new(StatefulVariableContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_statefulVariable
+	p.RuleIndex = ArcParserRULE_statefulVariable
 	return p
 }
 
 func InitEmptyStatefulVariableContext(p *StatefulVariableContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_statefulVariable
+	p.RuleIndex = ArcParserRULE_statefulVariable
 }
 
 func (*StatefulVariableContext) IsStatefulVariableContext() {}
@@ -4349,7 +4349,7 @@ func NewStatefulVariableContext(parser antlr.Parser, parent antlr.ParserRuleCont
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_statefulVariable
+	p.RuleIndex = ArcParserRULE_statefulVariable
 
 	return p
 }
@@ -4357,11 +4357,11 @@ func NewStatefulVariableContext(parser antlr.Parser, parent antlr.ParserRuleCont
 func (s *StatefulVariableContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *StatefulVariableContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *StatefulVariableContext) STATE_DECLARE() antlr.TerminalNode {
-	return s.GetToken(SlateParserSTATE_DECLARE, 0)
+	return s.GetToken(ArcParserSTATE_DECLARE, 0)
 }
 
 func (s *StatefulVariableContext) Expression() IExpressionContext {
@@ -4405,20 +4405,20 @@ func (s *StatefulVariableContext) ToStringTree(ruleNames []string, recog antlr.R
 }
 
 func (s *StatefulVariableContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterStatefulVariable(s)
 	}
 }
 
 func (s *StatefulVariableContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitStatefulVariable(s)
 	}
 }
 
-func (p *SlateParser) StatefulVariable() (localctx IStatefulVariableContext) {
+func (p *ArcParser) StatefulVariable() (localctx IStatefulVariableContext) {
 	localctx = NewStatefulVariableContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 46, SlateParserRULE_statefulVariable)
+	p.EnterRule(localctx, 46, ArcParserRULE_statefulVariable)
 	p.SetState(303)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4430,7 +4430,7 @@ func (p *SlateParser) StatefulVariable() (localctx IStatefulVariableContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(295)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4438,7 +4438,7 @@ func (p *SlateParser) StatefulVariable() (localctx IStatefulVariableContext) {
 		}
 		{
 			p.SetState(296)
-			p.Match(SlateParserSTATE_DECLARE)
+			p.Match(ArcParserSTATE_DECLARE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4453,7 +4453,7 @@ func (p *SlateParser) StatefulVariable() (localctx IStatefulVariableContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(298)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4465,7 +4465,7 @@ func (p *SlateParser) StatefulVariable() (localctx IStatefulVariableContext) {
 		}
 		{
 			p.SetState(300)
-			p.Match(SlateParserSTATE_DECLARE)
+			p.Match(ArcParserSTATE_DECLARE)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4517,13 +4517,13 @@ type AssignmentContext struct {
 func NewEmptyAssignmentContext() *AssignmentContext {
 	var p = new(AssignmentContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_assignment
+	p.RuleIndex = ArcParserRULE_assignment
 	return p
 }
 
 func InitEmptyAssignmentContext(p *AssignmentContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_assignment
+	p.RuleIndex = ArcParserRULE_assignment
 }
 
 func (*AssignmentContext) IsAssignmentContext() {}
@@ -4534,7 +4534,7 @@ func NewAssignmentContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_assignment
+	p.RuleIndex = ArcParserRULE_assignment
 
 	return p
 }
@@ -4542,11 +4542,11 @@ func NewAssignmentContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 func (s *AssignmentContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *AssignmentContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *AssignmentContext) ASSIGN() antlr.TerminalNode {
-	return s.GetToken(SlateParserASSIGN, 0)
+	return s.GetToken(ArcParserASSIGN, 0)
 }
 
 func (s *AssignmentContext) Expression() IExpressionContext {
@@ -4574,24 +4574,24 @@ func (s *AssignmentContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *AssignmentContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterAssignment(s)
 	}
 }
 
 func (s *AssignmentContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitAssignment(s)
 	}
 }
 
-func (p *SlateParser) Assignment() (localctx IAssignmentContext) {
+func (p *ArcParser) Assignment() (localctx IAssignmentContext) {
 	localctx = NewAssignmentContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 48, SlateParserRULE_assignment)
+	p.EnterRule(localctx, 48, ArcParserRULE_assignment)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(305)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -4599,7 +4599,7 @@ func (p *SlateParser) Assignment() (localctx IAssignmentContext) {
 	}
 	{
 		p.SetState(306)
-		p.Match(SlateParserASSIGN)
+		p.Match(ArcParserASSIGN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -4646,13 +4646,13 @@ type ChannelOperationContext struct {
 func NewEmptyChannelOperationContext() *ChannelOperationContext {
 	var p = new(ChannelOperationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelOperation
+	p.RuleIndex = ArcParserRULE_channelOperation
 	return p
 }
 
 func InitEmptyChannelOperationContext(p *ChannelOperationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelOperation
+	p.RuleIndex = ArcParserRULE_channelOperation
 }
 
 func (*ChannelOperationContext) IsChannelOperationContext() {}
@@ -4663,7 +4663,7 @@ func NewChannelOperationContext(parser antlr.Parser, parent antlr.ParserRuleCont
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_channelOperation
+	p.RuleIndex = ArcParserRULE_channelOperation
 
 	return p
 }
@@ -4711,20 +4711,20 @@ func (s *ChannelOperationContext) ToStringTree(ruleNames []string, recog antlr.R
 }
 
 func (s *ChannelOperationContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterChannelOperation(s)
 	}
 }
 
 func (s *ChannelOperationContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitChannelOperation(s)
 	}
 }
 
-func (p *SlateParser) ChannelOperation() (localctx IChannelOperationContext) {
+func (p *ArcParser) ChannelOperation() (localctx IChannelOperationContext) {
 	localctx = NewChannelOperationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 50, SlateParserRULE_channelOperation)
+	p.EnterRule(localctx, 50, ArcParserRULE_channelOperation)
 	p.SetState(311)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4788,13 +4788,13 @@ type ChannelWriteContext struct {
 func NewEmptyChannelWriteContext() *ChannelWriteContext {
 	var p = new(ChannelWriteContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelWrite
+	p.RuleIndex = ArcParserRULE_channelWrite
 	return p
 }
 
 func InitEmptyChannelWriteContext(p *ChannelWriteContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelWrite
+	p.RuleIndex = ArcParserRULE_channelWrite
 }
 
 func (*ChannelWriteContext) IsChannelWriteContext() {}
@@ -4805,7 +4805,7 @@ func NewChannelWriteContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_channelWrite
+	p.RuleIndex = ArcParserRULE_channelWrite
 
 	return p
 }
@@ -4829,15 +4829,15 @@ func (s *ChannelWriteContext) Expression() IExpressionContext {
 }
 
 func (s *ChannelWriteContext) ARROW() antlr.TerminalNode {
-	return s.GetToken(SlateParserARROW, 0)
+	return s.GetToken(ArcParserARROW, 0)
 }
 
 func (s *ChannelWriteContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *ChannelWriteContext) RECV() antlr.TerminalNode {
-	return s.GetToken(SlateParserRECV, 0)
+	return s.GetToken(ArcParserRECV, 0)
 }
 
 func (s *ChannelWriteContext) GetRuleContext() antlr.RuleContext {
@@ -4849,20 +4849,20 @@ func (s *ChannelWriteContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *ChannelWriteContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterChannelWrite(s)
 	}
 }
 
 func (s *ChannelWriteContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitChannelWrite(s)
 	}
 }
 
-func (p *SlateParser) ChannelWrite() (localctx IChannelWriteContext) {
+func (p *ArcParser) ChannelWrite() (localctx IChannelWriteContext) {
 	localctx = NewChannelWriteContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 52, SlateParserRULE_channelWrite)
+	p.EnterRule(localctx, 52, ArcParserRULE_channelWrite)
 	p.SetState(320)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -4878,7 +4878,7 @@ func (p *SlateParser) ChannelWrite() (localctx IChannelWriteContext) {
 		}
 		{
 			p.SetState(314)
-			p.Match(SlateParserARROW)
+			p.Match(ArcParserARROW)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4886,7 +4886,7 @@ func (p *SlateParser) ChannelWrite() (localctx IChannelWriteContext) {
 		}
 		{
 			p.SetState(315)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4897,7 +4897,7 @@ func (p *SlateParser) ChannelWrite() (localctx IChannelWriteContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(317)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4905,7 +4905,7 @@ func (p *SlateParser) ChannelWrite() (localctx IChannelWriteContext) {
 		}
 		{
 			p.SetState(318)
-			p.Match(SlateParserRECV)
+			p.Match(ArcParserRECV)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -4956,13 +4956,13 @@ type ChannelReadContext struct {
 func NewEmptyChannelReadContext() *ChannelReadContext {
 	var p = new(ChannelReadContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelRead
+	p.RuleIndex = ArcParserRULE_channelRead
 	return p
 }
 
 func InitEmptyChannelReadContext(p *ChannelReadContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelRead
+	p.RuleIndex = ArcParserRULE_channelRead
 }
 
 func (*ChannelReadContext) IsChannelReadContext() {}
@@ -4973,7 +4973,7 @@ func NewChannelReadContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_channelRead
+	p.RuleIndex = ArcParserRULE_channelRead
 
 	return p
 }
@@ -5021,20 +5021,20 @@ func (s *ChannelReadContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *ChannelReadContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterChannelRead(s)
 	}
 }
 
 func (s *ChannelReadContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitChannelRead(s)
 	}
 }
 
-func (p *SlateParser) ChannelRead() (localctx IChannelReadContext) {
+func (p *ArcParser) ChannelRead() (localctx IChannelReadContext) {
 	localctx = NewChannelReadContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 54, SlateParserRULE_channelRead)
+	p.EnterRule(localctx, 54, ArcParserRULE_channelRead)
 	p.SetState(324)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -5098,13 +5098,13 @@ type BlockingReadContext struct {
 func NewEmptyBlockingReadContext() *BlockingReadContext {
 	var p = new(BlockingReadContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_blockingRead
+	p.RuleIndex = ArcParserRULE_blockingRead
 	return p
 }
 
 func InitEmptyBlockingReadContext(p *BlockingReadContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_blockingRead
+	p.RuleIndex = ArcParserRULE_blockingRead
 }
 
 func (*BlockingReadContext) IsBlockingReadContext() {}
@@ -5115,7 +5115,7 @@ func NewBlockingReadContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_blockingRead
+	p.RuleIndex = ArcParserRULE_blockingRead
 
 	return p
 }
@@ -5123,19 +5123,19 @@ func NewBlockingReadContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *BlockingReadContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *BlockingReadContext) AllIDENTIFIER() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserIDENTIFIER)
+	return s.GetTokens(ArcParserIDENTIFIER)
 }
 
 func (s *BlockingReadContext) IDENTIFIER(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, i)
+	return s.GetToken(ArcParserIDENTIFIER, i)
 }
 
 func (s *BlockingReadContext) DECLARE() antlr.TerminalNode {
-	return s.GetToken(SlateParserDECLARE, 0)
+	return s.GetToken(ArcParserDECLARE, 0)
 }
 
 func (s *BlockingReadContext) RECV() antlr.TerminalNode {
-	return s.GetToken(SlateParserRECV, 0)
+	return s.GetToken(ArcParserRECV, 0)
 }
 
 func (s *BlockingReadContext) GetRuleContext() antlr.RuleContext {
@@ -5147,24 +5147,24 @@ func (s *BlockingReadContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *BlockingReadContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterBlockingRead(s)
 	}
 }
 
 func (s *BlockingReadContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitBlockingRead(s)
 	}
 }
 
-func (p *SlateParser) BlockingRead() (localctx IBlockingReadContext) {
+func (p *ArcParser) BlockingRead() (localctx IBlockingReadContext) {
 	localctx = NewBlockingReadContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 56, SlateParserRULE_blockingRead)
+	p.EnterRule(localctx, 56, ArcParserRULE_blockingRead)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(326)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5172,7 +5172,7 @@ func (p *SlateParser) BlockingRead() (localctx IBlockingReadContext) {
 	}
 	{
 		p.SetState(327)
-		p.Match(SlateParserDECLARE)
+		p.Match(ArcParserDECLARE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5180,7 +5180,7 @@ func (p *SlateParser) BlockingRead() (localctx IBlockingReadContext) {
 	}
 	{
 		p.SetState(328)
-		p.Match(SlateParserRECV)
+		p.Match(ArcParserRECV)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5188,7 +5188,7 @@ func (p *SlateParser) BlockingRead() (localctx IBlockingReadContext) {
 	}
 	{
 		p.SetState(329)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5232,13 +5232,13 @@ type NonBlockingReadContext struct {
 func NewEmptyNonBlockingReadContext() *NonBlockingReadContext {
 	var p = new(NonBlockingReadContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_nonBlockingRead
+	p.RuleIndex = ArcParserRULE_nonBlockingRead
 	return p
 }
 
 func InitEmptyNonBlockingReadContext(p *NonBlockingReadContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_nonBlockingRead
+	p.RuleIndex = ArcParserRULE_nonBlockingRead
 }
 
 func (*NonBlockingReadContext) IsNonBlockingReadContext() {}
@@ -5249,7 +5249,7 @@ func NewNonBlockingReadContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_nonBlockingRead
+	p.RuleIndex = ArcParserRULE_nonBlockingRead
 
 	return p
 }
@@ -5257,15 +5257,15 @@ func NewNonBlockingReadContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *NonBlockingReadContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *NonBlockingReadContext) AllIDENTIFIER() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserIDENTIFIER)
+	return s.GetTokens(ArcParserIDENTIFIER)
 }
 
 func (s *NonBlockingReadContext) IDENTIFIER(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, i)
+	return s.GetToken(ArcParserIDENTIFIER, i)
 }
 
 func (s *NonBlockingReadContext) DECLARE() antlr.TerminalNode {
-	return s.GetToken(SlateParserDECLARE, 0)
+	return s.GetToken(ArcParserDECLARE, 0)
 }
 
 func (s *NonBlockingReadContext) GetRuleContext() antlr.RuleContext {
@@ -5277,24 +5277,24 @@ func (s *NonBlockingReadContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *NonBlockingReadContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterNonBlockingRead(s)
 	}
 }
 
 func (s *NonBlockingReadContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitNonBlockingRead(s)
 	}
 }
 
-func (p *SlateParser) NonBlockingRead() (localctx INonBlockingReadContext) {
+func (p *ArcParser) NonBlockingRead() (localctx INonBlockingReadContext) {
 	localctx = NewNonBlockingReadContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 58, SlateParserRULE_nonBlockingRead)
+	p.EnterRule(localctx, 58, ArcParserRULE_nonBlockingRead)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(331)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5302,7 +5302,7 @@ func (p *SlateParser) NonBlockingRead() (localctx INonBlockingReadContext) {
 	}
 	{
 		p.SetState(332)
-		p.Match(SlateParserDECLARE)
+		p.Match(ArcParserDECLARE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5310,7 +5310,7 @@ func (p *SlateParser) NonBlockingRead() (localctx INonBlockingReadContext) {
 	}
 	{
 		p.SetState(333)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5357,13 +5357,13 @@ type IfStatementContext struct {
 func NewEmptyIfStatementContext() *IfStatementContext {
 	var p = new(IfStatementContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_ifStatement
+	p.RuleIndex = ArcParserRULE_ifStatement
 	return p
 }
 
 func InitEmptyIfStatementContext(p *IfStatementContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_ifStatement
+	p.RuleIndex = ArcParserRULE_ifStatement
 }
 
 func (*IfStatementContext) IsIfStatementContext() {}
@@ -5374,7 +5374,7 @@ func NewIfStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_ifStatement
+	p.RuleIndex = ArcParserRULE_ifStatement
 
 	return p
 }
@@ -5382,7 +5382,7 @@ func NewIfStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 func (s *IfStatementContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *IfStatementContext) IF() antlr.TerminalNode {
-	return s.GetToken(SlateParserIF, 0)
+	return s.GetToken(ArcParserIF, 0)
 }
 
 func (s *IfStatementContext) Expression() IExpressionContext {
@@ -5483,20 +5483,20 @@ func (s *IfStatementContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *IfStatementContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterIfStatement(s)
 	}
 }
 
 func (s *IfStatementContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitIfStatement(s)
 	}
 }
 
-func (p *SlateParser) IfStatement() (localctx IIfStatementContext) {
+func (p *ArcParser) IfStatement() (localctx IIfStatementContext) {
 	localctx = NewIfStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 60, SlateParserRULE_ifStatement)
+	p.EnterRule(localctx, 60, ArcParserRULE_ifStatement)
 	var _la int
 
 	var _alt int
@@ -5504,7 +5504,7 @@ func (p *SlateParser) IfStatement() (localctx IIfStatementContext) {
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(335)
-		p.Match(SlateParserIF)
+		p.Match(ArcParserIF)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5552,7 +5552,7 @@ func (p *SlateParser) IfStatement() (localctx IIfStatementContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserELSE {
+	if _la == ArcParserELSE {
 		{
 			p.SetState(344)
 			p.ElseClause()
@@ -5598,13 +5598,13 @@ type ElseIfClauseContext struct {
 func NewEmptyElseIfClauseContext() *ElseIfClauseContext {
 	var p = new(ElseIfClauseContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_elseIfClause
+	p.RuleIndex = ArcParserRULE_elseIfClause
 	return p
 }
 
 func InitEmptyElseIfClauseContext(p *ElseIfClauseContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_elseIfClause
+	p.RuleIndex = ArcParserRULE_elseIfClause
 }
 
 func (*ElseIfClauseContext) IsElseIfClauseContext() {}
@@ -5615,7 +5615,7 @@ func NewElseIfClauseContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_elseIfClause
+	p.RuleIndex = ArcParserRULE_elseIfClause
 
 	return p
 }
@@ -5623,11 +5623,11 @@ func NewElseIfClauseContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *ElseIfClauseContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ElseIfClauseContext) ELSE() antlr.TerminalNode {
-	return s.GetToken(SlateParserELSE, 0)
+	return s.GetToken(ArcParserELSE, 0)
 }
 
 func (s *ElseIfClauseContext) IF() antlr.TerminalNode {
-	return s.GetToken(SlateParserIF, 0)
+	return s.GetToken(ArcParserIF, 0)
 }
 
 func (s *ElseIfClauseContext) Expression() IExpressionContext {
@@ -5671,24 +5671,24 @@ func (s *ElseIfClauseContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *ElseIfClauseContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterElseIfClause(s)
 	}
 }
 
 func (s *ElseIfClauseContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitElseIfClause(s)
 	}
 }
 
-func (p *SlateParser) ElseIfClause() (localctx IElseIfClauseContext) {
+func (p *ArcParser) ElseIfClause() (localctx IElseIfClauseContext) {
 	localctx = NewElseIfClauseContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 62, SlateParserRULE_elseIfClause)
+	p.EnterRule(localctx, 62, ArcParserRULE_elseIfClause)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(347)
-		p.Match(SlateParserELSE)
+		p.Match(ArcParserELSE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5696,7 +5696,7 @@ func (p *SlateParser) ElseIfClause() (localctx IElseIfClauseContext) {
 	}
 	{
 		p.SetState(348)
-		p.Match(SlateParserIF)
+		p.Match(ArcParserIF)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5747,13 +5747,13 @@ type ElseClauseContext struct {
 func NewEmptyElseClauseContext() *ElseClauseContext {
 	var p = new(ElseClauseContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_elseClause
+	p.RuleIndex = ArcParserRULE_elseClause
 	return p
 }
 
 func InitEmptyElseClauseContext(p *ElseClauseContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_elseClause
+	p.RuleIndex = ArcParserRULE_elseClause
 }
 
 func (*ElseClauseContext) IsElseClauseContext() {}
@@ -5764,7 +5764,7 @@ func NewElseClauseContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_elseClause
+	p.RuleIndex = ArcParserRULE_elseClause
 
 	return p
 }
@@ -5772,7 +5772,7 @@ func NewElseClauseContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 func (s *ElseClauseContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ElseClauseContext) ELSE() antlr.TerminalNode {
-	return s.GetToken(SlateParserELSE, 0)
+	return s.GetToken(ArcParserELSE, 0)
 }
 
 func (s *ElseClauseContext) Block() IBlockContext {
@@ -5800,24 +5800,24 @@ func (s *ElseClauseContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *ElseClauseContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterElseClause(s)
 	}
 }
 
 func (s *ElseClauseContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitElseClause(s)
 	}
 }
 
-func (p *SlateParser) ElseClause() (localctx IElseClauseContext) {
+func (p *ArcParser) ElseClause() (localctx IElseClauseContext) {
 	localctx = NewElseClauseContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 64, SlateParserRULE_elseClause)
+	p.EnterRule(localctx, 64, ArcParserRULE_elseClause)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(352)
-		p.Match(SlateParserELSE)
+		p.Match(ArcParserELSE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5864,13 +5864,13 @@ type ReturnStatementContext struct {
 func NewEmptyReturnStatementContext() *ReturnStatementContext {
 	var p = new(ReturnStatementContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_returnStatement
+	p.RuleIndex = ArcParserRULE_returnStatement
 	return p
 }
 
 func InitEmptyReturnStatementContext(p *ReturnStatementContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_returnStatement
+	p.RuleIndex = ArcParserRULE_returnStatement
 }
 
 func (*ReturnStatementContext) IsReturnStatementContext() {}
@@ -5881,7 +5881,7 @@ func NewReturnStatementContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_returnStatement
+	p.RuleIndex = ArcParserRULE_returnStatement
 
 	return p
 }
@@ -5889,7 +5889,7 @@ func NewReturnStatementContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *ReturnStatementContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ReturnStatementContext) RETURN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRETURN, 0)
+	return s.GetToken(ArcParserRETURN, 0)
 }
 
 func (s *ReturnStatementContext) Expression() IExpressionContext {
@@ -5917,24 +5917,24 @@ func (s *ReturnStatementContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *ReturnStatementContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterReturnStatement(s)
 	}
 }
 
 func (s *ReturnStatementContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitReturnStatement(s)
 	}
 }
 
-func (p *SlateParser) ReturnStatement() (localctx IReturnStatementContext) {
+func (p *ArcParser) ReturnStatement() (localctx IReturnStatementContext) {
 	localctx = NewReturnStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 66, SlateParserRULE_returnStatement)
+	p.EnterRule(localctx, 66, ArcParserRULE_returnStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(355)
-		p.Match(SlateParserRETURN)
+		p.Match(ArcParserRETURN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -5991,13 +5991,13 @@ type FunctionCallContext struct {
 func NewEmptyFunctionCallContext() *FunctionCallContext {
 	var p = new(FunctionCallContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionCall
+	p.RuleIndex = ArcParserRULE_functionCall
 	return p
 }
 
 func InitEmptyFunctionCallContext(p *FunctionCallContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionCall
+	p.RuleIndex = ArcParserRULE_functionCall
 }
 
 func (*FunctionCallContext) IsFunctionCallContext() {}
@@ -6008,7 +6008,7 @@ func NewFunctionCallContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_functionCall
+	p.RuleIndex = ArcParserRULE_functionCall
 
 	return p
 }
@@ -6016,15 +6016,15 @@ func NewFunctionCallContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *FunctionCallContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *FunctionCallContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *FunctionCallContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *FunctionCallContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *FunctionCallContext) ArgumentList() IArgumentListContext {
@@ -6052,26 +6052,26 @@ func (s *FunctionCallContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *FunctionCallContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFunctionCall(s)
 	}
 }
 
 func (s *FunctionCallContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFunctionCall(s)
 	}
 }
 
-func (p *SlateParser) FunctionCall() (localctx IFunctionCallContext) {
+func (p *ArcParser) FunctionCall() (localctx IFunctionCallContext) {
 	localctx = NewFunctionCallContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 68, SlateParserRULE_functionCall)
+	p.EnterRule(localctx, 68, ArcParserRULE_functionCall)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(359)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -6079,7 +6079,7 @@ func (p *SlateParser) FunctionCall() (localctx IFunctionCallContext) {
 	}
 	{
 		p.SetState(360)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -6101,7 +6101,7 @@ func (p *SlateParser) FunctionCall() (localctx IFunctionCallContext) {
 	}
 	{
 		p.SetState(364)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -6145,13 +6145,13 @@ type TypeContext struct {
 func NewEmptyTypeContext() *TypeContext {
 	var p = new(TypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_type
+	p.RuleIndex = ArcParserRULE_type
 	return p
 }
 
 func InitEmptyTypeContext(p *TypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_type
+	p.RuleIndex = ArcParserRULE_type
 }
 
 func (*TypeContext) IsTypeContext() {}
@@ -6162,7 +6162,7 @@ func NewTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokin
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_type
+	p.RuleIndex = ArcParserRULE_type
 
 	return p
 }
@@ -6226,20 +6226,20 @@ func (s *TypeContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) s
 }
 
 func (s *TypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterType(s)
 	}
 }
 
 func (s *TypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitType(s)
 	}
 }
 
-func (p *SlateParser) Type_() (localctx ITypeContext) {
+func (p *ArcParser) Type_() (localctx ITypeContext) {
 	localctx = NewTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 70, SlateParserRULE_type)
+	p.EnterRule(localctx, 70, ArcParserRULE_type)
 	p.SetState(369)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -6247,21 +6247,21 @@ func (p *SlateParser) Type_() (localctx ITypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserSTRING, SlateParserTIMESTAMP, SlateParserTIMESPAN:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(366)
 			p.PrimitiveType()
 		}
 
-	case SlateParserCHAN, SlateParserRECV_CHAN, SlateParserSEND_CHAN:
+	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(367)
 			p.ChannelType()
 		}
 
-	case SlateParserSERIES:
+	case ArcParserSERIES:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(368)
@@ -6309,13 +6309,13 @@ type PrimitiveTypeContext struct {
 func NewEmptyPrimitiveTypeContext() *PrimitiveTypeContext {
 	var p = new(PrimitiveTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_primitiveType
+	p.RuleIndex = ArcParserRULE_primitiveType
 	return p
 }
 
 func InitEmptyPrimitiveTypeContext(p *PrimitiveTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_primitiveType
+	p.RuleIndex = ArcParserRULE_primitiveType
 }
 
 func (*PrimitiveTypeContext) IsPrimitiveTypeContext() {}
@@ -6326,7 +6326,7 @@ func NewPrimitiveTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_primitiveType
+	p.RuleIndex = ArcParserRULE_primitiveType
 
 	return p
 }
@@ -6350,7 +6350,7 @@ func (s *PrimitiveTypeContext) NumericType() INumericTypeContext {
 }
 
 func (s *PrimitiveTypeContext) STRING() antlr.TerminalNode {
-	return s.GetToken(SlateParserSTRING, 0)
+	return s.GetToken(ArcParserSTRING, 0)
 }
 
 func (s *PrimitiveTypeContext) GetRuleContext() antlr.RuleContext {
@@ -6362,20 +6362,20 @@ func (s *PrimitiveTypeContext) ToStringTree(ruleNames []string, recog antlr.Reco
 }
 
 func (s *PrimitiveTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterPrimitiveType(s)
 	}
 }
 
 func (s *PrimitiveTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitPrimitiveType(s)
 	}
 }
 
-func (p *SlateParser) PrimitiveType() (localctx IPrimitiveTypeContext) {
+func (p *ArcParser) PrimitiveType() (localctx IPrimitiveTypeContext) {
 	localctx = NewPrimitiveTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 72, SlateParserRULE_primitiveType)
+	p.EnterRule(localctx, 72, ArcParserRULE_primitiveType)
 	p.SetState(373)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -6383,18 +6383,18 @@ func (p *SlateParser) PrimitiveType() (localctx IPrimitiveTypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserTIMESTAMP, SlateParserTIMESPAN:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(371)
 			p.NumericType()
 		}
 
-	case SlateParserSTRING:
+	case ArcParserSTRING:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(372)
-			p.Match(SlateParserSTRING)
+			p.Match(ArcParserSTRING)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -6443,13 +6443,13 @@ type NumericTypeContext struct {
 func NewEmptyNumericTypeContext() *NumericTypeContext {
 	var p = new(NumericTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_numericType
+	p.RuleIndex = ArcParserRULE_numericType
 	return p
 }
 
 func InitEmptyNumericTypeContext(p *NumericTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_numericType
+	p.RuleIndex = ArcParserRULE_numericType
 }
 
 func (*NumericTypeContext) IsNumericTypeContext() {}
@@ -6460,7 +6460,7 @@ func NewNumericTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_numericType
+	p.RuleIndex = ArcParserRULE_numericType
 
 	return p
 }
@@ -6524,20 +6524,20 @@ func (s *NumericTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *NumericTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterNumericType(s)
 	}
 }
 
 func (s *NumericTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitNumericType(s)
 	}
 }
 
-func (p *SlateParser) NumericType() (localctx INumericTypeContext) {
+func (p *ArcParser) NumericType() (localctx INumericTypeContext) {
 	localctx = NewNumericTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 74, SlateParserRULE_numericType)
+	p.EnterRule(localctx, 74, ArcParserRULE_numericType)
 	p.SetState(378)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -6545,21 +6545,21 @@ func (p *SlateParser) NumericType() (localctx INumericTypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(375)
 			p.IntegerType()
 		}
 
-	case SlateParserF32, SlateParserF64:
+	case ArcParserF32, ArcParserF64:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(376)
 			p.FloatType()
 		}
 
-	case SlateParserTIMESTAMP, SlateParserTIMESPAN:
+	case ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(377)
@@ -6613,13 +6613,13 @@ type IntegerTypeContext struct {
 func NewEmptyIntegerTypeContext() *IntegerTypeContext {
 	var p = new(IntegerTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_integerType
+	p.RuleIndex = ArcParserRULE_integerType
 	return p
 }
 
 func InitEmptyIntegerTypeContext(p *IntegerTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_integerType
+	p.RuleIndex = ArcParserRULE_integerType
 }
 
 func (*IntegerTypeContext) IsIntegerTypeContext() {}
@@ -6630,7 +6630,7 @@ func NewIntegerTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_integerType
+	p.RuleIndex = ArcParserRULE_integerType
 
 	return p
 }
@@ -6638,35 +6638,35 @@ func NewIntegerTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 func (s *IntegerTypeContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *IntegerTypeContext) I8() antlr.TerminalNode {
-	return s.GetToken(SlateParserI8, 0)
+	return s.GetToken(ArcParserI8, 0)
 }
 
 func (s *IntegerTypeContext) I16() antlr.TerminalNode {
-	return s.GetToken(SlateParserI16, 0)
+	return s.GetToken(ArcParserI16, 0)
 }
 
 func (s *IntegerTypeContext) I32() antlr.TerminalNode {
-	return s.GetToken(SlateParserI32, 0)
+	return s.GetToken(ArcParserI32, 0)
 }
 
 func (s *IntegerTypeContext) I64() antlr.TerminalNode {
-	return s.GetToken(SlateParserI64, 0)
+	return s.GetToken(ArcParserI64, 0)
 }
 
 func (s *IntegerTypeContext) U8() antlr.TerminalNode {
-	return s.GetToken(SlateParserU8, 0)
+	return s.GetToken(ArcParserU8, 0)
 }
 
 func (s *IntegerTypeContext) U16() antlr.TerminalNode {
-	return s.GetToken(SlateParserU16, 0)
+	return s.GetToken(ArcParserU16, 0)
 }
 
 func (s *IntegerTypeContext) U32() antlr.TerminalNode {
-	return s.GetToken(SlateParserU32, 0)
+	return s.GetToken(ArcParserU32, 0)
 }
 
 func (s *IntegerTypeContext) U64() antlr.TerminalNode {
-	return s.GetToken(SlateParserU64, 0)
+	return s.GetToken(ArcParserU64, 0)
 }
 
 func (s *IntegerTypeContext) GetRuleContext() antlr.RuleContext {
@@ -6678,20 +6678,20 @@ func (s *IntegerTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *IntegerTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterIntegerType(s)
 	}
 }
 
 func (s *IntegerTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitIntegerType(s)
 	}
 }
 
-func (p *SlateParser) IntegerType() (localctx IIntegerTypeContext) {
+func (p *ArcParser) IntegerType() (localctx IIntegerTypeContext) {
 	localctx = NewIntegerTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 76, SlateParserRULE_integerType)
+	p.EnterRule(localctx, 76, ArcParserRULE_integerType)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -6743,13 +6743,13 @@ type FloatTypeContext struct {
 func NewEmptyFloatTypeContext() *FloatTypeContext {
 	var p = new(FloatTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_floatType
+	p.RuleIndex = ArcParserRULE_floatType
 	return p
 }
 
 func InitEmptyFloatTypeContext(p *FloatTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_floatType
+	p.RuleIndex = ArcParserRULE_floatType
 }
 
 func (*FloatTypeContext) IsFloatTypeContext() {}
@@ -6760,7 +6760,7 @@ func NewFloatTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_floatType
+	p.RuleIndex = ArcParserRULE_floatType
 
 	return p
 }
@@ -6768,11 +6768,11 @@ func NewFloatTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 func (s *FloatTypeContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *FloatTypeContext) F32() antlr.TerminalNode {
-	return s.GetToken(SlateParserF32, 0)
+	return s.GetToken(ArcParserF32, 0)
 }
 
 func (s *FloatTypeContext) F64() antlr.TerminalNode {
-	return s.GetToken(SlateParserF64, 0)
+	return s.GetToken(ArcParserF64, 0)
 }
 
 func (s *FloatTypeContext) GetRuleContext() antlr.RuleContext {
@@ -6784,20 +6784,20 @@ func (s *FloatTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 }
 
 func (s *FloatTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFloatType(s)
 	}
 }
 
 func (s *FloatTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFloatType(s)
 	}
 }
 
-func (p *SlateParser) FloatType() (localctx IFloatTypeContext) {
+func (p *ArcParser) FloatType() (localctx IFloatTypeContext) {
 	localctx = NewFloatTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 78, SlateParserRULE_floatType)
+	p.EnterRule(localctx, 78, ArcParserRULE_floatType)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -6805,7 +6805,7 @@ func (p *SlateParser) FloatType() (localctx IFloatTypeContext) {
 		p.SetState(382)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(_la == SlateParserF32 || _la == SlateParserF64) {
+		if !(_la == ArcParserF32 || _la == ArcParserF64) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -6849,13 +6849,13 @@ type TemporalTypeContext struct {
 func NewEmptyTemporalTypeContext() *TemporalTypeContext {
 	var p = new(TemporalTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_temporalType
+	p.RuleIndex = ArcParserRULE_temporalType
 	return p
 }
 
 func InitEmptyTemporalTypeContext(p *TemporalTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_temporalType
+	p.RuleIndex = ArcParserRULE_temporalType
 }
 
 func (*TemporalTypeContext) IsTemporalTypeContext() {}
@@ -6866,7 +6866,7 @@ func NewTemporalTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_temporalType
+	p.RuleIndex = ArcParserRULE_temporalType
 
 	return p
 }
@@ -6874,11 +6874,11 @@ func NewTemporalTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *TemporalTypeContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *TemporalTypeContext) TIMESTAMP() antlr.TerminalNode {
-	return s.GetToken(SlateParserTIMESTAMP, 0)
+	return s.GetToken(ArcParserTIMESTAMP, 0)
 }
 
 func (s *TemporalTypeContext) TIMESPAN() antlr.TerminalNode {
-	return s.GetToken(SlateParserTIMESPAN, 0)
+	return s.GetToken(ArcParserTIMESPAN, 0)
 }
 
 func (s *TemporalTypeContext) GetRuleContext() antlr.RuleContext {
@@ -6890,20 +6890,20 @@ func (s *TemporalTypeContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *TemporalTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTemporalType(s)
 	}
 }
 
 func (s *TemporalTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTemporalType(s)
 	}
 }
 
-func (p *SlateParser) TemporalType() (localctx ITemporalTypeContext) {
+func (p *ArcParser) TemporalType() (localctx ITemporalTypeContext) {
 	localctx = NewTemporalTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 80, SlateParserRULE_temporalType)
+	p.EnterRule(localctx, 80, ArcParserRULE_temporalType)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -6911,7 +6911,7 @@ func (p *SlateParser) TemporalType() (localctx ITemporalTypeContext) {
 		p.SetState(384)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(_la == SlateParserTIMESTAMP || _la == SlateParserTIMESPAN) {
+		if !(_la == ArcParserTIMESTAMP || _la == ArcParserTIMESPAN) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -6958,13 +6958,13 @@ type ChannelTypeContext struct {
 func NewEmptyChannelTypeContext() *ChannelTypeContext {
 	var p = new(ChannelTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelType
+	p.RuleIndex = ArcParserRULE_channelType
 	return p
 }
 
 func InitEmptyChannelTypeContext(p *ChannelTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_channelType
+	p.RuleIndex = ArcParserRULE_channelType
 }
 
 func (*ChannelTypeContext) IsChannelTypeContext() {}
@@ -6975,7 +6975,7 @@ func NewChannelTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_channelType
+	p.RuleIndex = ArcParserRULE_channelType
 
 	return p
 }
@@ -6983,15 +6983,15 @@ func NewChannelTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 func (s *ChannelTypeContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *ChannelTypeContext) CHAN() antlr.TerminalNode {
-	return s.GetToken(SlateParserCHAN, 0)
+	return s.GetToken(ArcParserCHAN, 0)
 }
 
 func (s *ChannelTypeContext) RECV_CHAN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRECV_CHAN, 0)
+	return s.GetToken(ArcParserRECV_CHAN, 0)
 }
 
 func (s *ChannelTypeContext) SEND_CHAN() antlr.TerminalNode {
-	return s.GetToken(SlateParserSEND_CHAN, 0)
+	return s.GetToken(ArcParserSEND_CHAN, 0)
 }
 
 func (s *ChannelTypeContext) PrimitiveType() IPrimitiveTypeContext {
@@ -7035,20 +7035,20 @@ func (s *ChannelTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 }
 
 func (s *ChannelTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterChannelType(s)
 	}
 }
 
 func (s *ChannelTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitChannelType(s)
 	}
 }
 
-func (p *SlateParser) ChannelType() (localctx IChannelTypeContext) {
+func (p *ArcParser) ChannelType() (localctx IChannelTypeContext) {
 	localctx = NewChannelTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 82, SlateParserRULE_channelType)
+	p.EnterRule(localctx, 82, ArcParserRULE_channelType)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -7070,13 +7070,13 @@ func (p *SlateParser) ChannelType() (localctx IChannelTypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserSTRING, SlateParserTIMESTAMP, SlateParserTIMESPAN:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		{
 			p.SetState(387)
 			p.PrimitiveType()
 		}
 
-	case SlateParserSERIES:
+	case ArcParserSERIES:
 		{
 			p.SetState(388)
 			p.SeriesType()
@@ -7123,13 +7123,13 @@ type SeriesTypeContext struct {
 func NewEmptySeriesTypeContext() *SeriesTypeContext {
 	var p = new(SeriesTypeContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_seriesType
+	p.RuleIndex = ArcParserRULE_seriesType
 	return p
 }
 
 func InitEmptySeriesTypeContext(p *SeriesTypeContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_seriesType
+	p.RuleIndex = ArcParserRULE_seriesType
 }
 
 func (*SeriesTypeContext) IsSeriesTypeContext() {}
@@ -7140,7 +7140,7 @@ func NewSeriesTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_seriesType
+	p.RuleIndex = ArcParserRULE_seriesType
 
 	return p
 }
@@ -7148,7 +7148,7 @@ func NewSeriesTypeContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 func (s *SeriesTypeContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *SeriesTypeContext) SERIES() antlr.TerminalNode {
-	return s.GetToken(SlateParserSERIES, 0)
+	return s.GetToken(ArcParserSERIES, 0)
 }
 
 func (s *SeriesTypeContext) PrimitiveType() IPrimitiveTypeContext {
@@ -7176,24 +7176,24 @@ func (s *SeriesTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *SeriesTypeContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterSeriesType(s)
 	}
 }
 
 func (s *SeriesTypeContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitSeriesType(s)
 	}
 }
 
-func (p *SlateParser) SeriesType() (localctx ISeriesTypeContext) {
+func (p *ArcParser) SeriesType() (localctx ISeriesTypeContext) {
 	localctx = NewSeriesTypeContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 84, SlateParserRULE_seriesType)
+	p.EnterRule(localctx, 84, ArcParserRULE_seriesType)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(391)
-		p.Match(SlateParserSERIES)
+		p.Match(ArcParserSERIES)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -7239,13 +7239,13 @@ type ExpressionContext struct {
 func NewEmptyExpressionContext() *ExpressionContext {
 	var p = new(ExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_expression
+	p.RuleIndex = ArcParserRULE_expression
 	return p
 }
 
 func InitEmptyExpressionContext(p *ExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_expression
+	p.RuleIndex = ArcParserRULE_expression
 }
 
 func (*ExpressionContext) IsExpressionContext() {}
@@ -7256,7 +7256,7 @@ func NewExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_expression
+	p.RuleIndex = ArcParserRULE_expression
 
 	return p
 }
@@ -7288,20 +7288,20 @@ func (s *ExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *ExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterExpression(s)
 	}
 }
 
 func (s *ExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitExpression(s)
 	}
 }
 
-func (p *SlateParser) Expression() (localctx IExpressionContext) {
+func (p *ArcParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 86, SlateParserRULE_expression)
+	p.EnterRule(localctx, 86, ArcParserRULE_expression)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(394)
@@ -7346,13 +7346,13 @@ type LogicalOrExpressionContext struct {
 func NewEmptyLogicalOrExpressionContext() *LogicalOrExpressionContext {
 	var p = new(LogicalOrExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_logicalOrExpression
+	p.RuleIndex = ArcParserRULE_logicalOrExpression
 	return p
 }
 
 func InitEmptyLogicalOrExpressionContext(p *LogicalOrExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_logicalOrExpression
+	p.RuleIndex = ArcParserRULE_logicalOrExpression
 }
 
 func (*LogicalOrExpressionContext) IsLogicalOrExpressionContext() {}
@@ -7363,7 +7363,7 @@ func NewLogicalOrExpressionContext(parser antlr.Parser, parent antlr.ParserRuleC
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_logicalOrExpression
+	p.RuleIndex = ArcParserRULE_logicalOrExpression
 
 	return p
 }
@@ -7412,11 +7412,11 @@ func (s *LogicalOrExpressionContext) LogicalAndExpression(i int) ILogicalAndExpr
 }
 
 func (s *LogicalOrExpressionContext) AllOR() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserOR)
+	return s.GetTokens(ArcParserOR)
 }
 
 func (s *LogicalOrExpressionContext) OR(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserOR, i)
+	return s.GetToken(ArcParserOR, i)
 }
 
 func (s *LogicalOrExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -7428,20 +7428,20 @@ func (s *LogicalOrExpressionContext) ToStringTree(ruleNames []string, recog antl
 }
 
 func (s *LogicalOrExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterLogicalOrExpression(s)
 	}
 }
 
 func (s *LogicalOrExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitLogicalOrExpression(s)
 	}
 }
 
-func (p *SlateParser) LogicalOrExpression() (localctx ILogicalOrExpressionContext) {
+func (p *ArcParser) LogicalOrExpression() (localctx ILogicalOrExpressionContext) {
 	localctx = NewLogicalOrExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 88, SlateParserRULE_logicalOrExpression)
+	p.EnterRule(localctx, 88, ArcParserRULE_logicalOrExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -7456,10 +7456,10 @@ func (p *SlateParser) LogicalOrExpression() (localctx ILogicalOrExpressionContex
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserOR {
+	for _la == ArcParserOR {
 		{
 			p.SetState(397)
-			p.Match(SlateParserOR)
+			p.Match(ArcParserOR)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -7516,13 +7516,13 @@ type LogicalAndExpressionContext struct {
 func NewEmptyLogicalAndExpressionContext() *LogicalAndExpressionContext {
 	var p = new(LogicalAndExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_logicalAndExpression
+	p.RuleIndex = ArcParserRULE_logicalAndExpression
 	return p
 }
 
 func InitEmptyLogicalAndExpressionContext(p *LogicalAndExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_logicalAndExpression
+	p.RuleIndex = ArcParserRULE_logicalAndExpression
 }
 
 func (*LogicalAndExpressionContext) IsLogicalAndExpressionContext() {}
@@ -7533,7 +7533,7 @@ func NewLogicalAndExpressionContext(parser antlr.Parser, parent antlr.ParserRule
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_logicalAndExpression
+	p.RuleIndex = ArcParserRULE_logicalAndExpression
 
 	return p
 }
@@ -7582,11 +7582,11 @@ func (s *LogicalAndExpressionContext) EqualityExpression(i int) IEqualityExpress
 }
 
 func (s *LogicalAndExpressionContext) AllAND() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserAND)
+	return s.GetTokens(ArcParserAND)
 }
 
 func (s *LogicalAndExpressionContext) AND(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserAND, i)
+	return s.GetToken(ArcParserAND, i)
 }
 
 func (s *LogicalAndExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -7598,20 +7598,20 @@ func (s *LogicalAndExpressionContext) ToStringTree(ruleNames []string, recog ant
 }
 
 func (s *LogicalAndExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterLogicalAndExpression(s)
 	}
 }
 
 func (s *LogicalAndExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitLogicalAndExpression(s)
 	}
 }
 
-func (p *SlateParser) LogicalAndExpression() (localctx ILogicalAndExpressionContext) {
+func (p *ArcParser) LogicalAndExpression() (localctx ILogicalAndExpressionContext) {
 	localctx = NewLogicalAndExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 90, SlateParserRULE_logicalAndExpression)
+	p.EnterRule(localctx, 90, ArcParserRULE_logicalAndExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -7626,10 +7626,10 @@ func (p *SlateParser) LogicalAndExpression() (localctx ILogicalAndExpressionCont
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserAND {
+	for _la == ArcParserAND {
 		{
 			p.SetState(405)
-			p.Match(SlateParserAND)
+			p.Match(ArcParserAND)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -7688,13 +7688,13 @@ type EqualityExpressionContext struct {
 func NewEmptyEqualityExpressionContext() *EqualityExpressionContext {
 	var p = new(EqualityExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_equalityExpression
+	p.RuleIndex = ArcParserRULE_equalityExpression
 	return p
 }
 
 func InitEmptyEqualityExpressionContext(p *EqualityExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_equalityExpression
+	p.RuleIndex = ArcParserRULE_equalityExpression
 }
 
 func (*EqualityExpressionContext) IsEqualityExpressionContext() {}
@@ -7705,7 +7705,7 @@ func NewEqualityExpressionContext(parser antlr.Parser, parent antlr.ParserRuleCo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_equalityExpression
+	p.RuleIndex = ArcParserRULE_equalityExpression
 
 	return p
 }
@@ -7754,19 +7754,19 @@ func (s *EqualityExpressionContext) RelationalExpression(i int) IRelationalExpre
 }
 
 func (s *EqualityExpressionContext) AllEQ() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserEQ)
+	return s.GetTokens(ArcParserEQ)
 }
 
 func (s *EqualityExpressionContext) EQ(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserEQ, i)
+	return s.GetToken(ArcParserEQ, i)
 }
 
 func (s *EqualityExpressionContext) AllNEQ() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserNEQ)
+	return s.GetTokens(ArcParserNEQ)
 }
 
 func (s *EqualityExpressionContext) NEQ(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserNEQ, i)
+	return s.GetToken(ArcParserNEQ, i)
 }
 
 func (s *EqualityExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -7778,20 +7778,20 @@ func (s *EqualityExpressionContext) ToStringTree(ruleNames []string, recog antlr
 }
 
 func (s *EqualityExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterEqualityExpression(s)
 	}
 }
 
 func (s *EqualityExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitEqualityExpression(s)
 	}
 }
 
-func (p *SlateParser) EqualityExpression() (localctx IEqualityExpressionContext) {
+func (p *ArcParser) EqualityExpression() (localctx IEqualityExpressionContext) {
 	localctx = NewEqualityExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 92, SlateParserRULE_equalityExpression)
+	p.EnterRule(localctx, 92, ArcParserRULE_equalityExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -7806,12 +7806,12 @@ func (p *SlateParser) EqualityExpression() (localctx IEqualityExpressionContext)
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserEQ || _la == SlateParserNEQ {
+	for _la == ArcParserEQ || _la == ArcParserNEQ {
 		{
 			p.SetState(413)
 			_la = p.GetTokenStream().LA(1)
 
-			if !(_la == SlateParserEQ || _la == SlateParserNEQ) {
+			if !(_la == ArcParserEQ || _la == ArcParserNEQ) {
 				p.GetErrorHandler().RecoverInline(p)
 			} else {
 				p.GetErrorHandler().ReportMatch(p)
@@ -7875,13 +7875,13 @@ type RelationalExpressionContext struct {
 func NewEmptyRelationalExpressionContext() *RelationalExpressionContext {
 	var p = new(RelationalExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_relationalExpression
+	p.RuleIndex = ArcParserRULE_relationalExpression
 	return p
 }
 
 func InitEmptyRelationalExpressionContext(p *RelationalExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_relationalExpression
+	p.RuleIndex = ArcParserRULE_relationalExpression
 }
 
 func (*RelationalExpressionContext) IsRelationalExpressionContext() {}
@@ -7892,7 +7892,7 @@ func NewRelationalExpressionContext(parser antlr.Parser, parent antlr.ParserRule
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_relationalExpression
+	p.RuleIndex = ArcParserRULE_relationalExpression
 
 	return p
 }
@@ -7941,35 +7941,35 @@ func (s *RelationalExpressionContext) AdditiveExpression(i int) IAdditiveExpress
 }
 
 func (s *RelationalExpressionContext) AllLT() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserLT)
+	return s.GetTokens(ArcParserLT)
 }
 
 func (s *RelationalExpressionContext) LT(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserLT, i)
+	return s.GetToken(ArcParserLT, i)
 }
 
 func (s *RelationalExpressionContext) AllGT() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserGT)
+	return s.GetTokens(ArcParserGT)
 }
 
 func (s *RelationalExpressionContext) GT(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserGT, i)
+	return s.GetToken(ArcParserGT, i)
 }
 
 func (s *RelationalExpressionContext) AllLEQ() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserLEQ)
+	return s.GetTokens(ArcParserLEQ)
 }
 
 func (s *RelationalExpressionContext) LEQ(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserLEQ, i)
+	return s.GetToken(ArcParserLEQ, i)
 }
 
 func (s *RelationalExpressionContext) AllGEQ() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserGEQ)
+	return s.GetTokens(ArcParserGEQ)
 }
 
 func (s *RelationalExpressionContext) GEQ(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserGEQ, i)
+	return s.GetToken(ArcParserGEQ, i)
 }
 
 func (s *RelationalExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -7981,20 +7981,20 @@ func (s *RelationalExpressionContext) ToStringTree(ruleNames []string, recog ant
 }
 
 func (s *RelationalExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterRelationalExpression(s)
 	}
 }
 
 func (s *RelationalExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitRelationalExpression(s)
 	}
 }
 
-func (p *SlateParser) RelationalExpression() (localctx IRelationalExpressionContext) {
+func (p *ArcParser) RelationalExpression() (localctx IRelationalExpressionContext) {
 	localctx = NewRelationalExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 94, SlateParserRULE_relationalExpression)
+	p.EnterRule(localctx, 94, ArcParserRULE_relationalExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -8074,13 +8074,13 @@ type AdditiveExpressionContext struct {
 func NewEmptyAdditiveExpressionContext() *AdditiveExpressionContext {
 	var p = new(AdditiveExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_additiveExpression
+	p.RuleIndex = ArcParserRULE_additiveExpression
 	return p
 }
 
 func InitEmptyAdditiveExpressionContext(p *AdditiveExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_additiveExpression
+	p.RuleIndex = ArcParserRULE_additiveExpression
 }
 
 func (*AdditiveExpressionContext) IsAdditiveExpressionContext() {}
@@ -8091,7 +8091,7 @@ func NewAdditiveExpressionContext(parser antlr.Parser, parent antlr.ParserRuleCo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_additiveExpression
+	p.RuleIndex = ArcParserRULE_additiveExpression
 
 	return p
 }
@@ -8140,19 +8140,19 @@ func (s *AdditiveExpressionContext) MultiplicativeExpression(i int) IMultiplicat
 }
 
 func (s *AdditiveExpressionContext) AllPLUS() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserPLUS)
+	return s.GetTokens(ArcParserPLUS)
 }
 
 func (s *AdditiveExpressionContext) PLUS(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserPLUS, i)
+	return s.GetToken(ArcParserPLUS, i)
 }
 
 func (s *AdditiveExpressionContext) AllMINUS() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserMINUS)
+	return s.GetTokens(ArcParserMINUS)
 }
 
 func (s *AdditiveExpressionContext) MINUS(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserMINUS, i)
+	return s.GetToken(ArcParserMINUS, i)
 }
 
 func (s *AdditiveExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -8164,20 +8164,20 @@ func (s *AdditiveExpressionContext) ToStringTree(ruleNames []string, recog antlr
 }
 
 func (s *AdditiveExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterAdditiveExpression(s)
 	}
 }
 
 func (s *AdditiveExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitAdditiveExpression(s)
 	}
 }
 
-func (p *SlateParser) AdditiveExpression() (localctx IAdditiveExpressionContext) {
+func (p *ArcParser) AdditiveExpression() (localctx IAdditiveExpressionContext) {
 	localctx = NewAdditiveExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 96, SlateParserRULE_additiveExpression)
+	p.EnterRule(localctx, 96, ArcParserRULE_additiveExpression)
 	var _la int
 
 	var _alt int
@@ -8202,7 +8202,7 @@ func (p *SlateParser) AdditiveExpression() (localctx IAdditiveExpressionContext)
 				p.SetState(429)
 				_la = p.GetTokenStream().LA(1)
 
-				if !(_la == SlateParserPLUS || _la == SlateParserMINUS) {
+				if !(_la == ArcParserPLUS || _la == ArcParserMINUS) {
 					p.GetErrorHandler().RecoverInline(p)
 				} else {
 					p.GetErrorHandler().ReportMatch(p)
@@ -8268,13 +8268,13 @@ type MultiplicativeExpressionContext struct {
 func NewEmptyMultiplicativeExpressionContext() *MultiplicativeExpressionContext {
 	var p = new(MultiplicativeExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_multiplicativeExpression
+	p.RuleIndex = ArcParserRULE_multiplicativeExpression
 	return p
 }
 
 func InitEmptyMultiplicativeExpressionContext(p *MultiplicativeExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_multiplicativeExpression
+	p.RuleIndex = ArcParserRULE_multiplicativeExpression
 }
 
 func (*MultiplicativeExpressionContext) IsMultiplicativeExpressionContext() {}
@@ -8285,7 +8285,7 @@ func NewMultiplicativeExpressionContext(parser antlr.Parser, parent antlr.Parser
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_multiplicativeExpression
+	p.RuleIndex = ArcParserRULE_multiplicativeExpression
 
 	return p
 }
@@ -8334,27 +8334,27 @@ func (s *MultiplicativeExpressionContext) PowerExpression(i int) IPowerExpressio
 }
 
 func (s *MultiplicativeExpressionContext) AllSTAR() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserSTAR)
+	return s.GetTokens(ArcParserSTAR)
 }
 
 func (s *MultiplicativeExpressionContext) STAR(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserSTAR, i)
+	return s.GetToken(ArcParserSTAR, i)
 }
 
 func (s *MultiplicativeExpressionContext) AllSLASH() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserSLASH)
+	return s.GetTokens(ArcParserSLASH)
 }
 
 func (s *MultiplicativeExpressionContext) SLASH(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserSLASH, i)
+	return s.GetToken(ArcParserSLASH, i)
 }
 
 func (s *MultiplicativeExpressionContext) AllPERCENT() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserPERCENT)
+	return s.GetTokens(ArcParserPERCENT)
 }
 
 func (s *MultiplicativeExpressionContext) PERCENT(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserPERCENT, i)
+	return s.GetToken(ArcParserPERCENT, i)
 }
 
 func (s *MultiplicativeExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -8366,20 +8366,20 @@ func (s *MultiplicativeExpressionContext) ToStringTree(ruleNames []string, recog
 }
 
 func (s *MultiplicativeExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterMultiplicativeExpression(s)
 	}
 }
 
 func (s *MultiplicativeExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitMultiplicativeExpression(s)
 	}
 }
 
-func (p *SlateParser) MultiplicativeExpression() (localctx IMultiplicativeExpressionContext) {
+func (p *ArcParser) MultiplicativeExpression() (localctx IMultiplicativeExpressionContext) {
 	localctx = NewMultiplicativeExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 98, SlateParserRULE_multiplicativeExpression)
+	p.EnterRule(localctx, 98, ArcParserRULE_multiplicativeExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -8456,13 +8456,13 @@ type PowerExpressionContext struct {
 func NewEmptyPowerExpressionContext() *PowerExpressionContext {
 	var p = new(PowerExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_powerExpression
+	p.RuleIndex = ArcParserRULE_powerExpression
 	return p
 }
 
 func InitEmptyPowerExpressionContext(p *PowerExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_powerExpression
+	p.RuleIndex = ArcParserRULE_powerExpression
 }
 
 func (*PowerExpressionContext) IsPowerExpressionContext() {}
@@ -8473,7 +8473,7 @@ func NewPowerExpressionContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_powerExpression
+	p.RuleIndex = ArcParserRULE_powerExpression
 
 	return p
 }
@@ -8497,7 +8497,7 @@ func (s *PowerExpressionContext) UnaryExpression() IUnaryExpressionContext {
 }
 
 func (s *PowerExpressionContext) CARET() antlr.TerminalNode {
-	return s.GetToken(SlateParserCARET, 0)
+	return s.GetToken(ArcParserCARET, 0)
 }
 
 func (s *PowerExpressionContext) PowerExpression() IPowerExpressionContext {
@@ -8525,20 +8525,20 @@ func (s *PowerExpressionContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *PowerExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterPowerExpression(s)
 	}
 }
 
 func (s *PowerExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitPowerExpression(s)
 	}
 }
 
-func (p *SlateParser) PowerExpression() (localctx IPowerExpressionContext) {
+func (p *ArcParser) PowerExpression() (localctx IPowerExpressionContext) {
 	localctx = NewPowerExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 100, SlateParserRULE_powerExpression)
+	p.EnterRule(localctx, 100, ArcParserRULE_powerExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -8553,10 +8553,10 @@ func (p *SlateParser) PowerExpression() (localctx IPowerExpressionContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == SlateParserCARET {
+	if _la == ArcParserCARET {
 		{
 			p.SetState(445)
-			p.Match(SlateParserCARET)
+			p.Match(ArcParserCARET)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -8608,13 +8608,13 @@ type UnaryExpressionContext struct {
 func NewEmptyUnaryExpressionContext() *UnaryExpressionContext {
 	var p = new(UnaryExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_unaryExpression
+	p.RuleIndex = ArcParserRULE_unaryExpression
 	return p
 }
 
 func InitEmptyUnaryExpressionContext(p *UnaryExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_unaryExpression
+	p.RuleIndex = ArcParserRULE_unaryExpression
 }
 
 func (*UnaryExpressionContext) IsUnaryExpressionContext() {}
@@ -8625,7 +8625,7 @@ func NewUnaryExpressionContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_unaryExpression
+	p.RuleIndex = ArcParserRULE_unaryExpression
 
 	return p
 }
@@ -8633,7 +8633,7 @@ func NewUnaryExpressionContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *UnaryExpressionContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *UnaryExpressionContext) MINUS() antlr.TerminalNode {
-	return s.GetToken(SlateParserMINUS, 0)
+	return s.GetToken(ArcParserMINUS, 0)
 }
 
 func (s *UnaryExpressionContext) UnaryExpression() IUnaryExpressionContext {
@@ -8653,7 +8653,7 @@ func (s *UnaryExpressionContext) UnaryExpression() IUnaryExpressionContext {
 }
 
 func (s *UnaryExpressionContext) NOT() antlr.TerminalNode {
-	return s.GetToken(SlateParserNOT, 0)
+	return s.GetToken(ArcParserNOT, 0)
 }
 
 func (s *UnaryExpressionContext) BlockingReadExpr() IBlockingReadExprContext {
@@ -8697,20 +8697,20 @@ func (s *UnaryExpressionContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *UnaryExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterUnaryExpression(s)
 	}
 }
 
 func (s *UnaryExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitUnaryExpression(s)
 	}
 }
 
-func (p *SlateParser) UnaryExpression() (localctx IUnaryExpressionContext) {
+func (p *ArcParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 	localctx = NewUnaryExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 102, SlateParserRULE_unaryExpression)
+	p.EnterRule(localctx, 102, ArcParserRULE_unaryExpression)
 	p.SetState(455)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -8718,11 +8718,11 @@ func (p *SlateParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserMINUS:
+	case ArcParserMINUS:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(449)
-			p.Match(SlateParserMINUS)
+			p.Match(ArcParserMINUS)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -8733,11 +8733,11 @@ func (p *SlateParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 			p.UnaryExpression()
 		}
 
-	case SlateParserNOT:
+	case ArcParserNOT:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(451)
-			p.Match(SlateParserNOT)
+			p.Match(ArcParserNOT)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -8748,14 +8748,14 @@ func (p *SlateParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 			p.UnaryExpression()
 		}
 
-	case SlateParserRECV:
+	case ArcParserRECV:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(453)
 			p.BlockingReadExpr()
 		}
 
-	case SlateParserNOW, SlateParserLEN, SlateParserCHAN, SlateParserRECV_CHAN, SlateParserSEND_CHAN, SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserSTRING, SlateParserTIMESTAMP, SlateParserTIMESPAN, SlateParserSERIES, SlateParserLPAREN, SlateParserLBRACKET, SlateParserTEMPORAL_LITERAL, SlateParserFREQUENCY_LITERAL, SlateParserINTEGER_LITERAL, SlateParserFLOAT_LITERAL, SlateParserSTRING_LITERAL, SlateParserIDENTIFIER:
+	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(454)
@@ -8803,13 +8803,13 @@ type BlockingReadExprContext struct {
 func NewEmptyBlockingReadExprContext() *BlockingReadExprContext {
 	var p = new(BlockingReadExprContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_blockingReadExpr
+	p.RuleIndex = ArcParserRULE_blockingReadExpr
 	return p
 }
 
 func InitEmptyBlockingReadExprContext(p *BlockingReadExprContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_blockingReadExpr
+	p.RuleIndex = ArcParserRULE_blockingReadExpr
 }
 
 func (*BlockingReadExprContext) IsBlockingReadExprContext() {}
@@ -8820,7 +8820,7 @@ func NewBlockingReadExprContext(parser antlr.Parser, parent antlr.ParserRuleCont
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_blockingReadExpr
+	p.RuleIndex = ArcParserRULE_blockingReadExpr
 
 	return p
 }
@@ -8828,11 +8828,11 @@ func NewBlockingReadExprContext(parser antlr.Parser, parent antlr.ParserRuleCont
 func (s *BlockingReadExprContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *BlockingReadExprContext) RECV() antlr.TerminalNode {
-	return s.GetToken(SlateParserRECV, 0)
+	return s.GetToken(ArcParserRECV, 0)
 }
 
 func (s *BlockingReadExprContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *BlockingReadExprContext) GetRuleContext() antlr.RuleContext {
@@ -8844,24 +8844,24 @@ func (s *BlockingReadExprContext) ToStringTree(ruleNames []string, recog antlr.R
 }
 
 func (s *BlockingReadExprContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterBlockingReadExpr(s)
 	}
 }
 
 func (s *BlockingReadExprContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitBlockingReadExpr(s)
 	}
 }
 
-func (p *SlateParser) BlockingReadExpr() (localctx IBlockingReadExprContext) {
+func (p *ArcParser) BlockingReadExpr() (localctx IBlockingReadExprContext) {
 	localctx = NewBlockingReadExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 104, SlateParserRULE_blockingReadExpr)
+	p.EnterRule(localctx, 104, ArcParserRULE_blockingReadExpr)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(457)
-		p.Match(SlateParserRECV)
+		p.Match(ArcParserRECV)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -8869,7 +8869,7 @@ func (p *SlateParser) BlockingReadExpr() (localctx IBlockingReadExprContext) {
 	}
 	{
 		p.SetState(458)
-		p.Match(SlateParserIDENTIFIER)
+		p.Match(ArcParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -8915,13 +8915,13 @@ type PostfixExpressionContext struct {
 func NewEmptyPostfixExpressionContext() *PostfixExpressionContext {
 	var p = new(PostfixExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_postfixExpression
+	p.RuleIndex = ArcParserRULE_postfixExpression
 	return p
 }
 
 func InitEmptyPostfixExpressionContext(p *PostfixExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_postfixExpression
+	p.RuleIndex = ArcParserRULE_postfixExpression
 }
 
 func (*PostfixExpressionContext) IsPostfixExpressionContext() {}
@@ -8932,7 +8932,7 @@ func NewPostfixExpressionContext(parser antlr.Parser, parent antlr.ParserRuleCon
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_postfixExpression
+	p.RuleIndex = ArcParserRULE_postfixExpression
 
 	return p
 }
@@ -9046,20 +9046,20 @@ func (s *PostfixExpressionContext) ToStringTree(ruleNames []string, recog antlr.
 }
 
 func (s *PostfixExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterPostfixExpression(s)
 	}
 }
 
 func (s *PostfixExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitPostfixExpression(s)
 	}
 }
 
-func (p *SlateParser) PostfixExpression() (localctx IPostfixExpressionContext) {
+func (p *ArcParser) PostfixExpression() (localctx IPostfixExpressionContext) {
 	localctx = NewPostfixExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 106, SlateParserRULE_postfixExpression)
+	p.EnterRule(localctx, 106, ArcParserRULE_postfixExpression)
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -9085,13 +9085,13 @@ func (p *SlateParser) PostfixExpression() (localctx IPostfixExpressionContext) {
 			}
 
 			switch p.GetTokenStream().LA(1) {
-			case SlateParserLBRACKET:
+			case ArcParserLBRACKET:
 				{
 					p.SetState(461)
 					p.IndexOrSlice()
 				}
 
-			case SlateParserLPAREN:
+			case ArcParserLPAREN:
 				{
 					p.SetState(462)
 					p.FunctionCallSuffix()
@@ -9153,13 +9153,13 @@ type IndexOrSliceContext struct {
 func NewEmptyIndexOrSliceContext() *IndexOrSliceContext {
 	var p = new(IndexOrSliceContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_indexOrSlice
+	p.RuleIndex = ArcParserRULE_indexOrSlice
 	return p
 }
 
 func InitEmptyIndexOrSliceContext(p *IndexOrSliceContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_indexOrSlice
+	p.RuleIndex = ArcParserRULE_indexOrSlice
 }
 
 func (*IndexOrSliceContext) IsIndexOrSliceContext() {}
@@ -9170,7 +9170,7 @@ func NewIndexOrSliceContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_indexOrSlice
+	p.RuleIndex = ArcParserRULE_indexOrSlice
 
 	return p
 }
@@ -9178,7 +9178,7 @@ func NewIndexOrSliceContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 func (s *IndexOrSliceContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *IndexOrSliceContext) LBRACKET() antlr.TerminalNode {
-	return s.GetToken(SlateParserLBRACKET, 0)
+	return s.GetToken(ArcParserLBRACKET, 0)
 }
 
 func (s *IndexOrSliceContext) AllExpression() []IExpressionContext {
@@ -9223,11 +9223,11 @@ func (s *IndexOrSliceContext) Expression(i int) IExpressionContext {
 }
 
 func (s *IndexOrSliceContext) RBRACKET() antlr.TerminalNode {
-	return s.GetToken(SlateParserRBRACKET, 0)
+	return s.GetToken(ArcParserRBRACKET, 0)
 }
 
 func (s *IndexOrSliceContext) COLON() antlr.TerminalNode {
-	return s.GetToken(SlateParserCOLON, 0)
+	return s.GetToken(ArcParserCOLON, 0)
 }
 
 func (s *IndexOrSliceContext) GetRuleContext() antlr.RuleContext {
@@ -9239,20 +9239,20 @@ func (s *IndexOrSliceContext) ToStringTree(ruleNames []string, recog antlr.Recog
 }
 
 func (s *IndexOrSliceContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterIndexOrSlice(s)
 	}
 }
 
 func (s *IndexOrSliceContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitIndexOrSlice(s)
 	}
 }
 
-func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
+func (p *ArcParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 	localctx = NewIndexOrSliceContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 108, SlateParserRULE_indexOrSlice)
+	p.EnterRule(localctx, 108, ArcParserRULE_indexOrSlice)
 	var _la int
 
 	p.SetState(481)
@@ -9266,7 +9266,7 @@ func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(468)
-			p.Match(SlateParserLBRACKET)
+			p.Match(ArcParserLBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9278,7 +9278,7 @@ func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		}
 		{
 			p.SetState(470)
-			p.Match(SlateParserRBRACKET)
+			p.Match(ArcParserRBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9289,7 +9289,7 @@ func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(472)
-			p.Match(SlateParserLBRACKET)
+			p.Match(ArcParserLBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9311,7 +9311,7 @@ func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		}
 		{
 			p.SetState(476)
-			p.Match(SlateParserCOLON)
+			p.Match(ArcParserCOLON)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9333,7 +9333,7 @@ func (p *SlateParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		}
 		{
 			p.SetState(480)
-			p.Match(SlateParserRBRACKET)
+			p.Match(ArcParserRBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9381,13 +9381,13 @@ type FunctionCallSuffixContext struct {
 func NewEmptyFunctionCallSuffixContext() *FunctionCallSuffixContext {
 	var p = new(FunctionCallSuffixContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionCallSuffix
+	p.RuleIndex = ArcParserRULE_functionCallSuffix
 	return p
 }
 
 func InitEmptyFunctionCallSuffixContext(p *FunctionCallSuffixContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_functionCallSuffix
+	p.RuleIndex = ArcParserRULE_functionCallSuffix
 }
 
 func (*FunctionCallSuffixContext) IsFunctionCallSuffixContext() {}
@@ -9398,7 +9398,7 @@ func NewFunctionCallSuffixContext(parser antlr.Parser, parent antlr.ParserRuleCo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_functionCallSuffix
+	p.RuleIndex = ArcParserRULE_functionCallSuffix
 
 	return p
 }
@@ -9406,11 +9406,11 @@ func NewFunctionCallSuffixContext(parser antlr.Parser, parent antlr.ParserRuleCo
 func (s *FunctionCallSuffixContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *FunctionCallSuffixContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *FunctionCallSuffixContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *FunctionCallSuffixContext) ArgumentList() IArgumentListContext {
@@ -9438,26 +9438,26 @@ func (s *FunctionCallSuffixContext) ToStringTree(ruleNames []string, recog antlr
 }
 
 func (s *FunctionCallSuffixContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterFunctionCallSuffix(s)
 	}
 }
 
 func (s *FunctionCallSuffixContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitFunctionCallSuffix(s)
 	}
 }
 
-func (p *SlateParser) FunctionCallSuffix() (localctx IFunctionCallSuffixContext) {
+func (p *ArcParser) FunctionCallSuffix() (localctx IFunctionCallSuffixContext) {
 	localctx = NewFunctionCallSuffixContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 110, SlateParserRULE_functionCallSuffix)
+	p.EnterRule(localctx, 110, ArcParserRULE_functionCallSuffix)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(483)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -9479,7 +9479,7 @@ func (p *SlateParser) FunctionCallSuffix() (localctx IFunctionCallSuffixContext)
 	}
 	{
 		p.SetState(487)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -9527,13 +9527,13 @@ type PrimaryExpressionContext struct {
 func NewEmptyPrimaryExpressionContext() *PrimaryExpressionContext {
 	var p = new(PrimaryExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_primaryExpression
+	p.RuleIndex = ArcParserRULE_primaryExpression
 	return p
 }
 
 func InitEmptyPrimaryExpressionContext(p *PrimaryExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_primaryExpression
+	p.RuleIndex = ArcParserRULE_primaryExpression
 }
 
 func (*PrimaryExpressionContext) IsPrimaryExpressionContext() {}
@@ -9544,7 +9544,7 @@ func NewPrimaryExpressionContext(parser antlr.Parser, parent antlr.ParserRuleCon
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_primaryExpression
+	p.RuleIndex = ArcParserRULE_primaryExpression
 
 	return p
 }
@@ -9568,11 +9568,11 @@ func (s *PrimaryExpressionContext) Literal() ILiteralContext {
 }
 
 func (s *PrimaryExpressionContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SlateParserIDENTIFIER, 0)
+	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
 func (s *PrimaryExpressionContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *PrimaryExpressionContext) Expression() IExpressionContext {
@@ -9592,7 +9592,7 @@ func (s *PrimaryExpressionContext) Expression() IExpressionContext {
 }
 
 func (s *PrimaryExpressionContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *PrimaryExpressionContext) TypeCast() ITypeCastContext {
@@ -9636,20 +9636,20 @@ func (s *PrimaryExpressionContext) ToStringTree(ruleNames []string, recog antlr.
 }
 
 func (s *PrimaryExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterPrimaryExpression(s)
 	}
 }
 
 func (s *PrimaryExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitPrimaryExpression(s)
 	}
 }
 
-func (p *SlateParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
+func (p *ArcParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
 	localctx = NewPrimaryExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 112, SlateParserRULE_primaryExpression)
+	p.EnterRule(localctx, 112, ArcParserRULE_primaryExpression)
 	p.SetState(497)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -9657,29 +9657,29 @@ func (p *SlateParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserLBRACKET, SlateParserTEMPORAL_LITERAL, SlateParserFREQUENCY_LITERAL, SlateParserINTEGER_LITERAL, SlateParserFLOAT_LITERAL, SlateParserSTRING_LITERAL:
+	case ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(489)
 			p.Literal()
 		}
 
-	case SlateParserIDENTIFIER:
+	case ArcParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(490)
-			p.Match(SlateParserIDENTIFIER)
+			p.Match(ArcParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
 
-	case SlateParserLPAREN:
+	case ArcParserLPAREN:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(491)
-			p.Match(SlateParserLPAREN)
+			p.Match(ArcParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -9691,21 +9691,21 @@ func (p *SlateParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
 		}
 		{
 			p.SetState(493)
-			p.Match(SlateParserRPAREN)
+			p.Match(ArcParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
 
-	case SlateParserCHAN, SlateParserRECV_CHAN, SlateParserSEND_CHAN, SlateParserI8, SlateParserI16, SlateParserI32, SlateParserI64, SlateParserU8, SlateParserU16, SlateParserU32, SlateParserU64, SlateParserF32, SlateParserF64, SlateParserSTRING, SlateParserTIMESTAMP, SlateParserTIMESPAN, SlateParserSERIES:
+	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(495)
 			p.TypeCast()
 		}
 
-	case SlateParserNOW, SlateParserLEN:
+	case ArcParserNOW, ArcParserLEN:
 		p.EnterOuterAlt(localctx, 5)
 		{
 			p.SetState(496)
@@ -9755,13 +9755,13 @@ type TypeCastContext struct {
 func NewEmptyTypeCastContext() *TypeCastContext {
 	var p = new(TypeCastContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_typeCast
+	p.RuleIndex = ArcParserRULE_typeCast
 	return p
 }
 
 func InitEmptyTypeCastContext(p *TypeCastContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_typeCast
+	p.RuleIndex = ArcParserRULE_typeCast
 }
 
 func (*TypeCastContext) IsTypeCastContext() {}
@@ -9772,7 +9772,7 @@ func NewTypeCastContext(parser antlr.Parser, parent antlr.ParserRuleContext, inv
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_typeCast
+	p.RuleIndex = ArcParserRULE_typeCast
 
 	return p
 }
@@ -9796,7 +9796,7 @@ func (s *TypeCastContext) Type_() ITypeContext {
 }
 
 func (s *TypeCastContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *TypeCastContext) Expression() IExpressionContext {
@@ -9816,7 +9816,7 @@ func (s *TypeCastContext) Expression() IExpressionContext {
 }
 
 func (s *TypeCastContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *TypeCastContext) GetRuleContext() antlr.RuleContext {
@@ -9828,20 +9828,20 @@ func (s *TypeCastContext) ToStringTree(ruleNames []string, recog antlr.Recognize
 }
 
 func (s *TypeCastContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTypeCast(s)
 	}
 }
 
 func (s *TypeCastContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTypeCast(s)
 	}
 }
 
-func (p *SlateParser) TypeCast() (localctx ITypeCastContext) {
+func (p *ArcParser) TypeCast() (localctx ITypeCastContext) {
 	localctx = NewTypeCastContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 114, SlateParserRULE_typeCast)
+	p.EnterRule(localctx, 114, ArcParserRULE_typeCast)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(499)
@@ -9849,7 +9849,7 @@ func (p *SlateParser) TypeCast() (localctx ITypeCastContext) {
 	}
 	{
 		p.SetState(500)
-		p.Match(SlateParserLPAREN)
+		p.Match(ArcParserLPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -9861,7 +9861,7 @@ func (p *SlateParser) TypeCast() (localctx ITypeCastContext) {
 	}
 	{
 		p.SetState(502)
-		p.Match(SlateParserRPAREN)
+		p.Match(ArcParserRPAREN)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -9907,13 +9907,13 @@ type BuiltinFunctionContext struct {
 func NewEmptyBuiltinFunctionContext() *BuiltinFunctionContext {
 	var p = new(BuiltinFunctionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_builtinFunction
+	p.RuleIndex = ArcParserRULE_builtinFunction
 	return p
 }
 
 func InitEmptyBuiltinFunctionContext(p *BuiltinFunctionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_builtinFunction
+	p.RuleIndex = ArcParserRULE_builtinFunction
 }
 
 func (*BuiltinFunctionContext) IsBuiltinFunctionContext() {}
@@ -9924,7 +9924,7 @@ func NewBuiltinFunctionContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_builtinFunction
+	p.RuleIndex = ArcParserRULE_builtinFunction
 
 	return p
 }
@@ -9932,11 +9932,11 @@ func NewBuiltinFunctionContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *BuiltinFunctionContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *BuiltinFunctionContext) LEN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLEN, 0)
+	return s.GetToken(ArcParserLEN, 0)
 }
 
 func (s *BuiltinFunctionContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserLPAREN, 0)
+	return s.GetToken(ArcParserLPAREN, 0)
 }
 
 func (s *BuiltinFunctionContext) Expression() IExpressionContext {
@@ -9956,11 +9956,11 @@ func (s *BuiltinFunctionContext) Expression() IExpressionContext {
 }
 
 func (s *BuiltinFunctionContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(SlateParserRPAREN, 0)
+	return s.GetToken(ArcParserRPAREN, 0)
 }
 
 func (s *BuiltinFunctionContext) NOW() antlr.TerminalNode {
-	return s.GetToken(SlateParserNOW, 0)
+	return s.GetToken(ArcParserNOW, 0)
 }
 
 func (s *BuiltinFunctionContext) GetRuleContext() antlr.RuleContext {
@@ -9972,20 +9972,20 @@ func (s *BuiltinFunctionContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *BuiltinFunctionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterBuiltinFunction(s)
 	}
 }
 
 func (s *BuiltinFunctionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitBuiltinFunction(s)
 	}
 }
 
-func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
+func (p *ArcParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 	localctx = NewBuiltinFunctionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 116, SlateParserRULE_builtinFunction)
+	p.EnterRule(localctx, 116, ArcParserRULE_builtinFunction)
 	p.SetState(512)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -9993,11 +9993,11 @@ func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserLEN:
+	case ArcParserLEN:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(504)
-			p.Match(SlateParserLEN)
+			p.Match(ArcParserLEN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -10005,7 +10005,7 @@ func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 		}
 		{
 			p.SetState(505)
-			p.Match(SlateParserLPAREN)
+			p.Match(ArcParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -10017,18 +10017,18 @@ func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 		}
 		{
 			p.SetState(507)
-			p.Match(SlateParserRPAREN)
+			p.Match(ArcParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
 
-	case SlateParserNOW:
+	case ArcParserNOW:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(509)
-			p.Match(SlateParserNOW)
+			p.Match(ArcParserNOW)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -10036,7 +10036,7 @@ func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 		}
 		{
 			p.SetState(510)
-			p.Match(SlateParserLPAREN)
+			p.Match(ArcParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -10044,7 +10044,7 @@ func (p *SlateParser) BuiltinFunction() (localctx IBuiltinFunctionContext) {
 		}
 		{
 			p.SetState(511)
-			p.Match(SlateParserRPAREN)
+			p.Match(ArcParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -10094,13 +10094,13 @@ type LiteralContext struct {
 func NewEmptyLiteralContext() *LiteralContext {
 	var p = new(LiteralContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_literal
+	p.RuleIndex = ArcParserRULE_literal
 	return p
 }
 
 func InitEmptyLiteralContext(p *LiteralContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_literal
+	p.RuleIndex = ArcParserRULE_literal
 }
 
 func (*LiteralContext) IsLiteralContext() {}
@@ -10111,7 +10111,7 @@ func NewLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_literal
+	p.RuleIndex = ArcParserRULE_literal
 
 	return p
 }
@@ -10151,7 +10151,7 @@ func (s *LiteralContext) TemporalLiteral() ITemporalLiteralContext {
 }
 
 func (s *LiteralContext) STRING_LITERAL() antlr.TerminalNode {
-	return s.GetToken(SlateParserSTRING_LITERAL, 0)
+	return s.GetToken(ArcParserSTRING_LITERAL, 0)
 }
 
 func (s *LiteralContext) SeriesLiteral() ISeriesLiteralContext {
@@ -10179,20 +10179,20 @@ func (s *LiteralContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 }
 
 func (s *LiteralContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterLiteral(s)
 	}
 }
 
 func (s *LiteralContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitLiteral(s)
 	}
 }
 
-func (p *SlateParser) Literal() (localctx ILiteralContext) {
+func (p *ArcParser) Literal() (localctx ILiteralContext) {
 	localctx = NewLiteralContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 118, SlateParserRULE_literal)
+	p.EnterRule(localctx, 118, ArcParserRULE_literal)
 	p.SetState(518)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -10200,32 +10200,32 @@ func (p *SlateParser) Literal() (localctx ILiteralContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SlateParserINTEGER_LITERAL, SlateParserFLOAT_LITERAL:
+	case ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(514)
 			p.NumericLiteral()
 		}
 
-	case SlateParserTEMPORAL_LITERAL, SlateParserFREQUENCY_LITERAL:
+	case ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(515)
 			p.TemporalLiteral()
 		}
 
-	case SlateParserSTRING_LITERAL:
+	case ArcParserSTRING_LITERAL:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(516)
-			p.Match(SlateParserSTRING_LITERAL)
+			p.Match(ArcParserSTRING_LITERAL)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
 
-	case SlateParserLBRACKET:
+	case ArcParserLBRACKET:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(517)
@@ -10273,13 +10273,13 @@ type NumericLiteralContext struct {
 func NewEmptyNumericLiteralContext() *NumericLiteralContext {
 	var p = new(NumericLiteralContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_numericLiteral
+	p.RuleIndex = ArcParserRULE_numericLiteral
 	return p
 }
 
 func InitEmptyNumericLiteralContext(p *NumericLiteralContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_numericLiteral
+	p.RuleIndex = ArcParserRULE_numericLiteral
 }
 
 func (*NumericLiteralContext) IsNumericLiteralContext() {}
@@ -10290,7 +10290,7 @@ func NewNumericLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContex
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_numericLiteral
+	p.RuleIndex = ArcParserRULE_numericLiteral
 
 	return p
 }
@@ -10298,11 +10298,11 @@ func NewNumericLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContex
 func (s *NumericLiteralContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *NumericLiteralContext) INTEGER_LITERAL() antlr.TerminalNode {
-	return s.GetToken(SlateParserINTEGER_LITERAL, 0)
+	return s.GetToken(ArcParserINTEGER_LITERAL, 0)
 }
 
 func (s *NumericLiteralContext) FLOAT_LITERAL() antlr.TerminalNode {
-	return s.GetToken(SlateParserFLOAT_LITERAL, 0)
+	return s.GetToken(ArcParserFLOAT_LITERAL, 0)
 }
 
 func (s *NumericLiteralContext) GetRuleContext() antlr.RuleContext {
@@ -10314,20 +10314,20 @@ func (s *NumericLiteralContext) ToStringTree(ruleNames []string, recog antlr.Rec
 }
 
 func (s *NumericLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterNumericLiteral(s)
 	}
 }
 
 func (s *NumericLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitNumericLiteral(s)
 	}
 }
 
-func (p *SlateParser) NumericLiteral() (localctx INumericLiteralContext) {
+func (p *ArcParser) NumericLiteral() (localctx INumericLiteralContext) {
 	localctx = NewNumericLiteralContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 120, SlateParserRULE_numericLiteral)
+	p.EnterRule(localctx, 120, ArcParserRULE_numericLiteral)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -10335,7 +10335,7 @@ func (p *SlateParser) NumericLiteral() (localctx INumericLiteralContext) {
 		p.SetState(520)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(_la == SlateParserINTEGER_LITERAL || _la == SlateParserFLOAT_LITERAL) {
+		if !(_la == ArcParserINTEGER_LITERAL || _la == ArcParserFLOAT_LITERAL) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -10379,13 +10379,13 @@ type TemporalLiteralContext struct {
 func NewEmptyTemporalLiteralContext() *TemporalLiteralContext {
 	var p = new(TemporalLiteralContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_temporalLiteral
+	p.RuleIndex = ArcParserRULE_temporalLiteral
 	return p
 }
 
 func InitEmptyTemporalLiteralContext(p *TemporalLiteralContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_temporalLiteral
+	p.RuleIndex = ArcParserRULE_temporalLiteral
 }
 
 func (*TemporalLiteralContext) IsTemporalLiteralContext() {}
@@ -10396,7 +10396,7 @@ func NewTemporalLiteralContext(parser antlr.Parser, parent antlr.ParserRuleConte
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_temporalLiteral
+	p.RuleIndex = ArcParserRULE_temporalLiteral
 
 	return p
 }
@@ -10404,11 +10404,11 @@ func NewTemporalLiteralContext(parser antlr.Parser, parent antlr.ParserRuleConte
 func (s *TemporalLiteralContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *TemporalLiteralContext) TEMPORAL_LITERAL() antlr.TerminalNode {
-	return s.GetToken(SlateParserTEMPORAL_LITERAL, 0)
+	return s.GetToken(ArcParserTEMPORAL_LITERAL, 0)
 }
 
 func (s *TemporalLiteralContext) FREQUENCY_LITERAL() antlr.TerminalNode {
-	return s.GetToken(SlateParserFREQUENCY_LITERAL, 0)
+	return s.GetToken(ArcParserFREQUENCY_LITERAL, 0)
 }
 
 func (s *TemporalLiteralContext) GetRuleContext() antlr.RuleContext {
@@ -10420,20 +10420,20 @@ func (s *TemporalLiteralContext) ToStringTree(ruleNames []string, recog antlr.Re
 }
 
 func (s *TemporalLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterTemporalLiteral(s)
 	}
 }
 
 func (s *TemporalLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitTemporalLiteral(s)
 	}
 }
 
-func (p *SlateParser) TemporalLiteral() (localctx ITemporalLiteralContext) {
+func (p *ArcParser) TemporalLiteral() (localctx ITemporalLiteralContext) {
 	localctx = NewTemporalLiteralContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 122, SlateParserRULE_temporalLiteral)
+	p.EnterRule(localctx, 122, ArcParserRULE_temporalLiteral)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -10441,7 +10441,7 @@ func (p *SlateParser) TemporalLiteral() (localctx ITemporalLiteralContext) {
 		p.SetState(522)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(_la == SlateParserTEMPORAL_LITERAL || _la == SlateParserFREQUENCY_LITERAL) {
+		if !(_la == ArcParserTEMPORAL_LITERAL || _la == ArcParserFREQUENCY_LITERAL) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -10486,13 +10486,13 @@ type SeriesLiteralContext struct {
 func NewEmptySeriesLiteralContext() *SeriesLiteralContext {
 	var p = new(SeriesLiteralContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_seriesLiteral
+	p.RuleIndex = ArcParserRULE_seriesLiteral
 	return p
 }
 
 func InitEmptySeriesLiteralContext(p *SeriesLiteralContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_seriesLiteral
+	p.RuleIndex = ArcParserRULE_seriesLiteral
 }
 
 func (*SeriesLiteralContext) IsSeriesLiteralContext() {}
@@ -10503,7 +10503,7 @@ func NewSeriesLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContext
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_seriesLiteral
+	p.RuleIndex = ArcParserRULE_seriesLiteral
 
 	return p
 }
@@ -10511,11 +10511,11 @@ func NewSeriesLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContext
 func (s *SeriesLiteralContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *SeriesLiteralContext) LBRACKET() antlr.TerminalNode {
-	return s.GetToken(SlateParserLBRACKET, 0)
+	return s.GetToken(ArcParserLBRACKET, 0)
 }
 
 func (s *SeriesLiteralContext) RBRACKET() antlr.TerminalNode {
-	return s.GetToken(SlateParserRBRACKET, 0)
+	return s.GetToken(ArcParserRBRACKET, 0)
 }
 
 func (s *SeriesLiteralContext) ExpressionList() IExpressionListContext {
@@ -10543,26 +10543,26 @@ func (s *SeriesLiteralContext) ToStringTree(ruleNames []string, recog antlr.Reco
 }
 
 func (s *SeriesLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterSeriesLiteral(s)
 	}
 }
 
 func (s *SeriesLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitSeriesLiteral(s)
 	}
 }
 
-func (p *SlateParser) SeriesLiteral() (localctx ISeriesLiteralContext) {
+func (p *ArcParser) SeriesLiteral() (localctx ISeriesLiteralContext) {
 	localctx = NewSeriesLiteralContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 124, SlateParserRULE_seriesLiteral)
+	p.EnterRule(localctx, 124, ArcParserRULE_seriesLiteral)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(524)
-		p.Match(SlateParserLBRACKET)
+		p.Match(ArcParserLBRACKET)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -10584,7 +10584,7 @@ func (p *SlateParser) SeriesLiteral() (localctx ISeriesLiteralContext) {
 	}
 	{
 		p.SetState(528)
-		p.Match(SlateParserRBRACKET)
+		p.Match(ArcParserRBRACKET)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -10629,13 +10629,13 @@ type ExpressionListContext struct {
 func NewEmptyExpressionListContext() *ExpressionListContext {
 	var p = new(ExpressionListContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_expressionList
+	p.RuleIndex = ArcParserRULE_expressionList
 	return p
 }
 
 func InitEmptyExpressionListContext(p *ExpressionListContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = SlateParserRULE_expressionList
+	p.RuleIndex = ArcParserRULE_expressionList
 }
 
 func (*ExpressionListContext) IsExpressionListContext() {}
@@ -10646,7 +10646,7 @@ func NewExpressionListContext(parser antlr.Parser, parent antlr.ParserRuleContex
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = SlateParserRULE_expressionList
+	p.RuleIndex = ArcParserRULE_expressionList
 
 	return p
 }
@@ -10695,11 +10695,11 @@ func (s *ExpressionListContext) Expression(i int) IExpressionContext {
 }
 
 func (s *ExpressionListContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SlateParserCOMMA)
+	return s.GetTokens(ArcParserCOMMA)
 }
 
 func (s *ExpressionListContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SlateParserCOMMA, i)
+	return s.GetToken(ArcParserCOMMA, i)
 }
 
 func (s *ExpressionListContext) GetRuleContext() antlr.RuleContext {
@@ -10711,20 +10711,20 @@ func (s *ExpressionListContext) ToStringTree(ruleNames []string, recog antlr.Rec
 }
 
 func (s *ExpressionListContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.EnterExpressionList(s)
 	}
 }
 
 func (s *ExpressionListContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SlateParserListener); ok {
+	if listenerT, ok := listener.(ArcParserListener); ok {
 		listenerT.ExitExpressionList(s)
 	}
 }
 
-func (p *SlateParser) ExpressionList() (localctx IExpressionListContext) {
+func (p *ArcParser) ExpressionList() (localctx IExpressionListContext) {
 	localctx = NewExpressionListContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 126, SlateParserRULE_expressionList)
+	p.EnterRule(localctx, 126, ArcParserRULE_expressionList)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -10739,10 +10739,10 @@ func (p *SlateParser) ExpressionList() (localctx IExpressionListContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == SlateParserCOMMA {
+	for _la == ArcParserCOMMA {
 		{
 			p.SetState(531)
-			p.Match(SlateParserCOMMA)
+			p.Match(ArcParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit

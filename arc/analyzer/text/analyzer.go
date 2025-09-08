@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package analyzer
+package text
 
 import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -27,7 +27,7 @@ type Options struct {
 type Result = result.Result
 
 func Analyze(
-	prog parser.IProgramContext,
+	prog text.IProgramContext,
 	opts Options,
 ) Result {
 	rootScope := symbol.CreateRoot(opts.Resolver)
@@ -81,7 +81,7 @@ func Analyze(
 }
 
 func AnalyzeStatement(
-	stmt parser.IStatementContext,
+	stmt text.IStatementContext,
 	opts Options,
 ) Result {
 	scope := symbol.CreateRoot(opts.Resolver)
@@ -91,7 +91,7 @@ func AnalyzeStatement(
 }
 
 func AnalyzeBlock(
-	block parser.IBlockContext,
+	block text.IBlockContext,
 	opts Options,
 ) Result {
 	scope := symbol.CreateRoot(opts.Resolver)
@@ -104,7 +104,7 @@ func AnalyzeBlock(
 func analyzeFunctionDeclaration(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	fn parser.IFunctionDeclarationContext,
+	fn text.IFunctionDeclarationContext,
 ) bool {
 	name := fn.IDENTIFIER().GetText()
 	fnScope, err := parentScope.Resolve(name)
@@ -147,7 +147,7 @@ func analyzeFunctionDeclaration(
 func analyzeParams(
 	scope *symbol.Scope,
 	result *result.Result,
-	params parser.IParameterListContext,
+	params text.IParameterListContext,
 	paramTypes *types.OrderedMap[string, types.Type],
 ) bool {
 	if params == nil {
@@ -182,7 +182,7 @@ func analyzeParams(
 }
 
 // blockAlwaysReturns checks if a block always returns a value on all execution paths
-func blockAlwaysReturns(block parser.IBlockContext) bool {
+func blockAlwaysReturns(block text.IBlockContext) bool {
 	if block == nil {
 		return false
 	}
@@ -233,7 +233,7 @@ func blockAlwaysReturns(block parser.IBlockContext) bool {
 func analyzeTaskDeclaration(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	task parser.ITaskDeclarationContext,
+	task text.ITaskDeclarationContext,
 ) bool {
 	name := task.IDENTIFIER().GetText()
 	taskScope, err := parentScope.Resolve(name)

@@ -12,9 +12,8 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,7 +22,7 @@ import (
 var _ = Describe("Expressions", func() {
 	Describe("Binary Expressions", func() {
 		It("Should validate add expressions on numeric types", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -33,19 +32,19 @@ var _ = Describe("Expressions", func() {
 						u := x / y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should reject arithmetic operations on strings", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x string := "hello"
 						y string := "world"
 						z := x + y
 					}
 				`))
-			res := analyzer.Analyze(ast, analyzer.Options{})
+			res := text.Analyze(ast, text.Options{})
 			Expect(res.Ok()).To(BeFalse())
 			Expect(res.Diagnostics).To(HaveLen(1))
 			first := res.Diagnostics[0]
@@ -54,20 +53,20 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject mixed type arithmetic", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y f32 := 20.5
 						z := x + y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
 		It("Should validate comparison operations", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -79,42 +78,42 @@ var _ = Describe("Expressions", func() {
 						f := x != y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should reject mixed type comparisons", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				func testFunc() {
 					x i32 := 10
 					y u32 := 20
 					z := x > y
 				}`,
 			))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
 		})
 
 		It("Should allow for comparison of a floating point variable with an integer literal", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				func testFunc() {
 					x f32 := 10
 					z := x > 5
 				}`,
 			))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should not allow comparison of an integer variable with a floating point literal", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			func testFunc() {
 				x i32 := 10
 				z := x > 5.0
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Ok()).To(BeFalse())
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
@@ -122,7 +121,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate logical operations on booleans", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						a u8 := 0
 						b u8 := 1
@@ -130,51 +129,51 @@ var _ = Describe("Expressions", func() {
 						d := a || b
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should reject logical AND operations on non-booleans", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
 						z := x && y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
 		})
 
 		It("Should reject logical OR operations on non-booleans", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 					x i32 := 10
 					y i32 := 20
 					z := x || y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 		})
 
 		It("Should validate modulo operation on integers", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 3
 						z := x % y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
 
 	Describe("Unary Expressions", func() {
 		It("Should validate unary negation on numeric types", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := -x
@@ -182,41 +181,41 @@ var _ = Describe("Expressions", func() {
 						w := -z
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should reject unary negation on non-numeric types", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x string := "hello"
 						y := -x
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator - not supported for type string"))
 		})
 
 		It("Should validate logical not on booleans", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x u8 := 1
 						y := !x
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should reject logical not on non-booleans", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := !x
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
 		})
@@ -224,55 +223,55 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Literal Expressions", func() {
 		It("Should correctly type integer literals", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x := 42
 						y i32 := 100
 						z i64 := 1000000
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should correctly type float literals", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x := 3.14
 						y f32 := 2.718
 						z f64 := 1.414213
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should correctly type string literals", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x := "hello world"
 						y string := "test"
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should correctly type boolean literals", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x := 1
 						y u8 := 1
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
 
 	Describe("Complex Expressions", func() {
 		It("Should handle nested binary expressions with correct precedence", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -281,12 +280,12 @@ var _ = Describe("Expressions", func() {
 						result2 := (x + y) * z
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should handle mixed arithmetic and comparison operations", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -294,12 +293,12 @@ var _ = Describe("Expressions", func() {
 						result := x + y < z
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should handle chained logical operations", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						a u8 := 1
 						b u8 := 0
@@ -308,12 +307,12 @@ var _ = Describe("Expressions", func() {
 						result2 := a || b && c
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should validate complex mixed expressions", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -323,12 +322,12 @@ var _ = Describe("Expressions", func() {
 						result := a && b || (x + y == z)
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should detect type errors in complex expressions", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y string := "20"
@@ -336,14 +335,14 @@ var _ = Describe("Expressions", func() {
 						result := x + y * z
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).ToNot(HaveLen(0))
 		})
 	})
 
 	Describe("Function Call Expressions", func() {
 		It("Should validate function calls with correct arguments", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func add(x i32, y i32) i32 {
 						return x + y
 					}
@@ -352,23 +351,23 @@ var _ = Describe("Expressions", func() {
 						result := add(10, 20)
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should detect undefined function calls", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						result := undefinedFunc(10, 20)
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedFunc"))
 		})
 
 		It("Should handle nested function calls", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func double(x i32) i32 {
 						return x * 2
 					}
@@ -381,36 +380,36 @@ var _ = Describe("Expressions", func() {
 						result := add(double(5), double(10))
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
 
 	Describe("Variable Reference Expressions", func() {
 		It("Should resolve local variables correctly", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := x + 5
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should detect undefined variable references", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						y := undefinedVar + 5
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
 
 		It("Should not allow shadowing", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i32 := 10
 						if x > 0 {
@@ -419,46 +418,46 @@ var _ = Describe("Expressions", func() {
 						}
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 3, col 6"))
 		})
 
 		It("Should resolve function parameters correctly", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc(x i32, y i32) i32 {
 						return x + y
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
 
 	Describe("Edge Cases", func() {
 		It("Should handle empty expressions gracefully", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should handle very deeply nested expressions", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 					func testFunc() {
 						x i64 := ((((1 + 2) * 3) - 4) / 5) % 6
 					}
 				`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
 
 	Describe("Channels in Expressions", func() {
 		It("Should correctly resolve an instantaneous channel read an an expression", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
@@ -475,12 +474,12 @@ var _ = Describe("Expressions", func() {
 					Type: types.Chan{ValueType: types.I32{}},
 				},
 			}
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Ok()).To(BeTrue())
 		})
 
 		It("Should return an error when channels with mismatched types are used in arithmetic operations", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
@@ -497,7 +496,7 @@ var _ = Describe("Expressions", func() {
 					Type: types.Chan{ValueType: types.F32{}},
 				},
 			}
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Ok()).To(BeFalse())
 			Expect(result.Diagnostics).To(HaveLen(1))
 			firstDiag := result.Diagnostics[0]
@@ -505,7 +504,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should not return an error when adding a channel to a variable of the same type", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 				func testFunc() i32 {
 					return ox_pt_1 + 2
 				}
@@ -517,7 +516,7 @@ var _ = Describe("Expressions", func() {
 					Type: types.Chan{ValueType: types.I32{}},
 				},
 			}
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Ok()).To(BeTrue())
 		})
 	})

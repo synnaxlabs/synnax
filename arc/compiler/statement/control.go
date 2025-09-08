@@ -22,7 +22,7 @@ import (
 // compileIfStatement compiles if/else-if/else chains
 func compileIfStatement(
 	ctx *core.Context,
-	ifStmt parser.IIfStatementContext,
+	ifStmt text.IIfStatementContext,
 ) error {
 	// Compile the condition expression
 	if _, err := expression.Compile(ctx, ifStmt.Expression(), nil); err != nil {
@@ -78,7 +78,7 @@ func compileIfStatement(
 }
 
 // compileReturnStatement compiles return statements
-func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContext) error {
+func compileReturnStatement(ctx *core.Context, ret text.IReturnStatementContext) error {
 	expr := ret.Expression()
 	defer ctx.Writer.WriteReturn()
 	if expr == nil {
@@ -110,7 +110,7 @@ func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContex
 }
 
 // compileChannelOperation handles channel writes and piping
-func compileChannelOperation(ctx *core.Context, chanOp parser.IChannelOperationContext) error {
+func compileChannelOperation(ctx *core.Context, chanOp text.IChannelOperationContext) error {
 	if chanWrite := chanOp.ChannelWrite(); chanWrite != nil {
 		return compileChannelWrite(ctx, chanWrite)
 	}
@@ -123,11 +123,11 @@ func compileChannelOperation(ctx *core.Context, chanOp parser.IChannelOperationC
 }
 
 // compileChannelWrite handles value -> channel or channel <- value
-func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) error {
+func compileChannelWrite(ctx *core.Context, write text.IChannelWriteContext) error {
 	// Grammar: Expression '->' Identifier | Identifier '<-' Expression
 
 	var channelName string
-	var valueExpr parser.IExpressionContext
+	var valueExpr text.IExpressionContext
 
 	// Determine which form we have
 	if write.Expression() != nil && write.IDENTIFIER() != nil {
@@ -167,14 +167,14 @@ func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) e
 }
 
 // compileChannelRead handles blocking reads: x := <-channel
-func compileChannelRead(ctx *core.Context, read parser.IChannelReadContext) error {
+func compileChannelRead(ctx *core.Context, read text.IChannelReadContext) error {
 	// This is handled as part of variable declaration
 	// The parser should not give us standalone channel reads as statements
 	return errors.New("standalone channel reads not implemented")
 }
 
 // compileFunctionCall handles function calls (may return a value)
-func compileFunctionCall(ctx *core.Context, call parser.IFunctionCallContext) (types.Type, error) {
+func compileFunctionCall(ctx *core.Context, call text.IFunctionCallContext) (types.Type, error) {
 	// TODO: Implement function calls
 	return nil, errors.New("function calls not yet implemented")
 }

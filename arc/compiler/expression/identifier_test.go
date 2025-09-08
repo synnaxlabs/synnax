@@ -36,7 +36,7 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.I32{}}))
 			MustSucceed(ctx.Scope.Add(symbol.Symbol{Name: "b", Kind: symbol.KindVariable, Type: types.I32{}}))
 			// Compile expression using both variables
-			expr := MustSucceed(parser.ParseExpression("a + b"))
+			expr := MustSucceed(text.ParseExpression("a + b"))
 			exprType := MustSucceed(expression.Compile(ctx, expr, nil))
 			bytecode := ctx.Writer.Bytes()
 			expected := WASM(

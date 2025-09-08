@@ -16,7 +16,7 @@ import (
 )
 
 // InferFromTypeContext infers a types.Type from a parser type context
-func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
+func InferFromTypeContext(ctx text.ITypeContext) (types.Type, error) {
 	if ctx == nil {
 		return nil, nil
 	}
@@ -32,7 +32,7 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	return nil, errors.New("unknown type")
 }
 
-func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
+func inferPrimitiveType(ctx text.IPrimitiveTypeContext) (types.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
@@ -42,7 +42,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	return nil, errors.New("unknown primitive type")
 }
 
-func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
+func inferNumericType(ctx text.INumericTypeContext) (types.Type, error) {
 	if integer := ctx.IntegerType(); integer != nil {
 		return inferIntegerType(integer)
 	}
@@ -55,7 +55,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	return nil, errors.New("unknown numeric type")
 }
 
-func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
+func inferTemporalType(ctx text.ITemporalTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "timestamp":
@@ -67,7 +67,7 @@ func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
 	}
 }
 
-func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
+func inferIntegerType(ctx text.IIntegerTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "i8":
@@ -91,7 +91,7 @@ func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	}
 }
 
-func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
+func inferFloatType(ctx text.IFloatTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "f32":
@@ -103,7 +103,7 @@ func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	}
 }
 
-func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
+func inferChannelType(ctx text.IChannelTypeContext) (types.Type, error) {
 	var valueType types.Type
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
@@ -117,7 +117,7 @@ func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
 	return types.Chan{ValueType: valueType}, nil
 }
 
-func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
+func inferSeriesType(ctx text.ISeriesTypeContext) (types.Type, error) {
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err := inferPrimitiveType(primitive)
 		if err != nil {

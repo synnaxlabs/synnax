@@ -12,8 +12,7 @@ package flow_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -67,35 +66,35 @@ var resolver = symbol.MapResolver{
 var _ = Describe("Flow Statements", func() {
 	Describe("Channel to Task Flows", func() {
 		It("Should parse simple channel to task flow", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 once{} -> processor{}
 `))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should return an error when once of the tasks being called is not defined", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			once{} -> processor{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{})
+			result := text.Analyze(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("undefined symbol: once"))
 		})
 
 		It("Should return an error when one of the symbols being called is not a task", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			func dog() {
 			}
 			once{} -> dog{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("dog is not a task"))
 		})
 
 		It("Should verify task config parameters match the expected signature types", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task controller{
 				setpoint f64
 				input <-chan f64
@@ -114,12 +113,12 @@ once{} -> processor{}
 				output: output_chan
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should detect when task is invoked with missing required parameters", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task filter{
 				threshold f64
 				input <-chan f64
@@ -136,7 +135,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
 			Expect(result.Diagnostics[0].Message).To(Or(
@@ -146,7 +145,7 @@ once{} -> processor{}
 		})
 
 		It("Should detect when task is invoked with extra parameters not in signature", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task simple{
 				input <-chan f64
 			} () {
@@ -159,13 +158,13 @@ once{} -> processor{}
 				extra: 42.0
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("unknown config parameter 'extra' for task 'simple'"))
 		})
 
 		It("Should detect type mismatch in task config parameters", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task typed_task{
 				threshold f64
 				count u32
@@ -189,7 +188,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			// Should have at least one type mismatch error
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			// Check that at least one error mentions type mismatch
@@ -204,7 +203,7 @@ once{} -> processor{}
 		})
 
 		It("Should accept correct types for task config parameters", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task typed_task{
 				threshold f64
 				count u32
@@ -225,12 +224,12 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should allow channels as both sources and targets in flow statements", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task process{
 				input <-chan f64
 				output ->chan f64
@@ -256,12 +255,12 @@ once{} -> processor{}
 				output: output_chan
 			} -> valve_cmd
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should understand channel pass-through triggers tasks on new values", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task logger{
 				value <-chan f64
 			} () {
@@ -290,12 +289,12 @@ once{} -> processor{}
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should implicitly convert channel sources to on{channel} task invocations", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task display{
 				input <-chan f64
 			} () {
@@ -310,7 +309,7 @@ once{} -> processor{}
 			// on{channel: sensor_chan} -> display{input: sensor_chan}
 			// Where "on" is a stdlib task that triggers when the channel receives a value
 			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
 			// The analyzer should have converted the channel source to an "on" task
@@ -327,7 +326,7 @@ once{} -> processor{}
 				},
 			}
 
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 			task display{
 				input <-chan f64
 			} () {
@@ -338,12 +337,12 @@ once{} -> processor{}
 			sensor_chan -> display{input: sensor_chan}
 			`))
 
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: noOnResolver})
+			result := text.Analyze(ast, text.Options{Resolver: noOnResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should convert expressions in flow statements to anonymous tasks", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 task alarm{} () {}
 task logger{} () {}
 
@@ -358,13 +357,13 @@ sensor_chan > 100 -> alarm{}
 (sensor_chan * 1.8) + 32.0 -> logger{}
 			`))
 
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			// The expressions should be validated successfully
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should validate that expressions in flows only reference channels and literals", func() {
-			ast := MustSucceed(parser.Parse(`
+			ast := MustSucceed(text.Parse(`
 task alarm{} () {}
 
 func setup() {
@@ -376,7 +375,7 @@ func setup() {
 sensor_chan > threshold -> alarm{}
 			`))
 
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			result := text.Analyze(ast, text.Options{Resolver: resolver})
 			// Should have an error about undefined symbol 'threshold'
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			foundError := false

@@ -23,7 +23,7 @@ func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	return exprs
 }
 
-func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
+func validateNonZero(expr text.IUnaryExpressionContext, opName string) {
 	if expr == nil {
 		panic(errors.Newf("cannot compile an empty %s expression", opName))
 	}
@@ -32,7 +32,7 @@ func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
 // Compile compiles an expression and returns its type
 func Compile(
 	ctx *core.Context,
-	expr parser.IExpressionContext,
+	expr text.IExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	// Main dispatch based on expression type. Grammar builds expressions in layres
@@ -62,7 +62,7 @@ func Compile(
 // compileLogicalOr handles || operations
 func compileLogicalOr(
 	ctx *core.Context,
-	expr parser.ILogicalOrExpressionContext,
+	expr text.ILogicalOrExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	ands := validateNonZeroArray(expr.AllLogicalAndExpression(), "logical OR")
@@ -75,7 +75,7 @@ func compileLogicalOr(
 // compileLogicalAnd handles && operations
 func compileLogicalAnd(
 	ctx *core.Context,
-	expr parser.ILogicalAndExpressionContext,
+	expr text.ILogicalAndExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	eqs := validateNonZeroArray(expr.AllEqualityExpression(), "logical AND")
@@ -88,7 +88,7 @@ func compileLogicalAnd(
 // compileEquality handles == and != operations
 func compileEquality(
 	ctx *core.Context,
-	expr parser.IEqualityExpressionContext,
+	expr text.IEqualityExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	rels := validateNonZeroArray(expr.AllRelationalExpression(), "equality")
@@ -99,7 +99,7 @@ func compileEquality(
 }
 
 // compileRelational handles <, >, <=, >= operations
-func compileRelational(ctx *core.Context, expr parser.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
+func compileRelational(ctx *core.Context, expr text.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
 	adds := validateNonZeroArray(expr.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
 		return compileAdditive(ctx, adds[0], hint)
@@ -108,7 +108,7 @@ func compileRelational(ctx *core.Context, expr parser.IRelationalExpressionConte
 }
 
 // compileAdditive handles + and - operations.
-func compileAdditive(ctx *core.Context, expr parser.IAdditiveExpressionContext, hint types.Type) (types.Type, error) {
+func compileAdditive(ctx *core.Context, expr text.IAdditiveExpressionContext, hint types.Type) (types.Type, error) {
 	muls := validateNonZeroArray(expr.AllMultiplicativeExpression(), "additive")
 	if len(muls) == 1 {
 		return compileMultiplicative(ctx, muls[0], hint)
@@ -119,7 +119,7 @@ func compileAdditive(ctx *core.Context, expr parser.IAdditiveExpressionContext, 
 // compileMultiplicative handles *, /, and % operations
 func compileMultiplicative(
 	ctx *core.Context,
-	expr parser.IMultiplicativeExpressionContext,
+	expr text.IMultiplicativeExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	pows := validateNonZeroArray(expr.AllPowerExpression(), "multiplicative")
@@ -130,7 +130,7 @@ func compileMultiplicative(
 }
 
 // compilePower handles ^ operations
-func compilePower(ctx *core.Context, expr parser.IPowerExpressionContext, hint types.Type) (types.Type, error) {
+func compilePower(ctx *core.Context, expr text.IPowerExpressionContext, hint types.Type) (types.Type, error) {
 	unary := expr.UnaryExpression()
 	validateNonZero(unary, "power")
 	if expr.CARET() != nil && expr.PowerExpression() != nil {
@@ -141,7 +141,7 @@ func compilePower(ctx *core.Context, expr parser.IPowerExpressionContext, hint t
 }
 
 // compilePostfix handles array indexing, slicing, and function calls
-func compilePostfix(ctx *core.Context, expr parser.IPostfixExpressionContext, hint types.Type) (types.Type, error) {
+func compilePostfix(ctx *core.Context, expr text.IPostfixExpressionContext, hint types.Type) (types.Type, error) {
 	primary := expr.PrimaryExpression()
 	if primary == nil {
 		return nil, errors.New("empty postfix expression")
@@ -154,7 +154,7 @@ func compilePostfix(ctx *core.Context, expr parser.IPostfixExpressionContext, hi
 }
 
 // compilePrimary handles literals, identifiers, parenthesized expressions, etc.
-func compilePrimary(ctx *core.Context, expr parser.IPrimaryExpressionContext, hint types.Type) (types.Type, error) {
+func compilePrimary(ctx *core.Context, expr text.IPrimaryExpressionContext, hint types.Type) (types.Type, error) {
 	if lit := expr.Literal(); lit != nil {
 		return compileLiteral(ctx, lit, hint)
 	}

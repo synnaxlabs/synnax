@@ -12,19 +12,18 @@ package module_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func assemble(source string, resolver symbol.Resolver) (*module.Module, error) {
-	prog, err := parser.Parse(source)
+	prog, err := text.Parse(source)
 	Expect(err).To(BeNil())
-	result := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+	result := text.Analyze(prog, text.Options{Resolver: resolver})
 	Expect(result.Diagnostics).To(BeEmpty())
 	wasmCode := MustSucceed(compiler.Compile(compiler.Config{Program: prog, Analysis: &result}))
 	return module.Assemble(prog, result, wasmCode)

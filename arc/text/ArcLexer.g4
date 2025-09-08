@@ -1,4 +1,4 @@
-lexer grammar SlateLexer;
+lexer grammar ArcLexer;
 
 // =============================================================================
 // Keywords

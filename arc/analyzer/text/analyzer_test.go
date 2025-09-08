@@ -1,11 +1,19 @@
-package analyzer_test
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package text_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -14,14 +22,14 @@ import (
 var _ = Describe("Analyzer", func() {
 	Describe("Duplicate Scope", func() {
 		It("Should correctly diagnose a duplicate function declaration", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 				}
 
 				func dog() {
 				}
 			`))
-			r := analyzer.Analyze(prog, analyzer.Options{})
+			r := text.Analyze(prog, text.Options{})
 			Expect(r.Diagnostics).To(HaveLen(1))
 			diagnostic := r.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
@@ -30,23 +38,23 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should correctly diagnose a variable declaration that shadows a function", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 					dog := 1
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			diagnostic := result.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 		})
 
 		It("Should correctly diagnose a function with duplicate parameter names", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog(age i32, age i32) {
 				}
 		`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			diagnostic := result.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
@@ -56,33 +64,33 @@ var _ = Describe("Analyzer", func() {
 	Describe("Declaration", func() {
 		Describe("Local", func() {
 			It("Should return an error diagnostic when a string is declared on an i32", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 					func cat() {
 						my_var i32 := "dog"
 					}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(1))
 				Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
 			})
 
 			It("Should allow compatible types in local variable declaration", func() {
-				ast := MustSucceed(parser.Parse(`
+				ast := MustSucceed(text.Parse(`
 				func testFunc() {
 					x i32 := 42
 				}
 				`))
-				result := analyzer.Analyze(ast, analyzer.Options{})
+				result := text.Analyze(ast, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 			})
 
 			It("Should infer types from an int literal", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				func testFunc() {
 					x := 42
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
@@ -95,12 +103,12 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should infer types from a float literal", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				func testFunc() {
 					x := 42.0
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
@@ -113,12 +121,12 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should automatically cast an int literal to a floating point type", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				func testFunc() {
 					x f32 := 42
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
@@ -131,12 +139,12 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should not allow assignment of a float literal to an int type", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				func testFunc() {
 					x i32 := 42.0
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Ok()).To(BeFalse())
 				Expect(result.Diagnostics).To(HaveLen(1))
 				first := result.Diagnostics[0]
@@ -144,12 +152,12 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should allow for variable declaration from a function parameter", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 					func testFunc(a i64) {
 						b := a
 					}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Ok()).To(BeTrue())
 				Expect(result.Diagnostics).To(HaveLen(0))
 			})
@@ -158,14 +166,14 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Assignment", func() {
 		It("Should return an error diagnostic when the variable being assigned to was not declared", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 					my_var i32 := 1
 					cat string := "abc"
 					bob = cat
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
@@ -174,28 +182,28 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error diagnostic when the variable on the right hand side is not declared", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 					my_var i32 := 1
 					cat string := "abc"
 					cat = bob
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 		})
 
 		It("Should return an error when assignment is attempted between incompatible types", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 					v1 i32 := 1
 					v2 string := "abc"
 					v2 = v1
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type string"))
@@ -205,12 +213,12 @@ var _ = Describe("Analyzer", func() {
 	Describe("Type Signatures", func() {
 		Describe("Functions", func() {
 			It("Should bind function parameter and return types to the function signature", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 					func add(x f64, y f64) f64 {
 						return x + y
 					}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("add"))
 				Expect(funcScope.ID).To(Equal(0))
@@ -239,7 +247,7 @@ var _ = Describe("Analyzer", func() {
 
 		Describe("Tasks", func() {
 			It("Should bind task config, runtime params and return types to the task signature", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				task controller{
 					setpoint f64
 					sensor <-chan f64
@@ -248,7 +256,7 @@ var _ = Describe("Analyzer", func() {
 					return 1.0
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Diagnostics).To(HaveLen(0))
 				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
 				Expect(taskScope.ID).To(Equal(0))
@@ -286,7 +294,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should correctly add read channels to the task", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				task controller{
 					setpoint f64
 				} (enable u8) u8 {
@@ -300,7 +308,7 @@ var _ = Describe("Analyzer", func() {
 						Type: types.Chan{ValueType: types.F64{}},
 					},
 				}
-				result := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+				result := text.Analyze(prog, text.Options{Resolver: resolver})
 				Expect(result.Ok()).To(BeTrue())
 				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
 				t := taskScope.Type.(types.Task)
@@ -308,7 +316,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should correctly bind channels passed as config parameters", func() {
-				prog := MustSucceed(parser.Parse(`
+				prog := MustSucceed(text.Parse(`
 				task controller{
 					setpoint f64
 					ox_pressure chan f64
@@ -316,7 +324,7 @@ var _ = Describe("Analyzer", func() {
 					return ox_pressure > setpoint
 				}
 				`))
-				result := analyzer.Analyze(prog, analyzer.Options{})
+				result := text.Analyze(prog, text.Options{})
 				Expect(result.Ok()).To(BeTrue())
 				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
 				t := taskScope.Type.(types.Task)
@@ -327,89 +335,89 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Return", func() {
 		It("Should return true for a valid return type on a function", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i64 {
 					return 12
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should correctly infer a literal return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i32 {
 					return 12
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should correctly infer an expression literal return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i32 {
 					return 1 + 1
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should return an error for a floating point literal on an integer return", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i32 {
 					return 1.0
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
 		})
 
 		It("Should not return an error for an integer literal on a floating point return", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() f32 {
 					return 12
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should return an error when there is a return statement on a void function", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() {
 					return 5
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("unexpected return value in function/task with void return type"))
 		})
 
 		It("Should return an error for a missing return with a function that has a return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() f64 {
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})
 
 		It("Should return an error for a function that doesn't have a return type on all code paths", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() f64 {
 					if (5 > 3) {
 						return 2.3
 					}
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
@@ -418,7 +426,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Control Flow", func() {
 		It("Should return no diagnostics for a valid if statement", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -427,12 +435,12 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should return the correct symbol table for an if-else statement", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i64 {
 					if 3 > 5 {
 						return 1
@@ -441,7 +449,7 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
@@ -454,7 +462,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return the correct symbol table for variables declared inside blocks", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -464,7 +472,7 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
@@ -480,7 +488,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return the correct symbol table for variables declared in blocks", func() {
-			prog := MustSucceed(parser.Parse(`
+			prog := MustSucceed(text.Parse(`
 				func dog(b i64) i64 {
 					a i64 := 2
 					if b == a {
@@ -493,7 +501,7 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
+			result := text.Analyze(prog, text.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))

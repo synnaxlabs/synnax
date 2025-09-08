@@ -23,7 +23,7 @@ import (
 func analyzeExpression(
 	scope *symbol.Scope,
 	res *result.Result,
-	expr parser.IExpressionContext,
+	expr text.IExpressionContext,
 ) bool {
 	exprType := atypes.InferFromExpression(scope, expr, nil)
 	// If the expression type is a channel, the task returns the channel's value type

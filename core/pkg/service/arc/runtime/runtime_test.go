@@ -5,10 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -68,8 +67,8 @@ var _ = Describe("Runtime", Ordered, func() {
 			},
 		}
 
-		prog := MustSucceed(parser.Parse(source))
-		analysis := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+		prog := MustSucceed(text.Parse(source))
+		analysis := text.Analyze(prog, text.Options{Resolver: resolver})
 		Expect(analysis.Ok()).To(BeTrue(), analysis.String())
 		wasmBytes := MustSucceed(compiler.Compile(compiler.Config{
 			Program:  prog,

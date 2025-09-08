@@ -1,10 +1,10 @@
-// Code generated from SlateParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package parser // SlateParser
+package text // ArcParser
 import "github.com/antlr4-go/antlr/v4"
 
-// SlateParserListener is a complete listener for a parse tree produced by SlateParser.
-type SlateParserListener interface {
+// ArcParserListener is a complete listener for a parse tree produced by ArcParser.
+type ArcParserListener interface {
 	antlr.ParseTreeListener
 
 	// EnterProgram is called when entering the program production.

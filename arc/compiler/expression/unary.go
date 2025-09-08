@@ -18,7 +18,7 @@ import (
 )
 
 // compileUnary handles unary -, !, and blocking read operations
-func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext, hint types.Type) (types.Type, error) {
+func compileUnary(ctx *core.Context, expr text.IUnaryExpressionContext, hint types.Type) (types.Type, error) {
 	if expr.MINUS() != nil {
 		innerType, err := compileUnary(ctx, expr.UnaryExpression(), hint)
 		if err != nil {

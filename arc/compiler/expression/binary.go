@@ -18,7 +18,7 @@ import (
 // compileBinaryAdditive handles + and - operations
 func compileBinaryAdditive(
 	ctx *core.Context,
-	expr parser.IAdditiveExpressionContext,
+	expr text.IAdditiveExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	muls := expr.AllMultiplicativeExpression()
@@ -55,7 +55,7 @@ func compileBinaryAdditive(
 // compileBinaryMultiplicative handles *, /, % operations
 func compileBinaryMultiplicative(
 	ctx *core.Context,
-	expr parser.IMultiplicativeExpressionContext,
+	expr text.IMultiplicativeExpressionContext,
 	hint types.Type,
 ) (types.Type, error) {
 	pows := expr.AllPowerExpression()
@@ -95,7 +95,7 @@ func compileBinaryMultiplicative(
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
+func compileBinaryRelational(ctx *core.Context, expr text.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
 	adds := expr.AllAdditiveExpression()
 
 	// Compile left operand
@@ -134,7 +134,7 @@ func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressio
 }
 
 // compileBinaryEquality handles == and != operations
-func compileBinaryEquality(ctx *core.Context, expr parser.IEqualityExpressionContext, hint types.Type) (types.Type, error) {
+func compileBinaryEquality(ctx *core.Context, expr text.IEqualityExpressionContext, hint types.Type) (types.Type, error) {
 	rels := expr.AllRelationalExpression()
 
 	// Compile left operand

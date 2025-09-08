@@ -13,8 +13,7 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -31,8 +30,8 @@ type assembler struct {
 
 // Assemble builds a complete Module from the parsed program and analyzed symbol scope
 func Assemble(
-	program parser.IProgramContext,
-	analysisResult analyzer.Result,
+	program text.IProgramContext,
+	analysisResult text.Result,
 	wasmModule []byte,
 ) (*Module, error) {
 	a := &assembler{
@@ -98,7 +97,7 @@ func (a *assembler) resolveTaskTypeByParserRule(rule antlr.ParserRuleContext) (t
 	return types.Assert[types.Task](sym.Type)
 }
 
-func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) error {
+func (a *assembler) extractTask(taskDecl text.ITaskDeclarationContext) error {
 	name := taskDecl.IDENTIFIER().GetText()
 	taskType, err := a.resolveTaskType(name)
 	if err != nil {
@@ -125,7 +124,7 @@ func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) error {
 	return nil
 }
 
-func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext) {
+func (a *assembler) extractFunction(funcDecl text.IFunctionDeclarationContext) {
 	name := funcDecl.IDENTIFIER().GetText()
 	sym, _ := a.scope.Resolve(name)
 	if sym == nil {
@@ -145,7 +144,7 @@ func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext)
 	a.functions = append(a.functions, function)
 }
 
-func (a *assembler) processFlow(flow parser.IFlowStatementContext) error {
+func (a *assembler) processFlow(flow text.IFlowStatementContext) error {
 	var prevHandle *Handle
 	for i, flowNode := range flow.AllFlowNode() {
 		handle, err := a.processFlowNode(flowNode)
@@ -163,7 +162,7 @@ func (a *assembler) processFlow(flow parser.IFlowStatementContext) error {
 	return nil
 }
 
-func (a *assembler) processFlowNode(node parser.IFlowNodeContext) (*Handle, error) {
+func (a *assembler) processFlowNode(node text.IFlowNodeContext) (*Handle, error) {
 	if channel := node.ChannelIdentifier(); channel != nil {
 		return a.processChannel(channel)
 	}
@@ -176,7 +175,7 @@ func (a *assembler) processFlowNode(node parser.IFlowNodeContext) (*Handle, erro
 	return nil, nil
 }
 
-func (a *assembler) processChannel(channel parser.IChannelIdentifierContext) (*Handle, error) {
+func (a *assembler) processChannel(channel text.IChannelIdentifierContext) (*Handle, error) {
 	name := channel.IDENTIFIER().GetText()
 	nodeKey := a.generateKey("on")
 	a.nodes[nodeKey] = &Node{
@@ -187,7 +186,7 @@ func (a *assembler) processChannel(channel parser.IChannelIdentifierContext) (*H
 	return &Handle{Node: nodeKey, Param: "output"}, nil
 }
 
-func extractConfigValues(values parser.IConfigValuesContext, taskType types.Task) map[string]any {
+func extractConfigValues(values text.IConfigValuesContext, taskType types.Task) map[string]any {
 	config := make(map[string]any)
 	if values == nil {
 		return config
@@ -206,7 +205,7 @@ func extractConfigValues(values parser.IConfigValuesContext, taskType types.Task
 	return config
 }
 
-func (a *assembler) processTask(task parser.ITaskInvocationContext) (*Handle, error) {
+func (a *assembler) processTask(task text.ITaskInvocationContext) (*Handle, error) {
 	var (
 		name    = task.IDENTIFIER().GetText()
 		nodeKey = a.generateKey(name)
@@ -227,7 +226,7 @@ func (a *assembler) processTask(task parser.ITaskInvocationContext) (*Handle, er
 	return &Handle{Node: nodeKey, Param: "output"}, nil
 }
 
-func (a *assembler) processExpression(expr parser.IExpressionContext) (*Handle, error) {
+func (a *assembler) processExpression(expr text.IExpressionContext) (*Handle, error) {
 	sym, err := a.scope.Root().GetChildByParserRule(expr)
 	if err != nil {
 		return nil, err
@@ -253,7 +252,7 @@ func (a *assembler) generateKey(prefix string) string {
 
 // getExpressionText extracts the text representation of an expression
 // In a full implementation, this would properly serialize the expression AST
-func getExpressionText(expr parser.IExpressionContext) string {
+func getExpressionText(expr text.IExpressionContext) string {
 	if expr == nil {
 		return ""
 	}

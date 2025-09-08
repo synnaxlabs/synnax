@@ -29,7 +29,7 @@ var _ = Describe("Statement", func() {
 	Describe("Variable Declaration", func() {
 		Describe("Local Variables", func() {
 			It("Should analyze a local variable with explicit type", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x i32 := 42`))
+				stmt := MustSucceed(text.ParseStatement(`x i32 := 42`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -41,7 +41,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should infer type from initializer", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x := 3.14`))
+				stmt := MustSucceed(text.ParseStatement(`x := 3.14`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -53,7 +53,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should detect type mismatch", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
+				stmt := MustSucceed(text.ParseStatement(`x i32 := "hello"`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -63,7 +63,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should detect duplicate variable declaration", func() {
-				stmt := MustSucceed(parser.ParseBlock(`{
+				stmt := MustSucceed(text.ParseBlock(`{
 					x := 1
 					x := 1
 				}`))
@@ -76,7 +76,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should detect undefined variable in initializer", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x := y + 1`))
+				stmt := MustSucceed(text.ParseStatement(`x := y + 1`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -88,7 +88,7 @@ var _ = Describe("Statement", func() {
 
 		Describe("Stateful Variables", func() {
 			It("Should analyze a stateful variable", func() {
-				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
+				stmt := MustSucceed(text.ParseStatement(`counter $= 0`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -101,7 +101,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should analyze stateful variable with explicit type", func() {
-				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
+				stmt := MustSucceed(text.ParseStatement(`total f32 $= 0.0`))
 				scope := createScope()
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -116,7 +116,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Assignment", func() {
 		It("Should analyze assignment to existing variable", func() {
-			stmt := MustSucceed(parser.ParseStatement(`x = 42`))
+			stmt := MustSucceed(text.ParseStatement(`x = 42`))
 			scope := createScope()
 			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
 			res := result.Result{Symbols: scope}
@@ -126,7 +126,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should detect assignment to undefined variable", func() {
-			stmt := MustSucceed(parser.ParseStatement(`x = 42`))
+			stmt := MustSucceed(text.ParseStatement(`x = 42`))
 			scope := createScope()
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
@@ -136,7 +136,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should detect type mismatch in assignment", func() {
-			stmt := MustSucceed(parser.ParseStatement(`x = "hello"`))
+			stmt := MustSucceed(text.ParseStatement(`x = "hello"`))
 			scope := createScope()
 			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}})
 			res := result.Result{Symbols: scope}
@@ -149,7 +149,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("If Statement", func() {
 		It("Should analyze simple if statement", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 1 {
+			stmt := MustSucceed(text.ParseStatement(`if 1 {
 				x := 42
 			}`))
 			scope := createScope()
@@ -160,7 +160,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should analyze if-else chain", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 0 {
+			stmt := MustSucceed(text.ParseStatement(`if 0 {
 				x := 1
 			} else if 1 {
 				y := 2
@@ -175,7 +175,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should detect undefined variable in condition", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if x > 10 {
+			stmt := MustSucceed(text.ParseStatement(`if x > 10 {
 				y := 1
 			}`))
 			scope := createScope()
@@ -187,7 +187,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should handle nested blocks with separate scopes", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 1 {
+			stmt := MustSucceed(text.ParseStatement(`if 1 {
 				x := 42
 				if 1 {
 					y := x + 1
@@ -203,7 +203,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Block", func() {
 		It("Should analyze multiple statements in a block", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			block := MustSucceed(text.ParseBlock(`{
 				x := 1
 				y := 2
 				z := x + y
@@ -216,7 +216,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should maintain variable visibility within block", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			block := MustSucceed(text.ParseBlock(`{
 				x := 1
 				y := x + 2
 				z := x + y
@@ -229,7 +229,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should detect errors in block statements", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			block := MustSucceed(text.ParseBlock(`{
 				x := 1
 				y := undefined
 			}`))
@@ -244,7 +244,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Expression Statement", func() {
 		It("Should analyze standalone expression", func() {
-			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
+			stmt := MustSucceed(text.ParseStatement(`x + 1`))
 			scope := createScope()
 			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
 			res := result.Result{Symbols: scope}
@@ -254,7 +254,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should detect errors in standalone expression", func() {
-			stmt := MustSucceed(parser.ParseStatement(`undefined_var + 1`))
+			stmt := MustSucceed(text.ParseStatement(`undefined_var + 1`))
 			scope := createScope()
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
@@ -278,21 +278,21 @@ var _ = Describe("Statement", func() {
 
 		Describe("Channel Writes", func() {
 			It("Should analyze basic channel write with arrow", func() {
-				stmt := MustSucceed(parser.ParseStatement(`42.0 -> output`))
+				stmt := MustSucceed(text.ParseStatement(`42.0 -> output`))
 				res := result.Result{Symbols: scope}
 				Expect(statement.Analyze(scope, &res, stmt)).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
 			})
 
 			It("Should analyze channel write with recv operator", func() {
-				stmt := MustSucceed(parser.ParseStatement(`output <- 42.0`))
+				stmt := MustSucceed(text.ParseStatement(`output <- 42.0`))
 				res := result.Result{Symbols: scope}
 				Expect(statement.Analyze(scope, &res, stmt)).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
 			})
 
 			It("Should detect type mismatch in channel write", func() {
-				stmt := MustSucceed(parser.ParseStatement(`"hello" -> output`))
+				stmt := MustSucceed(text.ParseStatement(`"hello" -> output`))
 				res := result.Result{Symbols: scope}
 				Expect(statement.Analyze(scope, &res, stmt)).To(BeFalse())
 				Expect(res.Diagnostics).To(HaveLen(1))
@@ -300,7 +300,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should analyze channel write with variable", func() {
-				stmt := MustSucceed(parser.ParseStatement(`value -> output`))
+				stmt := MustSucceed(text.ParseStatement(`value -> output`))
 				_, _ = scope.Add(symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.F64{}})
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
@@ -309,7 +309,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should detect undefined channel in write", func() {
-				stmt := MustSucceed(parser.ParseStatement(`42.0 -> undefined_channel`))
+				stmt := MustSucceed(text.ParseStatement(`42.0 -> undefined_channel`))
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeFalse())
@@ -320,7 +320,7 @@ var _ = Describe("Statement", func() {
 
 		Describe("Channel Reads", func() {
 			It("Should analyze blocking channel read", func() {
-				stmt := MustSucceed(parser.ParseStatement(`value := <-sensor`))
+				stmt := MustSucceed(text.ParseStatement(`value := <-sensor`))
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
@@ -333,7 +333,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should analyze non-blocking channel read", func() {
-				stmt := MustSucceed(parser.ParseStatement(`current := sensor`))
+				stmt := MustSucceed(text.ParseStatement(`current := sensor`))
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
@@ -346,7 +346,7 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("Should detect undefined channel in read", func() {
-				stmt := MustSucceed(parser.ParseStatement(`value := <-undefined_channel`))
+				stmt := MustSucceed(text.ParseStatement(`value := <-undefined_channel`))
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeFalse())
@@ -359,7 +359,7 @@ var _ = Describe("Statement", func() {
 
 	Describe("Mixed Type Scenarios", func() {
 		It("Should handle complex nested structures", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 1 {
+			stmt := MustSucceed(text.ParseStatement(`if 1 {
 				x := 10
 				y $= 20
 				if x < y {
@@ -375,7 +375,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should properly track types through assignments", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			block := MustSucceed(text.ParseBlock(`{
 				x i32 := 10
 				y := x
 				z := y + 5
@@ -388,7 +388,7 @@ var _ = Describe("Statement", func() {
 		})
 
 		It("Should return an error when a variable of an incorrect type is assigned to another variable", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			block := MustSucceed(text.ParseBlock(`{
 				x i32 := 10
 				y f32 := x
 			}`))
