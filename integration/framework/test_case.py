@@ -15,7 +15,6 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 
 import logging
 import os
-import re
 import sys
 import threading
 import time
@@ -36,7 +35,7 @@ from framework.utils import (
 )
 
 # Error filter
-sys.excepthook = ignore_websocket_errors  # type: ignore
+sys.excepthook = ignore_websocket_errors
 sys.stderr = WebSocketErrorFilter()
 
 
@@ -121,7 +120,7 @@ class TestCase(ABC):
     def __init__(
         self,
         synnax_connection: SynnaxConnection,
-        name: Optional[str] = None,
+        name: str,
         expect: str = "PASSED",
         **params: Any,
     ) -> None:
@@ -146,13 +145,7 @@ class TestCase(ABC):
         self.read_frame: Optional[Dict[str, Any]] = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
 
-        if name is None:
-            # Convert PascalCase class name to lowercase with underscores
-            self.name = re.sub(
-                r"([a-z0-9])([A-Z])", r"\1_\2", self.__class__.__name__
-            ).lower()
-        else:
-            self.name = validate_and_sanitize_name(name)
+        self.name = validate_and_sanitize_name(name)
 
         self._setup_logging()
         self._status = STATUS.INITIALIZING
@@ -187,14 +180,6 @@ class TestCase(ABC):
         self.add_channel(
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
-
-    def __enter__(self) -> "TestCase":
-        """Context manager entry point."""
-        return self
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Context manager exit point - ensures cleanup."""
-        self._shutdown()
 
     def _setup_logging(self) -> None:
         """Setup logging for real-time output (same approach as TestConductor)."""

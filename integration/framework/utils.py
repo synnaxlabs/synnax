@@ -77,76 +77,67 @@ def get_machine_info() -> str:
     system = platform.system()
 
     if system == "Darwin":  # macOS
-        try:
-            # Try to get Apple Silicon info
-            result = subprocess.run(
-                ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                cpu_info = result.stdout.strip()
-                if "Apple" in cpu_info:
-                    # Extract M1/M2/M3 info
-                    if "M1" in cpu_info:
-                        return "Apple Silicon M1"
-                    elif "M2" in cpu_info:
-                        return "Apple Silicon M2"
-                    elif "M3" in cpu_info:
-                        return "Apple Silicon M3"
-                    elif "M4" in cpu_info:
-                        return "Apple Silicon M4"
-                    elif "M5" in cpu_info:
-                        return "Apple Silicon M5"
-                    else:
-                        return "Apple Silicon Mac"
+        # Try to get Apple Silicon info
+        result = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            cpu_info = result.stdout.strip()
+            if "Apple" in cpu_info:
+                # Extract M1/M2/M3 info
+                if "M1" in cpu_info:
+                    return "Apple Silicon M1"
+                elif "M2" in cpu_info:
+                    return "Apple Silicon M2"
+                elif "M3" in cpu_info:
+                    return "Apple Silicon M3"
+                elif "M4" in cpu_info:
+                    return "Apple Silicon M4"
+                elif "M5" in cpu_info:
+                    return "Apple Silicon M5"
                 else:
-                    return "Intel Mac"
+                    return "Apple Silicon Mac"
             else:
-                return "macOS"
-        except:
-            return "macOS"
+                return "Intel Mac"
+        else:
+            raise RuntimeError(f"Failed to get macOS CPU information: sysctl command returned {result.returncode}")
 
     elif system == "Linux":
-        try:
-            # Try to get distribution info
-            result = subprocess.run(
-                ["lsb_release", "-d"], capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                distro = result.stdout.split("\t")[1].strip()
-                return distro
-            else:
-                # Try reading from /etc/os-release
-                with open("/etc/os-release", "r") as f:
-                    for line in f:
-                        if line.startswith("PRETTY_NAME="):
-                            distro = line.split("=")[1].strip().strip('"')
-                            return distro
-                return "Linux"
-        except:
-            return "Linux"
+        # Try to get distribution info
+        result = subprocess.run(
+            ["lsb_release", "-d"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            distro = result.stdout.split("\t")[1].strip()
+            return distro
+        else:
+            # Try reading from /etc/os-release
+            with open("/etc/os-release", "r") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        distro = line.split("=")[1].strip().strip('"')
+                        return distro
+            raise RuntimeError("Unable to determine Linux distribution from lsb_release or /etc/os-release")
 
     elif system == "Windows":
-        try:
-            # Get Windows version info
-            result = subprocess.run(
-                ["wmic", "os", "get", "Caption"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                lines = result.stdout.strip().split("\n")
-                if len(lines) > 1:
-                    return lines[1].strip()
-                else:
-                    return "Windows"
+        # Get Windows version info
+        result = subprocess.run(
+            ["wmic", "os", "get", "Caption"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")
+            if len(lines) > 1:
+                return lines[1].strip()
             else:
-                return "Windows"
-        except:
-            return "Windows"
+                raise RuntimeError("Windows wmic command returned unexpected output format")
+        else:
+            raise RuntimeError(f"Failed to get Windows version: wmic command returned {result.returncode}")
 
     else:
         return system
@@ -154,68 +145,65 @@ def get_machine_info() -> str:
 
 def get_memory_info() -> str:
     """Get memory information."""
-    try:
-        if platform.system() == "Darwin":  # macOS
-            result = subprocess.run(
-                ["sysctl", "-n", "hw.memsize"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                mem_bytes = int(result.stdout.strip())
+    if platform.system() == "Darwin":  # macOS
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.memsize"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            mem_bytes = int(result.stdout.strip())
+            mem_gb = mem_bytes // (1024**3)
+            return f"{mem_gb}GB RAM"
+    elif platform.system() == "Linux":
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    mem_kb = int(line.split()[1])
+                    mem_gb = mem_kb // (1024**2)
+                    return f"{mem_gb}GB RAM"
+    elif platform.system() == "Windows":
+        result = subprocess.run(
+            ["wmic", "computersystem", "get", "TotalPhysicalMemory"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")
+            if len(lines) > 1:
+                mem_bytes = int(lines[1].strip())
                 mem_gb = mem_bytes // (1024**3)
                 return f"{mem_gb}GB RAM"
-        elif platform.system() == "Linux":
-            with open("/proc/meminfo", "r") as f:
-                for line in f:
-                    if line.startswith("MemTotal:"):
-                        mem_kb = int(line.split()[1])
-                        mem_gb = mem_kb // (1024**2)
-                        return f"{mem_gb}GB RAM"
-        elif platform.system() == "Windows":
-            result = subprocess.run(
-                ["wmic", "computersystem", "get", "TotalPhysicalMemory"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                lines = result.stdout.strip().split("\n")
-                if len(lines) > 1:
-                    mem_bytes = int(lines[1].strip())
-                    mem_gb = mem_bytes // (1024**3)
-                    return f"{mem_gb}GB RAM"
-    except:
-        pass
-
-    return ""
+    
+    raise RuntimeError(f"Unable to get memory information for {platform.system()}")
 
 
 def get_synnax_version() -> str:
     """Get the current Synnax version from the VERSION file."""
+    # Try to read from the VERSION file in the synnax package
+    version_file = "../../../core/pkg/version/VERSION"
     try:
-        # Try to read from the VERSION file in the synnax package
-        version_file = "../../../core/pkg/version/VERSION"
         with open(version_file, "r") as f:
             version = f.read().strip()
             return version
-    except:
-        try:
-            # Fallback: try to get version from git tags
-            result = subprocess.run(
-                ["git", "describe", "--tags", "--abbrev=0"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                version = result.stdout.strip()
-                # Remove 'v' prefix if present
-                if version.startswith("v"):
-                    version = version[1:]
-                return version
-        except:
-            pass
-
-    return "unknown"
+    except FileNotFoundError:
+        # VERSION file not found, try git fallback
+        pass
+    
+    # Fallback: try to get version from git tags
+    result = subprocess.run(
+        ["git", "describe", "--tags", "--abbrev=0"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if result.returncode == 0:
+        version = result.stdout.strip()
+        # Remove 'v' prefix if present
+        if version.startswith("v"):
+            version = version[1:]
+        return version
+    
+    raise RuntimeError("Unable to determine Synnax version from VERSION file or git tags")

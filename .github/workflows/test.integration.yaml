@@ -1,6 +1,8 @@
 name: Test - Integration
 
-run-name: ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name) }}
+run-name:
+  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
+  }}
 
 on:
   pull_request:
@@ -9,22 +11,22 @@ on:
   workflow_dispatch:
     inputs:
       RUN_NAME:
-        description: 'Custom name for this workflow run'
+        description: "Custom name for this workflow run"
         required: false
-        default: ''
+        default: ""
         type: string
       SKIP_BUILD:
-        description: 'Skip build process and use artifacts from another run'
+        description: "Skip build process and use artifacts from another run"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'false'
-          - 'true'
+          - "false"
+          - "true"
       REF_RUN_ID:
-        description: 'Reference run ID for artifacts (when SKIP_BUILD is true)'
+        description: "Reference run ID for artifacts (when SKIP_BUILD is true)"
         required: false
-        default: '0000000000'
+        default: "0000000000"
         type: string
 
 concurrency:
@@ -46,8 +48,7 @@ jobs:
       - name: Set outputs
         id: set-outputs
         env:
-          # Use workflow inputs if triggered manually, otherwise use env defaults
-          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
+            SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || env.REF_RUN_ID }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
@@ -104,7 +105,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Confirm Host
-        run: scripts/integration/confirm-host-unix.sh
+        run: scripts/integration/confirm_host_unix.sh
 
   confirm-host-windows-latest:
     name: Confirm Host (windows-latest)
@@ -118,7 +119,7 @@ jobs:
 
       - name: Confirm Host
         shell: cmd
-        run: scripts/integration/confirm-host-windows.cmd
+        run: scripts/integration/confirm_host_windows.cmd
 
   confirm-host-macos-latest:
     name: Confirm Host (macos-latest)
@@ -132,7 +133,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Confirm Host
-        run: scripts/integration/confirm-host-unix.sh
+        run: scripts/integration/confirm_host_unix.sh
 
   build-ubuntu-latest:
     name: Build Synnax (ubuntu-latest)
@@ -192,20 +193,12 @@ jobs:
       - name: Build Synnax (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: scripts/integration/build-unix-latest.sh
+        run: scripts/integration/build_unix_latest.sh
 
       - name: Skip Build (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-linux
-      #     path: bazel-bin/driver/driver
-      #     retention-days: 7
-      #     if-no-files-found: error
 
       - name: Upload Server Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -218,7 +211,7 @@ jobs:
 
       - name: Debug Build Environment
         if: failure()
-        run: scripts/integration/debug-build-environment-unix.sh
+        run: scripts/integration/debug_build_environment_unix.sh
 
   build-windows-latest:
     name: Build Synnax (windows-latest)
@@ -248,7 +241,6 @@ jobs:
           disk-cache: true
           external-cache: true
           repository-cache: true
-
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -330,14 +322,6 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-windows
-      #     path: bazel-bin/driver/driver.exe
-      #     retention-days: 7
-      #     if-no-files-found: error
 
       - name: Upload Server Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -351,7 +335,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug-build-environment-windows.cmd
+        run: scripts/integration/debug_build_environment_windows.cmd
 
   build-macos-latest:
     name: Build Synnax (macos-latest)
@@ -413,20 +397,12 @@ jobs:
       - name: Build Synnax (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: scripts/integration/build-unix-latest.sh
+        run: scripts/integration/build_unix_latest.sh
 
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-macos
-      #     path: bazel-bin/driver/driver
-      #     retention-days: 7
-      #     if-no-files-found: error
 
       - name: Upload Server Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -439,7 +415,7 @@ jobs:
 
       - name: Debug Build Environment
         if: failure()
-        run: scripts/integration/debug-build-environment-unix.sh
+        run: scripts/integration/debug_build_environment_unix.sh
 
   download-artifacts-windows:
     name: Download Artifacts (Windows)
@@ -453,17 +429,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Force Quit Existing Synnax Processes (Windows)
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
         shell: cmd
-        run: scripts/integration/kill-synnax-processes-windows.cmd
+        run: scripts/integration/kill_synnax_processes_windows.cmd
 
       - name: Download and Setup Windows Artifacts
         shell: cmd
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-windows.cmd
+        run: scripts/integration/download_artifacts_windows.cmd
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
@@ -485,18 +459,18 @@ jobs:
 
       - name: Install Poetry & Dependencies
         shell: cmd
-        run: scripts/integration/install-poetry-deps-windows.cmd
+        run: scripts/integration/install_poetry_deps_windows.cmd
 
       - name: Install Playwright
         shell: cmd
-        run: scripts/integration/install-playwright-windows.cmd
+        run: scripts/integration/install_playwright_windows.cmd
 
       - name: Start Synnax Core
         timeout-minutes: 1
         shell: powershell
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-windows.ps1
+        run: scripts/integration/start_core_windows.ps1
 
       - name: Test Conductor
         id: test-conductor
@@ -505,7 +479,9 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         working-directory: integration
-        run: poetry run test-conductor --name test-conductor-win --sequence test\all_tests.json
+        run:
+          poetry run test-conductor --name test-conductor-win --sequence
+          test\all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -518,7 +494,7 @@ jobs:
       - name: Debug Test Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug-test-environment-windows.cmd
+        run: scripts/integration/debug_test_environment_windows.cmd
 
   download-artifacts-macos:
     name: Download Artifacts (macos)
@@ -532,15 +508,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Force Quit Existing Synnax Processes
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-unix.sh
+        run: scripts/integration/kill_synnax_processes_unix.sh
 
       - name: Download and Setup macOS Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-macos.sh
+        run: scripts/integration/download_artifacts_macos.sh
 
   deploy-and-test-macos:
     name: Deploy and Test (macos)
@@ -562,22 +536,24 @@ jobs:
           python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
-        run: scripts/integration/install-poetry-deps-unix.sh
+        run: scripts/integration/install_poetry_deps_unix.sh
 
       - name: Install Playwright
-        run: scripts/integration/install-playwright-unix.sh
+        run: scripts/integration/install_playwright_unix.sh
 
       - name: Start Synnax Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-unix.sh
+        run: scripts/integration/start_core_unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         working-directory: integration
-        run: poetry run test-conductor --name test-conductor-unix --sequence test/all_tests.json
+        run:
+          poetry run test-conductor --name test-conductor-unix --sequence
+          test/all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -589,7 +565,7 @@ jobs:
 
       - name: Debug Test Environment
         if: failure()
-        run: scripts/integration/debug-test-environment-unix.sh
+        run: scripts/integration/debug_test_environment_unix.sh
 
   download-artifacts-ubuntu:
     name: Download Artifacts (Ubuntu-Latest)
@@ -604,15 +580,13 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-unix.sh
+        run: scripts/integration/kill_synnax_processes_unix.sh
 
       - name: Download and Setup Linux Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-linux.sh
+        run: scripts/integration/download_artifacts_linux.sh
 
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
@@ -633,22 +607,24 @@ jobs:
           python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
-        run: scripts/integration/install-poetry-deps-unix.sh
+        run: scripts/integration/install_poetry_deps_unix.sh
 
       - name: Install Playwright
-        run: scripts/integration/install-playwright-unix.sh
+        run: scripts/integration/install_playwright_unix.sh
 
       - name: Start Synnax Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-unix.sh
+        run: scripts/integration/start_core_unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         working-directory: integration
-        run: poetry run test-conductor --name test-conductor-unix --sequence test/all_tests.json
+        run:
+          poetry run test-conductor --name test-conductor-unix --sequence
+          test/all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -660,4 +636,4 @@ jobs:
 
       - name: Debug Test Environment
         if: failure()
-        run: scripts/integration/debug-test-environment-unix.sh
+        run: scripts/integration/debug_test_environment_unix.sh
