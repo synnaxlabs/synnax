@@ -39,7 +39,9 @@ class WebSocketErrorFilter:
 
 
 # More aggressive WebSocket error suppression
-def ignore_websocket_errors(type: type, value: Exception, traceback: Any) -> None:
+def ignore_websocket_errors(
+    type: type[BaseException], value: BaseException, traceback: Any
+) -> None:
     error_str = str(value)
     if any(
         phrase in error_str
@@ -103,7 +105,9 @@ def get_machine_info() -> str:
             else:
                 return "Intel Mac"
         else:
-            raise RuntimeError(f"Failed to get macOS CPU information: sysctl command returned {result.returncode}")
+            raise RuntimeError(
+                f"Failed to get macOS CPU information: sysctl command returned {result.returncode}"
+            )
 
     elif system == "Linux":
         # Try to get distribution info
@@ -120,7 +124,9 @@ def get_machine_info() -> str:
                     if line.startswith("PRETTY_NAME="):
                         distro = line.split("=")[1].strip().strip('"')
                         return distro
-            raise RuntimeError("Unable to determine Linux distribution from lsb_release or /etc/os-release")
+            raise RuntimeError(
+                "Unable to determine Linux distribution from lsb_release or /etc/os-release"
+            )
 
     elif system == "Windows":
         # Get Windows version info
@@ -135,9 +141,13 @@ def get_machine_info() -> str:
             if len(lines) > 1:
                 return lines[1].strip()
             else:
-                raise RuntimeError("Windows wmic command returned unexpected output format")
+                raise RuntimeError(
+                    "Windows wmic command returned unexpected output format"
+                )
         else:
-            raise RuntimeError(f"Failed to get Windows version: wmic command returned {result.returncode}")
+            raise RuntimeError(
+                f"Failed to get Windows version: wmic command returned {result.returncode}"
+            )
 
     else:
         return system
@@ -176,7 +186,7 @@ def get_memory_info() -> str:
                 mem_bytes = int(lines[1].strip())
                 mem_gb = mem_bytes // (1024**3)
                 return f"{mem_gb}GB RAM"
-    
+
     raise RuntimeError(f"Unable to get memory information for {platform.system()}")
 
 
@@ -191,7 +201,7 @@ def get_synnax_version() -> str:
     except FileNotFoundError:
         # VERSION file not found, try git fallback
         pass
-    
+
     # Fallback: try to get version from git tags
     result = subprocess.run(
         ["git", "describe", "--tags", "--abbrev=0"],
@@ -205,5 +215,7 @@ def get_synnax_version() -> str:
         if version.startswith("v"):
             version = version[1:]
         return version
-    
-    raise RuntimeError("Unable to determine Synnax version from VERSION file or git tags")
+
+    raise RuntimeError(
+        "Unable to determine Synnax version from VERSION file or git tags"
+    )

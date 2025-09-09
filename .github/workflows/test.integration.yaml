@@ -18,11 +18,8 @@ on:
       SKIP_BUILD:
         description: "Skip build process and use artifacts from another run"
         required: false
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        default: false
+        type: boolean
       REF_RUN_ID:
         description: "Reference run ID for artifacts (when SKIP_BUILD is true)"
         required: false
@@ -39,8 +36,44 @@ env:
   REF_RUN_ID: "0000000000"
 
 jobs:
+  lint-python:
+    name: Lint - Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: integration/pyproject.toml
+          cache: poetry
+          cache-dependency-path: integration/poetry.lock
+
+      - name: Install Dependencies
+        run: |
+          poetry lock --check || poetry lock
+          poetry install
+        working-directory: integration
+
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: integration
+
+      - name: Format (Black)
+        run: poetry run black --check --diff --color .
+        working-directory: integration
+
+      - name: Type Check (mypy)
+        run: poetry run mypy .
+        working-directory: integration
+
   setup:
     runs-on: ubuntu-latest
+    needs: lint-python
     outputs:
       SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
@@ -48,7 +81,7 @@ jobs:
       - name: Set outputs
         id: set-outputs
         env:
-            SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
+          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || env.REF_RUN_ID }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
@@ -61,39 +94,6 @@ jobs:
             echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
           fi
 
-  lint-python:
-    name: Lint - Python
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Poetry
-        run: pipx install poetry
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: integration/pyproject.toml
-          cache: poetry
-          cache-dependency-path: integration/poetry.lock
-
-      - name: Install Dependencies
-        run: poetry install
-        working-directory: integration
-
-      - name: isort
-        run: poetry run isort -c .
-        working-directory: integration
-
-      - name: Format (Black)
-        run: poetry run black --check --diff --color .
-        working-directory: integration
-
-      - name: Type Check (mypy)
-        run: poetry run mypy . --ignore-missing-imports
-        working-directory: integration
-
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
     runs-on:
@@ -102,7 +102,7 @@ jobs:
     needs: setup
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
         run: integration/scripts/confirm_host_unix.sh
@@ -115,7 +115,7 @@ jobs:
     needs: setup
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
         shell: cmd
@@ -130,7 +130,7 @@ jobs:
     if: false
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
         run: integration/scripts/confirm_host_unix.sh
@@ -140,10 +140,11 @@ jobs:
     timeout-minutes: 75
     runs-on: ubuntu-latest
     needs: [setup, confirm-host-ubuntu-latest]
+    if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -185,7 +186,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
@@ -200,7 +201,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -221,7 +222,7 @@ jobs:
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Windows SDK
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -269,7 +270,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
@@ -323,7 +324,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -345,7 +346,7 @@ jobs:
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -389,7 +390,7 @@ jobs:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
@@ -404,7 +405,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -426,7 +427,7 @@ jobs:
     needs: [setup, build-windows-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes (Windows)
         shell: cmd
@@ -447,13 +448,13 @@ jobs:
     needs: download-artifacts-windows
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
@@ -465,7 +466,7 @@ jobs:
         shell: cmd
         run: integration/scripts/InstallPlaywrightWindows.cmd
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         shell: powershell
         env:
@@ -505,7 +506,7 @@ jobs:
     needs: [setup, build-macos-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes
         run: integration/scripts/kill_synnax_processes_unix.sh
@@ -525,13 +526,13 @@ jobs:
     needs: download-artifacts-macos
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
@@ -541,7 +542,7 @@ jobs:
       - name: Install Playwright
         run: integration/scripts/install_playwright_unix.sh
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
@@ -576,7 +577,7 @@ jobs:
     needs: [setup, build-ubuntu-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
@@ -596,13 +597,13 @@ jobs:
     needs: download-artifacts-ubuntu
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
@@ -612,7 +613,7 @@ jobs:
       - name: Install Playwright
         run: integration/scripts/install_playwright_unix.sh
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}

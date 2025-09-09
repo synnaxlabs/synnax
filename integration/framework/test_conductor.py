@@ -495,7 +495,7 @@ class TestConductor:
             else:
                 result = TestResult(
                     test_name=test_def.case,
-                    name=test_def.name or test_def.case.split('/')[-1],
+                    name=test_def.name or test_def.case.split("/")[-1],
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
@@ -696,7 +696,7 @@ class TestConductor:
         """Execute a single test case."""
         result = TestResult(
             test_name=test_def.case,
-            name=test_def.name or test_def.case.split('/')[-1],
+            name=test_def.name or test_def.case.split("/")[-1],
             status=STATUS.PENDING,
             start_time=datetime.now(),
         )
@@ -706,7 +706,7 @@ class TestConductor:
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
                 synnax_connection=self.synnax_connection,
-                name=test_def.name or test_def.case.split('/')[-1],
+                name=test_def.name or test_def.case.split("/")[-1],
                 expect=test_def.expect,
                 **test_def.params,
             )
