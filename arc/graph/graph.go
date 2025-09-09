@@ -42,5 +42,8 @@ type Diagnostic struct {
 }
 
 type Result struct {
-	IR ir.IR `json:"ir"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
+	IR          *ir.IR
 }
+
+func Analyze(graph Graph)
