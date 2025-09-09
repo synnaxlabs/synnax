@@ -1,19 +1,19 @@
 [
-    {
-        "sequence_name": "Playwright_Tests",
-        "tests": [
-          {
-            "case": "test/playwright/plot_abcd",
-            "parameters": {
-              "headless": false
-            }
-          },
-          {
-            "case": "test/playwright/tabs_open_close"
-          },
-          {
-            "case": "test/playwright/schematic_edit_value"
-          }
-        ]
-    }
+  {
+    "sequence_name": "Playwright_Tests",
+    "tests": [
+      {
+        "case": "test/playwright/plot_abcd",
+        "parameters": {
+          "headless": false
+        }
+      },
+      {
+        "case": "test/playwright/tabs_open_close"
+      },
+      {
+        "case": "test/playwright/schematic_edit_value"
+      }
+    ]
+  }
 ]
