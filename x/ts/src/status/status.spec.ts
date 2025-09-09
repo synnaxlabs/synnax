@@ -22,4 +22,56 @@ describe("status", () => {
       expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
     });
   });
+
+  describe("keepVariants", () => {
+    it("should return undefined when variant is null", () => {
+      expect(status.keepVariants(undefined, "success")).toBeUndefined();
+    });
+
+    it("should return undefined when variant is not in keep list", () => {
+      expect(status.keepVariants("error", "success")).toBeUndefined();
+      expect(status.keepVariants("error", ["success", "info"])).toBeUndefined();
+    });
+
+    it("should return variant when it matches single keep variant", () => {
+      expect(status.keepVariants("success", "success")).toBe("success");
+    });
+
+    it("should return variant when it is in keep array", () => {
+      expect(status.keepVariants("success", ["success", "info"])).toBe("success");
+      expect(status.keepVariants("info", ["success", "info"])).toBe("info");
+    });
+
+    it("should return undefined when keep is empty array", () => {
+      expect(status.keepVariants("success", [])).toBeUndefined();
+    });
+  });
+
+  describe("removeVariants", () => {
+    it("should return undefined when variant is null", () => {
+      expect(status.removeVariants(undefined, "success")).toBeUndefined();
+    });
+
+    it("should return undefined when variant matches single remove variant", () => {
+      expect(status.removeVariants("success", "success")).toBeUndefined();
+    });
+
+    it("should return undefined when variant is in remove array", () => {
+      expect(status.removeVariants("success", ["success", "error"])).toBeUndefined();
+      expect(status.removeVariants("error", ["success", "error"])).toBeUndefined();
+    });
+
+    it("should return variant when it does not match single remove variant", () => {
+      expect(status.removeVariants("success", "error")).toBe("success");
+    });
+
+    it("should return variant when it is not in remove array", () => {
+      expect(status.removeVariants("warning", ["success", "error"])).toBe("warning");
+      expect(status.removeVariants("info", ["success", "error"])).toBe("info");
+    });
+
+    it("should return variant when remove is empty array", () => {
+      expect(status.removeVariants("success", [])).toBe("success");
+    });
+  });
 });

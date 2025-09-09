@@ -202,8 +202,9 @@ cython_debug/
 
 # |||| LANDING SITE ||||
 
-synnax/pkg/service/hardware/embedded/assets/**
-!synnax/pkg/service/hardware/embedded/assets/.gitkeep
+synnax-data/**
+
+core/pkg/service/hardware/embedded/assets/**
 
 # |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change

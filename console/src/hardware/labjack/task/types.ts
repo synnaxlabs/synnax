@@ -246,7 +246,7 @@ export interface BaseStateDetails {
   running: boolean;
 }
 
-export const readConfigZ = Common.Task.baseConfigZ
+export const readConfigZ = Common.Task.baseReadConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
@@ -258,7 +258,7 @@ export const readConfigZ = Common.Task.baseConfigZ
   .check(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
@@ -313,11 +313,13 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
     .check(Common.Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
+  dataSaving: z.boolean().default(true),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 const ZERO_WRITE_CONFIG: WriteConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
+  dataSaving: true,
   stateRate: 10,
 };
 

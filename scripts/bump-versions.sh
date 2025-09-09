@@ -49,7 +49,7 @@ done
 
 echo "Version update complete."
 
-./check_version.sh
+./check-version.sh
 
 CHECK_VERSION_STATUS=$?
 

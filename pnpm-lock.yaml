@@ -859,6 +859,9 @@ importers:
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
       vite:
         specifier: 'catalog:'
         version: 7.0.4(@types/node@24.0.12)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0)

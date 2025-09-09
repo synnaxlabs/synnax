@@ -14,11 +14,27 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-}
 
-.pluto-list__items > .pluto-list__virtualizer {
-    width: 100%;
-    position: relative;
-    user-select: none;
-    -webkit-user-select: none;
+    & > .pluto-list__virtualizer {
+        width: 100%;
+        position: relative;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    &.pluto--direction-x {
+        &::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+            background: var(--pluto-gray-l6);
+        }
+        & > .pluto-list__virtualizer {
+            display: flex;
+            flex-direction: inherit;
+            flex-wrap: inherit;
+            gap: inherit;
+        }
+    }
 }

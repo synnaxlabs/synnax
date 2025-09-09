@@ -12,9 +12,14 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Link } from "@/link";
+
 export const HardReloadItem = (): ReactElement => {
   const dispatch = useDispatch();
-  const handleClick = useCallback(() => dispatch(reloadWindow({})), [dispatch]);
+  const handleClick = useCallback(() => {
+    localStorage.setItem(Link.SHOULD_IGNORE_LINK_KEY, "true");
+    dispatch(reloadWindow({}));
+  }, [dispatch]);
   return (
     <Menu.Item onClick={handleClick} size="small" itemKey="hardReload">
       <Icon.Refresh />
