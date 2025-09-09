@@ -58,7 +58,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|task)\\b"
+          "match": "\\b(func|stage)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
@@ -213,14 +213,14 @@
     "tasks": {
       "patterns": [
         {
-          "name": "meta.task.definition.arc",
-          "begin": "\\b(task)\\s+(\\w+)\\s*\\{",
+          "name": "meta.stage.definition.arc",
+          "begin": "\\b(stage)\\s+(\\w+)\\s*\\{",
           "beginCaptures": {
             "1": {
               "name": "keyword.other.arc"
             },
             "2": {
-              "name": "entity.name.type.task.arc"
+              "name": "entity.name.type.stage.arc"
             }
           },
           "end": "\\}",
@@ -231,20 +231,20 @@
           ]
         },
         {
-          "name": "meta.task.invocation.arc",
+          "name": "meta.stage.invocation.arc",
           "match": "\\b(\\w+)\\s*\\{[^}]*\\}",
           "captures": {
             "1": {
-              "name": "entity.name.function.task-invocation.arc"
+              "name": "entity.name.function.stage-invocation.arc"
             }
           }
         },
         {
-          "name": "meta.stdlib.task.arc",
+          "name": "meta.stdlib.stage.arc",
           "match": "\\b(interval|all|once|any|throttle|merge|tee)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
-              "name": "support.function.builtin.task.arc"
+              "name": "support.function.builtin.stage.arc"
             }
           }
         }

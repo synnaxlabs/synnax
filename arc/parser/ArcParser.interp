@@ -1,7 +1,7 @@
 token literal names:
 null
 'func'
-'task'
+'stage'
 'if'
 'else'
 'return'
@@ -66,7 +66,7 @@ null
 token symbolic names:
 null
 FUNC
-TASK
+STAGE
 IF
 ELSE
 RETURN
@@ -135,13 +135,13 @@ functionDeclaration
 parameterList
 parameter
 returnType
-taskDeclaration
+stageDeclaration
 configBlock
 configParameter
 flowStatement
 flowNode
 channelIdentifier
-taskInvocation
+stageInvocation
 configValues
 namedConfigValues
 namedConfigValue

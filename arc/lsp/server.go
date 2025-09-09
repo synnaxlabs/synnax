@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/x/config"
@@ -228,7 +229,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		}
 	} else {
 		// Run semantic analysis if parsing succeeded
-		res := text.Analyze(tree, text.Options{})
+		res := analyzer.AnalyzeProgram(tree, text.Options{})
 
 		// Store analysis results for other features (hover, completion, etc.)
 		s.mu.Lock()

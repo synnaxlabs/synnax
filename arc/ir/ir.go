@@ -9,25 +9,65 @@
 
 package ir
 
-import "github.com/synnaxlabs/arc/types"
+import (
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/x/set"
+)
 
+// Stage defines the structural type of a stage within the automation.
 type Stage struct {
-	Key               string                `json:"key"`
-	Params            map[string]types.Type `json:"params"`
-	Config            map[string]types.Type `json:"config"`
-	Return            types.Type            `json:"return"`
-	StatefulVariables map[string]types.Type `json:"stateful_variables"`
-	Body              string                `json:"body"`
+	// Key is a unique key identifying the type of the stage. This refers to the
+	// stage name. We use a key field instead since it fits better with the structural
+	// semantics of synnax.
+	Key string `json:"key"`
+	// Config are the names and types configuration parameters for the stage.
+	Config maps.Ordered[string, Type] `json:"config"`
+	// Params are the names and type of the function parameters for the stage.
+	Params maps.Ordered[string, Type] `json:"params"`
+	// Return are the names and types of the return values for the stage.
+	Return Type `json:"return"`
+	// StatefulVariables are names and types for the stateful variables on
+	// the stage.
+	StatefulVariables maps.Ordered[string, Type] `json:"stateful_variables"`
+	// Channels are the channels that the stage needs access to.
+	Channels struct {
+		Read  set.Set[string] `json:"read"`
+		Write set.Set[string] `json:"write"`
+	} `json:"channels"`
+	// Body is the logical body of the stage.
+	Body struct {
+		Raw string               `json:"."`
+		AST parser.IBlockContext `json:"-"`
+	}
 }
 
+func (s Stage) String() string { return "stage" }
+
+var _ Type = (*Stage)(nil)
+
+func NewStage() Stage {
+	s := Stage{}
+	s.Channels.Read = make(set.Set[string])
+	s.Channels.Write = make(set.Set[string])
+	return s
+}
+
+// Node is an invocation of a stage within the flow graph.
 type Node struct {
-	Key    string         `json:"key"`
-	Type   string         `json:"type"`
+	// Key is a unique key for the node within the graph.
+	Key string `json:"key"`
+	// Type refers to the key of the stage type to use for the node.
+	Type string `json:"type"`
+	// Config are the configuration parameters to pass to the stage.
 	Config map[string]any `json:"config"`
 }
 
+// Handle is a connection point on a node.
 type Handle struct {
-	Node  string `json:"node"`
+	// Node is the key of the node being connected to.
+	Node string `json:"node"`
+	// Param is the parameter of the node being connected.
 	Param string `json:"param"`
 }
 
@@ -37,7 +77,9 @@ type Edge struct {
 }
 
 type IR struct {
-	Stages []Stage `json:"stages"`
-	Nodes  []Node  `json:"nodes"`
-	Edges  []Edge  `json:"edges"`
+	Stages    []Stage    `json:"stages"`
+	Functions []Function `json:"functions"`
+	Nodes     []Node     `json:"nodes"`
+	Edges     []Edge     `json:"edges"`
+	Symbols   *Scope     `json:"-"`
 }

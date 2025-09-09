@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -95,27 +95,27 @@ func (r *Runtime) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder := rt.NewHostModuleBuilder("env")
 
 	// Bind channel operations for all types
-	for _, typ := range types.Numerics {
+	for _, typ := range ir.Numerics {
 		if err := r.bindChannelOps(hostBuilder, typ); err != nil {
 			return err
 		}
 	}
-	if err := r.bindChannelOps(hostBuilder, types.String{}); err != nil {
+	if err := r.bindChannelOps(hostBuilder, ir.String{}); err != nil {
 		return err
 	}
 
 	// Bind state operations for all types
-	for _, typ := range types.Numerics {
+	for _, typ := range ir.Numerics {
 		if err := r.bindStateOps(hostBuilder, typ); err != nil {
 			return err
 		}
 	}
-	if err := r.bindStateOps(hostBuilder, types.String{}); err != nil {
+	if err := r.bindStateOps(hostBuilder, ir.String{}); err != nil {
 		return err
 	}
 
 	// Bind series operations for numeric types
-	for _, typ := range types.Numerics {
+	for _, typ := range ir.Numerics {
 		if err := r.bindSeriesOps(hostBuilder, typ); err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (r *Runtime) Bind(ctx context.Context, rt wazero.Runtime) error {
 }
 
 // bindChannelOps binds channel operations for a specific type
-func (r *Runtime) bindChannelOps(builder wazero.HostModuleBuilder, t types.Type) error {
+func (r *Runtime) bindChannelOps(builder wazero.HostModuleBuilder, t ir.Type) error {
 	typeName := t.String()
 
 	// Channel read
@@ -162,7 +162,7 @@ func (r *Runtime) bindChannelOps(builder wazero.HostModuleBuilder, t types.Type)
 }
 
 // bindStateOps binds state operations for a specific type
-func (r *Runtime) bindStateOps(builder wazero.HostModuleBuilder, t types.Type) error {
+func (r *Runtime) bindStateOps(builder wazero.HostModuleBuilder, t ir.Type) error {
 	typeName := t.String()
 
 	// State load
@@ -185,7 +185,7 @@ func (r *Runtime) bindStateOps(builder wazero.HostModuleBuilder, t types.Type) e
 }
 
 // bindSeriesOps binds series operations for a specific type
-func (r *Runtime) bindSeriesOps(builder wazero.HostModuleBuilder, t types.Type) error {
+func (r *Runtime) bindSeriesOps(builder wazero.HostModuleBuilder, t ir.Type) error {
 	typeName := t.String()
 
 	// Series create empty

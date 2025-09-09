@@ -7,52 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package result
+package diagnostics
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/diagnostic"
-	"github.com/synnaxlabs/arc/symbol"
+)
+
+type Severity int
+
+//go:generate stringer -type=Severity
+const (
+	Error Severity = iota
+	Warning
+	Info
+	Hint
 )
 
 // Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
-	Severity diagnostic.Severity
-	Line     int
-	Column   int
-	Message  string
+	Key      string   `json:"key"`
+	Severity Severity `json:"severity"`
+	Line     int      `json:"line"`
+	Column   int      `json:"column"`
+	Message  string   `json:"message"`
 }
 
-type Result struct {
-	Diagnostics []Diagnostic
-	Symbols     *symbol.Scope
+type Diagnostics []Diagnostic
+
+func (d Diagnostics) Ok() bool {
+	return len(d) == 0
 }
 
-func (r *Result) AddError(
+func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	r.Diagnostics = append(r.Diagnostics, Diagnostic{
-		Severity: diagnostic.Error,
+	*d = append(*d, Diagnostic{
+		Severity: Error,
 		Line:     ctx.GetStart().GetLine(),
 		Column:   ctx.GetStart().GetColumn(),
 		Message:  err.Error(),
 	})
 }
 
-func (r *Result) Ok() bool {
-	return len(r.Diagnostics) == 0
-}
-
-func (r *Result) String() string {
-	if len(r.Diagnostics) == 0 {
+func (d Diagnostics) String() string {
+	if len(d) == 0 {
 		return "analysis successful"
 	}
 	var sb strings.Builder
-	for i, diag := range r.Diagnostics {
+	for i, diag := range d {
 		if i > 0 {
 			sb.WriteString("\n")
 		}

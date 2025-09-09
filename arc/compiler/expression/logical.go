@@ -10,22 +10,21 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/types"
 )
 
 // compileLogicalOrImpl handles || operations with short-circuit evaluation
 func compileLogicalOrImpl(
-	ctx *core.Context,
-	expr text.ILogicalOrExpressionContext,
-	hint types.Type,
-) (types.Type, error) {
-	ands := expr.AllLogicalAndExpression()
+	ctx context.Context[parser.ILogicalOrExpressionContext],
+) (ir.Type, error) {
+	ands := ctx.AST.AllLogicalAndExpression()
 
 	// Compile first operand
-	_, err := compileLogicalAnd(ctx, ands[0], nil)
+	_, err := compileLogicalAnd(context.Child(ctx, ands[0]))
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,7 @@ func compileLogicalOrImpl(
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 
 		// False case: evaluate right operand
-		_, err := compileLogicalAnd(ctx, ands[i], nil)
+		_, err = compileLogicalAnd(context.Child(ctx, ands[i]))
 		if err != nil {
 			return nil, err
 		}
@@ -58,15 +57,15 @@ func compileLogicalOrImpl(
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return types.U8{}, nil
+	return ir.U8{}, nil
 }
 
 // compileLogicalAndImpl handles && operations with short-circuit evaluation
-func compileLogicalAndImpl(ctx *core.Context, expr text.ILogicalAndExpressionContext, hint types.Type) (types.Type, error) {
-	eqs := expr.AllEqualityExpression()
+func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionContext]) (ir.Type, error) {
+	eqs := ctx.AST.AllEqualityExpression()
 
 	// Compile first operand
-	_, err := compileEquality(ctx, eqs[0], nil)
+	_, err := compileEquality(context.Child(ctx, eqs[0]))
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +88,7 @@ func compileLogicalAndImpl(ctx *core.Context, expr text.ILogicalAndExpressionCon
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 
 		// False case (was non-zero): evaluate right operand
-		_, err := compileEquality(ctx, eqs[i], nil)
+		_, err := compileEquality(context.Child(ctx, eqs[i]))
 		if err != nil {
 			return nil, err
 		}
@@ -100,11 +99,11 @@ func compileLogicalAndImpl(ctx *core.Context, expr text.ILogicalAndExpressionCon
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return types.U8{}, nil
+	return ir.U8{}, nil
 }
 
 // normalizeBoolean converts any non-zero i32 value to 1
-func normalizeBoolean(ctx *core.Context) {
+func normalizeBoolean[ASTNode antlr.ParserRuleContext](ctx context.Context[ASTNode]) {
 	// Convert any non-zero value to 1
 	// value != 0 ? 1 : 0
 	// This is equivalent to: (value != 0)

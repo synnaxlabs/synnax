@@ -13,7 +13,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 )
 
 // ImportIndex tracks the indices of all host functions that the runtime must provide.
@@ -103,23 +103,23 @@ func NewImportIndex() *ImportIndex {
 func SetupImports(m *wasm.Module) *ImportIndex {
 	idx := NewImportIndex()
 	// Register channel operations for each type
-	for _, typ := range types.Numerics {
+	for _, typ := range ir.Numerics {
 		setupChannelOps(m, idx, typ)
 	}
-	setupChannelOps(m, idx, types.String{})
-	for _, typ := range types.Numerics {
+	setupChannelOps(m, idx, ir.String{})
+	for _, typ := range ir.Numerics {
 		setupSeriesOps(m, idx, typ)
 	}
-	for _, typ := range types.Numerics {
+	for _, typ := range ir.Numerics {
 		setupStateOps(m, idx, typ)
 	}
-	setupStateOps(m, idx, types.String{})
+	setupStateOps(m, idx, ir.String{})
 	setupGenericOps(m, idx)
 	return idx
 }
 
 // setupChannelOps registers channel operations for a specific type
-func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+func setupChannelOps(m *wasm.Module, idx *ImportIndex, t ir.Type) {
 	wasmType := wasm.ConvertType(t)
 	// Non-blocking read
 	funcName := fmt.Sprintf("channel_read_%s", t)
@@ -142,7 +142,7 @@ func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 }
 
 // setupSeriesOps registers series operations for a specific type
-func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t ir.Type) {
 	wasmType := wasm.ConvertType(t)
 
 	// Create empty series
@@ -174,7 +174,7 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 }
 
 // setupSeriesArithmetic registers arithmetic operations for series
-func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
+func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ ir.Type, wasmType wasm.ValueType) {
 	// Scalar operations
 	ops := []struct {
 		name string
@@ -215,7 +215,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 }
 
 // setupSeriesComparison registers comparison operations for series
-func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
+func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ ir.Type) {
 	ops := []struct {
 		name string
 		idx  *map[string]uint32
@@ -238,20 +238,20 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 }
 
 // setupStateOps registers state persistence operations
-func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+func setupStateOps(m *wasm.Module, idx *ImportIndex, t ir.Type) {
 	wasmType := wasm.ConvertType(t)
 
 	// Load state
 	funcName := fmt.Sprintf("state_load_%s", t)
 	idx.StateLoad[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // task ID, var ID
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // stage ID, var ID
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Store state
 	funcName = fmt.Sprintf("state_store_%s", t)
 	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // task ID, var ID, value
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // stage ID, var ID, value
 		Results: []wasm.ValueType{},
 	})
 }

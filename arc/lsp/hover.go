@@ -61,14 +61,14 @@ func (s *Server) getHoverContents(word string) string {
 	// Keywords
 	case "func":
 		return "## func\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
-	case "task":
-		return "## task\nDeclares a reactive task.\n\n```arc\ntask name{\n    config type\n} (runtime type) returnType {\n    // body\n}\n```"
+	case "stage":
+		return "## stage\nDeclares a reactive stage.\n\n```arc\nstage name{\n    config type\n} (runtime type) returnType {\n    // body\n}\n```"
 	case "if":
 		return "## if\nConditional statement.\n\n```arc\nif condition {\n    // body\n}\n```"
 	case "else":
 		return "## else\nAlternative branch for if statement.\n\n```arc\nif condition {\n    // body\n} else {\n    // alternative\n}\n```"
 	case "return":
-		return "## return\nReturns a value from a function or task."
+		return "## return\nReturns a value from a function or stage."
 
 	// Types
 	case "i8", "i16", "i32", "i64":

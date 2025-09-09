@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package text_test
+package ir
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
-func TestAnalyzer(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzer Suite")
+type SymbolResolver interface {
+	Resolve(name string) (Symbol, error)
+}
+
+type MapResolver map[string]Symbol
+
+func (m MapResolver) Resolve(name string) (Symbol, error) {
+	if s, ok := m[name]; ok {
+		return s, nil
+	}
+	return Symbol{}, errors.WithStack(query.NotFound)
 }

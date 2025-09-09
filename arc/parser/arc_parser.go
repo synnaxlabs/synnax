@@ -32,7 +32,7 @@ var ArcParserParserStaticData struct {
 func arcparserParserInit() {
 	staticData := &ArcParserParserStaticData
 	staticData.LiteralNames = []string{
-		"", "'func'", "'task'", "'if'", "'else'", "'return'", "'now'", "'len'",
+		"", "'func'", "'stage'", "'if'", "'else'", "'return'", "'now'", "'len'",
 		"'chan'", "'<-chan'", "'->chan'", "'i8'", "'i16'", "'i32'", "'i64'",
 		"'u8'", "'u16'", "'u32'", "'u64'", "'f32'", "'f64'", "'string'", "'timestamp'",
 		"'timespan'", "'series'", "'->'", "'<-'", "':='", "'$='", "'='", "'+'",
@@ -41,7 +41,7 @@ func arcparserParserInit() {
 		"','", "':'", "';'",
 	}
 	staticData.SymbolicNames = []string{
-		"", "FUNC", "TASK", "IF", "ELSE", "RETURN", "NOW", "LEN", "CHAN", "RECV_CHAN",
+		"", "FUNC", "STAGE", "IF", "ELSE", "RETURN", "NOW", "LEN", "CHAN", "RECV_CHAN",
 		"SEND_CHAN", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64", "F32",
 		"F64", "STRING", "TIMESTAMP", "TIMESPAN", "SERIES", "ARROW", "RECV",
 		"DECLARE", "STATE_DECLARE", "ASSIGN", "PLUS", "MINUS", "STAR", "SLASH",
@@ -53,20 +53,20 @@ func arcparserParserInit() {
 	}
 	staticData.RuleNames = []string{
 		"program", "topLevelItem", "functionDeclaration", "parameterList", "parameter",
-		"returnType", "taskDeclaration", "configBlock", "configParameter", "flowStatement",
-		"flowNode", "channelIdentifier", "taskInvocation", "configValues", "namedConfigValues",
-		"namedConfigValue", "anonymousConfigValues", "arguments", "argumentList",
-		"block", "statement", "variableDeclaration", "localVariable", "statefulVariable",
-		"assignment", "channelOperation", "channelWrite", "channelRead", "blockingRead",
-		"nonBlockingRead", "ifStatement", "elseIfClause", "elseClause", "returnStatement",
-		"functionCall", "type", "primitiveType", "numericType", "integerType",
-		"floatType", "temporalType", "channelType", "seriesType", "expression",
-		"logicalOrExpression", "logicalAndExpression", "equalityExpression",
-		"relationalExpression", "additiveExpression", "multiplicativeExpression",
-		"powerExpression", "unaryExpression", "blockingReadExpr", "postfixExpression",
-		"indexOrSlice", "functionCallSuffix", "primaryExpression", "typeCast",
-		"builtinFunction", "literal", "numericLiteral", "temporalLiteral", "seriesLiteral",
-		"expressionList",
+		"returnType", "stageDeclaration", "configBlock", "configParameter",
+		"flowStatement", "flowNode", "channelIdentifier", "stageInvocation",
+		"configValues", "namedConfigValues", "namedConfigValue", "anonymousConfigValues",
+		"arguments", "argumentList", "block", "statement", "variableDeclaration",
+		"localVariable", "statefulVariable", "assignment", "channelOperation",
+		"channelWrite", "channelRead", "blockingRead", "nonBlockingRead", "ifStatement",
+		"elseIfClause", "elseClause", "returnStatement", "functionCall", "type",
+		"primitiveType", "numericType", "integerType", "floatType", "temporalType",
+		"channelType", "seriesType", "expression", "logicalOrExpression", "logicalAndExpression",
+		"equalityExpression", "relationalExpression", "additiveExpression",
+		"multiplicativeExpression", "powerExpression", "unaryExpression", "blockingReadExpr",
+		"postfixExpression", "indexOrSlice", "functionCallSuffix", "primaryExpression",
+		"typeCast", "builtinFunction", "literal", "numericLiteral", "temporalLiteral",
+		"seriesLiteral", "expressionList",
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
@@ -343,7 +343,7 @@ func NewArcParser(input antlr.TokenStream) *ArcParser {
 const (
 	ArcParserEOF                 = antlr.TokenEOF
 	ArcParserFUNC                = 1
-	ArcParserTASK                = 2
+	ArcParserSTAGE               = 2
 	ArcParserIF                  = 3
 	ArcParserELSE                = 4
 	ArcParserRETURN              = 5
@@ -414,13 +414,13 @@ const (
 	ArcParserRULE_parameterList            = 3
 	ArcParserRULE_parameter                = 4
 	ArcParserRULE_returnType               = 5
-	ArcParserRULE_taskDeclaration          = 6
+	ArcParserRULE_stageDeclaration         = 6
 	ArcParserRULE_configBlock              = 7
 	ArcParserRULE_configParameter          = 8
 	ArcParserRULE_flowStatement            = 9
 	ArcParserRULE_flowNode                 = 10
 	ArcParserRULE_channelIdentifier        = 11
-	ArcParserRULE_taskInvocation           = 12
+	ArcParserRULE_stageInvocation          = 12
 	ArcParserRULE_configValues             = 13
 	ArcParserRULE_namedConfigValues        = 14
 	ArcParserRULE_namedConfigValue         = 15
@@ -644,7 +644,7 @@ type ITopLevelItemContext interface {
 
 	// Getter signatures
 	FunctionDeclaration() IFunctionDeclarationContext
-	TaskDeclaration() ITaskDeclarationContext
+	StageDeclaration() IStageDeclarationContext
 	FlowStatement() IFlowStatementContext
 
 	// IsTopLevelItemContext differentiates from other interfaces.
@@ -699,10 +699,10 @@ func (s *TopLevelItemContext) FunctionDeclaration() IFunctionDeclarationContext 
 	return t.(IFunctionDeclarationContext)
 }
 
-func (s *TopLevelItemContext) TaskDeclaration() ITaskDeclarationContext {
+func (s *TopLevelItemContext) StageDeclaration() IStageDeclarationContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(ITaskDeclarationContext); ok {
+		if _, ok := ctx.(IStageDeclarationContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -712,7 +712,7 @@ func (s *TopLevelItemContext) TaskDeclaration() ITaskDeclarationContext {
 		return nil
 	}
 
-	return t.(ITaskDeclarationContext)
+	return t.(IStageDeclarationContext)
 }
 
 func (s *TopLevelItemContext) FlowStatement() IFlowStatementContext {
@@ -768,11 +768,11 @@ func (p *ArcParser) TopLevelItem() (localctx ITopLevelItemContext) {
 			p.FunctionDeclaration()
 		}
 
-	case ArcParserTASK:
+	case ArcParserSTAGE:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(137)
-			p.TaskDeclaration()
+			p.StageDeclaration()
 		}
 
 	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
@@ -1411,15 +1411,15 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// ITaskDeclarationContext is an interface to support dynamic dispatch.
-type ITaskDeclarationContext interface {
+// IStageDeclarationContext is an interface to support dynamic dispatch.
+type IStageDeclarationContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	TASK() antlr.TerminalNode
+	STAGE() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
 	LPAREN() antlr.TerminalNode
 	RPAREN() antlr.TerminalNode
@@ -1428,59 +1428,59 @@ type ITaskDeclarationContext interface {
 	ParameterList() IParameterListContext
 	ReturnType() IReturnTypeContext
 
-	// IsTaskDeclarationContext differentiates from other interfaces.
-	IsTaskDeclarationContext()
+	// IsStageDeclarationContext differentiates from other interfaces.
+	IsStageDeclarationContext()
 }
 
-type TaskDeclarationContext struct {
+type StageDeclarationContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyTaskDeclarationContext() *TaskDeclarationContext {
-	var p = new(TaskDeclarationContext)
+func NewEmptyStageDeclarationContext() *StageDeclarationContext {
+	var p = new(StageDeclarationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_stageDeclaration
 	return p
 }
 
-func InitEmptyTaskDeclarationContext(p *TaskDeclarationContext) {
+func InitEmptyStageDeclarationContext(p *StageDeclarationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_stageDeclaration
 }
 
-func (*TaskDeclarationContext) IsTaskDeclarationContext() {}
+func (*StageDeclarationContext) IsStageDeclarationContext() {}
 
-func NewTaskDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TaskDeclarationContext {
-	var p = new(TaskDeclarationContext)
+func NewStageDeclarationContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *StageDeclarationContext {
+	var p = new(StageDeclarationContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_taskDeclaration
+	p.RuleIndex = ArcParserRULE_stageDeclaration
 
 	return p
 }
 
-func (s *TaskDeclarationContext) GetParser() antlr.Parser { return s.parser }
+func (s *StageDeclarationContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *TaskDeclarationContext) TASK() antlr.TerminalNode {
-	return s.GetToken(ArcParserTASK, 0)
+func (s *StageDeclarationContext) STAGE() antlr.TerminalNode {
+	return s.GetToken(ArcParserSTAGE, 0)
 }
 
-func (s *TaskDeclarationContext) IDENTIFIER() antlr.TerminalNode {
+func (s *StageDeclarationContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *TaskDeclarationContext) LPAREN() antlr.TerminalNode {
+func (s *StageDeclarationContext) LPAREN() antlr.TerminalNode {
 	return s.GetToken(ArcParserLPAREN, 0)
 }
 
-func (s *TaskDeclarationContext) RPAREN() antlr.TerminalNode {
+func (s *StageDeclarationContext) RPAREN() antlr.TerminalNode {
 	return s.GetToken(ArcParserRPAREN, 0)
 }
 
-func (s *TaskDeclarationContext) Block() IBlockContext {
+func (s *StageDeclarationContext) Block() IBlockContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IBlockContext); ok {
@@ -1496,7 +1496,7 @@ func (s *TaskDeclarationContext) Block() IBlockContext {
 	return t.(IBlockContext)
 }
 
-func (s *TaskDeclarationContext) ConfigBlock() IConfigBlockContext {
+func (s *StageDeclarationContext) ConfigBlock() IConfigBlockContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IConfigBlockContext); ok {
@@ -1512,7 +1512,7 @@ func (s *TaskDeclarationContext) ConfigBlock() IConfigBlockContext {
 	return t.(IConfigBlockContext)
 }
 
-func (s *TaskDeclarationContext) ParameterList() IParameterListContext {
+func (s *StageDeclarationContext) ParameterList() IParameterListContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IParameterListContext); ok {
@@ -1528,7 +1528,7 @@ func (s *TaskDeclarationContext) ParameterList() IParameterListContext {
 	return t.(IParameterListContext)
 }
 
-func (s *TaskDeclarationContext) ReturnType() IReturnTypeContext {
+func (s *StageDeclarationContext) ReturnType() IReturnTypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IReturnTypeContext); ok {
@@ -1544,35 +1544,35 @@ func (s *TaskDeclarationContext) ReturnType() IReturnTypeContext {
 	return t.(IReturnTypeContext)
 }
 
-func (s *TaskDeclarationContext) GetRuleContext() antlr.RuleContext {
+func (s *StageDeclarationContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *TaskDeclarationContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *StageDeclarationContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TaskDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *StageDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterTaskDeclaration(s)
+		listenerT.EnterStageDeclaration(s)
 	}
 }
 
-func (s *TaskDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *StageDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitTaskDeclaration(s)
+		listenerT.ExitStageDeclaration(s)
 	}
 }
 
-func (p *ArcParser) TaskDeclaration() (localctx ITaskDeclarationContext) {
-	localctx = NewTaskDeclarationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, ArcParserRULE_taskDeclaration)
+func (p *ArcParser) StageDeclaration() (localctx IStageDeclarationContext) {
+	localctx = NewStageDeclarationContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 12, ArcParserRULE_stageDeclaration)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(166)
-		p.Match(ArcParserTASK)
+		p.Match(ArcParserSTAGE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -2155,7 +2155,7 @@ type IFlowNodeContext interface {
 
 	// Getter signatures
 	ChannelIdentifier() IChannelIdentifierContext
-	TaskInvocation() ITaskInvocationContext
+	StageInvocation() IStageInvocationContext
 	Expression() IExpressionContext
 
 	// IsFlowNodeContext differentiates from other interfaces.
@@ -2210,10 +2210,10 @@ func (s *FlowNodeContext) ChannelIdentifier() IChannelIdentifierContext {
 	return t.(IChannelIdentifierContext)
 }
 
-func (s *FlowNodeContext) TaskInvocation() ITaskInvocationContext {
+func (s *FlowNodeContext) StageInvocation() IStageInvocationContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(ITaskInvocationContext); ok {
+		if _, ok := ctx.(IStageInvocationContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -2223,7 +2223,7 @@ func (s *FlowNodeContext) TaskInvocation() ITaskInvocationContext {
 		return nil
 	}
 
-	return t.(ITaskInvocationContext)
+	return t.(IStageInvocationContext)
 }
 
 func (s *FlowNodeContext) Expression() IExpressionContext {
@@ -2283,7 +2283,7 @@ func (p *ArcParser) FlowNode() (localctx IFlowNodeContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(204)
-			p.TaskInvocation()
+			p.StageInvocation()
 		}
 
 	case 3:
@@ -2406,8 +2406,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// ITaskInvocationContext is an interface to support dynamic dispatch.
-type ITaskInvocationContext interface {
+// IStageInvocationContext is an interface to support dynamic dispatch.
+type IStageInvocationContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -2418,47 +2418,47 @@ type ITaskInvocationContext interface {
 	ConfigValues() IConfigValuesContext
 	Arguments() IArgumentsContext
 
-	// IsTaskInvocationContext differentiates from other interfaces.
-	IsTaskInvocationContext()
+	// IsStageInvocationContext differentiates from other interfaces.
+	IsStageInvocationContext()
 }
 
-type TaskInvocationContext struct {
+type StageInvocationContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyTaskInvocationContext() *TaskInvocationContext {
-	var p = new(TaskInvocationContext)
+func NewEmptyStageInvocationContext() *StageInvocationContext {
+	var p = new(StageInvocationContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_stageInvocation
 	return p
 }
 
-func InitEmptyTaskInvocationContext(p *TaskInvocationContext) {
+func InitEmptyStageInvocationContext(p *StageInvocationContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_stageInvocation
 }
 
-func (*TaskInvocationContext) IsTaskInvocationContext() {}
+func (*StageInvocationContext) IsStageInvocationContext() {}
 
-func NewTaskInvocationContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TaskInvocationContext {
-	var p = new(TaskInvocationContext)
+func NewStageInvocationContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *StageInvocationContext {
+	var p = new(StageInvocationContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_taskInvocation
+	p.RuleIndex = ArcParserRULE_stageInvocation
 
 	return p
 }
 
-func (s *TaskInvocationContext) GetParser() antlr.Parser { return s.parser }
+func (s *StageInvocationContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *TaskInvocationContext) IDENTIFIER() antlr.TerminalNode {
+func (s *StageInvocationContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *TaskInvocationContext) ConfigValues() IConfigValuesContext {
+func (s *StageInvocationContext) ConfigValues() IConfigValuesContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IConfigValuesContext); ok {
@@ -2474,7 +2474,7 @@ func (s *TaskInvocationContext) ConfigValues() IConfigValuesContext {
 	return t.(IConfigValuesContext)
 }
 
-func (s *TaskInvocationContext) Arguments() IArgumentsContext {
+func (s *StageInvocationContext) Arguments() IArgumentsContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IArgumentsContext); ok {
@@ -2490,29 +2490,29 @@ func (s *TaskInvocationContext) Arguments() IArgumentsContext {
 	return t.(IArgumentsContext)
 }
 
-func (s *TaskInvocationContext) GetRuleContext() antlr.RuleContext {
+func (s *StageInvocationContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *TaskInvocationContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *StageInvocationContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TaskInvocationContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *StageInvocationContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterTaskInvocation(s)
+		listenerT.EnterStageInvocation(s)
 	}
 }
 
-func (s *TaskInvocationContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *StageInvocationContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitTaskInvocation(s)
+		listenerT.ExitStageInvocation(s)
 	}
 }
 
-func (p *ArcParser) TaskInvocation() (localctx ITaskInvocationContext) {
-	localctx = NewTaskInvocationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 24, ArcParserRULE_taskInvocation)
+func (p *ArcParser) StageInvocation() (localctx IStageInvocationContext) {
+	localctx = NewStageInvocationContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 24, ArcParserRULE_stageInvocation)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)

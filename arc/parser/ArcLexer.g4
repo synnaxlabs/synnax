@@ -5,7 +5,7 @@ lexer grammar ArcLexer;
 // =============================================================================
 
 FUNC        : 'func';
-TASK        : 'task';
+STAGE        : 'stage';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';

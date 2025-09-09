@@ -1,4 +1,4 @@
-task press {
+stage press {
     press_valve_cmd <-chan i32
     vent_valve_cmd <-chan i32
     press_valve_state <-chan i64

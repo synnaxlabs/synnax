@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol
+package ir
 
 import (
 	"strconv"
@@ -15,34 +15,11 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-type Kind int
-
-//go:generate stringer -type=Kind
-const (
-	KindVariable Kind = iota
-	KindStatefulVariable
-	KindParam
-	KindFunction
-	KindTask
-	KindChannel
-	KindConfigParam
-	KindBlock
-)
-
-type Symbol struct {
-	Name       string
-	Kind       Kind
-	Type       types.Type
-	ParserRule antlr.ParserRuleContext
-	ID         int
-}
-
-// CreateRoot creates a new scope representing the root scope of a program.
-func CreateRoot(globalResolver Resolver) *Scope {
+// CreateRootScope creates a new scope representing the root scope of a program.
+func CreateRootScope(globalResolver SymbolResolver) *Scope {
 	return &Scope{
 		GlobalResolver: globalResolver,
 		Symbol:         Symbol{Kind: KindBlock},
@@ -52,7 +29,7 @@ func CreateRoot(globalResolver Resolver) *Scope {
 
 type Scope struct {
 	Symbol
-	GlobalResolver Resolver
+	GlobalResolver SymbolResolver
 	Parent         *Scope
 	Children       []*Scope
 	Counter        *int
@@ -110,7 +87,7 @@ func (s *Scope) Add(sym Symbol) (*Scope, error) {
 		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
-	if sym.Kind == KindFunction || sym.Kind == KindTask {
+	if sym.Kind == KindFunction || sym.Kind == KindStage {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindVariable ||

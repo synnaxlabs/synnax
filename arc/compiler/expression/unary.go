@@ -10,30 +10,30 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // compileUnary handles unary -, !, and blocking read operations
-func compileUnary(ctx *core.Context, expr text.IUnaryExpressionContext, hint types.Type) (types.Type, error) {
-	if expr.MINUS() != nil {
-		innerType, err := compileUnary(ctx, expr.UnaryExpression(), hint)
+func compileUnary(ctx context.Context[parser.IUnaryExpressionContext], hint ir.Type) (ir.Type, error) {
+	if ctx.AST.MINUS() != nil {
+		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()), hint)
 		if err != nil {
 			return nil, err
 		}
 		switch innerType.(type) {
-		case types.I8, types.I16, types.I32, types.U8, types.U16, types.U32:
+		case ir.I8, ir.I16, ir.I32, ir.U8, ir.U16, ir.U32:
 			ctx.Writer.WriteI32Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
-		case types.I64, types.U64:
+		case ir.I64, ir.U64:
 			ctx.Writer.WriteI64Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
-		case types.F32:
+		case ir.F32:
 			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
-		case types.F64:
+		case ir.F64:
 			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
 		default:
 			return nil, errors.Newf("cannot negate type %s", innerType)
@@ -42,24 +42,24 @@ func compileUnary(ctx *core.Context, expr text.IUnaryExpressionContext, hint typ
 		return innerType, nil
 	}
 
-	if expr.NOT() != nil {
+	if ctx.AST.NOT() != nil {
 		// Compile the inner expression
-		_, err := compileUnary(ctx, expr.UnaryExpression(), nil)
+		_, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()), nil)
 		if err != nil {
 			return nil, err
 		}
 		// Logical NOT expects a boolean (u8) and returns boolean
 		// Use i32.eqz to check if value is 0 (false becomes true, true becomes false)
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8{}, nil
+		return ir.U8{}, nil
 	}
 
-	if blockRead := expr.BlockingReadExpr(); blockRead != nil {
+	if blockRead := ctx.AST.BlockingReadExpr(); blockRead != nil {
 		// TODO: Implement blocking channel read
-		return types.F64{}, nil // Placeholder
+		return ir.F64{}, nil // Placeholder
 	}
-	if postfix := expr.PostfixExpression(); postfix != nil {
-		return compilePostfix(ctx, postfix, hint)
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		return compilePostfix(context.Child(ctx, postfix))
 	}
 	return nil, errors.New("unknown unary expression")
 }

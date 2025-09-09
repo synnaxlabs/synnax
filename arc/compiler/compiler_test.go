@@ -14,18 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/runtime/mock"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(source string, resolver symbol.Resolver) ([]byte, error) {
+func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(source))
-	analysis := text.Analyze(prog, text.Options{Resolver: resolver})
+	analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
 	Expect(analysis.Ok()).To(BeTrue())
 	return compiler.Compile(compiler.Config{
 		Program:            prog,
@@ -34,9 +34,9 @@ func compile(source string, resolver symbol.Resolver) ([]byte, error) {
 	})
 }
 
-func compileWithHostImports(source string, resolver symbol.Resolver) ([]byte, error) {
+func compileWithHostImports(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(source))
-	analysis := text.Analyze(prog, text.Options{Resolver: resolver})
+	analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
 	Expect(analysis.Ok()).To(BeTrue())
 	return compiler.Compile(compiler.Config{
 		Program:            prog,
@@ -104,10 +104,10 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Task Execution", func() {
-		It("Should execute a simple compiled addition task", func() {
+	Describe("Stage Execution", func() {
+		It("Should execute a simple compiled addition stage", func() {
 			wasmBytes := MustSucceed(compile(`
-			task add{
+			stage add{
 				a i64
 			} (b i64) i64 {
 				return a + b
@@ -141,11 +141,11 @@ var _ = Describe("Compiler", func() {
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+			resolver := ir.MapResolver(map[string]ir.Symbol{
 				"sensor": {
 					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32{}},
+					Kind: ir.KindChannel,
+					Type: ir.Chan{ValueType: ir.I32{}},
 				},
 			})
 
@@ -185,19 +185,19 @@ var _ = Describe("Compiler", func() {
 
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
-			printType := types.NewTask()
-			printType.Config.Put("message", types.String{})
+			printType := ir.NewStage()
+			printType.Config.Put("message", ir.String{})
 
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
 					Name: "ox_pt_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32{}},
+					Kind: ir.KindChannel,
+					Type: ir.Chan{ValueType: ir.I32{}},
 					ID:   12,
 				},
-				"print": symbol.Symbol{
+				"print": ir.Symbol{
 					Name: "print",
-					Kind: symbol.KindTask,
+					Kind: ir.KindStage,
 					Type: printType,
 				},
 			}

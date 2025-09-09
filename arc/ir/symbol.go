@@ -7,22 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package module
+package ir
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer/text"
-	"github.com/synnaxlabs/arc/ir"
 )
 
-type assembler struct {
-	tasks      []Stage
-	functions  []Function
-	nodes      map[string]*Node
-	edges      []Edge
-	scope      *ir.Scope
-	counter    int
-	wasmModule []byte
+type Kind int
+
+//go:generate stringer -type=Kind
+const (
+	KindVariable Kind = iota
+	KindStatefulVariable
+	KindParam
+	KindFunction
+	KindStage
+	KindChannel
+	KindConfigParam
+	KindBlock
+)
+
+type Symbol struct {
+	Name       string
+	Kind       Kind
+	Type       Type
+	ParserRule antlr.ParserRuleContext
+	ID         int
 }

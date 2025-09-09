@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/module"
@@ -46,7 +47,7 @@ var compileCmd = &cobra.Command{
 		if err != nil {
 			return errors.Newf("parse error: %s", err)
 		}
-		analysis := text.Analyze(prog, text.Options{})
+		analysis := analyzer.AnalyzeProgram(prog, text.Options{})
 		if len(analysis.Diagnostics) > 0 {
 			return errors.Newf("analysis failed %s", analysis.String())
 		}
@@ -86,7 +87,7 @@ var compileCmd = &cobra.Command{
 			// Also write metadata file
 			metaPath := strings.TrimSuffix(outputPath, ".wasm") + ".meta.json"
 			metaData, err := json.MarshalIndent(struct {
-				Tasks     []module.Task     `json:"tasks"`
+				Tasks     []module.Stage    `json:"tasks"`
 				Functions []module.Function `json:"functions"`
 				Nodes     []module.Node     `json:"nodes"`
 				Edges     []module.Edge     `json:"edges"`

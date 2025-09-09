@@ -12,18 +12,18 @@ package module_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func assemble(source string, resolver symbol.Resolver) (*module.Module, error) {
+func assemble(source string, resolver ir.SymbolResolver) (*module.Module, error) {
 	prog, err := text.Parse(source)
 	Expect(err).To(BeNil())
-	result := text.Analyze(prog, text.Options{Resolver: resolver})
+	result := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
 	Expect(result.Diagnostics).To(BeEmpty())
 	wasmCode := MustSucceed(compiler.Compile(compiler.Config{Program: prog, Analysis: &result}))
 	return module.Assemble(prog, result, wasmCode)
@@ -31,14 +31,14 @@ func assemble(source string, resolver symbol.Resolver) (*module.Module, error) {
 
 var _ = Describe("Graph Assembly", func() {
 	Describe("Basic Flow Assembly", func() {
-		It("Should assemble a basic task to task flow", func() {
+		It("Should assemble a basic stage to stage flow", func() {
 			source := `
-			task first{
+			stage first{
 				value f64
 			} () f64 {
 				return 1.0
 			}
-			task second{
+			stage second{
 				value f64
 			} () {
 			}
@@ -74,10 +74,10 @@ var _ = Describe("Graph Assembly", func() {
 		})
 
 		It("Should assemble a basic channel to expression flow", func() {
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.F64{}},
+					Type: ir.Chan{ValueType: ir.F64{}},
 				},
 			}
 			source := `ox_pt_1 -> ox_pt_1 > 0`
@@ -85,24 +85,24 @@ var _ = Describe("Graph Assembly", func() {
 			Expect(mod.Tasks).To(HaveLen(1))
 		})
 
-		It("Should correctly add channels to task", func() {
+		It("Should correctly add channels to stage", func() {
 			source := `
-			task first{
+			stage first{
 				value f64
 			} () f64 {
 				return ox_pt_1 + 1.0
 			}
-			task second{
+			stage second{
 				value f64
 			} () {
 			}
 			first{value: 10.0} -> second{value: 20.0}
 			`
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
 					Name: "ox_pt_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.F64{}},
+					Kind: ir.KindChannel,
+					Type: ir.Chan{ValueType: ir.F64{}},
 				},
 			}
 			mod := MustSucceed(assemble(source, resolver))

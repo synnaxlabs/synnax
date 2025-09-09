@@ -13,6 +13,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+
+	"github.com/synnaxlabs/arc/ir"
 )
 
 // Writer handles low-level WASM instruction encoding
@@ -139,6 +141,16 @@ func (e *Writer) WriteBrIf(labelIdx uint32) {
 }
 
 // === Arithmetic Instructions ===
+
+func (e *Writer) WriteBinaryOpInferred(op string, resultType ir.Type) error {
+	// Resolve and emit opcode (analyzer already validated types match)
+	opcode, err := binaryOpcode(op, resultType)
+	if err != nil {
+		return err
+	}
+	e.WriteBinaryOp(opcode)
+	return nil
+}
 
 // WriteBinaryOp writes a simple binary operation (no immediates)
 func (e *Writer) WriteBinaryOp(op Opcode) {

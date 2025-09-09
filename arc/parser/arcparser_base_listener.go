@@ -56,11 +56,11 @@ func (s *BaseArcParserListener) EnterReturnType(ctx *ReturnTypeContext) {}
 // ExitReturnType is called when production returnType is exited.
 func (s *BaseArcParserListener) ExitReturnType(ctx *ReturnTypeContext) {}
 
-// EnterTaskDeclaration is called when production taskDeclaration is entered.
-func (s *BaseArcParserListener) EnterTaskDeclaration(ctx *TaskDeclarationContext) {}
+// EnterStageDeclaration is called when production stageDeclaration is entered.
+func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
 
-// ExitTaskDeclaration is called when production taskDeclaration is exited.
-func (s *BaseArcParserListener) ExitTaskDeclaration(ctx *TaskDeclarationContext) {}
+// ExitStageDeclaration is called when production stageDeclaration is exited.
+func (s *BaseArcParserListener) ExitStageDeclaration(ctx *StageDeclarationContext) {}
 
 // EnterConfigBlock is called when production configBlock is entered.
 func (s *BaseArcParserListener) EnterConfigBlock(ctx *ConfigBlockContext) {}
@@ -92,11 +92,11 @@ func (s *BaseArcParserListener) EnterChannelIdentifier(ctx *ChannelIdentifierCon
 // ExitChannelIdentifier is called when production channelIdentifier is exited.
 func (s *BaseArcParserListener) ExitChannelIdentifier(ctx *ChannelIdentifierContext) {}
 
-// EnterTaskInvocation is called when production taskInvocation is entered.
-func (s *BaseArcParserListener) EnterTaskInvocation(ctx *TaskInvocationContext) {}
+// EnterStageInvocation is called when production stageInvocation is entered.
+func (s *BaseArcParserListener) EnterStageInvocation(ctx *StageInvocationContext) {}
 
-// ExitTaskInvocation is called when production taskInvocation is exited.
-func (s *BaseArcParserListener) ExitTaskInvocation(ctx *TaskInvocationContext) {}
+// ExitStageInvocation is called when production stageInvocation is exited.
+func (s *BaseArcParserListener) ExitStageInvocation(ctx *StageInvocationContext) {}
 
 // EnterConfigValues is called when production configValues is entered.
 func (s *BaseArcParserListener) EnterConfigValues(ctx *ConfigValuesContext) {}

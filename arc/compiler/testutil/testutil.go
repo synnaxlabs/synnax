@@ -13,26 +13,25 @@ import (
 	"github.com/synnaxlabs/arc/compiler/core"
 	"github.com/synnaxlabs/arc/compiler/runtime"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func FunctionScope(t types.Function) *symbol.Scope {
-	symbols := &symbol.Scope{}
-	s := MustSucceed(symbols.Add(symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32{}}))
-	return MustSucceed(s.Add(symbol.Symbol{Kind: symbol.KindBlock}))
+func FunctionScope(t ir.Function) *ir.Scope {
+	symbols := &ir.Scope{}
+	s := MustSucceed(symbols.Add(ir.Symbol{Name: "func", Kind: ir.KindFunction, Type: ir.I32{}}))
+	return MustSucceed(s.Add(ir.Symbol{Kind: ir.KindBlock}))
 }
 
-func NewContext() *core.Context {
-	return NewContextWithFunctionType(types.Function{})
+func NewContext() *context.Context {
+	return NewContextWithFunctionType(ir.Function{})
 }
 
-func NewContextWithFunctionType(t types.Function) *core.Context {
+func NewContextWithFunctionType(t ir.Function) *context.Context {
 	var (
 		module    = wasm.NewModule()
 		importIdx = runtime.SetupImports(module)
-		ctx       = &core.Context{
+		ctx       = &context.Context{
 			Module:  module,
 			Imports: importIdx,
 			Scope:   FunctionScope(t),

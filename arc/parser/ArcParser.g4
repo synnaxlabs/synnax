@@ -14,7 +14,7 @@ program
 
 topLevelItem
     : functionDeclaration
-    | taskDeclaration  
+    | stageDeclaration
     | flowStatement
     ;
 
@@ -39,11 +39,11 @@ returnType
     ;
 
 // =============================================================================
-// Task Declarations
+// Stage Declarations
 // =============================================================================
 
-taskDeclaration
-    : TASK IDENTIFIER configBlock? LPAREN parameterList? RPAREN returnType? block
+stageDeclaration
+    : STAGE IDENTIFIER configBlock? LPAREN parameterList? RPAREN returnType? block
     ;
 
 configBlock
@@ -55,7 +55,7 @@ configParameter
     ;
 
 // =============================================================================
-// Inter-Task Flow
+// Inter-Stage Flow
 // =============================================================================
 
 flowStatement
@@ -64,7 +64,7 @@ flowStatement
 
 flowNode
     : channelIdentifier
-    | taskInvocation
+    | stageInvocation
     | expression
     ;
 
@@ -72,7 +72,7 @@ channelIdentifier
     : IDENTIFIER
     ;
 
-taskInvocation
+stageInvocation
     : IDENTIFIER configValues? arguments?
     ;
 

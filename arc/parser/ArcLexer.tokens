@@ -1,5 +1,5 @@
 FUNC=1
-TASK=2
+STAGE=2
 IF=3
 ELSE=4
 RETURN=5
@@ -61,7 +61,7 @@ SINGLE_LINE_COMMENT=60
 MULTI_LINE_COMMENT=61
 WS=62
 'func'=1
-'task'=2
+'stage'=2
 'if'=3
 'else'=4
 'return'=5

@@ -12,64 +12,65 @@ package flow_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
-	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var resolver = symbol.MapResolver{
-	"on": symbol.Symbol{
+var resolver = ir.MapResolver{
+	"on": ir.Symbol{
 		Name: "on",
-		Kind: symbol.KindTask,
-		Type: &types.Task{
-			Config: types.NewOrderedMap([]string{"channel"}, []types.Type{types.String{}}),
+		Kind: ir.KindStage,
+		Type: &ir.Stage{
+			Config: types.NewOrderedMap([]string{"channel"}, []ir.Type{ir.String{}}),
 		},
 	},
-	"once": symbol.Symbol{
+	"once": ir.Symbol{
 		Name: "once",
-		Kind: symbol.KindTask,
-		Type: &types.Task{},
+		Kind: ir.KindStage,
+		Type: &ir.Stage{},
 	},
-	"processor": symbol.Symbol{
+	"processor": ir.Symbol{
 		Name: "processor",
-		Kind: symbol.KindTask,
-		Type: &types.Task{},
+		Kind: ir.KindStage,
+		Type: &ir.Stage{},
 	},
-	"sensor_chan": symbol.Symbol{
+	"sensor_chan": ir.Symbol{
 		Name: "sensor_chan",
-		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.F64{}},
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.F64{}},
 	},
-	"output_chan": symbol.Symbol{
+	"output_chan": ir.Symbol{
 		Name: "output_chan",
-		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.F64{}},
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.F64{}},
 	},
-	"temp_sensor": symbol.Symbol{
+	"temp_sensor": ir.Symbol{
 		Name: "temp_sensor",
-		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.F64{}},
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.F64{}},
 	},
-	"valve_cmd": symbol.Symbol{
+	"valve_cmd": ir.Symbol{
 		Name: "valve_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.F64{}},
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.F64{}},
 	},
-	"temperature": symbol.Symbol{
+	"temperature": ir.Symbol{
 		Name: "temperature",
-		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.F64{}},
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.F64{}},
 	},
 }
 
 var _ = Describe("Flow Statements", func() {
-	Describe("Channel to Task Flows", func() {
-		It("Should parse simple channel to task flow", func() {
+	Describe("Channel to Stage Flows", func() {
+		It("Should parse simple channel to stage flow", func() {
 			ast := MustSucceed(text.Parse(`
 once{} -> processor{}
 `))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -77,25 +78,25 @@ once{} -> processor{}
 			ast := MustSucceed(text.Parse(`
 			once{} -> processor{}
 			`))
-			result := text.Analyze(ast, text.Options{})
+			result := analyzer.AnalyzeProgram(ast, text.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("undefined symbol: once"))
 		})
 
-		It("Should return an error when one of the symbols being called is not a task", func() {
+		It("Should return an error when one of the symbols being called is not a stage", func() {
 			ast := MustSucceed(text.Parse(`
 			func dog() {
 			}
 			once{} -> dog{}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("dog is not a task"))
+			Expect(result.Diagnostics[0].Message).To(Equal("dog is not a stage"))
 		})
 
-		It("Should verify task config parameters match the expected signature types", func() {
+		It("Should verify stage config parameters match the expected signature types", func() {
 			ast := MustSucceed(text.Parse(`
-			task controller{
+			stage controller{
 				setpoint f64
 				input <-chan f64
 				output ->chan f64
@@ -113,13 +114,13 @@ once{} -> processor{}
 				output: output_chan
 			}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
-		It("Should detect when task is invoked with missing required parameters", func() {
+		It("Should detect when stage is invoked with missing required parameters", func() {
 			ast := MustSucceed(text.Parse(`
-			task filter{
+			stage filter{
 				threshold f64
 				input <-chan f64
 				output ->chan f64
@@ -135,18 +136,18 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
 			Expect(result.Diagnostics[0].Message).To(Or(
-				Equal("missing required config parameter 'threshold' for task 'filter'"),
-				Equal("missing required config parameter 'output' for task 'filter'"),
+				Equal("missing required config parameter 'threshold' for stage 'filter'"),
+				Equal("missing required config parameter 'output' for stage 'filter'"),
 			))
 		})
 
-		It("Should detect when task is invoked with extra parameters not in signature", func() {
+		It("Should detect when stage is invoked with extra parameters not in signature", func() {
 			ast := MustSucceed(text.Parse(`
-			task simple{
+			stage simple{
 				input <-chan f64
 			} () {
 				value := <-input
@@ -158,14 +159,14 @@ once{} -> processor{}
 				extra: 42.0
 			}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("unknown config parameter 'extra' for task 'simple'"))
+			Expect(result.Diagnostics[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
 		})
 
-		It("Should detect type mismatch in task config parameters", func() {
+		It("Should detect type mismatch in stage config parameters", func() {
 			ast := MustSucceed(text.Parse(`
-			task typed_task{
+			stage typed_task{
 				threshold f64
 				count u32
 				message string
@@ -188,7 +189,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			// Should have at least one type mismatch error
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			// Check that at least one error mentions type mismatch
@@ -202,9 +203,9 @@ once{} -> processor{}
 			Expect(hasTypeMismatch).To(BeTrue(), "Expected at least one type mismatch error")
 		})
 
-		It("Should accept correct types for task config parameters", func() {
+		It("Should accept correct types for stage config parameters", func() {
 			ast := MustSucceed(text.Parse(`
-			task typed_task{
+			stage typed_task{
 				threshold f64
 				count u32
 				message string
@@ -224,13 +225,13 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should allow channels as both sources and targets in flow statements", func() {
 			ast := MustSucceed(text.Parse(`
-			task process{
+			stage process{
 				input <-chan f64
 				output ->chan f64
 			} () {
@@ -239,13 +240,13 @@ once{} -> processor{}
 				processed -> output
 			}
 
-			// Channel as source -> task -> channel as target
+			// Channel as source -> stage -> channel as target
 			temp_sensor -> process{
 				input: temp_sensor,
 				output: valve_cmd
 			}
 
-			// Direct channel to channel piping (no task)
+			// Direct channel to channel piping (no stage)
 			// This represents a direct connection/pass-through
 			sensor_chan -> output_chan
 
@@ -255,20 +256,20 @@ once{} -> processor{}
 				output: output_chan
 			} -> valve_cmd
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should understand channel pass-through triggers tasks on new values", func() {
 			ast := MustSucceed(text.Parse(`
-			task logger{
+			stage logger{
 				value <-chan f64
 			} () {
 				v := <-value
 				// Log the value
 			}
 
-			task controller{
+			stage controller{
 				temp <-chan f64
 				setpoint f64
 			} () {
@@ -279,23 +280,23 @@ once{} -> processor{}
 			}
 
 			// Channel pass-through - these trigger tasks on channel updates
-			// The channel IS the implicit first parameter to the task
+			// The channel IS the implicit first parameter to the stage
 			temperature -> controller{temp: temperature, setpoint: 100.0}
 
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
 			sensor_chan -> logger{value: sensor_chan}
 
-			// Even simpler - if task has single channel input, it can be implicit
+			// Even simpler - if stage has single channel input, it can be implicit
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
-		It("Should implicitly convert channel sources to on{channel} task invocations", func() {
+		It("Should implicitly convert channel sources to on{channel} stage invocations", func() {
 			ast := MustSucceed(text.Parse(`
-			task display{
+			stage display{
 				input <-chan f64
 			} () {
 				value := <-input
@@ -307,47 +308,47 @@ once{} -> processor{}
 
 			// Is implicitly converted to:
 			// on{channel: sensor_chan} -> display{input: sensor_chan}
-			// Where "on" is a stdlib task that triggers when the channel receives a value
+			// Where "on" is a stdlib stage that triggers when the channel receives a value
 			`))
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
-			// The analyzer should have converted the channel source to an "on" task
-			// This test verifies that the "on" task is required in the resolver
+			// The analyzer should have converted the channel source to an "on" stage
+			// This test verifies that the "on" stage is required in the resolver
 		})
 
 		It("Using channel as source", func() {
-			// Create a resolver without the "on" task
-			noOnResolver := symbol.MapResolver{
-				"sensor_chan": symbol.Symbol{
+			// Create a resolver without the "on" stage
+			noOnResolver := ir.MapResolver{
+				"sensor_chan": ir.Symbol{
 					Name: "sensor_chan",
-					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.F64{}},
+					Kind: ir.KindChannel,
+					Type: ir.Chan{ValueType: ir.F64{}},
 				},
 			}
 
 			ast := MustSucceed(text.Parse(`
-			task display{
+			stage display{
 				input <-chan f64
 			} () {
 				value := <-input
 			}
 
-			// This should fail because "on" task is not available
+			// This should fail because "on" stage is not available
 			sensor_chan -> display{input: sensor_chan}
 			`))
 
-			result := text.Analyze(ast, text.Options{Resolver: noOnResolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: noOnResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should convert expressions in flow statements to anonymous tasks", func() {
 			ast := MustSucceed(text.Parse(`
-task alarm{} () {}
-task logger{} () {}
+stage alarm{} () {}
+stage logger{} () {}
 
-// Expression as source - should be converted to anonymous task
-// The expression "sensor_chan > 100" becomes an anonymous task that:
+// Expression as source - should be converted to anonymous stage
+// The expression "sensor_chan > 100" becomes an anonymous stage that:
 // 1. Reads from sensor_chan
 // 2. Evaluates the comparison
 // 3. Outputs u8 (boolean) result
@@ -357,25 +358,25 @@ sensor_chan > 100 -> alarm{}
 (sensor_chan * 1.8) + 32.0 -> logger{}
 			`))
 
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			// The expressions should be validated successfully
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should validate that expressions in flows only reference channels and literals", func() {
 			ast := MustSucceed(text.Parse(`
-task alarm{} () {}
+stage alarm{} () {}
 
 func setup() {
 	threshold := 100  // Variables can only exist in functions/tasks
 }
 
 // This should fail - can't use variables in flow expressions
-// 'threshold' doesn't exist at the inter-task layer scope
+// 'threshold' doesn't exist at the inter-stage layer scope
 sensor_chan > threshold -> alarm{}
 			`))
 
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
+			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
 			// Should have an error about undefined symbol 'threshold'
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			foundError := false

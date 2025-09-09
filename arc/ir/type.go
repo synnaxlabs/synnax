@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types
+package ir
 
 import (
 	"fmt"
-	"iter"
 	"slices"
 
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/maps"
 )
 
 type Type interface {
@@ -73,82 +73,20 @@ type Series struct {
 func (s Series) String() string { return "series " + s.ValueType.String() }
 
 type Function struct {
-	Params OrderedMap[string, Type]
+	Key    string
+	Params maps.Ordered[string, Type]
 	Return Type
+	Body   struct {
+		Raw string
+		AST parser.IBlockContext
+	}
 }
 
 func NewFunction() Function {
-	return Function{Params: OrderedMap[string, Type]{}}
+	return Function{Params: maps.Ordered[string, Type]{}}
 }
 
 func (f Function) String() string { return "function" }
-
-type OrderedMap[K comparable, V any] struct {
-	keys   []K
-	values []V
-}
-
-func NewOrderedMap[K comparable, V any](keys []K, values []V) OrderedMap[K, V] {
-	return OrderedMap[K, V]{keys, values}
-}
-
-func NewTask() Task {
-	t := Task{Params: OrderedMap[string, Type]{}, Config: OrderedMap[string, Type]{}}
-	t.Channels.Read = make(set.Set[string])
-	t.Channels.Write = make(set.Set[string])
-	return t
-}
-
-func (m *OrderedMap[K, V]) Count() int {
-	return len(m.keys)
-}
-
-func (m *OrderedMap[K, V]) At(i int) (K, V) {
-	return m.keys[i], m.values[i]
-}
-
-func (m *OrderedMap[K, V]) Iter() iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for i, k := range m.keys {
-			if !yield(k, m.values[i]) {
-				return
-			}
-		}
-	}
-}
-
-func (m *OrderedMap[K, V]) Get(key K) (V, bool) {
-	for i, k := range m.keys {
-		if k == key {
-			return m.values[i], true
-		}
-	}
-	var res V
-	return res, false
-}
-
-func (m *OrderedMap[K, V]) Put(key K, value V) bool {
-	for _, k := range m.keys {
-		if k == key {
-			return false
-		}
-	}
-	m.keys = append(m.keys, key)
-	m.values = append(m.values, value)
-	return true
-}
-
-type Task struct {
-	Config   OrderedMap[string, Type]
-	Params   OrderedMap[string, Type]
-	Channels struct {
-		Read  set.Set[uint32]
-		Write set.Set[uint32]
-	}
-	Return Type
-}
-
-func (t Task) String() string { return "task" }
 
 type Chan struct {
 	ValueType Type

@@ -11,21 +11,16 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer/result"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-func Analyze(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IExpressionContext,
-) bool {
-	if logicalOr := ctx.LogicalOrExpression(); logicalOr != nil {
-		return analyzeLogicalOr(parentScope, result, logicalOr)
+func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
+	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
+		return analyzeLogicalOr(context.Child(ctx, logicalOr))
 	}
 	return true
 }
@@ -95,33 +90,31 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func validateExpressionType[T any](
-	ctx antlr.ParserRuleContext,
-	scope *symbol.Scope,
-	result *result.Result,
+func validateExpressionType[T any, N antlr.ParserRuleContext](
+	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
-	infer func(scope *symbol.Scope, ctx T, hint types.Type) types.Type,
-	check func(t types.Type) bool,
+	infer func(scope *ir.Scope, ctx T, hint ir.Type) ir.Type,
+	check func(t ir.Type) bool,
 ) bool {
 	if len(items) <= 1 {
 		return true
 	}
-	firstType := infer(scope, items[0], nil)
-	opName := getOperator(ctx)
+	firstType := infer(ctx.Scope, items[0], nil)
+	opName := getOperator(ctx.AST)
 	if !check(firstType) {
-		result.AddError(
+		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
-			ctx,
+			ctx.AST,
 		)
 		return false
 	}
 	for i := 1; i < len(items); i++ {
-		nextType := infer(scope, items[i], firstType)
+		nextType := infer(ctx.Scope, items[i], firstType)
 		if firstType != nil && nextType != nil && !atypes.Compatible(firstType, nextType) {
-			result.AddError(
+			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
-				ctx,
+				ctx.AST,
 			)
 			return false
 		}
@@ -129,224 +122,176 @@ func validateExpressionType[T any](
 	return true
 }
 
-func analyzeLogicalOr(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.ILogicalOrExpressionContext,
-) bool {
-	logicalAnds := ctx.AllLogicalAndExpression()
+func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) bool {
+	logicalAnds := ctx.AST.AllLogicalAndExpression()
 	for _, logicalAnd := range logicalAnds {
-		if !analyzeLogicalAnd(parentScope, result, logicalAnd) {
+		if !analyzeLogicalAnd(context.Child(ctx, logicalAnd)) {
 			return false
 		}
 	}
 	return validateExpressionType(
 		ctx,
-		parentScope,
-		result,
 		logicalAnds,
 		getLogicalOrOperator,
 		atypes.InferLogicalAnd,
-		types.IsBool,
+		ir.IsBool,
 	)
 }
 
-func analyzeLogicalAnd(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.ILogicalAndExpressionContext,
-) bool {
-	equalities := ctx.AllEqualityExpression()
-	for _, equality := range ctx.AllEqualityExpression() {
-		if !analyzeEquality(parentScope, result, equality) {
+func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) bool {
+	equalities := ctx.AST.AllEqualityExpression()
+	for _, equality := range equalities {
+		if !analyzeEquality(context.Child(ctx, equality)) {
 			return false
 		}
 	}
 	return validateExpressionType(
 		ctx,
-		parentScope,
-		result,
 		equalities,
 		getLogicalAndOperator,
 		atypes.InferEquality,
-		types.IsBool,
+		ir.IsBool,
 	)
 }
 
-func analyzeEquality(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IEqualityExpressionContext,
-) bool {
-	relationals := ctx.AllRelationalExpression()
-	for _, relational := range relationals {
-		if !analyzeRelational(parentScope, result, relational) {
+func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
+	rels := ctx.AST.AllRelationalExpression()
+	for _, relational := range rels {
+		if !analyzeRelational(context.Child(ctx, relational)) {
 			return false
 		}
 	}
 	return validateExpressionType(
 		ctx,
-		parentScope,
-		result,
-		relationals,
+		rels,
 		getEqualityOperator,
 		atypes.InferRelational,
-		func(t types.Type) bool { return true },
+		func(t ir.Type) bool { return true },
 	)
 }
 
-func analyzeRelational(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IRelationalExpressionContext,
-) bool {
-	additives := ctx.AllAdditiveExpression()
+func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) bool {
+	additives := ctx.AST.AllAdditiveExpression()
 	for _, additive := range additives {
-		if !analyzeAdditive(parentScope, result, additive) {
+		if !analyzeAdditive(context.Child(ctx, additive)) {
 			return false
 		}
 	}
 	return validateExpressionType(
 		ctx,
-		parentScope,
-		result,
 		additives,
 		getRelationalOperator,
 		atypes.InferAdditive,
-		types.IsNumeric,
+		ir.IsNumeric,
 	)
 }
 
-func analyzeAdditive(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IAdditiveExpressionContext,
-) bool {
-	multiplicatives := ctx.AllMultiplicativeExpression()
-	for _, multiplicative := range multiplicatives {
-		if !analyzeMultiplicative(parentScope, result, multiplicative) {
+func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) bool {
+	mults := ctx.AST.AllMultiplicativeExpression()
+	for _, multiplicative := range mults {
+		if !analyzeMultiplicative(context.Child(ctx, multiplicative)) {
 			return false
 		}
 	}
 	return validateExpressionType[parser.IMultiplicativeExpressionContext](
 		ctx,
-		parentScope,
-		result,
-		multiplicatives,
+		mults,
 		getAdditiveOperator,
 		atypes.InferMultiplicative,
-		types.IsNumeric,
+		ir.IsNumeric,
 	)
 }
 
-func analyzeMultiplicative(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IMultiplicativeExpressionContext,
-) bool {
-	powers := ctx.AllPowerExpression()
+func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) bool {
+	powers := ctx.AST.AllPowerExpression()
 	for _, power := range powers {
-		if !analyzePower(parentScope, result, power) {
+		if !analyzePower(context.Child(ctx, power)) {
 			return false
 		}
 	}
 	return validateExpressionType[parser.IPowerExpressionContext](
 		ctx,
-		parentScope,
-		result,
 		powers,
 		getMultiplicativeOperator,
 		atypes.InferPower,
-		types.IsNumeric,
+		ir.IsNumeric,
 	)
 }
 
-func analyzePower(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IPowerExpressionContext,
-) bool {
-	if unary := ctx.UnaryExpression(); unary != nil {
-		if !analyzeUnary(parentScope, result, unary) {
+func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
+	if unary := ctx.AST.UnaryExpression(); unary != nil {
+		if !analyzeUnary(context.Child(ctx, unary)) {
 			return false
 		}
 	}
-	if power := ctx.PowerExpression(); power != nil {
-		if !analyzePower(parentScope, result, power) {
+	if power := ctx.AST.PowerExpression(); power != nil {
+		if !analyzePower(context.Child(ctx, power)) {
 			return false
 		}
 	}
 	return true
 }
 
-func analyzeUnary(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IUnaryExpressionContext,
-) bool {
+func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 	// Check if this is a unary operator expression
-	if innerUnary := ctx.UnaryExpression(); innerUnary != nil {
+	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
 		// First validate the nested expression
-		if !analyzeUnary(parentScope, result, innerUnary) {
+		if !analyzeUnary(context.Child(ctx, innerUnary)) {
 			return false
 		}
-		operandType := atypes.InferFromUnaryExpression(parentScope, innerUnary, nil)
-		if ctx.MINUS() != nil {
-			if operandType != nil && !types.IsNumeric(operandType) {
-				result.AddError(
+		operandType := atypes.InferFromUnaryExpression(ctx.Scope, innerUnary, nil)
+		if ctx.AST.MINUS() != nil {
+			if operandType != nil && !ir.IsNumeric(operandType) {
+				ctx.Diagnostics.AddError(
 					errors.Newf("operator - not supported for type %s", operandType),
-					ctx,
+					ctx.AST,
 				)
 				return false
 			}
-		} else if ctx.NOT() != nil {
-			if operandType != nil && !types.IsBool(operandType) {
-				result.AddError(
+		} else if ctx.AST.NOT() != nil {
+			if operandType != nil && !ir.IsBool(operandType) {
+				ctx.Diagnostics.AddError(
 					errors.Newf("operator ! requires boolean operand, received %s", operandType),
-					ctx,
+					ctx.AST,
 				)
 				return false
 			}
 		}
 		return true
 	}
-	if blockingRead := ctx.BlockingReadExpr(); blockingRead != nil {
+	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
 			name := id.GetText()
-			if _, err := parentScope.Resolve(name); err != nil {
-				result.AddError(err, blockingRead)
+			if _, err := ctx.Scope.Resolve(name); err != nil {
+				ctx.Diagnostics.AddError(err, blockingRead)
 				return false
 			}
 		}
 		return true
 	}
-	if postfix := ctx.PostfixExpression(); postfix != nil {
-		return analyzePostfix(parentScope, result, postfix)
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		return analyzePostfix(context.Child(ctx, postfix))
 	}
 	return true
 }
 
-func analyzePostfix(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IPostfixExpressionContext,
-) bool {
-	if primary := ctx.PrimaryExpression(); primary != nil {
-		if !analyzePrimary(parentScope, result, primary) {
+func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool {
+	if primary := ctx.AST.PrimaryExpression(); primary != nil {
+		if !analyzePrimary(context.Child(ctx, primary)) {
 			return false
 		}
 	}
-	for _, indexOrSlice := range ctx.AllIndexOrSlice() {
+	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			if !Analyze(parentScope, result, expr) {
+			if !Analyze(context.Child(ctx, expr)) {
 				return false
 			}
 		}
 	}
-	for _, funcCall := range ctx.AllFunctionCallSuffix() {
+	for _, funcCall := range ctx.AST.AllFunctionCallSuffix() {
 		if argList := funcCall.ArgumentList(); argList != nil {
 			for _, expr := range argList.AllExpression() {
-				if !Analyze(parentScope, result, expr) {
+				if !Analyze(context.Child(ctx, expr)) {
 					return false
 				}
 			}
@@ -355,43 +300,39 @@ func analyzePostfix(
 	return true
 }
 
-func analyzePrimary(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IPrimaryExpressionContext,
-) bool {
-	if id := ctx.IDENTIFIER(); id != nil {
+func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool {
+	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name := id.GetText()
-		sym, err := parentScope.Resolve(name)
+		sym, err := ctx.Scope.Resolve(name)
 		if err != nil {
-			result.AddError(err, ctx)
+			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
-		if sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindConfigParam || sym.Kind == symbol.KindParam {
-			_, isChan := sym.Type.(types.Chan)
+		if sym.Kind == ir.KindChannel || sym.Kind == ir.KindConfigParam || sym.Kind == ir.KindParam {
+			_, isChan := sym.Type.(ir.Chan)
 			if isChan {
-				if taskScope, err := parentScope.ClosestAncestorOfKind(symbol.KindTask); err == nil {
-					t := taskScope.Type.(types.Task)
+				if stageScope, err := ctx.Scope.ClosestAncestorOfKind(ir.KindStage); err == nil {
+					t := stageScope.Type.(ir.Stage)
 					t.Channels.Read.Add(sym.ID)
 				}
 			}
 		}
 		return true
 	}
-	if ctx.Literal() != nil {
+	if ctx.AST.Literal() != nil {
 		return true
 	}
-	if expr := ctx.Expression(); expr != nil {
-		return Analyze(parentScope, result, expr)
+	if expr := ctx.AST.Expression(); expr != nil {
+		return Analyze(context.Child(ctx, expr))
 	}
-	if typeCast := ctx.TypeCast(); typeCast != nil {
+	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
-			return Analyze(parentScope, result, expr)
+			return Analyze(context.Child(ctx, expr))
 		}
 	}
-	if builtin := ctx.BuiltinFunction(); builtin != nil {
+	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
 		if lenExpr := builtin.Expression(); lenExpr != nil {
-			return Analyze(parentScope, result, lenExpr)
+			return Analyze(context.Child(ctx, lenExpr))
 		}
 	}
 	return true

@@ -10,54 +10,49 @@
 package flow
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/analyzer/result"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// analyzeExpression converts an inline expression into a synthetic task
-func analyzeExpression(
-	scope *symbol.Scope,
-	res *result.Result,
-	expr text.IExpressionContext,
-) bool {
-	exprType := atypes.InferFromExpression(scope, expr, nil)
-	// If the expression type is a channel, the task returns the channel's value type
-	// (because the task will read from the channel)
-	if chanType, ok := exprType.(types.Chan); ok {
+// analyzeExpression converts an inline expression into a synthetic stage
+func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
+	exprType := atypes.InferFromExpression(ctx.Scope, ctx.AST, nil)
+	// If the expression type is a channel, the stage returns the channel's value type
+	// (because the stage will read from the channel)
+	if chanType, ok := exprType.(ir.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := types.NewTask()
+	t := ir.NewStage()
 	t.Return = exprType
-	taskScope, err := scope.Root().Add(symbol.Symbol{
+	stageScope, err := ctx.Scope.Root().Add(ir.Symbol{
 		Name:       "",
-		Kind:       symbol.KindTask,
+		Kind:       ir.KindStage,
 		Type:       t,
-		ParserRule: expr,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		res.AddError(err, expr)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	taskScope = taskScope.AutoName("__expr_")
-	blockScope, err := taskScope.Add(symbol.Symbol{
+	stageScope = stageScope.AutoName("__expr_")
+	blockScope, err := stageScope.Add(ir.Symbol{
 		Name:       "",
-		Kind:       symbol.KindBlock,
+		Kind:       ir.KindBlock,
 		Type:       t,
-		ParserRule: expr,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		res.AddError(err, expr)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	taskScope.OnResolve = func(s *symbol.Scope) error {
-		_, ok := s.Type.(types.Chan)
+	stageScope.OnResolve = func(s *ir.Scope) error {
+		_, ok := s.Type.(ir.Chan)
 		if !ok {
-			res.AddError(errors.Newf(
+			ctx.Diagnostics.AddError(errors.Newf(
 				"type mismatch: only channels can be used in flow expressions, encountered symbol %s with type %s",
 				s.Name,
 				s.Type.String(),
@@ -65,9 +60,9 @@ func analyzeExpression(
 		}
 		return nil
 	}
-	if !expression.Analyze(blockScope, res, expr) {
+	if !expression.Analyze(context.ChildWithScope(ctx, ctx.AST, blockScope)) {
 		return false
 	}
-	taskScope.Type = t
+	stageScope.Type = t
 	return true
 }

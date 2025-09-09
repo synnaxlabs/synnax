@@ -10,23 +10,23 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 func compileTypeCast(
-	ctx *core.Context,
-	cast text.ITypeCastContext,
-) (types.Type, error) {
-	targetType := extractType(cast.Type_())
+	ctx context.Context[parser.ITypeCastContext],
+) (ir.Type, error) {
+	targetType := extractType(ctx.AST.Type_())
 	if targetType == nil {
 		return nil, errors.New("unknown cast target type")
 	}
 
-	sourceType, err := Compile(ctx, cast.Expression(), nil)
+	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()))
 	if err != nil {
 		return nil, err
 	}
@@ -38,32 +38,32 @@ func compileTypeCast(
 	return targetType, nil
 }
 
-func extractType(typeCtx text.ITypeContext) types.Type {
+func extractType(typeCtx parser.ITypeContext) ir.Type {
 	if prim := typeCtx.PrimitiveType(); prim != nil {
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {
 				if intType.I8() != nil {
-					return types.I8{}
+					return ir.I8{}
 				} else if intType.I16() != nil {
-					return types.I16{}
+					return ir.I16{}
 				} else if intType.I32() != nil {
-					return types.I32{}
+					return ir.I32{}
 				} else if intType.I64() != nil {
-					return types.I64{}
+					return ir.I64{}
 				} else if intType.U8() != nil {
-					return types.U8{}
+					return ir.U8{}
 				} else if intType.U16() != nil {
-					return types.U16{}
+					return ir.U16{}
 				} else if intType.U32() != nil {
-					return types.U32{}
+					return ir.U32{}
 				} else if intType.U64() != nil {
-					return types.U64{}
+					return ir.U64{}
 				}
 			} else if floatType := num.FloatType(); floatType != nil {
 				if floatType.F32() != nil {
-					return types.F32{}
+					return ir.F32{}
 				} else if floatType.F64() != nil {
-					return types.F64{}
+					return ir.F64{}
 				}
 			}
 		}
@@ -71,7 +71,10 @@ func extractType(typeCtx text.ITypeContext) types.Type {
 	return nil
 }
 
-func EmitCast(ctx *core.Context, from, to types.Type) error {
+func EmitCast[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	from, to ir.Type,
+) error {
 	fromWasm := MapType(from)
 	toWasm := MapType(to)
 
@@ -83,19 +86,19 @@ func EmitCast(ctx *core.Context, from, to types.Type) error {
 	case wasm.I32:
 		switch toWasm {
 		case wasm.I64:
-			if types.IsSignedInteger(from) {
+			if ir.IsSignedInteger(from) {
 				ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32U)
 			}
 		case wasm.F32:
-			if types.IsSignedInteger(from) {
+			if ir.IsSignedInteger(from) {
 				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI32S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI32U)
 			}
 		case wasm.F64:
-			if types.IsSignedInteger(from) {
+			if ir.IsSignedInteger(from) {
 				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI32S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI32U)
@@ -107,13 +110,13 @@ func EmitCast(ctx *core.Context, from, to types.Type) error {
 		case wasm.I32:
 			ctx.Writer.WriteOpcode(wasm.OpI32WrapI64)
 		case wasm.F32:
-			if types.IsSignedInteger(from) {
+			if ir.IsSignedInteger(from) {
 				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI64S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI64U)
 			}
 		case wasm.F64:
-			if types.IsSignedInteger(from) {
+			if ir.IsSignedInteger(from) {
 				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI64S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI64U)
@@ -123,13 +126,13 @@ func EmitCast(ctx *core.Context, from, to types.Type) error {
 	case wasm.F32:
 		switch toWasm {
 		case wasm.I32:
-			if types.IsSignedInteger(to) {
+			if ir.IsSignedInteger(to) {
 				ctx.Writer.WriteOpcode(wasm.OpI32TruncF32S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpI32TruncF32U)
 			}
 		case wasm.I64:
-			if types.IsSignedInteger(to) {
+			if ir.IsSignedInteger(to) {
 				ctx.Writer.WriteOpcode(wasm.OpI64TruncF32S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpI64TruncF32U)
@@ -141,13 +144,13 @@ func EmitCast(ctx *core.Context, from, to types.Type) error {
 	case wasm.F64:
 		switch toWasm {
 		case wasm.I32:
-			if types.IsSignedInteger(to) {
+			if ir.IsSignedInteger(to) {
 				ctx.Writer.WriteOpcode(wasm.OpI32TruncF64S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpI32TruncF64U)
 			}
 		case wasm.I64:
-			if types.IsSignedInteger(to) {
+			if ir.IsSignedInteger(to) {
 				ctx.Writer.WriteOpcode(wasm.OpI64TruncF64S)
 			} else {
 				ctx.Writer.WriteOpcode(wasm.OpI64TruncF64U)

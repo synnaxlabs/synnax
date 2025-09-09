@@ -10,95 +10,79 @@
 package flow
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/analyzer/result"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // Analyze processes a flow statement and returns true if successful
-func Analyze(scope *symbol.Scope, res *result.Result, stmt text.IFlowStatementContext) bool {
-	for i, node := range stmt.AllFlowNode() {
-		var prevNode text.IFlowNodeContext
+func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
+	for i, node := range ctx.AST.AllFlowNode() {
+		var prevNode parser.IFlowNodeContext
 		if i != 0 {
-			prevNode = stmt.FlowNode(i - 1)
+			prevNode = ctx.AST.FlowNode(i - 1)
 		}
-		if !analyzeNode(scope, res, prevNode, node) {
+		if !analyzeNode(context.Child(ctx, node), prevNode) {
 			return false
 		}
 	}
 	return true
 }
 
-func analyzeNode(
-	scope *symbol.Scope,
-	res *result.Result,
-	prevNode text.IFlowNodeContext,
-	currNode text.IFlowNodeContext,
-) bool {
-	if taskInv := currNode.TaskInvocation(); taskInv != nil {
-		return parseTaskInvocation(
-			scope,
-			res,
-			prevNode,
-			taskInv,
-		)
+func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.IFlowNodeContext) bool {
+	if taskInv := ctx.AST.StageInvocation(); taskInv != nil {
+		return parseStageInvocation(context.Child(ctx, taskInv), prevNode)
 	}
-	if channelID := currNode.ChannelIdentifier(); channelID != nil {
-		return analyzeChannel(scope, res, channelID)
+	if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
+		return analyzeChannel(context.Child(ctx, channelID))
 	}
-	if expr := currNode.Expression(); expr != nil {
-		return analyzeExpression(scope, res, expr)
+	if expr := ctx.AST.Expression(); expr != nil {
+		return analyzeExpression(context.Child(ctx, expr))
 	}
-	res.AddError(errors.New("invalid flow source"), currNode)
+	ctx.Diagnostics.AddError(errors.New("invalid flow source"), ctx.AST)
 	return true
 }
 
-func parseTaskInvocation(
-	scope *symbol.Scope,
-	res *result.Result,
-	prevNode text.IFlowNodeContext,
-	task text.ITaskInvocationContext,
-) bool {
-	// Step 1: Check that a symbol for the task exists and it has the right type
-	name := task.IDENTIFIER().GetText()
-	sym, err := scope.Resolve(name)
+func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], prevNode parser.IFlowNodeContext) bool {
+	// Step 1: Check that a symbol for the stage exists and it has the right type
+	name := ctx.AST.IDENTIFIER().GetText()
+	sym, err := ctx.Scope.Resolve(name)
 	if err != nil {
-		res.AddError(err, task)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
-	} else if sym.Kind != symbol.KindTask {
-		res.AddError(errors.Newf("%s is not a task", name), task)
+	} else if sym.Kind != ir.KindStage {
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", name), ctx.AST)
 		return false
 	}
 
 	// Step 2: Validate configuration parameters
-	var taskType types.Task
+	var stageType ir.Stage
 	if sym.Type != nil {
-		taskType, _ = sym.Type.(types.Task)
+		stageType, _ = sym.Type.(ir.Stage)
 	}
 	configParams := make(map[string]bool)
 	// Step 2A: Check for mismatch
-	if configBlock := task.ConfigValues(); configBlock != nil {
+	if configBlock := ctx.AST.ConfigValues(); configBlock != nil {
 		if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
 			for _, configVal := range namedVals.AllNamedConfigValue() {
 				key := configVal.IDENTIFIER().GetText()
 				configParams[key] = true
-				expectedType, exists := taskType.Config.Get(key)
+				expectedType, exists := stageType.Config.Get(key)
 				if !exists {
-					res.AddError(errors.Newf("unknown config parameter '%s' for task '%s'", key, name), configVal)
+					ctx.Diagnostics.AddError(errors.Newf("unknown config parameter '%s' for stage '%s'", key, name), configVal)
 					return false
 				}
 				if expr := configVal.Expression(); expr != nil {
-					if !expression.Analyze(scope, res, expr) {
+					if !expression.Analyze(context.Child(ctx, expr)) {
 						return false
 					}
-					exprType := atypes.InferFromExpression(scope, expr, nil)
+					exprType := atypes.InferFromExpression(ctx.Scope, expr, nil)
 					if exprType != nil && expectedType != nil {
 						if !atypes.Compatible(expectedType, exprType) {
-							res.AddError(
+							ctx.Diagnostics.AddError(
 								errors.Newf(
 									"type mismatch: config parameter '%s' expects %s but got %s",
 									key,
@@ -113,16 +97,19 @@ func parseTaskInvocation(
 				}
 			}
 		} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-			res.AddError(
+			ctx.Diagnostics.AddError(
 				errors.Newf("anonymous configuration values are not supported"),
 				configBlock.AnonymousConfigValues(),
 			)
 		}
 	}
 	// Step 2B: Check for missing required config parameters
-	for paramName := range taskType.Config.Iter() {
+	for paramName := range stageType.Config.Iter() {
 		if !configParams[paramName] {
-			res.AddError(errors.Newf("missing required config parameter '%s' for task '%s'", paramName, name), task)
+			ctx.Diagnostics.AddError(
+				errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, name),
+				ctx.AST,
+			)
 			return false
 		}
 	}
@@ -130,48 +117,54 @@ func parseTaskInvocation(
 		return true
 	}
 
-	// Step 3: Validate that task arguments are compatible with previous flow node.
-	if prevTaskNode := prevNode.TaskInvocation(); prevTaskNode != nil {
+	// Step 3: Validate that stage arguments are compatible with previous flow node.
+	if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
 		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
-		// lookup task in symbol table
-		sym, err := scope.Resolve(prevTaskName)
+		// lookup stage in symbol table
+		sym, err := ctx.Scope.Resolve(prevTaskName)
 		if err != nil {
-			res.AddError(err, prevTaskNode)
+			ctx.Diagnostics.AddError(err, prevTaskNode)
 			return false
 		}
-		var prevTaskType types.Task
-		if sym.Kind != symbol.KindTask {
-			res.AddError(errors.Newf("%s is not a task", prevTaskNode), prevTaskNode)
-			prevTaskType, _ = sym.Type.(types.Task)
+		var prevTaskType ir.Stage
+		if sym.Kind != ir.KindStage {
+			ctx.Diagnostics.AddError(
+				errors.Newf("%s is not a stage", prevTaskNode),
+				prevTaskNode,
+			)
+			prevTaskType, _ = sym.Type.(ir.Stage)
 			return false
 		}
-		if taskType.Params.Count() > 1 {
-			res.AddError(errors.Newf("%s has more than one parameter", name), task)
+		if stageType.Params.Count() > 1 {
+			ctx.Diagnostics.AddError(
+				errors.Newf("%s has more than one parameter", name),
+				ctx.AST,
+			)
 			return false
 		}
-		// Validate that the return type of the previous task matches the arg type
-		// of the ntext task.
-		if taskType.Params.Count() > 0 {
-			_, t := taskType.Params.At(0)
-			if !types.Equal(prevTaskType.Return, t) {
-				res.AddError(errors.Newf(
+		// Validate that the return type of the previous stage matches the arg type
+		// of the ntext stage.
+		if stageType.Params.Count() > 0 {
+			_, t := stageType.Params.At(0)
+			if !ir.Equal(prevTaskType.Return, t) {
+				ctx.Diagnostics.AddError(errors.Newf(
 					"return type %s of %s is not equal to argument type %s of %s",
 					prevTaskType.Return,
 					prevTaskName,
 					t,
 					name,
-				), task)
+				), ctx.AST)
 			}
 		}
 	}
 	return true
 }
 
-func analyzeChannel(scope *symbol.Scope, res *result.Result, ch text.IChannelIdentifierContext) bool {
-	name := ch.IDENTIFIER().GetText()
-	_, err := scope.Resolve(name)
+func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool {
+	name := ctx.AST.IDENTIFIER().GetText()
+	_, err := ctx.Scope.Resolve(name)
 	if err != nil {
-		res.AddError(err, ch)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
 	return true

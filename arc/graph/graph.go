@@ -10,8 +10,12 @@
 package graph
 
 import (
-	"github.com/synnaxlabs/arc/diagnostic"
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -34,16 +38,59 @@ type Graph struct {
 	Viewport Viewport `json:"viewport"`
 	Stages   []Stage  `json:"stages"`
 	Edges    []Edge   `json:"edges"`
+	Nodes    []Node   `json:"nodes"`
 }
 
-type Diagnostic struct {
-	Severity diagnostic.Severity `json:"severity"`
-	Message  string              `json:"message"`
+func Parse(g Graph) (Graph, error) {
+	for i, stage := range g.Stages {
+		ast, err := parser.ParseBlock(stage.Body.Raw)
+		if err != nil {
+			return Graph{}, err
+		}
+		stage.Body.AST = ast
+		g.Stages[i] = stage
+	}
+	return g, nil
 }
 
-type Result struct {
-	Diagnostics []Diagnostic `json:"diagnostics"`
-	IR          *ir.IR
-}
+func Analyze(
+	g Graph,
+	resolver ir.SymbolResolver,
+) (ir.IR, analyzer.Diagnostics) {
+	ctx := context.CreateRoot[antlr.ParserRuleContext](nil, resolver)
+	// Step 1: Build the root context.
+	for _, stage := range g.Stages {
+		if _, err := ctx.Scope.Add(ir.Symbol{
+			Name:       stage.Key,
+			Kind:       ir.KindStage,
+			Type:       stage,
+			ParserRule: stage.Body.AST,
+		}); err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+	}
 
-func Analyze(graph Graph)
+	// Step 2: Analyze stage bodies
+	for _, stage := range g.Stages {
+		stageScope, err := ctx.Scope.GetChildByParserRule(stage.Body.AST)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if !analyzer.AnalyzeBlock(context.ChildWithScope(ctx, stage.Body.AST, stageScope)) {
+			return ir.IR{}, *ctx.Diagnostics
+		}
+	}
+	// Step 3: Analyze flow statement relationships
+
+	// Step 4: Return the IR
+	return ir.IR{
+		Symbols: ctx.Scope,
+		Stages:  g.Stages,
+		Edges:   g.Edges,
+		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
+			return item.Node
+		}),
+	}, *ctx.Diagnostics
+}

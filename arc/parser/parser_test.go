@@ -249,9 +249,9 @@ func process(input <-chan f64, output ->chan f64) {
 	})
 
 	Describe("Tasks", func() {
-		It("Should parse task with config block", func() {
+		It("Should parse stage with config block", func() {
 			prog := parseProgram(`
-task controller{
+stage controller{
     setpoint f64
     sensor <-chan f64
     actuator ->chan f64
@@ -260,10 +260,10 @@ task controller{
     error -> actuator
 }`)
 
-			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			taskDecl := prog.TopLevelItem(0).StageDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
-			Expect(taskDecl.TASK()).NotTo(BeNil())
+			Expect(taskDecl.STAGE()).NotTo(BeNil())
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Config block
@@ -277,21 +277,21 @@ task controller{
 			Expect(params.AllParameter()).To(HaveLen(1))
 			Expect(params.Parameter(0).IDENTIFIER().GetText()).To(Equal("enable"))
 
-			// Body
+			// Raw
 			block := taskDecl.Block()
 			Expect(block).NotTo(BeNil())
 			Expect(block.AllStatement()).To(HaveLen(2))
 		})
 
-		It("Should parse task with return type", func() {
+		It("Should parse stage with return type", func() {
 			prog := parseProgram(`
-task doubler{
+stage doubler{
     input <-chan f64
 } () f64 {
     return (<-input) * 2
 }`)
 
-			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			taskDecl := prog.TopLevelItem(0).StageDeclaration()
 
 			returnType := taskDecl.ReturnType()
 			Expect(returnType).NotTo(BeNil())
@@ -299,8 +299,8 @@ task doubler{
 		})
 	})
 
-	Describe("Inter-Task Flow", func() {
-		It("Should parse simple channel to task flow", func() {
+	Describe("Inter-Stage Flow", func() {
+		It("Should parse simple channel to stage flow", func() {
 			prog := parseProgram(`sensor -> controller{} -> actuator`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
@@ -313,8 +313,8 @@ task doubler{
 
 			// Second node: controller{}
 			node2 := flow.FlowNode(1)
-			Expect(node2.TaskInvocation()).NotTo(BeNil())
-			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+			Expect(node2.StageInvocation()).NotTo(BeNil())
+			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Third node: actuator
 			node3 := flow.FlowNode(2)
@@ -322,7 +322,7 @@ task doubler{
 			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 		})
 
-		It("Should parse task invocation with named config", func() {
+		It("Should parse stage invocation with named config", func() {
 			prog := parseProgram(`
 controller{
     setpoint: 100,
@@ -332,63 +332,63 @@ controller{
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			task := node.TaskInvocation()
+			stage := node.StageInvocation()
 
-			Expect(task.IDENTIFIER().GetText()).To(Equal("controller"))
+			Expect(stage.IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Config values
-			config := task.ConfigValues()
+			config := stage.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.NamedConfigValues()).NotTo(BeNil())
 			Expect(config.NamedConfigValues().AllNamedConfigValue()).To(HaveLen(3))
 
 			// Runtime arguments
-			args := task.Arguments()
+			args := stage.Arguments()
 			Expect(args).NotTo(BeNil())
 			Expect(args.ArgumentList()).NotTo(BeNil())
 			Expect(args.ArgumentList().AllExpression()).To(HaveLen(1))
 		})
 
-		It("Should parse task invocation with anonymous config", func() {
+		It("Should parse stage invocation with anonymous config", func() {
 			prog := parseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			task := node.TaskInvocation()
+			stage := node.StageInvocation()
 
-			Expect(task.IDENTIFIER().GetText()).To(Equal("any"))
+			Expect(stage.IDENTIFIER().GetText()).To(Equal("any"))
 
 			// Anonymous config values
-			config := task.ConfigValues()
+			config := stage.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues().AllExpression()).To(HaveLen(2))
 
-			// Check the second node also has task invocation
+			// Check the second node also has stage invocation
 			node2 := flow.FlowNode(1)
-			Expect(node2.TaskInvocation()).NotTo(BeNil())
-			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.StageInvocation()).NotTo(BeNil())
+			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
-		It("Should parse task with anonymous arguments in complex flow", func() {
+		It("Should parse stage with anonymous arguments in complex flow", func() {
 			prog := parseProgram(`
-task average {} (first chan f64, second chan f64) chan f64 {
+stage average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
 
 any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
-			// Check task declaration
-			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			// Check stage declaration
+			taskDecl := prog.TopLevelItem(0).StageDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
 			node := flow.FlowNode(0)
-			task := node.TaskInvocation()
+			stage := node.StageInvocation()
 
 			// Verify anonymous config
-			config := task.ConfigValues()
+			config := stage.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
 
@@ -418,31 +418,31 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should parse empty config in flow chains", func() {
 			prog := parseProgram(`
-task average {} (first chan f64, second chan f64) chan f64 {
+stage average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
 
 any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
-			// Check task declaration
-			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			// Check stage declaration
+			taskDecl := prog.TopLevelItem(0).StageDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
 
-			// Check first task invocation (any)
+			// Check first stage invocation (any)
 			node1 := flow.FlowNode(0)
-			Expect(node1.TaskInvocation()).NotTo(BeNil())
-			Expect(node1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("any"))
+			Expect(node1.StageInvocation()).NotTo(BeNil())
+			Expect(node1.StageInvocation().IDENTIFIER().GetText()).To(Equal("any"))
 
-			// Check middle task invocation (average with empty config)
+			// Check middle stage invocation (average with empty config)
 			node2 := flow.FlowNode(1)
-			Expect(node2.TaskInvocation()).NotTo(BeNil())
-			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.StageInvocation()).NotTo(BeNil())
+			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
 
 			// Verify average has empty config
-			avgConfig := node2.TaskInvocation().ConfigValues()
+			avgConfig := node2.StageInvocation().ConfigValues()
 			Expect(avgConfig).NotTo(BeNil())
 			Expect(avgConfig.LBRACE()).NotTo(BeNil())
 			Expect(avgConfig.RBRACE()).NotTo(BeNil())
@@ -456,7 +456,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
-			_, err := text.Parse(`task{ox_pt_1, second: ox_pt_2} -> output`)
+			_, err := text.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("parse errors"))
 		})

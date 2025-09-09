@@ -25,8 +25,8 @@ type ArcParserListener interface {
 	// EnterReturnType is called when entering the returnType production.
 	EnterReturnType(c *ReturnTypeContext)
 
-	// EnterTaskDeclaration is called when entering the taskDeclaration production.
-	EnterTaskDeclaration(c *TaskDeclarationContext)
+	// EnterStageDeclaration is called when entering the stageDeclaration production.
+	EnterStageDeclaration(c *StageDeclarationContext)
 
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
@@ -43,8 +43,8 @@ type ArcParserListener interface {
 	// EnterChannelIdentifier is called when entering the channelIdentifier production.
 	EnterChannelIdentifier(c *ChannelIdentifierContext)
 
-	// EnterTaskInvocation is called when entering the taskInvocation production.
-	EnterTaskInvocation(c *TaskInvocationContext)
+	// EnterStageInvocation is called when entering the stageInvocation production.
+	EnterStageInvocation(c *StageInvocationContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -217,8 +217,8 @@ type ArcParserListener interface {
 	// ExitReturnType is called when exiting the returnType production.
 	ExitReturnType(c *ReturnTypeContext)
 
-	// ExitTaskDeclaration is called when exiting the taskDeclaration production.
-	ExitTaskDeclaration(c *TaskDeclarationContext)
+	// ExitStageDeclaration is called when exiting the stageDeclaration production.
+	ExitStageDeclaration(c *StageDeclarationContext)
 
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
@@ -235,8 +235,8 @@ type ArcParserListener interface {
 	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
 	ExitChannelIdentifier(c *ChannelIdentifierContext)
 
-	// ExitTaskInvocation is called when exiting the taskInvocation production.
-	ExitTaskInvocation(c *TaskInvocationContext)
+	// ExitStageInvocation is called when exiting the stageInvocation production.
+	ExitStageInvocation(c *StageInvocationContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

@@ -13,8 +13,22 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/maps"
+)
+
+var (
+	symbolGE = ir.Symbol{
+		Name: "ge",
+		Kind: ir.KindStage,
+		Type: ir.Stage{
+			Params: maps.Ordered[string, ir.Type]{
+				Keys:   []string{"a", "b"},
+				Values: []ir.Type{ir.I32{}, ir.I32{}},
+			},
+			Return: ir.U8{},
+		},
+	}
 )
 
 type operator struct {
@@ -33,7 +47,7 @@ func (n *operator) Next(ctx context.Context, value stage.Value) {
 	if n.a != nil && n.b != nil {
 		n.outputHandler(ctx, stage.Value{
 			Param: "output",
-			Type:  types.U8{},
+			Type:  ir.U8{},
 			Value: n.compare(*n.a, *n.b),
 		})
 	}

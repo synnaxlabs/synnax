@@ -12,7 +12,7 @@ package stage
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -21,7 +21,7 @@ import (
 type Value struct {
 	Address address.Address
 	Param   string
-	Type    types.Type
+	Type    ir.Type
 	Value   uint64
 }
 

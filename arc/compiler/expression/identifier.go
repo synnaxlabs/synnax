@@ -10,14 +10,17 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // compileIdentifier compiles variable references
-func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
+func compileIdentifier[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	name string,
+) (ir.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
 	scope, err := ctx.Scope.Resolve(name)
 	if err != nil {
@@ -25,21 +28,21 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 	}
 
 	switch scope.Kind {
-	case symbol.KindVariable, symbol.KindParam, symbol.KindConfigParam:
+	case ir.KindVariable, ir.KindParam, ir.KindConfigParam:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		return scope.Type, nil
-	case symbol.KindStatefulVariable:
+	case ir.KindStatefulVariable:
 		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
 			return nil, err
 		}
 		return scope.Type, nil
-	case symbol.KindChannel:
+	case ir.KindChannel:
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return nil, err
 		}
 		// After reading from a channel, we get the value type, not the channel type
-		chanType, ok := scope.Type.(types.Chan)
+		chanType, ok := scope.Type.(ir.Chan)
 		if !ok {
 			return nil, errors.Newf("expected channel type, got %T", scope.Type)
 		}
@@ -50,8 +53,12 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 }
 
 // emitStatefulLoad emits code to load a stateful variable
-func emitStatefulLoad(ctx *core.Context, idx int, t types.Type) error {
-	// Push task ID (0 for now - would be provided at runtime)
+func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	idx int,
+	t ir.Type,
+) error {
+	// Push stage ID (0 for now - would be provided at runtime)
 	ctx.Writer.WriteI32Const(0)
 	// Push variable key
 	ctx.Writer.WriteI32Const(int32(idx))
@@ -65,7 +72,10 @@ func emitStatefulLoad(ctx *core.Context, idx int, t types.Type) error {
 }
 
 // emitChannelRead emits code for non-blocking channel read
-func emitChannelRead(ctx *core.Context, t types.Type) error {
+func emitChannelRead[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	t ir.Type,
+) error {
 	// Stack has channel ID
 	// Call appropriate channel read function based on type
 	importIdx, err := ctx.Imports.GetChannelRead(t)

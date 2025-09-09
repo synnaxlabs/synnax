@@ -12,11 +12,11 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,8 +33,8 @@ var _ = Describe("Expressions", func() {
 						u := x / y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should reject arithmetic operations on strings", func() {
@@ -45,11 +45,11 @@ var _ = Describe("Expressions", func() {
 						z := x + y
 					}
 				`))
-			res := text.Analyze(ast, text.Options{})
-			Expect(res.Ok()).To(BeFalse())
-			Expect(res.Diagnostics).To(HaveLen(1))
-			first := res.Diagnostics[0]
-			Expect(first.Severity).To(Equal(result.Error))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
+			Expect(first.Severity).To(Equal(diagnostics.Error))
 			Expect(first.Message).To(ContainSubstring("cannot use string in + operation"))
 		})
 
@@ -61,9 +61,10 @@ var _ = Describe("Expressions", func() {
 						z := x + y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
 		It("Should validate comparison operations", func() {
@@ -79,8 +80,8 @@ var _ = Describe("Expressions", func() {
 						f := x != y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should reject mixed type comparisons", func() {
@@ -91,9 +92,9 @@ var _ = Describe("Expressions", func() {
 					z := x > y
 				}`,
 			))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
 		})
 
 		It("Should allow for comparison of a floating point variable with an integer literal", func() {
@@ -103,8 +104,8 @@ var _ = Describe("Expressions", func() {
 					z := x > 5
 				}`,
 			))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should not allow comparison of an integer variable with a floating point literal", func() {
@@ -114,10 +115,10 @@ var _ = Describe("Expressions", func() {
 				z := x > 5.0
 			}
 			`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Ok()).To(BeFalse())
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("type mismatch: cannot use i32 and f64 in > operation"))
 		})
 
@@ -130,8 +131,8 @@ var _ = Describe("Expressions", func() {
 						d := a || b
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should reject logical AND operations on non-booleans", func() {
@@ -142,9 +143,10 @@ var _ = Describe("Expressions", func() {
 						z := x && y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
 		})
 
 		It("Should reject logical OR operations on non-booleans", func() {
@@ -155,8 +157,9 @@ var _ = Describe("Expressions", func() {
 					z := x || y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
 		})
 
 		It("Should validate modulo operation on integers", func() {
@@ -167,8 +170,8 @@ var _ = Describe("Expressions", func() {
 						z := x % y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 
@@ -182,8 +185,8 @@ var _ = Describe("Expressions", func() {
 						w := -z
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should reject unary negation on non-numeric types", func() {
@@ -193,9 +196,10 @@ var _ = Describe("Expressions", func() {
 						y := -x
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator - not supported for type string"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator - not supported for type string"))
 		})
 
 		It("Should validate logical not on booleans", func() {
@@ -205,8 +209,8 @@ var _ = Describe("Expressions", func() {
 						y := !x
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should reject logical not on non-booleans", func() {
@@ -216,9 +220,10 @@ var _ = Describe("Expressions", func() {
 						y := !x
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
 		})
 	})
 
@@ -231,8 +236,8 @@ var _ = Describe("Expressions", func() {
 						z i64 := 1000000
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should correctly type float literals", func() {
@@ -243,8 +248,8 @@ var _ = Describe("Expressions", func() {
 						z f64 := 1.414213
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should correctly type string literals", func() {
@@ -254,8 +259,8 @@ var _ = Describe("Expressions", func() {
 						y string := "test"
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should correctly type boolean literals", func() {
@@ -265,8 +270,8 @@ var _ = Describe("Expressions", func() {
 						y u8 := 1
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 
@@ -281,8 +286,8 @@ var _ = Describe("Expressions", func() {
 						result2 := (x + y) * z
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should handle mixed arithmetic and comparison operations", func() {
@@ -294,8 +299,8 @@ var _ = Describe("Expressions", func() {
 						result := x + y < z
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should handle chained logical operations", func() {
@@ -308,8 +313,8 @@ var _ = Describe("Expressions", func() {
 						result2 := a || b && c
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should validate complex mixed expressions", func() {
@@ -323,8 +328,8 @@ var _ = Describe("Expressions", func() {
 						result := a && b || (x + y == z)
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect type errors in complex expressions", func() {
@@ -336,8 +341,9 @@ var _ = Describe("Expressions", func() {
 						result := x + y * z
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).ToNot(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).ToNot(HaveLen(0))
 		})
 	})
 
@@ -352,8 +358,8 @@ var _ = Describe("Expressions", func() {
 						result := add(10, 20)
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect undefined function calls", func() {
@@ -362,9 +368,10 @@ var _ = Describe("Expressions", func() {
 						result := undefinedFunc(10, 20)
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedFunc"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedFunc"))
 		})
 
 		It("Should handle nested function calls", func() {
@@ -381,8 +388,8 @@ var _ = Describe("Expressions", func() {
 						result := add(double(5), double(10))
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 
@@ -394,8 +401,8 @@ var _ = Describe("Expressions", func() {
 						y := x + 5
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect undefined variable references", func() {
@@ -404,9 +411,10 @@ var _ = Describe("Expressions", func() {
 						y := undefinedVar + 5
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
 
 		It("Should not allow shadowing", func() {
@@ -419,9 +427,10 @@ var _ = Describe("Expressions", func() {
 						}
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 3, col 6"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 3, col 6"))
 		})
 
 		It("Should resolve function parameters correctly", func() {
@@ -430,8 +439,8 @@ var _ = Describe("Expressions", func() {
 						return x + y
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 
@@ -441,8 +450,8 @@ var _ = Describe("Expressions", func() {
 					func testFunc() {
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should handle very deeply nested expressions", func() {
@@ -451,8 +460,8 @@ var _ = Describe("Expressions", func() {
 						x i64 := ((((1 + 2) * 3) - 4) / 5) % 6
 					}
 				`))
-			result := text.Analyze(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 
@@ -463,20 +472,20 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
+					Kind: ir.KindChannel,
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: ir.Chan{ValueType: ir.I32{}},
 				},
-				"ox_pt_2": symbol.Symbol{
-					Kind: symbol.KindChannel,
+				"ox_pt_2": ir.Symbol{
+					Kind: ir.KindChannel,
 					Name: "ox_pt_2",
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: ir.Chan{ValueType: ir.I32{}},
 				},
 			}
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
-			Expect(result.Ok()).To(BeTrue())
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should return an error when channels with mismatched types are used in arithmetic operations", func() {
@@ -485,22 +494,22 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
+					Kind: ir.KindChannel,
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: ir.Chan{ValueType: ir.I32{}},
 				},
-				"ox_pt_2": symbol.Symbol{
-					Kind: symbol.KindChannel,
+				"ox_pt_2": ir.Symbol{
+					Kind: ir.KindChannel,
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.F32{}},
+					Type: ir.Chan{ValueType: ir.F32{}},
 				},
 			}
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
-			Expect(result.Ok()).To(BeFalse())
-			Expect(result.Diagnostics).To(HaveLen(1))
-			firstDiag := result.Diagnostics[0]
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			firstDiag := (*ctx.Diagnostics)[0]
 			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
 		})
 
@@ -510,15 +519,15 @@ var _ = Describe("Expressions", func() {
 					return ox_pt_1 + 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
+			resolver := ir.MapResolver{
+				"ox_pt_1": ir.Symbol{
+					Kind: ir.KindChannel,
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: ir.Chan{ValueType: ir.I32{}},
 				},
 			}
-			result := text.Analyze(ast, text.Options{Resolver: resolver})
-			Expect(result.Ok()).To(BeTrue())
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 })

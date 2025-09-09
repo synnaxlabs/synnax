@@ -47,10 +47,10 @@ ChannelType ::= ('chan' | '<-chan' | '->chan') (PrimitiveType | SeriesType)
 
 Channels are typed communication primitives:
 - `chan` - Bidirectional channel
-- `<-chan` - Read-only channel (only in function/task parameters)
-- `->chan` - Write-only channel (only in function/task parameters)
+- `<-chan` - Read-only channel (only in function/stage parameters)
+- `->chan` - Write-only channel (only in function/stage parameters)
 
-Note: Directional constraints (`<-chan`, `->chan`) can only be specified in function or task parameters, not in variable declarations or the inter-task layer.
+Note: Directional constraints (`<-chan`, `->chan`) can only be specified in function or stage parameters, not in variable declarations or the inter-stage layer.
 
 ### Series Types
 
@@ -121,7 +121,7 @@ TypedIdentifier ::= Identifier Type
 // Examples:
 voltage f32
 data series f32
-// Note: Channel directions only in function/task parameters
+// Note: Channel directions only in function/stage parameters
 ```
 
 ### Numeric Literals
@@ -405,7 +405,7 @@ value := sensor          // Non-blocking read
 value -> display         // Write value
 ```
 
-**IMPORTANT**: In the inter-task layer, `sensor -> task{}` creates a reactive connection that triggers task execution. Inside functions/tasks, `sensor -> display` is a simple read-then-write operation with no triggering.
+**IMPORTANT**: In the inter-stage layer, `sensor -> stage{}` creates a reactive connection that triggers stage execution. Inside functions/tasks, `sensor -> display` is a simple read-then-write operation with no triggering.
 
 ### Channel Semantics
 
@@ -452,7 +452,7 @@ value := sensor_chan  // Returns 0.0 if never written
 **Memory Note**: Queue growth is managed by the runtime. Maximum queue sizes are a topic for future discussion.
 
 ### Event Ordering
-The runtime MUST produce a deterministic total order of task activations. When multiple channel writes occur within the same scheduler tick, their resulting activations are ordered deterministically by (1) enqueue timestamp, then (2) a stable topological order of edges, then (3) a stable tie-break on channel identifier. Implementations may choose any fixed scheme, but it MUST be deterministic across runs given the same inputs.
+The runtime MUST produce a deterministic total order of stage activations. When multiple channel writes occur within the same scheduler tick, their resulting activations are ordered deterministically by (1) enqueue timestamp, then (2) a stable topological order of edges, then (3) a stable tie-break on channel identifier. Implementations may choose any fixed scheme, but it MUST be deterministic across runs given the same inputs.
 
 **Capacity Note**: While channels are specified as logically unbounded, implementations MAY impose a high-water mark for resource safety. If imposed, the drop policy MUST be deterministic (e.g., `drop_oldest` or `drop_newest`) and documented. The semantic guarantees above (ordering, snapshot) still apply to all retained items.
 
@@ -460,9 +460,9 @@ The runtime MUST produce a deterministic total order of task activations. When m
 
 - Write operations respect channel direction (`->chan` can only be written to)
 - Read operations respect channel direction (`<-chan` can only be read from)
-- Piping triggers task execution on new values
+- Piping triggers stage execution on new values
 - Type compatibility is enforced at compile time
-- **Per-Activation Snapshot**: All non-blocking reads within a single task activation see the same channel state snapshot taken at activation start
+- **Per-Activation Snapshot**: All non-blocking reads within a single stage activation see the same channel state snapshot taken at activation start
 
 ## Variables
 
@@ -484,7 +484,7 @@ Identifier ::= Letter (Letter | Digit | '_')*
 
 ### Local Variables
 
-Local variables are scoped to the current function or task execution and reset on each invocation. They are declared with `:=`:
+Local variables are scoped to the current function or stage execution and reset on each invocation. They are declared with `:=`:
 
 ```arc
 count := 0                    // Type inferred local declaration
@@ -498,7 +498,7 @@ voltage = 5.0                // Reassign with new value
 
 ### Stateful Variables
 
-Stateful variables persist across reactive task executions. They are declared with `$=`:
+Stateful variables persist across reactive stage executions. They are declared with `$=`:
 
 ```arc
 total $= 0                   // Stateful variable declaration
@@ -531,7 +531,7 @@ count = count + 1  // OK: update count
 
 ### Variable Rules
 
-- **Scope**: Variables are function/task scoped only (no globals)
+- **Scope**: Variables are function/stage scoped only (no globals)
 - **Type inference**: Types can be inferred from initial value
 - **No shadowing**: Variable names must be unique within scope
 - **Initialization required**: All variables must be initialized at declaration
@@ -702,7 +702,7 @@ func add(x f64, y f64) f64 {
 
 - Parameter types must be explicitly declared
 - Return type is optional (void if omitted)
-- Functions execute synchronously in the calling task's context
+- Functions execute synchronously in the calling stage's context
 - Functions can accept channels with directional constraints
 - All code paths must return a value if return type is specified
 - No default parameter values allowed
@@ -711,10 +711,10 @@ func add(x f64, y f64) f64 {
 
 ## Tasks
 
-### Task Grammar
+### Stage Grammar
 
 ```
-TaskDeclaration ::= 'task' Identifier ConfigBlock? ParameterBlock ReturnType? Block
+StageDeclaration ::= 'stage' Identifier ConfigBlock? ParameterBlock ReturnType? Block
 
 ConfigBlock ::= '{' ConfigParameter* '}'
 
@@ -724,8 +724,8 @@ ParameterBlock ::= '(' ParameterList? ')'
 
 ReturnType ::= Type
 
-// Task invocation (used in inter-task layer)
-TaskInvocation ::= Identifier ConfigValues? Arguments?
+// Stage invocation (used in inter-stage layer)
+StageInvocation ::= Identifier ConfigValues? Arguments?
 
 ConfigValues ::= '{' ConfigAssignment* '}'
 
@@ -734,13 +734,13 @@ ConfigAssignment ::= Identifier ':' Expression
 Arguments ::= '(' ArgumentList? ')'
 ```
 
-### Task Definition
+### Stage Definition
 
 Tasks are isolated units of reactive computation:
 
 ```arc
-// Task with config and runtime parameters
-task controller{
+// Stage with config and runtime parameters
+stage controller{
     setpoint f64         // Config: static at instantiation
     sensor <-chan f64    // Config: input channel
     actuator ->chan f64  // Config: output channel
@@ -761,15 +761,15 @@ task controller{
     output -> actuator
 }
 
-// Task with return value (creates anonymous output channel)
-task doubler{
+// Stage with return value (creates anonymous output channel)
+stage doubler{
     input <-chan f64
 } () f64 {              // Return type specified
     return (<-input) * 2
 }
 
-// Simple task without return
-task alarm{
+// Simple stage without return
+stage alarm{
     threshold f64
     input <-chan f64
     alert ->chan string
@@ -780,7 +780,7 @@ task alarm{
 }
 ```
 
-### Task Invocation
+### Stage Invocation
 
 Tasks are invoked with configuration values and arguments:
 
@@ -801,13 +801,13 @@ alarm{
 }()
 ```
 
-### Task Execution Model
+### Stage Execution Model
 
 Tasks are purely event-driven - they execute when they receive input values:
 
 - **Event-driven only**: Tasks execute when upstream sources send values
 - **No implicit intervals**: Config params like `interval timespan` are just data, not triggers
-- **Interval execution via stdlib**: Use the `interval{}` task for periodic execution
+- **Interval execution via stdlib**: Use the `interval{}` stage for periodic execution
 - **Multi-input triggering**: Tasks with multiple input channels trigger:
   - **First execution**: When ALL input channels have received at least one value
   - **Subsequent executions**: When ANY input channel receives a new value (uses stale values for other channels)
@@ -816,14 +816,14 @@ Tasks are purely event-driven - they execute when they receive input values:
 // Tasks execute when they receive input
 sensor -> controller{}  // controller runs when sensor sends value
 
-// For interval-based execution, use the interval task
+// For interval-based execution, use the interval stage
 interval{period: 100ms} -> sampler{}  // sampler runs every 100ms
 
 // Combining events and intervals
 all{sensor, interval{period: 1s}} -> logger{}  // Log when both arrive
 
-// Multi-input task triggering example (snapshot-safe)
-task combiner{
+// Multi-input stage triggering example (snapshot-safe)
+stage combiner{
     ch1 <-chan f64
     ch2 <-chan f64
 } () {
@@ -834,28 +834,28 @@ task combiner{
 }
 
 // Execution sequence:
-// 1. ch1 receives 10.0 → task does NOT execute (ch2 never written)
-// 2. ch2 receives 5.0  → task executes with v1=10.0, v2=5.0
-// 3. ch1 receives 20.0 → task executes with v1=20.0, v2=5.0 (stale)
-// 4. ch2 receives 7.0  → task executes with v1=20.0, v2=7.0 (stale)
+// 1. ch1 receives 10.0 → stage does NOT execute (ch2 never written)
+// 2. ch2 receives 5.0  → stage executes with v1=10.0, v2=5.0
+// 3. ch1 receives 20.0 → stage executes with v1=20.0, v2=5.0 (stale)
+// 4. ch2 receives 7.0  → stage executes with v1=20.0, v2=7.0 (stale)
 ```
 
-### Task Rules
+### Stage Rules
 
-- **Isolation**: Each task instance has isolated state, no shared memory
+- **Isolation**: Each stage instance has isolated state, no shared memory
 - **Channel communication**: Tasks communicate only through channels
 - **Stateful variables**: Use `$=` for state that persists across executions
 - **Config immutability**: Configuration parameters cannot change after instantiation
-- **No task recursion**: Tasks cannot invoke themselves
+- **No stage recursion**: Tasks cannot invoke themselves
 - **Extra runtime arguments ignored**: Tasks safely ignore extra runtime arguments (unlike functions)
 
-### Task Return Value Plumbing
+### Stage Return Value Plumbing
 
-When a task has a return type, it creates an anonymous output channel that other tasks can consume:
+When a stage has a return type, it creates an anonymous output channel that other tasks can consume:
 
 ```arc
-// Task with return value
-task multiplier{
+// Stage with return value
+stage multiplier{
     factor f64
     input <-chan f64
 } () f64 {
@@ -863,7 +863,7 @@ task multiplier{
 }
 
 // The return value creates an anonymous channel
-// This channel can be used directly in inter-task flows:
+// This channel can be used directly in inter-stage flows:
 sensor -> multiplier{factor: 2.0} -> display{}
 
 // Equivalent to:
@@ -880,9 +880,9 @@ source -> processor{} -> tee{logger{}, monitor{}, storage{}}
 ```
 
 **Return Value Semantics**:
-- A task with return type `T` creates an anonymous `->chan T`
+- A stage with return type `T` creates an anonymous `->chan T`
 - The return statement sends a value to this channel
-- The anonymous channel is automatically connected in inter-task flows
+- The anonymous channel is automatically connected in inter-stage flows
 - Tasks without return types have no output channel
 - **Anonymous channels are normal channels**: They follow the same unbounded FIFO queue semantics, snapshot behavior, and channel rules as explicitly declared channels
 
@@ -933,7 +933,7 @@ if sensor_enabled && value > threshold {
 - **No loops**: Reactive execution model handles repetition via events/intervals
 - **Block syntax required**: All conditions must use braces `{}`
 - **Boolean context**: Conditions evaluate to u8 (0=false, non-zero=true)
-- **Function/task scope only**: Control flow only allowed inside functions and tasks
+- **Function/stage scope only**: Control flow only allowed inside functions and tasks
 - **No switch/case**: Use if/else chains for multiple conditions
 
 ### Design Rationale
@@ -943,42 +943,42 @@ The absence of explicit loops is intentional - Arc's reactive model means:
 - State persistence via `$=` variables enables iteration across executions
 - This design ensures predictable real-time behavior
 
-## Inter-Task Layer
+## Inter-Stage Layer
 
-### Inter-Task Flow Grammar
+### Inter-Stage Flow Grammar
 
 ```
 InterTaskFlow ::= FlowStatement*
 
 FlowStatement ::= FlowSource '->' FlowTarget
 
-FlowSource ::= ChannelIdentifier | TaskInvocation | Expression
-FlowTarget ::= ChannelIdentifier | TaskInvocation
+FlowSource ::= ChannelIdentifier | StageInvocation | Expression
+FlowTarget ::= ChannelIdentifier | StageInvocation
 
-TaskInvocation ::= Identifier ConfigValues? Arguments?
+StageInvocation ::= Identifier ConfigValues? Arguments?
 ```
 
 ### Data Flow
 
-The inter-task layer connects tasks and channels to create reactive automation pipelines:
+The inter-stage layer connects tasks and channels to create reactive automation pipelines:
 
 ```arc
 // Simple pipeline
 sensor -> filter{threshold: 50} -> controller{} -> actuator
 
-// Channel to task to channel
+// Channel to stage to channel
 temp_sensor -> controller{setpoint: 100} -> valve_cmd
 
-// Task chaining
+// Stage chaining
 startup{} -> pressurize{} -> ignition{} -> shutdown{}
 ```
 
 ### Inline Expression Tasks
 
-Expressions can act as implicit tasks in the inter-task layer, but can only reference channels (not variables):
+Expressions can act as implicit tasks in the inter-stage layer, but can only reference channels (not variables):
 
 ```arc
-// Channel pass-through - trigger task on any channel change
+// Channel pass-through - trigger stage on any channel change
 ox_pt_1 -> logger{}                   // Log every ox_pt_1 value
 temperature -> controller{}           // Run controller on each temperature update
 
@@ -1034,7 +1034,7 @@ merge{sensor1, sensor2, sensor3} -> aggregator{}
 sensor -> tee{logger{}, display{}, storage{}}
 ```
 
-#### Standard Library Task Contracts
+#### Standard Library Stage Contracts
 
 **all{}**: Waits for all inputs to receive at least one value since instantiation or last emit. If an input fires multiple times before others, only the latest value is kept. Emits when the last required input arrives, then resets and waits for all inputs again.
 
@@ -1068,19 +1068,19 @@ temp_sensor -> monitor{
 any{pressure_alarm, temp_alarm} -> emergency_stop{}
 ```
 
-### Inter-Task Rules
+### Inter-Stage Rules
 
 - **Isolation**: Tasks cannot share memory or state
 - **Channel typing**: Connections must respect channel types
 - **Unidirectional flow**: Data flows in direction of arrows
 - **Reactive execution**: Tasks execute when inputs arrive
-- **No cycles**: Task graphs must be acyclic (no feedback loops allowed)
+- **No cycles**: Stage graphs must be acyclic (no feedback loops allowed)
 
 ### Cycle Detection
 
-Cycles in the task graph are detected at compile time through static analysis:
+Cycles in the stage graph are detected at compile time through static analysis:
 
-- The compiler builds a directed graph of all task connections
+- The compiler builds a directed graph of all stage connections
 - Depth-first search detects any cycles
 - All cycles are forbidden (no feedback loops)
 - Compile error reports the tasks involved in the cycle
@@ -1106,8 +1106,8 @@ All items at the global scope must have unique names:
 
 ```arc
 // Error: duplicate names at global scope
-task pump{} { }
-func pump() { }     // Error: name already used by task
+stage pump{} { }
+func pump() { }     // Error: name already used by stage
 // pump_chan        // Error if external channel has same name
 ```
 
@@ -1115,10 +1115,10 @@ func pump() { }     // Error: name already used by task
 Variables within functions/tasks cannot shadow global names:
 
 ```arc
-task controller{} { }
+stage controller{} { }
 
 func process() {
-    // controller := 5  // Error: shadows global task name
+    // controller := 5  // Error: shadows global stage name
     value := 5          // OK: unique name
 }
 ```
@@ -1127,29 +1127,29 @@ func process() {
 Channels are defined externally to Arc and referenced by name:
 
 ```arc
-// In inter-task layer
+// In inter-stage layer
 temperature -> controller{}  // temperature is external channel
 pressure -> logger{}         // pressure is external channel
 
-// In task/function
-task monitor{
+// In stage/function
+stage monitor{
     sensor <-chan f64       // Parameter receives external channel
 } () {
     value := <-sensor       // Read from channel parameter
 }
 ```
 
-### Task Return Values
+### Stage Return Values
 Tasks with return types create anonymous output channels:
 
 ```arc
-task doubler{
+stage doubler{
     input <-chan f64
 } () f64 {
     return (<-input) * 2    // Returns to anonymous channel
 }
 
-// In inter-task layer
+// In inter-stage layer
 sensor -> doubler{input: sensor} -> display
 // Return value flows as first argument to display
 ```
@@ -1180,15 +1180,15 @@ transformed := transform(data)
 result := calculate(processed, transformed)
 ```
 
-### No Dynamic Task Creation
+### No Dynamic Stage Creation
 Tasks can only be instantiated at compile time:
 ```arc
-// All task invocations must be statically defined
+// All stage invocations must be statically defined
 controller{setpoint: 100}  // OK: compile-time instantiation
 
 // Cannot create tasks based on runtime conditions
 if condition {
-    // new_task{}  // Error: dynamic task creation
+    // new_task{}  // Error: dynamic stage creation
 }
 ```
 
@@ -1218,8 +1218,8 @@ result := add(1.0, 2.0)  // OK: all arguments provided
 // partial := add(1.0)   // Error: partial application not allowed
 ```
 
-### Task Config Must Be Compile-Time Constants
-Task configuration values must be literals or channel identifiers:
+### Stage Config Must Be Compile-Time Constants
+Stage configuration values must be literals or channel identifiers:
 ```arc
 // Valid: literals and channel names
 controller{
@@ -1263,9 +1263,9 @@ The following are detected at compile time:
 - Invalid channel directions
 
 #### Flow Graph Errors
-- Cyclic dependencies in task graph
-- Unconnected required task inputs
-- Type mismatches in task connections
+- Cyclic dependencies in stage graph
+- Unconnected required stage inputs
+- Type mismatches in stage connections
 
 #### Syntax Errors
 - Malformed expressions
@@ -1312,7 +1312,7 @@ value := data[10]  // Runtime error: index out of bounds
 
 ## Compilation Target
 
-Arc compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module along with metadata describing the reactive task graph and channel connections.
+Arc compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module along with metadata describing the reactive stage graph and channel connections.
 
 ### WASM Module Structure
 
@@ -1385,7 +1385,7 @@ Module {
     "env"."panic": [i32, i32] -> []  // ptr, len to error message
   ]
 
-  // Exported functions (one per task/function)
+  // Exported functions (one per stage/function)
   exports: [
     "func_add": function
     "task_controller": function
@@ -1677,7 +1677,7 @@ String operations return handles (i32) to host-managed strings.
 
 ### Function Calling Convention
 
-#### Task Functions
+#### Stage Functions
 Tasks are compiled to WASM functions with this signature:
 ```wasm
 ;; task_name(config_channels..., runtime_params...)
@@ -1719,7 +1719,7 @@ The runtime (execution VM) handles:
 
 1. **Reactive Scheduling**
    - Maintains event queue for channel writes
-   - Determines task execution order
+   - Determines stage execution order
    - Implements snapshot semantics for channel reads
 
 2. **Channel Management**
@@ -1727,10 +1727,10 @@ The runtime (execution VM) handles:
    - Routes data between tasks
    - Manages channel ID allocation
 
-3. **Task Lifecycle**
+3. **Stage Lifecycle**
    - Instantiates tasks from metadata
-   - Manages task-specific state persistence
-   - Handles task activation triggers
+   - Manages stage-specific state persistence
+   - Handles stage activation triggers
 
 4. **Memory Management**
    - Manages WASM linear memory growth
@@ -1753,8 +1753,8 @@ type GlobalResolver interface {
     // Returns error if channel doesn't exist
     ResolveChannel(name string) (uint32, string, error)
 
-    // ResolveStdTask checks if a task is a standard library task
-    // Returns task signature if it exists, error otherwise
+    // ResolveStdTask checks if a stage is a standard library stage
+    // Returns stage signature if it exists, error otherwise
     ResolveStdTask(name string) (*StdTaskSignature, error)
 
     // ResolveStdFunction checks if a function is a standard library function
@@ -1802,7 +1802,7 @@ func (s *StubResolver) ResolveStdTask(name string) (*StdTaskSignature, error) {
             ConfigParams: []ParamSpec{{Name: "inputs", Type: "variadic"}},
         }, nil
     default:
-        return nil, fmt.Errorf("unknown stdlib task: %s", name)
+        return nil, fmt.Errorf("unknown stdlib stage: %s", name)
     }
 }
 
@@ -1829,7 +1829,7 @@ func (s *StubResolver) ResolveStdFunction(name string) (*StdFunctionSignature, e
 
 The analyzer uses this interface to:
 - Validate external channel references exist and get their types
-- Verify stdlib task invocations are valid
+- Verify stdlib stage invocations are valid
 - Check stdlib function calls have correct arguments
 - Provide autocomplete suggestions in LSP (all available globals)
 
@@ -1851,7 +1851,7 @@ These tasks are recognized by the compiler but implemented by the runtime:
 
 The compiler:
 - Parses their configuration
-- Adds them as nodes with type = task name
+- Adds them as nodes with type = stage name
 - Does NOT generate WASM functions for them
 - Runtime provides the implementation
 
@@ -1884,7 +1884,7 @@ The parser does NOT:
   - Parameters
 - Collect all identifier references:
   - Channel names
-  - Task invocations
+  - Stage invocations
   - Function calls
 
 **Pass 2: Validation**
@@ -1894,9 +1894,9 @@ The parser does NOT:
   - Functions/tasks exist (user-defined or stdlib)
   - Channels exist (via GlobalResolver)
 - Validate flow statements:
-  - Task invocations have valid config
+  - Stage invocations have valid config
   - Channel connections type-match
-- Check for cycles in task graph
+- Check for cycles in stage graph
 - Ensure all code paths return (for non-void functions)
 
 The analyzer does NOT:
@@ -1910,7 +1910,7 @@ The analyzer does NOT:
 
 **Pass 1: Collection & Graph Building**
 - Extract specifications:
-  - Task specs → tasks array
+  - Stage specs → tasks array
   - Function specs → functions array
 - Process flow statements:
   - Create node instances (with unique keys)
@@ -1920,7 +1920,7 @@ The analyzer does NOT:
 
 **Pass 2: Code Generation**
 - Generate WASM functions:
-  - One per user-defined task/function
+  - One per user-defined stage/function
   - One per inline expression
   - Map Arc types to WASM types
 - Emit host function calls for:

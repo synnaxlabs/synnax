@@ -14,16 +14,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/statement"
-	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Statement", func() {
-	createScope := func() *symbol.Scope {
+	createScope := func() *ir.Scope {
 		counter := 0
-		return &symbol.Scope{Counter: &counter}
+		return &ir.Scope{Counter: &counter}
 	}
 
 	Describe("Variable Declaration", func() {
@@ -37,7 +35,7 @@ var _ = Describe("Statement", func() {
 				Expect(res.Diagnostics).To(HaveLen(0))
 				sym, err := scope.Resolve("x")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.I32{}))
+				Expect(sym.Type).To(Equal(ir.I32{}))
 			})
 
 			It("Should infer type from initializer", func() {
@@ -49,7 +47,7 @@ var _ = Describe("Statement", func() {
 				Expect(res.Diagnostics).To(HaveLen(0))
 				sym, err := scope.Resolve("x")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.F64{}))
+				Expect(sym.Type).To(Equal(ir.F64{}))
 			})
 
 			It("Should detect type mismatch", func() {
@@ -96,8 +94,8 @@ var _ = Describe("Statement", func() {
 				Expect(res.Diagnostics).To(HaveLen(0))
 				sym, err := scope.Resolve("counter")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
-				Expect(sym.Type).To(Equal(types.I64{}))
+				Expect(sym.Kind).To(Equal(ir.KindStatefulVariable))
+				Expect(sym.Type).To(Equal(ir.I64{}))
 			})
 
 			It("Should analyze stateful variable with explicit type", func() {
@@ -109,7 +107,7 @@ var _ = Describe("Statement", func() {
 				Expect(res.Diagnostics).To(HaveLen(0))
 				sym, err := scope.Resolve("total")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.F32{}))
+				Expect(sym.Type).To(Equal(ir.F32{}))
 			})
 		})
 	})
@@ -118,7 +116,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze assignment to existing variable", func() {
 			stmt := MustSucceed(text.ParseStatement(`x = 42`))
 			scope := createScope()
-			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
+			_, _ = scope.Add(ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I64{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())
@@ -138,7 +136,7 @@ var _ = Describe("Statement", func() {
 		It("Should detect type mismatch in assignment", func() {
 			stmt := MustSucceed(text.ParseStatement(`x = "hello"`))
 			scope := createScope()
-			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}})
+			_, _ = scope.Add(ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I32{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeFalse())
@@ -246,7 +244,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze standalone expression", func() {
 			stmt := MustSucceed(text.ParseStatement(`x + 1`))
 			scope := createScope()
-			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
+			_, _ = scope.Add(ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I64{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())
@@ -264,16 +262,16 @@ var _ = Describe("Statement", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		var scope *symbol.Scope
+		var scope *ir.Scope
 
 		BeforeEach(func() {
-			resolver := symbol.MapResolver{
-				"sensor":      symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.F64{}}},
-				"output":      symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.F64{}}},
-				"int_chan":    symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.I32{}}},
-				"string_chan": symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.String{}}},
+			resolver := ir.MapResolver{
+				"sensor":      ir.Symbol{Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.F64{}}},
+				"output":      ir.Symbol{Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.F64{}}},
+				"int_chan":    ir.Symbol{Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}},
+				"string_chan": ir.Symbol{Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.String{}}},
 			}
-			scope = symbol.CreateRoot(resolver)
+			scope = ir.CreateRootScope(resolver)
 		})
 
 		Describe("Channel Writes", func() {
@@ -301,7 +299,7 @@ var _ = Describe("Statement", func() {
 
 			It("Should analyze channel write with variable", func() {
 				stmt := MustSucceed(text.ParseStatement(`value -> output`))
-				_, _ = scope.Add(symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.F64{}})
+				_, _ = scope.Add(ir.Symbol{Name: "value", Kind: ir.KindVariable, Type: ir.F64{}})
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
@@ -329,7 +327,7 @@ var _ = Describe("Statement", func() {
 				// Verify the variable has the correct type
 				varScope, err := scope.Resolve("value")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(varScope.Type).To(Equal(types.F64{}))
+				Expect(varScope.Type).To(Equal(ir.F64{}))
 			})
 
 			It("Should analyze non-blocking channel read", func() {
@@ -342,7 +340,7 @@ var _ = Describe("Statement", func() {
 				// Verify the variable has the correct type
 				varScope, err := scope.Resolve("current")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(varScope.Type).To(Equal(types.F64{}))
+				Expect(varScope.Type).To(Equal(ir.F64{}))
 			})
 
 			It("Should detect undefined channel in read", func() {

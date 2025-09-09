@@ -14,8 +14,8 @@ import (
 	"strings"
 )
 
-// Task represents a task definition with its signature
-type Task struct {
+// Stage represents a stage definition with its signature
+type Stage struct {
 	Key      string                      `json:"key"`      // WASM export name (same as Name for user-defined)
 	Config   map[string]string           `json:"config"`   // Config parameter names -> types
 	Params   map[string]string           `json:"params"`   // Runtime parameter names -> types
@@ -34,16 +34,16 @@ type Function struct {
 	Returns string            `json:"returns"` // Return type (empty if void)
 }
 
-// StatefulVariable represents a stateful variable in a task
+// StatefulVariable represents a stateful variable in a stage
 type StatefulVariable struct {
 	Type string `json:"type"`
 	ID   uint32 `json:"index"` // Used internally for state persistence
 }
 
-// Node represents a task instance in the flow graph
+// Node represents a stage instance in the flow graph
 type Node struct {
 	Key    string         `json:"key"`    // Unique instance identifier
-	Type   string         `json:"type"`   // References Task.Key or special types like "channel"
+	Type   string         `json:"type"`   // References Stage.Key or special types like "channel"
 	Config map[string]any `json:"config"` // Configuration values
 }
 
@@ -61,7 +61,7 @@ type Edge struct {
 
 // Module represents a compiled arc program's structure
 type Module struct {
-	Tasks     []Task     `json:"tasks"`     // Task definitions
+	Tasks     []Stage    `json:"tasks"`     // Stage definitions
 	Functions []Function `json:"functions"` // Function definitions
 	Nodes     []Node     `json:"nodes"`     // Node instances
 	Edges     []Edge     `json:"edges"`     // Connections between nodes
@@ -73,15 +73,15 @@ func (v StatefulVariable) String() string {
 	return fmt.Sprintf("type: %s, index: %d", v.Type, v.ID)
 }
 
-// String returns a pretty-printed representation of the Task
-func (t Task) String() string {
+// String returns a pretty-printed representation of the Stage
+func (t Stage) String() string {
 	return t.stringWithIndent("")
 }
 
-func (t Task) stringWithIndent(indent string) string {
+func (t Stage) stringWithIndent(indent string) string {
 	b := strings.Builder{}
 	b.WriteString(indent)
-	b.WriteString("task: ")
+	b.WriteString("stage: ")
 	b.WriteString(t.Key)
 	b.WriteString("\n")
 
@@ -218,8 +218,8 @@ func (m Module) String() string {
 
 	if len(m.Tasks) > 0 {
 		b.WriteString("tasks:\n")
-		for _, task := range m.Tasks {
-			b.WriteString(task.stringWithIndent("  "))
+		for _, stage := range m.Tasks {
+			b.WriteString(stage.stringWithIndent("  "))
 			b.WriteString("  ---\n")
 		}
 	}

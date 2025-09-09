@@ -12,6 +12,7 @@ package statement_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler/core"
 	"github.com/synnaxlabs/arc/compiler/statement"
@@ -22,18 +23,18 @@ import (
 
 func compile(source string) []byte {
 	stmt := MustSucceed(text.ParseStatement(source))
-	result := text.AnalyzeStatement(stmt, text.Options{})
+	result := analyzer.AnalyzeStatement(stmt, text.Options{})
 	Expect(result.Ok()).To(BeTrue())
-	ctx := core.NewContext(result.Symbols, true)
+	ctx := context.NewContext(result.Symbols, true)
 	Expect(statement.Compile(ctx, stmt)).To(Succeed())
 	return ctx.Writer.Bytes()
 }
 
 func compileBlock(source string) []byte {
 	block := MustSucceed(text.ParseBlock("{" + source + "}"))
-	result := text.AnalyzeBlock(block, text.Options{})
+	result := analyzer.AnalyzeBlock(block, text.Options{})
 	Expect(result.Ok()).To(BeTrue())
-	ctx := core.NewContext(result.Symbols, true)
+	ctx := context.NewContext(result.Symbols, true)
 	Expect(statement.CompileBlock(ctx, block)).To(Succeed())
 	return ctx.Writer.Bytes()
 }

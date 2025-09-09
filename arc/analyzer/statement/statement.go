@@ -11,30 +11,25 @@ package statement
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/analyzer/result"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-func AnalyzeBlock(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	block text.IBlockContext,
-) bool {
-	blockScope, err := parentScope.Add(symbol.Symbol{
-		Kind:       symbol.KindBlock,
-		ParserRule: block,
+func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
+	blockScope, err := ctx.Scope.Add(ir.Symbol{
+		Kind:       ir.KindBlock,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		result.AddError(err, block)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	for _, stmt := range block.AllStatement() {
-		if !Analyze(blockScope, result, stmt) {
+	for _, stmt := range ctx.AST.AllStatement() {
+		if !Analyze(context.ChildWithScope(ctx, stmt, blockScope)) {
 			return false
 		}
 	}
@@ -42,68 +37,58 @@ func AnalyzeBlock(
 }
 
 // Analyze analyzes a statement
-func Analyze(
-	blockScope *symbol.Scope,
-	result *result.Result,
-	ctx text.IStatementContext,
-) bool {
-	if varDecl := ctx.VariableDeclaration(); varDecl != nil {
-		return analyzeVariableDeclaration(blockScope, result, varDecl)
-	} else if ifStmt := ctx.IfStatement(); ifStmt != nil {
-		return analyzeIfStatement(blockScope, result, ifStmt)
-	} else if returnStmt := ctx.ReturnStatement(); returnStmt != nil {
-		return analyzeReturnStatement(blockScope, result, returnStmt)
-	} else if channelOp := ctx.ChannelOperation(); channelOp != nil {
-		return analyzeChannelOperation(blockScope, result, channelOp)
-	} else if assignment := ctx.Assignment(); assignment != nil {
-		return analyzeAssignment(blockScope, result, assignment)
-	} else if expr := ctx.Expression(); expr != nil {
-		return expression.Analyze(blockScope, result, expr)
+func Analyze(ctx context.Context[parser.IStatementContext]) bool {
+	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
+		return analyzeVariableDeclaration(context.Child(ctx, varDecl))
+	} else if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
+		return analyzeIfStatement(context.Child(ctx, ifStmt))
+	} else if returnStmt := ctx.AST.ReturnStatement(); returnStmt != nil {
+		return analyzeReturnStatement(context.Child(ctx, returnStmt))
+	} else if channelOp := ctx.AST.ChannelOperation(); channelOp != nil {
+		return analyzeChannelOperation(context.Child(ctx, channelOp))
+	} else if assignment := ctx.AST.Assignment(); assignment != nil {
+		return analyzeAssignment(context.Child(ctx, assignment))
+	} else if expr := ctx.AST.Expression(); expr != nil {
+		return expression.Analyze(context.Child(ctx, expr))
 	}
 	return true
 }
 
-func analyzeVariableDeclaration(
-	blockScope *symbol.Scope,
-	result *result.Result,
-	ctx text.IVariableDeclarationContext,
-) bool {
-	if local := ctx.LocalVariable(); local != nil {
-		return analyzeLocalVariable(blockScope, result, local)
-	} else if stateful := ctx.StatefulVariable(); stateful != nil {
-		return analyzeStatefulVariable(blockScope, result, stateful)
+func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) bool {
+	if local := ctx.AST.LocalVariable(); local != nil {
+		return analyzeLocalVariable(context.Child(ctx, local))
+	} else if stateful := ctx.AST.StatefulVariable(); stateful != nil {
+		return analyzeStatefulVariable(context.Child(ctx, stateful))
 	}
 	return true
 }
 
-func analyzeVariableDeclarationType(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	declaration antlr.ParserRuleContext,
-	expression text.IExpressionContext,
-	typeCtx text.ITypeContext,
-) (types.Type, bool) {
+func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	expression parser.IExpressionContext,
+	typeCtx parser.ITypeContext,
+) (ir.Type, bool) {
 	if typeCtx != nil {
-		var varType types.Type
+		var varType ir.Type
 		var err error
 		// Explicit type annotation
 		varType, err = atypes.InferFromTypeContext(typeCtx)
 		if err != nil {
-			result.AddError(err, declaration)
+			ctx.Diagnostics.AddError(err, ctx.AST)
 			return nil, false
 		}
 		// If there's an initializer, check type compatibility
 		if expression != nil {
 			// Check if the expression is a literal
-			exprType := atypes.InferFromExpression(parentScope, expression, nil)
+			exprType := atypes.InferFromExpression(ctx.Scope, expression, nil)
 			if exprType != nil && varType != nil {
-				isLiteral := isLiteralExpression(expression)
+				isLiteral := isLiteralExpression(context.Child(ctx, expression))
 				// If it's a literal, we might allow some implicit conversions
 				// For now, we still check compatibility the same way
 				if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) || (!isLiteral && !atypes.Compatible(varType, exprType)) {
-					result.AddError(
+					ctx.Diagnostics.AddError(
 						errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
-						declaration,
+						ctx.AST,
 					)
 					return nil, false
 				}
@@ -112,20 +97,22 @@ func analyzeVariableDeclarationType(
 		return varType, true
 	}
 	if expression != nil {
-		return atypes.InferFromExpression(parentScope, expression, nil), true
+		return atypes.InferFromExpression(ctx.Scope, expression, nil), true
 	}
-	result.AddError(errors.Newf("no type declaration found for %s", declaration), declaration)
+	ctx.Diagnostics.AddError(
+		errors.Newf("no type declaration found for %s", ctx.AST), ctx.AST,
+	)
 	return nil, false
 }
 
 // isLiteralExpression checks if an expression is a literal value (number, string, bool)
-func isLiteralExpression(expr text.IExpressionContext) bool {
-	if expr == nil {
+func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
+	if ctx.AST == nil {
 		return false
 	}
 
 	// Check if the expression is a simple literal
-	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		// Navigate down through the expression hierarchy to find literals
 		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
 			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
@@ -153,30 +140,27 @@ func isLiteralExpression(expr text.IExpressionContext) bool {
 }
 
 // analyzeLocalVariable analyzes a local variable declaration
-func analyzeLocalVariable(
-	blockScope *symbol.Scope,
-	result *result.Result,
-	localVar text.ILocalVariableContext,
-) bool {
-	name := localVar.IDENTIFIER().GetText()
-	expr := localVar.Expression()
+func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) bool {
+	name := ctx.AST.IDENTIFIER().GetText()
+	expr := ctx.AST.Expression()
 
 	// Check if this is actually a non-blocking channel read
 	// (i.e., the expression is a simple identifier that refers to a channel)
-	if expr != nil && localVar.Type_() == nil {
-		if isChannelIdentifier(blockScope, expr) {
+	if expr != nil && ctx.AST.Type_() == nil {
+		childCtx := context.Child(ctx, expr)
+		if isChannelIdentifier(childCtx) {
 			// This is a non-blocking channel read: varName := channelName
-			chanType := getChannelType(blockScope, expr)
+			chanType := getChannelType(childCtx)
 			if chanType != nil {
 				// Add variable with the channel's value type
-				_, err := blockScope.Add(symbol.Symbol{
+				_, err := childCtx.Scope.Add(ir.Symbol{
 					Name:       name,
-					Kind:       symbol.KindChannel,
+					Kind:       ir.KindChannel,
 					Type:       chanType.ValueType,
-					ParserRule: localVar,
+					ParserRule: ctx.AST,
 				})
 				if err != nil {
-					result.AddError(err, localVar)
+					ctx.Diagnostics.AddError(err, ctx.AST)
 					return false
 				}
 				return true
@@ -186,36 +170,34 @@ func analyzeLocalVariable(
 
 	// Also validate the expression for undefined variables
 	if expr != nil {
-		if !expression.Analyze(blockScope, result, expr) {
+		if !expression.Analyze(context.Child(ctx, expr)) {
 			return false
 		}
 	}
 	varType, ok := analyzeVariableDeclarationType(
-		blockScope,
-		result,
-		localVar,
+		ctx,
 		expr,
-		localVar.Type_(),
+		ctx.AST.Type_(),
 	)
 	if !ok {
 		return false
 	}
-	_, err := blockScope.Add(symbol.Symbol{
+	_, err := ctx.Scope.Add(ir.Symbol{
 		Name:       name,
 		Type:       varType,
-		ParserRule: localVar,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		result.AddError(err, localVar)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
 	return true
 }
 
 // isChannelIdentifier checks if an expression is a simple identifier that refers to a channel
-func isChannelIdentifier(scope *symbol.Scope, expr text.IExpressionContext) bool {
+func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
 	// Navigate through the expression tree to find an identifier
-	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
 			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
 				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
@@ -227,8 +209,8 @@ func isChannelIdentifier(scope *symbol.Scope, expr text.IExpressionContext) bool
 										if primary := postfix.PrimaryExpression(); primary != nil {
 											if id := primary.IDENTIFIER(); id != nil {
 												// Check if this identifier refers to a channel
-												if sym, err := scope.Resolve(id.GetText()); err == nil {
-													if _, ok := sym.Type.(types.Chan); ok {
+												if sym, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+													if _, ok := sym.Type.(ir.Chan); ok {
 														return true
 													}
 												}
@@ -247,9 +229,9 @@ func isChannelIdentifier(scope *symbol.Scope, expr text.IExpressionContext) bool
 }
 
 // getChannelType retrieves the channel type from an expression that is a channel identifier
-func getChannelType(scope *symbol.Scope, expr text.IExpressionContext) *types.Chan {
+func getChannelType(ctx context.Context[parser.IExpressionContext]) *ir.Chan {
 	// Navigate through the expression tree to find the identifier and get its type
-	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
 			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
 				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
@@ -260,8 +242,8 @@ func getChannelType(scope *symbol.Scope, expr text.IExpressionContext) *types.Ch
 									if postfix := unary.PostfixExpression(); postfix != nil {
 										if primary := postfix.PrimaryExpression(); primary != nil {
 											if id := primary.IDENTIFIER(); id != nil {
-												if sym, err := scope.Resolve(id.GetText()); err == nil {
-													if chanType, ok := sym.Type.(types.Chan); ok {
+												if sym, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+													if chanType, ok := sym.Type.(ir.Chan); ok {
 														return &chanType
 													}
 												}
@@ -280,78 +262,68 @@ func getChannelType(scope *symbol.Scope, expr text.IExpressionContext) *types.Ch
 }
 
 // analyzeStatefulVariable analyzes a stateful variable declaration
-func analyzeStatefulVariable(
-	blockScope *symbol.Scope,
-	result *result.Result,
-	statefulVar text.IStatefulVariableContext,
-) bool {
-	name := statefulVar.IDENTIFIER().GetText()
-	expr := statefulVar.Expression()
+func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) bool {
+	name := ctx.AST.IDENTIFIER().GetText()
+	expr := ctx.AST.Expression()
 	varType, ok := analyzeVariableDeclarationType(
-		blockScope,
-		result,
-		statefulVar,
+		ctx,
 		expr,
-		statefulVar.Type_(),
+		ctx.AST.Type_(),
 	)
 	if !ok {
 		return false
 	}
-	_, err := blockScope.Add(symbol.Symbol{
+	_, err := ctx.Scope.Add(ir.Symbol{
 		Name:       name,
-		Kind:       symbol.KindStatefulVariable,
+		Kind:       ir.KindStatefulVariable,
 		Type:       varType,
-		ParserRule: statefulVar,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		result.AddError(err, statefulVar)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
 	if expr != nil {
-		return expression.Analyze(blockScope, result, expr)
+		return expression.Analyze(context.Child(ctx, expr))
 	}
 	return true
 }
 
-func analyzeIfStatement(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx text.IIfStatementContext,
-) bool {
+func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) bool {
 	// First analyze the condition expression
-	if expr := ctx.Expression(); expr != nil {
-		if !expression.Analyze(parentScope, result, expr) {
+	if expr := ctx.AST.Expression(); expr != nil {
+		if !expression.Analyze(context.Child(ctx, expr)) {
 			return false
 		}
 	}
 
 	// Analyze the main if block
-	if block := ctx.Block(); block != nil {
-		if !AnalyzeBlock(parentScope, result, block) {
+	if block := ctx.AST.Block(); block != nil {
+		if !AnalyzeBlock(context.Child(ctx, block)) {
 			return false
 		}
 	}
 
 	// Analyze all else-if clauses
-	for _, elseIfClause := range ctx.AllElseIfClause() {
+	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		// Analyze the else-if condition
 		if expr := elseIfClause.Expression(); expr != nil {
-			if !expression.Analyze(parentScope, result, expr) {
+			if !expression.Analyze(context.Child(ctx, expr)) {
 				return false
 			}
 		}
 		// Analyze the else-if block
 		if block := elseIfClause.Block(); block != nil {
-			if !AnalyzeBlock(parentScope, result, block) {
+			if !AnalyzeBlock(context.Child(ctx, block)) {
 				return false
 			}
 		}
 	}
 
 	// Analyze the else clause if present
-	if elseClause := ctx.ElseClause(); elseClause != nil {
+	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
-			if !AnalyzeBlock(parentScope, result, block) {
+			if !AnalyzeBlock(context.Child(ctx, block)) {
 				return false
 			}
 		}
@@ -360,65 +332,61 @@ func analyzeIfStatement(
 	return true
 }
 
-func analyzeReturnStatement(
-	scope *symbol.Scope,
-	result *result.Result,
-	returnStmt text.IReturnStatementContext,
-) bool {
-	enclosingScope, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
+func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext]) bool {
+	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(ir.KindFunction)
 	if err != nil {
-		enclosingScope, err = scope.ClosestAncestorOfKind(symbol.KindTask)
+		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(ir.KindStage)
 		if err != nil {
-			result.AddError(
-				errors.New("return statement not in function or task"),
-				returnStmt,
+			ctx.Diagnostics.AddError(
+				errors.New("return statement not in function or stage"),
+				ctx.AST,
 			)
 			return false
 		}
 	}
-	var expectedReturnType types.Type
-	if enclosingScope.Kind == symbol.KindFunction {
-		fnType := enclosingScope.Type.(types.Function)
+	var expectedReturnType ir.Type
+	if enclosingScope.Kind == ir.KindFunction {
+		fnType := enclosingScope.Type.(ir.Function)
 		expectedReturnType = fnType.Return
-	} else if enclosingScope.Kind == symbol.KindTask {
-		taskType := enclosingScope.Type.(types.Task)
-		expectedReturnType = taskType.Return
+	} else if enclosingScope.Kind == ir.KindStage {
+		stageType := enclosingScope.Type.(ir.Stage)
+		expectedReturnType = stageType.Return
 	}
-	returnExpr := returnStmt.Expression()
+	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
-		if !expression.Analyze(scope, result, returnExpr) {
+		if !expression.Analyze(context.Child(ctx, returnExpr)) {
 			return false
 		}
 
-		actualReturnType := atypes.InferFromExpression(scope, returnExpr, expectedReturnType)
+		actualReturnType := atypes.InferFromExpression(ctx.Scope, returnExpr, expectedReturnType)
 		if expectedReturnType == nil {
-			result.AddError(
-				errors.New("unexpected return value in function/task with void return type"),
-				returnStmt,
+			ctx.Diagnostics.AddError(
+				errors.New("unexpected return value in function/stage with void return type"),
+				ctx.AST,
 			)
 			return false
 		}
 		if actualReturnType != nil {
 			if !atypes.Compatible(expectedReturnType, actualReturnType) {
-				result.AddError(
+				ctx.Diagnostics.AddError(
 					errors.Newf(
 						"type mismatch: cannot return %s, expected %s",
 						actualReturnType,
 						expectedReturnType,
 					),
-					returnStmt,
+					ctx.AST,
 				)
 				return false
 			}
 		}
 	} else {
 		if expectedReturnType != nil {
-			result.AddError(
+			ctx.Diagnostics.AddError(
 				errors.Newf(
 					"return statement missing value of type %s",
 					expectedReturnType,
 				),
-				returnStmt,
+				ctx.AST,
 			)
 			return false
 		}
@@ -426,68 +394,63 @@ func analyzeReturnStatement(
 	return true
 }
 
-func analyzeChannelOperation(
-	scope *symbol.Scope,
-	res *result.Result,
-	ctx text.IChannelOperationContext,
-) bool {
-	if write := ctx.ChannelWrite(); write != nil {
-		return analyzeChannelWrite(scope, res, write)
-	} else if read := ctx.ChannelRead(); read != nil {
-		return analyzeChannelRead(scope, res, read)
+func analyzeChannelOperation(ctx context.Context[parser.IChannelOperationContext]) bool {
+	if write := ctx.AST.ChannelWrite(); write != nil {
+		return analyzeChannelWrite(context.Child(ctx, write))
+	} else if read := ctx.AST.ChannelRead(); read != nil {
+		return analyzeChannelRead(context.Child(ctx, read))
 	}
 	return true
 }
 
-func analyzeChannelWrite(
-	scope *symbol.Scope,
-	res *result.Result,
-	ctx text.IChannelWriteContext,
-) bool {
+func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool {
 	// Get the channel name
 	var channelName string
-	if ctx.IDENTIFIER() != nil {
-		channelName = ctx.IDENTIFIER().GetText()
+	if ctx.AST.IDENTIFIER() != nil {
+		channelName = ctx.AST.IDENTIFIER().GetText()
 	} else {
 		return false
 	}
 
 	// Resolve the channel
-	channelSym, err := scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(channelName)
 	if err != nil {
-		res.AddError(err, ctx)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	if taskScope, err := scope.ClosestAncestorOfKind(symbol.KindTask); err == nil {
-		t := taskScope.Type.(types.Task)
+	if stageScope, err := ctx.Scope.ClosestAncestorOfKind(ir.KindStage); err == nil {
+		t := stageScope.Type.(ir.Stage)
 		t.Channels.Write.Add(channelSym.Name)
 	}
 
 	// Check it's a channel type
-	chanType, ok := channelSym.Type.(types.Chan)
+	chanType, ok := channelSym.Type.(ir.Chan)
 	if !ok {
-		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		ctx.Diagnostics.AddError(
+			errors.Newf("%s is not a channel", channelName),
+			ctx.AST,
+		)
 		return false
 	}
 
 	// Analyze the expression being written
-	expr := ctx.Expression()
+	expr := ctx.AST.Expression()
 	if expr == nil {
 		return true
 	}
 
-	if !expression.Analyze(scope, res, expr) {
+	if !expression.Analyze(context.Child(ctx, expr)) {
 		return false
 	}
 
 	// Check type compatibility
-	exprType := atypes.InferFromExpression(scope, expr, nil)
+	exprType := atypes.InferFromExpression(ctx.Scope, expr, nil)
 	if exprType != nil && chanType.ValueType != nil {
 		if !atypes.Compatible(chanType.ValueType, exprType) {
-			res.AddError(
+			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot write %s to channel of type %s",
 					exprType, chanType.ValueType),
-				ctx,
+				ctx.AST,
 			)
 			return false
 		}
@@ -496,26 +459,18 @@ func analyzeChannelWrite(
 	return true
 }
 
-func analyzeChannelRead(
-	scope *symbol.Scope,
-	res *result.Result,
-	ctx text.IChannelReadContext,
-) bool {
-	if blocking := ctx.BlockingRead(); blocking != nil {
-		return analyzeBlockingRead(scope, res, blocking)
-	} else if nonBlocking := ctx.NonBlockingRead(); nonBlocking != nil {
-		return analyzeNonBlockingRead(scope, res, nonBlocking)
+func analyzeChannelRead(ctx context.Context[parser.IChannelReadContext]) bool {
+	if blocking := ctx.AST.BlockingRead(); blocking != nil {
+		return analyzeBlockingRead(context.Child(ctx, blocking))
+	} else if nonBlocking := ctx.AST.NonBlockingRead(); nonBlocking != nil {
+		return analyzeNonBlockingRead(context.Child(ctx, nonBlocking))
 	}
 	return true
 }
 
-func analyzeBlockingRead(
-	scope *symbol.Scope,
-	res *result.Result,
-	ctx text.IBlockingReadContext,
-) bool {
+func analyzeBlockingRead(ctx context.Context[parser.IBlockingReadContext]) bool {
 	// Format: varName := <-channelName
-	ids := ctx.AllIDENTIFIER()
+	ids := ctx.AST.AllIDENTIFIER()
 	if len(ids) != 2 {
 		return false
 	}
@@ -524,41 +479,43 @@ func analyzeBlockingRead(
 	channelName := ids[1].GetText()
 
 	// Resolve the channel
-	channelSym, err := scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(channelName)
 	if err != nil {
-		res.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx)
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(err, "undefined channel: %s", channelName),
+			ctx.AST,
+		)
 		return false
 	}
 
 	// Check it's a channel type
-	chanType, ok := channelSym.Type.(types.Chan)
+	chanType, ok := channelSym.Type.(ir.Chan)
 	if !ok {
-		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		ctx.Diagnostics.AddError(
+			errors.Newf("%s is not a channel", channelName),
+			ctx.AST,
+		)
 		return false
 	}
 
 	// Add the variable with the channel's value type
-	_, err = scope.Add(symbol.Symbol{
+	_, err = ctx.Scope.Add(ir.Symbol{
 		Name:       varName,
-		Kind:       symbol.KindVariable,
+		Kind:       ir.KindVariable,
 		Type:       chanType.ValueType,
-		ParserRule: ctx,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		res.AddError(err, ctx)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
 
 	return true
 }
 
-func analyzeNonBlockingRead(
-	scope *symbol.Scope,
-	res *result.Result,
-	ctx text.INonBlockingReadContext,
-) bool {
+func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext]) bool {
 	// Format: varName := channelName
-	ids := ctx.AllIDENTIFIER()
+	ids := ctx.AST.AllIDENTIFIER()
 	if len(ids) != 2 {
 		return false
 	}
@@ -567,66 +524,68 @@ func analyzeNonBlockingRead(
 	channelName := ids[1].GetText()
 
 	// Resolve the channel
-	channelSym, err := scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(channelName)
 	if err != nil {
-		res.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx)
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(err, "undefined channel: %s", channelName),
+			ctx.AST,
+		)
 		return false
 	}
 
 	// Check it's a channel type
-	chanType, ok := channelSym.Type.(types.Chan)
+	chanType, ok := channelSym.Type.(ir.Chan)
 	if !ok {
-		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		ctx.Diagnostics.AddError(
+			errors.Newf("%s is not a channel", channelName),
+			ctx.AST,
+		)
 		return false
 	}
 
 	// Add the variable with the channel's value type
-	_, err = scope.Add(symbol.Symbol{
+	_, err = ctx.Scope.Add(ir.Symbol{
 		Name:       varName,
-		Kind:       symbol.KindVariable,
+		Kind:       ir.KindVariable,
 		Type:       chanType.ValueType,
-		ParserRule: ctx,
+		ParserRule: ctx.AST,
 	})
 	if err != nil {
-		res.AddError(err, ctx)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
 
 	return true
 }
 
-func analyzeAssignment(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	assignment text.IAssignmentContext,
-) bool {
-	name := assignment.IDENTIFIER().GetText()
-	varScope, err := parentScope.Resolve(name)
+func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
+	name := ctx.AST.IDENTIFIER().GetText()
+	varScope, err := ctx.Scope.Resolve(name)
 	if err != nil {
-		result.AddError(err, assignment)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	expr := assignment.Expression()
+	expr := ctx.AST.Expression()
 	if expr == nil {
 		return true
 	}
-	if !expression.Analyze(parentScope, result, expr) {
+	if !expression.Analyze(context.Child(ctx, expr)) {
 		return false
 	}
-	exprType := atypes.InferFromExpression(parentScope, expr, nil)
+	exprType := atypes.InferFromExpression(ctx.Scope, expr, nil)
 	if exprType == nil {
 		return true
 	}
 	if varScope.Type == nil {
 		return true
 	}
-	varType := varScope.Type.(types.Type)
+	varType := varScope.Type.(ir.Type)
 	if atypes.Compatible(varType, exprType) {
 		return true
 	}
-	result.AddError(
+	ctx.Diagnostics.AddError(
 		errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
-		assignment,
+		ctx.AST,
 	)
 	return false
 }

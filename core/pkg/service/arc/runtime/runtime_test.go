@@ -5,11 +5,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -50,25 +50,25 @@ var _ = Describe("Runtime", Ordered, func() {
 
 		source := `ox_pt_1 > f32(0.5) -> print{message: "dog"}`
 
-		printType := types.NewTask()
-		printType.Config.Put("message", types.String{})
+		printType := ir.NewTask()
+		printType.Config.Put("message", ir.String{})
 
-		resolver := symbol.MapResolver{
-			"ox_pt_1": symbol.Symbol{
+		resolver := ir.MapResolver{
+			"ox_pt_1": ir.Symbol{
 				Name: "ox_pt_1",
-				Kind: symbol.KindChannel,
-				Type: types.Chan{ValueType: types.F32{}},
+				Kind: ir.KindChannel,
+				Type: ir.Chan{ValueType: ir.F32{}},
 				ID:   int(ch.Key()),
 			},
-			"print": symbol.Symbol{
+			"print": ir.Symbol{
 				Name: "print",
-				Kind: symbol.KindTask,
+				Kind: ir.KindStage,
 				Type: printType,
 			},
 		}
 
 		prog := MustSucceed(text.Parse(source))
-		analysis := text.Analyze(prog, text.Options{Resolver: resolver})
+		analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
 		Expect(analysis.Ok()).To(BeTrue(), analysis.String())
 		wasmBytes := MustSucceed(compiler.Compile(compiler.Config{
 			Program:  prog,

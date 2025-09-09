@@ -10,43 +10,39 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/types"
 )
 
 // compileBinaryAdditive handles + and - operations
 func compileBinaryAdditive(
-	ctx *core.Context,
-	expr text.IAdditiveExpressionContext,
-	hint types.Type,
-) (types.Type, error) {
-	muls := expr.AllMultiplicativeExpression()
-	resultType, err := compileMultiplicative(ctx, muls[0], hint)
+	ctx context.Context[parser.IAdditiveExpressionContext],
+) (ir.Type, error) {
+	muls := ctx.AST.AllMultiplicativeExpression()
+	resultType, err := compileMultiplicative(context.Child(ctx, muls[0]))
 	if err != nil {
 		return nil, err
 	}
 	// Process remaining operands
 	for i := 1; i < len(muls); i++ {
 		// Compile next operand with the left operand's type as hint
-		_, err := compileMultiplicative(ctx, muls[i], resultType)
+		_, err = compileMultiplicative(context.Child(ctx, muls[i]))
 		if err != nil {
 			return nil, err
 		}
 		// Determine operator - check if it's + or -
 		// This is simplified - in practice would check token positions
 		op := "+"
-		if i <= len(expr.AllPLUS()) {
+		if i <= len(ctx.AST.AllPLUS()) {
 			op = "+"
 		} else {
 			op = "-"
 		}
-		// Resolve and emit opcode (analyzer already validated types match)
-		opcode, err := GetBinaryOpcode(op, resultType)
-		if err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
 			return nil, err
 		}
-		ctx.Writer.WriteBinaryOp(opcode)
+
 	}
 
 	return resultType, nil
@@ -54,13 +50,12 @@ func compileBinaryAdditive(
 
 // compileBinaryMultiplicative handles *, /, % operations
 func compileBinaryMultiplicative(
-	ctx *core.Context,
-	expr text.IMultiplicativeExpressionContext,
-	hint types.Type,
-) (types.Type, error) {
-	pows := expr.AllPowerExpression()
+	ctx context.Context[parser.IMultiplicativeExpressionContext],
+	hint ir.Type,
+) (ir.Type, error) {
+	pows := ctx.AST.AllPowerExpression()
 	// Compile first operand
-	resultType, err := compilePower(ctx, pows[0], hint)
+	resultType, err := compilePower(context.Child(ctx, pows[0]))
 	if err != nil {
 		return nil, err
 	}
@@ -68,102 +63,96 @@ func compileBinaryMultiplicative(
 	// Process remaining operands
 	for i := 1; i < len(pows); i++ {
 		// Compile next operand with the left operand's type as hint
-		_, err := compilePower(ctx, pows[i], resultType)
+		_, err := compilePower(context.Child(ctx, pows[i]).WithHint(resultType))
 		if err != nil {
 			return nil, err
 		}
 
 		// Determine operator - simplified logic
 		op := "*"
-		if i <= len(expr.AllSTAR()) {
+		if i <= len(ctx.AST.AllSTAR()) {
 			op = "*"
-		} else if i <= len(expr.AllSTAR())+len(expr.AllSLASH()) {
+		} else if i <= len(ctx.AST.AllSTAR())+len(ctx.AST.AllSLASH()) {
 			op = "/"
 		} else {
 			op = "%"
 		}
 
 		// Resolve and emit opcode
-		opcode, err := GetBinaryOpcode(op, resultType)
-		if err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
 			return nil, err
 		}
-		ctx.Writer.WriteBinaryOp(opcode)
 	}
 
 	return resultType, nil
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func compileBinaryRelational(ctx *core.Context, expr text.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
-	adds := expr.AllAdditiveExpression()
+func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext], hint ir.Type) (ir.Type, error) {
+	adds := ctx.AST.AllAdditiveExpression()
 
 	// Compile left operand
-	leftType, err := compileAdditive(ctx, adds[0], hint)
+	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
 	if err != nil {
 		return nil, err
 	}
 
 	// Compile right operand with the left operand's type as hint
-	_, err = compileAdditive(ctx, adds[1], leftType)
+	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(leftType))
 	if err != nil {
 		return nil, err
 	}
 
 	// Determine operator
 	var op string
-	if expr.LT(0) != nil {
+	if ctx.AST.LT(0) != nil {
 		op = "<"
-	} else if expr.GT(0) != nil {
+	} else if ctx.AST.GT(0) != nil {
 		op = ">"
-	} else if expr.LEQ(0) != nil {
+	} else if ctx.AST.LEQ(0) != nil {
 		op = "<="
-	} else if expr.GEQ(0) != nil {
+	} else if ctx.AST.GEQ(0) != nil {
 		op = ">="
 	}
 
 	// Resolve and emit opcode
-	opcode, err := GetBinaryOpcode(op, leftType)
-	if err != nil {
+	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
 		return nil, err
 	}
-	ctx.Writer.WriteBinaryOp(opcode)
 
 	// Comparisons return u8 (boolean)
-	return types.U8{}, nil
+	return ir.U8{}, nil
 }
 
 // compileBinaryEquality handles == and != operations
-func compileBinaryEquality(ctx *core.Context, expr text.IEqualityExpressionContext, hint types.Type) (types.Type, error) {
-	rels := expr.AllRelationalExpression()
+func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (ir.Type, error) {
+	rels := ctx.AST.AllRelationalExpression()
 
 	// Compile left operand
-	leftType, err := compileRelational(ctx, rels[0], hint)
+	leftType, err := compileRelational(context.Child(ctx, rels[0]))
 	if err != nil {
 		return nil, err
 	}
 
 	// Compile right operand with the left operand's type as hint
-	_, err = compileRelational(ctx, rels[1], leftType)
+	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(leftType))
 	if err != nil {
 		return nil, err
 	}
 
 	// Determine operator
 	var op string
-	if expr.EQ(0) != nil {
+	if ctx.AST.EQ(0) != nil {
 		op = "=="
-	} else if expr.NEQ(0) != nil {
+	} else if ctx.AST.NEQ(0) != nil {
 		op = "!="
 	}
 
 	// Resolve and emit opcode
-	opcode, err := GetBinaryOpcode(op, leftType)
-	if err != nil {
+	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
 		return nil, err
 	}
-	ctx.Writer.WriteBinaryOp(opcode)
 
 	// Equality comparisons return u8 (boolean)
-	return types.U8{}, nil
+	return ir.U8{}, nil
 }

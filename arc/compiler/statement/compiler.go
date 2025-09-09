@@ -10,54 +10,50 @@
 package statement
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // Compile compiles a single statement
 func Compile(
-	ctx *core.Context,
-	stmt text.IStatementContext,
+	ctx context.Context[parser.IStatementContext],
 ) error {
-	if stmt == nil {
-		return errors.New("cannot compile nil statement")
+	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
+		return compileVariableDeclaration(context.Child(ctx, varDecl))
 	}
-	if varDecl := stmt.VariableDeclaration(); varDecl != nil {
-		return compileVariableDeclaration(ctx, varDecl)
+	if assign := ctx.AST.Assignment(); assign != nil {
+		return compileAssignment(context.Child(ctx, assign))
 	}
-	if assign := stmt.Assignment(); assign != nil {
-		return compileAssignment(ctx, assign)
+	if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
+		return compileIfStatement(context.Child(ctx, ifStmt))
 	}
-	if ifStmt := stmt.IfStatement(); ifStmt != nil {
-		return compileIfStatement(ctx, ifStmt)
+	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
+		return compileReturnStatement(context.Child(ctx, retStmt))
 	}
-	if retStmt := stmt.ReturnStatement(); retStmt != nil {
-		return compileReturnStatement(ctx, retStmt)
+	if chanOp := ctx.AST.ChannelOperation(); chanOp != nil {
+		return compileChannelOperation(context.Child(ctx, chanOp))
 	}
-	if chanOp := stmt.ChannelOperation(); chanOp != nil {
-		return compileChannelOperation(ctx, chanOp)
-	}
-	if fnCall := stmt.FunctionCall(); fnCall != nil {
+	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
 		// Function calls as statements (for side effects)
-		_, err := compileFunctionCall(ctx, fnCall)
+		_, err := compileFunctionCall(context.Child(ctx, fnCall))
 		return err
 	}
 	return errors.New("unknown statement type")
 }
 
 // CompileBlock compiles a block of statements
-func CompileBlock(ctx *core.Context, block text.IBlockContext) error {
-	if block == nil {
+func CompileBlock(ctx context.Context[parser.IBlockContext]) error {
+	if ctx.AST == nil {
 		return nil
 	}
-	blockScope, err := ctx.Scope.GetChildByParserRule(block)
+	blockScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
 	if err != nil {
 		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
-	for _, stmt := range block.AllStatement() {
-		if err := Compile(blockCtx, stmt); err != nil {
+	for _, stmt := range ctx.AST.AllStatement() {
+		if err = Compile(context.Child(blockCtx, stmt)); err != nil {
 			return err
 		}
 	}

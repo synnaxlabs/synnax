@@ -12,7 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/ir"
 )
 
 var _ = Describe("Type Cast Compilation", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to i32",
 			"i32(42)",
-			types.I32{},
+			ir.I32{},
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -32,7 +32,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i32 expression to i64",
 			"i64(i32(42))",
-			types.I64{},
+			ir.I64{},
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -43,7 +43,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to f32",
 			"f32(42)",
-			types.F32{},
+			ir.F32{},
 			OpI64Const,
 			int64(42),
 			OpF32ConvertI64S,
@@ -52,7 +52,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to f64",
 			"f64(42)",
-			types.F64{},
+			ir.F64{},
 			OpI64Const,
 			int64(42),
 			OpF64ConvertI64S,
@@ -62,7 +62,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to i32",
 			"i32(3.14)",
-			types.I32{},
+			ir.I32{},
 			OpF64Const,
 			float64(3.14),
 			OpI32TruncF64S,
@@ -71,7 +71,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to i64",
 			"i64(3.14)",
-			types.I64{},
+			ir.I64{},
 			OpF64Const,
 			float64(3.14),
 			OpI64TruncF64S,
@@ -81,7 +81,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to f32",
 			"f32(3.14)",
-			types.F32{},
+			ir.F32{},
 			OpF64Const,
 			float64(3.14),
 			OpF32DemoteF64,
@@ -90,7 +90,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f32 expression to f64",
 			"f64(f32(3.14))",
-			types.F64{},
+			ir.F64{},
 			OpF64Const,
 			float64(3.14),
 			OpF32DemoteF64,
@@ -101,7 +101,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to u32",
 			"u32(42)",
-			types.U32{},
+			ir.U32{},
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -110,7 +110,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"u32 to f32",
 			"f32(u32(42))",
-			types.F32{},
+			ir.F32{},
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
