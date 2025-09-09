@@ -142,7 +142,8 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node") return Arc.REGISTRY[element.props.key]?.name ?? null;
+    if (element.type === "node")
+      return Arc.Stage.REGISTRY[element.props.key]?.name ?? null;
     return null;
   });
 };

@@ -71,7 +71,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Arc.REGISTRY[props.key];
+  const C = Arc.Stage.REGISTRY[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: any): void => {

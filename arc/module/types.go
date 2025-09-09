@@ -22,8 +22,8 @@ type Task struct {
 	Returns  string                      `json:"returns"`  // Return type (empty if void)
 	Stateful map[string]StatefulVariable `json:"stateful"` // Stateful variables
 	Channels struct {
-		Read  []string `json:"read"`
-		Write []string `json:"write"`
+		Read  []uint32 `json:"read"`
+		Write []uint32 `json:"write"`
 	} `json:"channels"`
 }
 

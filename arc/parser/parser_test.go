@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package text_test
+package parser_test
 
 import (
 	"github.com/antlr4-go/antlr/v4"

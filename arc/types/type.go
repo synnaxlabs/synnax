@@ -142,8 +142,8 @@ type Task struct {
 	Config   OrderedMap[string, Type]
 	Params   OrderedMap[string, Type]
 	Channels struct {
-		Read  set.Set[string]
-		Write set.Set[string]
+		Read  set.Set[uint32]
+		Write set.Set[uint32]
 	}
 	Return Type
 }

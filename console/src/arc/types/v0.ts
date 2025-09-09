@@ -71,7 +71,7 @@ const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props
 
 // ||||| TOOLBAR |||||
 
-const TOOLBAR_TABS = ["symbols", "properties"] as const;
+const TOOLBAR_TABS = ["stages", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
@@ -114,6 +114,6 @@ export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "symbols" },
+  toolbar: { activeTab: "stages" },
   arcs: {},
 };

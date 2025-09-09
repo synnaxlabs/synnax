@@ -1,5 +1,5 @@
-//go:generate antlr4 -Dlanguage=Go -o . -package text ArcLexer.g4 ArcParser.g4
-package text
+//go:generate antlr4 -Dlanguage=Go -o . -package parser ArcLexer.g4 ArcParser.g4
+package parser
 
 import (
 	"fmt"

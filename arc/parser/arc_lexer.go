@@ -1,6 +1,6 @@
 // Code generated from ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package text
+package parser
 
 import (
 	"fmt"

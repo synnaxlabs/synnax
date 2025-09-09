@@ -22,6 +22,7 @@ type Stage struct {
 
 type Node struct {
 	Key    string         `json:"key"`
+	Type   string         `json:"type"`
 	Config map[string]any `json:"config"`
 }
 

@@ -11,14 +11,13 @@ package runtime
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/runtime/mock"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -28,8 +27,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
-	"github.com/tetratelabs/wazero/api"
-	"go.uber.org/zap"
 )
 
 type Runtime struct {
@@ -80,7 +77,7 @@ func New(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return telem.ValueAt[float32](ser, 0)
 	}
 
-	if err := mockRuntime.Bind(ctx, r.wasm); err != nil {
+	if err = mockRuntime.Bind(ctx, r.wasm); err != nil {
 		return nil, err
 	}
 
@@ -88,19 +85,18 @@ func New(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	collectedReadChannelNames := make(set.Set[string])
+	collectedReadChannelNames := make(set.Set[channel.Key])
 	for _, task := range cfg.Module.Tasks {
 		collectedReadChannelNames.Add(task.Channels.Read...)
 	}
 	channels := make([]channel.Channel, 0, len(collectedReadChannelNames))
 	if err := cfg.Channel.NewRetrieve().
-		WhereNames(collectedReadChannelNames.Keys()...).
+		WhereKeys(collectedReadChannelNames.Keys()...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	readChannelKeys := channel.KeysFromChannels(channels)
-	channelNameMap := channel.NameMap(channels)
 	streamer, err := cfg.Framer.NewStreamer(
 		ctx,
 		framer.StreamerConfig{Keys: readChannelKeys},
@@ -109,78 +105,43 @@ func New(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 
-	tasks := make(map[string]Task)
+	stages := make(map[string]stage.Stage)
 
-	createOnOutput := func(k string) func(ctx context.Context) {
-		return func(ctx context.Context) {
+	createOnOutput := func(k string) stage.OutputHandler {
+		return func(ctx context.Context, value stage.Value) {
 			for _, edge := range cfg.Module.Edges {
-				if edge.Source.Node == k {
-					t := tasks[edge.Target.Node]
-					t.Input() <- struct{}{}
+				if edge.Source.Node == k && edge.Source.Param == k {
+					value.Param = edge.Target.Param
+					stages[edge.Target.Node].Next(ctx, value)
 				}
 			}
 		}
 	}
 
-	getReadChannels := func(t module.Task) channel.Keys {
-		taskChannels := set.FromSlice[string](t.Channels.Read)
-		return lo.FilterMapToSlice(channelNameMap, func(name string, key channel.Key) (channel.Key, bool) {
-			return key, taskChannels.Contains(name)
-		})
-	}
-
-	for _, node := range cfg.Module.Nodes {
-
-		if strings.Contains(node.Type, "__expr") {
-			taskType, _ := lo.Find(cfg.Module.Tasks, func(item module.Task) bool {
-				return node.Type == item.Key
-			})
-			t := &reactiveExpression{}
-			t.input = make(chan struct{}, 10)
-			t.waFunc = mod.ExportedFunction(taskType.Key)
-			t.readChannels = getReadChannels(taskType)
-			t.baseTask.task = &taskType
-			t.OnOutput(createOnOutput(node.Key))
-			tasks[node.Key] = t
-		} else if node.Type == "print" {
-			t := &printTask{}
-			t.input = make(chan struct{}, 10)
-			t.node = &noe
-			t.OnOutput(createOnOutput(node.Key))
-			tasks[node.Key] = t
-		}
-	}
 	p := plumber.New()
 	plumber.SetSegment(p, "streamer", streamer)
-	streamProcessor := &streamProcessor{
+	sp := &streamProcessor{
 		Module:     cfg.Module,
-		tasks:      tasks,
+		stages:     stages,
 		currValues: currValues,
 	}
-	streamProcessor.Sink = streamProcessor.sink
-	plumber.SetSink[framer.StreamerResponse](p, "stream_processor", streamProcessor)
+	sp.Sink = sp.sink
+	plumber.SetSink[framer.StreamerResponse](p, "stream_processor", sp)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "stream_processor", 10)
 	sCtx, _ := signal.Isolated()
 	p.Flow(sCtx)
-	for _, task := range tasks {
+	for _, task := range stages {
 		task.Flow(sCtx)
 	}
 	return r, err
-}
-
-type Task interface {
-	ReadChannels() channel.Keys
-	Input() chan<- struct{}
-	OnOutput(func(ctx context.Context))
-	Flow(ctx signal.Context)
 }
 
 type streamProcessor struct {
 	Module *module.Module
 	confluence.UnarySink[framer.StreamerResponse]
 	currValues     map[channel.Key]telem.Series
-	tasks          map[string]Task
+	stages         map[string]stage.Stage
 	streamRequests confluence.Inlet[framer.StreamerRequest]
 }
 
@@ -192,61 +153,12 @@ func (s *streamProcessor) sink(ctx context.Context, value framer.StreamerRespons
 		s.currValues[value.Frame.RawKeyAt(i)] = ser
 	}
 	keys := value.Frame.KeysSlice()
-	for _, tsk := range s.tasks {
+	for _, tsk := range s.stages {
 		if len(lo.Intersect(tsk.ReadChannels(), keys)) > 0 {
-			tsk.Input() <- struct{}{}
+			tsk.Next(ctx, stage.Value{
+				Value:
+			})
 		}
 	}
 	return nil
-}
-
-type baseTask struct {
-	input        chan struct{}
-	readChannels channel.Keys
-	onOutput     func(ctx context.Context)
-	task         *module.Task
-	node         *module.Node
-}
-
-func (b baseTask) ReadChannels() channel.Keys {
-	return b.readChannels
-}
-
-func (b baseTask) Input() chan<- struct{} { return b.input }
-
-func (b *baseTask) OnOutput(callback func(ctx context.Context)) {
-	b.onOutput = callback
-}
-
-type reactiveExpression struct {
-	baseTask
-	waFunc    api.Function
-	prevValue uint64
-}
-
-func (r reactiveExpression) Flow(ctx signal.Context) {
-	signal.GoRange(ctx, r.input, func(ctx context.Context, _ struct{}) error {
-		res, err := r.waFunc.Call(ctx)
-		if err != nil {
-			zap.S().Error(err)
-		}
-		resValue := res[0]
-		if resValue != r.prevValue {
-			r.prevValue = resValue
-			r.onOutput(ctx)
-		}
-		return nil
-	})
-}
-
-type printTask struct {
-	baseTask
-}
-
-func (p printTask) Flow(ctx signal.Context) {
-	signal.GoRange(ctx, p.input, func(ctx context.Context, _ struct{}) error {
-		fmt.Println(p.node.Config["message"])
-		p.onOutput(ctx)
-		return nil
-	})
 }

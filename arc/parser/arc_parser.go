@@ -1,6 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package text // ArcParser
+package parser // ArcParser
 import (
 	"fmt"
 	"strconv"

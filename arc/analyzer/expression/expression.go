@@ -22,7 +22,7 @@ import (
 func Analyze(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IExpressionContext,
+	ctx parser.IExpressionContext,
 ) bool {
 	if logicalOr := ctx.LogicalOrExpression(); logicalOr != nil {
 		return analyzeLogicalOr(parentScope, result, logicalOr)
@@ -39,7 +39,7 @@ func getLogicalAndOperator(antlr.ParserRuleContext) string {
 }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
-	if eqCtx, ok := ctx.(text.IEqualityExpressionContext); ok {
+	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
 		if len(eqCtx.AllEQ()) > 0 {
 			return "=="
 		}
@@ -51,7 +51,7 @@ func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 }
 
 func getAdditiveOperator(ctx antlr.ParserRuleContext) string {
-	if addCtx, ok := ctx.(text.IAdditiveExpressionContext); ok {
+	if addCtx, ok := ctx.(parser.IAdditiveExpressionContext); ok {
 		if len(addCtx.AllPLUS()) > 0 {
 			return "+"
 		}
@@ -63,7 +63,7 @@ func getAdditiveOperator(ctx antlr.ParserRuleContext) string {
 }
 
 func getMultiplicativeOperator(ctx antlr.ParserRuleContext) string {
-	if mulCtx, ok := ctx.(text.IMultiplicativeExpressionContext); ok {
+	if mulCtx, ok := ctx.(parser.IMultiplicativeExpressionContext); ok {
 		if len(mulCtx.AllSTAR()) > 0 {
 			return "*"
 		}
@@ -78,7 +78,7 @@ func getMultiplicativeOperator(ctx antlr.ParserRuleContext) string {
 }
 
 func getRelationalOperator(ctx antlr.ParserRuleContext) string {
-	if relCtx, ok := ctx.(text.IRelationalExpressionContext); ok {
+	if relCtx, ok := ctx.(parser.IRelationalExpressionContext); ok {
 		if len(relCtx.AllLT()) > 0 {
 			return "<"
 		}
@@ -132,7 +132,7 @@ func validateExpressionType[T any](
 func analyzeLogicalOr(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.ILogicalOrExpressionContext,
+	ctx parser.ILogicalOrExpressionContext,
 ) bool {
 	logicalAnds := ctx.AllLogicalAndExpression()
 	for _, logicalAnd := range logicalAnds {
@@ -154,7 +154,7 @@ func analyzeLogicalOr(
 func analyzeLogicalAnd(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.ILogicalAndExpressionContext,
+	ctx parser.ILogicalAndExpressionContext,
 ) bool {
 	equalities := ctx.AllEqualityExpression()
 	for _, equality := range ctx.AllEqualityExpression() {
@@ -176,7 +176,7 @@ func analyzeLogicalAnd(
 func analyzeEquality(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IEqualityExpressionContext,
+	ctx parser.IEqualityExpressionContext,
 ) bool {
 	relationals := ctx.AllRelationalExpression()
 	for _, relational := range relationals {
@@ -198,7 +198,7 @@ func analyzeEquality(
 func analyzeRelational(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IRelationalExpressionContext,
+	ctx parser.IRelationalExpressionContext,
 ) bool {
 	additives := ctx.AllAdditiveExpression()
 	for _, additive := range additives {
@@ -220,7 +220,7 @@ func analyzeRelational(
 func analyzeAdditive(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IAdditiveExpressionContext,
+	ctx parser.IAdditiveExpressionContext,
 ) bool {
 	multiplicatives := ctx.AllMultiplicativeExpression()
 	for _, multiplicative := range multiplicatives {
@@ -228,7 +228,7 @@ func analyzeAdditive(
 			return false
 		}
 	}
-	return validateExpressionType[text.IMultiplicativeExpressionContext](
+	return validateExpressionType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		parentScope,
 		result,
@@ -242,7 +242,7 @@ func analyzeAdditive(
 func analyzeMultiplicative(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IMultiplicativeExpressionContext,
+	ctx parser.IMultiplicativeExpressionContext,
 ) bool {
 	powers := ctx.AllPowerExpression()
 	for _, power := range powers {
@@ -250,7 +250,7 @@ func analyzeMultiplicative(
 			return false
 		}
 	}
-	return validateExpressionType[text.IPowerExpressionContext](
+	return validateExpressionType[parser.IPowerExpressionContext](
 		ctx,
 		parentScope,
 		result,
@@ -264,7 +264,7 @@ func analyzeMultiplicative(
 func analyzePower(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IPowerExpressionContext,
+	ctx parser.IPowerExpressionContext,
 ) bool {
 	if unary := ctx.UnaryExpression(); unary != nil {
 		if !analyzeUnary(parentScope, result, unary) {
@@ -282,7 +282,7 @@ func analyzePower(
 func analyzeUnary(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IUnaryExpressionContext,
+	ctx parser.IUnaryExpressionContext,
 ) bool {
 	// Check if this is a unary operator expression
 	if innerUnary := ctx.UnaryExpression(); innerUnary != nil {
@@ -329,7 +329,7 @@ func analyzeUnary(
 func analyzePostfix(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IPostfixExpressionContext,
+	ctx parser.IPostfixExpressionContext,
 ) bool {
 	if primary := ctx.PrimaryExpression(); primary != nil {
 		if !analyzePrimary(parentScope, result, primary) {
@@ -358,7 +358,7 @@ func analyzePostfix(
 func analyzePrimary(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	ctx text.IPrimaryExpressionContext,
+	ctx parser.IPrimaryExpressionContext,
 ) bool {
 	if id := ctx.IDENTIFIER(); id != nil {
 		name := id.GetText()
@@ -372,7 +372,7 @@ func analyzePrimary(
 			if isChan {
 				if taskScope, err := parentScope.ClosestAncestorOfKind(symbol.KindTask); err == nil {
 					t := taskScope.Type.(types.Task)
-					t.Channels.Read.Add(name)
+					t.Channels.Read.Add(sym.ID)
 				}
 			}
 		}

@@ -44,7 +44,7 @@ func (r Retrieve) Entries(arcs *[]Arc) Retrieve {
 	return r
 }
 
-// Exec executes the query against the given transslate. The results of the query
+// Exec executes the query against the given translate. The results of the query
 // will be stored in the pointer given to the Entry or Entries method. If tx is nil,
 // the query will be executed directly against the underlying gorp.DB provided to the
 // Arc service.

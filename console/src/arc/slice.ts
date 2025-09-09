@@ -203,7 +203,7 @@ export const { actions, reducer } = createSlice({
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       state.arcs[layoutKey] = latest.migrateState(payload);
-      state.toolbar.activeTab = "symbols";
+      state.toolbar.activeTab = "stages";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
@@ -214,7 +214,7 @@ export const { actions, reducer } = createSlice({
       arc.graph.edges.forEach((edge) => {
         edge.selected = false;
       });
-      state.toolbar.activeTab = "symbols";
+      state.toolbar.activeTab = "stages";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { keys: layoutKeys } = payload;
@@ -264,7 +264,7 @@ export const { actions, reducer } = createSlice({
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "symbols";
+      } else state.toolbar.activeTab = "stages";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
@@ -286,7 +286,7 @@ export const { actions, reducer } = createSlice({
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "symbols";
+      } else state.toolbar.activeTab = "stages";
     },
     setActiveToolbarTab: (
       state,

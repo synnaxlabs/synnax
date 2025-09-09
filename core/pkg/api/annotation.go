@@ -30,7 +30,6 @@ func NewAnnotationService(p Provider) *AnnotationService {
 	return &AnnotationService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Service.Annotation,
 	}
 }
 

@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -27,7 +27,7 @@ type Options struct {
 type Result = result.Result
 
 func Analyze(
-	prog text.IProgramContext,
+	prog parser.IProgramContext,
 	opts Options,
 ) Result {
 	rootScope := symbol.CreateRoot(opts.Resolver)
@@ -81,7 +81,7 @@ func Analyze(
 }
 
 func AnalyzeStatement(
-	stmt text.IStatementContext,
+	stmt parser.IStatementContext,
 	opts Options,
 ) Result {
 	scope := symbol.CreateRoot(opts.Resolver)
@@ -91,7 +91,7 @@ func AnalyzeStatement(
 }
 
 func AnalyzeBlock(
-	block text.IBlockContext,
+	block parser.IBlockContext,
 	opts Options,
 ) Result {
 	scope := symbol.CreateRoot(opts.Resolver)
@@ -104,7 +104,7 @@ func AnalyzeBlock(
 func analyzeFunctionDeclaration(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	fn text.IFunctionDeclarationContext,
+	fn parser.IFunctionDeclarationContext,
 ) bool {
 	name := fn.IDENTIFIER().GetText()
 	fnScope, err := parentScope.Resolve(name)
@@ -147,7 +147,7 @@ func analyzeFunctionDeclaration(
 func analyzeParams(
 	scope *symbol.Scope,
 	result *result.Result,
-	params text.IParameterListContext,
+	params parser.IParameterListContext,
 	paramTypes *types.OrderedMap[string, types.Type],
 ) bool {
 	if params == nil {
@@ -182,7 +182,7 @@ func analyzeParams(
 }
 
 // blockAlwaysReturns checks if a block always returns a value on all execution paths
-func blockAlwaysReturns(block text.IBlockContext) bool {
+func blockAlwaysReturns(block parser.IBlockContext) bool {
 	if block == nil {
 		return false
 	}
@@ -233,7 +233,7 @@ func blockAlwaysReturns(block text.IBlockContext) bool {
 func analyzeTaskDeclaration(
 	parentScope *symbol.Scope,
 	result *result.Result,
-	task text.ITaskDeclarationContext,
+	task parser.ITaskDeclarationContext,
 ) bool {
 	name := task.IDENTIFIER().GetText()
 	taskScope, err := parentScope.Resolve(name)

@@ -10,6 +10,7 @@
 package graph
 
 import (
+	"github.com/synnaxlabs/arc/diagnostic"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -18,6 +19,7 @@ type (
 	Stage = ir.Stage
 	Edge  = ir.Edge
 )
+
 type Node struct {
 	ir.Node
 	Position spatial.XY `json:"position"`
@@ -32,4 +34,13 @@ type Graph struct {
 	Viewport Viewport `json:"viewport"`
 	Stages   []Stage  `json:"stages"`
 	Edges    []Edge   `json:"edges"`
+}
+
+type Diagnostic struct {
+	Severity diagnostic.Severity `json:"severity"`
+	Message  string              `json:"message"`
+}
+
+type Result struct {
+	IR ir.IR `json:"ir"`
 }

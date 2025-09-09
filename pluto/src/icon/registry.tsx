@@ -31,7 +31,6 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
-  BsStars,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -154,7 +153,6 @@ import {
   PiCaretUpBold,
   PiDownloadSimple,
   PiFileCsv,
-  PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -188,6 +186,7 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbChartArcs,
   TbCircleDashed,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
@@ -415,7 +414,7 @@ export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const Arc = wrapSVGIcon(PiFlowArrowBold, "arc");
+export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");

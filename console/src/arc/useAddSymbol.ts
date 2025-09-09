@@ -18,7 +18,7 @@ export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
   const theme = Theming.use();
   return useCallback(
     (key: string, position?: xy.XY) => {
-      const spec = Arc.REGISTRY[key];
+      const spec = Arc.Stage.REGISTRY[key];
       const initialProps = spec.defaultProps(theme);
       dispatch(
         addElement({

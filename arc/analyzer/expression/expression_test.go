@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,7 +23,7 @@ import (
 var _ = Describe("Expressions", func() {
 	Describe("Binary Expressions", func() {
 		It("Should validate add expressions on numeric types", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -37,7 +38,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject arithmetic operations on strings", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x string := "hello"
 						y string := "world"
@@ -53,7 +54,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject mixed type arithmetic", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y f32 := 20.5
@@ -66,7 +67,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate comparison operations", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -83,7 +84,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject mixed type comparisons", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x i32 := 10
 					y u32 := 20
@@ -96,7 +97,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should allow for comparison of a floating point variable with an integer literal", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f32 := 10
 					z := x > 5
@@ -107,7 +108,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should not allow comparison of an integer variable with a floating point literal", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			func testFunc() {
 				x i32 := 10
 				z := x > 5.0
@@ -121,7 +122,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate logical operations on booleans", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						a u8 := 0
 						b u8 := 1
@@ -134,7 +135,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject logical AND operations on non-booleans", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -147,7 +148,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject logical OR operations on non-booleans", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 					x i32 := 10
 					y i32 := 20
@@ -159,7 +160,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate modulo operation on integers", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 3
@@ -173,7 +174,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Unary Expressions", func() {
 		It("Should validate unary negation on numeric types", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := -x
@@ -186,7 +187,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject unary negation on non-numeric types", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x string := "hello"
 						y := -x
@@ -198,7 +199,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate logical not on booleans", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x u8 := 1
 						y := !x
@@ -209,7 +210,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should reject logical not on non-booleans", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := !x
@@ -223,7 +224,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Literal Expressions", func() {
 		It("Should correctly type integer literals", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := 42
 						y i32 := 100
@@ -235,7 +236,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should correctly type float literals", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := 3.14
 						y f32 := 2.718
@@ -247,7 +248,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should correctly type string literals", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := "hello world"
 						y string := "test"
@@ -258,7 +259,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should correctly type boolean literals", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := 1
 						y u8 := 1
@@ -271,7 +272,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Complex Expressions", func() {
 		It("Should handle nested binary expressions with correct precedence", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -285,7 +286,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should handle mixed arithmetic and comparison operations", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -298,7 +299,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should handle chained logical operations", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						a u8 := 1
 						b u8 := 0
@@ -312,7 +313,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should validate complex mixed expressions", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
@@ -327,7 +328,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should detect type errors in complex expressions", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y string := "20"
@@ -342,7 +343,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Function Call Expressions", func() {
 		It("Should validate function calls with correct arguments", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func add(x i32, y i32) i32 {
 						return x + y
 					}
@@ -356,7 +357,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should detect undefined function calls", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						result := undefinedFunc(10, 20)
 					}
@@ -367,7 +368,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should handle nested function calls", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func double(x i32) i32 {
 						return x * 2
 					}
@@ -387,7 +388,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Variable Reference Expressions", func() {
 		It("Should resolve local variables correctly", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						y := x + 5
@@ -398,7 +399,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should detect undefined variable references", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						y := undefinedVar + 5
 					}
@@ -409,7 +410,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should not allow shadowing", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
 						if x > 0 {
@@ -424,7 +425,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should resolve function parameters correctly", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc(x i32, y i32) i32 {
 						return x + y
 					}
@@ -436,7 +437,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Edge Cases", func() {
 		It("Should handle empty expressions gracefully", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 					}
 				`))
@@ -445,7 +446,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should handle very deeply nested expressions", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i64 := ((((1 + 2) * 3) - 4) / 5) % 6
 					}
@@ -457,7 +458,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Channels in Expressions", func() {
 		It("Should correctly resolve an instantaneous channel read an an expression", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
@@ -479,7 +480,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should return an error when channels with mismatched types are used in arithmetic operations", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
@@ -504,7 +505,7 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should not return an error when adding a channel to a variable of the same type", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return ox_pt_1 + 2
 				}

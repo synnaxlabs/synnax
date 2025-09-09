@@ -14,26 +14,17 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/diagnostic"
 	"github.com/synnaxlabs/arc/symbol"
 )
 
 // Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
-	Severity Severity
+	Severity diagnostic.Severity
 	Line     int
 	Column   int
 	Message  string
 }
-
-type Severity int
-
-//go:generate stringer -type=Severity
-const (
-	Error Severity = iota
-	Warning
-	Info
-	Hint
-)
 
 type Result struct {
 	Diagnostics []Diagnostic
@@ -45,7 +36,7 @@ func (r *Result) AddError(
 	ctx antlr.ParserRuleContext,
 ) {
 	r.Diagnostics = append(r.Diagnostics, Diagnostic{
-		Severity: Error,
+		Severity: diagnostic.Error,
 		Line:     ctx.GetStart().GetLine(),
 		Column:   ctx.GetStart().GetColumn(),
 		Message:  err.Error(),

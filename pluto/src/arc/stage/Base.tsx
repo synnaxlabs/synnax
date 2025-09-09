@@ -187,7 +187,7 @@ export const Minimal = ({
     adjustedStyle.borderBottomRightRadius = "1rem";
 
   return (
-    <Flex.Box x empty className={CSS.BE("arc", "symbol")}>
+    <Flex.Box x empty className={CSS.BE("arc", "stage")}>
       <SinkHandles handles={sinks} center={centerSinks} />
       <Flex.Box
         y

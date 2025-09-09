@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package text
+package diagnostic
 
-type Text struct {
-	Body string `json:"body" msgpack:"body"`
-}
+type Severity int
+
+//go:generate stringer -type=Severity
+const (
+	Error Severity = iota
+	Warning
+	Info
+	Hint
+)

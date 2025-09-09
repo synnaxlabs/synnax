@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/result"
 	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,7 +23,7 @@ import (
 var _ = Describe("Analyzer", func() {
 	Describe("Duplicate Scope", func() {
 		It("Should correctly diagnose a duplicate function declaration", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 				}
 
@@ -38,7 +39,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should correctly diagnose a variable declaration that shadows a function", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					dog := 1
 				}
@@ -50,7 +51,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should correctly diagnose a function with duplicate parameter names", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog(age i32, age i32) {
 				}
 		`))
@@ -64,7 +65,7 @@ var _ = Describe("Analyzer", func() {
 	Describe("Declaration", func() {
 		Describe("Local", func() {
 			It("Should return an error diagnostic when a string is declared on an i32", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 					func cat() {
 						my_var i32 := "dog"
 					}
@@ -75,7 +76,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should allow compatible types in local variable declaration", func() {
-				ast := MustSucceed(text.Parse(`
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x i32 := 42
 				}
@@ -85,7 +86,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should infer types from an int literal", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x := 42
 				}
@@ -103,7 +104,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should infer types from a float literal", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x := 42.0
 				}
@@ -121,7 +122,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should automatically cast an int literal to a floating point type", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f32 := 42
 				}
@@ -139,7 +140,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should not allow assignment of a float literal to an int type", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x i32 := 42.0
 				}
@@ -152,7 +153,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should allow for variable declaration from a function parameter", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 					func testFunc(a i64) {
 						b := a
 					}
@@ -166,7 +167,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Assignment", func() {
 		It("Should return an error diagnostic when the variable being assigned to was not declared", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					my_var i32 := 1
 					cat string := "abc"
@@ -182,7 +183,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error diagnostic when the variable on the right hand side is not declared", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					my_var i32 := 1
 					cat string := "abc"
@@ -196,7 +197,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error when assignment is attempted between incompatible types", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					v1 i32 := 1
 					v2 string := "abc"
@@ -213,7 +214,7 @@ var _ = Describe("Analyzer", func() {
 	Describe("Type Signatures", func() {
 		Describe("Functions", func() {
 			It("Should bind function parameter and return types to the function signature", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 					func add(x f64, y f64) f64 {
 						return x + y
 					}
@@ -247,7 +248,7 @@ var _ = Describe("Analyzer", func() {
 
 		Describe("Tasks", func() {
 			It("Should bind task config, runtime params and return types to the task signature", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				task controller{
 					setpoint f64
 					sensor <-chan f64
@@ -294,7 +295,7 @@ var _ = Describe("Analyzer", func() {
 			})
 
 			It("Should correctly add read channels to the task", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				task controller{
 					setpoint f64
 				} (enable u8) u8 {
@@ -306,17 +307,18 @@ var _ = Describe("Analyzer", func() {
 						Name: "ox_pt_1",
 						Kind: symbol.KindChannel,
 						Type: types.Chan{ValueType: types.F64{}},
+						ID:   12,
 					},
 				}
 				result := text.Analyze(prog, text.Options{Resolver: resolver})
 				Expect(result.Ok()).To(BeTrue())
 				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
 				t := taskScope.Type.(types.Task)
-				Expect(t.Channels.Read.Contains("ox_pt_1")).To(BeTrue())
+				Expect(t.Channels.Read.Contains(12)).To(BeTrue())
 			})
 
 			It("Should correctly bind channels passed as config parameters", func() {
-				prog := MustSucceed(text.Parse(`
+				prog := MustSucceed(parser.Parse(`
 				task controller{
 					setpoint f64
 					ox_pressure chan f64
@@ -328,14 +330,14 @@ var _ = Describe("Analyzer", func() {
 				Expect(result.Ok()).To(BeTrue())
 				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
 				t := taskScope.Type.(types.Task)
-				Expect(t.Channels.Read.Contains("ox_pressure")).To(BeTrue())
+				Expect(t.Channels.Read.Contains(1)).To(BeTrue())
 			})
 		})
 	})
 
 	Describe("Return", func() {
 		It("Should return true for a valid return type on a function", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i64 {
 					return 12
 				}
@@ -345,7 +347,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should correctly infer a literal return type", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 12
 				}
@@ -355,7 +357,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should correctly infer an expression literal return type", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 1 + 1
 				}
@@ -365,7 +367,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error for a floating point literal on an integer return", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 1.0
 				}
@@ -377,7 +379,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should not return an error for an integer literal on a floating point return", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() f32 {
 					return 12
 				}
@@ -387,7 +389,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error when there is a return statement on a void function", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					return 5
 				}
@@ -399,7 +401,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error for a missing return with a function that has a return type", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() f64 {
 				}
 			`))
@@ -410,7 +412,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return an error for a function that doesn't have a return type on all code paths", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() f64 {
 					if (5 > 3) {
 						return 2.3
@@ -426,7 +428,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Control Flow", func() {
 		It("Should return no diagnostics for a valid if statement", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -440,7 +442,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return the correct symbol table for an if-else statement", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i64 {
 					if 3 > 5 {
 						return 1
@@ -462,7 +464,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return the correct symbol table for variables declared inside blocks", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -488,7 +490,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		It("Should return the correct symbol table for variables declared in blocks", func() {
-			prog := MustSucceed(text.Parse(`
+			prog := MustSucceed(parser.Parse(`
 				func dog(b i64) i64 {
 					a i64 := 2
 					if b == a {
