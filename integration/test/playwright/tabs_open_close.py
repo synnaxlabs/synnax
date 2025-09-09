@@ -17,7 +17,7 @@ class Tabs_Open_Close(Playwright):
 
     def run(self) -> None:
 
-        self._log_message("(1/2) Creating pages by commmand palette")
+        self._log_message("(1/2) Creating pages by command palette")
         page_names = [
             ("Schematic", "S_Name"),
             ("Line Plot", "L_Name"),

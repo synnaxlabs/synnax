@@ -31,7 +31,7 @@ class CheckConnectionBasic(TestCase):
             name="is_connected", data_type=sy.DataType.UINT32, initial_value=1
         )
 
-        # Or explcitiely change the time out
+        # Or explicitly change the time out
         self._timeout_limit = 6
         # Or change it via test parameters
         self._timeout_limit = self.params.get("timeout", -1)

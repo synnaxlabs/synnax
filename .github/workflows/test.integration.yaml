@@ -504,17 +504,15 @@ jobs:
         shell: cmd
         env:
           PYTHONIOENCODING: utf-8
-        run: scripts/integration/run-test-conductor-windows.cmd
+        working-directory: integration
+        run: poetry run test-conductor --name test-conductor-win --sequence test\all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-windows
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -536,7 +534,7 @@ jobs:
       - name: Force Quit Existing Synnax Processes
         # Exists so we can leave synnax running in the future
         # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-macos.sh
+        run: scripts/integration/kill-synnax-processes-unix.sh
 
       - name: Download and Setup macOS Artifacts
         env:
@@ -578,17 +576,15 @@ jobs:
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: scripts/integration/run-test-conductor-unix.sh
+        working-directory: integration
+        run: poetry run test-conductor --name test-conductor-unix --sequence test/all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-macos
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -610,7 +606,7 @@ jobs:
         continue-on-error: true
         # Exists so we can leave synnax running in the future
         # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-linux.sh
+        run: scripts/integration/kill-synnax-processes-unix.sh
 
       - name: Download and Setup Linux Artifacts
         env:
@@ -651,17 +647,15 @@ jobs:
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: scripts/integration/run-test-conductor-unix.sh
+        working-directory: integration
+        run: poetry run test-conductor --name test-conductor-unix --sequence test/all_tests.json
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-linux
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment

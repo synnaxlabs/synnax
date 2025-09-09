@@ -63,12 +63,7 @@ __pycache__
 python_install
 
 # |||| TEST RESULTS ||||
-integration/**/*.log
-integration/**/*.pdf
-integration/**/*.png
-integration/**/*.jpg
-integration/**/*.html
-**/test-results
+integration/test/results/
 
 # |||| LANDING SITE ||||
 

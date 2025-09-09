@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
+import os
 import time
 from test.playwright.playwright import Playwright
 from typing import Any, Dict, List, Optional, Union
@@ -101,7 +101,8 @@ class Plot(Playwright):
         Save a screenshot of the plot area including axes with margin
         """
         if path is None:
-            path = f"{self.name}.png"
+            os.makedirs("test/results", exist_ok=True)
+            path = f"test/results/{self.name}.png"
 
         plot_locator = self.page.locator(".pluto-line-plot")
 
