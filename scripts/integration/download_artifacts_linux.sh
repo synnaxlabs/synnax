@@ -9,11 +9,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# download-artifacts-linux.sh
-# Downloads build artifacts for Linux platform and sets up binaries
-# Supports both current-run artifacts and reference-run artifacts
-# Used by GitHub Actions workflow: test.integration.yaml
-
 set -euo pipefail
 
 echo "Setting up Linux artifacts download..."

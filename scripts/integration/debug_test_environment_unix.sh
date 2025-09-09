@@ -9,10 +9,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# debug-test-environment-unix.sh
-# Provides debugging information when tests fail on Unix systems (Linux/macOS)
-# Used by GitHub Actions workflow: test.integration.yaml
-
 set -euo pipefail
 
 echo "Test failed - debugging info:"

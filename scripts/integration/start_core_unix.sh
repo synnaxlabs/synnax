@@ -9,10 +9,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# start-synnax-server-unix.sh
-# Starts Synnax server and validates it's running on Unix systems (Linux/macOS)
-# Used by GitHub Actions workflow: test.integration.yaml
-
 set -euo pipefail
 
 echo "Starting Synnax server..."

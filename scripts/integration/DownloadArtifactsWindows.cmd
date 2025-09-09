@@ -9,11 +9,6 @@ rem As of the Change Date specified in that file, in accordance with the Busines
 rem License, use of this software will be governed by the Apache License, Version 2.0,
 rem included in the file licenses/APL.txt.
 
-rem download-artifacts-windows.cmd
-rem Downloads build artifacts for Windows platform and sets up binaries
-rem Supports both current-run artifacts and reference-run artifacts
-rem Used by GitHub Actions workflow: test.integration.yaml
-
 rem SY-2814: Simplify this script
 
 echo Setting up Windows artifacts download...

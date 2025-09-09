@@ -9,10 +9,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# install-playwright-unix.sh
-# Installs Playwright browsers using Poetry on Unix systems (Linux/macOS)
-# Used by GitHub Actions workflow: test.integration.yaml
-
 set -euo pipefail
 
 echo "📦 Installing Playwright browsers on Unix..."

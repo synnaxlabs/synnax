@@ -9,10 +9,6 @@ rem As of the Change Date specified in that file, in accordance with the Busines
 rem License, use of this software will be governed by the Apache License, Version 2.0,
 rem included in the file licenses/APL.txt.
 
-rem build-windows-latest.cmd
-rem Builds Synnax driver and server binaries for Windows Latest
-rem Used by GitHub Actions workflow: test.integration.yaml
-
 echo Building Synnax for Windows Latest...
 
 rem Build Driver (Windows)

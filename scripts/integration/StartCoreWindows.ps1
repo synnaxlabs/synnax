@@ -7,10 +7,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# start-synnax-server-windows.ps1
-# Starts Synnax server and validates it's running on Windows
-# Used by GitHub Actions workflow: test.integration.yaml
-
 $ErrorActionPreference = "Stop"
 
 Write-Host "Starting Synnax server on Windows..."

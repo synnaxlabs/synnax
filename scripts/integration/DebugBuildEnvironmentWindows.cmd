@@ -9,10 +9,6 @@ rem As of the Change Date specified in that file, in accordance with the Busines
 rem License, use of this software will be governed by the Apache License, Version 2.0,
 rem included in the file licenses/APL.txt.
 
-rem debug-build-environment-windows.cmd
-rem Provides debugging information when build fails on Windows
-rem Used by GitHub Actions workflow: test.integration.yaml
-
 echo 🔍 Build failed - debugging info:
 
 echo === Go version ===

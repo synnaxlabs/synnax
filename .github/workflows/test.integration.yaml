@@ -119,7 +119,7 @@ jobs:
 
       - name: Confirm Host
         shell: cmd
-        run: scripts/integration/confirm_host_windows.cmd
+        run: scripts/integration/ConfirmHostWindows.cmd
 
   confirm-host-macos-latest:
     name: Confirm Host (macos-latest)
@@ -335,7 +335,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug_build_environment_windows.cmd
+        run: scripts/integration/DebugBuildEnvironmentWindows.cmd
 
   build-macos-latest:
     name: Build Synnax (macos-latest)
@@ -430,14 +430,14 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes (Windows)
         shell: cmd
-        run: scripts/integration/kill_synnax_processes_windows.cmd
+        run: scripts/integration/KillSynnaxProcessesWindows.cmd
 
       - name: Download and Setup Windows Artifacts
         shell: cmd
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download_artifacts_windows.cmd
+        run: scripts/integration/DownloadArtifactsWindows.cmd
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
@@ -459,18 +459,18 @@ jobs:
 
       - name: Install Poetry & Dependencies
         shell: cmd
-        run: scripts/integration/install_poetry_deps_windows.cmd
+        run: scripts/integration/InstallPoetryDepsWindows.cmd
 
       - name: Install Playwright
         shell: cmd
-        run: scripts/integration/install_playwright_windows.cmd
+        run: scripts/integration/InstallPlaywrightWindows.cmd
 
       - name: Start Synnax Core
         timeout-minutes: 1
         shell: powershell
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start_core_windows.ps1
+        run: scripts/integration/StartCoreWindows.ps1
 
       - name: Test Conductor
         id: test-conductor
@@ -494,7 +494,7 @@ jobs:
       - name: Debug Test Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug_test_environment_windows.cmd
+        run: scripts/integration/DebugTestEnvironmentWindows.cmd
 
   download-artifacts-macos:
     name: Download Artifacts (macos)
