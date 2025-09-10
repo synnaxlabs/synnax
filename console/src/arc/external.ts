@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EDIT_LAYOUT_TYPE, Editor } from "@/arc/Editor";
+import { EDIT_LAYOUT_TYPE, Editor, SELECTABLE } from "@/arc/Editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/arc/Explorer";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/arc/Editor";
 export * from "@/arc/Explorer";
@@ -24,3 +25,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDIT_LAYOUT_TYPE]: Editor,
 };
+
+export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

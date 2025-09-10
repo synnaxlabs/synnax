@@ -315,7 +315,7 @@ export type EditLayoutType = typeof EDIT_LAYOUT_TYPE;
 
 export const SELECTABLE: Selector.Selectable = {
   key: EDIT_LAYOUT_TYPE,
-  title: "Arc Editor",
+  title: "Arc Automation",
   icon: <Icon.Arc />,
   create: async ({ layoutKey }) => createEditor({ key: layoutKey }),
 };
