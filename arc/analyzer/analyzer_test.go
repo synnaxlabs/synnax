@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,12 +30,13 @@ var _ = Describe("Analyzer", func() {
 				func dog() {
 				}
 			`))
-			r := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(r.Diagnostics).To(HaveLen(1))
-			diagnostic := r.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 			Expect(diagnostic.Line).To(Equal(5))
-			Expect(diagnostic.Severity).To(Equal(result.Error))
+			Expect(diagnostic.Severity).To(Equal(diagnostics.Error))
 		})
 
 		It("Should correctly diagnose a variable declaration that shadows a function", func() {
@@ -44,9 +45,10 @@ var _ = Describe("Analyzer", func() {
 					dog := 1
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			diagnostic := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 		})
 
@@ -54,10 +56,11 @@ var _ = Describe("Analyzer", func() {
 			prog := MustSucceed(parser.Parse(`
 				func dog(age i32, age i32) {
 				}
-		`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			diagnostic := result.Diagnostics[0]
+			`))
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
 		})
 	})
@@ -70,9 +73,10 @@ var _ = Describe("Analyzer", func() {
 						my_var i32 := "dog"
 					}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(1))
-				Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
 			})
 
 			It("Should allow compatible types in local variable declaration", func() {
@@ -81,8 +85,8 @@ var _ = Describe("Analyzer", func() {
 					x i32 := 42
 				}
 				`))
-				result := analyzer.AnalyzeProgram(ast, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
+				ctx := context.CreateRoot(ast, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			})
 
 			It("Should infer types from an int literal", func() {
@@ -91,9 +95,10 @@ var _ = Describe("Analyzer", func() {
 					x := 42
 				}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				Expect(ctx.Diagnostics).To(BeEmpty())
+				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -109,9 +114,10 @@ var _ = Describe("Analyzer", func() {
 					x := 42.0
 				}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				Expect(ctx.Diagnostics).To(BeEmpty())
+				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -127,9 +133,10 @@ var _ = Describe("Analyzer", func() {
 					x f32 := 42
 				}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				Expect(ctx.Diagnostics).To(BeEmpty())
+				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -145,10 +152,10 @@ var _ = Describe("Analyzer", func() {
 					x i32 := 42.0
 				}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Ok()).To(BeFalse())
-				Expect(result.Diagnostics).To(HaveLen(1))
-				first := result.Diagnostics[0]
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
 				Expect(first.Message).To(Equal("type mismatch: cannot assign f64 to i32"))
 			})
 
@@ -158,9 +165,8 @@ var _ = Describe("Analyzer", func() {
 						b := a
 					}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Ok()).To(BeTrue())
-				Expect(result.Diagnostics).To(HaveLen(0))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			})
 		})
 	})
@@ -174,9 +180,10 @@ var _ = Describe("Analyzer", func() {
 					bob = cat
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 			Expect(first.Line).To(Equal(5))
 			Expect(first.Column).To(Equal(5))
@@ -190,9 +197,10 @@ var _ = Describe("Analyzer", func() {
 					cat = bob
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 		})
 
@@ -204,9 +212,10 @@ var _ = Describe("Analyzer", func() {
 					v2 = v1
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type string"))
 		})
 	})
@@ -219,9 +228,10 @@ var _ = Describe("Analyzer", func() {
 						return x + y
 					}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope := MustSucceed(result.Symbols.Resolve("add"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				Expect(ctx.Diagnostics).To(BeEmpty())
+				funcScope := MustSucceed(ctx.Scope.Resolve("add"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("add"))
 				funcType, ok := funcScope.Type.(ir.Function)
@@ -257,9 +267,10 @@ var _ = Describe("Analyzer", func() {
 					return 1.0
 				}
 				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Diagnostics).To(HaveLen(0))
-				stageScope := MustSucceed(result.Symbols.Resolve("controller"))
+				ctx := context.CreateRoot(prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				Expect(ctx.Diagnostics).To(BeEmpty())
+				stageScope := MustSucceed(ctx.Scope.Resolve("controller"))
 				Expect(stageScope.ID).To(Equal(0))
 				Expect(stageScope.Name).To(Equal("controller"))
 				taskT, ok := stageScope.Type.(ir.Stage)
@@ -293,45 +304,6 @@ var _ = Describe("Analyzer", func() {
 				Expect(configScopeParamScopes[1].Name).To(Equal("sensor"))
 				Expect(configScopeParamScopes[1].ID).To(Equal(1))
 			})
-
-			It("Should correctly add read channels to the stage", func() {
-				prog := MustSucceed(parser.Parse(`
-				stage controller{
-					setpoint f64
-				} (enable u8) u8 {
-					return ox_pt_1 > setpoint
-				}
-				`))
-				resolver := ir.MapResolver{
-					"ox_pt_1": ir.Symbol{
-						Name: "ox_pt_1",
-						Kind: ir.KindChannel,
-						Type: ir.Chan{ValueType: ir.F64{}},
-						ID:   12,
-					},
-				}
-				result := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
-				Expect(result.Ok()).To(BeTrue())
-				stageScope := MustSucceed(result.Symbols.Resolve("controller"))
-				t := stageScope.Type.(ir.Stage)
-				Expect(t.Channels.Read.Contains(12)).To(BeTrue())
-			})
-
-			It("Should correctly bind channels passed as config parameters", func() {
-				prog := MustSucceed(parser.Parse(`
-				stage controller{
-					setpoint f64
-					ox_pressure chan f64
-				} (enable u8) u8 {
-					return ox_pressure > setpoint
-				}
-				`))
-				result := analyzer.AnalyzeProgram(prog, text.Options{})
-				Expect(result.Ok()).To(BeTrue())
-				stageScope := MustSucceed(result.Symbols.Resolve("controller"))
-				t := stageScope.Type.(ir.Stage)
-				Expect(t.Channels.Read.Contains(1)).To(BeTrue())
-			})
 		})
 	})
 
@@ -342,8 +314,9 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
 		})
 
 		It("Should correctly infer a literal return type", func() {
@@ -352,8 +325,9 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
 		})
 
 		It("Should correctly infer an expression literal return type", func() {
@@ -362,8 +336,9 @@ var _ = Describe("Analyzer", func() {
 					return 1 + 1
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
 		})
 
 		It("Should return an error for a floating point literal on an integer return", func() {
@@ -372,9 +347,10 @@ var _ = Describe("Analyzer", func() {
 					return 1.0
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
 		})
 
@@ -384,8 +360,9 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
 		})
 
 		It("Should return an error when there is a return statement on a void function", func() {
@@ -394,9 +371,10 @@ var _ = Describe("Analyzer", func() {
 					return 5
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("unexpected return value in function/stage with void return type"))
 		})
 
@@ -405,9 +383,10 @@ var _ = Describe("Analyzer", func() {
 				func dog() f64 {
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})
 
@@ -419,9 +398,10 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			first := result.Diagnostics[0]
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})
 	})
@@ -437,8 +417,9 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
 		})
 
 		It("Should return the correct symbol table for an if-else statement", func() {
@@ -451,9 +432,9 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
-			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -474,9 +455,9 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
-			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -503,22 +484,22 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			result := analyzer.AnalyzeProgram(prog, text.Options{})
-			Expect(result.Ok()).To(BeTrue(), result.String())
-			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
+			ctx := context.CreateRoot(prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
 			blocks := blockScope.FilterChildrenByKind(ir.KindBlock)
 			Expect(blocks).To(HaveLen(3))
 			firstBlock := blocks[0]
-			Expect(firstBlock.Children).To(HaveLen(0))
+			Expect(firstBlock.Children).To(BeEmpty())
 			secondBlock := blocks[1]
 			Expect(secondBlock.Children).To(HaveLen(1))
 			secondBlockFirstChild := secondBlock.Children[0]
 			Expect(secondBlockFirstChild.Name).To(Equal("c"))
 			thirdBlock := blocks[2]
-			Expect(thirdBlock.Children).To(HaveLen(0))
+			Expect(thirdBlock.Children).To(BeEmpty())
 		})
 	})
 })

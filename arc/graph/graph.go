@@ -78,7 +78,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(context.ChildWithScope(ctx, stage.Body.AST, stageScope)) {
+		if !analyzer.AnalyzeBlock(context.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}

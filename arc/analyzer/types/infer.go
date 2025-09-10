@@ -11,11 +11,12 @@ package types
 
 import (
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // InferFromTypeContext infers a types.Type from a parser type context
-func InferFromTypeContext(ctx text.ITypeContext) (ir.Type, error) {
+func InferFromTypeContext(ctx parser.ITypeContext) (ir.Type, error) {
 	if ctx == nil {
 		return nil, nil
 	}
@@ -31,7 +32,7 @@ func InferFromTypeContext(ctx text.ITypeContext) (ir.Type, error) {
 	return nil, errors.New("unknown type")
 }
 
-func inferPrimitiveType(ctx text.IPrimitiveTypeContext) (ir.Type, error) {
+func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (ir.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
@@ -41,7 +42,7 @@ func inferPrimitiveType(ctx text.IPrimitiveTypeContext) (ir.Type, error) {
 	return nil, errors.New("unknown primitive type")
 }
 
-func inferNumericType(ctx text.INumericTypeContext) (ir.Type, error) {
+func inferNumericType(ctx parser.INumericTypeContext) (ir.Type, error) {
 	if integer := ctx.IntegerType(); integer != nil {
 		return inferIntegerType(integer)
 	}
@@ -54,7 +55,7 @@ func inferNumericType(ctx text.INumericTypeContext) (ir.Type, error) {
 	return nil, errors.New("unknown numeric type")
 }
 
-func inferTemporalType(ctx text.ITemporalTypeContext) (ir.Type, error) {
+func inferTemporalType(ctx parser.ITemporalTypeContext) (ir.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "timestamp":
@@ -66,7 +67,7 @@ func inferTemporalType(ctx text.ITemporalTypeContext) (ir.Type, error) {
 	}
 }
 
-func inferIntegerType(ctx text.IIntegerTypeContext) (ir.Type, error) {
+func inferIntegerType(ctx parser.IIntegerTypeContext) (ir.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "i8":
@@ -90,7 +91,7 @@ func inferIntegerType(ctx text.IIntegerTypeContext) (ir.Type, error) {
 	}
 }
 
-func inferFloatType(ctx text.IFloatTypeContext) (ir.Type, error) {
+func inferFloatType(ctx parser.IFloatTypeContext) (ir.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "f32":
@@ -102,7 +103,7 @@ func inferFloatType(ctx text.IFloatTypeContext) (ir.Type, error) {
 	}
 }
 
-func inferChannelType(ctx text.IChannelTypeContext) (ir.Type, error) {
+func inferChannelType(ctx parser.IChannelTypeContext) (ir.Type, error) {
 	var valueType ir.Type
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
@@ -116,7 +117,7 @@ func inferChannelType(ctx text.IChannelTypeContext) (ir.Type, error) {
 	return ir.Chan{ValueType: valueType}, nil
 }
 
-func inferSeriesType(ctx text.ISeriesTypeContext) (ir.Type, error) {
+func inferSeriesType(ctx parser.ISeriesTypeContext) (ir.Type, error) {
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err := inferPrimitiveType(primitive)
 		if err != nil {

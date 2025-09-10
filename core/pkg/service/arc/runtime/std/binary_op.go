@@ -18,17 +18,19 @@ import (
 )
 
 var (
-	symbolGE = ir.Symbol{
-		Name: "ge",
-		Kind: ir.KindStage,
-		Type: ir.Stage{
-			Params: maps.Ordered[string, ir.Type]{
-				Keys:   []string{"a", "b"},
-				Values: []ir.Type{ir.I32{}, ir.I32{}},
-			},
-			Return: ir.U8{},
+	binaryOpIrType = ir.Stage{
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"a", "b"},
+			Values: []ir.Type{ir.Number{}, ir.Number{}},
 		},
+		Return: ir.U8{},
 	}
+	symbolGE = ir.Symbol{Name: "ge", Kind: ir.KindStage, Type: binaryOpIrType}
+	symbolLE = ir.Symbol{Name: "le", Kind: ir.KindStage, Type: binaryOpIrType}
+	symbolLT = ir.Symbol{Name: "lt", Kind: ir.KindStage, Type: binaryOpIrType}
+	symbolGT = ir.Symbol{Name: "gt", Kind: ir.KindStage, Type: binaryOpIrType}
+	symbolEQ = ir.Symbol{Name: "eq", Kind: ir.KindStage, Type: binaryOpIrType}
+	symbolNE = ir.Symbol{Name: "ne", Kind: ir.KindStage, Type: binaryOpIrType}
 )
 
 type operator struct {

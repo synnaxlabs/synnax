@@ -15,10 +15,21 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
-type Context[ASTNode antlr.ParserRuleContext] struct {
+type Context[AST antlr.ParserRuleContext] struct {
 	Scope       *ir.Scope
 	Diagnostics *diagnostics.Diagnostics
-	AST         ASTNode
+	AST         AST
+	Hint        ir.Type
+}
+
+func (c Context[AST]) WithScope(scope *ir.Scope) Context[AST] {
+	c.Scope = scope
+	return c
+}
+
+func (c Context[AST]) WithHint(hint ir.Type) Context[AST] {
+	c.Hint = hint
+	return c
 }
 
 func CreateRoot[ASTNode antlr.ParserRuleContext](
@@ -34,9 +45,5 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 }
 
 func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
-	return ChildWithScope(ctx, next, ctx.Scope)
-}
-
-func ChildWithScope[P, N antlr.ParserRuleContext](ctx Context[P], nextAST N, nextScope *ir.Scope) Context[N] {
-	return Context[N]{Scope: nextScope, Diagnostics: ctx.Diagnostics, AST: nextAST}
+	return Context[N]{Scope: ctx.Scope, Diagnostics: ctx.Diagnostics, AST: next}
 }

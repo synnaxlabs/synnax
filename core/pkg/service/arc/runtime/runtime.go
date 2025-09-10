@@ -12,9 +12,10 @@ package runtime
 import (
 	"context"
 
+	"github.com/envoyproxy/protoc-gen-validate/module"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/compiler/runtime/mock"
-	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
@@ -34,7 +35,7 @@ type Runtime struct {
 }
 
 type Config struct {
-	Module  *module.Module
+	Module  *arc.Module
 	Channel channel.Readable
 	Framer  *framer.Service
 }
@@ -81,7 +82,7 @@ func New(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 
-	mod, err := r.wasm.Instantiate(ctx, cfg.Module.Wasm)
+	mod, err := r.wasm.Instantiate(ctx, cfg.Module.WASM)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +157,7 @@ func (s *streamProcessor) sink(ctx context.Context, value framer.StreamerRespons
 	for _, tsk := range s.stages {
 		if len(lo.Intersect(tsk.ReadChannels(), keys)) > 0 {
 			tsk.Next(ctx, stage.Value{
-				Value:
+				Value:,
 			})
 		}
 	}

@@ -30,11 +30,7 @@ type Stage struct {
 	// StatefulVariables are names and types for the stateful variables on
 	// the stage.
 	StatefulVariables maps.Ordered[string, Type] `json:"stateful_variables"`
-	// Channels are the channels that the stage needs access to.
-	Channels struct {
-		Read  set.Set[string] `json:"read"`
-		Write set.Set[string] `json:"write"`
-	} `json:"channels"`
+
 	// Body is the logical body of the stage.
 	Body struct {
 		Raw string               `json:"."`
@@ -46,13 +42,6 @@ func (s Stage) String() string { return "stage" }
 
 var _ Type = (*Stage)(nil)
 
-func NewStage() Stage {
-	s := Stage{}
-	s.Channels.Read = make(set.Set[string])
-	s.Channels.Write = make(set.Set[string])
-	return s
-}
-
 // Node is an invocation of a stage within the flow graph.
 type Node struct {
 	// Key is a unique key for the node within the graph.
@@ -61,6 +50,11 @@ type Node struct {
 	Type string `json:"type"`
 	// Config are the configuration parameters to pass to the stage.
 	Config map[string]any `json:"config"`
+	// Channels are the channels that the stage needs access to.
+	Channels struct {
+		Read  set.Set[string] `json:"read"`
+		Write set.Set[string] `json:"write"`
+	} `json:"channels"`
 }
 
 // Handle is a connection point on a node.

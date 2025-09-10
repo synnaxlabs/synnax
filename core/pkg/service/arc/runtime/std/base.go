@@ -25,6 +25,8 @@ type base struct {
 
 var _ stage.Stage = (*base)(nil)
 
+func (b *base) ReadChannels() []channel.Key { return b.readChannels }
+
 func (b *base) Flow(signal.Context) {}
 
 func (b *base) Next(context.Context, stage.Value) {}

@@ -20,14 +20,13 @@ import (
 
 // analyzeExpression converts an inline expression into a synthetic stage
 func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
-	exprType := atypes.InferFromExpression(ctx.Scope, ctx.AST, nil)
+	exprType := atypes.InferFromExpression(ctx)
 	// If the expression type is a channel, the stage returns the channel's value type
 	// (because the stage will read from the channel)
 	if chanType, ok := exprType.(ir.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := ir.NewStage()
-	t.Return = exprType
+	t := ir.Stage{Return: exprType}
 	stageScope, err := ctx.Scope.Root().Add(ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindStage,
@@ -60,7 +59,7 @@ func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
 		}
 		return nil
 	}
-	if !expression.Analyze(context.ChildWithScope(ctx, ctx.AST, blockScope)) {
+	if !expression.Analyze(ctx.WithScope(blockScope)) {
 		return false
 	}
 	stageScope.Type = t

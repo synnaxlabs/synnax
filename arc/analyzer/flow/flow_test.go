@@ -13,9 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/maps"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +25,10 @@ var resolver = ir.MapResolver{
 		Name: "on",
 		Kind: ir.KindStage,
 		Type: &ir.Stage{
-			Config: types.NewOrderedMap([]string{"channel"}, []ir.Type{ir.String{}}),
+			Config: maps.Ordered[string, ir.Type]{
+				Keys:   []string{"channel"},
+				Values: []ir.Type{ir.String{}},
+			},
 		},
 	},
 	"once": ir.Symbol{
@@ -67,35 +71,38 @@ var resolver = ir.MapResolver{
 var _ = Describe("Flow Statements", func() {
 	Describe("Channel to Stage Flows", func() {
 		It("Should parse simple channel to stage flow", func() {
-			ast := MustSucceed(text.Parse(`
-once{} -> processor{}
-`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ast := MustSucceed(parser.Parse(`
+			once{} -> processor{}
+			`))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should return an error when once of the tasks being called is not defined", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("undefined symbol: once"))
+			ctx := context.CreateRoot(ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			first := (*ctx.Diagnostics)[0]
+			Expect(first.Message).To(Equal("undefined symbol: once"))
 		})
 
 		It("Should return an error when one of the symbols being called is not a stage", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			func dog() {
 			}
 			once{} -> dog{}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("dog is not a stage"))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("dog is not a stage"))
 		})
 
 		It("Should verify stage config parameters match the expected signature types", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage controller{
 				setpoint f64
 				input <-chan f64
@@ -114,12 +121,12 @@ once{} -> processor{}
 				output: output_chan
 			}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect when stage is invoked with missing required parameters", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage filter{
 				threshold f64
 				input <-chan f64
@@ -136,17 +143,18 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(1))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
-			Expect(result.Diagnostics[0].Message).To(Or(
+			Expect((*ctx.Diagnostics)[0].Message).To(Or(
 				Equal("missing required config parameter 'threshold' for stage 'filter'"),
 				Equal("missing required config parameter 'output' for stage 'filter'"),
 			))
 		})
 
 		It("Should detect when stage is invoked with extra parameters not in signature", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage simple{
 				input <-chan f64
 			} () {
@@ -159,13 +167,14 @@ once{} -> processor{}
 				extra: 42.0
 			}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
 		})
 
 		It("Should detect type mismatch in stage config parameters", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage typed_task{
 				threshold f64
 				count u32
@@ -189,12 +198,13 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have at least one type mismatch error
-			Expect(result.Diagnostics).ToNot(BeEmpty())
+			Expect(ctx.Diagnostics).ToNot(BeEmpty())
 			// Check that at least one error mentions type mismatch
 			hasTypeMismatch := false
-			for _, diag := range result.Diagnostics {
+			for _, diag := range *ctx.Diagnostics {
 				if matched, _ := ContainSubstring("type mismatch").Match(diag.Message); matched {
 					hasTypeMismatch = true
 					break
@@ -204,7 +214,7 @@ once{} -> processor{}
 		})
 
 		It("Should accept correct types for stage config parameters", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage typed_task{
 				threshold f64
 				count u32
@@ -225,12 +235,12 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should allow channels as both sources and targets in flow statements", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage process{
 				input <-chan f64
 				output ->chan f64
@@ -256,12 +266,12 @@ once{} -> processor{}
 				output: output_chan
 			} -> valve_cmd
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should understand channel pass-through triggers tasks on new values", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage logger{
 				value <-chan f64
 			} () {
@@ -290,12 +300,12 @@ once{} -> processor{}
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should implicitly convert channel sources to on{channel} stage invocations", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage display{
 				input <-chan f64
 			} () {
@@ -310,8 +320,8 @@ once{} -> processor{}
 			// on{channel: sensor_chan} -> display{input: sensor_chan}
 			// Where "on" is a stdlib stage that triggers when the channel receives a value
 			`))
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
 			// The analyzer should have converted the channel source to an "on" stage
 			// This test verifies that the "on" stage is required in the resolver
@@ -327,7 +337,7 @@ once{} -> processor{}
 				},
 			}
 
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 			stage display{
 				input <-chan f64
 			} () {
@@ -338,12 +348,12 @@ once{} -> processor{}
 			sensor_chan -> display{input: sensor_chan}
 			`))
 
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: noOnResolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			ctx := context.CreateRoot(ast, noOnResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should convert expressions in flow statements to anonymous tasks", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 stage alarm{} () {}
 stage logger{} () {}
 
@@ -358,13 +368,13 @@ sensor_chan > 100 -> alarm{}
 (sensor_chan * 1.8) + 32.0 -> logger{}
 			`))
 
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
+			ctx := context.CreateRoot(ast, resolver)
 			// The expressions should be validated successfully
-			Expect(result.Diagnostics).To(HaveLen(0))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should validate that expressions in flows only reference channels and literals", func() {
-			ast := MustSucceed(text.Parse(`
+			ast := MustSucceed(parser.Parse(`
 stage alarm{} () {}
 
 func setup() {
@@ -376,11 +386,12 @@ func setup() {
 sensor_chan > threshold -> alarm{}
 			`))
 
-			result := analyzer.AnalyzeProgram(ast, text.Options{Resolver: resolver})
+			ctx := context.CreateRoot(ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have an error about undefined symbol 'threshold'
-			Expect(result.Diagnostics).ToNot(BeEmpty())
+			Expect(ctx.Diagnostics).ToNot(BeEmpty())
 			foundError := false
-			for _, diag := range result.Diagnostics {
+			for _, diag := range *ctx.Diagnostics {
 				if matched, _ := ContainSubstring("undefined symbol: threshold").Match(diag.Message); matched {
 					foundError = true
 					break

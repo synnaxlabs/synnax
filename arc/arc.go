@@ -7,8 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+package arc
 
-import "github.com/synnaxlabs/arc/cmd"
+import (
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/text"
+)
 
-func main() { cmd.Execute() }
+type (
+	IR       = ir.IR
+	Stage    = ir.Stage
+	Function = ir.Function
+	Graph    = graph.Graph
+	Text     = text.Text
+)
+
+type Module struct {
+	ir.IR
+	WASM []byte
+}

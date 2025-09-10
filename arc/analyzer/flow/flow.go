@@ -76,10 +76,11 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 					return false
 				}
 				if expr := configVal.Expression(); expr != nil {
-					if !expression.Analyze(context.Child(ctx, expr)) {
+					childCtx := context.Child(ctx, expr)
+					if !expression.Analyze(childCtx) {
 						return false
 					}
-					exprType := atypes.InferFromExpression(ctx.Scope, expr, nil)
+					exprType := atypes.InferFromExpression(childCtx)
 					if exprType != nil && expectedType != nil {
 						if !atypes.Compatible(expectedType, exprType) {
 							ctx.Diagnostics.AddError(

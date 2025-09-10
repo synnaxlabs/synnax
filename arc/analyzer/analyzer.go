@@ -43,7 +43,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			_, err := ctx.Scope.Add(ir.Symbol{
 				Name:       name,
 				Kind:       ir.KindStage,
-				Type:       ir.NewStage(),
+				Type:       ir.Stage{},
 				ParserRule: stage,
 			})
 			if err != nil {
@@ -90,7 +90,7 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 	}
 	fnType := fnScope.Type.(ir.Function)
 	if !analyzeParams(
-		context.ChildWithScope(ctx, ctx.AST.ParameterList(), fnScope),
+		context.Child(ctx, ctx.AST.ParameterList()).WithScope(fnScope),
 		&fnType.Params,
 	) {
 		return false
@@ -102,7 +102,7 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 	}
 	fnScope.Type = fnType
 	if block := ctx.AST.Block(); block != nil {
-		if !statement.AnalyzeBlock(context.ChildWithScope(ctx, block, fnScope)) {
+		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(fnScope)) {
 			return false
 		}
 		// Check if the function has a return type and if all paths return
@@ -236,7 +236,7 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 	}
 
 	if !analyzeParams(
-		context.ChildWithScope(ctx, ctx.AST.ParameterList(), stageScope),
+		context.Child(ctx, ctx.AST.ParameterList()).WithScope(stageScope),
 		&stageType.Params,
 	) {
 		return false
@@ -250,7 +250,7 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 	}
 	stageScope.Type = stageType
 	if block := ctx.AST.Block(); block != nil {
-		if !statement.AnalyzeBlock(context.ChildWithScope(ctx, block, stageScope)) {
+		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(stageScope)) {
 			return false
 		}
 

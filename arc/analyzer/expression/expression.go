@@ -90,17 +90,17 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func validateExpressionType[T any, N antlr.ParserRuleContext](
+func validateExpressionType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
-	infer func(scope *ir.Scope, ctx T, hint ir.Type) ir.Type,
+	infer func(ctx context.Context[T]) ir.Type,
 	check func(t ir.Type) bool,
 ) bool {
 	if len(items) <= 1 {
 		return true
 	}
-	firstType := infer(ctx.Scope, items[0], nil)
+	firstType := infer(context.Child(ctx, items[0]))
 	opName := getOperator(ctx.AST)
 	if !check(firstType) {
 		ctx.Diagnostics.AddError(
@@ -110,7 +110,7 @@ func validateExpressionType[T any, N antlr.ParserRuleContext](
 		return false
 	}
 	for i := 1; i < len(items); i++ {
-		nextType := infer(ctx.Scope, items[i], firstType)
+		nextType := infer(context.Child(ctx, items[i]).WithHint(firstType))
 		if firstType != nil && nextType != nil && !atypes.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
@@ -236,10 +236,11 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 	// Check if this is a unary operator expression
 	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
 		// First validate the nested expression
-		if !analyzeUnary(context.Child(ctx, innerUnary)) {
+		childCtx := context.Child(ctx, innerUnary)
+		if !analyzeUnary(childCtx) {
 			return false
 		}
-		operandType := atypes.InferFromUnaryExpression(ctx.Scope, innerUnary, nil)
+		operandType := atypes.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
 			if operandType != nil && !ir.IsNumeric(operandType) {
 				ctx.Diagnostics.AddError(
@@ -303,19 +304,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name := id.GetText()
-		sym, err := ctx.Scope.Resolve(name)
-		if err != nil {
+		if _, err := ctx.Scope.Resolve(name); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
-		}
-		if sym.Kind == ir.KindChannel || sym.Kind == ir.KindConfigParam || sym.Kind == ir.KindParam {
-			_, isChan := sym.Type.(ir.Chan)
-			if isChan {
-				if stageScope, err := ctx.Scope.ClosestAncestorOfKind(ir.KindStage); err == nil {
-					t := stageScope.Type.(ir.Stage)
-					t.Channels.Read.Add(sym.ID)
-				}
-			}
 		}
 		return true
 	}
