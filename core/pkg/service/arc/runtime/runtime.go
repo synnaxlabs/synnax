@@ -32,7 +32,7 @@ import (
 )
 
 type Config struct {
-	Module  *arc.Module
+	Module  arc.Module
 	Channel channel.Readable
 	Framer  *framer.Service
 }

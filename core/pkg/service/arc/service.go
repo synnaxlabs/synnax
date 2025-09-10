@@ -11,23 +11,37 @@ package arc
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for opening a Arc service.
 type ServiceConfig struct {
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the database that the Arc service will store arcs in.
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between arcs and other entities in
 	// the Synnax resource graph.
 	Ontology *ontology.Ontology
+	// Channel
+	Channel channel.Readable
+	Framer  *framer.Service
+	Signals *signals.Provider
 }
 
 var (
@@ -40,6 +54,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -54,9 +69,23 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	cfg ServiceConfig
+	mu  struct {
+		sync.Mutex
+		entries map[uuid.UUID]*entry
+		closer  io.Closer
+	}
 }
 
-func (s Service) Close() error { return nil }
+func (s *Service) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := errors.NewCatcher(errors.WithAggregation())
+	c.Exec(s.mu.closer.Close)
+	for _, e := range s.mu.entries {
+		c.Exec(e.runtime.Close)
+	}
+	return c.Error()
+}
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
@@ -66,8 +95,21 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	var (
+		closer xio.MultiCloser
+		s      = &Service{cfg: cfg}
+	)
+	s.mu.closer = closer
 	cfg.Ontology.RegisterService(s)
+	if cfg.Signals != nil {
+		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
+		if err != nil {
+			return nil, err
+		}
+		closer = append(closer, stopSignals)
+	}
+	obs := gorp.Observe[uuid.UUID, Arc](cfg.DB)
+	closer = append(closer, xio.NopCloserFunc(obs.OnChange(s.handleChange)))
 	return s, nil
 }
 
