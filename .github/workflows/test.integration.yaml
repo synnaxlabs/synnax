@@ -25,6 +25,11 @@ on:
         required: false
         default: "0000000000"
         type: string
+      SEQUENCE:
+        description: "Test case sequence to run"
+        required: false
+        default: "test/all_tests.json"
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,8 +37,6 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: "0000000000"
 
 jobs:
   lint-python:
@@ -77,21 +80,24 @@ jobs:
     outputs:
       SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
+      SEQUENCE: ${{ steps.set-outputs.outputs.SEQUENCE }}
     steps:
       - name: Set outputs
         id: set-outputs
         env:
-          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
-          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || env.REF_RUN_ID }}
+          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
+          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '0000000000' }}
+          SEQUENCE: ${{ github.event.inputs.SEQUENCE || 'test/all_tests.json' }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+          echo "SEQUENCE=${SEQUENCE}" >> $GITHUB_OUTPUT
 
           if [ "${SKIP_BUILD}" = "false" ]; then
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
-            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}"
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}, SEQUENCE=${SEQUENCE}"
           else
             echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
-            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}, SEQUENCE=${SEQUENCE}"
           fi
 
   confirm-host-ubuntu-latest:
@@ -444,7 +450,7 @@ jobs:
     runs-on:
       - self-hosted
       - windows-latest
-    needs: download-artifacts-windows
+    needs: [setup, download-artifacts-windows]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -481,7 +487,7 @@ jobs:
         working-directory: integration
         run: |
           set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          poetry run test-conductor --name test-conductor-win --sequence test\all_tests.json
+          poetry run test-conductor --name test-conductor-win --sequence ${{ needs.setup.outputs.SEQUENCE }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -522,7 +528,7 @@ jobs:
       - self-hosted
       - macos-latest
     if: false
-    needs: download-artifacts-macos
+    needs: [setup, download-artifacts-macos]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -553,7 +559,7 @@ jobs:
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix --sequence
-          test/all_tests.json
+          ${{ needs.setup.outputs.SEQUENCE }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -593,7 +599,7 @@ jobs:
     runs-on:
       - self-hosted
       - ubuntu-latest
-    needs: download-artifacts-ubuntu
+    needs: [setup, download-artifacts-ubuntu]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -624,7 +630,7 @@ jobs:
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix --sequence
-          test/all_tests.json
+          ${{ needs.setup.outputs.SEQUENCE }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
