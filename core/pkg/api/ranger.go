@@ -129,7 +129,6 @@ type (
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
-		NotHasLabels  []uuid.UUID     `json:"not_has_labels" msgpack:"not_has_labels"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`
 		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
