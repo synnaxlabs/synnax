@@ -45,5 +45,10 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 }
 
 func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
-	return Context[N]{Scope: ctx.Scope, Diagnostics: ctx.Diagnostics, AST: next}
+	return Context[N]{
+		Scope:       ctx.Scope,
+		Diagnostics: ctx.Diagnostics,
+		AST:         next,
+		Hint:        ctx.Hint,
+	}
 }

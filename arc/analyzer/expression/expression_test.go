@@ -47,7 +47,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Severity).To(Equal(diagnostics.Error))
 			Expect(first.Message).To(ContainSubstring("cannot use string in + operation"))
@@ -63,7 +63,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
@@ -93,7 +93,8 @@ var _ = Describe("Expressions", func() {
 				}`,
 			))
 			ctx := context.CreateRoot(ast, nil)
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
 		})
 
@@ -117,7 +118,7 @@ var _ = Describe("Expressions", func() {
 			`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("type mismatch: cannot use i32 and f64 in > operation"))
 		})
@@ -145,7 +146,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
 		})
 
@@ -159,7 +160,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 		})
 
 		It("Should validate modulo operation on integers", func() {
@@ -198,7 +199,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator - not supported for type string"))
 		})
 
@@ -222,7 +223,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
 		})
 	})
@@ -343,7 +344,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).ToNot(HaveLen(0))
+			Expect(*ctx.Diagnostics).ToNot(HaveLen(0))
 		})
 	})
 
@@ -370,7 +371,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedFunc"))
 		})
 
@@ -413,7 +414,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
 
@@ -429,7 +430,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 3, col 6"))
 		})
 
@@ -508,7 +509,7 @@ var _ = Describe("Expressions", func() {
 			}
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			firstDiag := (*ctx.Diagnostics)[0]
 			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
 		})

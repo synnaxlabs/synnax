@@ -69,7 +69,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			}
 		}
 	}
-	return false
+	return true
 }
 
 func AnalyzeStatement(ctx context.Context[parser.IStatementContext]) bool {

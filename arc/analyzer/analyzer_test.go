@@ -32,7 +32,7 @@ var _ = Describe("Analyzer", func() {
 			`))
 			ctx := context.CreateRoot(prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 			Expect(diagnostic.Line).To(Equal(5))
@@ -47,7 +47,7 @@ var _ = Describe("Analyzer", func() {
 			`))
 			ctx := context.CreateRoot(prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 		})
@@ -59,7 +59,7 @@ var _ = Describe("Analyzer", func() {
 			`))
 			ctx := context.CreateRoot(prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
 			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
 		})
@@ -75,7 +75,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-				Expect(ctx.Diagnostics).To(HaveLen(1))
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
 			})
 
@@ -97,7 +97,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-				Expect(ctx.Diagnostics).To(BeEmpty())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
 				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
@@ -116,7 +116,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-				Expect(ctx.Diagnostics).To(BeEmpty())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
 				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
@@ -135,7 +135,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-				Expect(ctx.Diagnostics).To(BeEmpty())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
 				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
@@ -154,7 +154,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-				Expect(ctx.Diagnostics).To(HaveLen(1))
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				first := (*ctx.Diagnostics)[0]
 				Expect(first.Message).To(Equal("type mismatch: cannot assign f64 to i32"))
 			})
@@ -181,8 +181,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 			Expect(first.Line).To(Equal(5))
@@ -198,8 +198,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 		})
@@ -213,8 +213,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type string"))
 		})
@@ -230,7 +230,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-				Expect(ctx.Diagnostics).To(BeEmpty())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
 				funcScope := MustSucceed(ctx.Scope.Resolve("add"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("add"))
@@ -269,7 +269,7 @@ var _ = Describe("Analyzer", func() {
 				`))
 				ctx := context.CreateRoot(prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-				Expect(ctx.Diagnostics).To(BeEmpty())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
 				stageScope := MustSucceed(ctx.Scope.Resolve("controller"))
 				Expect(stageScope.ID).To(Equal(0))
 				Expect(stageScope.Name).To(Equal("controller"))
@@ -348,8 +348,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
 		})
@@ -372,8 +372,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(ContainSubstring("unexpected return value in function/stage with void return type"))
 		})
@@ -384,8 +384,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})
@@ -399,8 +399,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`))
 			ctx := context.CreateRoot(prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})

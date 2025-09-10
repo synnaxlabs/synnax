@@ -84,7 +84,7 @@ var _ = Describe("Flow Statements", func() {
 			`))
 			ctx := context.CreateRoot(ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Message).To(Equal("undefined symbol: once"))
 		})
@@ -97,7 +97,7 @@ var _ = Describe("Flow Statements", func() {
 			`))
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("dog is not a stage"))
 		})
 
@@ -145,7 +145,7 @@ var _ = Describe("Flow Statements", func() {
 			`))
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
 			Expect((*ctx.Diagnostics)[0].Message).To(Or(
 				Equal("missing required config parameter 'threshold' for stage 'filter'"),
@@ -169,7 +169,7 @@ var _ = Describe("Flow Statements", func() {
 			`))
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(ctx.Diagnostics).To(HaveLen(1))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
 		})
 
@@ -201,7 +201,7 @@ var _ = Describe("Flow Statements", func() {
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have at least one type mismatch error
-			Expect(ctx.Diagnostics).ToNot(BeEmpty())
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			// Check that at least one error mentions type mismatch
 			hasTypeMismatch := false
 			for _, diag := range *ctx.Diagnostics {
@@ -389,7 +389,7 @@ sensor_chan > threshold -> alarm{}
 			ctx := context.CreateRoot(ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have an error about undefined symbol 'threshold'
-			Expect(ctx.Diagnostics).ToNot(BeEmpty())
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			foundError := false
 			for _, diag := range *ctx.Diagnostics {
 				if matched, _ := ContainSubstring("undefined symbol: threshold").Match(diag.Message); matched {
