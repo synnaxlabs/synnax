@@ -177,7 +177,7 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    if (e.type === "edge") colorVal = color.construct(e.edge.data?.color);
+    if (e.type === "edge") colorVal = color.colorZ.parse(e.edge.data?.color);
     else if (e.props.color != null) colorVal = color.construct(e.props.color);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);

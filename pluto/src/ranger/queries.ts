@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
+import { type List } from "@/list";
 import { type Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
@@ -68,8 +69,8 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
-export interface ChildrenParams {
-  key: ranger.Key;
+export interface ChildrenParams extends List.PagerParams {
+  key?: ranger.Key;
 }
 
 const handleListLabelRelationshipSet = async (
@@ -128,6 +129,7 @@ export const useChildren = Flux.createList<
 >({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) => {
+    if (key == null) return [];
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });

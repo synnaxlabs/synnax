@@ -35,7 +35,7 @@ export interface PropertiesProps {
 }
 
 export const PropertiesControls = memo(
-  ({ layoutKey }: PropertiesProps): ReactElement => {
+  ({ layoutKey }: PropertiesProps): ReactElement | null => {
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
@@ -48,8 +48,7 @@ export const PropertiesControls = memo(
 
     const selected = digests[0];
 
-    if (selected.type === "edge")
-      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
+    if (selected.type === "edge") return null;
     return (
       <IndividualProperties
         key={selected.key}
@@ -92,15 +91,6 @@ const IndividualProperties = ({
     </Flex.Box>
   );
 };
-
-interface EdgePropertiesProps {
-  layoutKey: string;
-  edgeKey: string;
-}
-
-const EdgeProperties = (): ReactElement | null => (
-  <Flex.Box style={{ padding: "2rem" }} align="start" x></Flex.Box>
-);
 
 interface MultiElementPropertiesProps {
   layoutKey: string;
