@@ -163,21 +163,31 @@ describe("queries", () => {
         virtual: true,
       });
 
-      const { result } = renderHook(() => Channel.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => {
+          const list = Channel.useList();
+          const rename = Channel.useRename();
+          return { list, rename };
+        },
+        { wrapper },
+      );
       act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
+        result.current.list.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current.list.variant).toEqual("success");
       });
-      expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
+      expect(result.current.list.getItem(testChannel.key)?.name).toEqual("original");
 
-      await client.channels.rename(testChannel.key, "updated");
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testChannel.key,
+          name: "updated",
+        });
+      });
 
       await waitFor(() => {
-        expect(result.current.getItem(testChannel.key)?.name).toEqual("updated");
+        expect(result.current.list.getItem(testChannel.key)?.name).toEqual("updated");
       });
     });
 
