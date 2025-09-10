@@ -192,15 +192,24 @@ def get_memory_info() -> str:
 
 def get_synnax_version() -> str:
     """Get the current Synnax version from the VERSION file."""
-    # Try to read from the VERSION file in the synnax package
-    version_file = "../../../core/pkg/version/VERSION"
-    try:
-        with open(version_file, "r") as f:
-            version = f.read().strip()
-            return version
-    except FileNotFoundError:
-        # VERSION file not found, try git fallback
-        pass
+    import os
+
+    # Try multiple possible paths for the VERSION file based on working directory
+    possible_paths = [
+        "../core/pkg/version/VERSION",  # From integration directory (CI environment)
+        "core/pkg/version/VERSION",  # From synnax root directory
+        "../../../core/pkg/version/VERSION",  # Original deep nested path
+    ]
+
+    for version_file in possible_paths:
+        if os.path.exists(version_file):
+            try:
+                with open(version_file, "r") as f:
+                    version = f.read().strip()
+                    if version:  # Make sure it's not empty
+                        return version
+            except (FileNotFoundError, PermissionError):
+                continue  # Try next path
 
     # Fallback: try to get version from git tags
     result = subprocess.run(
@@ -212,9 +221,10 @@ def get_synnax_version() -> str:
     if result.returncode == 0:
         version = result.stdout.strip()
         # Remove 'v' prefix if present
-        if version.startswith("v"):
+        if version and version.startswith("v"):
             version = version[1:]
-        return version
+        if version:  # Make sure it's not empty
+            return version
 
     raise RuntimeError(
         "Unable to determine Synnax version from VERSION file or git tags"
