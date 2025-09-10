@@ -154,9 +154,8 @@ import {
 } from "react-icons/pi";
 import {
   RiProgress1Line,
-  RiProgress4Line,
   RiProgress8Line,
-  RiSettings3Fill as RiSettingsFill,
+  RiSettings3Fill,
   RiWeightFill,
 } from "react-icons/ri";
 import { RxReset } from "react-icons/rx";
@@ -238,7 +237,7 @@ export const Caret = {
   Top: wrapSVGIcon(PiCaretUpBold, "caret-top"),
   Down: wrapSVGIcon(PiCaretDown, "caret-down"),
 };
-export const Settings = wrapSVGIcon(RiSettingsFill, "settings");
+export const Settings = wrapSVGIcon(RiSettings3Fill, "settings");
 export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
 export const Import = wrapSVGIcon(PiUploadSimple, "import");
@@ -399,7 +398,7 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
+export const InProgress = wrapSVGIcon(MdOutlineTimelapse, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
