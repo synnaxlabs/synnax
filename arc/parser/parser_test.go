@@ -17,8 +17,8 @@ import (
 )
 
 // Helper to parse expression without error handling in tests
-func mustParseExpression(expr string) text.IExpressionContext {
-	exprCtx, err := text.ParseExpression(expr)
+func mustParseExpression(expr string) parser.IExpressionContext {
+	exprCtx, err := parser.ParseExpression(expr)
 	Expect(err).To(BeNil())
 	return exprCtx
 }
@@ -456,7 +456,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
-			_, err := text.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
+			_, err := parser.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("parse errors"))
 		})
@@ -833,18 +833,18 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Error cases", func() {
 			It("Should report error for unclosed parenthesis", func() {
-				_, err := text.ParseExpression("(2 + 3")
+				_, err := parser.ParseExpression("(2 + 3")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("missing ')'"))
 			})
 
 			It("Should report error for invalid operators", func() {
-				_, err := text.ParseExpression("2 ** 3")
+				_, err := parser.ParseExpression("2 ** 3")
 				Expect(err).NotTo(BeNil())
 			})
 
 			It("Should report error for double assignment", func() {
-				_, err := text.Parse(`func test() {
+				_, err := parser.Parse(`func test() {
 					x := := 5
 				}`)
 				Expect(err).NotTo(BeNil())
@@ -855,55 +855,55 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 })
 
 // Helper functions to navigate the AST
-func parseProgram(code string) text.IProgramContext {
+func parseProgram(code string) parser.IProgramContext {
 	inputStream := antlr.NewInputStream(code)
-	lexer := text.NewSlateLexer(inputStream)
+	lexer := parser.NewArcLexer(inputStream)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := text.NewSlateParser(stream)
+	p := parser.NewArcParser(stream)
 	p.BuildParseTrees = true
 	return p.Program()
 }
 
-func parseStatement(code string) text.IStatementContext {
+func parseStatement(code string) parser.IStatementContext {
 	// Wrap in a function to parse as a statement
 	prog := parseProgram("func test() { " + code + " }")
 	funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 	return funcDecl.Block().Statement(0)
 }
 
-func getPrimaryLiteral(expr text.IExpressionContext) text.ILiteralContext {
+func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	primary := getPrimaryExpression(expr)
 	return primary.Literal()
 }
 
-func getPrimaryExpression(expr text.IExpressionContext) text.IPrimaryExpressionContext {
+func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
 	return getPostfixExpression(expr).PrimaryExpression()
 }
 
-func getPostfixExpression(expr text.IExpressionContext) text.IPostfixExpressionContext {
+func getPostfixExpression(expr parser.IExpressionContext) parser.IPostfixExpressionContext {
 	return getPowerExpression(expr).UnaryExpression().PostfixExpression()
 }
 
-func getPowerExpression(expr text.IExpressionContext) text.IPowerExpressionContext {
+func getPowerExpression(expr parser.IExpressionContext) parser.IPowerExpressionContext {
 	return getMultiplicativeExpression(expr).PowerExpression(0)
 }
 
-func getMultiplicativeExpression(expr text.IExpressionContext) text.IMultiplicativeExpressionContext {
+func getMultiplicativeExpression(expr parser.IExpressionContext) parser.IMultiplicativeExpressionContext {
 	return getAdditiveExpression(expr).MultiplicativeExpression(0)
 }
 
-func getAdditiveExpression(expr text.IExpressionContext) text.IAdditiveExpressionContext {
+func getAdditiveExpression(expr parser.IExpressionContext) parser.IAdditiveExpressionContext {
 	return getRelationalExpression(expr).AdditiveExpression(0)
 }
 
-func getRelationalExpression(expr text.IExpressionContext) text.IRelationalExpressionContext {
+func getRelationalExpression(expr parser.IExpressionContext) parser.IRelationalExpressionContext {
 	return getEqualityExpression(expr).RelationalExpression(0)
 }
 
-func getEqualityExpression(expr text.IExpressionContext) text.IEqualityExpressionContext {
+func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpressionContext {
 	return getLogicalAndExpression(expr).EqualityExpression(0)
 }
 
-func getLogicalAndExpression(expr text.IExpressionContext) text.ILogicalAndExpressionContext {
+func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
 	return expr.LogicalOrExpression().LogicalAndExpression(0)
 }
