@@ -34,7 +34,7 @@ type Scope struct {
 	Parent         *Scope
 	Children       []*Scope
 	Counter        *int
-	OnResolve      func(s *Scope) error
+	OnResolve      func(ctx context.Context, s *Scope) error
 }
 
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
@@ -120,7 +120,7 @@ func (s *Scope) Root() *Scope {
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
 		if s.OnResolve != nil {
-			return child, s.OnResolve(child)
+			return child, s.OnResolve(ctx, child)
 		}
 		return child, nil
 	}
@@ -128,7 +128,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
 			scope := &Scope{Symbol: sym}
 			if s.OnResolve != nil {
-				return scope, s.OnResolve(scope)
+				return scope, s.OnResolve(ctx, scope)
 			}
 			return scope, nil
 		}
@@ -139,7 +139,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 			return nil, err
 		}
 		if s.OnResolve != nil {
-			return scope, s.OnResolve(scope)
+			return scope, s.OnResolve(ctx, scope)
 		}
 		return scope, nil
 	}

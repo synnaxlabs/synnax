@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	context2 "context"
+
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/analyzer/flow"
@@ -250,6 +252,12 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 	}
 	stageScope.Type = stageType
 	if block := ctx.AST.Block(); block != nil {
+		stageScope.OnResolve = func(ctx context2.Context, s *ir.Scope) error {
+			if s.Kind == ir.KindChannel {
+				stageType.Channels.Read.Add(uint32(s.ID))
+			}
+			return nil
+		}
 		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(stageScope)) {
 			return false
 		}

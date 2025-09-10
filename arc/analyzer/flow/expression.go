@@ -10,7 +10,9 @@
 package flow
 
 import (
-	"github.com/synnaxlabs/arc/analyzer/context"
+	"context"
+
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -19,14 +21,14 @@ import (
 )
 
 // analyzeExpression converts an inline expression into a synthetic stage
-func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
+func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	exprType := atypes.InferFromExpression(ctx)
 	// If the expression type is a channel, the stage returns the channel's value type
 	// (because the stage will read from the channel)
 	if chanType, ok := exprType.(ir.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := ir.Stage{Return: exprType}
+	t := ir.Stage{Return: exprType, Channels: ir.NewChannels()}
 	stageScope, err := ctx.Scope.Root().Add(ctx, ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindStage,
@@ -48,7 +50,7 @@ func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	stageScope.OnResolve = func(s *ir.Scope) error {
+	blockScope.OnResolve = func(ctx_ context.Context, s *ir.Scope) error {
 		_, ok := s.Type.(ir.Chan)
 		if !ok {
 			ctx.Diagnostics.AddError(errors.Newf(
@@ -56,6 +58,9 @@ func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
 				s.Name,
 				s.Type.String(),
 			), s.ParserRule)
+		}
+		if s.Kind == ir.KindChannel {
+			t.Channels.Read.Add(uint32(s.ID))
 		}
 		return nil
 	}

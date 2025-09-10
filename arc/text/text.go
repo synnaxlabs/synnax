@@ -67,9 +67,8 @@ func Analyze(
 	// Second pass: process flow statements to build nodes and edges
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, err := processFlow(acontext.Child(ctx, flow), generateKey)
-			if err != nil {
-				ctx.Diagnostics.AddError(err, nil)
+			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), generateKey)
+			if !ok {
 				return ir.IR{}, *ctx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
@@ -80,19 +79,19 @@ func Analyze(
 	return i, *ctx.Diagnostics
 }
 
-func processFlow(
+func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	generateKey GenerateKey,
-) ([]ir.Node, []ir.Edge, error) {
+) ([]ir.Node, []ir.Edge, bool) {
 	var (
 		prevHandle ir.Handle
 		edges      []ir.Edge
 		nodes      []ir.Node
 	)
 	for i, flowNode := range ctx.AST.AllFlowNode() {
-		node, handle, err := processFlowNode(acontext.Child(ctx, flowNode), generateKey)
-		if err != nil {
-			return nil, nil, err
+		node, handle, ok := analyzeNode(acontext.Child(ctx, flowNode), generateKey)
+		if !ok {
+			return nil, nil, false
 		}
 		if i > 0 {
 			edges = append(edges, ir.Edge{Source: prevHandle, Target: handle})
@@ -100,71 +99,118 @@ func processFlow(
 		prevHandle = handle
 		nodes = append(nodes, node)
 	}
-	return nodes, edges, nil
+	return nodes, edges, true
 }
 
-func processFlowNode(
+func analyzeNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey GenerateKey,
-) (ir.Node, ir.Handle, error) {
+) (ir.Node, ir.Handle, bool) {
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
-		return processChannel(channel, generateKey)
+		return analyzeChannel(acontext.Child(ctx, channel), generateKey)
 	}
 	if stage := ctx.AST.StageInvocation(); stage != nil {
-		return processStage(acontext.Child(ctx, stage), generateKey)
+		return analyzeStage(acontext.Child(ctx, stage), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return processExpression(acontext.Child(ctx, expr))
+		return analyzeExpression(acontext.Child(ctx, expr))
 	}
-	return ir.Node{}, ir.Handle{}, nil
+	return ir.Node{}, ir.Handle{}, true
 }
 
-func processChannel(channel parser.IChannelIdentifierContext, generateKey GenerateKey) (ir.Node, ir.Handle, error) {
-	name := channel.IDENTIFIER().GetText()
+func analyzeChannel(
+	ctx acontext.Context[parser.IChannelIdentifierContext],
+	generateKey GenerateKey,
+) (ir.Node, ir.Handle, bool) {
+	name := ctx.AST.IDENTIFIER().GetText()
 	nodeKey := generateKey("on")
-	return ir.Node{
-		Key:    nodeKey,
-		Type:   "on",
-		Config: map[string]any{"channel": name},
-	}, ir.Handle{Node: nodeKey, Param: "output"}, nil
+	sym, err := ctx.Scope.Resolve(ctx, name)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return ir.Node{}, ir.Handle{}, false
+	}
+	chKey := uint32(sym.ID)
+	n := ir.Node{
+		Key:      nodeKey,
+		Type:     "on",
+		Config:   map[string]any{"channel": chKey},
+		Channels: ir.NewChannels(),
+	}
+	n.Channels.Read.Add(chKey)
+	h := ir.Handle{Node: nodeKey}
+	return n, h, false
 }
 
-func extractConfigValues(values parser.IConfigValuesContext, stageType ir.Stage) map[string]any {
+func extractConfigValues(
+	ctx acontext.Context[parser.IConfigValuesContext],
+	stageType ir.Stage,
+	node ir.Node,
+) (map[string]any, bool) {
 	config := make(map[string]any)
-	if values == nil {
-		return config
+	if ctx.AST == nil {
+		return config, true
 	}
-	if named := values.NamedConfigValues(); named != nil {
+	if named := ctx.AST.NamedConfigValues(); named != nil {
 		for _, cv := range named.AllNamedConfigValue() {
 			key := cv.IDENTIFIER().GetText()
 			config[key] = getExpressionText(cv.Expression())
 		}
-	} else if anon := values.AnonymousConfigValues(); anon != nil {
+	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
 			key, _ := stageType.Params.At(i)
 			config[key] = getExpressionText(expr)
 		}
 	}
-	return config
+	for k := range config {
+		t, ok := stageType.Config.Get(k)
+		if !ok {
+			panic("config key not found in stage")
+		}
+		if _, ok = t.(ir.Chan); ok {
+			sym, err := ctx.Scope.Resolve(ctx, k)
+			if err != nil {
+				ctx.Diagnostics.AddError(err, nil)
+				return nil, false
+			}
+			channelKey := uint32(sym.ID)
+			config[k] = channelKey
+			node.Channels.Read.Add(channelKey)
+		}
+	}
+	return config, true
 }
 
-func processStage(
+func analyzeStage(
 	ctx acontext.Context[parser.IStageInvocationContext],
 	generateKey GenerateKey,
-) (ir.Node, ir.Handle, error) {
+) (ir.Node, ir.Handle, bool) {
 	var (
 		name = ctx.AST.IDENTIFIER().GetText()
 		key  = generateKey(name)
 	)
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return ir.Node{}, ir.Handle{}, err
+		ctx.Diagnostics.AddError(err, nil)
+		return ir.Node{}, ir.Handle{}, false
 	}
 	stageType, err := ir.Assert[ir.Stage](sym.Type)
 	if err != nil {
-		return ir.Node{}, ir.Handle{}, err
+		ctx.Diagnostics.AddError(err, nil)
+		return ir.Node{}, ir.Handle{}, false
 	}
-	config := extractConfigValues(ctx.AST.ConfigValues(), stageType)
+	n := ir.Node{
+		Key:      key,
+		Type:     name,
+		Channels: ir.OverrideChannels(stageType.Channels),
+	}
+	config, ok := extractConfigValues(
+		acontext.Child(ctx, ctx.AST.ConfigValues()),
+		stageType,
+		n,
+	)
+	if !ok {
+		return ir.Node{}, ir.Handle{}, false
+	}
 	if args := ctx.AST.Arguments(); args != nil {
 		if argList := args.ArgumentList(); argList != nil {
 			for i, expr := range argList.AllExpression() {
@@ -172,15 +218,28 @@ func processStage(
 			}
 		}
 	}
-	return ir.NewNode(ir.Node{Key: key, Type: name, Config: config}), ir.Handle{Node: key, Param: "output"}, nil
+	h := ir.Handle{Node: key, Param: "output"}
+	return n, h, true
 }
 
-func processExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, error) {
+func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
-		return ir.Node{}, ir.Handle{}, err
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return ir.Node{}, ir.Handle{}, false
 	}
-	return ir.NewNode(ir.Node{Key: sym.Name, Type: sym.Name}), ir.Handle{Node: sym.Name, Param: "output"}, nil
+	stageType, err := ir.Assert[ir.Stage](sym.Type)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, nil)
+		return ir.Node{}, ir.Handle{}, false
+	}
+	n := ir.Node{
+		Key:      sym.Name,
+		Type:     sym.Name,
+		Channels: ir.OverrideChannels(stageType.Channels),
+	}
+	h := ir.Handle{Node: sym.Name, Param: ""}
+	return n, h, true
 }
 
 // getExpressionText extracts the text representation of an expression

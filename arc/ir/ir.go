@@ -17,6 +17,25 @@ import (
 
 type NamedTypes = maps.Ordered[string, Type]
 
+type Channels struct {
+	Read  set.Set[uint32] `json:"read"`
+	Write set.Set[uint32] `json:"write"`
+}
+
+func NewChannels() Channels {
+	return Channels{
+		Read:  make(set.Set[uint32]),
+		Write: make(set.Set[uint32]),
+	}
+}
+
+func OverrideChannels(other Channels) Channels {
+	return Channels{
+		Read:  lo.Ternary(other.Read != nil, other.Read, make(set.Set[uint32])),
+		Write: lo.Ternary(other.Write != nil, other.Write, make(set.Set[uint32])),
+	}
+}
+
 // Stage defines the structural type of a stage within the automation.
 type Stage struct {
 	// Key is a unique key identifying the type of the stage. This refers to the
@@ -32,7 +51,8 @@ type Stage struct {
 	// StatefulVariables are names and types for the stateful variables on
 	// the stage.
 	StatefulVariables maps.Ordered[string, Type] `json:"stateful_variables"`
-
+	//
+	Channels Channels `json:"channels"`
 	// Body is the logical body of the stage.
 	Body Body
 }
@@ -50,16 +70,7 @@ type Node struct {
 	// Config are the configuration parameters to pass to the stage.
 	Config map[string]any `json:"config"`
 	// Channels are the channels that the stage needs access to.
-	Channels struct {
-		Read  set.Set[uint32] `json:"read"`
-		Write set.Set[uint32] `json:"write"`
-	} `json:"channels"`
-}
-
-func NewNode(n Node) Node {
-	n.Channels.Read = make(set.Set[uint32])
-	n.Channels.Write = make(set.Set[uint32])
-	return n
+	Channels Channels `json:"channels"`
 }
 
 // Handle is a connection point on a node.
