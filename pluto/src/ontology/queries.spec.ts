@@ -159,7 +159,8 @@ describe("Ontology Queries", () => {
 
       await waitFor(() => {
         // TODO: This is a flaky test that doesn't always return correctly due to
-        // agressive caching.
+        // agressive caching. In reality, the page length should be exactly 2,
+        // but signal propagation can cause it to be greater than 2.
         expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       });
     });
