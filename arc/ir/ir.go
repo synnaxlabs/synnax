@@ -10,10 +10,11 @@
 package ir
 
 import (
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/set"
 )
+
+type NamedTypes = maps.Ordered[string, Type]
 
 // Stage defines the structural type of a stage within the automation.
 type Stage struct {
@@ -22,9 +23,9 @@ type Stage struct {
 	// semantics of synnax.
 	Key string `json:"key"`
 	// Config are the names and types configuration parameters for the stage.
-	Config maps.Ordered[string, Type] `json:"config"`
+	Config NamedTypes `json:"config"`
 	// Params are the names and type of the function parameters for the stage.
-	Params maps.Ordered[string, Type] `json:"params"`
+	Params NamedTypes `json:"params"`
 	// Return are the names and types of the return values for the stage.
 	Return Type `json:"return"`
 	// StatefulVariables are names and types for the stateful variables on
@@ -32,10 +33,7 @@ type Stage struct {
 	StatefulVariables maps.Ordered[string, Type] `json:"stateful_variables"`
 
 	// Body is the logical body of the stage.
-	Body struct {
-		Raw string               `json:"."`
-		AST parser.IBlockContext `json:"-"`
-	}
+	Body Body
 }
 
 func (s Stage) String() string { return "stage" }
@@ -55,6 +53,12 @@ type Node struct {
 		Read  set.Set[uint32] `json:"read"`
 		Write set.Set[uint32] `json:"write"`
 	} `json:"channels"`
+}
+
+func NewNode(n Node) Node {
+	n.Channels.Read = make(set.Set[uint32])
+	n.Channels.Write = make(set.Set[uint32])
+	return n
 }
 
 // Handle is a connection point on a node.

@@ -55,7 +55,12 @@ func Analyze(
 		}
 	}
 
-	var generateKey GenerateKey
+	var (
+		counter     = 0
+		generateKey = func(name string) string {
+			return fmt.Sprintf("%s_%d", name, counter)
+		}
+	)
 
 	// Second pass: process flow statements to build nodes and edges
 	for _, item := range t.AST.AllTopLevelItem() {
@@ -165,7 +170,7 @@ func processStage(
 			}
 		}
 	}
-	return ir.Node{Key: key, Type: name, Config: config}, ir.Handle{Node: key, Param: "output"}, nil
+	return ir.NewNode(ir.Node{Key: key, Type: name, Config: config}), ir.Handle{Node: key, Param: "output"}, nil
 }
 
 func processExpression(ctx context.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, error) {
@@ -173,7 +178,7 @@ func processExpression(ctx context.Context[parser.IExpressionContext]) (ir.Node,
 	if err != nil {
 		return ir.Node{}, ir.Handle{}, err
 	}
-	return ir.Node{Key: sym.Name, Type: sym.Name}, ir.Handle{Node: sym.Name, Param: "output"}, nil
+	return ir.NewNode(ir.Node{Key: sym.Name, Type: sym.Name}), ir.Handle{Node: sym.Name, Param: "output"}, nil
 }
 
 // getExpressionText extracts the text representation of an expression

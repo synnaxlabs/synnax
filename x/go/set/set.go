@@ -74,7 +74,3 @@ func (s Mapped[T, V]) Values() []V {
 	}
 	return values
 }
-
-func (s Mapped[T, V]) Len() int {
-	return len(s)
-}

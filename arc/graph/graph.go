@@ -20,8 +20,9 @@ import (
 )
 
 type (
-	Stage = ir.Stage
-	Edge  = ir.Edge
+	Stage    = ir.Stage
+	Edge     = ir.Edge
+	Function = ir.Function
 )
 
 type Node struct {
@@ -35,10 +36,11 @@ type Viewport struct {
 }
 
 type Graph struct {
-	Viewport Viewport `json:"viewport"`
-	Stages   []Stage  `json:"stages"`
-	Edges    []Edge   `json:"edges"`
-	Nodes    []Node   `json:"nodes"`
+	Viewport  Viewport   `json:"viewport"`
+	Stages    []Stage    `json:"stages"`
+	Functions []Function `json:"functions"`
+	Edges     []Edge     `json:"edges"`
+	Nodes     []Node     `json:"nodes"`
 }
 
 func Parse(g Graph) (Graph, error) {
@@ -50,7 +52,28 @@ func Parse(g Graph) (Graph, error) {
 		stage.Body.AST = ast
 		g.Stages[i] = stage
 	}
+	for i, function := range g.Functions {
+		ast, err := parser.ParseBlock(function.Body.Raw)
+		if err != nil {
+			return Graph{}, err
+		}
+		function.Body.AST = ast
+		g.Functions[i] = function
+	}
 	return g, nil
+}
+
+func bindNamedTypes(s *ir.Scope, t ir.NamedTypes, kind ir.Kind) error {
+	for k, ty := range t.Iter() {
+		if _, err := s.Add(ir.Symbol{
+			Name: k,
+			Kind: kind,
+			Type: ty,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Analyze(
@@ -60,18 +83,43 @@ func Analyze(
 	ctx := context.CreateRoot[antlr.ParserRuleContext](nil, resolver)
 	// Step 1: Build the root context.
 	for _, stage := range g.Stages {
-		if _, err := ctx.Scope.Add(ir.Symbol{
+		stageScope, err := ctx.Scope.Add(ir.Symbol{
 			Name:       stage.Key,
 			Kind:       ir.KindStage,
 			Type:       stage,
 			ParserRule: stage.Body.AST,
-		}); err != nil {
+		})
+		if err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if err = bindNamedTypes(stageScope, stage.Config, ir.KindConfigParam); err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if err = bindNamedTypes(stageScope, stage.Params, ir.KindParam); err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+	}
+	for _, stage := range g.Functions {
+		funcScope, err := ctx.Scope.Add(ir.Symbol{
+			Name:       stage.Key,
+			Kind:       ir.KindFunction,
+			Type:       stage,
+			ParserRule: stage.Body.AST,
+		})
+		if err != nil {
+			ctx.Diagnostics.AddError(err, stage.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if err = bindNamedTypes(funcScope, stage.Params, ir.KindParam); err != nil {
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
 
-	// Step 2: Analyze stage bodies
+	// Step 2: Analyze stage & function bodies
 	for _, stage := range g.Stages {
 		stageScope, err := ctx.Scope.GetChildByParserRule(stage.Body.AST)
 		if err != nil {
@@ -82,13 +130,24 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
+	for _, fn := range g.Functions {
+		funcScope, err := ctx.Scope.GetChildByParserRule(fn.Body.AST)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if !analyzer.AnalyzeBlock(context.Child(ctx, fn.Body.AST).WithScope(funcScope)) {
+			return ir.IR{}, *ctx.Diagnostics
+		}
+	}
 	// Step 3: Analyze flow statement relationships
 
 	// Step 4: Return the IR
 	return ir.IR{
-		Symbols: ctx.Scope,
-		Stages:  g.Stages,
-		Edges:   g.Edges,
+		Symbols:   ctx.Scope,
+		Stages:    g.Stages,
+		Edges:     g.Edges,
+		Functions: g.Functions,
 		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
 			return item.Node
 		}),

@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/maps"
 )
 
 type Type interface {
@@ -76,18 +75,16 @@ type Series struct {
 
 func (s Series) String() string { return "series " + s.ValueType.String() }
 
-type Function struct {
-	Key    string
-	Params maps.Ordered[string, Type]
-	Return Type
-	Body   struct {
-		Raw string
-		AST parser.IBlockContext
-	}
+type Body struct {
+	Raw string
+	AST parser.IBlockContext
 }
 
-func NewFunction() Function {
-	return Function{Params: maps.Ordered[string, Type]{}}
+type Function struct {
+	Key    string
+	Params NamedTypes
+	Return Type
+	Body   Body
 }
 
 func (f Function) String() string { return "function" }

@@ -14,35 +14,26 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/text"
 	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/compiler/runtime/mock"
+	"github.com/synnaxlabs/arc/compiler/runtime"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/text"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
 func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
-	prog := MustSucceed(text.Parse(source))
-	analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
-	Expect(analysis.Ok()).To(BeTrue())
-	return compiler.Compile(compiler.Config{
-		Program:            prog,
-		Analysis:           &analysis,
-		DisableHostImports: true,
-	})
+	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
+	inter, diag := text.Analyze(prog, resolver)
+	Expect(diag.Ok()).To(BeTrue())
+	return compiler.Compile(inter, compiler.DisableHostImport())
 }
 
 func compileWithHostImports(source string, resolver ir.SymbolResolver) ([]byte, error) {
-	prog := MustSucceed(text.Parse(source))
-	analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
-	Expect(analysis.Ok()).To(BeTrue())
-	return compiler.Compile(compiler.Config{
-		Program:            prog,
-		Analysis:           &analysis,
-		DisableHostImports: false,
-	})
+	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
+	inter, diag := text.Analyze(prog, resolver)
+	Expect(diag.Ok()).To(BeTrue())
+	return compiler.Compile(inter)
 }
 
 var _ = Describe("Compiler", func() {
@@ -125,13 +116,13 @@ var _ = Describe("Compiler", func() {
 	Describe("Channel Operations", func() {
 		It("Should execute a function with channel read operations", func() {
 			// Create mock runtime with channel implementations
-			mockRuntime := mock.New()
+			mockRuntime := runtime.NewBindings()
 
 			// Setup channel data
 			channelData := map[uint32]int32{0: 42}
 
 			// Define channel read implementation
-			mockRuntime.ChannelRead["i32"] = func(ctx context.Context, channelID uint32) int32 {
+			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
 				if val, ok := channelData[channelID]; ok {
 					return val
 				}
@@ -170,13 +161,13 @@ var _ = Describe("Compiler", func() {
 		It("Should correctly compile and execute a flow expression", func() {
 
 			// Create mock runtime with channel implementations
-			mockRuntime := mock.New()
+			mockRuntime := runtime.NewBindings()
 
 			// Setup channel data
 			channelData := map[uint32]int32{12: 32}
 
 			// Define channel read implementation
-			mockRuntime.ChannelRead["i32"] = func(ctx context.Context, channelID uint32) int32 {
+			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
 				if val, ok := channelData[channelID]; ok {
 					return val
 				}
@@ -185,7 +176,7 @@ var _ = Describe("Compiler", func() {
 
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
-			printType := ir.NewStage()
+			printType := ir.Stage{}
 			printType.Config.Put("message", ir.String{})
 
 			resolver := ir.MapResolver{

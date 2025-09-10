@@ -31,7 +31,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			_, err := ctx.Scope.Add(ir.Symbol{
 				Name:       name,
 				Kind:       ir.KindFunction,
-				Type:       ir.NewFunction(),
+				Type:       ir.Function{Key: name},
 				ParserRule: fn,
 			})
 			if err != nil {
@@ -43,7 +43,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			_, err := ctx.Scope.Add(ir.Symbol{
 				Name:       name,
 				Kind:       ir.KindStage,
-				Type:       ir.Stage{},
+				Type:       ir.Stage{Key: name},
 				ParserRule: stage,
 			})
 			if err != nil {

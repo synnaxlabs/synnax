@@ -39,31 +39,32 @@ import (
 	"context"
 
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 // Bindings provides type-safe bindings for all runtime operations
 type Bindings struct {
-	// Channel operations - type-safe function fields
-{{range .Types}}	ChannelRead{{.IRType | title}}         func(context.Context, uint32) {{.WasmType}}
-	ChannelWrite{{.IRType | title}}        func(context.Context, uint32, {{.WasmType}})
-	ChannelBlockingRead{{.IRType | title}} func(context.Context, uint32) {{.WasmType}}
+	// Channel operations - use proper Go types, handle WASM conversion internally
+{{range .Types}}	ChannelRead{{.IRType | title}}         func(context.Context, uint32) {{.GoType}}
+	ChannelWrite{{.IRType | title}}        func(context.Context, uint32, {{.GoType}})
+	ChannelBlockingRead{{.IRType | title}} func(context.Context, uint32) {{.GoType}}
 {{end}}
 
-	// State operations - type-safe function fields
-{{range .Types}}	StateLoad{{.IRType | title}}  func(context.Context, uint32, uint32) {{.WasmType}}
-	StateStore{{.IRType | title}} func(context.Context, uint32, uint32, {{.WasmType}})
+	// State operations - use proper Go types
+{{range .Types}}	StateLoad{{.IRType | title}}  func(context.Context, uint32, uint32) {{.GoType}}
+	StateStore{{.IRType | title}} func(context.Context, uint32, uint32, {{.GoType}})
 {{end}}
 
-	// Series operations - type-safe function fields
+	// Series operations
 {{range .NumericTypes}}	SeriesCreateEmpty{{.IRType | title}}   func(context.Context, uint32) uint32
-	SeriesSetElement{{.IRType | title}}    func(context.Context, uint32, uint32, {{.WasmType}})
-	SeriesIndex{{.IRType | title}}         func(context.Context, uint32, uint32) {{.WasmType}}
+	SeriesSetElement{{.IRType | title}}    func(context.Context, uint32, uint32, {{.GoType}})
+	SeriesIndex{{.IRType | title}}         func(context.Context, uint32, uint32) {{.GoType}}
 
-	// Series arithmetic - element operations
-	SeriesElementAdd{{.IRType | title}}    func(context.Context, uint32, {{.WasmType}}) uint32
-	SeriesElementSub{{.IRType | title}}    func(context.Context, uint32, {{.WasmType}}) uint32
-	SeriesElementMul{{.IRType | title}}    func(context.Context, uint32, {{.WasmType}}) uint32
-	SeriesElementDiv{{.IRType | title}}    func(context.Context, uint32, {{.WasmType}}) uint32
+	// Series arithmetic - take proper Go types for scalars
+	SeriesElementAdd{{.IRType | title}}    func(context.Context, uint32, {{.GoType}}) uint32
+	SeriesElementSub{{.IRType | title}}    func(context.Context, uint32, {{.GoType}}) uint32
+	SeriesElementMul{{.IRType | title}}    func(context.Context, uint32, {{.GoType}}) uint32
+	SeriesElementDiv{{.IRType | title}}    func(context.Context, uint32, {{.GoType}}) uint32
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAdd{{.IRType | title}}     func(context.Context, uint32, uint32) uint32
@@ -80,7 +81,7 @@ type Bindings struct {
 	SeriesCompareNE{{.IRType | title}}     func(context.Context, uint32, uint32) uint32
 {{end}}
 
-	// Generic operations (already type-safe)
+	// Generic operations
 	Now               func(context.Context) uint64
 	Len               func(context.Context, uint32) uint64
 	Panic             func(context.Context, uint32, uint32)
@@ -94,8 +95,8 @@ type Bindings struct {
 	StringLen         func(context.Context, uint32) uint32
 }
 
-// NewStaticBindings creates a new Bindings with stub implementations
-func NewStaticBindings() *Bindings {
+// NewBindings creates a new Bindings with stub implementations
+func NewBindings() *Bindings {
 	b := &Bindings{}
 	b.setDefaultStubs()
 	return b
@@ -105,17 +106,17 @@ func NewStaticBindings() *Bindings {
 func (b *Bindings) setDefaultStubs() {
 	// Channel operation stubs
 {{range .Types}}	if b.ChannelRead{{.IRType | title}} == nil {
-		b.ChannelRead{{.IRType | title}} = func(ctx context.Context, channelID uint32) {{.WasmType}} {
+		b.ChannelRead{{.IRType | title}} = func(ctx context.Context, channelID uint32) {{.GoType}} {
 			panic("channel_read_{{.IRType}} not implemented")
 		}
 	}
 	if b.ChannelWrite{{.IRType | title}} == nil {
-		b.ChannelWrite{{.IRType | title}} = func(ctx context.Context, channelID uint32, value {{.WasmType}}) {
+		b.ChannelWrite{{.IRType | title}} = func(ctx context.Context, channelID uint32, value {{.GoType}}) {
 			panic("channel_write_{{.IRType}} not implemented")
 		}
 	}
 	if b.ChannelBlockingRead{{.IRType | title}} == nil {
-		b.ChannelBlockingRead{{.IRType | title}} = func(ctx context.Context, channelID uint32) {{.WasmType}} {
+		b.ChannelBlockingRead{{.IRType | title}} = func(ctx context.Context, channelID uint32) {{.GoType}} {
 			panic("channel_blocking_read_{{.IRType}} not implemented")
 		}
 	}
@@ -123,12 +124,12 @@ func (b *Bindings) setDefaultStubs() {
 
 	// State operation stubs
 {{range .Types}}	if b.StateLoad{{.IRType | title}} == nil {
-		b.StateLoad{{.IRType | title}} = func(ctx context.Context, taskID uint32, key uint32) {{.WasmType}} {
+		b.StateLoad{{.IRType | title}} = func(ctx context.Context, taskID uint32, key uint32) {{.GoType}} {
 			panic("state_load_{{.IRType}} not implemented")
 		}
 	}
 	if b.StateStore{{.IRType | title}} == nil {
-		b.StateStore{{.IRType | title}} = func(ctx context.Context, taskID uint32, key uint32, value {{.WasmType}}) {
+		b.StateStore{{.IRType | title}} = func(ctx context.Context, taskID uint32, key uint32, value {{.GoType}}) {
 			panic("state_store_{{.IRType}} not implemented")
 		}
 	}
@@ -141,34 +142,34 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElement{{.IRType | title}} == nil {
-		b.SeriesSetElement{{.IRType | title}} = func(ctx context.Context, handle uint32, index uint32, value {{.WasmType}}) {
+		b.SeriesSetElement{{.IRType | title}} = func(ctx context.Context, handle uint32, index uint32, value {{.GoType}}) {
 			panic("series_set_element_{{.IRType}} not implemented")
 		}
 	}
 	if b.SeriesIndex{{.IRType | title}} == nil {
-		b.SeriesIndex{{.IRType | title}} = func(ctx context.Context, handle uint32, index uint32) {{.WasmType}} {
+		b.SeriesIndex{{.IRType | title}} = func(ctx context.Context, handle uint32, index uint32) {{.GoType}} {
 			panic("series_index_{{.IRType}} not implemented")
 		}
 	}
 
 	// Series arithmetic stubs
 	if b.SeriesElementAdd{{.IRType | title}} == nil {
-		b.SeriesElementAdd{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		b.SeriesElementAdd{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.GoType}}) uint32 {
 			panic("series_element_add_{{.IRType}} not implemented")
 		}
 	}
 	if b.SeriesElementSub{{.IRType | title}} == nil {
-		b.SeriesElementSub{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		b.SeriesElementSub{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.GoType}}) uint32 {
 			panic("series_element_sub_{{.IRType}} not implemented")
 		}
 	}
 	if b.SeriesElementMul{{.IRType | title}} == nil {
-		b.SeriesElementMul{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		b.SeriesElementMul{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.GoType}}) uint32 {
 			panic("series_element_mul_{{.IRType}} not implemented")
 		}
 	}
 	if b.SeriesElementDiv{{.IRType | title}} == nil {
-		b.SeriesElementDiv{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		b.SeriesElementDiv{{.IRType | title}} = func(ctx context.Context, handle uint32, value {{.GoType}}) uint32 {
 			panic("series_element_div_{{.IRType}} not implemented")
 		}
 	}
@@ -286,31 +287,31 @@ func (b *Bindings) setDefaultStubs() {
 	}
 }
 
-// Bind registers all runtime functions with the wazero runtime
+// Bind registers all runtime functions with the wazero runtime using conversion wrappers
 func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder := rt.NewHostModuleBuilder("env")
 
-	// Bind channel operations
-{{range .Types}}	hostBuilder.NewFunctionBuilder().WithFunc(b.ChannelRead{{.IRType | title}}).Export("channel_read_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.ChannelWrite{{.IRType | title}}).Export("channel_write_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.ChannelBlockingRead{{.IRType | title}}).Export("channel_blocking_read_{{.IRType}}")
+	// Bind channel operations with type conversion wrappers
+{{range .Types}}	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelRead{{.IRType | title}}()).Export("channel_read_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWrite{{.IRType | title}}()).Export("channel_write_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingRead{{.IRType | title}}()).Export("channel_blocking_read_{{.IRType}}")
 {{end}}
 
-	// Bind state operations
-{{range .Types}}	hostBuilder.NewFunctionBuilder().WithFunc(b.StateLoad{{.IRType | title}}).Export("state_load_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.StateStore{{.IRType | title}}).Export("state_store_{{.IRType}}")
+	// Bind state operations with type conversion wrappers
+{{range .Types}}	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoad{{.IRType | title}}()).Export("state_load_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStore{{.IRType | title}}()).Export("state_store_{{.IRType}}")
 {{end}}
 
-	// Bind series operations
+	// Bind series operations with type conversion wrappers
 {{range .NumericTypes}}	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesCreateEmpty{{.IRType | title}}).Export("series_create_empty_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSetElement{{.IRType | title}}).Export("series_set_element_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesIndex{{.IRType | title}}).Export("series_index_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElement{{.IRType | title}}()).Export("series_set_element_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndex{{.IRType | title}}()).Export("series_index_{{.IRType}}")
 
 	// Series arithmetic operations
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesElementAdd{{.IRType | title}}).Export("series_element_add_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesElementSub{{.IRType | title}}).Export("series_element_sub_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesElementMul{{.IRType | title}}).Export("series_element_mul_{{.IRType}}")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesElementDiv{{.IRType | title}}).Export("series_element_div_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAdd{{.IRType | title}}()).Export("series_element_add_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSub{{.IRType | title}}()).Export("series_element_sub_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMul{{.IRType | title}}()).Export("series_element_mul_{{.IRType}}")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementDiv{{.IRType | title}}()).Export("series_element_div_{{.IRType}}")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAdd{{.IRType | title}}).Export("series_series_add_{{.IRType}}")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesSub{{.IRType | title}}).Export("series_series_sub_{{.IRType}}")
@@ -326,7 +327,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesCompareNE{{.IRType | title}}).Export("series_compare_ne_{{.IRType}}")
 {{end}}
 
-	// Bind generic operations
+	// Bind generic operations (no conversion needed)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.Now).Export("now")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.Len).Export("len")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.Panic).Export("panic")
@@ -342,6 +343,85 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	_, err := hostBuilder.Instantiate(ctx)
 	return err
 }
+
+// Type conversion wrapper functions
+{{range .Types}}
+// Channel operation wrappers for {{.IRType}}
+func (b *Bindings) wrapChannelRead{{.IRType | title}}() func(context.Context, uint32) {{.WasmType}} {
+	return func(ctx context.Context, channelID uint32) {{.WasmType}} {
+		result := b.ChannelRead{{.IRType | title}}(ctx, channelID)
+		return {{.WasmType}}(result)
+	}
+}
+
+func (b *Bindings) wrapChannelWrite{{.IRType | title}}() func(context.Context, uint32, {{.WasmType}}) {
+	return func(ctx context.Context, channelID uint32, value {{.WasmType}}) {
+		b.ChannelWrite{{.IRType | title}}(ctx, channelID, {{.GoType}}(value))
+	}
+}
+
+func (b *Bindings) wrapChannelBlockingRead{{.IRType | title}}() func(context.Context, uint32) {{.WasmType}} {
+	return func(ctx context.Context, channelID uint32) {{.WasmType}} {
+		result := b.ChannelBlockingRead{{.IRType | title}}(ctx, channelID)
+		return {{.WasmType}}(result)
+	}
+}
+
+// State operation wrappers for {{.IRType}}
+func (b *Bindings) wrapStateLoad{{.IRType | title}}() func(context.Context, uint32, uint32) {{.WasmType}} {
+	return func(ctx context.Context, taskID uint32, key uint32) {{.WasmType}} {
+		result := b.StateLoad{{.IRType | title}}(ctx, taskID, key)
+		return {{.WasmType}}(result)
+	}
+}
+
+func (b *Bindings) wrapStateStore{{.IRType | title}}() func(context.Context, uint32, uint32, {{.WasmType}}) {
+	return func(ctx context.Context, taskID uint32, key uint32, value {{.WasmType}}) {
+		b.StateStore{{.IRType | title}}(ctx, taskID, key, {{.GoType}}(value))
+	}
+}
+{{end}}
+
+{{range .NumericTypes}}
+// Series operation wrappers for {{.IRType}}
+func (b *Bindings) wrapSeriesSetElement{{.IRType | title}}() func(context.Context, uint32, uint32, {{.WasmType}}) {
+	return func(ctx context.Context, handle uint32, index uint32, value {{.WasmType}}) {
+		b.SeriesSetElement{{.IRType | title}}(ctx, handle, index, {{.GoType}}(value))
+	}
+}
+
+func (b *Bindings) wrapSeriesIndex{{.IRType | title}}() func(context.Context, uint32, uint32) {{.WasmType}} {
+	return func(ctx context.Context, handle uint32, index uint32) {{.WasmType}} {
+		result := b.SeriesIndex{{.IRType | title}}(ctx, handle, index)
+		return {{.WasmType}}(result)
+	}
+}
+
+// Series arithmetic wrappers for {{.IRType}}
+func (b *Bindings) wrapSeriesElementAdd{{.IRType | title}}() func(context.Context, uint32, {{.WasmType}}) uint32 {
+	return func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		return b.SeriesElementAdd{{.IRType | title}}(ctx, handle, {{.GoType}}(value))
+	}
+}
+
+func (b *Bindings) wrapSeriesElementSub{{.IRType | title}}() func(context.Context, uint32, {{.WasmType}}) uint32 {
+	return func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		return b.SeriesElementSub{{.IRType | title}}(ctx, handle, {{.GoType}}(value))
+	}
+}
+
+func (b *Bindings) wrapSeriesElementMul{{.IRType | title}}() func(context.Context, uint32, {{.WasmType}}) uint32 {
+	return func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		return b.SeriesElementMul{{.IRType | title}}(ctx, handle, {{.GoType}}(value))
+	}
+}
+
+func (b *Bindings) wrapSeriesElementDiv{{.IRType | title}}() func(context.Context, uint32, {{.WasmType}}) uint32 {
+	return func(ctx context.Context, handle uint32, value {{.WasmType}}) uint32 {
+		return b.SeriesElementDiv{{.IRType | title}}(ctx, handle, {{.GoType}}(value))
+	}
+}
+{{end}}
 `
 
 func main() {

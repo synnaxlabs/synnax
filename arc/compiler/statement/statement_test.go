@@ -13,29 +13,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/text"
-	"github.com/synnaxlabs/arc/compiler/core"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func compile(source string) []byte {
-	stmt := MustSucceed(text.ParseStatement(source))
-	result := analyzer.AnalyzeStatement(stmt, text.Options{})
-	Expect(result.Ok()).To(BeTrue())
-	ctx := context.NewContext(result.Symbols, true)
-	Expect(statement.Compile(ctx, stmt)).To(Succeed())
+	stmt := MustSucceed(parser.ParseStatement(source))
+	aCtx := acontext.CreateRoot(stmt, nil)
+	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+	ctx := context.CreateRoot(aCtx.Scope, true)
+	Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 	return ctx.Writer.Bytes()
 }
 
 func compileBlock(source string) []byte {
-	block := MustSucceed(text.ParseBlock("{" + source + "}"))
-	result := analyzer.AnalyzeBlock(block, text.Options{})
-	Expect(result.Ok()).To(BeTrue())
-	ctx := context.NewContext(result.Symbols, true)
-	Expect(statement.CompileBlock(ctx, block)).To(Succeed())
+	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+	aCtx := acontext.CreateRoot(block, nil)
+	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+	ctx := context.CreateRoot(aCtx.Scope, true)
+	Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 	return ctx.Writer.Bytes()
 }
 
