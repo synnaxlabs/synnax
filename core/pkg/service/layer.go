@@ -250,8 +250,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{
-			DB:       cfg.Distribution.DB,
-			Ontology: cfg.Distribution.Ontology,
+			Instrumentation: cfg.Instrumentation.Child("arc"),
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Channel:         cfg.Distribution.Channel,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err

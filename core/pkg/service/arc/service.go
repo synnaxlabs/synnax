@@ -57,6 +57,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
