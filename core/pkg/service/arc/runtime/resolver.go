@@ -11,6 +11,7 @@ package runtime
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
@@ -26,8 +27,15 @@ type channelResolver struct {
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
 func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
+	key, err := strconv.Atoi(name)
 	ch := channel.Channel{}
-	if err := r.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil); err != nil {
+	q := r.NewRetrieve().Entry(&ch)
+	if err == nil {
+		q = q.WhereKeys(channel.Key(key))
+	} else {
+		q = q.WhereNames(name)
+	}
+	if err = q.Exec(ctx, nil); err != nil {
 		return arc.Symbol{}, err
 	}
 	return arc.Symbol{
