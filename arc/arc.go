@@ -18,6 +18,8 @@ import (
 type (
 	IR       = ir.IR
 	Stage    = ir.Stage
+	Node     = ir.Node
+	Edge     = ir.Edge
 	Function = ir.Function
 	Graph    = graph.Graph
 	Text     = text.Text

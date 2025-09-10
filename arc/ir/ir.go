@@ -52,8 +52,8 @@ type Node struct {
 	Config map[string]any `json:"config"`
 	// Channels are the channels that the stage needs access to.
 	Channels struct {
-		Read  set.Set[string] `json:"read"`
-		Write set.Set[string] `json:"write"`
+		Read  set.Set[uint32] `json:"read"`
+		Write set.Set[uint32] `json:"write"`
 	} `json:"channels"`
 }
 

@@ -75,7 +75,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Analysis: &analysis,
 		}))
 		mod := MustSucceed(module.Assemble(prog, analysis, wasmBytes))
-		MustSucceed(runtime.New(ctx, runtime.Config{
+		MustSucceed(runtime.Open(ctx, runtime.Config{
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
 			Module:  mod,

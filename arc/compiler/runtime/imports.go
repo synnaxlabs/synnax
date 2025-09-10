@@ -1,3 +1,5 @@
+//go:generate go run gen/main.go
+
 // Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
