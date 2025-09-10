@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -61,7 +62,7 @@ func (c Config) Validate() error {
 
 type Runtime struct {
 	// module is the arc program module
-	module *arc.Module
+	module arc.Module
 	// wasm is the webassembly runtime for the program.
 	wasm wazero.Runtime
 	confluence.UnarySink[framer.StreamerResponse]
@@ -115,7 +116,7 @@ func retrieveChannels(
 ) ([]channel.Channel, error) {
 	keys := make(set.Set[channel.Key])
 	for _, node := range nodes {
-		keys.Add(unsafe.ReinterpretSlice[uint32, channel.Key](node.Channels.Read.Values())...)
+		keys.Add(unsafe.ReinterpretSlice[uint32, channel.Key](node.Channels.Read.Keys())...)
 	}
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
@@ -154,6 +155,15 @@ func createStreamPipeline(
 	return p, nil
 }
 
+func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
+	// Priority 1: Resolve node from inside of module
+	_, ok := cfg.Module.GetStage(arcNode.Type)
+	if ok {
+		panic("unsupported")
+	}
+	return std.Create(ctx, arcNode)
+}
+
 func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -169,6 +179,16 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	for _, nodeSpec := range cfg.Module.Nodes {
+		n, err := create(ctx, cfg, nodeSpec)
+		if err != nil {
+			return nil, err
+		}
+		n.OnOutput(r.createOnOutput(nodeSpec.Key))
+		r.nodes[n.Key()] = n
+	}
+
 	p, err := createStreamPipeline(
 		ctx,
 		r,

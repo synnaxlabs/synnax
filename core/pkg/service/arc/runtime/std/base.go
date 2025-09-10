@@ -18,6 +18,7 @@ import (
 )
 
 type base struct {
+	key           string
 	outputHandler stage.OutputHandler
 	readChannels  []channel.Key
 	writeChannels []channel.Key
@@ -25,7 +26,11 @@ type base struct {
 
 var _ stage.Stage = (*base)(nil)
 
+func (b *base) Key() string { return b.key }
+
 func (b *base) ReadChannels() []channel.Key { return b.readChannels }
+
+func (b *base) WriteChannels() []channel.Key { return b.readChannels }
 
 func (b *base) Flow(signal.Context) {}
 

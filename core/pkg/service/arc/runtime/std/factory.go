@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Constructor = func(
@@ -56,5 +57,9 @@ var resolver = ir.MapResolver{
 }
 
 func Create(ctx context.Context, node ir.Node) (stage.Stage, error) {
-	return factories[node.Key](ctx, node)
+	v, ok := factories[node.Key]
+	if !ok {
+		return nil, query.NotFound
+	}
+	return v(ctx, node)
 }

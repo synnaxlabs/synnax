@@ -28,6 +28,8 @@ type Value struct {
 type OutputHandler = func(ctx context.Context, value Value)
 
 type Stage interface {
+	Key() string
+	WriteChannels() []channel.Key
 	ReadChannels() []channel.Key
 	Flow(signal.Context)
 	Next(context.Context, Value)

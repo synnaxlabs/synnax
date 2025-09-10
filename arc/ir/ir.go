@@ -10,6 +10,7 @@
 package ir
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/set"
 )
@@ -80,4 +81,10 @@ type IR struct {
 	Nodes     []Node     `json:"nodes"`
 	Edges     []Edge     `json:"edges"`
 	Symbols   *Scope     `json:"-"`
+}
+
+func (ir IR) GetStage(key string) (Stage, bool) {
+	return lo.Find(ir.Stages, func(item Stage) bool {
+		return item.Key == key
+	})
 }

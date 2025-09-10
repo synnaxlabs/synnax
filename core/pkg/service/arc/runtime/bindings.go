@@ -18,14 +18,14 @@ import (
 )
 
 func (r *Runtime) bind() {
-	b := runtime.NewStaticBindings()
+	b := runtime.NewBindings()
 	b.ChannelReadU8 = r.channelReadU8
 }
 
-func (r *Runtime) channelReadU8(_ context.Context, key uint32) uint32 {
+func (r *Runtime) channelReadU8(_ context.Context, key uint32) uint8 {
 	v, ok := r.values[channel.Key(key)]
 	if !ok || v.Len() == 0 || v.DataType != telem.Uint8T {
 		return 0
 	}
-	return uint32(telem.ValueAt[uint8](v, -1))
+	return telem.ValueAt[uint8](v, -1)
 }
