@@ -182,10 +182,12 @@ def get_memory_info() -> str:
         )
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")
-            if len(lines) > 1:
-                mem_bytes = int(lines[1].strip())
-                mem_gb = mem_bytes // (1024**3)
-                return f"{mem_gb}GB RAM"
+            for line in lines[1:]:
+                line = line.strip()
+                if line and line.isdigit():
+                    mem_bytes = int(line)
+                    mem_gb = mem_bytes // (1024**3)
+                    return f"{mem_gb}GB RAM"
 
     raise RuntimeError(f"Unable to get memory information for {platform.system()}")
 

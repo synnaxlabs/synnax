@@ -140,7 +140,6 @@ jobs:
     timeout-minutes: 75
     runs-on: ubuntu-latest
     needs: [setup, confirm-host-ubuntu-latest]
-    if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
