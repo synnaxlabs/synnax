@@ -26,7 +26,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First comparison: 5 > 3
 			OpI64Const, int64(5), OpI32WrapI64,
-			OpI64Const, int64(3), OpI32WrapI64,
+			OpI32Const, int32(3),
 			OpI32GtS,
 			// Normalize first operand
 			OpI32Const, int32(0), OpI32Ne,
@@ -38,7 +38,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Was non-zero: evaluate second comparison
 			OpI64Const, int64(10), OpI32WrapI64,
-			OpI64Const, int64(20), OpI32WrapI64,
+			OpI32Const, int32(20),
 			OpI32LtS,
 			// Normalize result
 			OpI32Const, int32(0), OpI32Ne,
@@ -51,7 +51,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First comparison: 2 < 1 (false)
 			OpI64Const, int64(2), OpI32WrapI64,
-			OpI64Const, int64(1), OpI32WrapI64,
+			OpI32Const, int32(1),
 			OpI32LtS,
 			// Normalize first operand
 			OpI32Const, int32(0), OpI32Ne,
@@ -63,7 +63,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// This branch won't be taken due to short-circuit
 			OpI64Const, int64(10), OpI32WrapI64,
-			OpI64Const, int64(0), OpI32WrapI64,
+			OpI32Const, int32(0),
 			OpI32DivS,
 			// Normalize result
 			OpI32Const, int32(0), OpI32Ne,
@@ -76,7 +76,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First: 1 == 1
 			OpI64Const, int64(1), OpI32WrapI64,
-			OpI64Const, int64(1), OpI32WrapI64,
+			OpI32Const, int32(1),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -87,7 +87,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Second: 2 == 2
 			OpI64Const, int64(2), OpI32WrapI64,
-			OpI64Const, int64(2), OpI32WrapI64,
+			OpI32Const, int32(2),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -99,7 +99,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Third: 3 == 3
 			OpI64Const, int64(3), OpI32WrapI64,
-			OpI64Const, int64(3), OpI32WrapI64,
+			OpI32Const, int32(3),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -113,7 +113,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First comparison: 5 < 3 (false)
 			OpI64Const, int64(5), OpI32WrapI64,
-			OpI64Const, int64(3), OpI32WrapI64,
+			OpI32Const, int32(3),
 			OpI32LtS,
 			// Normalize first operand
 			OpI32Const, int32(0), OpI32Ne,
@@ -124,7 +124,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Was false: evaluate second comparison
 			OpI64Const, int64(10), OpI32WrapI64,
-			OpI64Const, int64(20), OpI32WrapI64,
+			OpI32Const, int32(20),
 			OpI32LtS,
 			// Normalize result
 			OpI32Const, int32(0), OpI32Ne,
@@ -137,7 +137,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First comparison: 5 > 3 (true)
 			OpI64Const, int64(5), OpI32WrapI64,
-			OpI64Const, int64(3), OpI32WrapI64,
+			OpI32Const, int32(3),
 			OpI32GtS,
 			// Normalize first operand
 			OpI32Const, int32(0), OpI32Ne,
@@ -148,7 +148,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// This branch won't be taken due to short-circuit
 			OpI64Const, int64(10), OpI32WrapI64,
-			OpI64Const, int64(0), OpI32WrapI64,
+			OpI32Const, int32(0),
 			OpI32DivS,
 			// Normalize result
 			OpI32Const, int32(0), OpI32Ne,
@@ -161,7 +161,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First: 1 == 0 (false)
 			OpI64Const, int64(1), OpI32WrapI64,
-			OpI64Const, int64(0), OpI32WrapI64,
+			OpI32Const, int32(0),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -171,7 +171,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Second: 2 == 0 (false)
 			OpI64Const, int64(2), OpI32WrapI64,
-			OpI64Const, int64(0), OpI32WrapI64,
+			OpI32Const, int32(0),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -182,7 +182,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Third: 3 == 3 (true)
 			OpI64Const, int64(3), OpI32WrapI64,
-			OpI64Const, int64(3), OpI32WrapI64,
+			OpI32Const, int32(3),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -196,7 +196,7 @@ var _ = Describe("Logical Operations", func() {
 			ir.U8{},
 			// First: 1 == 1
 			OpI64Const, int64(1), OpI32WrapI64,
-			OpI64Const, int64(1), OpI32WrapI64,
+			OpI32Const, int32(1),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -208,7 +208,7 @@ var _ = Describe("Logical Operations", func() {
 			// OR expression: (2 < 1) || (3 > 2)
 			// First: 2 < 1
 			OpI64Const, int64(2), OpI32WrapI64,
-			OpI64Const, int64(1), OpI32WrapI64,
+			OpI32Const, int32(1),
 			OpI32LtS,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
@@ -218,7 +218,7 @@ var _ = Describe("Logical Operations", func() {
 			OpElse,
 			// Second: 3 > 2
 			OpI64Const, int64(3), OpI32WrapI64,
-			OpI64Const, int64(2), OpI32WrapI64,
+			OpI32Const, int32(2),
 			OpI32GtS,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,

@@ -32,6 +32,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Scope:   ctx.Scope,
 		Writer:  ctx.Writer,
 		AST:     node,
+		Hint:    ctx.Hint,
 	}
 }
 func (c Context[AstNode]) WithHint(hint ir.Type) Context[AstNode] {

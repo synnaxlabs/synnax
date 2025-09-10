@@ -27,7 +27,7 @@ func compileBinaryAdditive(
 	// Process remaining operands
 	for i := 1; i < len(muls); i++ {
 		// Compile next operand with the left operand's type as hint
-		_, err = compileMultiplicative(context.Child(ctx, muls[i]))
+		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(resultType))
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +51,6 @@ func compileBinaryAdditive(
 // compileBinaryMultiplicative handles *, /, % operations
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
-	hint ir.Type,
 ) (ir.Type, error) {
 	pows := ctx.AST.AllPowerExpression()
 	// Compile first operand
@@ -88,7 +87,7 @@ func compileBinaryMultiplicative(
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext], hint ir.Type) (ir.Type, error) {
+func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (ir.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
 
 	// Compile left operand

@@ -18,9 +18,9 @@ import (
 )
 
 // compileUnary handles unary -, !, and blocking read operations
-func compileUnary(ctx context.Context[parser.IUnaryExpressionContext], hint ir.Type) (ir.Type, error) {
+func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (ir.Type, error) {
 	if ctx.AST.MINUS() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()), hint)
+		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +44,7 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext], hint ir.T
 
 	if ctx.AST.NOT() != nil {
 		// Compile the inner expression
-		_, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()), nil)
+		_, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return nil, err
 		}

@@ -123,7 +123,7 @@ var _ = Describe("Identifier Compilation", func() {
 			)))
 		})
 
-		It("Should correctly compile a channel read inside of an additon expression", func() {
+		It("Should correctly compile a channel read inside of an addition expression", func() {
 			ctx := NewContext()
 			ctx.Scope.Add(ir.Symbol{Name: "x", Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}})
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")

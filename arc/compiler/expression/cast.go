@@ -75,8 +75,8 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	from, to ir.Type,
 ) error {
-	fromWasm := MapType(from)
-	toWasm := MapType(to)
+	fromWasm := wasm.ConvertType(from)
+	toWasm := wasm.ConvertType(to)
 
 	if fromWasm == toWasm {
 		return nil
