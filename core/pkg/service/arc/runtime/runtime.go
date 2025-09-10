@@ -45,7 +45,7 @@ var (
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.Module = override.Nil(c.Module, other.Module)
+	c.Module = override.Zero(c.Module, other.Module)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	return c
@@ -138,21 +138,23 @@ func createStreamPipeline(
 	r *Runtime,
 	frameSvc *framer.Service,
 	readChannelKeys []channel.Key,
-) (confluence.Flow, error) {
+) (confluence.Flow, confluence.Inlet[framer.StreamerRequest], error) {
 	p := plumber.New()
 	streamer, err := frameSvc.NewStreamer(
 		ctx,
 		framer.StreamerConfig{Keys: readChannelKeys},
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	plumber.SetSegment(p, streamerAddr, streamer)
 	r.Sink = r.processOutput
 	plumber.SetSink[framer.StreamerResponse](p, "runtime", r)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
 	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, runtimeAddr, 10)
-	return p, nil
+	requests := confluence.NewStream[framer.StreamerRequest]()
+	streamer.InFrom(requests)
+	return p, requests, nil
 }
 
 func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
@@ -191,12 +193,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		r.nodes[n.Key()] = n
 	}
 
-	p, err := createStreamPipeline(
+	p, requests, err := createStreamPipeline(
 		ctx,
 		r,
 		cfg.Framer,
 		channel.KeysFromChannels(readChannels),
 	)
+	r.requests = requests
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +207,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	for _, node := range r.nodes {
 		node.Flow(sCtx)
 	}
-	p.Flow(sCtx)
+	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)
 	return r, err
 }

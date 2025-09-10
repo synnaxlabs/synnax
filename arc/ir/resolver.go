@@ -28,7 +28,7 @@ func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
 		return s, nil
 	}
-	return Symbol{}, errors.WithStack(query.NotFound)
+	return Symbol{}, errors.Wrapf(query.NotFound, "symbol %s not found", name)
 }
 
 type CompoundResolver []SymbolResolver

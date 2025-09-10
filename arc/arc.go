@@ -36,6 +36,10 @@ type Module struct {
 	WASM []byte
 }
 
+func (m Module) IsZero() bool {
+	return len(m.Nodes) == 0 && len(m.Stages) == 0 && len(m.Functions) == 0 && len(m.Edges) == 0 && len(m.WASM) == 0 && m.IR.Symbols == nil
+}
+
 type options struct {
 	resolver SymbolResolver
 }

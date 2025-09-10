@@ -8,16 +8,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Runtime", Ordered, func() {
-	var (
-		c    *calculation.Service
-		dist mock.Node
-	)
+	var dist mock.Node
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()
@@ -25,7 +21,7 @@ var _ = Describe("Runtime", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Expect(c.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
 	})
 
 	It("Should run a basic test", func() {
@@ -41,7 +37,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Framer:  dist.Framer,
 		}
 
-		r := MustSucceed(runtime.CreateResolver(cfg))
+		resolver := MustSucceed(runtime.CreateResolver(cfg))
 
 		graph := arc.Graph{
 			Nodes: []graph.Node{
@@ -59,8 +55,11 @@ var _ = Describe("Runtime", Ordered, func() {
 				},
 			},
 		}
-		mod := MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(r)))
-		Expect(mod.Nodes).To(HaveLen(2))
-		Expect(mod.Edges).To(HaveLen(1))
+		cfg.Module = MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(resolver)))
+		Expect(cfg.Module.Nodes).To(HaveLen(2))
+		Expect(cfg.Module.Edges).To(HaveLen(1))
+
+		r := MustSucceed(runtime.Open(ctx, cfg))
+		Expect(r.Close()).To(Succeed())
 	})
 })

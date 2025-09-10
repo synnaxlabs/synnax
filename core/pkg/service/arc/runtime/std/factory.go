@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -59,9 +60,9 @@ var Resolver = ir.MapResolver{
 }
 
 func Create(ctx context.Context, node ir.Node) (stage.Stage, error) {
-	v, ok := factories[node.Key]
+	v, ok := factories[node.Type]
 	if !ok {
-		return nil, query.NotFound
+		return nil, errors.Wrapf(query.NotFound, "std. lib stage with type %s not found", node.Type)
 	}
 	return v(ctx, node)
 }
