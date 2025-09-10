@@ -17,6 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 )
 
+var symbolChannelSource = ir.Symbol{
+	Name: "on",
+	Kind: ir.KindStage,
+	Type: ir.Stage{Return: ir.Number{}},
+}
+
 type channelSource struct{ base }
 
 func (c *channelSource) Next(ctx context.Context, value stage.Value) {

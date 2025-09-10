@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Severity int
@@ -39,6 +40,10 @@ type Diagnostics []Diagnostic
 
 func (d Diagnostics) Ok() bool {
 	return len(d) == 0
+}
+
+func (d Diagnostics) Error() error {
+	return errors.Newf(d.String())
 }
 
 func (d *Diagnostics) AddError(

@@ -12,12 +12,14 @@ package expression_test
 import (
 	"testing"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/core"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,10 +34,10 @@ func compileExpression(source string) ([]byte, ir.Type) {
 	return compileWithCtx(NewContext(), source)
 }
 
-func compileWithCtx(ctx *context.Context, source string) ([]byte, ir.Type) {
+func compileWithCtx(ctx context.Context[antlr.ParserRuleContext], source string) ([]byte, ir.Type) {
 	var (
-		expr     = MustSucceedWithOffset[text.IExpressionContext](2)(text.ParseExpression(source))
-		exprType = MustSucceedWithOffset[ir.Type](2)(expression.Compile(ctx, expr, nil))
+		expr     = MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
+		exprType = MustSucceedWithOffset[ir.Type](2)(expression.Compile(context.Child(ctx, expr)))
 	)
 	return ctx.Writer.Bytes(), exprType
 }

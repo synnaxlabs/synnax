@@ -22,7 +22,7 @@ import (
 )
 
 // Compile generates a compiled WASM module from the provided IR.
-func Compile(ir *ir.IR, opts ...Option) ([]byte, error) {
+func Compile(ir ir.IR, opts ...Option) ([]byte, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)

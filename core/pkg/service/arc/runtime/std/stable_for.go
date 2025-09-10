@@ -14,8 +14,21 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/telem"
 )
+
+var symbolStableFor = ir.Symbol{
+	Name: "stable_for",
+	Kind: ir.KindStage,
+	Type: ir.Stage{
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"value"},
+			Values: []ir.Type{ir.Number{}},
+		},
+		Return: ir.Number{},
+	},
+}
 
 type stableFor struct {
 	base

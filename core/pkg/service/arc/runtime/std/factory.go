@@ -13,18 +13,14 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 )
 
-type Args struct {
-	Node  ir.Node
-	Edges []ir.Edge
-}
-
 type Constructor = func(
 	ctx context.Context,
-	node ir.Node,
+	node arc.Node,
 ) (stage.Stage, error)
 
 var factories = map[string]Constructor{
@@ -45,6 +41,18 @@ var factories = map[string]Constructor{
 	}),
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
+}
+
+var resolver = ir.MapResolver{
+	"ge":         symbolGE,
+	"gt":         symbolGT,
+	"le":         symbolLE,
+	"lt":         symbolLT,
+	"eq":         symbolEQ,
+	"ne":         symbolNE,
+	"on":         symbolChannelSource,
+	"select":     symbolSelect,
+	"stable_for": symbolStableFor,
 }
 
 func Create(ctx context.Context, node ir.Node) (stage.Stage, error) {

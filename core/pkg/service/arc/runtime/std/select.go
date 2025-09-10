@@ -12,8 +12,16 @@ package std
 import (
 	"context"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/maps"
 )
+
+var symbolSelect = ir.Symbol{
+	Name: "select",
+	Kind: ir.KindStage,
+	Type: ir.Stage{Config: maps.Ordered[string, ir.Type]{}},
+}
 
 type selectStage struct{ base }
 

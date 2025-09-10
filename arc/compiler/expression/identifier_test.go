@@ -12,10 +12,12 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -34,8 +36,8 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "a", Kind: ir.KindVariable, Type: ir.I32{}}))
 			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "b", Kind: ir.KindVariable, Type: ir.I32{}}))
 			// Compile expression using both variables
-			expr := MustSucceed(text.ParseExpression("a + b"))
-			exprType := MustSucceed(expression.Compile(ctx, expr, nil))
+			expr := MustSucceed(parser.ParseExpression("a + b"))
+			exprType := MustSucceed(expression.Compile(context.Child(ctx, expr)))
 			bytecode := ctx.Writer.Bytes()
 			expected := WASM(
 				OpLocalGet, 0, // Resolve 'a'

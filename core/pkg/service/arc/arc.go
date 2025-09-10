@@ -12,7 +12,6 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -31,11 +30,6 @@ type Arc struct {
 	// Text is the raw representation of the arc program in its next format.
 	// Note that this text content does not necessarily represent a valid arg program.
 	Text text.Text `json:"text" msgpack:"text"`
-	// IR is the pre-compiled intermediate representation of the arc program.
-	// It is treated as a validated source of truth, and is used as a 'pivot' between
-	// converting from the graph based representation to the text representation
-	// and vice versa.
-	IR ir.IR `json:"ir" msgpack:"ir"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Arc{}

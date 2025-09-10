@@ -10,8 +10,8 @@
 package testutil
 
 import (
-	"github.com/synnaxlabs/arc/compiler/core"
-	"github.com/synnaxlabs/arc/compiler/runtime"
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,22 +23,12 @@ func FunctionScope(t ir.Function) *ir.Scope {
 	return MustSucceed(s.Add(ir.Symbol{Kind: ir.KindBlock}))
 }
 
-func NewContext() *context.Context {
+func NewContext() context.Context[antlr.ParserRuleContext] {
 	return NewContextWithFunctionType(ir.Function{})
 }
 
-func NewContextWithFunctionType(t ir.Function) *context.Context {
-	var (
-		module    = wasm.NewModule()
-		importIdx = runtime.SetupImports(module)
-		ctx       = &context.Context{
-			Module:  module,
-			Imports: importIdx,
-			Scope:   FunctionScope(t),
-			Writer:  wasm.NewWriter(),
-		}
-	)
-	return ctx
+func NewContextWithFunctionType(t ir.Function) context.Context[antlr.ParserRuleContext] {
+	return context.CreateRoot(FunctionScope(t), false)
 }
 
 // WASM builds WASM bytecode from a variadic slice of opcodes and operands
