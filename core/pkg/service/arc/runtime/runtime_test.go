@@ -1,18 +1,11 @@
 package runtime_test
 
 import (
-	"math/rand"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/text"
-	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -29,11 +22,6 @@ var _ = Describe("Runtime", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
-		}))
 	})
 
 	AfterAll(func() {
@@ -47,5 +35,32 @@ var _ = Describe("Runtime", Ordered, func() {
 			DataType: telem.Float32T,
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+		cfg := runtime.Config{
+			Channel: dist.Channel,
+			Framer:  dist.Framer,
+		}
+
+		r := MustSucceed(runtime.CreateResolver(cfg))
+
+		graph := arc.Graph{
+			Nodes: []graph.Node{
+				{Node: arc.Node{
+					Key:    "first",
+					Type:   "on",
+					Config: map[string]any{"channel": ch.Key()},
+				}},
+				{Node: arc.Node{Key: "printer", Type: "printer"}},
+			},
+			Edges: []arc.Edge{
+				{
+					Source: arc.Handle{Node: "first", Param: ""},
+					Target: arc.Handle{Node: "printer", Param: ""},
+				},
+			},
+		}
+		mod := MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(r)))
+		Expect(mod.Nodes).To(HaveLen(2))
+		Expect(mod.Edges).To(HaveLen(1))
 	})
 })

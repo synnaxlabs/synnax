@@ -30,3 +30,19 @@ func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	}
 	return Symbol{}, errors.WithStack(query.NotFound)
 }
+
+type CompoundResolver []SymbolResolver
+
+func (c CompoundResolver) Resolve(ctx context.Context, name string) (Symbol, error) {
+	var (
+		symbol Symbol
+		err    error
+	)
+	for _, s := range c {
+		symbol, err = s.Resolve(ctx, name)
+		if err == nil {
+			return symbol, nil
+		}
+	}
+	return symbol, err
+}

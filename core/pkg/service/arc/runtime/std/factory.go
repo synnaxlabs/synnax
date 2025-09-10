@@ -42,6 +42,7 @@ var factories = map[string]Constructor{
 	}),
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
+	"printer":    createPrinter,
 }
 
 var Resolver = ir.MapResolver{
@@ -54,6 +55,7 @@ var Resolver = ir.MapResolver{
 	"on":         symbolChannelSource,
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
+	"printer":    symbolPrinter,
 }
 
 func Create(ctx context.Context, node ir.Node) (stage.Stage, error) {

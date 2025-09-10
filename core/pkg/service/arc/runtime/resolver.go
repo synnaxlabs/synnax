@@ -13,7 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
+	"github.com/synnaxlabs/x/config"
 )
 
 type channelResolver struct {
@@ -23,9 +26,26 @@ type channelResolver struct {
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
 func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
-	c := r.NewRetrieve().WhereNames(name).Exec(ctx, nil)
+	ch := channel.Channel{}
+	if err := r.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil); err != nil {
+		return arc.Symbol{}, err
+	}
+	return arc.Symbol{
+		Name: name,
+		Kind: ir.KindChannel,
+		Type: ir.Chan{ValueType: ir.TypeFromTelem(ch.DataType)},
+		ID:   int(ch.Key()),
+	}, nil
 }
 
-func CreateResolver() {
-
+func CreateResolver(cfgs ...Config) (arc.SymbolResolver, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	r := ir.CompoundResolver{
+		std.Resolver,
+		&channelResolver{Readable: cfg.Channel},
+	}
+	return r, nil
 }

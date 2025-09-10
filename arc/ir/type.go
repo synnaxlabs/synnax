@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Type interface {
@@ -183,3 +184,34 @@ var (
 	Floats           = []Type{F32{}, F64{}}
 	Numerics         = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
 )
+
+func TypeFromTelem(t telem.DataType) Type {
+	switch t {
+	case telem.Uint8T:
+		return U8{}
+	case telem.Uint16T:
+		return U16{}
+	case telem.Uint32T:
+		return U32{}
+	case telem.Uint64T:
+		return U64{}
+	case telem.Int8T:
+		return I8{}
+	case telem.Int16T:
+		return I16{}
+	case telem.Int32T:
+		return I32{}
+	case telem.Int64T:
+		return I64{}
+	case telem.Float32T:
+		return F32{}
+	case telem.Float64T:
+		return F64{}
+	case telem.StringT, telem.JSONT, telem.UUIDT:
+		return String{}
+	case telem.TimeStampT:
+		return TimeStamp{}
+	default:
+		return nil
+	}
+}

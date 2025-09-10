@@ -10,6 +10,8 @@
 package arc
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -21,6 +23,7 @@ type (
 	Stage          = ir.Stage
 	Node           = ir.Node
 	Edge           = ir.Edge
+	Handle         = ir.Handle
 	Function       = ir.Function
 	SymbolResolver = ir.SymbolResolver
 	Symbol         = ir.Symbol
@@ -51,34 +54,34 @@ func newOptions(opts []Option) *options {
 	return o
 }
 
-func CompileText(t Text, opts ...Option) (Module, error) {
+func CompileText(ctx context.Context, t Text, opts ...Option) (Module, error) {
 	o := newOptions(opts)
 	textWithAST, err := text.Parse(t)
 	if err != nil {
 		return Module{}, err
 	}
-	inter, diagnostics := text.Analyze(textWithAST, o.resolver)
+	inter, diagnostics := text.Analyze(ctx, textWithAST, o.resolver)
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics.Error()
 	}
-	wasmBytes, err := compiler.Compile(inter)
+	wasmBytes, err := compiler.Compile(ctx, inter)
 	if err != nil {
 		return Module{}, err
 	}
 	return Module{WASM: wasmBytes, IR: inter}, nil
 }
 
-func CompileGraph(g Graph, opts ...Option) (Module, error) {
+func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) {
 	o := newOptions(opts)
 	graphWithAST, err := graph.Parse(g)
 	if err != nil {
 		return Module{}, err
 	}
-	inter, diagnostics := graph.Analyze(graphWithAST, o.resolver)
+	inter, diagnostics := graph.Analyze(ctx, graphWithAST, o.resolver)
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics.Error()
 	}
-	wasmBytes, err := compiler.Compile(inter)
+	wasmBytes, err := compiler.Compile(ctx, inter)
 	if err != nil {
 		return Module{}, err
 	}

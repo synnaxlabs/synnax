@@ -20,7 +20,13 @@ import (
 var symbolChannelSource = ir.Symbol{
 	Name: "on",
 	Kind: ir.KindStage,
-	Type: ir.Stage{Return: ir.Number{}},
+	Type: ir.Stage{
+		Config: ir.NamedTypes{
+			Keys:   []string{"channel"},
+			Values: []ir.Type{ir.Chan{}},
+		},
+		Return: ir.Number{},
+	},
 }
 
 type channelSource struct{ base }
@@ -31,7 +37,7 @@ func (c *channelSource) Next(ctx context.Context, value stage.Value) {
 
 func createChannelSource(_ context.Context, node ir.Node) (stage.Stage, error) {
 	ch := node.Config["channel"].(channel.Key)
-	source := &channelSource{}
+	source := &channelSource{base{key: node.Key}}
 	source.readChannels = []channel.Key{ch}
 	return source, nil
 }
