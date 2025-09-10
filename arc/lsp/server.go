@@ -17,8 +17,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/result"
-	"github.com/synnaxlabs/arc/analyzer/text"
+	"github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -59,7 +59,7 @@ type Document struct {
 	URI      protocol.DocumentURI
 	Version  int32
 	Content  string
-	Analysis result.Result // Cached analysis results
+	Analysis analyzer.Diagnostics // Cached analysis results
 }
 
 // New creates a new LSP server
@@ -184,10 +184,10 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 
 // publishDiagnostics parses the document and publishes syntax and semantic errors
 func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
-	diagnostics := []protocol.Diagnostic{}
+	oDiagnostics := []protocol.Diagnostic{}
 
 	// Parse the document
-	tree, err := text.Parse(content)
+	t, err := text.Parse(text.Text{Raw: content})
 	if err != nil {
 		// Extract parse errors
 		errMsg := err.Error()
@@ -223,30 +223,30 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 						Source:   "arc-parser",
 						Message:  msg,
 					}
-					diagnostics = append(diagnostics, diagnostic)
+					oDiagnostics = append(oDiagnostics, diagnostic)
 				}
 			}
 		}
 	} else {
 		// Run semantic analysis if parsing succeeded
-		res := analyzer.AnalyzeProgram(tree, text.Options{})
+		_, diag := text.Analyze(ctx, t, nil)
 
 		// Store analysis results for other features (hover, completion, etc.)
 		s.mu.Lock()
 		if doc, ok := s.documents[uri]; ok {
-			doc.Analysis = res
+			doc.Analysis = diag
 		}
 		s.mu.Unlock()
 
-		// Convert semantic diagnostics to LSP diagnostics
-		for _, diag := range res.Diagnostics {
+		// Convert semantic oDiagnostics to LSP oDiagnostics
+		for _, diag := range diag {
 			severity := protocol.DiagnosticSeverityError
 			switch diag.Severity {
-			case result.Warning:
+			case diagnostics.Warning:
 				severity = protocol.DiagnosticSeverityWarning
-			case result.Info:
+			case diagnostics.Info:
 				severity = protocol.DiagnosticSeverityInformation
-			case result.Hint:
+			case diagnostics.Hint:
 				severity = protocol.DiagnosticSeverityHint
 			}
 
@@ -265,13 +265,13 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 				Source:   "arc-analyzer",
 				Message:  diag.Message,
 			}
-			diagnostics = append(diagnostics, diagnostic)
+			oDiagnostics = append(oDiagnostics, diagnostic)
 		}
 	}
 
-	// Publish diagnostics
+	// Publish oDiagnostics
 	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
-		Diagnostics: diagnostics,
+		Diagnostics: oDiagnostics,
 	})
 }

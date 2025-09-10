@@ -1,13 +1,13 @@
 import { channel } from "@synnaxlabs/client";
 import z from "zod/v4";
 
+import { Handle } from "@/arc/handle";
+import { type types } from "@/arc/stage/types";
 import { Channel } from "@/channel";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
-import { Handle } from "@/arc/handle";
-import { type types } from "@/arc/stage/types";
 
 export const config = z.object({
   channel: channel.keyZ,

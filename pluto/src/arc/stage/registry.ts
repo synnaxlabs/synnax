@@ -9,26 +9,20 @@
 
 import { Constant } from "@/arc/stage/constant";
 import { Operator } from "@/arc/stage/operator";
-import { Range } from "@/arc/stage/range";
 import { Select } from "@/arc/stage/select";
-import { Sink } from "@/arc/stage/sink";
 import { Source } from "@/arc/stage/source";
 import { StableFor } from "@/arc/stage/stable";
 import { Status } from "@/arc/stage/status";
-import { Time } from "@/arc/stage/time";
 import { type Spec } from "@/arc/stage/types/spec";
 import { Icon } from "@/icon";
 
 export const REGISTRY: Record<string, Spec<any>> = {
   ...Source.SYMBOLS,
-  ...Sink.SYMBOLS,
   ...Constant.SYMBOLS,
   ...Select.SYMBOLS,
   ...Status.SYMBOLS,
   ...Operator.SYMBOLS,
   ...StableFor.SYMBOLS,
-  ...Time.SYMBOLS,
-  ...Range.SYMBOLS,
 };
 
 export interface Group {
@@ -49,7 +43,7 @@ export const GROUPS: Group[] = [
     key: "telem",
     name: "Telemetry",
     Icon: Icon.Channel,
-    symbols: [...Object.keys(Source.SYMBOLS), ...Object.keys(Sink.SYMBOLS)],
+    symbols: [...Object.keys(Source.SYMBOLS)],
   },
   {
     key: "operator",
@@ -58,21 +52,9 @@ export const GROUPS: Group[] = [
     symbols: Object.keys(Operator.SYMBOLS),
   },
   {
-    key: "range",
-    name: "Ranges",
-    Icon: Icon.Range,
-    symbols: Object.keys(Range.SYMBOLS),
-  },
-  {
     key: "flow_control",
     name: "Flow Control",
     Icon: Icon.Select,
     symbols: [...Object.keys(Select.SYMBOLS), ...Object.keys(StableFor.SYMBOLS)],
-  },
-  {
-    key: "time",
-    name: "Time",
-    Icon: Icon.Time,
-    symbols: Object.keys(Time.SYMBOLS),
   },
 ];
