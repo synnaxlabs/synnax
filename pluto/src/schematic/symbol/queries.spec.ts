@@ -271,15 +271,15 @@ describe("Symbol queries", () => {
         result.current.save();
       });
 
-      await waitFor(() => {
+      const key = await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
+        const key = result.current.form.get<string>("key", { optional: true })?.value;
+        expect(key).toBeDefined();
+        return key;
       });
 
-      const key = result.current.form.get<string>("key")?.value;
-      expect(key).toBeDefined();
-
       const retrieved = await client.workspaces.schematic.symbols.retrieve({
-        key,
+        key: key!,
       });
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");

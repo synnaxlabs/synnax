@@ -50,6 +50,13 @@ interface SubStore extends Flux.Store {
   relationships: Flux.UnaryStore<string, ontology.Relationship>;
 }
 
+export const retrieveCachedLabelsOf = (store: SubStore, id: ontology.ID) => {
+  const keys = store.relationships
+    .get((rel) => matchRelationship(rel, id))
+    .map((rel) => rel.to.key);
+  return store.labels.get(keys);
+};
+
 export const useRetrieveLabelsOf = Flux.createRetrieve<
   UseLabelsOfQueryParams,
   label.Label[],

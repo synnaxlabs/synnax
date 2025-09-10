@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
 
@@ -27,6 +27,7 @@ export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 interface SubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
@@ -34,13 +35,24 @@ interface SubStore extends Flux.Store {
 
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
   const cached = store.ranges.get(key);
-  if (cached != null) return cached;
+  if (cached != null) {
+    const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+    const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+    const next: ranger.Payload = { ...cached.payload, labels };
+    if (parent != null) {
+      const cached = store.ranges.get(parent);
+      if (cached != null) next.parent = cached.payload;
+    }
+    return client.ranges.sugarOne(next);
+  }
   const range = await client.ranges.retrieve({
     keys: [key],
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(key, range[0]);
+  const first = range[0];
+  store.ranges.set(key, first);
+  if (first.labels != null) store.labels.set(first.labels);
   return range[0];
 };
 
