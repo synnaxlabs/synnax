@@ -27,21 +27,25 @@ var _ = Describe("Expression Stage Conversion", func() {
 			Name: "temp_sensor",
 			Kind: ir.KindChannel,
 			Type: ir.Chan{ValueType: ir.F32{}},
+			ID:   10,
 		},
 		"pressure": ir.Symbol{
 			Name: "pressure",
 			Kind: ir.KindChannel,
 			Type: ir.Chan{ValueType: ir.F64{}},
+			ID:   11,
 		},
 		"ox_pt_1": ir.Symbol{
 			Name: "ox_pt_1",
 			Kind: ir.KindChannel,
 			Type: ir.Chan{ValueType: ir.F64{}},
+			ID:   12,
 		},
 		"ox_pt_2": ir.Symbol{
 			Name: "ox_pt_2",
 			Kind: ir.KindChannel,
 			Type: ir.Chan{ValueType: ir.F64{}},
+			ID:   13,
 		},
 		"alarm": ir.Symbol{
 			Name: "alarm",
@@ -82,6 +86,7 @@ var _ = Describe("Expression Stage Conversion", func() {
 			Name: "alarm_ch",
 			Kind: ir.KindChannel,
 			Type: ir.Chan{ValueType: ir.U8{}},
+			ID:   14,
 		},
 	}
 
@@ -95,8 +100,15 @@ var _ = Describe("Expression Stage Conversion", func() {
 			taskSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(taskSymbol.Name).To(Equal("__expr_0"))
 			Expect(taskSymbol.Kind).To(Equal(ir.KindStage))
-			_, ok := taskSymbol.Type.(ir.Stage)
+			stage, ok := taskSymbol.Type.(ir.Stage)
 			Expect(ok).To(BeTrue())
+			Expect(stage.Channels.Read).To(HaveLen(1))
+			Expect(stage.Channels.Read.Contains(12)).To(BeTrue())
+			Expect(stage.Channels.Write).To(BeEmpty())
+			Expect(stage.Key).To(Equal("__expr_0"))
+			Expect(stage.Config.Keys).To(BeEmpty())
+			Expect(stage.Params.Keys).To(BeEmpty())
+			Expect(stage.Return).To(Equal(ir.U8{}))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {

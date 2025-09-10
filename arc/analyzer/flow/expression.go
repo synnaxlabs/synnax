@@ -40,6 +40,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		return false
 	}
 	stageScope = stageScope.AutoName("__expr_")
+	t.Key = stageScope.Name
 	blockScope, err := stageScope.Add(ctx, ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindBlock,

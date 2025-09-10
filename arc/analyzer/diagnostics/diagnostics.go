@@ -50,12 +50,15 @@ func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	*d = append(*d, Diagnostic{
+	diag := Diagnostic{
 		Severity: Error,
-		Line:     ctx.GetStart().GetLine(),
-		Column:   ctx.GetStart().GetColumn(),
 		Message:  err.Error(),
-	})
+	}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
 }
 
 func (d Diagnostics) String() string {

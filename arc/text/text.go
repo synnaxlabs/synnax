@@ -161,13 +161,13 @@ func extractConfigValues(
 			config[key] = getExpressionText(expr)
 		}
 	}
-	for k := range config {
+	for k, v := range config {
 		t, ok := stageType.Config.Get(k)
 		if !ok {
 			panic("config key not found in stage")
 		}
 		if _, ok = t.(ir.Chan); ok {
-			sym, err := ctx.Scope.Resolve(ctx, k)
+			sym, err := ctx.Scope.Resolve(ctx, v.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
 				return nil, false

@@ -11,6 +11,7 @@ package graph
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
@@ -18,6 +19,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -47,6 +49,9 @@ type Graph struct {
 
 func Parse(g Graph) (Graph, error) {
 	for i, stage := range g.Stages {
+		if stage.Body.Raw == "" {
+			continue
+		}
 		ast, err := parser.ParseBlock(stage.Body.Raw)
 		if err != nil {
 			return Graph{}, err
@@ -129,8 +134,10 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(acontext.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
-			return ir.IR{}, *ctx.Diagnostics
+		if stage.Body.Raw != "" {
+			if !analyzer.AnalyzeBlock(acontext.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
+				return ir.IR{}, *ctx.Diagnostics
+			}
 		}
 	}
 	for _, fn := range g.Functions {
@@ -144,6 +151,41 @@ func Analyze(
 		}
 	}
 	// Step 3: Analyze flow statement relationships
+	for i, n := range g.Nodes {
+		// What do we want to validate.
+		// 1: Config parameters match their expected types.
+		// 2: Stage definition actually exists for node.
+		// 2: Edge inputs and outputs are compatible
+		stageScope, err := ctx.Scope.Resolve(ctx, n.Type)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, nil)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		t := stageScope.Type.(ir.Stage)
+		n.Channels = ir.OverrideChannels(t.Channels)
+		for k, p := range n.Config {
+			cfgT, ok := t.Config.Get(k)
+			if !ok {
+				ctx.Diagnostics.AddError(
+					errors.Newf("node was provided config param %s not present in stage", k),
+					nil,
+				)
+				return ir.IR{}, *ctx.Diagnostics
+			}
+			if _, ok = cfgT.(ir.Chan); ok {
+				name := fmt.Sprintf("%v", p)
+				sym, err := ctx.Scope.Resolve(ctx, name)
+				if err != nil {
+					ctx.Diagnostics.AddError(err, nil)
+					return ir.IR{}, *ctx.Diagnostics
+				}
+				channelKey := uint32(sym.ID)
+				n.Config[k] = channelKey
+				n.Channels.Read.Add(channelKey)
+			}
+			g.Nodes[i] = n
+		}
+	}
 
 	// Step 4: Return the IR
 	return ir.IR{
