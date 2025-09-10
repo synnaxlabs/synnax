@@ -49,7 +49,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], prevNode parser.IFlowNodeContext) bool {
 	// Step 1: Check that a symbol for the stage exists and it has the right type
 	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(name)
+	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
@@ -122,7 +122,7 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 	if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
 		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
 		// lookup stage in symbol table
-		sym, err := ctx.Scope.Resolve(prevTaskName)
+		sym, err := ctx.Scope.Resolve(ctx, prevTaskName)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, prevTaskNode)
 			return false
@@ -163,7 +163,7 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 
 func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	_, err := ctx.Scope.Resolve(name)
+	_, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false

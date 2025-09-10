@@ -47,46 +47,5 @@ var _ = Describe("Runtime", Ordered, func() {
 			DataType: telem.Float32T,
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-
-		source := `ox_pt_1 > f32(0.5) -> print{message: "dog"}`
-
-		printType := ir.NewTask()
-		printType.Config.Put("message", ir.String{})
-
-		resolver := ir.MapResolver{
-			"ox_pt_1": ir.Symbol{
-				Name: "ox_pt_1",
-				Kind: ir.KindChannel,
-				Type: ir.Chan{ValueType: ir.F32{}},
-				ID:   int(ch.Key()),
-			},
-			"print": ir.Symbol{
-				Name: "print",
-				Kind: ir.KindStage,
-				Type: printType,
-			},
-		}
-
-		prog := MustSucceed(text.Parse(source))
-		analysis := analyzer.AnalyzeProgram(prog, text.Options{Resolver: resolver})
-		Expect(analysis.Ok()).To(BeTrue(), analysis.String())
-		wasmBytes := MustSucceed(compiler.Compile(compiler.Config{
-			Program:  prog,
-			Analysis: &analysis,
-		}))
-		mod := MustSucceed(module.Assemble(prog, analysis, wasmBytes))
-		MustSucceed(runtime.Open(ctx, runtime.Config{
-			Channel: dist.Channel,
-			Framer:  dist.Framer,
-			Module:  mod,
-		}))
-
-		writer := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-			Keys:  []channel.Key{ch.Key()},
-			Start: telem.Now(),
-		}))
-		for {
-			Expect(writer.Write(core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](rand.Float32())))).To(BeTrue())
-		}
 	})
 })

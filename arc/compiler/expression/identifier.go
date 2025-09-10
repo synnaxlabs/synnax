@@ -22,7 +22,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	name string,
 ) (ir.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
-	scope, err := ctx.Scope.Resolve(name)
+	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "identifier '%s' not found", name)
 	}

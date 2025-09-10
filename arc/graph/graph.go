@@ -10,10 +10,12 @@
 package graph
 
 import (
+	"context"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/context"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/spatial"
@@ -63,9 +65,9 @@ func Parse(g Graph) (Graph, error) {
 	return g, nil
 }
 
-func bindNamedTypes(s *ir.Scope, t ir.NamedTypes, kind ir.Kind) error {
+func bindNamedTypes(ctx context.Context, s *ir.Scope, t ir.NamedTypes, kind ir.Kind) error {
 	for k, ty := range t.Iter() {
-		if _, err := s.Add(ir.Symbol{
+		if _, err := s.Add(ctx, ir.Symbol{
 			Name: k,
 			Kind: kind,
 			Type: ty,
@@ -77,13 +79,14 @@ func bindNamedTypes(s *ir.Scope, t ir.NamedTypes, kind ir.Kind) error {
 }
 
 func Analyze(
+	ctx_ context.Context,
 	g Graph,
 	resolver ir.SymbolResolver,
 ) (ir.IR, analyzer.Diagnostics) {
-	ctx := context.CreateRoot[antlr.ParserRuleContext](nil, resolver)
+	ctx := acontext.CreateRoot[antlr.ParserRuleContext](ctx_, nil, resolver)
 	// Step 1: Build the root context.
 	for _, stage := range g.Stages {
-		stageScope, err := ctx.Scope.Add(ir.Symbol{
+		stageScope, err := ctx.Scope.Add(ctx, ir.Symbol{
 			Name:       stage.Key,
 			Kind:       ir.KindStage,
 			Type:       stage,
@@ -93,17 +96,17 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if err = bindNamedTypes(stageScope, stage.Config, ir.KindConfigParam); err != nil {
+		if err = bindNamedTypes(ctx, stageScope, stage.Config, ir.KindConfigParam); err != nil {
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if err = bindNamedTypes(stageScope, stage.Params, ir.KindParam); err != nil {
+		if err = bindNamedTypes(ctx, stageScope, stage.Params, ir.KindParam); err != nil {
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
 	for _, stage := range g.Functions {
-		funcScope, err := ctx.Scope.Add(ir.Symbol{
+		funcScope, err := ctx.Scope.Add(ctx, ir.Symbol{
 			Name:       stage.Key,
 			Kind:       ir.KindFunction,
 			Type:       stage,
@@ -113,7 +116,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if err = bindNamedTypes(funcScope, stage.Params, ir.KindParam); err != nil {
+		if err = bindNamedTypes(ctx, funcScope, stage.Params, ir.KindParam); err != nil {
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
@@ -126,7 +129,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, stage.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(context.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
+		if !analyzer.AnalyzeBlock(acontext.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
@@ -136,7 +139,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(context.Child(ctx, fn.Body.AST).WithScope(funcScope)) {
+		if !analyzer.AnalyzeBlock(acontext.Child(ctx, fn.Body.AST).WithScope(funcScope)) {
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}

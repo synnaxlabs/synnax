@@ -74,7 +74,7 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -82,7 +82,7 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			ctx := context.CreateRoot(ast, nil)
+			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -95,7 +95,7 @@ var _ = Describe("Flow Statements", func() {
 			}
 			once{} -> dog{}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("dog is not a stage"))
@@ -121,7 +121,7 @@ var _ = Describe("Flow Statements", func() {
 				output: output_chan
 			}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -143,7 +143,7 @@ var _ = Describe("Flow Statements", func() {
 				input: sensor_chan
 			}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
@@ -167,7 +167,7 @@ var _ = Describe("Flow Statements", func() {
 				extra: 42.0
 			}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
@@ -198,7 +198,7 @@ var _ = Describe("Flow Statements", func() {
 				input: sensor_chan
 			}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have at least one type mismatch error
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
@@ -235,7 +235,7 @@ var _ = Describe("Flow Statements", func() {
 				input: sensor_chan
 			}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -266,7 +266,7 @@ var _ = Describe("Flow Statements", func() {
 				output: output_chan
 			} -> valve_cmd
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -300,7 +300,7 @@ var _ = Describe("Flow Statements", func() {
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -320,7 +320,7 @@ var _ = Describe("Flow Statements", func() {
 			// on{channel: sensor_chan} -> display{input: sensor_chan}
 			// Where "on" is a stdlib stage that triggers when the channel receives a value
 			`))
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
 			// The analyzer should have converted the channel source to an "on" stage
@@ -348,7 +348,7 @@ var _ = Describe("Flow Statements", func() {
 			sensor_chan -> display{input: sensor_chan}
 			`))
 
-			ctx := context.CreateRoot(ast, noOnResolver)
+			ctx := context.CreateRoot(bCtx, ast, noOnResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -368,7 +368,7 @@ sensor_chan > 100 -> alarm{}
 (sensor_chan * 1.8) + 32.0 -> logger{}
 			`))
 
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			// The expressions should be validated successfully
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -386,7 +386,7 @@ func setup() {
 sensor_chan > threshold -> alarm{}
 			`))
 
-			ctx := context.CreateRoot(ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Should have an error about undefined symbol 'threshold'
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())

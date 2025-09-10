@@ -10,17 +10,21 @@
 package ir
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
 type SymbolResolver interface {
-	Resolve(name string) (Symbol, error)
+	Resolve(ctx context.Context, name string) (Symbol, error)
 }
 
 type MapResolver map[string]Symbol
 
-func (m MapResolver) Resolve(name string) (Symbol, error) {
+var _ SymbolResolver = (*MapResolver)(nil)
+
+func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
 		return s, nil
 	}

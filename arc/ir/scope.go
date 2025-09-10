@@ -10,6 +10,7 @@
 package ir
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -71,9 +72,9 @@ func (s *Scope) AutoName(prefix string) *Scope {
 	return s
 }
 
-func (s *Scope) Add(sym Symbol) (*Scope, error) {
+func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
-		if existing, err := s.Resolve(sym.Name); err == nil {
+		if existing, err := s.Resolve(ctx, sym.Name); err == nil {
 			if existing.ParserRule == nil {
 				return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
 			}
@@ -116,7 +117,7 @@ func (s *Scope) Root() *Scope {
 	return s.Parent.Root()
 }
 
-func (s *Scope) Resolve(name string) (*Scope, error) {
+func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
 		if s.OnResolve != nil {
 			return child, s.OnResolve(child)
@@ -124,7 +125,7 @@ func (s *Scope) Resolve(name string) (*Scope, error) {
 		return child, nil
 	}
 	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(name); err == nil {
+		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
 			scope := &Scope{Symbol: sym}
 			if s.OnResolve != nil {
 				return scope, s.OnResolve(scope)
@@ -133,7 +134,7 @@ func (s *Scope) Resolve(name string) (*Scope, error) {
 		}
 	}
 	if s.Parent != nil {
-		scope, err := s.Parent.Resolve(name)
+		scope, err := s.Parent.Resolve(ctx, name)
 		if err != nil {
 			return nil, err
 		}

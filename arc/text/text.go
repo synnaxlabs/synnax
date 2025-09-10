@@ -10,10 +10,11 @@
 package text
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/context"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 )
@@ -35,10 +36,11 @@ func Parse(t Text) (Text, error) {
 }
 
 func Analyze(
+	ctx_ context.Context,
 	t Text,
 	resolver ir.SymbolResolver,
 ) (ir.IR, analyzer.Diagnostics) {
-	ctx := context.CreateRoot(t.AST, resolver)
+	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
 	// Stage 1: Analyse the AST.
 	if !analyzer.AnalyzeProgram(ctx) {
 		return ir.IR{}, *ctx.Diagnostics
@@ -65,7 +67,7 @@ func Analyze(
 	// Second pass: process flow statements to build nodes and edges
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, err := processFlow(context.Child(ctx, flow), generateKey)
+			nodes, edges, err := processFlow(acontext.Child(ctx, flow), generateKey)
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
 				return ir.IR{}, *ctx.Diagnostics
@@ -79,7 +81,7 @@ func Analyze(
 }
 
 func processFlow(
-	ctx context.Context[parser.IFlowStatementContext],
+	ctx acontext.Context[parser.IFlowStatementContext],
 	generateKey GenerateKey,
 ) ([]ir.Node, []ir.Edge, error) {
 	var (
@@ -88,7 +90,7 @@ func processFlow(
 		nodes      []ir.Node
 	)
 	for i, flowNode := range ctx.AST.AllFlowNode() {
-		node, handle, err := processFlowNode(context.Child(ctx, flowNode), generateKey)
+		node, handle, err := processFlowNode(acontext.Child(ctx, flowNode), generateKey)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -102,17 +104,17 @@ func processFlow(
 }
 
 func processFlowNode(
-	ctx context.Context[parser.IFlowNodeContext],
+	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, error) {
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return processChannel(channel, generateKey)
 	}
 	if stage := ctx.AST.StageInvocation(); stage != nil {
-		return processStage(context.Child(ctx, stage), generateKey)
+		return processStage(acontext.Child(ctx, stage), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return processExpression(context.Child(ctx, expr))
+		return processExpression(acontext.Child(ctx, expr))
 	}
 	return ir.Node{}, ir.Handle{}, nil
 }
@@ -147,14 +149,14 @@ func extractConfigValues(values parser.IConfigValuesContext, stageType ir.Stage)
 }
 
 func processStage(
-	ctx context.Context[parser.IStageInvocationContext],
+	ctx acontext.Context[parser.IStageInvocationContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, error) {
 	var (
 		name = ctx.AST.IDENTIFIER().GetText()
 		key  = generateKey(name)
 	)
-	sym, err := ctx.Scope.Resolve(name)
+	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return ir.Node{}, ir.Handle{}, err
 	}
@@ -173,7 +175,7 @@ func processStage(
 	return ir.NewNode(ir.Node{Key: key, Type: name, Config: config}), ir.Handle{Node: key, Param: "output"}, nil
 }
 
-func processExpression(ctx context.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, error) {
+func processExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, error) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
 		return ir.Node{}, ir.Handle{}, err

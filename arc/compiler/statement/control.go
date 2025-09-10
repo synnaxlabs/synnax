@@ -142,13 +142,13 @@ func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error
 	}
 
 	// Look up the channel to get its ID
-	_, err = ctx.Scope.Resolve(channelName)
+	_, err = ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		return errors.Wrapf(err, "channel '%s' not found", channelName)
 	}
 
 	// Resolve channel ID from local (channels are passed as parameters)
-	sym, err := ctx.Scope.Resolve(channelName)
+	sym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		return errors.Newf("channel '%s' not in local context", channelName)
 	}

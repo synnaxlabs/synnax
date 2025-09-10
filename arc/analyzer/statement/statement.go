@@ -20,7 +20,7 @@ import (
 )
 
 func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
-	blockScope, err := ctx.Scope.Add(ir.Symbol{
+	blockScope, err := ctx.Scope.Add(ctx, ir.Symbol{
 		Kind:       ir.KindBlock,
 		ParserRule: ctx.AST,
 	})
@@ -153,7 +153,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 			chanType := getChannelType(childCtx)
 			if chanType != nil {
 				// Add variable with the channel's value type
-				_, err := childCtx.Scope.Add(ir.Symbol{
+				_, err := childCtx.Scope.Add(ctx, ir.Symbol{
 					Name:       name,
 					Kind:       ir.KindChannel,
 					Type:       chanType.ValueType,
@@ -182,7 +182,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 	if !ok {
 		return false
 	}
-	_, err := ctx.Scope.Add(ir.Symbol{
+	_, err := ctx.Scope.Add(ctx, ir.Symbol{
 		Name:       name,
 		Type:       varType,
 		ParserRule: ctx.AST,
@@ -209,7 +209,7 @@ func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
 										if primary := postfix.PrimaryExpression(); primary != nil {
 											if id := primary.IDENTIFIER(); id != nil {
 												// Check if this identifier refers to a channel
-												if sym, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+												if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
 													if _, ok := sym.Type.(ir.Chan); ok {
 														return true
 													}
@@ -242,7 +242,7 @@ func getChannelType(ctx context.Context[parser.IExpressionContext]) *ir.Chan {
 									if postfix := unary.PostfixExpression(); postfix != nil {
 										if primary := postfix.PrimaryExpression(); primary != nil {
 											if id := primary.IDENTIFIER(); id != nil {
-												if sym, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+												if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
 													if chanType, ok := sym.Type.(ir.Chan); ok {
 														return &chanType
 													}
@@ -273,7 +273,7 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	if !ok {
 		return false
 	}
-	_, err := ctx.Scope.Add(ir.Symbol{
+	_, err := ctx.Scope.Add(ctx, ir.Symbol{
 		Name:       name,
 		Kind:       ir.KindStatefulVariable,
 		Type:       varType,
@@ -413,7 +413,7 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	}
 
 	// Resolve the channel
-	channelSym, err := ctx.Scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
@@ -475,7 +475,7 @@ func analyzeBlockingRead(ctx context.Context[parser.IBlockingReadContext]) bool 
 	channelName := ids[1].GetText()
 
 	// Resolve the channel
-	channelSym, err := ctx.Scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(err, "undefined channel: %s", channelName),
@@ -495,7 +495,7 @@ func analyzeBlockingRead(ctx context.Context[parser.IBlockingReadContext]) bool 
 	}
 
 	// Add the variable with the channel's value type
-	_, err = ctx.Scope.Add(ir.Symbol{
+	_, err = ctx.Scope.Add(ctx, ir.Symbol{
 		Name:       varName,
 		Kind:       ir.KindVariable,
 		Type:       chanType.ValueType,
@@ -520,7 +520,7 @@ func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext])
 	channelName := ids[1].GetText()
 
 	// Resolve the channel
-	channelSym, err := ctx.Scope.Resolve(channelName)
+	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(err, "undefined channel: %s", channelName),
@@ -540,7 +540,7 @@ func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext])
 	}
 
 	// Add the variable with the channel's value type
-	_, err = ctx.Scope.Add(ir.Symbol{
+	_, err = ctx.Scope.Add(ctx, ir.Symbol{
 		Name:       varName,
 		Kind:       ir.KindVariable,
 		Type:       chanType.ValueType,
@@ -556,7 +556,7 @@ func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext])
 
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	varScope, err := ctx.Scope.Resolve(name)
+	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false

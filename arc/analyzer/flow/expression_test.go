@@ -90,9 +90,9 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				ox_pt_1 > 100 -> alarm{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			taskSymbol := MustSucceed(ctx.Scope.Resolve("__expr_0"))
+			taskSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(taskSymbol.Name).To(Equal("__expr_0"))
 			Expect(taskSymbol.Kind).To(Equal(ir.KindStage))
 			_, ok := taskSymbol.Type.(ir.Stage)
@@ -103,10 +103,10 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				(ox_pt_1 + ox_pt_2) / 2 -> display{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-			synthTask, err := ctx.Scope.Resolve("__expr_0")
+			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 			stageType, ok := synthTask.Type.(ir.Stage)
@@ -121,10 +121,10 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				ox_pt_1 > 100 && pressure > 50 -> alarm_ch
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-			synthTask, err := ctx.Scope.Resolve("__expr_0")
+			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
@@ -138,7 +138,7 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				unknown_channel > 100 -> alarm{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown"))
 		})
@@ -151,14 +151,14 @@ var _ = Describe("Expression Stage Conversion", func() {
 				pressure < 50 -> warning{}
 				temp_sensor * f32(1.8) + f32(32) -> display{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 			// May have warnings about type mismatches, but should still create tasks
 			// Check that multiple synthetic tasks were created
-			task0, err0 := ctx.Scope.Resolve("__expr_0")
-			task1, err1 := ctx.Scope.Resolve("__expr_1")
-			task2, err2 := ctx.Scope.Resolve("__expr_2")
+			task0, err0 := ctx.Scope.Resolve(ctx, "__expr_0")
+			task1, err1 := ctx.Scope.Resolve(ctx, "__expr_1")
+			task2, err2 := ctx.Scope.Resolve(ctx, "__expr_2")
 
 			Expect(err0).To(BeNil())
 			Expect(err1).To(BeNil())
@@ -175,10 +175,10 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				((ox_pt_1 + ox_pt_2) * 2) > 100 -> alarm{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-			synthTask, err := ctx.Scope.Resolve("__expr_0")
+			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 		})
@@ -189,11 +189,11 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				(temp_sensor) -> display{}
 			`))
-			ctx := context.CreateRoot(ast, testResolver)
+			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			// May have type warning since display expects f64 but temp_sensor is f32
 
-			synthTask, err := ctx.Scope.Resolve("__expr_0")
+			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 		})

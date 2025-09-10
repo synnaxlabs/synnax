@@ -24,16 +24,16 @@ import (
 
 func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
-	return compiler.Compile(inter, compiler.DisableHostImport())
+	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
 func compileWithHostImports(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
-	return compiler.Compile(inter)
+	return compiler.Compile(ctx, inter)
 }
 
 var _ = Describe("Compiler", func() {

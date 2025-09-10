@@ -27,7 +27,7 @@ func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
 		exprType = chanType.ValueType
 	}
 	t := ir.Stage{Return: exprType}
-	stageScope, err := ctx.Scope.Root().Add(ir.Symbol{
+	stageScope, err := ctx.Scope.Root().Add(ctx, ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindStage,
 		Type:       t,
@@ -38,7 +38,7 @@ func analyzeExpression(ctx context.Context[parser.IExpressionContext]) bool {
 		return false
 	}
 	stageScope = stageScope.AutoName("__expr_")
-	blockScope, err := stageScope.Add(ir.Symbol{
+	blockScope, err := stageScope.Add(ctx, ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindBlock,
 		Type:       t,

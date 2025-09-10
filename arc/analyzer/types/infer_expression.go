@@ -108,7 +108,7 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 	}
 	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
-			if chanScope, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+			if chanScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
 				if chanScope.Type != nil {
 					if chanType, ok := chanScope.Type.(ir.Chan); ok {
 						return chanType.ValueType
@@ -134,7 +134,7 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) ir.
 
 func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) ir.Type {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		if varScope, err := ctx.Scope.Resolve(id.GetText()); err == nil {
+		if varScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
 			if varScope.Type != nil {
 				if t, ok := varScope.Type.(ir.Type); ok {
 					return t

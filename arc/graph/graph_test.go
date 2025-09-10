@@ -69,10 +69,10 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(g, nil)
+			inter, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Stages).To(HaveLen(1))
-			stageScope := MustSucceed(inter.Symbols.Resolve("add"))
+			stageScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
 			Expect(stageScope.Children).To(HaveLen(3))
 			params := stageScope.FilterChildrenByKind(ir.KindParam)
 			Expect(params).To(HaveLen(2))
@@ -99,10 +99,10 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(g, nil)
+			inter, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(1))
-			funcScope := MustSucceed(inter.Symbols.Resolve("add"))
+			funcScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
 			Expect(funcScope.Children).To(HaveLen(3))
 			params := funcScope.FilterChildrenByKind(ir.KindParam)
 			Expect(params).To(HaveLen(2))

@@ -48,7 +48,7 @@ var _ = Describe("Text", func() {
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
-			inter, diagnostics := text.Analyze(parsedText, nil)
+			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(1))
 			Expect(inter.Stages).To(HaveLen(2))

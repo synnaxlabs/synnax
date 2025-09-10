@@ -10,12 +10,15 @@
 package context
 
 import (
+	"context"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 )
 
 type Context[AST antlr.ParserRuleContext] struct {
+	context.Context
 	Scope       *ir.Scope
 	Diagnostics *diagnostics.Diagnostics
 	AST         AST
@@ -33,10 +36,12 @@ func (c Context[AST]) WithHint(hint ir.Type) Context[AST] {
 }
 
 func CreateRoot[ASTNode antlr.ParserRuleContext](
+	ctx context.Context,
 	ast ASTNode,
 	resolver ir.SymbolResolver,
 ) Context[ASTNode] {
 	return Context[ASTNode]{
+		Context:     ctx,
 		Scope:       ir.CreateRootScope(resolver),
 		Diagnostics: &diagnostics.Diagnostics{},
 		AST:         ast,
@@ -46,6 +51,7 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 
 func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 	return Context[N]{
+		Context:     ctx.Context,
 		Scope:       ctx.Scope,
 		Diagnostics: ctx.Diagnostics,
 		AST:         next,

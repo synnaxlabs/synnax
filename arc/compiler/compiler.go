@@ -10,10 +10,11 @@
 package compiler
 
 import (
+	"context"
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/compiler/context"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
@@ -22,12 +23,12 @@ import (
 )
 
 // Compile generates a compiled WASM module from the provided IR.
-func Compile(ir ir.IR, opts ...Option) ([]byte, error) {
+func Compile(ctx_ context.Context, ir ir.IR, opts ...Option) ([]byte, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
-	ctx := context.CreateRoot(ir.Symbols, o.disableHostImports)
+	ctx := ccontext.CreateRoot(ctx_, ir.Symbols, o.disableHostImports)
 	for _, i := range ir.Stages {
 		params := slices.Concat(i.Config.Values, i.Params.Values)
 		if err := compileItem(ctx, i.Key, i.Body.AST, params, i.Return); err != nil {
@@ -43,13 +44,13 @@ func Compile(ir ir.IR, opts ...Option) ([]byte, error) {
 }
 
 func compileItem(
-	rootCtx context.Context[antlr.ParserRuleContext],
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	key string,
 	body parser.IBlockContext,
 	params []ir.Type,
 	results ir.Type,
 ) error {
-	scope, err := rootCtx.Scope.Resolve(key)
+	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func compileItem(
 	if results != nil {
 		wasmResults = append(wasmResults, wasm.ConvertType(results))
 	}
-	ctx := context.Child(rootCtx, body).WithScope(scope).WithNewWriter()
+	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter()
 	funcT := wasm.FunctionType{Params: wasmParams, Results: wasmResults}
 	typeIdx := ctx.Module.AddType(funcT)
 	if err = statement.CompileBlock(ctx); err != nil {

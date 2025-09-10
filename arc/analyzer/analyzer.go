@@ -28,7 +28,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
-			_, err := ctx.Scope.Add(ir.Symbol{
+			_, err := ctx.Scope.Add(ctx, ir.Symbol{
 				Name:       name,
 				Kind:       ir.KindFunction,
 				Type:       ir.Function{Key: name},
@@ -40,7 +40,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			}
 		} else if stage := item.StageDeclaration(); stage != nil {
 			name := stage.IDENTIFIER().GetText()
-			_, err := ctx.Scope.Add(ir.Symbol{
+			_, err := ctx.Scope.Add(ctx, ir.Symbol{
 				Name:       name,
 				Kind:       ir.KindStage,
 				Type:       ir.Stage{Key: name},
@@ -83,7 +83,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 // analyzeFunctionDeclaration analyzes a function declaration
 func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	fnScope, err := ctx.Scope.Resolve(name)
+	fnScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
@@ -139,7 +139,7 @@ func analyzeParams(
 		}
 
 		// Also add to scope for use within stage body
-		if _, err := ctx.Scope.Add(ir.Symbol{
+		if _, err := ctx.Scope.Add(ctx, ir.Symbol{
 			Name:       paramName,
 			Kind:       ir.KindParam,
 			Type:       paramType,
@@ -203,7 +203,7 @@ func blockAlwaysReturns(block parser.IBlockContext) bool {
 
 func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	stageScope, err := ctx.Scope.Resolve(name)
+	stageScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
@@ -222,7 +222,7 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 					ctx.AST,
 				)
 			}
-			_, err := stageScope.Add(ir.Symbol{
+			_, err = stageScope.Add(ctx, ir.Symbol{
 				Name:       paramName,
 				Kind:       ir.KindConfigParam,
 				Type:       configType,

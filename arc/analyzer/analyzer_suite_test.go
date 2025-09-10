@@ -10,11 +10,14 @@
 package analyzer_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+var bCtx = context.Background()
 
 func TestAnalyzer(t *testing.T) {
 	RegisterFailHandler(Fail)

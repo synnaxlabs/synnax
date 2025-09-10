@@ -10,18 +10,21 @@
 package expression_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/context"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var bCtx = context.Background()
 
 func expectExpression(expression string, expectedType ir.Type, expectedOpcodes ...any) {
 	bytecode, exprType := compileExpression(expression)
@@ -31,13 +34,13 @@ func expectExpression(expression string, expectedType ir.Type, expectedOpcodes .
 }
 
 func compileExpression(source string) ([]byte, ir.Type) {
-	return compileWithCtx(NewContext(), source)
+	return compileWithCtx(NewContext(bCtx), source)
 }
 
-func compileWithCtx(ctx context.Context[antlr.ParserRuleContext], source string) ([]byte, ir.Type) {
+func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string) ([]byte, ir.Type) {
 	var (
 		expr     = MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
-		exprType = MustSucceedWithOffset[ir.Type](2)(expression.Compile(context.Child(ctx, expr)))
+		exprType = MustSucceedWithOffset[ir.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
 	)
 	return ctx.Writer.Bytes(), exprType
 }

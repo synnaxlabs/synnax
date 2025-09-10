@@ -24,18 +24,18 @@ import (
 
 func compile(source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
-	aCtx := acontext.CreateRoot(stmt, nil)
+	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
-	ctx := context.CreateRoot(aCtx.Scope, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, true)
 	Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 	return ctx.Writer.Bytes()
 }
 
 func compileBlock(source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-	aCtx := acontext.CreateRoot(block, nil)
+	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
-	ctx := context.CreateRoot(aCtx.Scope, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, true)
 	Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 	return ctx.Writer.Bytes()
 }

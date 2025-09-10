@@ -23,7 +23,7 @@ var _ = Describe("MapResolver", func() {
 				"pi":    ir.Symbol{Name: "pi", Kind: ir.KindConfigParam, Type: ir.F64{}},
 				"count": ir.Symbol{Name: "count", Kind: ir.KindVariable, Type: ir.I32{}},
 			}
-			sym, err := resolver.Resolve("pi")
+			sym, err := resolver.Resolve(ctx, "pi")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sym.Name).To(Equal("pi"))
 			Expect(sym.Kind).To(Equal(ir.KindConfigParam))
@@ -34,14 +34,14 @@ var _ = Describe("MapResolver", func() {
 			resolver := ir.MapResolver{
 				"x": ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I32{}},
 			}
-			_, err := resolver.Resolve("y")
+			_, err := resolver.Resolve(ctx, "y")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(query.NotFound))
 		})
 
 		It("Should work with empty resolver", func() {
 			resolver := ir.MapResolver{}
-			_, err := resolver.Resolve("anything")
+			_, err := resolver.Resolve(ctx, "anything")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(query.NotFound))
 		})

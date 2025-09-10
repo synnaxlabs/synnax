@@ -358,8 +358,8 @@ var _ = Describe("Binary Operations", func() {
 
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func() {
-			ctx := NewContext()
-			MustSucceed(ctx.Scope.Add(ir.Symbol{
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{
 				Name: "x",
 				Kind: ir.KindVariable,
 				Type: ir.F32{},

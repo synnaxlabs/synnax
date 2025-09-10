@@ -31,7 +31,7 @@ func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationC
 // compileLocalVariable handles local variable declarations (x := expr)
 func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) error {
 	name := ctx.AST.IDENTIFIER().GetText()
-	varScope, err := ctx.Scope.Resolve(name)
+	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found in symbol table", name)
 	}
@@ -45,7 +45,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 			return err
 		}
 	}
-	local, err := ctx.Scope.Resolve(name)
+	local, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return errors.Wrapf(err, "failed to lookup local variable '%s'", name)
 	}
@@ -61,7 +61,7 @@ func compileStatefulVariable(
 	name := ctx.AST.IDENTIFIER().GetText()
 
 	// Look up the symbol to get its type
-	scope, err := ctx.Scope.Resolve(name)
+	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
 	}
@@ -94,7 +94,7 @@ func compileAssignment(
 	// Resolve the variable name
 	name := ctx.AST.IDENTIFIER().GetText()
 	// Look up the symbol
-	scope, err := ctx.Scope.Resolve(name)
+	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found", name)
 	}
@@ -114,13 +114,13 @@ func compileAssignment(
 	switch sym.Kind {
 	case ir.KindVariable, ir.KindParam:
 		// Regular local variable or parameter
-		local, err := ctx.Scope.Resolve(name)
+		local, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
 			return errors.Newf("local variable '%s' not allocated", name)
 		}
 		ctx.Writer.WriteLocalSet(local.ID)
 	case ir.KindStatefulVariable:
-		stateIdx, err := ctx.Scope.Resolve(name)
+		stateIdx, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}

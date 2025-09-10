@@ -24,17 +24,17 @@ import (
 var _ = Describe("Identifier Compilation", func() {
 	Context("Local Variables", func() {
 		It("Should compile local variable references", func() {
-			ctx := NewContext()
-			ctx.Scope.Add(ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I32{}})
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.I32{}}))
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			Expect(byteCode).To(Equal(WASM(OpLocalGet, 0)))
 			Expect(exprType).To(Equal(ir.I32{}))
 		})
 
 		It("Should compile expressions using multiple local variables", func() {
-			ctx := NewContext()
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "a", Kind: ir.KindVariable, Type: ir.I32{}}))
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "b", Kind: ir.KindVariable, Type: ir.I32{}}))
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "a", Kind: ir.KindVariable, Type: ir.I32{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "b", Kind: ir.KindVariable, Type: ir.I32{}}))
 			// Compile expression using both variables
 			expr := MustSucceed(parser.ParseExpression("a + b"))
 			exprType := MustSucceed(expression.Compile(context.Child(ctx, expr)))
@@ -49,11 +49,11 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should compile complex expressions with local variables", func() {
-			ctx := NewContext()
+			ctx := NewContext(bCtx)
 			// Add variables with different types
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.F64{}}))
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "y", Kind: ir.KindVariable, Type: ir.F64{}}))
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "z", Kind: ir.KindVariable, Type: ir.F64{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "x", Kind: ir.KindVariable, Type: ir.F64{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "y", Kind: ir.KindVariable, Type: ir.F64{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "z", Kind: ir.KindVariable, Type: ir.F64{}}))
 			bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
 			expected := WASM(
 				OpLocalGet, 0, // Resolve 'x'
@@ -67,9 +67,9 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should compile comparisons using local variables", func() {
-			ctx := NewContext()
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "limit", Kind: ir.KindVariable, Type: ir.I32{}}))
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "value", Kind: ir.KindVariable, Type: ir.I32{}}))
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "limit", Kind: ir.KindVariable, Type: ir.I32{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "value", Kind: ir.KindVariable, Type: ir.I32{}}))
 			bytecode, exprType := compileWithCtx(ctx, "value > limit")
 			expected := WASM(
 				OpLocalGet, 1, // Resolve 'value'
@@ -81,9 +81,9 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should compile logical operations with local variables", func() {
-			ctx := NewContext()
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "enabled", Kind: ir.KindVariable, Type: ir.U8{}}))
-			MustSucceed(ctx.Scope.Add(ir.Symbol{Name: "ready", Kind: ir.KindVariable, Type: ir.U8{}}))
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "enabled", Kind: ir.KindVariable, Type: ir.U8{}}))
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "ready", Kind: ir.KindVariable, Type: ir.U8{}}))
 			bytecode, exprType := compileWithCtx(ctx, "enabled && ready")
 			expected := WASM(
 				// Load 'enabled'
@@ -110,8 +110,8 @@ var _ = Describe("Identifier Compilation", func() {
 
 	Context("Channel Reads", func() {
 		It("Should compile a channel read", func() {
-			ctx := NewContext()
-			ctx.Scope.Add(ir.Symbol{Name: "x", Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}})
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "x", Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}}))
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(ir.I32{}))
@@ -124,8 +124,8 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should correctly compile a channel read inside of an addition expression", func() {
-			ctx := NewContext()
-			ctx.Scope.Add(ir.Symbol{Name: "x", Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}})
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{Name: "x", Kind: ir.KindChannel, Type: ir.Chan{ValueType: ir.I32{}}}))
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(ir.I32{}))
@@ -143,8 +143,8 @@ var _ = Describe("Identifier Compilation", func() {
 
 	Context("Function Parameters", func() {
 		It("Should compile parameter references", func() {
-			ctx := NewContext()
-			MustSucceed(ctx.Scope.Add(ir.Symbol{
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{
 				Name: "value",
 				Kind: ir.KindParam,
 				Type: ir.F64{},

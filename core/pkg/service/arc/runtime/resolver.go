@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package flow_test
+package runtime
 
 import (
 	"context"
-	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-var bCtx = context.Background()
+type channelResolver struct {
+	channel.Readable
+}
 
-func TestFlow(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Flow Analyzer Suite")
+var _ arc.SymbolResolver = (*channelResolver)(nil)
+
+func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
+	c := r.NewRetrieve().WhereNames(name).Exec(ctx, nil)
+}
+
+func CreateResolver() {
+
 }

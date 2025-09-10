@@ -170,10 +170,12 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 	r := &Runtime{
-		wasm:   wazero.NewRuntime(ctx),
 		module: cfg.Module,
 		values: make(map[channel.Key]telem.Series),
 		nodes:  make(map[string]stage.Stage),
+	}
+	if len(cfg.Module.WASM) != 0 {
+		r.wasm = wazero.NewRuntime(ctx)
 	}
 	readChannels, err := retrieveChannels(ctx, cfg.Channel, cfg.Module.Nodes)
 	if err != nil {

@@ -30,7 +30,7 @@ var _ = Describe("Analyzer", func() {
 				func dog() {
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
@@ -45,7 +45,7 @@ var _ = Describe("Analyzer", func() {
 					dog := 1
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
@@ -57,7 +57,7 @@ var _ = Describe("Analyzer", func() {
 				func dog(age i32, age i32) {
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
@@ -73,7 +73,7 @@ var _ = Describe("Analyzer", func() {
 						my_var i32 := "dog"
 					}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
@@ -85,7 +85,7 @@ var _ = Describe("Analyzer", func() {
 					x i32 := 42
 				}
 				`))
-				ctx := context.CreateRoot(ast, nil)
+				ctx := context.CreateRoot(bCtx, ast, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			})
 
@@ -95,14 +95,14 @@ var _ = Describe("Analyzer", func() {
 					x := 42
 				}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
-				varScope := MustSucceed(blockScope.Resolve("x"))
+				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(ir.I64{}))
@@ -114,14 +114,14 @@ var _ = Describe("Analyzer", func() {
 					x := 42.0
 				}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
-				varScope := MustSucceed(blockScope.Resolve("x"))
+				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(ir.F64{}))
@@ -133,14 +133,14 @@ var _ = Describe("Analyzer", func() {
 					x f32 := 42
 				}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				funcScope := MustSucceed(ctx.Scope.Resolve("testFunc"))
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
-				varScope := MustSucceed(blockScope.Resolve("x"))
+				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(ir.F32{}))
@@ -152,7 +152,7 @@ var _ = Describe("Analyzer", func() {
 					x i32 := 42.0
 				}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				first := (*ctx.Diagnostics)[0]
@@ -165,7 +165,7 @@ var _ = Describe("Analyzer", func() {
 						b := a
 					}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			})
 		})
@@ -180,7 +180,7 @@ var _ = Describe("Analyzer", func() {
 					bob = cat
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -197,7 +197,7 @@ var _ = Describe("Analyzer", func() {
 					cat = bob
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -212,7 +212,7 @@ var _ = Describe("Analyzer", func() {
 					v2 = v1
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -228,10 +228,10 @@ var _ = Describe("Analyzer", func() {
 						return x + y
 					}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				funcScope := MustSucceed(ctx.Scope.Resolve("add"))
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("add"))
 				funcType, ok := funcScope.Type.(ir.Function)
@@ -267,10 +267,10 @@ var _ = Describe("Analyzer", func() {
 					return 1.0
 				}
 				`))
-				ctx := context.CreateRoot(prog, nil)
+				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				stageScope := MustSucceed(ctx.Scope.Resolve("controller"))
+				stageScope := MustSucceed(ctx.Scope.Resolve(ctx, "controller"))
 				Expect(stageScope.ID).To(Equal(0))
 				Expect(stageScope.Name).To(Equal("controller"))
 				taskT, ok := stageScope.Type.(ir.Stage)
@@ -314,7 +314,7 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 		})
@@ -325,7 +325,7 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 		})
@@ -336,7 +336,7 @@ var _ = Describe("Analyzer", func() {
 					return 1 + 1
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 		})
@@ -347,7 +347,7 @@ var _ = Describe("Analyzer", func() {
 					return 1.0
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -360,7 +360,7 @@ var _ = Describe("Analyzer", func() {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 		})
@@ -371,7 +371,7 @@ var _ = Describe("Analyzer", func() {
 					return 5
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -383,7 +383,7 @@ var _ = Describe("Analyzer", func() {
 				func dog() f64 {
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -398,7 +398,7 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
@@ -417,7 +417,7 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
 		})
@@ -432,9 +432,9 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -455,9 +455,9 @@ var _ = Describe("Analyzer", func() {
 					return 2
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))
@@ -484,9 +484,9 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(prog, nil)
+			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			funcScope := MustSucceed(ctx.Scope.Resolve("dog"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.ID).To(Equal(0))
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(ir.KindBlock))

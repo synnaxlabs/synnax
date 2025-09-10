@@ -23,6 +23,7 @@ type (
 	Edge           = ir.Edge
 	Function       = ir.Function
 	SymbolResolver = ir.SymbolResolver
+	Symbol         = ir.Symbol
 	Graph          = graph.Graph
 	Text           = text.Text
 )

@@ -10,6 +10,8 @@
 package context
 
 import (
+	"context"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/runtime"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -18,6 +20,7 @@ import (
 
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
+	context.Context
 	Imports *runtime.ImportIndex
 	Scope   *ir.Scope
 	Writer  *wasm.Writer
@@ -28,9 +31,11 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
 	return Context[ASTNode]{
+		Context: ctx.Context,
 		Imports: ctx.Imports,
 		Scope:   ctx.Scope,
 		Writer:  ctx.Writer,
+		Module:  ctx.Module,
 		AST:     node,
 		Hint:    ctx.Hint,
 	}
@@ -51,13 +56,18 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 }
 
 func CreateRoot(
+	ctx_ context.Context,
 	symbols *ir.Scope,
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
-	mod := wasm.NewModule()
-	ctx := Context[antlr.ParserRuleContext]{Module: mod, Scope: symbols, Writer: wasm.NewWriter()}
+	ctx := Context[antlr.ParserRuleContext]{
+		Context: ctx_,
+		Module:  wasm.NewModule(),
+		Scope:   symbols,
+		Writer:  wasm.NewWriter(),
+	}
 	if !disableHostImports {
-		ctx.Imports = runtime.SetupImports(mod)
+		ctx.Imports = runtime.SetupImports(ctx.Module)
 	}
 	return ctx
 }

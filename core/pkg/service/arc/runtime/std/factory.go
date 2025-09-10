@@ -44,7 +44,7 @@ var factories = map[string]Constructor{
 	"stable_for": createStableFor,
 }
 
-var resolver = ir.MapResolver{
+var Resolver = ir.MapResolver{
 	"ge":         symbolGE,
 	"gt":         symbolGT,
 	"le":         symbolLE,
