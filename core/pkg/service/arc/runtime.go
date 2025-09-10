@@ -42,18 +42,16 @@ func (s *Service) handleChange(
 		if e.Variant == changex.Delete {
 			return
 		}
-		mod, err := arc.CompileGraph(e.Value.Graph)
+		mod, err := arc.CompileGraph(ctx, e.Value.Graph, arc.WithResolver(s.symbolResolver))
 		if err != nil {
 			s.cfg.L.Error("failed to compile graph", zap.Error(err))
 			continue
 		}
-		r, err := runtime.Open(ctx, runtime.Config{
-			Channel: s.cfg.Channel,
-			Framer:  s.cfg.Framer,
-			Module:  mod,
-		})
+		baseCfg := s.cfg.baseRuntimeConfig()
+		baseCfg.Module = mod
+		r, err := runtime.Open(ctx, baseCfg)
 		if err != nil {
-			s.cfg.L.Error("failed to open runtime", zap.Error(err))
+			s.cfg.L.Error("failed to open baseRuntimeConfig", zap.Error(err))
 			continue
 		}
 		s.mu.entries[e.Key] = &entry{runtime: r}

@@ -16,10 +16,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -66,10 +68,15 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
+func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
+	return runtime.Config{Channel: c.Channel, Framer: c.Framer}
+}
+
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	cfg ServiceConfig
-	mu  struct {
+	cfg            ServiceConfig
+	symbolResolver arc.SymbolResolver
+	mu             struct {
 		sync.Mutex
 		entries map[uuid.UUID]*entry
 		closer  io.Closer
@@ -99,6 +106,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer xio.MultiCloser
 		s      = &Service{cfg: cfg}
 	)
+	s.symbolResolver, err = runtime.CreateResolver(cfg.baseRuntimeConfig())
+	if err != nil {
+		return nil, err
+	}
 	s.mu.closer = closer
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
