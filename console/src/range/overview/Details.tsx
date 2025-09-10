@@ -216,11 +216,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Flex.Box x>
-          <Form.Field<Ranger.Stage> path="stage" required={false}>
-            {({ onChange, value }) => (
+          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
+            {(props) => (
               <Ranger.SelectStage
-                onChange={onChange}
-                value={value}
+                {...Ranger.wrapNumericTimeRangeForm(props)}
                 allowNone={false}
                 triggerProps={{ variant: "text", hideCaret: true }}
                 variant="floating"
@@ -228,7 +227,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               />
             )}
           </Form.Field>
-
           <Form.Field<string[]> required={false} path="labels">
             {({ variant: _, ...p }) => (
               <Label.SelectMultiple

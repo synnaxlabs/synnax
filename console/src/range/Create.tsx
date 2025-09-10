@@ -21,7 +21,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { TimeRange, uuid } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -43,11 +43,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   location: "modal",
   name: "Range.Create",
   icon: "Range",
-  window: {
-    resizable: false,
-    size: { height: 440, width: 700 },
-    navTop: true,
-  },
+  window: { resizable: false, size: { height: 440, width: 700 }, navTop: true },
 };
 
 export const createCreateLayout = (
@@ -86,15 +82,7 @@ export const Create: Layout.Renderer = (props) => {
       if (key == null) return;
       dispatch(
         add({
-          ranges: [
-            {
-              name,
-              key,
-              persisted: true,
-              variant: "static",
-              timeRange,
-            },
-          ],
+          ranges: [{ name, key, persisted: true, variant: "static", timeRange }],
         }),
       );
     },
@@ -147,11 +135,10 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<Ranger.Stage> path="stage" required={false}>
-            {({ value, onChange }) => (
+          <Form.Field<NumericTimeRange> path="timeRange" required={false}>
+            {(p) => (
               <Ranger.SelectStage
-                value={value}
-                onChange={onChange}
+                {...Ranger.wrapNumericTimeRangeForm(p)}
                 style={{ width: 150 }}
                 triggerProps={{ variant: "outlined" }}
               />

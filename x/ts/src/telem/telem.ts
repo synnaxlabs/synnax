@@ -103,7 +103,9 @@ export class TimeStamp
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
-        if (isFinite(value)) value = Math.trunc(value);
+        if (isFinite(value))
+          if (value === 2 ** 63 - 1) value = 2n ** 63n - 1n;
+          else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;

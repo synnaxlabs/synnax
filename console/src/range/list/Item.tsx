@@ -21,7 +21,7 @@ import {
   stopPropagation,
   Tag,
 } from "@synnaxlabs/pluto";
-import { TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { type NumericTimeRange } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -100,37 +100,14 @@ export const Item = ({
             ghost={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
-            <Form.Field<{
-              start: bigint;
-              end: bigint;
-            }>
+            <Form.Field<NumericTimeRange>
               path="timeRange"
               showHelpText
               showLabel={false}
             >
               {({ value, onChange }) => (
                 <Ranger.SelectStage
-                  value={Ranger.getStage(new TimeRange(value))}
-                  onChange={(v: Ranger.Stage | null) => {
-                    if (v == null) return;
-                    const now = TimeStamp.now().valueOf();
-                    const tr = { ...value };
-                    switch (v) {
-                      case "to_do":
-                        if (tr.end < now) tr.end = TimeStamp.MAX.valueOf();
-                        if (tr.start < tr.end) tr.start = tr.end;
-                        break;
-                      case "in_progress":
-                        if (tr.start > now) tr.start = now;
-                        if (tr.end < now) tr.end = TimeStamp.MAX.valueOf();
-                        break;
-                      case "completed":
-                        if (tr.end > now) tr.end = now;
-                        if (tr.start > tr.end) tr.start = tr.end;
-                        break;
-                    }
-                    onChange(tr);
-                  }}
+                  {...Ranger.wrapNumericTimeRangeForm({ value, onChange })}
                   variant="floating"
                   location="bottom"
                   onClick={stopPropagation}

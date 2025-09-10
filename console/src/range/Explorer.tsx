@@ -24,12 +24,12 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
-const sortByStage = (a: ranger.Range, b: ranger.Range) =>
+const sort = (a: ranger.Range, b: ranger.Range) =>
   Ranger.STAGES.indexOf(Ranger.getStage(b.timeRange)) -
   Ranger.STAGES.indexOf(Ranger.getStage(a.timeRange));
 
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({ sort: sortByStage });
+  const { data, getItem, subscribe, retrieve } = Ranger.useList({ sort });
   return (
     <List
       data={data}

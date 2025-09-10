@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { type CrudeTimeRange, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 export const HAUL_TYPE = "range";
 
@@ -15,9 +15,9 @@ export const STAGES = ["to_do", "in_progress", "completed"] as const;
 
 export type Stage = (typeof STAGES)[number];
 
-export const getStage = (timeRange: TimeRange): Stage => {
+export const getStage = (timeRange: CrudeTimeRange): Stage => {
   const now = TimeStamp.now();
-  const tr = timeRange.makeValid();
+  const tr = new TimeRange(timeRange).makeValid();
   if (now.before(tr.start)) return "to_do";
   if (now.after(tr.end)) return "completed";
   return "in_progress";
