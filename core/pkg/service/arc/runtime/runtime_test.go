@@ -24,7 +24,7 @@ var _ = Describe("Runtime", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	It("Should run a basic test", func() {
+	It("Should run a basic value printer", func() {
 		ch := &channel.Channel{
 			Name:     "ox_pt_1",
 			Virtual:  true,
@@ -50,8 +50,8 @@ var _ = Describe("Runtime", Ordered, func() {
 			},
 			Edges: []arc.Edge{
 				{
-					Source: arc.Handle{Node: "first", Param: ""},
-					Target: arc.Handle{Node: "printer", Param: ""},
+					Source: arc.Handle{Node: "first"},
+					Target: arc.Handle{Node: "printer"},
 				},
 			},
 		}

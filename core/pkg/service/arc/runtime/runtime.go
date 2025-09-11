@@ -32,15 +32,28 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
+// Config is the configuration for an arc runtime.
 type Config struct {
-	Module  arc.Module
+	// Module is the compiled arc module that needs to be executed.
+	//
+	// [REQUIRED]
+	Module arc.Module
+	// Channel is used for retrieving channel information from the cluster.
+	//
+	// [REQUIRED]
 	Channel channel.Readable
-	Framer  *framer.Service
+	// Framer is used for reading from and writing telemetry to the cluster.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a runtime. This
+	// configuration is not valid on its own. Fields must be set according to the
+	// Config documentation.
+	DefaultConfig = Config{}
 )
 
 // Override implements config.Config.
@@ -85,7 +98,7 @@ func (r *Runtime) Close() error {
 func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
 	return func(ctx context.Context, value stage.Value) {
 		for _, edge := range r.module.Edges {
-			if edge.Source.Node == nodeKey {
+			if edge.Source.Node == nodeKey && edge.Source.Param == value.Param {
 				value.Param = edge.Target.Param
 				r.nodes[edge.Target.Node].Next(ctx, value)
 			}
@@ -163,6 +176,7 @@ func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, err
 	if ok {
 		panic("unsupported")
 	}
+	// Priority 2: Attempt t find the stage i the standard library.
 	return std.Create(ctx, arcNode)
 }
 
@@ -192,7 +206,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		n.OnOutput(r.createOnOutput(nodeSpec.Key))
 		r.nodes[n.Key()] = n
 	}
-
 	p, requests, err := createStreamPipeline(
 		ctx,
 		r,

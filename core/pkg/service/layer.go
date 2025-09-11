@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -120,6 +121,8 @@ type Layer struct {
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
+	// Status is used for tracking the statuses
+	Status *status.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -257,6 +260,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Channel:         cfg.Distribution.Channel,
 		},
 	); !ok(err, l.Arc) {
+		return nil, err
+	}
+	if l.Status, err = status.OpenService(
+		ctx,
+		status.ServiceConfig{
+			Instrumentation: cfg.Instrumentation.Child("status"),
+			DB:              cfg.Distribution.DB,
+			Signals:         cfg.Distribution.Signals,
+			Ontology:        cfg.Distribution.Ontology,
+			Group:           cfg.Distribution.Group,
+		},
+	); !ok(err, l.Status) {
 		return nil, err
 	}
 	return l, nil
