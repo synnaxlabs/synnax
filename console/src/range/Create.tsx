@@ -48,10 +48,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 
 export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
-): Layout.BaseState<CreateLayoutArgs> => ({
-  ...CREATE_LAYOUT,
-  args: initial,
-});
+): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
 export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,

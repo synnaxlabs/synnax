@@ -163,7 +163,7 @@ const MetaDataListItem = ({
             variant="shadow"
             onClick={() => handleDelete(itemKey)}
           >
-            <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
+            <Icon.Delete color={10} />
           </Button.Button>
         )}
       </Form.Form>

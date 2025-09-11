@@ -39,7 +39,7 @@ export const FavoriteButton = ({ range, ghost, ...rest }: FavoriteButtonProps) =
       }}
       tooltip={
         <Text.Text level="small" color={10}>
-          {starred ? "Remove from" : "Add to"} Workspace Favorites
+          {starred ? "Remove from" : "Add to"} Favorites
         </Text.Text>
       }
       variant="text"
