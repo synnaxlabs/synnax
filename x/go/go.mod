@@ -90,6 +90,4 @@ exclude (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 )
 
-replace github.com/gogo/status => github.com/gogo/status v1.1.1
-
-replace google.golang.org/genproto => /tmp/empty_genproto
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250908214217-97024824d090

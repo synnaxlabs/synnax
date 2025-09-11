@@ -63,4 +63,4 @@ require (
 	google.golang.org/protobuf v1.36.9 // indirect
 )
 
-replace google.golang.org/genproto => /tmp/empty_genproto
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250908214217-97024824d090
