@@ -39,6 +39,8 @@ echo Getting Poetry environment info...
 for /f %%i in ('poetry env info -p 2^>nul') do set VENV_PATH=%%i
 if defined VENV_PATH (
     echo Virtual environment path: %VENV_PATH%
+    rem Store any existing PYTHONPATH before overwriting
+    set PYTHONPATH_OLD=%PYTHONPATH%
     set PYTHONPATH=%VENV_PATH%\Lib\site-packages
     if defined PYTHONPATH_OLD (
         set PYTHONPATH=%PYTHONPATH%;%PYTHONPATH_OLD%
