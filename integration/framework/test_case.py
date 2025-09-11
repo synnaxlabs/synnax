@@ -95,13 +95,13 @@ class TestCase(ABC):
     """
 
     # Configuration constants
-    DEFAULT_READ_TIMEOUT = 1
-    DEFAULT_LOOP_RATE = 0.2  # 5 Hz
-    WEBSOCKET_RETRY_DELAY = 0.5  # s
-    MAX_CLEANUP_RETRIES = 3
-    CLIENT_THREAD_START_DELAY = 1
-    DEFAULT_TIMEOUT_LIMIT = -1
-    DEFAULT_MANUAL_TIMEOUT = -1
+    DEFAULT_READ_TIMEOUT: int = 1
+    DEFAULT_LOOP_RATE: float = 0.2  # 5 Hz
+    WEBSOCKET_RETRY_DELAY: float = 0.5  # s
+    MAX_CLEANUP_RETRIES: int = 3
+    CLIENT_THREAD_START_DELAY: int = 1
+    DEFAULT_TIMEOUT_LIMIT: int = -1
+    DEFAULT_MANUAL_TIMEOUT: int = -1
 
     def __init__(
         self,

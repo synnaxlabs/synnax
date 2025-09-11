@@ -1,6 +1,17 @@
+[project]
+name = "synnax-test-framework"
+version = "0.45.0"
+description = "Integration test framework for Synnax Labs"
+authors = [{ name = "Synnax Labs", email = "info@synnaxlabs.com" }]
+requires-python = ">=3.12,<4"
+dynamic = ["dependencies"]
+
+[project.scripts]
+test-conductor = "framework.test_conductor:main"
+
 [tool.poetry]
 name = "synnax-test-framework"
-version = "0.1.0"
+version = "0.45.0"
 description = "Integration test framework for Synnax Labs"
 authors = ["Synnax Labs <info@synnaxlabs.com>"]
 packages = [

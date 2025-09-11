@@ -46,49 +46,49 @@ class NoTimeoutTest(TestCase):
         super().teardown()
 
 
-def test_no_timeout(self: Any) -> bool:
-    """Test that the test conductor ignores timeout checks when Expected_Timeout=-1."""
-    self._log_message("Testing no timeout functionality (Expected_Timeout=-1)...")
+    def test_no_timeout(self) -> bool:
+        """Test that the test conductor ignores timeout checks when Expected_Timeout=-1."""
+        self._log_message("Testing no timeout functionality (Expected_Timeout=-1)...")
 
-    # Create test conductor
-    conductor = TestConductor(name="no_timeout_test_conductor")
+        # Create test conductor
+        conductor = TestConductor(name="no_timeout_test_conductor")
 
-    # Create a test definition for our no-timeout test
-    test_def = TestDefinition(case="test_no_timeout.NoTimeoutTest")
+        # Create a test definition for our no-timeout test
+        test_def = TestDefinition(case="test_no_timeout.NoTimeoutTest")
 
-    # Load the test sequence
-    conductor.test_definitions = [test_def]
+        # Load the test sequence
+        conductor.test_definitions = [test_def]
 
-    try:
-        # Run the test sequence
-        self._log_message("Starting test execution...")
-        results = conductor.run_sequence()
+        try:
+            # Run the test sequence
+            self._log_message("Starting test execution...")
+            results = conductor.run_sequence()
 
-        # Check the results
-        if results:
-            result = results[0]
-            self._log_message(f"Test result: {result.status.name}")
-            if result.error_message:
-                self._log_message(f"Error message: {result.error_message}")
+            # Check the results
+            if results:
+                result = results[0]
+                self._log_message(f"Test result: {result.status.name}")
+                if result.error_message:
+                    self._log_message(f"Error message: {result.error_message}")
 
-            # Verify that the test completed successfully (not killed)
-            if result.status == STATUS.PASSED:
-                self._log_message(
-                    "✓ SUCCESS: Test completed successfully without being killed by timeout"
-                )
-                return True
+                # Verify that the test completed successfully (not killed)
+                if result.status == STATUS.PASSED:
+                    self._log_message(
+                        "✓ SUCCESS: Test completed successfully without being killed by timeout"
+                    )
+                    return True
+                else:
+                    self._log_message(
+                        f"✗ FAILURE: Expected test to pass, but got status: {result.status.name}"
+                    )
+                    return False
             else:
-                self._log_message(
-                    f"✗ FAILURE: Expected test to pass, but got status: {result.status.name}"
-                )
+                self._log_message("✗ FAILURE: No test results returned")
                 return False
-        else:
-            self._log_message("✗ FAILURE: No test results returned")
-            return False
 
-    except Exception as e:
-        self._log_message(f"✗ ERROR: {e}")
-        return False
-    finally:
-        # Clean up
-        conductor.shutdown()
+        except Exception as e:
+            self._log_message(f"✗ ERROR: {e}")
+            return False
+        finally:
+            # Clean up
+            conductor.shutdown()

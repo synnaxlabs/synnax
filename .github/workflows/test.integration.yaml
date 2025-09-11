@@ -514,7 +514,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/download_artifacts_macos.sh
+        run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-macos:
     name: Deploy and Test (macos)
@@ -586,7 +586,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/download_artifacts_linux.sh
+        run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)

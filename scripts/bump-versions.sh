@@ -41,7 +41,7 @@ update_version() {
 
 update_version_file
 
-paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
+paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py" "../integration")
 
 for path in "${paths[@]}"; do
     update_version "$path" "$VERSION"

@@ -12,15 +12,12 @@ import gc
 import importlib.util
 import json
 import logging
-import os
 import random
-import re
 import signal
 import string
 import sys
 import threading
 import time
-import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
@@ -92,11 +89,8 @@ class TestConductor:
         name: Optional[str] = None,
         synnax_connection: Optional[SynnaxConnection] = None,
     ) -> None:
-        """Initialize test conductor with connection parameters.
-
-        Args:
-            name: Optional name for the test conductor
-            synnax_connection: SynnaxConnection object with server details
+        """
+        Initialize test conductor with connection parameters.
         """
 
         # Generate or validate name
@@ -132,11 +126,11 @@ class TestConductor:
         self.test_results: List[TestResult] = []
         self.sequences: List[Dict[str, Any]] = []
         self.current_test: Optional[TestCase] = None
-        self.current_test_thread: Optional[threading.Thread] = None
         self.current_test_start_time: Optional[datetime] = None
         self.timeout_monitor_thread: Optional[threading.Thread] = None
-        self._timeout_result: Optional[TestResult] = None
         self.client_manager_thread: Optional[threading.Thread] = None
+        self.current_test_thread: Optional[threading.Thread] = None
+        self._timeout_result: Optional[TestResult] = None
         self.is_running = False
         self.should_stop = False
         self.status_callbacks: List[Callable[[TestResult], None]] = []

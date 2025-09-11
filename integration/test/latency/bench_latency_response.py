@@ -55,12 +55,12 @@ class BenchLatencyResponse(TestCase):
         """
         Run the test case.
         """
-        start = time.time()
-        uptime = 0
+        start: float = time.time()
+        uptime: int = 0
 
         # Set channels here to avoid calling "self"
-        state_channel = self.state_channel
-        cmd_channel = self.cmd_channel
+        state_channel: str = self.state_channel
+        cmd_channel: str = self.cmd_channel
         try:
 
             with self.bench_client.open_streamer(cmd_channel) as stream:

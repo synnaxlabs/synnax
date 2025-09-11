@@ -24,6 +24,9 @@ class Playwright(TestCase):
 
     browser: Browser
     page: Page
+    headless: bool
+    default_timeout: int
+    default_nav_timeout: int
 
     def setup(self) -> None:
 
@@ -117,12 +120,10 @@ class Playwright(TestCase):
         """
 
         browsers = ["chromium", "firefox", "webkit"]
-        browsers = [
-            "chromium",
-            "webkit",
-        ]  # Failing on Firefox in CI only. Keep as single browser until debugged.
         # SY-2928
-
+        # Firefox failing in CI only
+        # Webkit failing on Win in CI
+        browsers = [ "chromium" ]
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)

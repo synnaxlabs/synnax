@@ -52,12 +52,12 @@ class BenchLatencyReport(TestCase):
 
         # Wait for the "response" to start
         time.sleep(3)
-        cycles = 0
-        times = list()
-        loop_start = sy.TimeStamp.now()
-        state_channel = self.state_channel
-        cmd_channel = self.cmd_channel
-        bench_time = sy.TimeSpan.SECOND * 3
+        cycles: int = 0
+        times: list[sy.TimeStamp] = list()
+        loop_start: sy.TimeStamp = sy.TimeStamp.now()
+        state_channel:str = self.state_channel
+        cmd_channel:str = self.cmd_channel
+        bench_time: sy.TimeSpan = sy.TimeSpan.SECOND * 3
 
         # Set channels here to avoid calling "self"
         try:
