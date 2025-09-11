@@ -475,34 +475,13 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/StartCoreWindows.ps1
 
-      - name: Debug Test Environment
-        shell: cmd
-        working-directory: integration
-        run: |
-          echo === Debugging test environment ===
-          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          echo PATH=%PATH%
-          poetry --version
-          poetry env info
-          echo === Testing Playwright availability ===
-          poetry run python -c "import sys; print('Python path:', sys.executable)"
-          poetry run python -c "import playwright; print('Playwright package: OK')"
-          poetry run python -c "from playwright.sync_api import sync_playwright; print('sync_api import: OK')"
-
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         shell: cmd
         env:
           PYTHONIOENCODING: utf-8
-          PYTHONPATH: ""
-        working-directory: integration
-        run: |
-          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          echo Verifying Poetry environment before test execution...
-          poetry env info
-          poetry run python -c "from playwright.sync_api import sync_playwright; print('Pre-test verification: Playwright OK')"
-          poetry run test-conductor --name test-conductor-win ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run: integration/scripts/RunTestConductorWindows.cmd
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
