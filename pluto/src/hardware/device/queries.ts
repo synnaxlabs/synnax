@@ -96,7 +96,11 @@ export const createRetrieve = <
     ],
   });
 
-export const useRetrieve = createRetrieve();
+export const {
+  useRetrieve,
+  useRetrieveStateful: useStatefulRetrieve,
+  useRetrieveEffect,
+} = createRetrieve();
 
 export interface ListParams extends device.MultiRetrieveArgs {}
 

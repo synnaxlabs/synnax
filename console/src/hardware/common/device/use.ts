@@ -35,11 +35,11 @@ export const use = <
   Model extends string = string,
 >(): device.Device<Properties, Make, Model> | null => {
   const devKey = Form.useFieldValue<string>("config.device");
-  const useRetrieve = useMemo(
+  const { useRetrieveStateful } = useMemo(
     () => Device.createRetrieve<Properties, Make, Model>(),
     [],
   );
-  const { retrieve, data } = useRetrieve.stateful();
+  const { retrieve, data } = useRetrieveStateful();
   useEffect(() => {
     if (primitive.isZero(devKey)) return;
     retrieve({ key: devKey });

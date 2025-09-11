@@ -60,7 +60,7 @@ const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
   return symbol;
 };
 
-export const useRetrieve = Flux.createRetrieve<
+export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
   RetrieveParams,
   schematic.symbol.Symbol,
   SubStore
@@ -195,12 +195,8 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   },
   update: async ({ client, value, reset }) => {
     const payload = value();
-    const parent = payload.parent ?? ontology.ROOT_ID;
-    const created = await client.workspaces.schematic.symbols.create({
-      ...payload,
-      parent,
-    });
-    reset({ ...created, parent });
+    const created = await client.workspaces.schematic.symbols.create(payload);
+    reset({ ...created, parent: payload.parent });
   },
   mountListeners: ({ store, params, reset, get }) => {
     if (params.key == null) return [];
@@ -225,7 +221,7 @@ export interface RenameArgs {
   name: string;
 }
 
-export const useRename = Flux.createUpdate<RenameArgs, SubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
     await client.workspaces.schematic.symbols.rename(value.key, value.name);
@@ -240,7 +236,7 @@ export interface DeleteArgs {
   key: string;
 }
 
-export const useDelete = Flux.createUpdate<DeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
     await client.workspaces.schematic.symbols.delete(value.key);
@@ -248,7 +244,11 @@ export const useDelete = Flux.createUpdate<DeleteArgs, SubStore>({
   },
 });
 
-export const useRetrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
+export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+  {},
+  group.Payload,
+  SubStore
+>({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
     await client.workspaces.schematic.symbols.retrieveGroup(),

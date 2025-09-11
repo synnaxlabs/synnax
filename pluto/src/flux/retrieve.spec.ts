@@ -22,19 +22,19 @@ describe("retrieve", () => {
   describe("useDirect", () => {
     describe("basic retrieval", () => {
       it("should return a loading result as its initial state", () => {
-        const useRetrieve = Flux.createRetrieve<{}, number>({
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
           name: "Resource",
           retrieve: async () => 0,
         });
 
-        const { result } = renderHook(() => useRetrieve({}), { wrapper });
+        const { result } = renderHook(() => useRetrieve({ params: {} }), { wrapper });
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
       it("should return a success result when the data is fetched", async () => {
-        const useRetrieve = Flux.createRetrieve<{}, number>({
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
           name: "Resource",
           retrieve: async () => 12,
         });
@@ -48,7 +48,7 @@ describe("retrieve", () => {
       });
 
       it("should return an error result when the retrieve function throws an error", async () => {
-        const useRetrieve = Flux.createRetrieve<{}, number>({
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
           name: "Resource",
           retrieve: async () => {
             throw new Error("test");
@@ -65,7 +65,7 @@ describe("retrieve", () => {
       });
 
       it("should return an error result when no client is connected", async () => {
-        const useRetrieve = Flux.createRetrieve<{}, number>({
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
           name: "Resource",
           retrieve: async () => 0,
         });
@@ -94,15 +94,17 @@ describe("retrieve", () => {
           name: "Test Label",
           color: "#000000",
         });
-        const useRetrieve = Flux.createRetrieve<{ key: label.Key }, label.Label, Store>(
-          {
-            name: "Resource",
-            retrieve: async ({ client, params: { key } }) =>
-              await client.labels.retrieve({ key }),
-            mountListeners: ({ store, onChange, params: { key } }) =>
-              store.labels.onSet(onChange, key),
-          },
-        );
+        const { useRetrieve } = Flux.createRetrieve<
+          { key: label.Key },
+          label.Label,
+          Store
+        >({
+          name: "Resource",
+          retrieve: async ({ client, params: { key } }) =>
+            await client.labels.retrieve({ key }),
+          mountListeners: ({ store, onChange, params: { key } }) =>
+            store.labels.onSet(onChange, key),
+        });
 
         const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
           wrapper,
@@ -139,18 +141,18 @@ describe("retrieve", () => {
           const [result, setResult] = useState<Flux.Result<number>>(
             Flux.pendingResult<number>("Resource", "retrieving", undefined),
           );
-          const handleChange: Flux.UseEffectRetrieveArgs<
+          const handleChange: Flux.useRetrieveEffectArgs<
             { key: string },
             number
           >["onChange"] = (value) => {
             setResult(value);
             onChangeMock(value);
           };
-          const useRetrieve = Flux.createRetrieve<{ key: string }, number>({
+          const { useRetrieveEffect } = Flux.createRetrieve<{ key: string }, number>({
             name: "Resource",
             retrieve: async () => 12,
           });
-          useRetrieve.effect({
+          useRetrieveEffect({
             params: { key: "test" },
             onChange: handleChange,
           });
