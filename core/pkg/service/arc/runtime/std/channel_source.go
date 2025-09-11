@@ -36,8 +36,8 @@ func (c *channelSource) Next(ctx context.Context, value stage.Value) {
 	c.outputHandler(ctx, value)
 }
 
-func createChannelSource(_ context.Context, node ir.Node) (stage.Stage, error) {
-	source := &channelSource{base{key: node.Key}}
-	source.readChannels = unsafe.ReinterpretSlice[uint32, channel.Key](node.Channels.Read.Keys())
+func createChannelSource(_ context.Context, cfg Config) (stage.Stage, error) {
+	source := &channelSource{base{key: cfg.Node.Key}}
+	source.readChannels = unsafe.ReinterpretSlice[uint32, channel.Key](cfg.Node.Channels.Read.Keys())
 	return source, nil
 }

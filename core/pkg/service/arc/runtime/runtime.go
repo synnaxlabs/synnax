@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -46,6 +47,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Status is used for updating statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
 }
 
 var (
@@ -61,6 +66,7 @@ func (c Config) Override(other Config) Config {
 	c.Module = override.Zero(c.Module, other.Module)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -68,8 +74,9 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "module", c.Module)
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -114,9 +121,9 @@ func (r *Runtime) processOutput(ctx context.Context, value framer.StreamerRespon
 		r.values[value.Frame.RawKeyAt(i)] = ser
 	}
 	keys := value.Frame.KeysSlice()
-	for _, nodes := range r.nodes {
-		if len(lo.Intersect(nodes.ReadChannels(), keys)) > 0 {
-			nodes.Next(ctx, stage.Value{})
+	for _, node := range r.nodes {
+		if len(lo.Intersect(node.ReadChannels(), keys)) > 0 {
+			node.Next(ctx, stage.Value{})
 		}
 	}
 	return nil
@@ -177,7 +184,10 @@ func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, err
 		panic("unsupported")
 	}
 	// Priority 2: Attempt t find the stage i the standard library.
-	return std.Create(ctx, arcNode)
+	return std.Create(ctx, std.Config{
+		Node:   arcNode,
+		Status: cfg.Status,
+	})
 }
 
 func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {

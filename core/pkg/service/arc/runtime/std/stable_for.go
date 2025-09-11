@@ -50,8 +50,8 @@ func (s *stableFor) Next(ctx context.Context, value stage.Value) {
 	}
 }
 
-func createStableFor(_ context.Context, node ir.Node) (stage.Stage, error) {
-	duration := telem.TimeSpan(node.Config["duration"].(int))
+func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
+	duration := telem.TimeSpan(cfg.Node.Config["duration"].(int))
 	stg := &stableFor{}
 	stg.duration = duration
 	return stg, nil

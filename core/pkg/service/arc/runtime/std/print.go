@@ -26,8 +26,8 @@ var symbolPrinter = arc.Symbol{
 
 type printer struct{ base }
 
-func createPrinter(_ context.Context, node arc.Node) (stage.Stage, error) {
-	return &printer{base{key: node.Key}}, nil
+func createPrinter(_ context.Context, cfg Config) (stage.Stage, error) {
+	return &printer{base{key: cfg.Node.Key}}, nil
 }
 
 func (p *printer) Next(_ context.Context, value stage.Value) {

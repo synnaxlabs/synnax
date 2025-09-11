@@ -13,17 +13,15 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
-type Constructor = func(
-	ctx context.Context,
-	node arc.Node,
-) (stage.Stage, error)
+type Constructor = func(ctx context.Context, cfg Config) (stage.Stage, error)
 
 var factories = map[string]Constructor{
 	"ge": createBinaryOpFactory(func(a, b uint64) uint64 {
@@ -44,6 +42,7 @@ var factories = map[string]Constructor{
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
 	"printer":    createPrinter,
+	"set_status": createSetStatus,
 }
 
 var Resolver = ir.MapResolver{
@@ -57,12 +56,19 @@ var Resolver = ir.MapResolver{
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
 	"printer":    symbolPrinter,
+	"set_status": symbolSetStatus,
 }
 
-func Create(ctx context.Context, node ir.Node) (stage.Stage, error) {
-	v, ok := factories[node.Type]
+type Config struct {
+	alamos.Instrumentation
+	Node   ir.Node
+	Status *status.Service
+}
+
+func Create(ctx context.Context, cfg Config) (stage.Stage, error) {
+	v, ok := factories[cfg.Node.Type]
 	if !ok {
-		return nil, errors.Wrapf(query.NotFound, "std. lib stage with type %s not found", node.Type)
+		return nil, errors.Wrapf(query.NotFound, "std. lib stage with type %s not found", cfg.Node.Type)
 	}
-	return v(ctx, node)
+	return v(ctx, cfg)
 }

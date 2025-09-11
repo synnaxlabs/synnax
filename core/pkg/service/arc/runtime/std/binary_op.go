@@ -56,7 +56,9 @@ func (n *operator) Next(ctx context.Context, value stage.Value) {
 }
 
 func createBinaryOpFactory(compare func(a, b uint64) uint64) Constructor {
-	return func(ctx context.Context, node ir.Node) (stage.Stage, error) {
-		return &operator{compare: compare}, nil
+	return func(_ context.Context, cfg Config) (stage.Stage, error) {
+		o := &operator{compare: compare}
+		o.key = cfg.Node.Key
+		return o, nil
 	}
 }
