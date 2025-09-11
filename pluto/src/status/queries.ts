@@ -56,7 +56,10 @@ export const useList = createList<ListParams, status.Key, status.Status, SubStor
   },
 });
 
-export const useDelete = createUpdate<status.Key | status.Key[], SubStore>({
+export const { useUpdate: useDelete } = createUpdate<
+  status.Key | status.Key[],
+  SubStore
+>({
   name: "Status",
   update: async ({ client, value }) => await client.statuses.delete(value),
 });
@@ -66,7 +69,7 @@ export interface SetArgs {
   parent?: ontology.ID;
 }
 
-export const useSet = createUpdate<SetArgs, SubStore>({
+export const { useUpdate: useSet } = createUpdate<SetArgs, SubStore>({
   name: "Status",
   update: async ({ client, value: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
@@ -78,11 +81,13 @@ interface UseStatusParams {
   key: status.Key;
 }
 
-export const useRetrieve = createRetrieve<UseStatusParams, status.Status, SubStore>({
-  name: "Status",
-  retrieve: async ({ client, params: { key } }) =>
-    await client.statuses.retrieve({ key }),
-  mountListeners: ({ store, params: { key }, onChange }) => [
-    store.statuses.onSet(onChange, key),
-  ],
-});
+export const { useRetrieve } = createRetrieve<UseStatusParams, status.Status, SubStore>(
+  {
+    name: "Status",
+    retrieve: async ({ client, params: { key } }) =>
+      await client.statuses.retrieve({ key }),
+    mountListeners: ({ store, params: { key }, onChange }) => [
+      store.statuses.onSet(onChange, key),
+    ],
+  },
+);
