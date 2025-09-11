@@ -11,7 +11,7 @@ rem included in the file licenses/APL.txt.
 
 rem SY-2922
 
-echo 📦 Installing Poetry and dependencies on Windows...
+echo Installing Poetry and dependencies on Windows...
 
 rem Change to the integration directory
 cd integration
@@ -27,7 +27,7 @@ rem Verify Poetry is available
 echo Verifying Poetry installation...
 poetry --version
 if %errorlevel% neq 0 (
-    echo ❌ Poetry not found in PATH, trying alternative location...
+    echo Poetry not found in PATH, trying alternative location...
     set PATH=%APPDATA%\pypoetry\venv\Scripts;%PATH%
     poetry --version
     if %errorlevel% neq 0 exit /b %errorlevel%
