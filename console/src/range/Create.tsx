@@ -158,7 +158,7 @@ export const Create: Layout.Renderer = (props) => {
           <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, value }) => (
-                <Ranger.SelectSingle
+                <Ranger.Select
                   style={{ width: "fit-content" }}
                   zIndex={-1}
                   filter={recursiveParentFilter}

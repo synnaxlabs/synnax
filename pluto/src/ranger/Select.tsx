@@ -7,38 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/ranger/Select.css";
-
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
+import { CSS } from "@/css";
 import { type Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { ListItem } from "@/ranger/ListItem";
+import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListParams, useList } from "@/ranger/queries";
+import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select as Core } from "@/select";
-
-const listItemRenderProp = Component.renderProp(ListItem);
+import { Tag } from "@/tag";
 
 export interface SelectProps
   extends Omit<
       Core.SingleProps<ranger.Key, ranger.Payload | undefined>,
-      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+      | "data"
+      | "getItem"
+      | "subscribe"
+      | "status"
+      | "onFetchMore"
+      | "onSearch"
+      | "children"
+      | "resourceName"
     >,
     Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
-const DIALOG_PROPS: Dialog.DialogProps = { style: { width: 800 } };
-
 export const Select = ({
-  onChange,
-  value,
   filter,
-  allowNone,
-  emptyContent,
   initialParams,
   ...rest
 }: SelectProps): ReactElement => {
@@ -49,25 +50,69 @@ export const Select = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Core.Single<ranger.Key, ranger.Payload | undefined>
-      resourceName="Range"
       variant="modal"
-      value={value}
-      onChange={onChange}
-      data={data}
-      allowNone={allowNone}
       haulType={HAUL_TYPE}
-      onFetchMore={fetchMore}
-      getItem={getItem}
-      subscribe={subscribe}
-      status={status}
-      onSearch={search}
-      emptyContent={emptyContent}
       icon={<Icon.Range />}
       itemHeight={45}
       dialogProps={DIALOG_PROPS}
       {...rest}
+      resourceName="Range"
+      data={data}
+      subscribe={subscribe}
+      getItem={getItem}
+      status={status}
+      onFetchMore={fetchMore}
+      onSearch={search}
     >
       {listItemRenderProp}
     </Core.Single>
   );
 };
+
+const DIALOG_PROPS: Dialog.DialogProps = { style: { width: 800 } };
+
+interface ListItemProps extends List.ItemProps<ranger.Key> {
+  showParent?: boolean;
+  showLabels?: boolean;
+}
+
+const ListItem = ({
+  className,
+  itemKey,
+  showParent = true,
+  showLabels = true,
+  ...rest
+}: ListItemProps): ReactElement | null => {
+  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  if (item == null) return null;
+  const { name, timeRange, parent, labels } = item;
+  return (
+    <Core.ListItem
+      className={CSS(CSS.BE("range", "list-item"), className)}
+      itemKey={itemKey}
+      justify="between"
+      {...rest}
+    >
+      <Breadcrumb
+        name={name}
+        parent={parent}
+        showParent={showParent}
+        timeRange={timeRange}
+      />
+      <Flex.Box x>
+        {showLabels && labels != null && labels.length > 0 && (
+          <>
+            {labels.map(({ key, name, color }) => (
+              <Tag.Tag key={key} color={color} size="small">
+                {name}
+              </Tag.Tag>
+            ))}
+          </>
+        )}
+        <TimeRangeChip level="small" timeRange={timeRange} />
+      </Flex.Box>
+    </Core.ListItem>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);

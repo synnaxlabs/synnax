@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
@@ -24,12 +23,10 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
-const sort = (a: ranger.Range, b: ranger.Range) =>
-  Ranger.STAGES.indexOf(Ranger.getStage(b.timeRange)) -
-  Ranger.STAGES.indexOf(Ranger.getStage(a.timeRange));
-
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({ sort });
+  const { data, getItem, subscribe, retrieve } = Ranger.useList({
+    sort: Ranger.sortByStage,
+  });
   return (
     <List
       data={data}
