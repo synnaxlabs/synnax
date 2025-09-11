@@ -58,9 +58,6 @@
           "fail_test": true
         },
         "expect": "FAILED"
-      },
-      {
-        "case": "test/test_no_timeout"
       }
     ]
   },

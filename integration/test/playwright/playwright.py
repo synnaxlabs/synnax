@@ -123,7 +123,7 @@ class Playwright(TestCase):
         # SY-2928
         # Firefox failing in CI only
         # Webkit failing on Win in CI
-        browsers = [ "chromium" ]
+        browsers = ["chromium"]
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)
