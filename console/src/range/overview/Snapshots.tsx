@@ -30,7 +30,7 @@ import { type FC } from "react";
 import { CSS } from "@/css";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { create } from "@/schematic/Schematic";
 
 interface SnapshotCtx {
@@ -85,17 +85,16 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       `Failed to open ${entry.name}`,
     );
   };
-  const promptConfirm = Modals.useConfirm();
+  const promptConfirm = useConfirmDelete({
+    type: "Snapshot",
+  });
   const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     handleError(async () => {
-      const confirmed = await promptConfirm({
-        message: `Are you sure you want to delete ${name}?`,
-        description: "This action cannot be undone.",
-      });
+      const confirmed = await promptConfirm({ name });
       if (!confirmed) return;
       await svc.onDelete(entry, { client, placeLayout });
-    }, "Failed to delete snapshot");
+    }, `Failed to delete ${name}`);
   };
   return (
     <List.Item

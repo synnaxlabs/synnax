@@ -15,6 +15,7 @@ import {
   type List,
   Menu as PMenu,
   Ranger,
+  Status,
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -60,22 +61,24 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const handleUnfavorite = () => {
     dispatch(remove({ keys: ranges.map((r) => r.key) }));
   };
+  const handleError = Status.useErrorHandler();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => {
-      rename({ initialValue: ranges[0].name }, { icon: "Range", name: "Range.Rename" })
-        .then((renamed) => {
-          if (renamed == null) return;
-          ctx.set("name", renamed);
-        })
-        .catch(console.error);
+      handleError(async () => {
+        const renamed = await rename(
+          { initialValue: ranges[0].name },
+          { icon: "Range", name: "Range.Rename" },
+        );
+        if (renamed == null) return;
+        ctx.set("name", renamed);
+      }, "Failed to rename range");
     },
     delete: () => {
-      confirm(ranges)
-        .then((confirmed) => {
-          if (confirmed) del(ranges.map((r) => r.key));
-        })
-        .catch(console.error);
+      handleError(async () => {
+        const confirmed = await confirm(ranges);
+        if (confirmed) del(ranges.map((r) => r.key));
+      }, "Failed to delete range");
     },
     addChildRange: handleAddChildRange,
     favorite: handleFavorite,

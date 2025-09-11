@@ -126,7 +126,8 @@ export const Item = ({
         <Flex.Box x align="center">
           <Tag.Tags variant="text">
             {showLabels &&
-              labels?.map(({ key, name, color }) => (
+              labels != null &&
+              labels.map(({ key, name, color }) => (
                 <Tag.Tag key={key} color={color} size="small">
                   {name}
                 </Tag.Tag>

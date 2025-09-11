@@ -30,16 +30,35 @@ export const TimeRangeChip = ({
   color = 9,
   variant = "text",
   ...rest
-}: TimeRangeChipProps): ReactElement => {
+}: TimeRangeChipProps): ReactElement | null => {
   const tr = new TimeRange(timeRange).makeValid();
+  const startIsUnknown = tr.start.equals(TimeStamp.MAX);
   const startIsToday = tr.start.isToday;
   const startFormat = startIsToday ? "time" : "dateTime";
-  const isOpen = tr.end.equals(TimeStamp.MAX);
+  const startTime = startIsUnknown ? (
+    <Text.Text level={level} color={color} weight={450}>
+      ?
+    </Text.Text>
+  ) : (
+    <Flex.Box x align="center" gap="small">
+      {startIsToday && (
+        <Text.Text level={level} color={color} weight={450}>
+          Today
+        </Text.Text>
+      )}
+      <Text.DateTime level={level} format={startFormat} color={color} weight={450}>
+        {tr.start}
+      </Text.DateTime>
+    </Flex.Box>
+  );
+  const endIsUnknown = tr.end.equals(TimeStamp.MAX);
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
   const endTime = (
     <>
-      {isOpen ? (
-        <Text.Text level={level}>Now</Text.Text>
+      {endIsUnknown ? (
+        <Text.Text level={level} color={color} weight={450}>
+          ?
+        </Text.Text>
       ) : (
         <Text.DateTime
           level={level}
@@ -61,16 +80,7 @@ export const TimeRangeChip = ({
       align="center"
       {...rest}
     >
-      <Flex.Box x align="center" gap="small">
-        {startIsToday && (
-          <Text.Text level={level} color={color} weight={450}>
-            Today
-          </Text.Text>
-        )}
-        <Text.DateTime level={level} format={startFormat} color={color} weight={450}>
-          {tr.start}
-        </Text.DateTime>
-      </Flex.Box>
+      {startTime}
       <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
       {endTime}
     </Flex.Box>

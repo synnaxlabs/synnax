@@ -13,7 +13,7 @@ import {
   Flex,
   Icon,
   Label as PLabel,
-  Menu as PMenu,
+  Menu,
   type state,
   Tag,
   Text,
@@ -28,26 +28,24 @@ export interface SelectFiltersProps {
 }
 
 export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <PMenu.Menu level="small" gap="small">
+  <Menu.Menu level="small" gap="small">
     <Label.SelectMultiple
       value={request.hasLabels ?? []}
       onChange={(v) => onRequestChange((p) => ({ ...p, hasLabels: v }))}
       triggerProps={{ hideTags: true, variant: "text" }}
       location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
     />
-  </PMenu.Menu>
+  </Menu.Menu>
 );
 
 export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <Dialog.Frame location={location.BOTTOM_LEFT}>
+  <Dialog.Frame location={location.BOTTOM_RIGHT}>
     <Dialog.Trigger hideCaret>
       <Icon.Filter />
     </Dialog.Trigger>
     <Dialog.Dialog
       background={1}
-      style={{
-        padding: "1rem",
-      }}
+      style={{ padding: "1rem" }}
       borderColor={5}
       pack={false}
     >
