@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/aspen
 
-go 1.25.0
+go 1.25.1
 
 require (
 	github.com/cockroachdb/pebble/v2 v2.1.0

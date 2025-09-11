@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/alamos
 
-go 1.25.0
+go 1.25.1
 
 replace github.com/synnaxlabs/x => ../../x/go
 
