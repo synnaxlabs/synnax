@@ -185,12 +185,11 @@ const RemoteSymbolListContextMenu = (
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
-    params: { key: firstKey },
     beforeUpdate: async ({ value }) => {
       if (item == null) return false;
       const newName = await renameModal(
         {
-          initialValue: value,
+          initialValue: value.name,
           allowEmpty: false,
           label: "Symbol Name",
         },
@@ -200,11 +199,10 @@ const RemoteSymbolListContextMenu = (
         },
       );
       if (newName == null) return false;
-      return newName;
+      return value;
     },
   });
   const del = Schematic.Symbol.useDelete({
-    params: { key: firstKey },
     beforeUpdate: async () => {
       if (item == null) return false;
       return await confirmDelete({ name: item.name });
@@ -218,8 +216,11 @@ const RemoteSymbolListContextMenu = (
     );
   };
   const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update(),
-    rename: () => rename.update(item?.name ?? ""),
+    delete: () => del.update({ key: firstKey }),
+    rename: () => {
+      if (item == null) return;
+      rename.update(item);
+    },
     edit: handleEdit,
     export: () => exportSymbol(firstKey),
   };
@@ -354,7 +355,7 @@ const Actions = ({
   symbolGroupID,
   selectedGroup,
 }: ActionsProps): ReactElement | null => {
-  const { updateAsync } = Group.create.useDirect({ params: {} });
+  const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
@@ -452,18 +453,17 @@ const GroupListContextMenu = ({
   const exportGroup = useExportGroup();
   const deleteSymbolGroup = useDeleteSymbolGroup();
   const rename = Group.useRename({
-    params: { key: item?.key ?? "" },
     beforeUpdate: async ({ value }) => {
       if (item == null) return false;
       const newName = await renameModal(
-        { initialValue: value, allowEmpty: false, label: "Gorup Name" },
+        { initialValue: value.name, allowEmpty: false, label: "Group Name" },
         {
           name: "Schematic.Symbols.Rename Group",
           icon: "Group",
         },
       );
       if (newName == null) return false;
-      return newName;
+      return value;
     },
   });
 
@@ -472,7 +472,10 @@ const GroupListContextMenu = ({
       if (item == null) return;
       deleteSymbolGroup(item);
     },
-    rename: () => rename.update(item?.name ?? ""),
+    rename: () => {
+      if (item == null) return;
+      rename.update(item);
+    },
     export: () => {
       if (item == null) return;
       exportGroup(item);
@@ -609,7 +612,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   );
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
+  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ params: {} });
   const searchMode = searchTerm.length > 0;
   let symbolList = (
     <StaticSymbolList key={groupKey} groupKey={groupKey} onSelect={handleAddElement} />

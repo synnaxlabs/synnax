@@ -50,7 +50,14 @@ interface SubStore extends Flux.Store {
   relationships: Flux.UnaryStore<string, ontology.Relationship>;
 }
 
-export const retrieveLabelsOf = Flux.createRetrieve<
+export const retrieveCachedLabelsOf = (store: SubStore, id: ontology.ID) => {
+  const keys = store.relationships
+    .get((rel) => matchRelationship(rel, id))
+    .map((rel) => rel.to.key);
+  return store.labels.get(keys);
+};
+
+export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   UseLabelsOfQueryParams,
   label.Label[],
   SubStore
@@ -131,11 +138,11 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, SubStore>(
   ],
 });
 
-export interface DeleteParams {
+export interface UseDeleteArgs {
   key: label.Key;
 }
 
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
-  update: async ({ client, params: { key } }) => await client.labels.delete(key),
-}).useDirect;
+  update: async ({ client, value }) => await client.labels.delete(value.key),
+});
