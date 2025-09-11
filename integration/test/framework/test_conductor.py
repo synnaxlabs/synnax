@@ -977,13 +977,28 @@ def main() -> None:
 
     try:
         # Handle sequence parameter - support both single file and list
-        sequence_input = None
+        sequence_input: Optional[Union[str, List[str]]] = None
         if args.sequence:
             # Check if it's a comma-separated list
             if "," in args.sequence:
-                sequence_input = [s.strip() for s in args.sequence.split(",")]
+                raw_list = [s.strip() for s in args.sequence.split(",")]
+                sequence_input = [
+                    (
+                        s
+                        if s.endswith(".json")
+                        else (
+                            f"{s}.json" if s.endswith("_tests") else f"{s}_tests.json"
+                        )
+                    )
+                    for s in raw_list
+                ]
             else:
-                sequence_input = args.sequence
+                if args.sequence.endswith(".json"):
+                    sequence_input = args.sequence
+                elif args.sequence.endswith("_tests"):
+                    sequence_input = f"{args.sequence}.json"
+                else:
+                    sequence_input = f"{args.sequence}_tests.json"
 
         conductor.load_test_sequence(sequence_input)
         results = conductor.run_sequence()

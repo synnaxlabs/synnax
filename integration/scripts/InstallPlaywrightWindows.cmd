@@ -10,9 +10,14 @@ rem License, use of this software will be governed by the Apache License, Versio
 rem included in the file licenses/APL.txt.
 
 echo 📦 Installing Playwright browsers on Windows...
+echo Current directory: %CD%
 
-rem Change to the integration directory
-cd integration
+rem Change to the integration directory if not already there
+if not exist "pyproject.toml" (
+    echo Changing to integration directory...
+    cd integration
+    echo New directory: %CD%
+)
 
 rem Try to find Poetry executable
 set "POETRY_CMD=poetry"
@@ -36,7 +41,11 @@ if %errorlevel% neq 0 (
 
 rem Install Playwright browsers
 echo Installing Playwright browsers...
+echo Using Poetry command: %POETRY_CMD%
 "%POETRY_CMD%" run playwright install --with-deps
-if %errorlevel% neq 0 exit /b %errorlevel%
+if %errorlevel% neq 0 (
+    echo ❌ Playwright installation failed with error code %errorlevel%
+    exit /b %errorlevel%
+)
 
 echo ✅ Playwright browsers installed successfully
