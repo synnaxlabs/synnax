@@ -75,7 +75,6 @@ jobs:
 
   setup:
     runs-on: ubuntu-latest
-    needs: lint-python
     outputs:
       SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}

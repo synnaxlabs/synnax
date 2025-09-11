@@ -9,13 +9,13 @@
 
 import os
 import time
-from test.playwright.browser_manager import Playwright
+from test.console.console import Console
 from typing import Any, Dict, List, Optional, Union, cast
 
 from playwright.sync_api import FloatRect
 
 
-class Plot(Playwright):
+class Plot(Console):
     """
     Parent class for Plot tests
     """

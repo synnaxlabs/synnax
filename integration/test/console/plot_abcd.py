@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
-from test.playwright.plot import Plot
+from test.console.plot import Plot
 
 
 class Plot_Abcd(Plot):

@@ -9,11 +9,11 @@
 
 import re
 import time
-from test.playwright.browser_manager import Playwright
+from test.console.console import Console
 from typing import Any, Dict, Optional
 
 
-class Schematic(Playwright):
+class Schematic(Console):
     """
     Parent class for schematic tests
     """

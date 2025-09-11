@@ -16,9 +16,9 @@ from typing import Optional, cast
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 
-class Playwright(TestCase):
+class Console(TestCase):
     """
-    Playwright TestCase implementation
+    Console TestCase implementation using Playwright
     """
 
     browser: Browser
