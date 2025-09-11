@@ -34,17 +34,9 @@ if exist pyproject.toml (
     echo WARNING: pyproject.toml not found
 )
 
-rem Test Playwright import
+rem Test Playwright import and run test conductor in same poetry session
 echo Testing Playwright import...
-poetry run python -c "import sys; print('Python executable:', sys.executable)"
-poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
-
-rem Debug: Show Poetry environment info
-echo Getting Poetry environment info for debugging...
-poetry env info
-
-rem Run test conductor
-poetry run test-conductor --name test-conductor-win
+poetry run python -c "import sys; print('Python executable:', sys.executable); from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS'); import subprocess; import os; print('Current working directory:', os.getcwd()); result = subprocess.run([sys.executable, '-m', 'test.framework.test_conductor', '--name', 'test-conductor-win'], cwd=os.getcwd()); exit(result.returncode)"
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo Test conductor completed
