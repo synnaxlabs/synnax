@@ -9,6 +9,11 @@ rem As of the Change Date specified in that file, in accordance with the Busines
 rem License, use of this software will be governed by the Apache License, Version 2.0,
 rem included in the file licenses/APL.txt.
 
+rem SY-2922
+
+echo 📦 Installing Playwright browsers on Windows...
+echo Current directory: %CD%
+
 echo 📦 Installing Playwright browsers on Windows...
 echo Current directory: %CD%
 
@@ -39,41 +44,10 @@ if %errorlevel% neq 0 (
     )
 )
 
-rem Ensure Playwright package is installed first
-echo Verifying Playwright package installation...
-"%POETRY_CMD%" run python -c "import playwright; print('Playwright package found:', playwright.__version__)"
-if %errorlevel% neq 0 (
-    echo ❌ Playwright package not found, reinstalling dependencies...
-    "%POETRY_CMD%" install
-    if %errorlevel% neq 0 (
-        echo ❌ Failed to install dependencies
-        exit /b %errorlevel%
-    )
-)
-
-rem Verify sync_api module specifically
-echo Verifying Playwright sync_api module...
-"%POETRY_CMD%" run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api module found')"
-if %errorlevel% neq 0 (
-    echo ❌ Playwright sync_api module not found
-    exit /b %errorlevel%
-)
-
-rem Install Playwright browsers (Windows-specific approach)
-echo Installing Playwright browsers for Windows...
+rem Install Playwright browsers
+echo Installing Playwright browsers...
 echo Using Poetry command: %POETRY_CMD%
-
-rem Try with --with-deps first, fallback to without deps if it fails on Windows
 "%POETRY_CMD%" run playwright install --with-deps
-if %errorlevel% neq 0 (
-    echo ⚠️ Full dependency installation failed, trying browsers only...
-    "%POETRY_CMD%" run playwright install
-    if %errorlevel% neq 0 (
-        echo ❌ Playwright browser installation failed with error code %errorlevel%
-        exit /b %errorlevel%
-    ) else (
-        echo ⚠️ Browsers installed without system dependencies (Windows limitation)
-    )
-)
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo ✅ Playwright browsers installed successfully
