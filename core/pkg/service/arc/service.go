@@ -133,6 +133,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	s.mu.closer = closer
+	s.mu.entries = make(map[uuid.UUID]*entry)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))

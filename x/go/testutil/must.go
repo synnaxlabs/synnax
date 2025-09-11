@@ -12,7 +12,7 @@ package testutil
 import . "github.com/onsi/gomega"
 
 func MustSucceed[T any](value T, err error) T {
-	return MustSucceedWithOffset[T](0)(value, err)
+	return MustSucceedWithOffset[T](1)(value, err)
 }
 
 func MustSucceedWithOffset[T any](offset int) func(value T, err error) T {

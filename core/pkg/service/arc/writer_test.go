@@ -26,7 +26,7 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Status Writer", func() {
 		Describe("Create with Status", func() {
-			FIt("Should create an Arc and set its initial status", func() {
+			It("Should create an Arc and set its initial status", func() {
 				a := arc.Arc{
 					Name:  "test-arc",
 					Graph: graph.Graph{},
@@ -35,7 +35,6 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 				Expect(a.Key).ToNot(Equal(uuid.Nil))
 
-				// Verify the status was created
 				var s status.Status
 				statusKey := a.Key.String()
 				Expect(gorp.NewRetrieve[string, status.Status]().
@@ -46,7 +45,7 @@ var _ = Describe("Writer", func() {
 				Expect(s.Key).To(Equal(statusKey))
 				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
 				Expect(s.Variant).To(Equal(xstatus.InfoVariant))
-				Expect(s.Message).To(Equal("Status created successfully"))
+				Expect(s.Message).To(Equal("Arc created successfully"))
 			})
 
 			It("Should create an Arc with explicit key and set status", func() {

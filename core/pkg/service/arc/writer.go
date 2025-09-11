@@ -63,7 +63,7 @@ func (w Writer) Create(
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),
 		Variant: xstatus.InfoVariant,
-		Message: "Status created successfully",
+		Message: "Arc created successfully",
 		Time:    telem.Now(),
 	}, otgID)
 }

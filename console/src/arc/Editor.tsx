@@ -311,7 +311,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Diagram.FitViewControl />
         </Diagram.Controls>
       </Core.Arc>
-      <Flex.Box style={{ padding: "2rem" }} justify="end" grow>
+      <Flex.Box
+        style={{
+          padding: "2rem",
+          position: "absolute",
+          bottom: 0,
+          right: 0,
+          width: 500,
+        }}
+        justify="end"
+        grow
+      >
         <Flex.Box
           x
           background={1}
@@ -332,7 +342,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 text: { contents: "" },
               });
             }}
-          ></Button.Button>
+          >
+            <Icon.Play />
+            Deploy
+          </Button.Button>
         </Flex.Box>
       </Flex.Box>
     </div>

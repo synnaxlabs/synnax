@@ -27,6 +27,8 @@ const (
 type Status[D any] struct {
 	// Key is a unique key for the status.
 	Key string `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the status.
+	Name string `json:"name" msgpack:"name"`
 	// Variant is the variant of the status.
 	Variant Variant `json:"variant" msgpack:"variant"`
 	// Message is the message of the status.
