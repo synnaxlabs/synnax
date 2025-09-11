@@ -17,15 +17,38 @@ rem SY-2922
 
 echo Running test conductor on Windows...
 
+rem Debug: Show initial working directory
+echo Initial directory: %CD%
+
 rem Set Poetry PATH
 set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
 
 rem Change to integration directory first
 cd integration
 
+rem Debug: Show current directory and check for pyproject.toml
+echo Current directory: %CD%
+if exist pyproject.toml (
+    echo Found pyproject.toml
+) else (
+    echo WARNING: pyproject.toml not found
+)
+
 rem Get Poetry virtual environment Python path and set PYTHONPATH
-for /f %%i in ('poetry env info -p') do set VENV_PATH=%%i
-set PYTHONPATH=%VENV_PATH%\Lib\site-packages;%PYTHONPATH%
+echo Getting Poetry environment info...
+for /f %%i in ('poetry env info -p 2^>nul') do set VENV_PATH=%%i
+if defined VENV_PATH (
+    echo Virtual environment path: %VENV_PATH%
+    set PYTHONPATH=%VENV_PATH%\Lib\site-packages;%PYTHONPATH%
+    echo PYTHONPATH set to: %PYTHONPATH%
+) else (
+    echo WARNING: Could not get Poetry virtual environment path
+)
+
+rem Test Playwright import with the set PYTHONPATH
+echo Testing Playwright import...
+poetry run python -c "import sys; print('Python executable:', sys.executable)"
+poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
 
 rem Run test conductor
 poetry run test-conductor --name test-conductor-win
