@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package pebblekv_test
 
 import (
@@ -192,6 +201,28 @@ var _ = Describe("Migrate", func() {
 			// Should no longer require migration
 			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
 			Expect(requiresMigration).To(BeFalse())
+		})
+
+		It("should verify format versions during migration", func() {
+			dbPath := filepath.Join(tempDir, "format-verification-db")
+
+			// Create very old format database
+			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
+				FormatMajorVersion: pebblev1.FormatMostCompatible, // Very old format
+			}))
+			Expect(oldDB.Close()).To(Succeed())
+
+			// Verify initial format is old
+			dbDesc := MustSucceed(pebble.Peek(dbPath, vfs.Default))
+			initialFormat := dbDesc.FormatMajorVersion
+			Expect(uint64(initialFormat) < uint64(pebble.FormatMinSupported)).To(BeTrue())
+
+			// Migrate
+			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+
+			// Verify final format is newest
+			dbDesc = MustSucceed(pebble.Peek(dbPath, vfs.Default))
+			Expect(dbDesc.FormatMajorVersion).To(Equal(pebble.FormatNewest))
 		})
 	})
 })

@@ -34,24 +34,9 @@ func Migrate(dirname string) error {
 		return err
 	}
 
-	// If the format is already supported by v2, just open and close with v2
-	if dbDesc.FormatMajorVersion.IsSupported() {
-		db, err := pebble.Open(dirname, &pebble.Options{
-			FS:                 vfs.Default,
-			FormatMajorVersion: pebble.FormatNewest,
-		})
-		if err != nil {
-			return err
-		}
-		return db.Close()
-	}
-
 	// Only use v1 for truly old formats (< v2's minimum supported version)
 	if uint64(dbDesc.FormatMajorVersion) < uint64(pebble.FormatMinSupported) {
-		oldDB, err := pebblev1.Open(dirname, &pebblev1.Options{
-			FS:                 vfsv1.Default,
-			FormatMajorVersion: pebblev1.FormatNewest,
-		})
+		oldDB, err := pebblev1.Open(dirname, &pebblev1.Options{FS: vfsv1.Default})
 		if err != nil {
 			return err
 		}
@@ -61,18 +46,9 @@ func Migrate(dirname string) error {
 		if err := oldDB.Close(); err != nil {
 			return err
 		}
-		// Now open with v2 to complete the migration
-		db, err := pebble.Open(dirname, &pebble.Options{
-			FS:                 vfs.Default,
-			FormatMajorVersion: pebble.FormatNewest,
-		})
-		if err != nil {
-			return err
-		}
-		return db.Close()
 	}
 
-	// For formats between v1's newest and v2's minimum, open with v2 directly
+	// For all other formats, open with v2 (handles both supported formats and auto-migration)
 	db, err := pebble.Open(dirname, &pebble.Options{
 		FS:                 vfs.Default,
 		FormatMajorVersion: pebble.FormatNewest,
