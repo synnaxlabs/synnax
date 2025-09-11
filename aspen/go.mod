@@ -90,3 +90,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250908214217-97024824d090 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250908214217-97024824d090 // indirect
 )
+
+replace google.golang.org/genproto => /tmp/empty_genproto
