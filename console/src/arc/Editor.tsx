@@ -11,8 +11,11 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Arc,
   Arc as Core,
+  Button,
   Diagram,
+  Flex,
   Haul,
   Icon,
   Menu as PMenu,
@@ -51,7 +54,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import { translateGraphToconsole } from "@/arc/types/translate";
+import { translateGraphToconsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
@@ -66,7 +69,7 @@ interface SymbolRendererProps extends Diagram.SymbolProps {
   dispatch: Dispatch<UnknownAction>;
 }
 
-const SymbolRenderer = ({
+const StageRenderer = ({
   symbolKey,
   position,
   selected,
@@ -171,7 +174,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
-      <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
+      <StageRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
     [layoutKey, undoableDispatch],
   );
@@ -263,7 +266,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, arc.graph.editable, dispatch]);
 
-  const canEditSlate = useSelectHasPermission();
+  const canEditArc = useSelectHasPermission();
 
   const viewportMode = useSelectViewportMode();
 
@@ -271,6 +274,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
     [layoutKey, dispatch],
   );
+
+  const { update: create } = Arc.useCreate();
 
   return (
     <div
@@ -302,10 +307,34 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
         <Diagram.Controls>
-          {canEditSlate && <Diagram.ToggleEditControl />}
+          {canEditArc && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
         </Diagram.Controls>
       </Core.Arc>
+      <Flex.Box style={{ padding: "2rem" }} justify="end" grow>
+        <Flex.Box
+          x
+          background={1}
+          style={{ padding: "2rem" }}
+          bordered
+          borderColor={5}
+          grow
+          rounded={2}
+          justify="between"
+        >
+          <Button.Button
+            onClick={() => {
+              create({
+                key: arc.key,
+                name: "New Arc",
+                graph: translateGraphToServer(arc.graph),
+                version: arc.version,
+                text: { contents: "" },
+              });
+            }}
+          ></Button.Button>
+        </Flex.Box>
+      </Flex.Box>
     </div>
   );
 };

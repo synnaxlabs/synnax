@@ -14,10 +14,7 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
-type Status struct {
-	Name string `json:"name" msgpack:"name"`
-	status.Status[any]
-}
+type Status status.Status[any]
 
 var _ gorp.Entry[string] = (*Status)(nil)
 

@@ -11,10 +11,14 @@ package arc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Writer is used to create, update, and delete arcs within Synnax. The writer
@@ -22,9 +26,9 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
+	tx     gorp.Tx
+	otg    ontology.Writer
+	status status.Writer
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -32,24 +36,36 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	c *Arc,
-) (err error) {
-	var exists bool
+) error {
+	var (
+		exists bool
+		err    error
+	)
 	if c.Key == uuid.Nil {
 		c.Key = uuid.New()
 	} else {
 		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(c.Key).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(c).Exec(ctx, w.tx); err != nil {
-		return
-	}
-	if exists {
-		return
+		return err
 	}
 	otgID := OntologyID(c.Key)
-	return w.otgWriter.DefineResource(ctx, otgID)
+	if !exists {
+		if err := w.otg.DefineResource(ctx, otgID); err != nil {
+			return err
+		}
+	}
+
+	return w.status.SetWithParent(ctx, &status.Status{
+		Name:    fmt.Sprintf("%s Status", c.Name),
+		Key:     c.Key.String(),
+		Variant: xstatus.InfoVariant,
+		Message: "Status created successfully",
+		Time:    telem.Now(),
+	}, otgID)
 }
 
 // Delete deletes the arcs with the given keys.
@@ -61,7 +77,7 @@ func (w Writer) Delete(
 		return
 	}
 	for _, key := range keys {
-		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return
 		}
 	}

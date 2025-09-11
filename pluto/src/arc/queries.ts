@@ -97,3 +97,11 @@ export const useForm = Flux.createForm<RetrieveParams, typeof formSchema, SubSto
     store.arcs.set(updated.key, updated);
   },
 });
+
+export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, SubStore>({
+  name: "Arcs",
+  update: async ({ client, value, store }) => {
+    const arc = await client.arcs.create(value);
+    store.arcs.set(arc.key, arc);
+  },
+});

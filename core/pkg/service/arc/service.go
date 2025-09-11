@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -39,10 +40,25 @@ type ServiceConfig struct {
 	DB *gorp.DB
 	// Ontology is used to define relationships between arcs and other entities in
 	// the Synnax resource graph.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Channel
+	// Channel is used for retrieving channel information from the cluster.
+	//
+	// [REQUIRED]
 	Channel channel.Readable
-	Framer  *framer.Service
+	// Framer is used for reading and writing telemetry frames to/from the cluster.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Status is used for creating arc-related statuses
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// Signals is used for propagating changes to arcs through the cluster.
+	//
+	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
+	// is nil.
 	Signals *signals.Provider
 }
 
@@ -60,19 +76,22 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("Arc")
-	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
 func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
-	return runtime.Config{Channel: c.Channel, Framer: c.Framer}
+	return runtime.Config{Channel: c.Channel, Framer: c.Framer, Status: c.Status}
 }
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
@@ -132,9 +151,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
+		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		otg:    s.cfg.Ontology.NewWriter(tx),
+		status: s.cfg.Status.NewWriter(tx),
 	}
 }
 
