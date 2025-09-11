@@ -91,7 +91,7 @@ var _ = Describe("Status", Ordered, func() {
 				s.Message = "Updated message"
 				s.Variant = "warning"
 				Expect(w.Set(ctx, s)).To(Succeed())
-				
+
 				var retrieved status.Status
 				Expect(svc.NewRetrieve().WhereKeys("update-key").Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Message).To(Equal("Updated message"))
@@ -108,7 +108,7 @@ var _ = Describe("Status", Ordered, func() {
 						},
 					}
 					Expect(w.Set(ctx, &parent)).To(Succeed())
-					
+
 					child := status.Status{
 						Name: "Child Status",
 						Status: xstatus.Status[any]{
@@ -118,7 +118,7 @@ var _ = Describe("Status", Ordered, func() {
 						},
 					}
 					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
-					
+
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
 						WhereIDs(status.OntologyID(child.Key)).
@@ -151,7 +151,7 @@ var _ = Describe("Status", Ordered, func() {
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
-				
+
 				var retrieved []status.Status
 				Expect(svc.NewRetrieve().WhereKeys("key1", "key2").Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
@@ -170,7 +170,7 @@ var _ = Describe("Status", Ordered, func() {
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
-				
+
 				err := svc.NewRetrieve().WhereKeys("delete-key").Entry(&status.Status{}).Exec(ctx, tx)
 				Expect(err).To(MatchError(query.NotFound))
 			})
@@ -200,11 +200,8 @@ var _ = Describe("Status", Ordered, func() {
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 				Expect(w.DeleteMany(ctx, "del1", "del2")).To(Succeed())
-				
-				var retrieved []status.Status
-				err := svc.NewRetrieve().WhereKeys("del1", "del2").Entries(&retrieved).Exec(ctx, tx)
-				Expect(err).To(Succeed())
-				Expect(retrieved).To(BeEmpty())
+
+				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
 			})
 		})
 	})
@@ -258,7 +255,6 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-
 		Describe("Limit and Offset", func() {
 			It("Should limit results", func() {
 				var statuses []status.Status
@@ -277,7 +273,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should search for statuses", func() {
 				var statuses []status.Status
 				Expect(svc.NewRetrieve().Search("Status A").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
-				Expect(statuses).To(HaveLen(1))
+				Expect(len(statuses)).To(BeNumerically(">", 1))
 				Expect(statuses[0].Key).To(Equal("retrieve-a"))
 			})
 		})

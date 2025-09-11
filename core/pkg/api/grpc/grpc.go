@@ -114,5 +114,10 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
 
+	// STATUS
+	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
+	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
+	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
+
 	return a, transports
 }

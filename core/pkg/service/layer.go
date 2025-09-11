@@ -119,7 +119,7 @@ type Layer struct {
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
-	Service *status.Service
+	Status *status.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -247,7 +247,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	if l.Service, err = status.OpenService(
+	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
 			Instrumentation: cfg.Instrumentation.Child("status"),
@@ -256,7 +256,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Ontology:        cfg.Distribution.Ontology,
 			Group:           cfg.Distribution.Group,
 		},
-	); !ok(err, l.Service) {
+	); !ok(err, l.Status) {
 		return nil, err
 	}
 	return l, nil
