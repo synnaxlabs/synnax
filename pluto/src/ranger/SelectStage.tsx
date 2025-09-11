@@ -7,18 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/ranger/Select.css";
-
 import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { type Stage, STAGE_ICONS, STAGE_NAMES, STAGES } from "@/ranger/stage";
 import { Select } from "@/select";
-
-const DATA: Select.StaticEntry<Stage>[] = STAGES.map((s) => {
-  const I = STAGE_ICONS[s];
-  return { key: s, name: STAGE_NAMES[s], icon: <I /> };
-});
 
 export interface SelectStageProps
   extends Omit<Select.StaticProps<Stage>, "data" | "resourceName"> {}
@@ -26,3 +19,8 @@ export interface SelectStageProps
 export const SelectStage = (props: SelectStageProps): ReactElement => (
   <Select.Static {...props} data={DATA} resourceName="Stage" icon={<Icon.ToDo />} />
 );
+
+const DATA: Select.StaticEntry<Stage>[] = STAGES.map((s) => {
+  const I = STAGE_ICONS[s];
+  return { key: s, name: STAGE_NAMES[s], icon: <I /> };
+});

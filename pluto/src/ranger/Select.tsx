@@ -20,20 +20,20 @@ import { List } from "@/list";
 import { ListItem } from "@/ranger/ListItem";
 import { type ListParams, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select } from "@/select";
+import { Select as Core } from "@/select";
 
 const listItemRenderProp = Component.renderProp(ListItem);
 
-export interface SelectSingleProps
+export interface SelectProps
   extends Omit<
-      Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
+      Core.SingleProps<ranger.Key, ranger.Payload | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
     Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 const DIALOG_PROPS: Dialog.DialogProps = { style: { width: 800 } };
 
-export const SelectSingle = ({
+export const Select = ({
   onChange,
   value,
   filter,
@@ -41,14 +41,14 @@ export const SelectSingle = ({
   emptyContent,
   initialParams,
   ...rest
-}: SelectSingleProps): ReactElement => {
+}: SelectProps): ReactElement => {
   const { data, retrieve, subscribe, getItem, status } = useList({
     filter,
     initialParams,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Single<ranger.Key, ranger.Payload | undefined>
+    <Core.Single<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
       variant="modal"
       value={value}
@@ -68,6 +68,6 @@ export const SelectSingle = ({
       {...rest}
     >
       {listItemRenderProp}
-    </Select.Single>
+    </Core.Single>
   );
 };

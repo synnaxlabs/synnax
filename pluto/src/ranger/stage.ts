@@ -60,7 +60,6 @@ export const wrapNumericTimeRangeToStage = ({
 }: WrapNumericTimeRangeToStageArgs): WrapNumericTimeRangeToStageReturn => ({
   value: getStage(value),
   onChange: (v: Stage) => {
-    if (v == null) return;
     const now = TimeStamp.now().nanoseconds;
     const tr = new TimeRange(value).makeValid().numeric;
     switch (v) {
