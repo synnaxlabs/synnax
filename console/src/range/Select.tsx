@@ -53,9 +53,7 @@ const DynamicListItem = Component.renderProp(
 const StaticListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: StaticRange }) => {
     const { range } = props;
-    const parent = Ranger.retrieveParent.useDirect({
-      params: { id: ranger.ontologyID(range.key) },
-    }).data;
+    const parent = Ranger.useRetrieveParent({ id: ranger.ontologyID(range.key) }).data;
     return (
       <Select.ListItem {...props} justify="between">
         <Ranger.Breadcrumb

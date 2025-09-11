@@ -51,7 +51,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-  const { update: del } = Ranger.useDelete.useDirect({ params: {} });
+  const { update: del } = Ranger.useDelete();
   const handleAddChildRange = () => {
     placeLayout(createCreateLayout({ parent: ranges[0].key }));
   };

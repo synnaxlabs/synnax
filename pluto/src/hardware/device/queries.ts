@@ -75,7 +75,7 @@ const retrieveByKey = async <
   return device;
 };
 
-export const retrieve = <
+export const createRetrieve = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
@@ -95,6 +95,12 @@ export const retrieve = <
       ),
     ],
   });
+
+export const {
+  useRetrieve,
+  useRetrieveStateful: useStatefulRetrieve,
+  useRetrieveEffect,
+} = createRetrieve();
 
 export interface ListParams extends device.MultiRetrieveArgs {}
 

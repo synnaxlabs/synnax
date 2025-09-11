@@ -38,9 +38,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.retrieveParent.useDirect({
-    params: { id: ranger.ontologyID(rangeKey) },
-  });
+  const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
@@ -72,7 +70,7 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
+  const { data: range } = Ranger.useRetrieve({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     params: { key: rangeKey },

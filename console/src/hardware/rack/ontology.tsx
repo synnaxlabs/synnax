@@ -68,7 +68,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const res = Rack.retrieve.useDirect({ params: { key: Number(id.key) } });
+  const res = Rack.useRetrieve({ key: Number(id.key) });
   const status = res.data?.status;
 
   return (

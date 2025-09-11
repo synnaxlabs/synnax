@@ -60,9 +60,7 @@ interface HasLabelsFilterProps {
 
 const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
-  const labels = PLabel.retrieveMultiple.useDirect({
-    params: { keys: request.hasLabels },
-  });
+  const labels = PLabel.useRetrieveMultiple({ keys: request.hasLabels });
   return (
     <Flex.Box x pack background={0}>
       <Text.Text
