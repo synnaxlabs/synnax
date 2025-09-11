@@ -31,12 +31,22 @@ if %errorlevel% neq 0 (
     if %errorlevel% neq 0 exit /b %errorlevel%
 )
 
-rem Remove existing lock file and recreate it fresh
-if exist "poetry.lock" del "poetry.lock"
-
-rem Install dependencies
+rem Install dependencies with cache for better performance
 poetry env remove --all 2>nul
-poetry install --no-cache
-if %errorlevel% neq 0 exit /b %errorlevel%
+poetry install
+if %errorlevel% neq 0 (
+    echo ❌ Initial poetry install failed, trying without lock file and cache...
+    if exist "poetry.lock" del "poetry.lock"
+    poetry install --no-cache
+    if %errorlevel% neq 0 exit /b %errorlevel%
+)
+
+rem Verify installation
+echo Verifying key dependencies...
+poetry run python -c "import synnax; import playwright; print('Dependencies verified successfully')"
+if %errorlevel% neq 0 (
+    echo ❌ Dependency verification failed
+    exit /b %errorlevel%
+)
 
 echo ✅ Poetry and dependencies installed successfully
