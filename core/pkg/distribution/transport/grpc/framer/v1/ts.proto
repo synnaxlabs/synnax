@@ -20,6 +20,7 @@ message IteratorRequest {
   telem.PBTimeRange bounds = 4;
   repeated uint32 keys = 6;
   int64 chunk_size = 7;
+  int32 seq_num = 8;
 }
 
 message IteratorResponse {
