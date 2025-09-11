@@ -60,7 +60,7 @@ const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
   return symbol;
 };
 
-export const retrieve = Flux.createRetrieve<
+export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
   RetrieveParams,
   schematic.symbol.Symbol,
   SubStore
@@ -193,13 +193,10 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
       parent,
     });
   },
-  update: async ({ client, value, reset, params }) => {
-    const parent = params.parent ?? value().parent ?? ontology.ROOT_ID;
-    const created = await client.workspaces.schematic.symbols.create({
-      ...value(),
-      parent,
-    });
-    reset({ ...created, parent });
+  update: async ({ client, value, reset }) => {
+    const payload = value();
+    const created = await client.workspaces.schematic.symbols.create(payload);
+    reset({ ...created, parent: payload.parent });
   },
   mountListeners: ({ store, params, reset, get }) => {
     if (params.key == null) return [];
@@ -219,27 +216,39 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   },
 });
 
-export interface RenameParams {
+export interface RenameArgs {
+  key: string;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>({
+  name: "SchematicSymbols",
+  update: async ({ client, value, store }) => {
+    await client.workspaces.schematic.symbols.rename(value.key, value.name);
+    store.schematicSymbols.set(value.key, (p) => {
+      if (p == null) return p;
+      return { ...p, name: value.name };
+    });
+  },
+});
+
+export interface DeleteArgs {
   key: string;
 }
 
-export const useRename = Flux.createUpdate<RenameParams, string>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>({
   name: "SchematicSymbols",
-  update: async ({ client, value, params }) =>
-    await client.workspaces.schematic.symbols.rename(params.key, value),
-}).useDirect;
+  update: async ({ client, value, store }) => {
+    await client.workspaces.schematic.symbols.delete(value.key);
+    store.schematicSymbols.delete(value.key);
+  },
+});
 
-export interface DeleteParams {
-  key: string;
-}
-
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
-  name: "SchematicSymbols",
-  update: async ({ client, params: { key } }) =>
-    await client.workspaces.schematic.symbols.delete(key),
-}).useDirect;
-
-export const retrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
+export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+  {},
+  group.Payload,
+  SubStore
+>({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
     await client.workspaces.schematic.symbols.retrieveGroup(),
