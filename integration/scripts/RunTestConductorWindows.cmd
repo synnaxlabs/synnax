@@ -13,15 +13,18 @@ rem RunTestConductorWindows.cmd
 rem Runs the test conductor on Windows using CMD
 rem Used by GitHub Actions workflow: test.integration.yaml
 
+rem SY-2922
+
 echo Running test conductor on Windows...
 
-rem Set Poetry PATH (try both common locations)
+rem Set Poetry PATH
 set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
 
-rem Change to integration directory
-cd integration
+rem Get Poetry virtual environment Python path and set PYTHONPATH
+for /f %%i in ('poetry env info -p') do set VENV_PATH=%%i
+set PYTHONPATH=%VENV_PATH%\Lib\site-packages;%PYTHONPATH%
 
-rem Run test conductor
+cd integration
 poetry run test-conductor --name test-conductor-win
 if %errorlevel% neq 0 exit /b %errorlevel%
 
