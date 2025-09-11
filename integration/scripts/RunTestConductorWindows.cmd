@@ -34,29 +34,17 @@ if exist pyproject.toml (
     echo WARNING: pyproject.toml not found
 )
 
-rem Get Poetry virtual environment Python path and set PYTHONPATH
-echo Getting Poetry environment info...
-for /f %%i in ('poetry env info -p 2^>nul') do set VENV_PATH=%%i
-if defined VENV_PATH (
-    echo Virtual environment path: %VENV_PATH%
-    rem Store any existing PYTHONPATH before overwriting
-    set PYTHONPATH_OLD=%PYTHONPATH%
-    set PYTHONPATH=%VENV_PATH%\Lib\site-packages
-    if defined PYTHONPATH_OLD (
-        set PYTHONPATH=%PYTHONPATH%;%PYTHONPATH_OLD%
-    )
-    echo PYTHONPATH set to: %PYTHONPATH%
-) else (
-    echo WARNING: Could not get Poetry virtual environment path
-)
-
-rem Test Playwright import with the set PYTHONPATH
+rem Test Playwright import
 echo Testing Playwright import...
-set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run python -c "import sys; print('Python executable:', sys.executable)"
-set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
+poetry run python -c "import sys; print('Python executable:', sys.executable)"
+poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
 
-rem Run test conductor with PYTHONPATH set
-set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run test-conductor --name test-conductor-win
+rem Debug: Show Poetry environment info
+echo Getting Poetry environment info for debugging...
+poetry env info
+
+rem Run test conductor
+poetry run test-conductor --name test-conductor-win
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo Test conductor completed
