@@ -138,7 +138,7 @@ export const Create: Layout.Renderer = (props) => {
           <Form.Field<NumericTimeRange> path="timeRange" required={false}>
             {(p) => (
               <Ranger.SelectStage
-                {...Ranger.wrapNumericTimeRangeForm(p)}
+                {...Ranger.wrapNumericTimeRangeToStage(p)}
                 style={{ width: 150 }}
                 triggerProps={{ variant: "outlined" }}
               />

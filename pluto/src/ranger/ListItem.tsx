@@ -14,9 +14,9 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
-import { SelectStage } from "@/ranger/Select";
+import { SelectStage } from "@/ranger/SelectStage";
+import { getStage, type Stage } from "@/ranger/stage";
 import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
-import { getStage, type Stage } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 

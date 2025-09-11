@@ -107,7 +107,7 @@ export const Item = ({
             >
               {({ value, onChange }) => (
                 <Ranger.SelectStage
-                  {...Ranger.wrapNumericTimeRangeForm({ value, onChange })}
+                  {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
                   location="bottom"
                   onClick={stopPropagation}

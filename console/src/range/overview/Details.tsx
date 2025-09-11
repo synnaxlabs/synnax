@@ -219,7 +219,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
             {(props) => (
               <Ranger.SelectStage
-                {...Ranger.wrapNumericTimeRangeForm(props)}
+                {...Ranger.wrapNumericTimeRangeToStage(props)}
                 allowNone={false}
                 triggerProps={{ variant: "text", hideCaret: true }}
                 variant="floating"
