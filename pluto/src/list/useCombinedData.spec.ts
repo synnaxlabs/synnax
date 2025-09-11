@@ -81,16 +81,20 @@ describe("useCombinedData", () => {
 
       const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn((key) =>
-          key === "1" ? item1 : undefined,
-        ) as unknown as GetItem<string, TestItem>,
+        getItem: vi.fn((key: string | string[]) => {
+          if (Array.isArray(key) && key.includes("1")) return [item1];
+          if (key === "1") return item1;
+          return undefined;
+        }) as GetItem<string, TestItem>,
       };
 
       const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["2"],
-        getItem: vi.fn((key) =>
-          key === "2" ? item2 : undefined,
-        ) as unknown as GetItem<string, TestItem>,
+        getItem: vi.fn((key: string | string[]) => {
+          if (Array.isArray(key) && key.includes("2")) return [item2];
+          if (key === "2") return item2;
+          return undefined;
+        }) as GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
@@ -111,12 +115,18 @@ describe("useCombinedData", () => {
 
       const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn(() => firstItem) as unknown as GetItem<string, TestItem>,
+        getItem: vi.fn((key: string | string[]) => {
+          if (Array.isArray(key)) return [firstItem];
+          return firstItem;
+        }) as GetItem<string, TestItem>,
       };
 
       const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn(() => secondItem) as unknown as GetItem<string, TestItem>,
+        getItem: vi.fn((key: string | string[]) => {
+          if (Array.isArray(key)) return [secondItem];
+          return secondItem;
+        }) as GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
@@ -268,10 +278,11 @@ describe("useCombinedData", () => {
         keys: string[],
       ): Pick<FrameProps<string, TestItem>, "data" | "getItem" | "subscribe"> => ({
         data: keys,
-        getItem: ((key: string) => items.get(key)) as unknown as GetItem<
-          string,
-          TestItem
-        >,
+        getItem: ((key: string | string[]) => {
+          if (Array.isArray(key))
+            return key.map((k) => items.get(k)).filter((i) => i != null);
+          return items.get(key);
+        }) as GetItem<string, TestItem>,
         subscribe: (callback, key) => {
           if (!subscribers.has(key)) subscribers.set(key, new Set());
 

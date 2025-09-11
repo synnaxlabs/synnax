@@ -50,16 +50,19 @@ describe("List", () => {
         });
 
         it("should allow the caller to provide a custom item getter", () => {
-          const getItem = (key?: string): record.KeyedNamed<string> | undefined => {
+          const getItem = ((
+            key: string | string[],
+          ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
+            if (Array.isArray(key)) return key.map((k) => ({ key: k, name: k }));
             if (key === "1") return { key: "1", name: "one" };
             if (key === "2") return { key: "2", name: "two" };
             if (key === "3") return { key: "3", name: "three" };
             return undefined;
-          };
+          }) as List.GetItem<string, record.KeyedNamed<string>>;
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}
-              getItem={getItem as List.GetItem<string, record.KeyedNamed<string>>}
+              getItem={getItem}
               virtual={context.virtual}
             >
               <List.Items<string>>
@@ -78,12 +81,15 @@ describe("List", () => {
             { key: "2", name: "two" },
             { key: "3", name: "three" },
           ];
-          const getItem = (key?: string): record.KeyedNamed<string> | undefined => {
+          const getItem = ((
+            key: string | string[],
+          ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
+            if (Array.isArray(key)) return key.map((k) => ({ key: k, name: k }));
             if (key === "1") return data[0];
             if (key === "2") return data[1];
             if (key === "3") return data[2];
             return undefined;
-          };
+          }) as List.GetItem<string, record.KeyedNamed<string>>;
           const obs = new observe.Observer<void>();
           const itemProp = renderProp(({ itemKey }: List.ItemProps<string>) => {
             const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
@@ -92,7 +98,7 @@ describe("List", () => {
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}
-              getItem={getItem as List.GetItem<string, record.KeyedNamed<string>>}
+              getItem={getItem}
               subscribe={(callback) => obs.onChange(callback)}
               virtual={context.virtual}
             >

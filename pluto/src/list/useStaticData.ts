@@ -59,9 +59,12 @@ export const useStaticData = <
     });
   }, [filteredData]);
   const [params, setParams] = useState<RetrieveParams>({});
-  const getItem = useCallback<GetItem<K, E>>(
+  const getItem = useCallback(
     ((key: K | K[]) => {
-      if (Array.isArray(key)) return filteredData.filter((d) => key.includes(d.key));
+      if (Array.isArray(key)) {
+        const keySet = new Set(key);
+        return filteredData.filter((d) => keySet.has(d.key));
+      }
       return filteredData.find((d) => d.key === key);
     }) as GetItem<K, E>,
     [filteredData],

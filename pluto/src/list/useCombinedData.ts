@@ -32,9 +32,16 @@ export const useCombinedData = <
     [first.data, second.data],
   );
   const getItem = useCallback(
-    (key: K) => first.getItem?.(key) ?? second.getItem?.(key),
+    (key: K | K[]) => {
+      if (Array.isArray(key)) {
+        const firstGotten = first.getItem?.(key) ?? [];
+        const secondGotten = second.getItem?.(key) ?? [];
+        return [...firstGotten, ...secondGotten];
+      }
+      return first.getItem?.(key) ?? second.getItem?.(key);
+    },
     [first.getItem, second.getItem],
-  );
+  ) as GetItem<K, E>;
   const subscribe = useCallback(
     (callback: () => void, key: K) => {
       const firstUnsub = first.subscribe?.(callback, key);
@@ -46,5 +53,5 @@ export const useCombinedData = <
     },
     [first.subscribe, second.subscribe],
   );
-  return { data, getItem: getItem as GetItem<K, E>, subscribe };
+  return { data, getItem, subscribe };
 };
