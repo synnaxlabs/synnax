@@ -9,7 +9,7 @@
 
 import os
 import time
-from test.playwright.playwright import Playwright
+from test.playwright.browser_manager import Playwright
 from typing import Any, Dict, List, Optional, Union, cast
 
 from playwright.sync_api import FloatRect

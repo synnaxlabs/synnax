@@ -9,7 +9,7 @@
 
 import re
 import time
-from test.playwright.playwright import Playwright
+from test.playwright.browser_manager import Playwright
 from typing import Any, Dict, Optional
 
 
