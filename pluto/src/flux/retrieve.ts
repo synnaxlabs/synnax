@@ -148,7 +148,7 @@ export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface UseEffectRetrieveArgs<
+export interface useRetrieveEffectArgs<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
@@ -173,23 +173,21 @@ export interface CreateRetrieveReturn<
    * Use this for most cases where you want React to handle the data fetching lifecycle automatically.
    * Data is fetched when the component mounts and re-fetched whenever params change.
    */
-  useDirect: (
-    args: UseDirectRetrieveArgs<RetrieveParams>,
-  ) => UseDirectRetrieveReturn<Data>;
+  useRetrieve: (args: RetrieveParams) => UseDirectRetrieveReturn<Data>;
 
   /**
    * Hook that triggers data fetching as a side effect when parameters change but returns nothing.
    * Use this when you need to trigger data fetching but handle the result state externally
    * (e.g., through the onChange callback). Returns void - no state is managed internally.
    */
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
+  useRetrieveEffect: (args: useRetrieveEffectArgs<RetrieveParams, Data>) => void;
 
   /**
    * Hook that provides manual control over when data is fetched, with internal state management.
    * Use this when you need to trigger data fetching based on user actions or specific events.
    * Returns both the current state (data, variant, error) and functions to manually trigger retrieval.
    */
-  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
+  useRetrieveStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
@@ -308,7 +306,7 @@ const useEffect = <
 >({
   params,
   ...restArgs
-}: UseEffectRetrieveArgs<RetrieveParams, Data> &
+}: useRetrieveEffectArgs<RetrieveParams, Data> &
   CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>): void => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restArgs.name));
   const { retrieveAsync } = useObservable<RetrieveParams, Data, ScopedStore>({
@@ -395,9 +393,8 @@ export const createRetrieve = <
 >(
   factoryArgs: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
 ): CreateRetrieveReturn<RetrieveParams, Data> => ({
-  useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
-    useDirect({ ...factoryArgs, ...args }),
-  useStateful: () => useStateful(factoryArgs),
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
+  useRetrieve: (args: RetrieveParams) => useDirect({ ...factoryArgs, params: args }),
+  useRetrieveStateful: () => useStateful(factoryArgs),
+  useRetrieveEffect: (args: useRetrieveEffectArgs<RetrieveParams, Data>) =>
     useEffect({ ...factoryArgs, ...args }),
 });

@@ -8,19 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import os
-import sys
 import time
 from re import S
 
 import matplotlib
 
 matplotlib.use("Agg")  # Use non-interactive backend
+from test.framework.test_case import TestCase
+from test.framework.utils import get_machine_info, get_memory_info, get_synnax_version
+
 import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
-
-from framework.test_case import TestCase
-from framework.utils import get_machine_info, get_memory_info, get_synnax_version
 
 
 class BenchLatencyReport(TestCase):
@@ -53,12 +52,12 @@ class BenchLatencyReport(TestCase):
 
         # Wait for the "response" to start
         time.sleep(3)
-        cycles = 0
-        times = list()
-        loop_start = sy.TimeStamp.now()
-        state_channel = self.state_channel
-        cmd_channel = self.cmd_channel
-        bench_time = sy.TimeSpan.SECOND * 3
+        cycles: int = 0
+        times: list[sy.TimeStamp] = list()
+        loop_start: sy.TimeStamp = sy.TimeStamp.now()
+        state_channel: str = self.state_channel
+        cmd_channel: str = self.cmd_channel
+        bench_time: sy.TimeSpan = sy.TimeSpan.SECOND * 3
 
         # Set channels here to avoid calling "self"
         try:
@@ -211,8 +210,9 @@ class BenchLatencyReport(TestCase):
             self.fail()
         self._log_message(average_jitter_msg)
 
-        plt.savefig("bench_latency_load.png", dpi=300, bbox_inches="tight")
+        os.makedirs("test/results", exist_ok=True)
+        plt.savefig("test/results/bench_latency_load.png", dpi=300, bbox_inches="tight")
         self._log_message(
-            f"Saved benchmark plot to: {os.path.abspath('bench_latency_load.png')}"
+            f"Saved benchmark plot to: {os.path.abspath('test/results/bench_latency_load.png')}"
         )
         plt.close(fig)  # Close the figure to free memory

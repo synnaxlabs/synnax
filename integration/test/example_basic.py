@@ -7,13 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-import sys
 import time
+from test.framework.test_case import SynnaxConnection, TestCase
 
 import synnax as sy
-
-from framework.test_case import SynnaxConnection, TestCase
 
 
 class CheckConnectionBasic(TestCase):
@@ -31,7 +28,7 @@ class CheckConnectionBasic(TestCase):
             name="is_connected", data_type=sy.DataType.UINT32, initial_value=1
         )
 
-        # Or explcitiely change the time out
+        # Or explicitly change the time out
         self._timeout_limit = 6
         # Or change it via test parameters
         self._timeout_limit = self.params.get("timeout", -1)
@@ -53,11 +50,6 @@ class CheckConnectionBasic(TestCase):
         # Or induce a failure
         if self.params.get("fail_test", False):
             raise Exception("Injected failure")
-
-        # You might NOT need to override
-        # ... but then what are you testing?
-        # super().run()  # Don't call super() on abstract method
-        pass
 
     def teardown(self) -> None:
         """

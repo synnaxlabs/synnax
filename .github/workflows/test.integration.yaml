@@ -1,6 +1,8 @@
 name: Test - Integration
 
-run-name: ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name) }}
+run-name:
+  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
+  }}
 
 on:
   pull_request:
@@ -9,22 +11,24 @@ on:
   workflow_dispatch:
     inputs:
       RUN_NAME:
-        description: 'Custom name for this workflow run'
+        description: "Custom name for this workflow run"
         required: false
-        default: ''
+        default: ""
         type: string
       SKIP_BUILD:
-        description: 'Skip build process and use artifacts from another run'
+        description: "Skip build process and use artifacts from another run"
         required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
+        default: false
+        type: boolean
       REF_RUN_ID:
-        description: 'Reference run ID for artifacts (when SKIP_BUILD is true)'
+        description: "Reference run ID for artifacts (when SKIP_BUILD is true)"
         required: false
-        default: '0000000000'
+        default: "0000000000"
+        type: string
+      SEQUENCE:
+        description: "Test case sequence to run (optional - will auto-discover if empty)"
+        required: false
+        default: ""
         type: string
 
 concurrency:
@@ -33,52 +37,28 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: "0000000000"
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
-      REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
-    steps:
-      - name: Set outputs
-        id: set-outputs
-        env:
-          # Use workflow inputs if triggered manually, otherwise use env defaults
-          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
-          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || env.REF_RUN_ID }}
-        run: |
-          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
-
-          if [ "${SKIP_BUILD}" = "false" ]; then
-            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
-            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}"
-          else
-            echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
-            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
-          fi
-
   lint-python:
     name: Lint - Python
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Poetry
         run: pipx install poetry
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
           cache: poetry
           cache-dependency-path: integration/poetry.lock
 
       - name: Install Dependencies
-        run: poetry install
+        run: |
+          poetry install
         working-directory: integration
 
       - name: isort
@@ -90,8 +70,36 @@ jobs:
         working-directory: integration
 
       - name: Type Check (mypy)
-        run: poetry run mypy . --ignore-missing-imports
+        run: poetry run mypy .
         working-directory: integration
+
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
+      SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
+    steps:
+      - name: Set outputs
+        id: set-outputs
+        env:
+          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
+          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '0000000000' }}
+          SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
+        run: |
+          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+          
+          if [ -z "${SEQUENCE}" ]; then
+            echo "SEQUENCE_ARG=" >> $GITHUB_OUTPUT
+          else
+            echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ "${SKIP_BUILD}" = "false" ]; then
+            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
+          else
+            echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
+          fi
 
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
@@ -101,10 +109,10 @@ jobs:
     needs: setup
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
-        run: scripts/integration/confirm-host-unix.sh
+        run: integration/scripts/confirm_host_unix.sh
 
   confirm-host-windows-latest:
     name: Confirm Host (windows-latest)
@@ -114,11 +122,11 @@ jobs:
     needs: setup
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
         shell: cmd
-        run: scripts/integration/confirm-host-windows.cmd
+        run: integration/scripts/ConfirmHostWindows.cmd
 
   confirm-host-macos-latest:
     name: Confirm Host (macos-latest)
@@ -129,10 +137,10 @@ jobs:
     if: false
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Confirm Host
-        run: scripts/integration/confirm-host-unix.sh
+        run: integration/scripts/confirm_host_unix.sh
 
   build-ubuntu-latest:
     name: Build Synnax (ubuntu-latest)
@@ -142,7 +150,7 @@ jobs:
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -170,7 +178,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -184,7 +192,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
@@ -192,22 +200,14 @@ jobs:
       - name: Build Synnax (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: scripts/integration/build-unix-latest.sh
+        run: integration/scripts/build_core_unix.sh
 
       - name: Skip Build (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-linux
-      #     path: bazel-bin/driver/driver
-      #     retention-days: 7
-      #     if-no-files-found: error
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -218,7 +218,7 @@ jobs:
 
       - name: Debug Build Environment
         if: failure()
-        run: scripts/integration/debug-build-environment-unix.sh
+        run: integration/scripts/debug_build_environment_unix.sh
 
   build-windows-latest:
     name: Build Synnax (windows-latest)
@@ -228,7 +228,7 @@ jobs:
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Windows SDK
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -249,7 +249,6 @@ jobs:
           external-cache: true
           repository-cache: true
 
-
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
@@ -263,7 +262,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -277,7 +276,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
@@ -305,11 +304,6 @@ jobs:
           for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
           echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
 
-      - name: Download Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: core
-        run: go mod download
-
       - name: Build Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: core
@@ -330,16 +324,8 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-windows
-      #     path: bazel-bin/driver/driver.exe
-      #     retention-days: 7
-      #     if-no-files-found: error
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -351,7 +337,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug-build-environment-windows.cmd
+        run: integration/scripts/DebugBuildEnvironmentWindows.cmd
 
   build-macos-latest:
     name: Build Synnax (macos-latest)
@@ -361,7 +347,7 @@ jobs:
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -389,7 +375,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -405,7 +391,7 @@ jobs:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
+      - name: Copy Console Assets to Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
@@ -413,22 +399,14 @@ jobs:
       - name: Build Synnax (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: scripts/integration/build-unix-latest.sh
+        run: integration/scripts/build_core_unix.sh
 
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-      # - name: Upload Driver Binary as Artifact
-      #   if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-macos
-      #     path: bazel-bin/driver/driver
-      #     retention-days: 7
-      #     if-no-files-found: error
 
-      - name: Upload Server Binary as Artifact
+      - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
@@ -439,7 +417,7 @@ jobs:
 
       - name: Debug Build Environment
         if: failure()
-        run: scripts/integration/debug-build-environment-unix.sh
+        run: integration/scripts/debug_build_environment_unix.sh
 
   download-artifacts-windows:
     name: Download Artifacts (Windows)
@@ -450,77 +428,78 @@ jobs:
     needs: [setup, build-windows-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes (Windows)
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
         shell: cmd
-        run: scripts/integration/kill-synnax-processes-windows.cmd
+        run: integration/scripts/KillSynnaxProcessesWindows.cmd
 
       - name: Download and Setup Windows Artifacts
         shell: cmd
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-windows.cmd
+        run: integration/scripts/DownloadArtifactsWindows.cmd
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
     runs-on:
       - self-hosted
       - windows-latest
-    needs: download-artifacts-windows
+    needs: [setup, download-artifacts-windows]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
         shell: cmd
-        run: scripts/integration/install-poetry-deps-windows.cmd
+        run: integration/scripts/InstallPoetryDepsWindows.cmd
 
       - name: Install Playwright
         shell: cmd
-        run: scripts/integration/install-playwright-windows.cmd
+        working-directory: integration
+        run: |
+          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
+          poetry run playwright install --with-deps
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         shell: powershell
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-windows.ps1
+        run: integration/scripts/StartCoreWindows.ps1
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         shell: cmd
+        working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
-        run: scripts/integration/run-test-conductor-windows.cmd
+        run: |
+          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
+          poetry run test-conductor --name test-conductor-win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-windows
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment
         if: failure()
         shell: cmd
-        run: scripts/integration/debug-test-environment-windows.cmd
+        run: integration/scripts/DebugTestEnvironmentWindows.cmd
 
   download-artifacts-macos:
     name: Download Artifacts (macos)
@@ -531,18 +510,16 @@ jobs:
     needs: [setup, build-macos-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-macos.sh
+        run: integration/scripts/kill_synnax_processes_unix.sh
 
       - name: Download and Setup macOS Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-macos.sh
+        run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-macos:
     name: Deploy and Test (macos)
@@ -550,50 +527,48 @@ jobs:
       - self-hosted
       - macos-latest
     if: false
-    needs: download-artifacts-macos
+    needs: [setup, download-artifacts-macos]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
-        run: scripts/integration/install-poetry-deps-unix.sh
+        run: integration/scripts/install_poetry_deps_unix.sh
 
       - name: Install Playwright
-        run: scripts/integration/install-playwright-unix.sh
+        run: integration/scripts/install_playwright_unix.sh
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-unix.sh
+        run: integration/scripts/start_core_unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: scripts/integration/run-test-conductor-unix.sh
+        working-directory: integration
+        run: poetry run test-conductor --name test-conductor-unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-macos
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment
         if: failure()
-        run: scripts/integration/debug-test-environment-unix.sh
+        run: integration/scripts/debug_test_environment_unix.sh
 
   download-artifacts-ubuntu:
     name: Download Artifacts (Ubuntu-Latest)
@@ -604,66 +579,62 @@ jobs:
     needs: [setup, build-ubuntu-latest]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
-        # Exists so we can leave synnax running in the future
-        # and "tap in" to the test cases for debugging
-        run: scripts/integration/kill-synnax-processes-linux.sh
+        run: integration/scripts/kill_synnax_processes_unix.sh
 
       - name: Download and Setup Linux Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: scripts/integration/download-artifacts-linux.sh
+        run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
     runs-on:
       - self-hosted
       - ubuntu-latest
-    needs: download-artifacts-ubuntu
+    needs: [setup, download-artifacts-ubuntu]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
-        run: scripts/integration/install-poetry-deps-unix.sh
+        run: integration/scripts/install_poetry_deps_unix.sh
 
       - name: Install Playwright
-        run: scripts/integration/install-playwright-unix.sh
+        run: integration/scripts/install_playwright_unix.sh
 
-      - name: Start Synnax Core
+      - name: Start Core
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: scripts/integration/start-synnax-core-unix.sh
+        run: integration/scripts/start_core_unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: scripts/integration/run-test-conductor-unix.sh
+        working-directory: integration
+        run: poetry run test-conductor --name test-conductor-unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-linux
-          path: |
-            integration/*.png
-            integration/*.log
-            integration/*.json
+          path: integration/test/results/*
           retention-days: 7
 
       - name: Debug Test Environment
         if: failure()
-        run: scripts/integration/debug-test-environment-unix.sh
+        run: integration/scripts/debug_test_environment_unix.sh

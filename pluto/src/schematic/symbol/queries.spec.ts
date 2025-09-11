@@ -241,10 +241,9 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.retrieve.useDirect({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Symbol.useRetrieve({ key: symbol.key }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -272,15 +271,15 @@ describe("Symbol queries", () => {
         result.current.save();
       });
 
-      await waitFor(() => {
+      const key = await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
+        const key = result.current.form.get<string>("key", { optional: true })?.value;
+        expect(key).toBeDefined();
+        return key;
       });
 
-      const key = result.current.form.get<string>("key")?.value;
-      expect(key).toBeDefined();
-
       const retrieved = await client.workspaces.schematic.symbols.retrieve({
-        key,
+        key: key!,
       });
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
@@ -351,13 +350,10 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.useRename({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(Symbol.useRename, { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync("new-name");
+        await result.current.updateAsync({ key: symbol.key, name: "new-name" });
       });
 
       await waitFor(() => {
@@ -387,13 +383,10 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.useDelete({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(Symbol.useDelete, { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync();
+        await result.current.updateAsync({ key: symbol.key });
       });
 
       await waitFor(() => {
@@ -410,12 +403,9 @@ describe("Symbol queries", () => {
 
   describe("useGroup", () => {
     it("should retrieve the symbol group", async () => {
-      const { result } = renderHook(
-        () => Symbol.retrieveGroup.useDirect({ params: {} }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = renderHook(() => Symbol.useRetrieveGroup({ params: {} }), {
+        wrapper,
+      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toBeDefined();

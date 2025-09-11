@@ -10,6 +10,7 @@ export interface FluxStore extends flux.UnaryStore<ranger.Key, ranger.Range> {}
 interface SubStore extends flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
+
 const SET_LISTENER: flux.ChannelListener<SubStore, typeof ranger.payloadZ> = {
   channel: ranger.SET_CHANNEL_NAME,
   schema: ranger.payloadZ,
