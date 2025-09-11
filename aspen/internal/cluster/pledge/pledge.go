@@ -174,7 +174,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// to provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// AddSymbol the proposed Name unconditionally. Quorum juror's store each
+		// Add the proposed Name unconditionally. Quorum juror's store each
 		// approved request. If one node in the quorum is unreachable, other
 		// Candidates may have already approved the request. This means that
 		// if we retry the request without incrementing the proposed Name, we'll

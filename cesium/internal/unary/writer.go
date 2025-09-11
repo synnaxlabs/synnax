@@ -311,7 +311,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 				w.idx.Info(),
 			)
 		}
-		// AddSymbol 1 to the end timestamp because the end timestamp is exclusive.
+		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
 	}
 

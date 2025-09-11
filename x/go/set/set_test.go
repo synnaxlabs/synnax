@@ -23,7 +23,7 @@ var _ = Describe("Set", func() {
 		s = make(set.Set[int])
 	})
 
-	Describe("AddSymbol", func() {
+	Describe("Add", func() {
 		It("should add elements to the set", func() {
 			s.Add(1, 2, 3)
 			Expect(len(s)).To(Equal(3))

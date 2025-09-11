@@ -203,7 +203,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					}
 					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
-					// AddSymbol the index data into frame / modify the index data in the frame
+					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
@@ -321,7 +321,7 @@ func BenchRead(
 		}
 		highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
-		// AddSymbol the index data into frame / modify the index data in the frame
+		// Add the index data into frame / modify the index data in the frame
 		if k == 0 {
 			for _, ch := range keys {
 				if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
@@ -488,7 +488,7 @@ func BenchStream(
 					}
 					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
-					// AddSymbol the index data into frame / modify the index data in the frame
+					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
