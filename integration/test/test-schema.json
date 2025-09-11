@@ -1,10 +1,17 @@
 {
-  "$schema": "../integration/test/test-schema.json",
-  "$id": "Synnax-Integration",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "./test-schema.json",
   "title": "Integration Test Configuration",
   "description": "Schema for Synnax integration test configuration files",
-  "type": "array",
-  "items": {
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "sequences": {
+      "type": "array",
+      "items": {
     "type": "object",
     "properties": {
       "sequence_name": {
@@ -13,9 +20,9 @@
       },
       "sequence_order": {
         "type": "string",
-        "enum": ["Asynchronous", "Sequential", "Random"],
+        "enum": ["asynchronous", "sequential", "random"],
         "description": "Execution order for tests in this sequence",
-        "default": "Sequential"
+        "default": "sequential"
       },
       "tests": {
         "type": "array",
@@ -46,9 +53,13 @@
         },
         "minItems": 1
       }
+      },
+      "required": ["sequence_name", "tests"],
+      "additionalProperties": false
     },
-    "required": ["sequence_name", "tests"],
-    "additionalProperties": false
+    "minItems": 1
+  }
   },
-  "minItems": 1
+  "required": ["sequences"],
+  "additionalProperties": false
 }

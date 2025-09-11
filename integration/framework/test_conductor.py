@@ -316,50 +316,33 @@ class TestConductor:
         with open(sequence_path, "r") as f:
             sequence_data: Any = json.load(f)
 
-        # Load test definitions - support both single sequence and multi-sequence format
+        # Load test definitions from new format: object with sequences array
         self.test_definitions = []
         self.sequences = []
 
-        if isinstance(sequence_data, list):
-            # New format: array of sequences
-            for seq_idx, sequence in enumerate(sequence_data):
-                seq_dict = sequence if isinstance(sequence, dict) else {}
-                seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
-                seq_order = seq_dict.get("sequence_order", "Sequential").lower()
-                seq_tests = seq_dict.get("tests", [])
-
-                # Create sequence object
-                seq_obj = {
-                    "name": seq_name,
-                    "order": seq_order,
-                    "tests": [],
-                    "start_idx": len(self.test_definitions),
-                }
-
-                # Load tests for this sequence
-                for test in seq_tests:
-                    test_def = TestDefinition(
-                        case=test["case"],
-                        name=test.get("name", None),
-                        params=test.get("parameters", {}),
-                        expect=test.get("expect", "PASSED"),
-                    )
-                    self.test_definitions.append(test_def)
-                    seq_obj["tests"].append(test_def)
-
-                seq_obj["end_idx"] = len(self.test_definitions)
-                self.sequences.append(seq_obj)
-
-                self.log_message(
-                    f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
-                )
-
-            self.log_message(
-                f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}"
+        if not isinstance(sequence_data, dict) or "sequences" not in sequence_data:
+            raise ValueError(
+                f"Invalid test configuration format. Expected object with 'sequences' array."
             )
-        else:
-            # Old format: single sequence
-            for test in sequence_data.get("tests", []):
+
+        sequences_array = sequence_data["sequences"]
+
+        for seq_idx, sequence in enumerate(sequences_array):
+            seq_dict = sequence if isinstance(sequence, dict) else {}
+            seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
+            seq_order = seq_dict.get("sequence_order", "sequential").lower()
+            seq_tests = seq_dict.get("tests", [])
+
+            # Create sequence object
+            seq_obj = {
+                "name": seq_name,
+                "order": seq_order,
+                "tests": [],
+                "start_idx": len(self.test_definitions),
+            }
+
+            # Load tests for this sequence
+            for test in seq_tests:
                 test_def = TestDefinition(
                     case=test["case"],
                     name=test.get("name", None),
@@ -367,29 +350,18 @@ class TestConductor:
                     expect=test.get("expect", "PASSED"),
                 )
                 self.test_definitions.append(test_def)
+                seq_obj["tests"].append(test_def)
 
-            # Handle test ordering for single sequence
-            ordering = "Sequential"
-            sequence_order = sequence_data.get("sequence_order", "Sequential").lower()
-            if sequence_order == "random":
-                random.shuffle(self.test_definitions)
-            elif sequence_order == "asynchronous":
-                ordering = "Asynchronous"
-
-            # Create single sequence object for compatibility
-            self.sequences = [
-                {
-                    "name": "Main Sequence",
-                    "order": sequence_order,
-                    "tests": self.test_definitions,
-                    "start_idx": 0,
-                    "end_idx": len(self.test_definitions),
-                }
-            ]
+            seq_obj["end_idx"] = len(self.test_definitions)
+            self.sequences.append(seq_obj)
 
             self.log_message(
-                f"Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}"
+                f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
             )
+
+        self.log_message(
+            f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}"
+        )
 
         # Store the ordering for use in run_sequence (for backward compatibility)
         self.sequence_ordering = (
@@ -1009,7 +981,7 @@ def main() -> None:
         raise
     finally:
         conductor.log_message(f"Fin.")
-
+        gc.enable()
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 
@@ -1026,8 +998,6 @@ def main() -> None:
         else:
             conductor.log_message("\nNo test results available")
             sys.exit(1)
-
-    gc.enable()
 
 
 if __name__ == "__main__":
