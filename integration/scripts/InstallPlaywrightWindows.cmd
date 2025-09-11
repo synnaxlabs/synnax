@@ -59,13 +59,21 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-rem Install Playwright browsers (uses cache by default)
-echo Installing Playwright browsers with cache...
+rem Install Playwright browsers (Windows-specific approach)
+echo Installing Playwright browsers for Windows...
 echo Using Poetry command: %POETRY_CMD%
+
+rem Try with --with-deps first, fallback to without deps if it fails on Windows
 "%POETRY_CMD%" run playwright install --with-deps
 if %errorlevel% neq 0 (
-    echo ❌ Playwright browser installation failed with error code %errorlevel%
-    exit /b %errorlevel%
+    echo ⚠️ Full dependency installation failed, trying browsers only...
+    "%POETRY_CMD%" run playwright install
+    if %errorlevel% neq 0 (
+        echo ❌ Playwright browser installation failed with error code %errorlevel%
+        exit /b %errorlevel%
+    ) else (
+        echo ⚠️ Browsers installed without system dependencies (Windows limitation)
+    )
 )
 
 echo ✅ Playwright browsers installed successfully

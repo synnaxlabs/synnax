@@ -9,6 +9,8 @@ rem As of the Change Date specified in that file, in accordance with the Busines
 rem License, use of this software will be governed by the Apache License, Version 2.0,
 rem included in the file licenses/APL.txt.
 
+rem SY-2922
+
 echo 📦 Installing Poetry and dependencies on Windows...
 
 rem Change to the integration directory
