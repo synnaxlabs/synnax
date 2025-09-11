@@ -4,14 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
+	pebblev1 "github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
-	pebblev1 "github.com/cockroachdb/pebble"
-	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migrate", func() {
@@ -140,8 +139,8 @@ var _ = Describe("Migrate", func() {
 		It("should handle database with v2 supported format but not newest", func() {
 			dbPath := filepath.Join(tempDir, "v2-supported-db")
 
-			// Create a database with an older v2 supported format
-			// We'll use FormatMinSupported to create a database with the minimum v2 format
+			// Create a database with an older v2 supported format We'll use
+			// FormatMinSupported to create a database with the minimum v2 format
 			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatMinSupported,
