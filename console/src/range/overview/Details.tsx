@@ -19,7 +19,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
+import { location, type NumericTimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
@@ -223,7 +223,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 allowNone={false}
                 triggerProps={{ variant: "text", hideCaret: true }}
                 variant="floating"
-                location="bottom"
               />
             )}
           </Form.Field>
@@ -232,7 +231,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"
-                location="bottom"
                 style={{ width: "fit-content" }}
                 {...p}
               />

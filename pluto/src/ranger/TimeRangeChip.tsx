@@ -53,23 +53,18 @@ export const TimeRangeChip = ({
   );
   const endIsUnknown = tr.end.equals(TimeStamp.MAX);
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
-  const endTime = (
+  const endTime = !endIsUnknown && (
     <>
-      {endIsUnknown ? (
-        <Text.Text level={level} color={color} weight={450}>
-          ?
-        </Text.Text>
-      ) : (
-        <Text.DateTime
-          level={level}
-          displayTZ="local"
-          format={endFormat}
-          color={color}
-          weight={450}
-        >
-          {tr.end}
-        </Text.DateTime>
-      )}
+      <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
+      <Text.DateTime
+        level={level}
+        displayTZ="local"
+        format={endFormat}
+        color={color}
+        weight={450}
+      >
+        {tr.end}
+      </Text.DateTime>
     </>
   );
   return (
@@ -80,8 +75,12 @@ export const TimeRangeChip = ({
       align="center"
       {...rest}
     >
+      {endIsUnknown && (
+        <Text.Text level={level} color={color} weight={450}>
+          Started
+        </Text.Text>
+      )}
       {startTime}
-      <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
       {endTime}
     </Flex.Box>
   );
