@@ -202,11 +202,10 @@ export const useChildren = Flux.createList<
   ],
 });
 
-export const useRetrieveParent = Flux.createRetrieve<
-  { id: ontology.ID },
-  ranger.Range | null,
-  SubStore
->({
+export const {
+  useRetrieve: useRetrieveParent,
+  useRetrieveEffect: useRetrieveParentEffect,
+} = Flux.createRetrieve<{ id: ontology.ID }, ranger.Range | null, SubStore>({
   name: "Range",
   retrieve: async ({ client, params: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
@@ -570,7 +569,7 @@ export interface UseDeleteKVArgs extends ListKVParams {
   key: string;
 }
 
-export const useDeleteKV = Flux.createUpdate<UseDeleteKVArgs>({
+export const { useUpdate: useDeleteKV } = Flux.createUpdate<UseDeleteKVArgs>({
   name: "Range Meta Data",
   update: async ({ client, value }) => {
     const { key, rangeKey } = value;
@@ -581,7 +580,7 @@ export const useDeleteKV = Flux.createUpdate<UseDeleteKVArgs>({
 
 export interface UseUpdateKVArgs extends ListKVParams, ranger.KVPair {}
 
-export const useUpdateKV = Flux.createUpdate<UseUpdateKVArgs>({
+export const { useUpdate: useUpdateKV } = Flux.createUpdate<UseUpdateKVArgs>({
   name: "Range Meta Data",
   update: async ({ client, value, onChange }) => {
     const kv = client.ranges.getKV(value.range);
@@ -590,7 +589,7 @@ export const useUpdateKV = Flux.createUpdate<UseUpdateKVArgs>({
   },
 });
 
-export const useUpdate = Flux.createUpdate<ranger.Payload, SubStore>({
+export const { useUpdate } = Flux.createUpdate<ranger.Payload, SubStore>({
   name: "Range",
   update: async ({ client, value, onChange, store }) => {
     const rng = await client.ranges.create(value);
@@ -599,7 +598,10 @@ export const useUpdate = Flux.createUpdate<ranger.Payload, SubStore>({
   },
 });
 
-export const useDelete = Flux.createUpdate<ranger.Key | ranger.Keys, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  ranger.Key | ranger.Keys,
+  SubStore
+>({
   name: "Range",
   update: async ({ client, value, store }) => {
     await client.ranges.delete(value);

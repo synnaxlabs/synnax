@@ -120,11 +120,11 @@ export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | unde
  */
 export interface CreateUpdateReturn<Data extends state.State> {
   /** Hook that provides update functions with external state management */
-  useObservable: (
+  useObservableUpdate: (
     args: UseObservableUpdateArgs<Data>,
   ) => UseObservableUpdateReturn<Data>;
   /** Hook that provides update functions with internal state management */
-  (args?: UseDirectUpdateArgs<Data>): UseDirectUpdateReturn<Data>;
+  useUpdate: (args?: UseDirectUpdateArgs<Data>) => UseDirectUpdateReturn<Data>;
 }
 
 /**
@@ -257,10 +257,9 @@ const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
  */
 export const createUpdate = <Data extends state.State, ScopedStore extends Store = {}>(
   createArgs: CreateUpdateArgs<Data, ScopedStore>,
-): CreateUpdateReturn<Data> => {
-  const base = (args?: UseDirectUpdateArgs<Data>) =>
-    useDirect<Data, ScopedStore>({ ...args, ...createArgs });
-  base.useObservable = (args: UseObservableUpdateArgs<Data>) =>
-    useObservable<Data, ScopedStore>({ ...args, ...createArgs });
-  return base;
-};
+): CreateUpdateReturn<Data> => ({
+  useObservableUpdate: (args: UseObservableUpdateArgs<Data>) =>
+    useObservable<Data, ScopedStore>({ ...args, ...createArgs }),
+  useUpdate: (args?: UseDirectUpdateArgs<Data>) =>
+    useDirect<Data, ScopedStore>({ ...args, ...createArgs }),
+});

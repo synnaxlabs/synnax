@@ -57,7 +57,7 @@ export const retrieveCachedLabelsOf = (store: SubStore, id: ontology.ID) => {
   return store.labels.get(keys);
 };
 
-export const useRetrieveLabelsOf = Flux.createRetrieve<
+export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   UseLabelsOfQueryParams,
   label.Label[],
   SubStore
@@ -142,7 +142,7 @@ export interface UseDeleteArgs {
   key: label.Key;
 }
 
-export const useDelete = Flux.createUpdate<UseDeleteArgs>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
   update: async ({ client, value }) => await client.labels.delete(value.key),
 });

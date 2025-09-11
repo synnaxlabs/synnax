@@ -190,7 +190,7 @@ export const wrapForm = <
         dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
       },
     });
-    Device.useRetrieve.effect({
+    Device.useRetrieveEffect({
       onChange: (d) => form.set("rackKey", d.data?.rack),
       params: deviceKey == null ? undefined : { key: deviceKey },
     });
