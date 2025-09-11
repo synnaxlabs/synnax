@@ -1,0 +1,33 @@
+name: Test - Protobuf
+
+on:
+  pull_request:
+    paths:
+      - "**/*.proto"
+      - .github/workflows/test.protobuf.yaml
+      - buf.yaml
+      - buf.gen.yaml
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - "**/*.proto"
+      - .github/workflows/test.protobuf.yaml
+      - buf.yaml
+      - buf.gen.yaml
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Buf CI
+        uses: bufbuild/buf-action@v1
+        with:
+          breaking: false
+          pr_comment: false

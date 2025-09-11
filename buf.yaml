@@ -1,23 +1,16 @@
-version: v1
-name: buf.build/synnaxlabs/synnax
-build:
-  excludes:
-    - "client/ts/examples/node_modules"
-    - "client/ts/examples/node/node_modules"
-    - "pluto/examples/node_modules"
-    - "console/node_modules"
-    - "node_modules"
-    - "external"
-    - "bazel-bin"
-    - "bazel-out"
-    - "bazel-testlogs"
-    - "bazel-synnax"
-    - "freighter/cpp"
-    - "freighter/py"
-    - "vendor"
-breaking:
-  use:
-    - FILE
+version: v2
+modules:
+  - includes:
+      - aspen
+      - core
+      - freighter/integration
+      - x/go
 lint:
   use:
-    - DEFAULT
+    - STANDARD
+  except:
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX
