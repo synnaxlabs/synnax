@@ -52,11 +52,11 @@ if defined VENV_PATH (
 
 rem Test Playwright import with the set PYTHONPATH
 echo Testing Playwright import...
-poetry run python -c "import sys; print('Python executable:', sys.executable)"
-poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
+set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run python -c "import sys; print('Python executable:', sys.executable)"
+set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run python -c "from playwright.sync_api import sync_playwright; print('Playwright sync_api: SUCCESS')"
 
-rem Run test conductor
-poetry run test-conductor --name test-conductor-win
+rem Run test conductor with PYTHONPATH set
+set PYTHONPATH=%VENV_PATH%\Lib\site-packages && poetry run test-conductor --name test-conductor-win
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo Test conductor completed
