@@ -7,15 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-import sys
 import time
 from re import S
+from test.framework.test_case import TestCase
 from time import time as now
 
 import synnax as sy
-
-from framework.test_case import TestCase
 
 
 class BenchLatencyResponse(TestCase):

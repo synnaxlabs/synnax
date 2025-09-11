@@ -9,9 +9,11 @@
 
 import argparse
 import gc
+import glob
 import importlib.util
 import json
 import logging
+import os
 import random
 import signal
 import string
@@ -22,12 +24,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from test.framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
+from test.framework.utils import is_ci, validate_and_sanitize_name
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import synnax as sy
-
-from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from framework.utils import is_ci, validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -265,7 +266,7 @@ class TestConductor:
                 def make_flush(h: Any) -> Callable[[], None]:
                     return lambda: h.stream.flush()
 
-                handler.flush = make_flush(handler)  # type: ignore
+                setattr(handler, "flush", make_flush(handler))
 
         if ci_environment:
             self.logger.info("CI environment detected - enabling real-time logging")
@@ -282,50 +283,54 @@ class TestConductor:
             if hasattr(handler, "flush"):
                 handler.flush()
 
-    def load_test_sequence(self, sequence: Optional[str] = None) -> None:
-        """Load test sequence from JSON configuration file."""
+    def load_test_sequence(
+        self, sequence: Optional[Union[str, List[str]]] = None
+    ) -> None:
+        """Load test sequence from JSON configuration file(s) or auto-discover test.json files."""
         self.state = STATE.LOADING
 
+        # Determine which files to load
         if sequence is None:
-            raise ValueError("Path to JSON Sequence file is required (--sequence)")
-
-        # Resolve sequence file path
-        sequence_path = Path(sequence)
-        if not sequence_path.is_absolute():
-            sequence_path = sequence_path.resolve()
-
-        # Try to find the file in common locations
-        if not sequence_path.exists():
-            possible_paths = [
-                Path.cwd() / sequence,
-                Path(__file__).parent / sequence,
-                Path(__file__).parent.parent / sequence,
-            ]
-
-            for path in possible_paths:
-                if path.exists():
-                    sequence_path = path.resolve()
-                    break
-            else:
+            test_files = glob.glob("test/*_tests.json")
+            if not test_files:
                 raise FileNotFoundError(
-                    f"{self.name} > Test sequence file not found: {sequence}\n"
-                    f"Tried paths:\n"
-                    + "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
+                    "No *_tests.json files found for auto-discovery"
                 )
+        elif isinstance(sequence, list):
+            test_files = sequence
+        else:
+            test_files = [sequence]
 
-        with open(sequence_path, "r") as f:
-            sequence_data: Any = json.load(f)
+        # Load all sequences from all files
+        all_sequences = []
+        for test_file in test_files:
+            self.log_message(f"Loading tests from: {test_file}")
 
-        # Load test definitions from new format: object with sequences array
+            # Simple path resolution - try current dir first, then test/ dir
+            file_path = Path(test_file)
+            if not file_path.exists():
+                file_path = Path("test") / test_file
+
+            try:
+                with open(file_path, "r") as f:
+                    file_data = json.load(f)
+                if "sequences" in file_data:
+                    all_sequences.extend(file_data["sequences"])
+            except Exception as e:
+                if isinstance(sequence, list):
+                    self.log_message(f"Warning: Failed to load {test_file}: {e}")
+                else:
+                    raise FileNotFoundError(f"Test file not found: {test_file}")
+
+        if not all_sequences:
+            raise FileNotFoundError("No valid sequences found")
+
+        self._process_sequences(all_sequences)
+
+    def _process_sequences(self, sequences_array: List[Any]) -> None:
+        """Process a list of sequences and populate test_definitions and sequences."""
         self.test_definitions = []
         self.sequences = []
-
-        if not isinstance(sequence_data, dict) or "sequences" not in sequence_data:
-            raise ValueError(
-                f"Invalid test configuration format. Expected object with 'sequences' array."
-            )
-
-        sequences_array = sequence_data["sequences"]
 
         for seq_idx, sequence in enumerate(sequences_array):
             seq_dict = sequence if isinstance(sequence, dict) else {}
@@ -360,7 +365,7 @@ class TestConductor:
             )
 
         self.log_message(
-            f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}"
+            f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
         )
 
         # Store the ordering for use in run_sequence (for backward compatibility)
@@ -580,20 +585,13 @@ class TestConductor:
             class_name = "_".join(word.capitalize() for word in module_name.split("_"))
 
             # Try different possible file paths
-            import os
-
             current_dir = os.getcwd()
             script_dir = os.path.dirname(os.path.abspath(__file__))
 
             # Construct possible paths
             possible_paths = [
-                # From framework directory: ../testcases/latency/bench_latency_response.py
                 os.path.join(script_dir, "..", f"{case_path}.py"),
-                # From current working directory: testcases/latency/bench_latency_response.py
-                os.path.join(current_dir, f"{case_path}.py"),
-                # Relative paths as fallback
-                f"../{case_path}.py",
-                f"{case_path}.py",
+                os.path.join(current_dir, "test", f"{case_path}.py"),
             ]
 
             # Find the first path that exists
@@ -616,6 +614,12 @@ class TestConductor:
                 raise FileNotFoundError(
                     f"Could not find test module for {test_def.case}.\n{debug_info}"
                 )
+
+            integration_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(file_path))
+            )
+            if integration_dir not in sys.path:
+                sys.path.insert(0, integration_dir)
 
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec is None:
@@ -896,8 +900,11 @@ class TestConductor:
         self.log_message("\n" + "=" * 60, False)
         for result in self.test_results:
             status_symbol = SYMBOLS.get_symbol(result.status)
-            # Keep everything after the first "/" (the root testcase directory)
-            self.log_message(f"{status_symbol} {'/'.join(str(result).split('/')[1:])}")
+            case_parts = str(result).split("/")
+            display_name = (
+                "/".join(case_parts[1:]) if len(case_parts) > 1 else str(result)
+            )
+            self.log_message(f"{status_symbol} {display_name}")
             if result.error_message:
                 self.log_message(f"ERROR: {result.error_message}")
 
@@ -946,7 +953,10 @@ def main() -> None:
     parser.add_argument("--username", default="synnax", help="Synnax username")
     parser.add_argument("--password", default="seldon", help="Synnax password")
     parser.add_argument("--secure", default=False, help="Use secure connection")
-    parser.add_argument("--sequence", help="Path to test sequence JSON file (required)")
+    parser.add_argument(
+        "--sequence",
+        help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
+    )
 
     args = parser.parse_args()
 
@@ -966,7 +976,16 @@ def main() -> None:
     )
 
     try:
-        conductor.load_test_sequence(args.sequence)
+        # Handle sequence parameter - support both single file and list
+        sequence_input = None
+        if args.sequence:
+            # Check if it's a comma-separated list
+            if "," in args.sequence:
+                sequence_input = [s.strip() for s in args.sequence.split(",")]
+            else:
+                sequence_input = args.sequence
+
+        conductor.load_test_sequence(sequence_input)
         results = conductor.run_sequence()
         conductor.wait_for_completion()
 

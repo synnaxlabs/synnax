@@ -10,11 +10,10 @@
 import random
 import re
 import time
+from test.framework.test_case import TestCase
 from typing import Optional, cast
 
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
-
-from framework.test_case import TestCase
 
 
 class Playwright(TestCase):

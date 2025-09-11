@@ -1,0 +1,16 @@
+{
+  "$schema": "../test-schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Playwright_Tests",
+      "tests": [
+        {
+          "case": "playwright/tabs_open_close"
+        },
+        {
+          "case": "playwright/schematic_edit_value"
+        }
+      ]
+    }
+  ]
+}

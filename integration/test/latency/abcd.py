@@ -7,14 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-import sys
 import time
+from test.framework.test_case import TestCase
 
 import numpy as np
 import synnax as sy
-
-from framework.test_case import TestCase
 
 
 class LatencyABCD(TestCase):

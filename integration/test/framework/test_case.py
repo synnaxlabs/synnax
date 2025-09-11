@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
 import logging
-import os
 import sys
 import threading
 import time
@@ -24,17 +23,16 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from selectors import SelectorKey
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
-
-import synnax as sy
-
-from framework.utils import (
+from test.framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_ci,
     is_websocket_error,
     validate_and_sanitize_name,
 )
+from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
+
+import synnax as sy
 
 # Error filter
 sys.excepthook = ignore_websocket_errors
@@ -204,7 +202,7 @@ class TestCase(ABC):
                 def make_flush(h: Any) -> Callable[[], None]:
                     return lambda: h.stream.flush()
 
-                handler.flush = make_flush(handler)  # type: ignore
+                setattr(handler, "flush", make_flush(handler))
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""

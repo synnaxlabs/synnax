@@ -2,21 +2,18 @@
 name = "synnax-test-framework"
 version = "0.45.0"
 description = "Integration test framework for Synnax Labs"
-authors = [{ name = "Synnax Labs", email = "info@synnaxlabs.com" }]
+authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dynamic = ["dependencies"]
 
-[project.scripts]
-test-conductor = "framework.test_conductor:main"
-
 [tool.poetry]
-name = "synnax-test-framework"
-version = "0.45.0"
-description = "Integration test framework for Synnax Labs"
-authors = ["Synnax Labs <info@synnaxlabs.com>"]
 packages = [
-    { include = "framework" }
+    { include = "test" }
 ]
+
+[project.scripts]
+# Make the test conductor easily runnable
+test-conductor = "test.framework.test_conductor:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -39,8 +36,7 @@ pytest-asyncio = "^0.25.0"
 jsonschema = "^4.25.1"
 
 [tool.poetry.scripts]
-# Make the test conductor easily runnable
-test-conductor = "framework.test_conductor:main"
+test-conductor = "test.framework.test_conductor:main"
 
 [tool.black]
 line-length = 88
