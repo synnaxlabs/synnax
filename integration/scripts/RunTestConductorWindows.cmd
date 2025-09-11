@@ -20,11 +20,14 @@ echo Running test conductor on Windows...
 rem Set Poetry PATH
 set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
 
+rem Change to integration directory first
+cd integration
+
 rem Get Poetry virtual environment Python path and set PYTHONPATH
 for /f %%i in ('poetry env info -p') do set VENV_PATH=%%i
 set PYTHONPATH=%VENV_PATH%\Lib\site-packages;%PYTHONPATH%
 
-cd integration
+rem Run test conductor
 poetry run test-conductor --name test-conductor-win
 if %errorlevel% neq 0 exit /b %errorlevel%
 
