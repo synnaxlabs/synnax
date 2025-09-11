@@ -459,6 +459,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
+          cache: poetry
+          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         shell: cmd
@@ -474,6 +476,20 @@ jobs:
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/StartCoreWindows.ps1
+
+      - name: Debug Test Environment
+        shell: cmd
+        working-directory: integration
+        run: |
+          echo === Debugging test environment ===
+          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
+          echo PATH=%PATH%
+          poetry --version
+          poetry env info
+          echo === Testing Playwright availability ===
+          poetry run python -c "import sys; print('Python path:', sys.executable)"
+          poetry run python -c "import playwright; print('Playwright version:', playwright.__version__)"
+          poetry run python -c "from playwright.sync_api import sync_playwright; print('sync_api import: OK')"
 
       - name: Test Conductor
         id: test-conductor
@@ -537,6 +553,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
+          cache: poetry
+          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         run: integration/scripts/install_poetry_deps_unix.sh
@@ -606,6 +624,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
+          cache: poetry
+          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         run: integration/scripts/install_poetry_deps_unix.sh

@@ -33,13 +33,13 @@ if %errorlevel% neq 0 (
     if %errorlevel% neq 0 exit /b %errorlevel%
 )
 
-rem Install dependencies with cache for better performance
+rem Install dependencies (GitHub Actions handles caching via setup-python)
 poetry env remove --all 2>nul
 poetry install
 if %errorlevel% neq 0 (
-    echo ❌ Initial poetry install failed, trying without lock file and cache...
+    echo ❌ Poetry install failed, trying without lock file...
     if exist "poetry.lock" del "poetry.lock"
-    poetry install --no-cache
+    poetry install
     if %errorlevel% neq 0 exit /b %errorlevel%
 )
 

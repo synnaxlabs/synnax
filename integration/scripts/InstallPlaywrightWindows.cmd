@@ -44,6 +44,25 @@ if %errorlevel% neq 0 (
     )
 )
 
+rem Verify Playwright package installation before browser install
+echo Verifying Playwright package is properly installed...
+"%POETRY_CMD%" run python -c "import playwright; print('Playwright package version:', playwright.__version__)"
+if %errorlevel% neq 0 (
+    echo ❌ Playwright package not found! Installation may have failed.
+    echo Debugging Poetry environment...
+    "%POETRY_CMD%" show playwright
+    "%POETRY_CMD%" env info
+    exit /b 1
+)
+
+rem Verify sync_api specifically
+echo Verifying playwright.sync_api module...
+"%POETRY_CMD%" run python -c "from playwright.sync_api import sync_playwright; print('✅ sync_api import successful')"
+if %errorlevel% neq 0 (
+    echo ❌ playwright.sync_api module not accessible!
+    exit /b 1
+)
+
 rem Install Playwright browsers
 echo Installing Playwright browsers...
 echo Using Poetry command: %POETRY_CMD%
