@@ -46,7 +46,7 @@ if %errorlevel% neq 0 (
 
 rem Verify Playwright package installation before browser install
 echo Verifying Playwright package is properly installed...
-"%POETRY_CMD%" run python -c "import playwright; print('Playwright package version:', playwright.__version__)"
+"%POETRY_CMD%" run python -c "import playwright; print('✅ Playwright package imported successfully')"
 if %errorlevel% neq 0 (
     echo ❌ Playwright package not found! Installation may have failed.
     echo Debugging Poetry environment...

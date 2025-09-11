@@ -488,7 +488,7 @@ jobs:
           poetry env info
           echo === Testing Playwright availability ===
           poetry run python -c "import sys; print('Python path:', sys.executable)"
-          poetry run python -c "import playwright; print('Playwright version:', playwright.__version__)"
+          poetry run python -c "import playwright; print('Playwright package: OK')"
           poetry run python -c "from playwright.sync_api import sync_playwright; print('sync_api import: OK')"
 
       - name: Test Conductor
