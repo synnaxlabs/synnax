@@ -35,16 +35,15 @@ var (
 
 type operator struct {
 	base
-	compare func(a, b uint64) uint64
-	a       *uint64
-	b       *uint64
+	compare func(a, b stage.Value) bool
+	a, b    *stage.Value
 }
 
 func (n *operator) Next(ctx context.Context, value stage.Value) {
 	if value.Param == "a" {
-		n.a = &value.Value
+		n.a = &value
 	} else {
-		n.b = &value.Value
+		n.b = &value
 	}
 	if n.a != nil && n.b != nil {
 		n.outputHandler(ctx, stage.Value{

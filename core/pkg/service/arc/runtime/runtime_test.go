@@ -8,20 +8,31 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Runtime", Ordered, func() {
-	var dist mock.Node
+	var (
+		dist      mock.Node
+		statusSvc *status.Service
+	)
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+		}))
 	})
 
 	AfterAll(func() {
 		Expect(dist.Close()).To(Succeed())
+		Expect(statusSvc.Close()).To(Succeed())
 	})
 
 	It("Should run a basic value printer", func() {
@@ -35,6 +46,7 @@ var _ = Describe("Runtime", Ordered, func() {
 		cfg := runtime.Config{
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
+			Status:  statusSvc,
 		}
 
 		resolver := MustSucceed(runtime.CreateResolver(cfg))
