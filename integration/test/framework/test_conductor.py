@@ -728,6 +728,21 @@ class TestConductor:
 
     def create_ranges(self) -> None:
         """Create a range in Synnax with the given name and time span."""
+        color_wheel = [
+            "#FF0000",  # Red (0°)
+            "#FF8000",  # Orange (30°)
+            "#FFFF00",  # Yellow (60°)
+            "#80FF80",  # Lime (90°)
+            "#AAFFAA",  # Green (120°)
+            "#00FF80",  # Spring Green (150°)
+            "#00FFFF",  # Cyan (180°)
+            "#0080FF",  # Sky Blue (210°)
+            "#0000FF",  # Blue (240°)
+            "#8000FF",  # Purple (270°)
+            "#FF00FF",  # Magenta (300°)
+            "#FF0080",  # Rose (330°)
+        ]
+
         try:
             conductor_range = self.client.ranges.create(
                 name=self.name,
@@ -735,14 +750,18 @@ class TestConductor:
                     start=self.start_time,
                     end=datetime.now(),
                 ),
+                color="#000000",  # Do not modify this color
             )
-            for test in self.test_results:
+            for i, test in enumerate(self.test_results):
+                # Cycle through colors using modulo
+                color = color_wheel[i % len(color_wheel)]
                 conductor_range.create_sub_range(
                     name=test.name,
                     time_range=sy.TimeRange(
                         start=test.start_time,
                         end=test.end_time,
                     ),
+                    color=color,
                 )
         except Exception as e:
             raise RuntimeError(f"Failed to create range for {self.name}: {e}")

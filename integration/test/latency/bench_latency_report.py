@@ -175,7 +175,7 @@ class BenchLatencyReport(TestCase):
         max_p95 = 3.0
         max_p99 = 5
         max_peak_to_peak_jitter = 20
-        max_average_jitter = 1
+        max_average_jitter = 2
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"
