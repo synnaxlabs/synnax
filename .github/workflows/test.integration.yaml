@@ -459,8 +459,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
-          cache: poetry
-          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         shell: cmd
@@ -497,9 +495,13 @@ jobs:
         shell: cmd
         env:
           PYTHONIOENCODING: utf-8
+          PYTHONPATH: ""
         working-directory: integration
         run: |
           set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
+          echo Verifying Poetry environment before test execution...
+          poetry env info
+          poetry run python -c "from playwright.sync_api import sync_playwright; print('Pre-test verification: Playwright OK')"
           poetry run test-conductor --name test-conductor-win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
@@ -553,8 +555,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
-          cache: poetry
-          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         run: integration/scripts/install_poetry_deps_unix.sh
@@ -624,8 +624,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
-          cache: poetry
-          cache-dependency-path: integration/poetry.lock
 
       - name: Install Poetry & Dependencies
         run: integration/scripts/install_poetry_deps_unix.sh

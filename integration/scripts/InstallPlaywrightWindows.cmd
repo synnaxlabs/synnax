@@ -12,17 +12,9 @@ rem included in the file licenses/APL.txt.
 rem SY-2922
 
 echo Installing Playwright browsers on Windows...
-echo Current directory: %CD%
 
-echo Installing Playwright browsers on Windows...
-echo Current directory: %CD%
-
-rem Change to the integration directory if not already there
-if not exist "pyproject.toml" (
-    echo Changing to integration directory...
-    cd integration
-    echo New directory: %CD%
-)
+rem Change to the integration directory
+cd integration
 
 rem Try to find Poetry executable
 set "POETRY_CMD=poetry"
@@ -44,28 +36,8 @@ if %errorlevel% neq 0 (
     )
 )
 
-rem Verify Playwright package installation before browser install
-echo Verifying Playwright package is properly installed...
-"%POETRY_CMD%" run python -c "import playwright; print('Playwright package imported successfully')"
-if %errorlevel% neq 0 (
-    echo Playwright package not found! Installation may have failed.
-    echo Debugging Poetry environment...
-    "%POETRY_CMD%" show playwright
-    "%POETRY_CMD%" env info
-    exit /b 1
-)
-
-rem Verify sync_api specifically
-echo Verifying playwright.sync_api module...
-"%POETRY_CMD%" run python -c "from playwright.sync_api import sync_playwright; print('sync_api import successful')"
-if %errorlevel% neq 0 (
-    echo playwright.sync_api module not accessible!
-    exit /b 1
-)
-
 rem Install Playwright browsers
 echo Installing Playwright browsers...
-echo Using Poetry command: %POETRY_CMD%
 "%POETRY_CMD%" run playwright install --with-deps
 if %errorlevel% neq 0 exit /b %errorlevel%
 
