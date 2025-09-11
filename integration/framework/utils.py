@@ -7,12 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import gc
+import os
 import platform
 import re
 import subprocess
 import sys
 from typing import Any
+
+# SY-2920: Websocket Error handling improvements
+WEBSOCKET_ERROR_PATTERNS = [
+    "1011",
+    "keepalive ping timeout",
+    "keepalive ping failed",
+    "keepalive ping",
+    "timed out while closing connection",
+    "ConnectionClosedError",
+    "WebSocketException",
+]
 
 
 # Also suppress stderr for WebSocket errors
@@ -21,16 +32,7 @@ class WebSocketErrorFilter:
         self.original_stderr = sys.stderr
 
     def write(self, text: str) -> None:
-        if any(
-            phrase in text
-            for phrase in [
-                "keepalive ping",
-                "1011",
-                "timed out while closing connection",
-                "ConnectionClosedError",
-                "WebSocketException",
-            ]
-        ):
+        if any(phrase in text for phrase in WEBSOCKET_ERROR_PATTERNS):
             return
         self.original_stderr.write(text)
 
@@ -43,18 +45,23 @@ def ignore_websocket_errors(
     type: type[BaseException], value: BaseException, traceback: Any
 ) -> None:
     error_str = str(value)
-    if any(
-        phrase in error_str
-        for phrase in [
-            "keepalive ping",
-            "1011",
-            "timed out while closing connection",
-            "ConnectionClosedError",
-            "WebSocketException",
-        ]
-    ):
+    if any(phrase in error_str for phrase in WEBSOCKET_ERROR_PATTERNS):
         return
     sys.__excepthook__(type, value, traceback)
+
+
+def is_websocket_error(error: Exception) -> bool:
+    """Check if an exception is a WebSocket-related error that should be ignored."""
+    error_str = str(error)
+    return any(phrase in error_str for phrase in WEBSOCKET_ERROR_PATTERNS)
+
+
+def is_ci() -> bool:
+    """Check if running in a CI environment."""
+    return any(
+        env_var in os.environ
+        for env_var in ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL"]
+    )
 
 
 def validate_and_sanitize_name(name: str) -> str:
@@ -194,7 +201,8 @@ def get_memory_info() -> str:
 
 def get_synnax_version() -> str:
     """Get the current Synnax version from the VERSION file."""
-    import os
+
+    # SY-2917
 
     # Try multiple possible paths for the VERSION file based on working directory
     possible_paths = [

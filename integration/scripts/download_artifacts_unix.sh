@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-echo "Setting up Linux artifacts download..."
+echo "Setting up artifacts download..."
 
 # Install GitHub CLI if not present
 install_github_cli() {

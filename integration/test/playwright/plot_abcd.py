@@ -31,8 +31,8 @@ class Plot_Abcd(Plot):
 
         self.wait_for_tlm_init()
 
-        self.add_Y1(["d_ab", "d_bc", "d_cd", "d_da"])
-        self.add_Y2(["t_a", "t_b", "t_c", "t_d"])
+        self.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
+        self.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])
         self.add_ranges(["30s"])
         self.set_Y1_axis(
             {

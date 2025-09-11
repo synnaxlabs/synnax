@@ -25,12 +25,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import synnax as sy
 
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from framework.utils import validate_and_sanitize_name
+from framework.utils import is_ci, validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -162,7 +162,7 @@ class TestConductor:
 
     def _client_manager(self) -> None:
         """Manage telemetry channels and writer for test conductor."""
-        loop = sy.Loop(0.2)  # 5Hz
+        loop = sy.Loop(sy.Rate.HZ * 5)
 
         # Create telemetry channels
         time = self.client.channels.create(
@@ -239,13 +239,10 @@ class TestConductor:
     def _setup_logging(self) -> None:
         """Configure logging for real-time output in CI environments."""
         # Check if running in CI environment
-        is_ci = any(
-            env_var in os.environ
-            for env_var in ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL"]
-        )
+        ci_environment = is_ci()
 
         # Force unbuffered output in CI environments
-        if is_ci:
+        if ci_environment:
             if hasattr(sys.stdout, "reconfigure"):
                 sys.stdout.reconfigure(line_buffering=True)
 
@@ -271,12 +268,12 @@ class TestConductor:
         for handler in self.logger.handlers:
             if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
 
-                def make_flush(h: Any) -> Any:
+                def make_flush(h: Any) -> Callable[[], None]:
                     return lambda: h.stream.flush()
 
                 handler.flush = make_flush(handler)  # type: ignore
 
-        if is_ci:
+        if ci_environment:
             self.logger.info("CI environment detected - enabling real-time logging")
 
     def log_message(self, message: str, use_name: bool = True) -> None:
@@ -451,12 +448,14 @@ class TestConductor:
             # Execute tests within this sequence using the prepared test list
             # This consolidates sequential and random execution into a single path
             if sequence["order"] == "asynchronous":
-                self._execute_sequence_asynchronously(sequence, tests_to_execute)
+                self._execute_sequence_asynchronously(
+                    sequence["name"], tests_to_execute
+                )
             else:  # sequential or random (both use the same execution method)
                 if sequence["order"] == "random":
                     random.shuffle(tests_to_execute)
                     self.log_message(f"Tests randomized for execution")
-                self._execute_sequence(sequence, tests_to_execute)
+                self._execute_sequence(tests_to_execute)
 
             self.log_message(f"Completed sequence '{sequence['name']}'\n")
 
@@ -464,11 +463,9 @@ class TestConductor:
         self._print_summary()
         return self.test_results
 
-    def _execute_sequence(
-        self, sequence: Dict[str, Any], tests_to_execute: List[TestDefinition]
-    ) -> None:
+    def _execute_sequence(self, tests_to_execute: List[TestDefinition]) -> None:
         """Execute tests in a sequence one after another."""
-        for i, test_def in enumerate(tests_to_execute):
+        for test_def in tests_to_execute:
             if self.should_stop:
                 self.log_message("Test execution stopped by user request")
                 break
@@ -505,10 +502,9 @@ class TestConductor:
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
-        self, sequence: Dict[str, Any], tests_to_execute: List[TestDefinition]
+        self, sequence_name: str, tests_to_execute: List[TestDefinition]
     ) -> None:
         """Execute tests in a sequence simultaneously."""
-        # Launch all tests in this sequence at once
         test_threads = []
         result_containers = []
 
@@ -537,7 +533,7 @@ class TestConductor:
 
         # Wait for all tests in this sequence to complete
         self.log_message(
-            f"Waiting for {len(test_threads)} tests in sequence '{sequence['name']}' to complete..."
+            f"Waiting for {len(test_threads)} tests in sequence '{sequence_name}' to complete..."
         )
         for i, test_thread in enumerate(test_threads):
             if test_thread.is_alive():
@@ -604,7 +600,7 @@ class TestConductor:
             except Exception as e:
                 self.log_message(f"Error in status callback: {e}")
 
-    def _load_test_class(self, test_def: TestDefinition) -> type:
+    def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Dynamically load a test class from its case identifier."""
         try:
             # Parse the case string as a file path (e.g., "testcases/latency/bench_latency_response")
@@ -688,7 +684,7 @@ class TestConductor:
 
             if not issubclass(test_class, TestCase):
                 raise TypeError(f"{class_name} is not a subclass of TestCase")
-            return test_class  # type: ignore
+            return cast(type[TestCase], test_class)
         except Exception as e:
             raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
 
@@ -954,9 +950,9 @@ class TestConductor:
         self.log_message("=" * 60, False)
         self.log_message("\n", False)
 
-    def _signal_handler(self, signum: int, frame: Any) -> None:
+    def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
         """Handle system signals for graceful shutdown."""
-        self.log_message(f"Received signal {signum}. Stopping test execution...")
+        self.log_message(f"Received signal {signal_num}. Stopping test execution...")
         self.shutdown()
         sys.exit(0)
 

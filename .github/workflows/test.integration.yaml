@@ -58,7 +58,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          poetry lock --check || poetry lock
           poetry install
         working-directory: integration
 
@@ -177,7 +176,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -199,7 +198,7 @@ jobs:
       - name: Build Synnax (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: integration/scripts/build_unix_latest.sh
+        run: integration/scripts/build_core_unix.sh
 
       - name: Skip Build (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
@@ -261,7 +260,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -302,11 +301,6 @@ jobs:
         run: |
           for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
           echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
-
-      - name: Download Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: core
-        run: go mod download
 
       - name: Build Core
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -379,7 +373,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -403,7 +397,7 @@ jobs:
       - name: Build Synnax (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: integration/scripts/build_unix_latest.sh
+        run: integration/scripts/build_core_unix.sh
 
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}

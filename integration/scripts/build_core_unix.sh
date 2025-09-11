@@ -26,7 +26,6 @@ bazel build --enable_platform_specific_config -c opt --config=hide_symbols --ann
 
 # Move Driver to Assets
 echo "Moving driver to assets..."
-mkdir -p core/pkg/service/hardware/embedded/assets
 cp bazel-bin/driver/driver core/pkg/service/hardware/embedded/assets/driver
 
 # Get Version

@@ -17,19 +17,19 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class LatencyABC(TestCase):
+class LatencyABCD(TestCase):
     """
 
     Testing the general, periodic latency of 3 async processes.
 
-    Each process is running at a conisitent 100Hz, to emulate some real-world
+    Each process is running at a consistent 100 Hz, to emulate some real-world
     automation. Each process will create its own "time" channel, of which the
-    sibling proceess will subscribe to. The subsribers will then output a
-    corresponding "follower" timstamp channel at the current time.
+    sibling process will subscribe to. The subscribers will then output a
+    corresponding "follower" timestamp channel at the current time.
 
     This will allow us to measure the time it takes for data to posted to
     Synnax and how long another process was able to act on it. Since ABC will
-    be running at a consitent 100Hz, we will expect at least some latency
+    be running at a consistent 100 Hz, we will expect at least some latency
     due to any phase offsets.
 
     A > T_0 = time.time()
@@ -38,7 +38,7 @@ class LatencyABC(TestCase):
     A > T_3 = read_tlm(T_2)
 
 
-    The latency report is only valid if the proceses are running on the same
+    The latency report is only valid if the processes are running on the same
     machine OR you have enabled synchronization between your servers.
 
 
@@ -146,6 +146,13 @@ class LatencyABC(TestCase):
                 t_b = self.read_tlm("t_b")
                 t_c = self.read_tlm("t_c")
                 t_d = self.read_tlm("t_d")
+
+                assert (
+                    t_a is not None
+                    and t_b is not None
+                    and t_c is not None
+                    and t_d is not None
+                )
 
                 d_ab = (t_a - t_b) / 1e9
                 d_bc = (t_b - t_c) / 1e9

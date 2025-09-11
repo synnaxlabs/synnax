@@ -34,10 +34,10 @@ class Schematic(Playwright):
         self,
         channel_name: str,
         notation: Optional[str] = None,
-        precision: Optional[str] = None,
-        averaging_window: Optional[str] = None,
+        precision: Optional[int] = None,
+        averaging_window: Optional[int] = None,
         stale_color: Optional[str] = None,
-        stale_timeout: Optional[str] = None,
+        stale_timeout: Optional[float] = None,
     ) -> str:
 
         if channel_name.strip() == "":

@@ -10,9 +10,9 @@
 import random
 import re
 import time
-from typing import Any, Optional
+from typing import Optional, cast
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 from framework.test_case import TestCase
 
@@ -22,9 +22,11 @@ class Playwright(TestCase):
     Playwright TestCase implementation
     """
 
+    browser: Browser
+    page: Page
+
     def setup(self) -> None:
 
-        # Do not run on Windows with webkit
         headless = self.params.get("headless", True)
         default_timeout = self.params.get("default_timeout", 5000)  # 5s
         default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
@@ -43,18 +45,22 @@ class Playwright(TestCase):
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
         # Try embedded console first, fallback to dev server if no console found
-        port = "9090"
-        self.page.goto(f"http://localhost:{port}/", timeout=10000)
+        host = self.synnax_connection.server_address
+        port = self.synnax_connection.port
+
+        self.page.goto(f"http://{host}:{port}/", timeout=10000)
         if "Core built without embedded console" in self.page.content():
-            port = "5173"
-            self.page.goto(f"http://localhost:{port}/", timeout=5000)
+            port = 5173
+            self.page.goto(f"http://{host}:{port}/", timeout=5000)
 
         self._log_message(f"Console found on port {port}")
 
         # Wait for and fill login form
+        username = self.synnax_connection.username
+        password = self.synnax_connection.password
         self.page.wait_for_selector("input", timeout=10000)
-        self.page.locator("input").first.fill("synnax")
-        self.page.locator('input[type="password"]').fill("seldon")
+        self.page.locator("input").first.fill(f"{username}")
+        self.page.locator('input[type="password"]').fill(f"{password}")
         self.page.get_by_role("button", name="Sign In").click()
         self.page.wait_for_load_state("networkidle")
 
@@ -90,35 +96,37 @@ class Playwright(TestCase):
         page_command = f"Create {article} {page_type}"
         self.command_palette(page_command)
 
-        if page_name is not None:
-            tab = self.page.locator("div").filter(
-                has_text=re.compile(f"^{re.escape(page_type)}$")
-            )
-            tab.dblclick()
-            self.page.get_by_text(page_type).first.fill(page_name)
-            self.page.keyboard.press("Enter")  # Confirm the change
+        if page_name is None:
             return None
-        else:
-            return None
+
+        tab = self.page.locator("div").filter(
+            has_text=re.compile(f"^{re.escape(page_type)}$")
+        )
+        tab.dblclick()
+        self.page.get_by_text(page_type).first.fill(page_name)
+        self.page.keyboard.press("Enter")  # Confirm the change
 
     def command_palette(self, command: str) -> None:
         self.page.keyboard.press("ControlOrMeta+Shift+p")
         self.page.wait_for_selector(f"text={command}", timeout=5000)
         self.page.get_by_text(command).click()
 
-    def determine_browser(self) -> Any:
+    def determine_browser(self) -> BrowserType:
         """
         Provide random coverage for all browsers.
         """
 
         browsers = ["chromium", "firefox", "webkit"]
         browsers = [
-            "chromium"
+            "chromium",
+            "webkit",
         ]  # Failing on Firefox in CI only. Keep as single browser until debugged.
+        # SY-2928
 
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")
-        return getattr(self.playwright, selected)
+        browser_attr = getattr(self.playwright, selected)
+        return cast(BrowserType, browser_attr)
 
     @property
     def ESCAPE(self) -> None:

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synnaxlabs.com/schemas/integration-test-config.json",
+  "$schema": "../integration/test/test-schema.json",
+  "$id": "Synnax-Integration",
   "title": "Integration Test Configuration",
   "description": "Schema for Synnax integration test configuration files",
   "type": "array",

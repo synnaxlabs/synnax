@@ -10,7 +10,9 @@
 import os
 import time
 from test.playwright.playwright import Playwright
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
+
+from playwright.sync_api import FloatRect
 
 
 class Plot(Playwright):
@@ -27,24 +29,12 @@ class Plot(Playwright):
 
     def setup(self) -> None:
         super().setup()
-
         self.create_page("Line Plot", f"{self.name}")
-        self.page.locator(".pluto--no-select").dblclick()
-
-    def sub_Y1(self, channel_ids: Union[str, List[str]]) -> None:
-        self.subscribe(channel_ids)
-
-    def sub_Y2(self, channel_ids: Union[str, List[str]]) -> None:
-        self.subscribe(channel_ids)
-
-    def add_Y1(self, channel_ids: Union[str, List[str]]) -> None:
-        self.add_Y("Y1", channel_ids)
-
-    def add_Y2(self, channel_ids: Union[str, List[str]]) -> None:
-        self.add_Y("Y2", channel_ids)
+        # When the page is created, the bottom console drawer is hidden.
+        # double click the plot to open the console drawer.
+        self.page.locator(".pluto-line-plot").dblclick()
 
     def add_Y(self, axis: str, channel_ids: Union[str, List[str]]) -> None:
-
         if axis != "Y1" and axis != "Y2":
             raise ValueError(f"Invalid axis: {axis}")
 
@@ -52,12 +42,10 @@ class Plot(Playwright):
         self.page.keyboard.press("Escape")
         time.sleep(0.2)
 
-        # Use a more direct selector for the channel selection button
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
         selector.click(timeout=5000)
 
-        # Wait for the channel list to be visible
-        self.page.wait_for_selector(".pluto-list__item", timeout=3000)
+        self.page.get_by_text("Retrieving Channels").wait_for(state="hidden")
 
         # Handle both string and list inputs
         channels = channel_ids if isinstance(channel_ids, list) else [channel_ids]
@@ -67,12 +55,9 @@ class Plot(Playwright):
             if search_box.count() > 0:
                 search_box.clear()
                 search_box.fill(channel)
-                time.sleep(0.1)  # Wait for filtering
+                time.sleep(0.1)
 
-            # Use first() to handle multiple matches (like t_c matching test_conductor_test_case_count)
-            channel_element = self.page.locator(
-                f".pluto-list__item:has-text('{channel}')"
-            ).first
+            channel_element = self.page.get_by_text(channel, exact=True)
             # Wait for the specific channel to be visible and scroll into view
             channel_element.wait_for(state="visible", timeout=5000)
             channel_element.scroll_into_view_if_needed()
@@ -119,7 +104,7 @@ class Plot(Playwright):
 
             self.page.screenshot(
                 path=path,
-                clip=clip_area,
+                clip=cast(FloatRect, clip_area),
                 animations="disabled",
                 omit_background=False,
                 type="png",

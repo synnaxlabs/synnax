@@ -54,11 +54,6 @@ class CheckConnectionBasic(TestCase):
         if self.params.get("fail_test", False):
             raise Exception("Injected failure")
 
-        # You might NOT need to override
-        # ... but then what are you testing?
-        # super().run()  # Don't call super() on abstract method
-        pass
-
     def teardown(self) -> None:
         """
         Teardown the test case.
