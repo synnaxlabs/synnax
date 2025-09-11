@@ -9,7 +9,10 @@
 
 import { type ontology, status } from "@synnaxlabs/client";
 
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
+import { createList } from "@/flux/list";
+import { createRetrieve } from "@/flux/retrieve";
+import { createUpdate } from "@/flux/update";
 
 export const FLUX_STORE_KEY = "statuses";
 
@@ -37,55 +40,45 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 
 export interface ListParams extends status.MultiRetrieveArgs {}
 
-export const useList = Flux.createList<ListParams, status.Key, status.Status, SubStore>(
-  {
-    name: "Statuses",
-    retrieve: async ({ client, params }) => await client.statuses.retrieve(params),
-    retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
-    mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
-      const keysSet = keys ? new Set(keys) : undefined;
-      return [
-        store.statuses.onSet(async (status) => {
-          if (keysSet != null && !keysSet.has(status.key)) return;
-          onChange(status.key, status, { mode: "prepend" });
-        }),
-        store.statuses.onDelete(async (key) => onDelete(key)),
-      ];
-    },
+export const useList = createList<ListParams, status.Key, status.Status, SubStore>({
+  name: "Statuses",
+  retrieve: async ({ client, params }) => await client.statuses.retrieve(params),
+  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
+  mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
+    const keysSet = keys ? new Set(keys) : undefined;
+    return [
+      store.statuses.onSet(async (status) => {
+        if (keysSet != null && !keysSet.has(status.key)) return;
+        onChange(status.key, status, { mode: "prepend" });
+      }),
+      store.statuses.onDelete(async (key) => onDelete(key)),
+    ];
   },
-);
+});
 
-export interface DeleteParams {
-  key: status.Key | status.Key[];
-}
-
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
+export const useDelete = createUpdate<status.Key | status.Key[], SubStore>({
   name: "Status",
-  update: async ({ client, params: { key } }) => await client.statuses.delete(key),
-}).useDirect;
+  update: async ({ client, value }) => await client.statuses.delete(value),
+});
 
-export interface SetParams {
+export interface SetArgs {
   statuses: status.New | status.New[];
   parent?: ontology.ID;
 }
 
-export const useSet = Flux.createUpdate<SetParams, void>({
+export const useSet = createUpdate<SetArgs, SubStore>({
   name: "Status",
-  update: async ({ client, params: { statuses, parent } }) => {
+  update: async ({ client, value: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
   },
-}).useDirect;
+});
 
 interface UseStatusParams {
   key: status.Key;
 }
 
-export const useRetrieve = Flux.createRetrieve<
-  UseStatusParams,
-  status.Status,
-  SubStore
->({
+export const useRetrieve = createRetrieve<UseStatusParams, status.Status, SubStore>({
   name: "Status",
   retrieve: async ({ client, params: { key } }) =>
     await client.statuses.retrieve({ key }),

@@ -19,9 +19,9 @@ import { nullableArrayZ } from "@/util/zod";
 export const newZ = statusZ.extend({ key: keyZ.optional() });
 export interface New extends z.infer<typeof newZ> {}
 
-const setReqZ = z.object({ 
+const setReqZ = z.object({
   parent: ontology.idZ.optional(),
-  statuses: newZ.array() 
+  statuses: newZ.array(),
 });
 const setResZ = z.object({ statuses: statusZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -84,7 +84,7 @@ export class Client {
     const res = await sendRequired<typeof setReqZ, typeof setResZ>(
       this.client,
       SET_ENDPOINT,
-      { 
+      {
         statuses: array.toArray(statuses),
         parent: opts.parent,
       },
@@ -94,8 +94,6 @@ export class Client {
     return isMany ? res.statuses : res.statuses[0];
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,

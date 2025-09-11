@@ -323,6 +323,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+
+		// STATUS
+		t.StatusSet,
+		t.StatusRetrieve,
+		t.StatusDelete,
 	)
 
 	// AUTH
