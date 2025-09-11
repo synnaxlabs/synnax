@@ -78,7 +78,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       style={{ padding: "1.5rem" }}
       gap="tiny"
       {...props}
-      onSelect={handleSelect}
+      onClick={handleSelect}
     >
       <Text.Text weight={450}>
         {svc.icon}
