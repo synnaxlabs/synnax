@@ -23,8 +23,10 @@ export const useKeysData = <K extends record.Key = record.Key>(
 ): UseKeysDataReturn<K> => {
   const getItem = useCallback(
     ((key: K | K[]) => {
-      if (Array.isArray(key))
-        return data.filter((d) => key.includes(d)).map((d) => ({ key: d }));
+      if (Array.isArray(key)) {
+        const keys = new Set(key);
+        return data.filter((d) => keys.has(d)).map((d) => ({ key: d }));
+      }
       const option = data.find((option) => option === key);
       return option ? { key: option } : undefined;
     }) as GetItem<K, record.Keyed<K>>,

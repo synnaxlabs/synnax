@@ -166,7 +166,7 @@ import {
   RiProgress1Line,
   RiProgress4Line,
   RiProgress8Line,
-  RiSettings3Fill as RiSettingsFill,
+  RiSettings3Fill,
   RiWeightFill,
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
@@ -250,7 +250,7 @@ export const Caret = {
   Top: wrapSVGIcon(PiCaretUpBold, "caret-top"),
   Down: wrapSVGIcon(PiCaretDown, "caret-down"),
 };
-export const Settings = wrapSVGIcon(RiSettingsFill, "settings");
+export const Settings = wrapSVGIcon(RiSettings3Fill, "settings");
 export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
 export const Import = wrapSVGIcon(PiUploadSimple, "import");

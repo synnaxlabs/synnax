@@ -119,10 +119,5 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.ArcDelete = fnoop.UnaryServer[api.SlateDeleteRequest, types.Nil]{}
 	a.ArcRetrieve = fnoop.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse]{}
 
-	// ANNOTATION
-	a.AnnotationCreate = fnoop.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse]{}
-	a.AnnotationDelete = fnoop.UnaryServer[api.AnnotationDeleteRequest, types.Nil]{}
-	a.AnnotationRetrieve = fnoop.UnaryServer[api.AnnotationRetrieveRequest, api.AnnotationRetrieveResponse]{}
-
 	return a, transports
 }

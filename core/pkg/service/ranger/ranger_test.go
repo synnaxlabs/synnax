@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -34,6 +35,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	var (
 		db     *gorp.DB
 		svc    *ranger.Service
+		ctx    context.Context
 		w      ranger.Writer
 		otg    *ontology.Ontology
 		tx     gorp.Tx
@@ -41,6 +43,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
+		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: config.True(),
@@ -78,6 +81,30 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("should return an error if the time range is invalid", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(10 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).
+				To(MatchError(
+					ContainSubstring("time_range.start cannot be after time_range.end"),
+				))
+		})
+		It("should create a range with start equal to end", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(r.Key).ToNot(Equal(uuid.Nil))
+		})
 		It("Should not override the UUID if it is already set", func() {
 			k := uuid.New()
 			r := &ranger.Range{
@@ -91,10 +118,10 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(k))
 		})
-		Context("RetrieveParent Management", func() {
+		Context("Parent Management", func() {
 			It("Should set a custom parent for the range", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -113,7 +140,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			})
 			It("Should NOT re-set the custom parent when the range exists but no parent is provided", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -164,7 +191,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			})
 			It("Should create multiple ranges with the same parent", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -185,10 +212,10 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
-			Context("RetrieveParent Method", func() {
+			Context("Parent Method", func() {
 				It("Should get the parent of the range", func() {
 					parent := ranger.Range{
-						Name:      "RetrieveParent",
+						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -202,7 +229,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				})
 				It("Should return an error if the range has no parent", func() {
 					p := ranger.Range{
-						Name:      "RetrieveParent",
+						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
@@ -274,7 +301,7 @@ var _ = Describe("Ranger", Ordered, func() {
 		})
 		It("Should delete all child ranges when a range is deleted", func() {
 			parent := ranger.Range{
-				Name: "RetrieveParent",
+				Name: "Parent",
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(5 * telem.Second),
 					End:   telem.TimeStamp(10 * telem.Second),
@@ -443,7 +470,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
@@ -535,7 +562,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
@@ -563,7 +590,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should return an error if the Alias can't be resolved on both the child range and its parent", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),

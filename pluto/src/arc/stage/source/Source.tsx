@@ -16,8 +16,7 @@ export type Config = z.infer<typeof config>;
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ channel }: SymbolProps) => {
-  const name =
-    Channel.retrieve.useDirect({ params: { key: channel } }).data?.name ?? "Channel";
+  const name = Channel.useRetrieve({ key: channel }).data?.name ?? "Channel";
 
   return (
     <Base

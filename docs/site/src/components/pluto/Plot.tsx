@@ -42,7 +42,6 @@ const LINES: Channel.BaseLineProps[] = [
   {
     key: "line1",
     axes: { x: "x", y: "y" },
-    axis: "y1",
     channels: { x: "stream_write_example_time", y: "stream_write_example_data_1" },
     color: "#3774d0",
     label: "Line 1",

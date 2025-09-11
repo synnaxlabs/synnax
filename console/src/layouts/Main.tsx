@@ -33,7 +33,6 @@ import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
-import { User } from "@/user";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   channel: ChannelServices.handleLink,
@@ -60,8 +59,7 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  // Permissions.useSync();
-  User.useFetchPermissions();
+  Permissions.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };

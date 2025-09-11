@@ -41,7 +41,7 @@ type Config struct {
 	// to both send telemetry streams from the host node to peer nodes, and to stream
 	// telemetry from peer nodes to the host node.
 	//
-	// Remote nodes are one of the three available data sources for the relay. Config
+	// Remote nodes are one of the three available data sources for the relay. Data
 	// for channels whose leaseholder is not the host node will be streamed from remote
 	// nodes.
 	// [REQUIRED]
@@ -52,7 +52,7 @@ type Config struct {
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
-	// This is the second of the three available data sources for the relay. Config for
+	// This is the second of the three available data sources for the relay. Data for
 	// channels whose leaseholder is the host node will be streamed from the time-series
 	// engine's streaming mechanism.
 	// [REQUIRED]

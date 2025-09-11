@@ -141,10 +141,5 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.ArcDelete = fhttp.UnaryServer[api.SlateDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
 	t.ArcRetrieve = fhttp.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse](router, "/api/v1/arc/retrieve")
 
-	// ANNOTATION
-	t.AnnotationCreate = fhttp.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse](router, "/api/v1/annotation/create")
-	t.AnnotationDelete = fhttp.UnaryServer[api.AnnotationDeleteRequest, types.Nil](router, "/api/v1/annotation/delete")
-	t.AnnotationRetrieve = fhttp.UnaryServer[api.AnnotationRetrieveRequest, api.AnnotationRetrieveResponse](router, "/api/v1/annotation/retrieve")
-
 	return t
 }

@@ -28,7 +28,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     type: "Arc",
     description: "Deleting this arc will permanently remove it.",
   });
-  const { update: del } = Arc.useDelete.useDirect({ params: undefined });
+  const { update: del } = Arc.useDelete();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => {
@@ -42,7 +42,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     delete: () => {
       confirm(arcs)
         .then((confirmed) => {
-          if (confirmed) del({ keys: arcs.map((a) => a.key) });
+          if (confirmed) del(arcs.map((a) => a.key));
         })
         .catch(console.error);
     },

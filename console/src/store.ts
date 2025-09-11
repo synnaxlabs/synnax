@@ -30,7 +30,6 @@ import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { User } from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -52,7 +51,6 @@ const ZERO_STATE: RootState = {
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
-  [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
@@ -69,7 +67,6 @@ const reducer = combineReducers({
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
-  [User.SLICE_NAME]: User.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
@@ -84,7 +81,6 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [User.SLICE_NAME]: User.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
@@ -101,7 +97,6 @@ export type RootAction =
   | Range.Action
   | Schematic.Action
   | Table.Action
-  | User.Action
   | Version.Action
   | Workspace.Action
   | Arc.Action;
@@ -125,7 +120,6 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  const user = User.migrateSlice(prev.user);
   const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
@@ -140,7 +134,6 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
-    user,
     arc,
   };
 };

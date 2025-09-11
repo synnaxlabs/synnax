@@ -17,10 +17,6 @@ export type RelationshipChange = change.Change<Relationship, undefined>;
 export interface RelationshipSet extends change.Set<Relationship, undefined> {}
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
 
-export const BUILTIN_TYPE = "builtin";
-export const CLUSTER_TYPE = "cluster";
-export const NODE_TYPE = "node";
-
 export const resourceTypeZ = z.enum([
   "label",
   "log",
@@ -56,7 +52,7 @@ export const idZ = z.object({ type: resourceTypeZ, key: z.string() }).or(stringI
 
 export type ID = z.infer<typeof idZ>;
 
-export const ROOT_ID: ID = { type: BUILTIN_TYPE, key: "root" };
+export const ROOT_ID: ID = { type: "builtin", key: "root" };
 
 export const idToString = (id: ID) => `${id.type}:${id.key}`;
 

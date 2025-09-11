@@ -96,21 +96,11 @@ export const corner = z.object({ x: xLocation, y: yLocation });
 export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;
 export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
-export type XYString =
-  | "centerCenter"
-  | "centerTop"
-  | "centerBottom"
-  | "centerLeft"
-  | "centerRight"
-  | CornerXYString;
 
 export const TOP_LEFT: CornerXY = Object.freeze({ x: "left", y: "top" });
 export const TOP_RIGHT: CornerXY = Object.freeze({ x: "right", y: "top" });
 export const BOTTOM_LEFT: CornerXY = Object.freeze({ x: "left", y: "bottom" });
-export const BOTTOM_RIGHT: CornerXY = Object.freeze({
-  x: "right",
-  y: "bottom",
-});
+export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" });
 export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
 export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
 export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });

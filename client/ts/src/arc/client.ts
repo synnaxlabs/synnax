@@ -92,8 +92,6 @@ export class Client {
     return isSingle ? res.arcs[0] : res.arcs;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,

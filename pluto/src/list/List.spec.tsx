@@ -84,7 +84,10 @@ describe("List", () => {
             { key: "2", name: "two" },
             { key: "3", name: "three" },
           ];
-          const getItem = ((key?: string): record.KeyedNamed<string> | undefined => {
+          const getItem = ((
+            key: string | string[],
+          ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
+            if (Array.isArray(key)) return key.map((k) => ({ key: k, name: k }));
             if (key === "1") return data[0];
             if (key === "2") return data[1];
             if (key === "3") return data[2];

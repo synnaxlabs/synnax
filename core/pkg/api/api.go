@@ -163,10 +163,6 @@ type Transport struct {
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, SlateCreateResponse]
 	ArcDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
-	// ANNOTATION
-	AnnotationCreate   freighter.UnaryServer[AnnotationCreateRequest, AnnotationCreateResponse]
-	AnnotationRetrieve freighter.UnaryServer[AnnotationRetrieveRequest, AnnotationRetrieveResponse]
-	AnnotationDelete   freighter.UnaryServer[AnnotationDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -190,7 +186,6 @@ type Layer struct {
 	Hardware     *HardwareService
 	Access       *AccessService
 	Arc          *ArcService
-	Annotation   *AnnotationService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -332,11 +327,6 @@ func (a *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
-
-		// ANNOTATION
-		t.AnnotationCreate,
-		t.AnnotationDelete,
-		t.AnnotationRetrieve,
 	)
 
 	// AUTH
@@ -459,11 +449,6 @@ func (a *Layer) BindTo(t Transport) {
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
 	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
-
-	// ANNOTATION
-	t.AnnotationCreate.BindHandler(a.Annotation.Create)
-	t.AnnotationDelete.BindHandler(a.Annotation.Delete)
-	t.AnnotationRetrieve.BindHandler(a.Annotation.Retrieve)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -490,6 +475,5 @@ func New(configs ...Config) (*Layer, error) {
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
 	api.Arc = NewArcService(api.provider)
-	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

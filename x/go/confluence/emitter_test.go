@@ -24,12 +24,11 @@ import (
 
 var _ = Describe("Emitter", func() {
 	It("Should emit values at regular intervals", func() {
-		e := &Emitter[int]{}
-		e.Interval = 1 * time.Millisecond
-		e.Emit = func(ctx context.Context) (int, error) {
-			return 1, nil
+		e := &Emitter[int]{
+			Interval: 1 * time.Millisecond,
+			Emit:     func(context.Context) (int, error) { return 1, nil },
 		}
-		ctx, cancel := signal.WithTimeout(context.TODO(), 100*time.Millisecond)
+		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
@@ -42,12 +41,13 @@ var _ = Describe("Emitter", func() {
 		Expect(len(received)).To(BeNumerically(">", 0))
 	})
 	It("Should exit if the emitter returns an error", func() {
-		e := &Emitter[int]{}
-		e.Interval = 1 * time.Millisecond
-		e.Emit = func(ctx context.Context) (int, error) {
-			return 1, errors.New("exited")
+		e := &Emitter[int]{
+			Interval: 1 * time.Millisecond,
+			Emit: func(context.Context) (int, error) {
+				return 1, errors.New("exited")
+			},
 		}
-		ctx, cancel := signal.WithTimeout(context.TODO(), 100*time.Millisecond)
+		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
@@ -56,5 +56,4 @@ var _ = Describe("Emitter", func() {
 		_, ok := <-stream.Outlet()
 		Expect(ok).To(BeFalse())
 	})
-
 })

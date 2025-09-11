@@ -9,10 +9,7 @@
 
 package status
 
-import (
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/zyn"
-)
+import "github.com/synnaxlabs/x/telem"
 
 // Variant is a general classification mechanism for statuses.
 type Variant string
@@ -24,19 +21,6 @@ const (
 	WarningVariant  Variant = "warning"
 	DisabledVariant Variant = "disabled"
 	LoadingVariant  Variant = "loading"
-)
-
-
-var (
-	Variants = []Variant{
-		InfoVariant,
-		SuccessVariant,
-		ErrorVariant,
-		WarningVariant,
-		DisabledVariant,
-		LoadingVariant,
-	}
-	VariantZ = zyn.Enum(Variants...)
 )
 
 // Status is a standardized payload used across Synnax.

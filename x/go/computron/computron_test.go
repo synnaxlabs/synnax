@@ -43,7 +43,7 @@ var _ = Describe("Computron", func() {
 		})
 	})
 
-	Describe("Config Types", func() {
+	Describe("Data Types", func() {
 		It("Should handle string values", func() {
 			c := MustSucceed(computron.Open("return 'hello' .. ' world'"))
 			defer c.Close()

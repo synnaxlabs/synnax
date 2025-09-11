@@ -11,9 +11,9 @@ import { type Layout } from "@/layout";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/permissions/Edit";
 
 export * from "@/permissions/Edit";
+export * from "@/permissions/hooks";
 export * from "@/permissions/selectors";
 export * from "@/permissions/slice";
-export * from "@/user/useSync";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,

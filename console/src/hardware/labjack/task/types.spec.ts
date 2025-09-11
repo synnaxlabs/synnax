@@ -54,7 +54,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(validConfig);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
   });
 
   it("should reject a configuration with duplicate ports", () => {
@@ -88,7 +88,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithDuplicatePorts);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].message).toContain("has already been used");
@@ -116,7 +116,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithInvalidSampleRate);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].path).toContain("sampleRate");
@@ -144,7 +144,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithInvalidStreamRate);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].path).toContain("streamRate");
@@ -172,7 +172,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithInvalidStreamRateRefinement);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
   });
 
   it("should validate a configuration with linear scale", () => {
@@ -200,7 +200,7 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithLinearScale);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
   });
 });
 
@@ -235,7 +235,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(validConfig);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
   });
 
   it("should reject a configuration with duplicate ports", () => {
@@ -268,7 +268,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(configWithDuplicatePorts);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].message).toContain("has already been used");
@@ -305,7 +305,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(configWithDuplicateCmdKeys);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].message).toContain("used on multiple channels");
@@ -342,7 +342,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(configWithDuplicateStateKeys);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].message).toContain("used for multiple channels");
@@ -369,7 +369,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(configWithInvalidStateRate);
-    expect(result.success).toBeFalsy();
+    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
       expect(result.error.issues[0].path).toContain("stateRate");
@@ -401,7 +401,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(configWithLinearScale);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
   });
 
   it("should move a v0 configuration to the new format", () => {
@@ -433,7 +433,7 @@ describe("writeConfigZ", () => {
     };
 
     const result = writeConfigZ.safeParse(v0Config);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
     expect(result.data?.channels.length).toBe(2);
     const channels = result.data?.channels as OutputChannel[];
     channels.forEach((ch, i) => {

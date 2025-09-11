@@ -412,7 +412,7 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Context("Edge cases", func() {
-				Context("With Config", func() {
+				Context("With Data", func() {
 					JustBeforeEach(func() {
 						Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 						Expect(domain.Write(ctx, db, (22 * telem.SecondTS).SpanRange(8*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
@@ -451,7 +451,7 @@ var _ = Describe("Delete", Ordered, func() {
 					})
 				})
 
-				Context("Without Config", func() {
+				Context("Without Data", func() {
 					It("Should not delete anything", func() {
 						Expect(db.Delete(
 							ctx,

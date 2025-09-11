@@ -63,13 +63,12 @@ export const useList = Flux.createList<ListParams, arc.Key, arc.Arc, SubStore>({
   ],
 });
 
-export interface DeleteParams {
-  keys: arc.Key[];
-}
-
-export const useDelete = Flux.createUpdate<undefined, DeleteParams, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  arc.Key | arc.Key[],
+  SubStore
+>({
   name: "Arcs",
-  update: async ({ client, value }) => await client.arcs.delete(value.keys),
+  update: async ({ client, value }) => await client.arcs.delete(value),
 });
 
 export const formSchema = arc.newZ.extend({

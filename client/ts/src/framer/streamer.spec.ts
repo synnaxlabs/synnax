@@ -364,7 +364,7 @@ describe("Streamer", () => {
       const second = await hardened.next();
       expect(second.value).toEqual(fr2);
       const third = await hardened.next();
-      expect(third.done).toBeTruthy();
+      expect(third.done).toBe(true);
       expect(streamer.readMock).toHaveBeenCalledTimes(3);
     });
 

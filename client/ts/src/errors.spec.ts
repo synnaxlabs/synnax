@@ -61,11 +61,11 @@ test("client", async () => {
   try {
     await client.channels.retrieve(id.create());
   } catch (e) {
-    expect(NotFoundError.matches(e)).toBeTruthy();
+    expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
     await client.workspaces.schematic.retrieve(uuid.create());
   } catch (e) {
-    expect(NotFoundError.matches(e)).toBeTruthy();
+    expect(NotFoundError.matches(e)).toBe(true);
   }
 });

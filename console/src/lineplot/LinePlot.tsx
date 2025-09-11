@@ -309,11 +309,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
       else
         syncDispatch(
-          storeViewport({
-            key: layoutKey,
-            pan: box.bottomLeft(b),
-            zoom: box.dims(b),
-          }),
+          storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
     100,

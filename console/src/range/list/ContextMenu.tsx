@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type ranger } from "@synnaxlabs/client";
 import {
   Divider,
@@ -6,7 +15,9 @@ import {
   type List,
   Menu as PMenu,
   Ranger,
+  Status,
 } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
@@ -18,10 +29,8 @@ import {
   fromClientRange,
 } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
-import { add, remove } from "@/range/slice";
-import { useDispatch } from "react-redux";
-import { FavoriteButton } from "@/range/FavoriteButton";
 import { useSelectKeys } from "@/range/selectors";
+import { add, remove } from "@/range/slice";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
   getItem: List.GetItem<string, ranger.Range>;
@@ -42,7 +51,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-  const { update: del } = Ranger.useDelete.useDirect({ params: {} });
+  const { update: del } = Ranger.useDelete();
   const handleAddChildRange = () => {
     placeLayout(createCreateLayout({ parent: ranges[0].key }));
   };
@@ -52,22 +61,24 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const handleUnfavorite = () => {
     dispatch(remove({ keys: ranges.map((r) => r.key) }));
   };
+  const handleError = Status.useErrorHandler();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => {
-      rename({ initialValue: ranges[0].name }, { icon: "Range", name: "Range.Rename" })
-        .then((renamed) => {
-          if (renamed == null) return;
-          ctx.set("name", renamed);
-        })
-        .catch(console.error);
+      handleError(async () => {
+        const renamed = await rename(
+          { initialValue: ranges[0].name },
+          { icon: "Range", name: "Range.Rename" },
+        );
+        if (renamed == null) return;
+        ctx.set("name", renamed);
+      }, "Failed to rename range");
     },
     delete: () => {
-      confirm(ranges)
-        .then((confirmed) => {
-          if (confirmed) del(ranges.map((r) => r.key));
-        })
-        .catch(console.error);
+      handleError(async () => {
+        const confirmed = await confirm(ranges);
+        if (confirmed) del(ranges.map((r) => r.key));
+      }, "Failed to delete range");
     },
     addChildRange: handleAddChildRange,
     favorite: handleFavorite,

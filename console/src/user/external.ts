@@ -12,8 +12,6 @@ import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
 
 export * from "@/user/Register";
 export * from "@/user/selectors";
-export * from "@/user/useSync";
-export * from "@/user/slice";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [REGISTER_LAYOUT_TYPE]: Register,

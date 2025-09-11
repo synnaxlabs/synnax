@@ -171,6 +171,8 @@ export interface UseListArgs<
   sort?: compare.Comparator<E>;
   /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
+  /** Whether to retreve initial list results from the cache */
+  useCachedList?: boolean;
 }
 
 /**
@@ -243,20 +245,36 @@ const defaultFilter = () => true;
 /** Default debounce time for retrieve operations */
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
+interface GetInitialDataArgs<
+  RetrieveParams extends Params,
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  ScopedStore extends flux.Store,
+> {
+  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"];
+  paramsRef: RefObject<RetrieveParams | null>;
+  filterRef: RefObject<((item: E) => boolean) | undefined>;
+  sortRef: RefObject<compare.Comparator<E> | undefined>;
+  dataRef: RefObject<Map<K, E | null>>;
+  store: ScopedStore;
+  useCachedList: boolean;
+}
+
 const getInitialData = <
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
->(
-  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"],
-  paramsRef: RefObject<RetrieveParams | null>,
-  filterRef: RefObject<((item: E) => boolean) | undefined>,
-  sortRef: RefObject<compare.Comparator<E> | undefined>,
-  dataRef: RefObject<Map<K, E | null>>,
-  store: ScopedStore,
-) => {
-  if (retrieveCached == null) return undefined;
+>({
+  retrieveCached,
+  paramsRef,
+  filterRef,
+  sortRef,
+  dataRef,
+  store,
+  useCachedList,
+}: GetInitialDataArgs<RetrieveParams, K, E, ScopedStore>) => {
+  if (retrieveCached == null || !useCachedList) return undefined;
   let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
   if (filterRef.current != null) cached = cached.filter(filterRef.current);
   if (sortRef.current != null) cached = cached.sort(sortRef.current);
@@ -357,6 +375,7 @@ export const createList =
       sort,
       initialParams,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
+      useCachedList = true,
     } = args;
     const filterRef = useSyncedRef(filter);
     const sortRef = useSyncedRef(sort ?? defaultSort);
@@ -369,7 +388,15 @@ export const createList =
       pendingResult<K[]>(
         name,
         "retrieving",
-        getInitialData(retrieveCached, paramsRef, filterRef, sortRef, dataRef, store),
+        getInitialData({
+          retrieveCached,
+          paramsRef,
+          filterRef,
+          sortRef,
+          dataRef,
+          store,
+          useCachedList,
+        }),
       ),
     );
     const hasMoreRef = useRef(true);

@@ -59,10 +59,10 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
   [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
-  [Ranger.KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
   [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
-  [Ranger.ALIAS_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }> = {
@@ -74,9 +74,9 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
-  [Ranger.KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
   [Channel.FLUX_STORE_KEY]: Channel.FLUX_STORE_CONFIG,
-  [Ranger.ALIAS_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
 };

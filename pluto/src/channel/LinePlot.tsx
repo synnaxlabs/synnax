@@ -39,7 +39,6 @@ export interface BaseLineProps {
   axes: { x: string; y: string };
   channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
   color: color.Crude;
-  axis: string;
   strokeWidth?: number;
   label?: string;
   downsample?: number;
@@ -91,7 +90,6 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
-  // Annotation
   rangeProviderProps?: Range.ProviderProps;
 }
 
@@ -330,7 +328,7 @@ const YAxis = ({
       onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
-        <Line key={lineKey(l)} line={{ ...l, axis: key }} />
+        <Line key={lineKey(l)} line={l} />
       ))}
       {rules?.map((r) => (
         <Rule.Rule
@@ -394,7 +392,6 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
-    axis,
     ...rest
   },
 }: {

@@ -318,9 +318,13 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 		}
 	}
 
+	ev := pebble.MakeLoggingEventListener(pebblekv.NewLogger(
+		cfg.Instrumentation.Child("kv"),
+	))
 	db, err := pebble.Open(dirname, &pebble.Options{
 		FS:                 fs,
 		FormatMajorVersion: pebble.FormatNewest,
+		EventListener:      &ev,
 	})
 	if err != nil {
 		return nil, errors.Wrapf(

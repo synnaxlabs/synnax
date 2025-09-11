@@ -11,7 +11,6 @@ import "@/range/Toolbar.css";
 
 import { DisconnectedError } from "@synnaxlabs/client";
 import {
-  Button,
   Component,
   Flex,
   Haul,
@@ -123,7 +122,6 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const onRename = useRename(itemKey);
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
-
   return (
     <Select.ListItem className={CSS.B("range-list-item")} {...props} gap="small" y>
       {!persisted && (
@@ -134,20 +132,23 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-      <Text.MaybeEditable
-        id={`text-${key}`}
-        level="p"
-        value={name}
-        onChange={onRename}
-        allowDoubleClick={false}
-      />
+      <Flex.Box x align="center" gap="small">
+        <Ranger.StageIcon timeRange={timeRange} />
+        <Text.MaybeEditable
+          id={`text-${key}`}
+          level="p"
+          value={name}
+          onChange={onRename}
+          allowDoubleClick={false}
+        />
+      </Flex.Box>
       <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
       {labels.length > 0 && (
         <Flex.Box
           x
+          gap="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
-          gap="small"
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>

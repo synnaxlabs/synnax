@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { createGetItem, type FrameProps } from "@/list/Frame";
+import { type FrameProps, type GetItem } from "@/list/Frame";
 
 export interface UseCombinedDataArgs<
   K extends record.Key,
@@ -31,23 +31,17 @@ export const useCombinedData = <
     () => [...first.data, ...second.data],
     [first.data, second.data],
   );
-  const getItem = useMemo(
-    () =>
-      createGetItem(
-        (key: K) => first.getItem?.(key) ?? second.getItem?.(key),
-        (keys: K[]) => {
-          const firstMatches = keys
-            .map((key) => first.getItem?.(key))
-            .filter((item) => item != null);
-          const secondMatches = keys
-            .map((key) => second.getItem?.(key))
-            .filter((item) => item != null);
-          return [...firstMatches, ...secondMatches];
-        },
-      ),
+  const getItem = useCallback(
+    (key: K | K[]) => {
+      if (Array.isArray(key)) {
+        const firstGotten = first.getItem?.(key) ?? [];
+        const secondGotten = second.getItem?.(key) ?? [];
+        return [...firstGotten, ...secondGotten];
+      }
+      return first.getItem?.(key) ?? second.getItem?.(key);
+    },
     [first.getItem, second.getItem],
-  );
-
+  ) as GetItem<K, E>;
   const subscribe = useCallback(
     (callback: () => void, key: K) => {
       const firstUnsub = first.subscribe?.(callback, key);

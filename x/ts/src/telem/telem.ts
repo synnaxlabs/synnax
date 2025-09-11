@@ -103,7 +103,9 @@ export class TimeStamp
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
-        if (isFinite(value)) value = Math.trunc(value);
+        if (isFinite(value))
+          if (value === 2 ** 63 - 1) value = 2n ** 63n - 1n;
+          else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;
@@ -1536,7 +1538,7 @@ export class TimeRange implements primitive.Stringer {
       .map((r) => r.makeValid())
       .sort((a, b) => TimeRange.sort(a, b))
       .reduce<TimeRange[]>((simplified, range) => {
-        if (range.isZero) return simplified;
+        if (range.span.isZero) return simplified;
         if (simplified.length === 0) {
           simplified.push(range);
           return simplified;

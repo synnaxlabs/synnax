@@ -21,7 +21,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { TimeRange, uuid } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -43,19 +43,12 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   location: "modal",
   name: "Range.Create",
   icon: "Range",
-  window: {
-    resizable: false,
-    size: { height: 440, width: 700 },
-    navTop: true,
-  },
+  window: { resizable: false, size: { height: 440, width: 700 }, navTop: true },
 };
 
 export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
-): Layout.BaseState<CreateLayoutArgs> => ({
-  ...CREATE_LAYOUT,
-  args: initial,
-});
+): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
 export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
@@ -76,7 +69,6 @@ export const Create: Layout.Renderer = (props) => {
       key: uuid.create(),
       name: "",
       labels: [],
-      stage: "to_do",
       timeRange: { start: now, end: now },
       parent: "",
       ...args,
@@ -87,15 +79,7 @@ export const Create: Layout.Renderer = (props) => {
       if (key == null) return;
       dispatch(
         add({
-          ranges: [
-            {
-              name,
-              key,
-              persisted: true,
-              variant: "static",
-              timeRange,
-            },
-          ],
+          ranges: [{ name, key, persisted: true, variant: "static", timeRange }],
         }),
       );
     },
@@ -148,11 +132,10 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<ranger.Stage> path="stage" required={false}>
-            {({ value, onChange }) => (
+          <Form.Field<NumericTimeRange> path="timeRange" required={false}>
+            {(p) => (
               <Ranger.SelectStage
-                value={value}
-                onChange={onChange}
+                {...Ranger.wrapNumericTimeRangeToStage(p)}
                 style={{ width: 150 }}
                 triggerProps={{ variant: "outlined" }}
               />
@@ -172,7 +155,7 @@ export const Create: Layout.Renderer = (props) => {
           <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, value }) => (
-                <Ranger.SelectSingle
+                <Ranger.Select
                   style={{ width: "fit-content" }}
                   zIndex={-1}
                   filter={recursiveParentFilter}

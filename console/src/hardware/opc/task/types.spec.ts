@@ -30,7 +30,7 @@ describe("OPC Write Task Types", () => {
       device: "1",
     };
     const result = writeConfigZ.safeParse(config);
-    expect(result.success).toBeTruthy();
+    expect(result.success).toBe(true);
     expect(result.data?.channels[0].cmdChannel).toBe(432);
   });
 });

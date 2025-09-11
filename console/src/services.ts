@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { type ontology } from "@synnaxlabs/client";
 
 import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
@@ -18,7 +18,6 @@ import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
-import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
@@ -34,10 +33,10 @@ export const SERVICES: Ontology.Services = {
   schematic_symbol: createEmptyService("schematic_symbol"),
   cluster: ClusterServices.ONTOLOGY_SERVICE,
   user: UserServices.ONTOLOGY_SERVICE,
-  builtin: createEmptyService(ontology.BUILTIN_TYPE),
+  builtin: createEmptyService("builtin"),
   node: Node.ONTOLOGY_SERVICE,
   group: GroupServices.ONTOLOGY_SERVICE,
-  range: RangeServices.ONTOLOGY_SERVICE,
+  range: createEmptyService("range"),
   workspace: WorkspaceServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),

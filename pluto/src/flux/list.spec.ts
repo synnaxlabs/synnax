@@ -599,7 +599,7 @@ describe("list", () => {
         key: number;
         priority: number;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 3, priority: 3 },
         { key: 1, priority: 1 },
@@ -627,7 +627,7 @@ describe("list", () => {
         key: number;
         name: string;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, name: "Alpha" },
         { key: 2, name: "Charlie" },
@@ -656,7 +656,7 @@ describe("list", () => {
         value: number;
         active: boolean;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, value: 100, active: true },
         { key: 2, value: 50, active: false },
@@ -672,7 +672,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
             retrieveCached,
-          })({ 
+          })({
             filter: (item) => item.active,
             sort: (a, b) => a.value - b.value,
           }),

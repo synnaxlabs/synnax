@@ -111,12 +111,6 @@ var (
 		},
 		Direction: Backward,
 	}
-	Creator = Traverser{
-		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == CreatorOf && rel.To == res.ID
-		},
-		Direction: Backward,
-	}
 	// Children traverse to the children of a resource.
 	Children = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {

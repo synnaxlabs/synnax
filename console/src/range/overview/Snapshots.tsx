@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import {
+  Button,
   Component,
   Flex,
   Header,
@@ -26,8 +27,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
+import { CSS } from "@/css";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { create } from "@/schematic/Schematic";
 
 interface SnapshotCtx {
@@ -38,6 +41,7 @@ interface SnapshotCtx {
 interface SnapshotService {
   icon: Icon.ReactElement;
   onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
+  onDelete: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
 }
 
 const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
@@ -50,11 +54,19 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
       );
     },
+    onDelete: async ({ id: { key } }, { client }) => {
+      if (client == null) throw new DisconnectedError();
+      await client.workspaces.schematic.delete(key);
+    },
   },
   task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
+    onDelete: async ({ id: { key } }, { client }) => {
+      if (client == null) throw new DisconnectedError();
+      await client.hardware.tasks.delete(key);
+    },
   },
 };
 
@@ -73,17 +85,35 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       `Failed to open ${entry.name}`,
     );
   };
+  const promptConfirm = useConfirmDelete({
+    type: "Snapshot",
+  });
+  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    handleError(async () => {
+      const confirmed = await promptConfirm({ name });
+      if (!confirmed) return;
+      await svc.onDelete(entry, { client, placeLayout });
+    }, `Failed to delete ${name}`);
+  };
   return (
     <List.Item
       style={{ padding: "1.5rem" }}
-      gap="tiny"
       {...props}
+      justify="between"
       onSelect={handleSelect}
     >
       <Text.Text weight={450}>
         {svc.icon}
         {name}
       </Text.Text>
+      <Button.Button
+        onClick={handleDelete}
+        className={CSS.BE("snapshots", "delete")}
+        variant="shadow"
+      >
+        <Icon.Delete color={10} />
+      </Button.Button>
     </List.Item>
   );
 };

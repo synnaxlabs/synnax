@@ -29,14 +29,13 @@ const (
 	// ParentOf indicates that a resource is the parent of another resource. When
 	// examining a Relationship of type ParentOf, the Start field will be the parent
 	// and the to field will be the child i.e. (Start is the ParentOf To).
-	ParentOf  RelationshipType = "parent"
-	CreatorOf RelationshipType = "creator"
+	ParentOf RelationshipType = "parent"
 )
 
 // Relationship is a struct that represents a relationship between two resources in the
 // ontology. A relationship is defined by a type, a from and a to field. This means that
 // two resources can have multiple relationships of different types between them.
-// Think about the relationship like From->Type->To i.e. Dog->RetrieveParent->Puppy.
+// Think about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
 type Relationship struct {
 	// From is the ID of the resource that the relationship starts from.
 	From ID `json:"from" msgpack:"from"`

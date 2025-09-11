@@ -32,7 +32,7 @@ describe("id", () => {
       const ids = new Set<string>();
       for (let i = 0; i < 100; i++) {
         const newID = id.create();
-        expect(ids.has(newID)).toBeFalsy();
+        expect(ids.has(newID)).toBe(false);
         ids.add(newID);
       }
     });

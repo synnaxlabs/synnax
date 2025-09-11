@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import "@/range/list/Item.css";
 
 import { type ranger } from "@synnaxlabs/client";
@@ -12,6 +21,7 @@ import {
   stopPropagation,
   Tag,
 } from "@synnaxlabs/pluto";
+import { type NumericTimeRange } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -90,11 +100,14 @@ export const Item = ({
             ghost={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
-            <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
+            <Form.Field<NumericTimeRange>
+              path="timeRange"
+              showHelpText
+              showLabel={false}
+            >
               {({ value, onChange }) => (
                 <Ranger.SelectStage
-                  value={value}
-                  onChange={onChange}
+                  {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
                   location="bottom"
                   onClick={stopPropagation}
@@ -113,7 +126,8 @@ export const Item = ({
         <Flex.Box x align="center">
           <Tag.Tags variant="text">
             {showLabels &&
-              labels?.map(({ key, name, color }) => (
+              labels != null &&
+              labels.map(({ key, name, color }) => (
                 <Tag.Tag key={key} color={color} size="small">
                   {name}
                 </Tag.Tag>

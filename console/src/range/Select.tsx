@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
+import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 import { type DynamicRange, type StaticRange } from "@/range/types";
 
@@ -53,12 +53,15 @@ const DynamicListItem = Component.renderProp(
 const StaticListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: StaticRange }) => {
     const { range } = props;
-    const parent = Ranger.retrieveParent.useDirect({
-      params: { id: ranger.ontologyID(range.key) },
-    }).data;
+    const parent = Ranger.useRetrieveParent({ id: ranger.ontologyID(range.key) }).data;
     return (
       <Select.ListItem {...props} justify="between">
-        <Ranger.Breadcrumb key={range.key} name={range.name} parent={parent} />
+        <Ranger.Breadcrumb
+          key={range.key}
+          name={range.name}
+          parent={parent}
+          timeRange={range.timeRange}
+        />
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       </Select.ListItem>
     );
@@ -93,7 +96,7 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   );
 };
 
-export const renderTag = Component.renderProp(RangeTag);
+const renderTag = Component.renderProp(RangeTag);
 
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
   const entries = useSelectMultiple();
@@ -114,28 +117,7 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
   );
 };
 
-interface SelectSingleRangeProps
-  extends Omit<
-    Select.SingleProps<string, Range>,
-    "resourceName" | "data" | "children"
-  > {}
-
-const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
-  const data = useSelectKeys();
-  return (
-    <Select.Single<string, Range>
-      resourceName="Range"
-      value={value}
-      onChange={onChange}
-      data={data}
-      icon={<Icon.Range />}
-    >
-      {listItem}
-    </Select.Single>
-  );
-};
-
-interface SelectMultipleInputItemProps
+export interface SelectMultipleInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
     Omit<SelectMultipleRangesProps, "status"> {
   value: string[];
@@ -151,22 +133,5 @@ export const SelectMultipleInputItem = ({
 }: SelectMultipleInputItemProps): ReactElement => (
   <Input.Item x label="Ranges" {...rest}>
     <SelectMultipleRanges value={value} onChange={onChange} {...selectProps} />
-  </Input.Item>
-);
-
-interface SelectInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
-    Omit<SelectSingleRangeProps, "status"> {
-  selectProps?: Partial<SelectSingleRangeProps>;
-}
-
-export const SelectInputItem = ({
-  value,
-  onChange,
-  selectProps,
-  ...rest
-}: SelectInputItemProps): ReactElement => (
-  <Input.Item label="Range:" {...rest}>
-    <SelectRange value={value} onChange={onChange} {...selectProps} />
   </Input.Item>
 );
