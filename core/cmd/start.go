@@ -262,7 +262,7 @@ func start(cmd *cobra.Command) {
 				Enabled:         config.Bool(!noDriver),
 				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
-				Instrumentation: ins,
+				Instrumentation: ins.Child("driver"),
 				Address:         listenAddress,
 				RackKey:         serviceLayer.Hardware.Rack.EmbeddedKey,
 				ClusterKey:      distributionLayer.Cluster.Key(),
