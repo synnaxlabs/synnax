@@ -9,10 +9,9 @@
 
 import time
 from datetime import datetime
+from test.framework.test_case import TestCase
 
 import synnax as sy
-
-from framework.test_case import TestCase
 
 time_format = "%Y-%m-%d %H:%M:%S.%f"
 

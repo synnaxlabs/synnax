@@ -473,11 +473,6 @@ class TestConductor:
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
-            if test_result.start_time is not None:
-                self._create_range(
-                    test_result.test_name, test_result.start_time, test_result.end_time
-                )
-
     def _execute_sequence_asynchronously(
         self, sequence_name: str, tests_to_execute: List[TestDefinition]
     ) -> None:
@@ -530,11 +525,6 @@ class TestConductor:
             self.test_results.append(test_result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
-            if test_result.start_time is not None:
-                self._create_range(
-                    test_result.test_name, test_result.start_time, test_result.end_time
-                )
-
     def wait_for_completion(self) -> None:
         """
         Wait for all async processes to complete before allowing main to exit.
@@ -556,9 +546,6 @@ class TestConductor:
             self.log_message("Test Thread has stopped")
 
         self.state = STATE.COMPLETED
-
-        # Create range for the test_conductor's entire execution
-        self._create_range(self.name, self.start_time)
 
     def shutdown(self) -> None:
         """
@@ -739,32 +726,26 @@ class TestConductor:
 
         return result
 
-    def _create_range(
-        self, name: str, start_time: datetime, end_time: Optional[datetime] = None
-    ) -> None:
+    def create_ranges(self) -> None:
         """Create a range in Synnax with the given name and time span."""
         try:
-            if start_time is None:
-                self.log_message(
-                    f"Skipping range creation for {name}: missing start time"
-                )
-                return
-
-            # Use current time as end_time if not provided
-            if end_time is None:
-                end_time = datetime.now()
-
-            self.client.ranges.create(
-                name=name,
+            conductor_range = self.client.ranges.create(
+                name=self.name,
                 time_range=sy.TimeRange(
-                    start=start_time,
-                    end=end_time,
+                    start=self.start_time,
+                    end=datetime.now(),
                 ),
             )
-            self.log_message(f"Created range '{name}'")
-
+            for test in self.test_results:
+                conductor_range.create_sub_range(
+                    name=test.name,
+                    time_range=sy.TimeRange(
+                        start=test.start_time,
+                        end=test.end_time,
+                    ),
+                )
         except Exception as e:
-            self.log_message(f"Failed to create range for {name}: {e}")
+            raise RuntimeError(f"Failed to create range for {self.name}: {e}")
 
     def _test_runner_thread(
         self, test_def: TestDefinition, result_container: List[TestResult]
@@ -1055,8 +1036,11 @@ def main() -> None:
         conductor.shutdown()
         raise
     finally:
+        # Ranges must be created last for the test_conductor to be available as a parent.
+        conductor.create_ranges()
         conductor.log_message(f"Fin.")
         gc.enable()
+
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 

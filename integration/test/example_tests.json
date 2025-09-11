@@ -24,6 +24,9 @@
             "fail_test": true
           },
           "expect": "FAILED"
+        },
+        {
+          "case": "ranges_basic"
         }
       ]
     }
