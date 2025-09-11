@@ -100,7 +100,7 @@ export interface RetrieveParams {
   includeStatus?: boolean;
 }
 
-export const retrieve = Flux.createRetrieve<RetrieveParams, rack.Payload, SubStore>({
+export const useRetrieve = Flux.createRetrieve<RetrieveParams, rack.Payload, SubStore>({
   name: "Rack",
   retrieve: retrieveFn,
   mountListeners: ({ store, onChange, params: { key } }) => [

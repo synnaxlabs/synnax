@@ -173,23 +173,21 @@ export interface CreateRetrieveReturn<
    * Use this for most cases where you want React to handle the data fetching lifecycle automatically.
    * Data is fetched when the component mounts and re-fetched whenever params change.
    */
-  useDirect: (
-    args: UseDirectRetrieveArgs<RetrieveParams>,
-  ) => UseDirectRetrieveReturn<Data>;
+  (args: RetrieveParams): UseDirectRetrieveReturn<Data>;
 
   /**
    * Hook that triggers data fetching as a side effect when parameters change but returns nothing.
    * Use this when you need to trigger data fetching but handle the result state externally
    * (e.g., through the onChange callback). Returns void - no state is managed internally.
    */
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
+  effect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
 
   /**
    * Hook that provides manual control over when data is fetched, with internal state management.
    * Use this when you need to trigger data fetching based on user actions or specific events.
    * Returns both the current state (data, variant, error) and functions to manually trigger retrieval.
    */
-  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
+  stateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
@@ -394,10 +392,10 @@ export const createRetrieve = <
   ScopedStore extends flux.Store = {},
 >(
   factoryArgs: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
-): CreateRetrieveReturn<RetrieveParams, Data> => ({
-  useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
-    useDirect({ ...factoryArgs, ...args }),
-  useStateful: () => useStateful(factoryArgs),
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
-    useEffect({ ...factoryArgs, ...args }),
-});
+): CreateRetrieveReturn<RetrieveParams, Data> => {
+  const direct = (args: RetrieveParams) => useDirect({ ...factoryArgs, params: args });
+  direct.stateful = () => useStateful(factoryArgs);
+  direct.effect = (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
+    useEffect({ ...factoryArgs, ...args });
+  return direct;
+};
