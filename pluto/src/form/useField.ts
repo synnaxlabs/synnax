@@ -78,8 +78,8 @@ export const useField = (<I, O = I>(
   opts: UseFieldOptions<I, O> & GetOptions<I> = {},
 ): UseFieldReturn<I, O> | null => {
   const { optional = false, onChange, defaultValue } = opts;
-  const ctx = useContext(opts?.ctx);
-  const { get: getState, bind, set, setStatus } = ctx;
+  const ctx = useContext(opts?.ctx, `useField(${path})`);
+  const { get, bind, set, setStatus } = ctx;
 
   const handleChange = useCallback(
     (value: O) => {
@@ -96,8 +96,8 @@ export const useField = (<I, O = I>(
   const state = useSyncExternalStore(
     bind,
     useCallback(
-      () => getState<I>(path, { optional, defaultValue }),
-      [path, getState, optional, defaultValue],
+      () => get<I>(path, { optional, defaultValue }),
+      [path, get, optional, defaultValue],
     ),
   );
   if (state == null) {
