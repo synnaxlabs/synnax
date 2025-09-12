@@ -148,6 +148,7 @@ class TestCase(ABC):
         self.streamer_thread: threading.Thread = threading.Thread()
         self._should_stop = False
         self.is_running = True
+        self._auto_pass = False
 
         self.subscribed_channels: Set[str] = set()
 
@@ -536,6 +537,10 @@ class TestCase(ABC):
         """Set the name of the test case."""
         self._name = value
 
+    def auto_pass(self) -> None:
+        self._log_message("⚠️ AutoPass enabled. ⚠️")
+        self._auto_pass = True
+
     @property
     def STATUS(self) -> STATUS:
         """Get the current test status."""
@@ -699,12 +704,14 @@ class TestCase(ABC):
             # Even if the child classes don't call super()
 
             self.STATUS = STATUS.INITIALIZING
-            self.setup()
+            if not self._auto_pass:
+                self.setup()
 
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            self.run()
+            if not self._auto_pass:
+                self.run()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
