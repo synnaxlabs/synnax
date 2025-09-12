@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
-import { Create, CREATE_LAYOUT_TYPE } from "@/status/Create";
+import { Status } from "@synnaxlabs/pluto";
 
-export * from "@/status/Create";
-export * from "@/status/palette";
-export * from "@/status/useListenForChanges";
+import { type Palette } from "@/palette";
+import { CREATE_LAYOUT } from "@/status/Create";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CREATE_LAYOUT_TYPE]: Create,
+export const CREATE_COMMAND: Palette.Command = {
+  key: "create_status",
+  name: "Create a Status",
+  icon: <Status.CreateIcon />,
+  onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
 };
+
+export const COMMANDS = [CREATE_COMMAND];

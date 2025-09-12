@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, status } from "@synnaxlabs/client";
+import { type ontology, status, TimeStamp } from "@synnaxlabs/client";
 import { useEffect } from "react";
+import type z from "zod";
 
 import { Flux } from "@/flux";
+import { createForm } from "@/flux/form";
 import { createList } from "@/flux/list";
-import { createRetrieve } from "@/flux/retrieve";
+import { createRetrieve, type RetrieveArgs } from "@/flux/retrieve";
 import { createUpdate } from "@/flux/update";
 
 export const FLUX_STORE_KEY = "statuses";
@@ -78,15 +80,24 @@ export const { useUpdate: useSet } = createUpdate<SetArgs, SubStore>({
   },
 });
 
-interface UseStatusParams {
-  key: status.Key;
-}
+interface UseRetrieveArgs extends status.SingleRetrieveArgs {}
 
-export const { useRetrieve } = createRetrieve<UseStatusParams, status.Status, SubStore>(
+const cachedSingleRetrieve = async ({
+  store,
+  client,
+  params,
+}: RetrieveArgs<status.SingleRetrieveArgs, SubStore>) => {
+  const cached = store.statuses.get(params.key);
+  if (cached != null) return cached;
+  const res = await client.statuses.retrieve(params);
+  store.statuses.set(params.key, res);
+  return res;
+};
+
+export const { useRetrieve } = createRetrieve<UseRetrieveArgs, status.Status, SubStore>(
   {
     name: "Status",
-    retrieve: async ({ client, params: { key } }) =>
-      await client.statuses.retrieve({ key }),
+    retrieve: cachedSingleRetrieve,
     mountListeners: ({ store, params: { key }, onChange }) => [
       store.statuses.onSet(onChange, key),
     ],
@@ -97,3 +108,41 @@ export const useSetSynchronizer = (onSet: (status: status.Status) => void): void
   const store = Flux.useStore<SubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };
+
+export const formSchema = status.statusZ;
+
+const INITIAL_VALUES: z.infer<typeof formSchema> = {
+  key: "",
+  variant: "success",
+  message: "",
+  time: TimeStamp.now(),
+  name: "",
+  description: "",
+  details: undefined,
+};
+
+export const useForm = createForm<
+  Partial<UseRetrieveArgs>,
+  typeof formSchema,
+  SubStore
+>({
+  name: "Status",
+  schema: formSchema,
+  initialValues: INITIAL_VALUES,
+  retrieve: async ({ reset, ...args }) => {
+    const { params } = args;
+    if ("key" in params && params.key == null) return;
+    const res = await cachedSingleRetrieve({
+      ...args,
+      params: params as UseRetrieveArgs,
+    });
+    reset(res);
+  },
+  update: async ({ client, value }) => {
+    const v = value();
+    await client.statuses.set(v);
+  },
+  mountListeners: ({ store, params: { key }, reset }) => [
+    store.statuses.onSet(reset, key),
+  ],
+});

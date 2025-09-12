@@ -417,6 +417,7 @@ export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
+export const Status = Notification;
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
@@ -586,6 +587,7 @@ const icons = {
   Fitting,
   Pump,
   Reset,
+  Status,
   FillColor,
   StrokeColor,
 };

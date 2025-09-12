@@ -47,6 +47,7 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
+import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { User } from "@/user";
@@ -75,6 +76,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Arc.LAYOUTS,
+  ...Status.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
