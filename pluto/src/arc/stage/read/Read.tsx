@@ -51,7 +51,7 @@ export const Symbol = ({ channel }: SymbolProps) => {
         </Text.Text>
       </Flex.Box>
       <Handle.Sink location="left" id="trigger" />
-      <Handle.Source location="right" id="value" />
+      <Handle.Source location="right" id="output" />
     </Flex.Box>
   );
 };

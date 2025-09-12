@@ -23,7 +23,7 @@ export const StableFor = ({ duration }: SymbolProps) => (
     color={color.cssString(color.setAlpha(PURPLE_HEX, 0.2))}
     textColor={color.cssString(PURPLE_HEX)}
     sinks={[{ key: "input", Icon: Icon.Number }]}
-    sources={[{ key: "value", Icon: Icon.Number }]}
+    sources={[{ key: "output", Icon: Icon.Number }]}
   >
     <Text.Text level="h4" weight={500} variant="code">
       {new TimeSpan(duration).toString()}

@@ -22,10 +22,10 @@ export const createOperator = (
   const C = () => (
     <Minimal
       sinks={[
-        { key: "x", Icon: inputIcon },
-        ...(single ? [] : [{ key: "y", Icon: inputIcon }]),
+        { key: "a", Icon: inputIcon },
+        ...(single ? [] : [{ key: "b", Icon: inputIcon }]),
       ]}
-      sources={[{ key: "value", Icon: outputIcon }]}
+      sources={[{ key: "output", Icon: outputIcon }]}
       centerSources
       centerSinks={single}
     >

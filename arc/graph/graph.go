@@ -173,6 +173,9 @@ func Analyze(
 				return ir.IR{}, *ctx.Diagnostics
 			}
 			if _, ok = cfgT.(ir.Chan); ok {
+				if f64, ok := p.(float64); ok {
+					p = int(f64)
+				}
 				name := fmt.Sprintf("%v", p)
 				sym, err := ctx.Scope.Resolve(ctx, name)
 				if err != nil {

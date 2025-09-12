@@ -8,7 +8,7 @@ import { Status } from "@/status";
 import { Text } from "@/text";
 
 export const config = z.object({
-  key: z.string(),
+  statusKey: z.string(),
   variant: status.variantZ,
   message: z.string(),
   description: z.string().optional(),
@@ -26,7 +26,7 @@ export const Symbol = ({ message, variant }: SymbolProps) => (
     Icon={<Icon.Notification />}
     color={color.cssString(color.setAlpha(RED_HEX, 0.2))}
     textColor={color.cssString(RED_HEX)}
-    sinks={[{ key: "value", Icon: Icon.Number }]}
+    sinks={[{ key: "output", Icon: Icon.Number }]}
   >
     <Text.Text level="p" weight={500} color={11}>
       <Status.Indicator variant={variant} size="2.5em" />

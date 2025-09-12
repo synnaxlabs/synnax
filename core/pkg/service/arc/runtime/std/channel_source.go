@@ -39,7 +39,7 @@ type channelSource struct {
 
 func (c *channelSource) Next(ctx context.Context, val value.Value) {
 	key := c.readChannels[0]
-	values := value.FromSeries(c.values.Get(key), address.Address(c.key), "")
+	values := value.FromSeries(c.values.Get(key), address.Address(c.key), "output")
 	for _, v := range values {
 		c.outputHandler(ctx, v)
 	}

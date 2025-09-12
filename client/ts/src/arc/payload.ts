@@ -25,9 +25,9 @@ export const graphNodeZ = irNodeZ.extend({
   position: xy.xy,
 });
 
-export const handleZ = z.object({ key: z.string(), node: z.string() });
+export const handleZ = z.object({ param: z.string(), node: z.string() });
 
-export const edgeZ = z.object({ source: handleZ, sink: handleZ });
+export const edgeZ = z.object({ source: handleZ, target: handleZ });
 
 export const irZ = z.object({
   nodes: irNodeZ.array(),

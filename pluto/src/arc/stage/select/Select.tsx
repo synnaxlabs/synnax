@@ -8,7 +8,7 @@ const ORANGE_HEX = color.construct("#FF8A00");
 
 export const Symbol = () => (
   <Minimal
-    sinks={[{ key: "value", Icon: Icon.Boolean }]}
+    sinks={[{ key: "output", Icon: Icon.Boolean }]}
     centerSinks
     sources={[
       { key: "true", Icon: Icon.True },

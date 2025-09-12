@@ -27,6 +27,7 @@ type Value struct {
 // PutUint64 stores a uint64 value
 func (v Value) PutUint64(val uint64) Value {
 	v.Value = val
+	v.Type = ir.U64{}
 	return v
 }
 
@@ -38,6 +39,7 @@ func (v Value) GetUint64() uint64 {
 // PutUint32 stores a uint32 value
 func (v Value) PutUint32(val uint32) Value {
 	v.Value = uint64(val)
+	v.Type = ir.U32{}
 	return v
 }
 
@@ -49,6 +51,7 @@ func (v Value) GetUint32() uint32 {
 // PutUint16 stores a uint16 value
 func (v Value) PutUint16(val uint16) Value {
 	v.Value = uint64(val)
+	v.Type = ir.U16{}
 	return v
 }
 
@@ -60,6 +63,7 @@ func (v Value) GetUint16() uint16 {
 // PutUint8 stores a uint8 value
 func (v Value) PutUint8(val uint8) Value {
 	v.Value = uint64(val)
+	v.Type = ir.U8{}
 	return v
 }
 
@@ -71,6 +75,7 @@ func (v Value) GetUint8() uint8 {
 // PutInt64 stores an int64 value
 func (v Value) PutInt64(val int64) Value {
 	v.Value = uint64(val)
+	v.Type = ir.I64{}
 	return v
 }
 
@@ -82,6 +87,7 @@ func (v Value) GetInt64() int64 {
 // PutInt32 stores an int32 value
 func (v Value) PutInt32(val int32) Value {
 	v.Value = uint64(val)
+	v.Type = ir.I32{}
 	return v
 }
 
@@ -93,6 +99,7 @@ func (v Value) GetInt32() int32 {
 // PutInt16 stores an int16 value
 func (v Value) PutInt16(val int16) Value {
 	v.Value = uint64(val)
+	v.Type = ir.I16{}
 	return v
 }
 
@@ -104,6 +111,7 @@ func (v Value) GetInt16() int16 {
 // PutInt8 stores an int8 value
 func (v Value) PutInt8(val int8) Value {
 	v.Value = uint64(val)
+	v.Type = ir.I8{}
 	return v
 }
 
@@ -115,6 +123,7 @@ func (v Value) GetInt8() int8 {
 // PutFloat32 stores a float32 value
 func (v Value) PutFloat32(val float32) Value {
 	v.Value = uint64(math.Float32bits(val))
+	v.Type = ir.F32{}
 	return v
 }
 
@@ -126,6 +135,7 @@ func (v Value) GetFloat32() float32 {
 // PutFloat64 stores a float64 value
 func (v Value) PutFloat64(val float64) Value {
 	v.Value = math.Float64bits(val)
+	v.Type = ir.F64{}
 	return v
 }
 
@@ -518,7 +528,7 @@ func (v Value) Add(other Value) Value {
 		Param:   v.Param,
 		Type:    v.Type,
 	}
-	
+
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() + other.toFloat64())
@@ -552,7 +562,7 @@ func (v Value) Sub(other Value) Value {
 		Param:   v.Param,
 		Type:    v.Type,
 	}
-	
+
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() - other.toFloat64())
@@ -586,7 +596,7 @@ func (v Value) Mul(other Value) Value {
 		Param:   v.Param,
 		Type:    v.Type,
 	}
-	
+
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() * other.toFloat64())
@@ -620,7 +630,7 @@ func (v Value) Div(other Value) Value {
 		Param:   v.Param,
 		Type:    v.Type,
 	}
-	
+
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() / other.toFloat64())
@@ -690,7 +700,7 @@ func (v Value) Mod(other Value) Value {
 		Param:   v.Param,
 		Type:    v.Type,
 	}
-	
+
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(math.Mod(v.GetFloat64(), other.toFloat64()))

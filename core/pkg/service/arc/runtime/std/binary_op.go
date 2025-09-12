@@ -55,7 +55,7 @@ func (n *operator) Next(ctx context.Context, val value.Value) {
 		}
 		n.outputHandler(ctx, value.Value{
 			Address: val.Address,
-			Param:   "",
+			Param:   "output",
 			Type:    ir.U8{},
 		}.PutUint8(result))
 	}

@@ -20,12 +20,12 @@ export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
     zIndex: 1,
   })),
   edges: module.edges.map((e) => ({
-    id: `${e.source.key}-${e.sink.key}`,
-    key: `${e.source.key}-${e.sink.key}`,
+    id: `${e.source.node}-${e.target.node}`,
+    key: `${e.source.node}-${e.target.node}`,
     source: e.source.node,
-    target: e.sink.node,
-    sourceHandle: e.source.key,
-    targetHandle: e.sink.key,
+    target: e.target.node,
+    sourceHandle: e.source.param,
+    targetHandle: e.target.param,
     segments: [],
     color: color.ZERO,
     selected: false,
@@ -42,14 +42,12 @@ export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
 });
 
 export const translateGraphToServer = (arc: GraphState): arc.Graph => ({
-  nodes: arc.nodes.map((n) => ({
-    key: n.key,
-    type: arc.props[n.key].key,
-    config: arc.props[n.key],
-    position: n.position,
-  })),
+  nodes: arc.nodes.map((n) => {
+    const { key: type, ...config } = arc.props[n.key];
+    return { key: n.key, type, config, position: n.position };
+  }),
   edges: arc.edges.map((e) => ({
-    source: { key: e.sourceHandle as string, node: e.source },
-    sink: { key: e.targetHandle as string, node: e.target },
+    source: { param: e.sourceHandle as string, node: e.source },
+    target: { param: e.targetHandle as string, node: e.target },
   })),
 });

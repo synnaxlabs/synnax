@@ -48,12 +48,13 @@ func (s *stableFor) Next(ctx context.Context, val value.Value) {
 	}
 	if s.now()-s.lastChanged >= telem.TimeStamp(s.duration) && s.lastSent != s.value {
 		s.lastSent = s.value
+		val.Param = "output"
 		s.outputHandler(ctx, val)
 	}
 }
 
 func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
-	duration := telem.TimeSpan(cfg.Node.Config["duration"].(int))
+	duration := telem.TimeSpan(cfg.Node.Config["duration"].(float64))
 	now := cfg.Now
 	if now == nil {
 		now = telem.Now

@@ -12,7 +12,7 @@ import {
   NotEqual,
   Or,
   Subtract,
-} from "@/arc/stage/operator/Symbols";
+} from "@/arc/stage/operator/Operator";
 
 const ADD = {
   key: "add",
