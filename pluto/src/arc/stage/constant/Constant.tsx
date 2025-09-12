@@ -5,25 +5,17 @@ import { type types } from "@/arc/stage/types";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
-const stringConstant = z.object({
-  type: z.literal("string"),
-  value: z.string(),
-  units: z.string(),
-});
-
-const numericConstant = z.object({
-  dataType: z.literal("float32"),
+const constant = z.object({
   value: z.number(),
-  units: z.string(),
 });
 
-export const configZ = stringConstant.or(numericConstant);
+export const configZ = constant;
 
 export type Config = z.infer<typeof configZ>;
 
 export type SymbolProps = types.SymbolProps<Config>;
 
-export const Constant = ({ value, units, scale }: SymbolProps) => (
+export const Constant = ({ value, scale }: SymbolProps) => (
   <Base
     type="Constant"
     Icon={<Icon.Constant />}
@@ -33,7 +25,7 @@ export const Constant = ({ value, units, scale }: SymbolProps) => (
     scale={scale}
   >
     <Text.Text level="h4" weight={500} variant="code">
-      {value.toString()} {units}
+      {value.toString()}
     </Text.Text>
   </Base>
 );

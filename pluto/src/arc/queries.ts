@@ -26,19 +26,26 @@ export interface ListParams extends List.PagerParams {
   keys?: arc.Key[];
 }
 
-export interface RetrieveParams {
-  key: arc.Key;
-}
+export type RetrieveParams = arc.SingleRetrieveArgs;
 
 const retrieveSingleFn = async ({
   client,
-  params: { key },
+  params,
   store,
 }: Flux.RetrieveArgs<RetrieveParams, SubStore>) => {
-  const cached = store.arcs.get(key);
-  if (cached != null) return cached;
-  const arc = await client.arcs.retrieve({ key });
-  store.arcs.set(key, arc);
+  if ("key" in params) {
+    const cached = store.arcs.get(params.key);
+    if (cached != null) {
+      const status = await store.statuses.get(cached.key);
+      if (status != null) cached.status = status;
+      return cached;
+    }
+    const arc = await client.arcs.retrieve(params);
+    store.arcs.set(params.key, arc);
+    return arc;
+  }
+  const arc = await client.arcs.retrieve(params);
+  store.arcs.set(arc.key, arc);
   return arc;
 };
 
@@ -77,19 +84,31 @@ export const formSchema = arc.newZ.extend({
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  version: "",
   graph: { nodes: [], edges: [] },
   text: { contents: "" },
 };
 
-export const useForm = Flux.createForm<RetrieveParams, typeof formSchema, SubStore>({
+export const useForm = Flux.createForm<
+  Partial<RetrieveParams>,
+  typeof formSchema,
+  SubStore
+>({
   name: "Arcs",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params: { key }, reset, store }) => {
-    if (key == null) return;
-    const res = await retrieveSingleFn({ client, params: { key }, store });
-    reset(res);
+  retrieve: async ({ client, params, reset, store }) => {
+    if (
+      (!("key" in params) || params.key == null) &&
+      (!("name" in params) || params.name == null)
+    )
+      return;
+    reset(
+      await retrieveSingleFn({
+        client,
+        params: params as RetrieveParams,
+        store,
+      }),
+    );
   },
   update: async ({ client, value, reset, store }) => {
     const updated = await client.arcs.create(value());

@@ -160,9 +160,9 @@ type Transport struct {
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 	// Arc
-	ArcCreate   freighter.UnaryServer[ArcCreateRequest, SlateCreateResponse]
-	ArcDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
-	ArcRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
+	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
+	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
+	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]

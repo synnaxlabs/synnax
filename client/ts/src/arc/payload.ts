@@ -11,7 +11,7 @@ import { xy } from "@synnaxlabs/x";
 import { record } from "@synnaxlabs/x/record";
 import { z } from "zod/v4";
 
-import { labelZ } from "@/label/payload";
+import { type Status } from "@/status/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const irNodeZ = z.object({
@@ -52,12 +52,13 @@ export type Params = Key | Key[];
 export const arcZ = z.object({
   key: keyZ,
   name: z.string(),
-  version: z.string(),
-  labels: labelZ.array().optional(),
   graph: graphZ,
   text: textZ,
 });
-export interface Arc extends z.infer<typeof arcZ> {}
+
+export interface Arc extends z.infer<typeof arcZ> {
+  status?: Status;
+}
 
 export const newZ = arcZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}

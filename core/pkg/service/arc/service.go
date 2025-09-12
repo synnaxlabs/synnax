@@ -160,5 +160,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Arc](), baseTX: s.cfg.DB}
+	return Retrieve{
+		gorp:   gorp.NewRetrieve[uuid.UUID, Arc](),
+		baseTX: s.cfg.DB,
+		otg:    s.cfg.Ontology,
+	}
 }

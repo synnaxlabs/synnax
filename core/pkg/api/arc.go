@@ -14,15 +14,23 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+type Arc struct {
+	arc.Arc
+	Status status.Status `json:"status" msgpack:"status"`
+}
 
 type ArcService struct {
 	dbProvider
 	accessProvider
 	internal *arc.Service
+	status   *status.Service
 }
 
 func NewArcService(p Provider) *ArcService {
@@ -35,37 +43,37 @@ func NewArcService(p Provider) *ArcService {
 
 type (
 	ArcCreateRequest struct {
-		Arcs []arc.Arc `json:"arcs" msgpack:"arcs"`
+		Arcs []Arc `json:"arcs" msgpack:"arcs"`
 	}
-	SlateCreateResponse = ArcCreateRequest
+	ArcCreateResponse = ArcCreateRequest
 )
 
-func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res SlateCreateResponse, err error) {
+func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: arc.OntologyIDsFromSlates(req.Arcs),
+		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, slate_ := range req.Arcs {
-			if err = w.Create(ctx, &slate_); err != nil {
+		for i, arc_ := range req.Arcs {
+			if err = w.Create(ctx, &arc_.Arc); err != nil {
 				return err
 			}
-			req.Arcs[i] = slate_
+			req.Arcs[i] = arc_
 		}
 		res.Arcs = req.Arcs
 		return nil
 	})
 }
 
-type SlateDeleteRequest struct {
+type ArcDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *ArcService) Delete(ctx context.Context, req SlateDeleteRequest) (res types.Nil, err error) {
+func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
@@ -79,24 +87,76 @@ func (s *ArcService) Delete(ctx context.Context, req SlateDeleteRequest) (res ty
 }
 
 type (
-	SlateRetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	ArcRetrieveRequest struct {
+		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
+		Names         []string    `json:"names" msgpack:"names"`
+		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
+		Limit         int         `json:"limit" msgpack:"limit"`
+		Offset        int         `json:"offset" msgpack:"offset"`
+		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
 	}
-	SlateRetrieveResponse struct {
-		Arcs []arc.Arc `json:"arcs" msgpack:"arcs"`
+	ArcRetrieveResponse struct {
+		Arcs []Arc `json:"arcs" msgpack:"arcs"`
 	}
 )
 
-func (s *ArcService) Retrieve(ctx context.Context, req SlateRetrieveRequest) (res SlateRetrieveResponse, err error) {
-	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Arcs).Exec(ctx, nil); err != nil {
-		return SlateRetrieveResponse{}, err
+func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res ArcRetrieveResponse, err error) {
+	var (
+		svcArcs   []arc.Arc
+		q         = s.internal.NewRetrieve().Entries(&svcArcs)
+		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasSearch = req.SearchTerm != ""
+	)
+
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
+	if hasSearch {
+		q = q.Search(req.SearchTerm)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+
+	if err = q.Exec(ctx, nil); err != nil {
+		return ArcRetrieveResponse{}, err
+	}
+
+	res.Arcs = translateArcsFromService(svcArcs)
+
+	if req.IncludeStatus {
+		statuses := make([]status.Status, 0, len(res.Arcs))
+		uuidStrings := lo.Map(req.Keys, func(item uuid.UUID, _ int) string {
+			return item.String()
+		})
+		if err = s.status.NewRetrieve().WhereKeys(uuidStrings...).Entries(&statuses).Exec(ctx, nil); err != nil {
+			return ArcRetrieveResponse{}, err
+		}
+		for i, stat := range statuses {
+			res.Arcs[i].Status = stat
+		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: arc.OntologyIDsFromSlates(res.Arcs),
+		Objects: arc.OntologyIDsFromArcs(svcArcs),
 	}); err != nil {
-		return SlateRetrieveResponse{}, err
+		return ArcRetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
+}
+
+func translateArcsToService(arcs []Arc) []arc.Arc {
+	return lo.Map(arcs, func(a Arc, _ int) arc.Arc { return a.Arc })
+}
+
+func translateArcsFromService(arcs []arc.Arc) []Arc {
+	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
 }

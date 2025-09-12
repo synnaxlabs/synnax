@@ -3,7 +3,7 @@ import { type Config, Symbol } from "@/arc/stage/source/Source";
 import { type Spec } from "@/arc/stage/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "telem.source",
+  key: "on",
   name: "Telemetry Source",
   Form,
   Symbol,

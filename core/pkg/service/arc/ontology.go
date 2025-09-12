@@ -49,8 +49,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromSlates returns the ontology IDs of the arcs.
-func OntologyIDsFromSlates(arcs []Arc) []ontology.ID {
+// OntologyIDsFromArcs returns the ontology IDs of the arcs.
+func OntologyIDsFromArcs(arcs []Arc) []ontology.ID {
 	return lo.Map(arcs, func(c Arc, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
@@ -61,7 +61,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(c Arc) core.Resource {
-	return core.NewResource(schema, OntologyID(c.Key), c.Key.String(), c)
+	return core.NewResource(schema, OntologyID(c.Key), c.Name, c)
 }
 
 var _ ontology.Service = (*Service)(nil)

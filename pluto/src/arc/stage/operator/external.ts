@@ -15,7 +15,7 @@ import {
 } from "@/arc/stage/operator/Symbols";
 
 const ADD = {
-  key: "operator.add",
+  key: "add",
   name: "Add",
   group: "operator",
   Form: () => null,
@@ -26,7 +26,7 @@ const ADD = {
 };
 
 const SUBTRACT = {
-  key: "operator.subtract",
+  key: "subtract",
   name: "Subtract",
   group: "operator",
   Form: () => null,
@@ -37,7 +37,7 @@ const SUBTRACT = {
 };
 
 const MULTIPLY = {
-  key: "operator.multiply",
+  key: "multiply",
   name: "Multiply",
   Form: () => null,
   Symbol: Multiply,
@@ -47,7 +47,7 @@ const MULTIPLY = {
 };
 
 const DIVIDE = {
-  key: "operator.divide",
+  key: "divide",
   name: "Divide",
   Form: () => null,
   Symbol: Divide,
@@ -57,7 +57,7 @@ const DIVIDE = {
 };
 
 const GREATER_THAN = {
-  key: "operator.gt",
+  key: "gt",
   name: "Greater Than",
   Form: () => null,
   Symbol: GreaterThan,
@@ -67,7 +67,7 @@ const GREATER_THAN = {
 };
 
 const LESS_THAN = {
-  key: "operator.lt",
+  key: "lt",
   name: "Less Than",
   Form: () => null,
   Symbol: LessThan,
@@ -77,7 +77,7 @@ const LESS_THAN = {
 };
 
 const EQUAL = {
-  key: "operator.eq",
+  key: "eq",
   name: "Equal",
   Form: () => null,
   Symbol: Equal,
@@ -87,7 +87,7 @@ const EQUAL = {
 };
 
 const NOT_EQUAL = {
-  key: "operator.ne",
+  key: "ne",
   name: "Not Equal",
   Form: () => null,
   Symbol: NotEqual,
@@ -97,7 +97,7 @@ const NOT_EQUAL = {
 };
 
 const GREATER_THAN_OR_EQUAL = {
-  key: "operator.ge",
+  key: "ge",
   name: "Greater Than or Equal",
   Form: () => null,
   Symbol: GreaterThanOrEqual,
@@ -107,7 +107,7 @@ const GREATER_THAN_OR_EQUAL = {
 };
 
 const LESS_THAN_OR_EQUAL = {
-  key: "operator.le",
+  key: "le",
   name: "Less Than or Equal",
   Form: () => null,
   Symbol: LessThanOrEqual,
@@ -117,7 +117,7 @@ const LESS_THAN_OR_EQUAL = {
 };
 
 const AND = {
-  key: "operator.and",
+  key: "and",
   name: "And",
   Form: () => null,
   Symbol: And,
@@ -127,7 +127,7 @@ const AND = {
 };
 
 const OR = {
-  key: "operator.or",
+  key: "or",
   name: "Or",
   Form: () => null,
   Symbol: Or,
@@ -137,7 +137,7 @@ const OR = {
 };
 
 const NOT = {
-  key: "operator.not",
+  key: "not",
   name: "Not",
   Form: () => null,
   Symbol: Not,

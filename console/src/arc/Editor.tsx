@@ -19,6 +19,7 @@ import {
   Haul,
   Icon,
   Menu as PMenu,
+  Status,
   Theming,
   Triggers,
   useSyncedRef,
@@ -73,9 +74,9 @@ const StageRenderer = ({
   symbolKey,
   position,
   selected,
-  layoutKey,
   draggable,
   dispatch,
+  layoutKey,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
   const key = props?.key ?? "";
@@ -118,9 +119,19 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
+interface StatusChipProps {
+  layoutKey: string;
+}
+
+const StatusChip = ({ layoutKey }: StatusChipProps) => {
+  const status = Status.useRetrieve({ key: layoutKey });
+  return <Status.Summary {...status.data} />;
+};
+
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const arc = useSelect(layoutKey);
+  const name = Layout.useSelectRequiredName(layoutKey);
 
   const dispatch = useDispatch();
   const selector = useCallback(
@@ -332,13 +343,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           rounded={2}
           justify="between"
         >
+          <StatusChip layoutKey={layoutKey} />
           <Button.Button
             onClick={() => {
               create({
                 key: arc.key,
-                name: "New Arc",
+                name,
                 graph: translateGraphToServer(arc.graph),
-                version: arc.version,
                 text: { contents: "" },
               });
             }}
@@ -359,7 +370,11 @@ export const SELECTABLE: Selector.Selectable = {
   key: EDIT_LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
-  create: async ({ layoutKey }) => createEditor({ key: layoutKey }),
+  create: async ({ layoutKey, rename }) => {
+    const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
+    if (name == null) return null;
+    return createEditor({ key: layoutKey, name });
+  },
 };
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;

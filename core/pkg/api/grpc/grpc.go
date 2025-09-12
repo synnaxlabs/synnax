@@ -120,9 +120,9 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
 
 	// arc
-	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.SlateCreateResponse]{}
-	a.ArcDelete = fnoop.UnaryServer[api.SlateDeleteRequest, types.Nil]{}
-	a.ArcRetrieve = fnoop.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse]{}
+	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
+	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
+	a.ArcRetrieve = fnoop.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse]{}
 
 	return a, transports
 }

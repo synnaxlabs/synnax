@@ -31,9 +31,11 @@ const DELETE_ENDPOINT = "/arc/delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
+  names: z.string().array().optional(),
   searchTerm: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  includeStatus: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -47,12 +49,22 @@ export type RetrieveRequest = z.input<typeof retrieveReqZ>;
 const keyRetrieveRequestZ = z
   .object({
     key: keyZ,
+    includeStatus: z.boolean().optional(),
   })
-  .transform(({ key }) => ({ keys: [key] }));
+  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
 
-export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
+const nameRetrieveRequestZ = z
+  .object({
+    name: z.string(),
+    includeStatus: z.boolean().optional(),
+  })
+  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
 
-const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveReqZ]);
+export const singleRetrieveArgsZ = z.union([keyRetrieveRequestZ, nameRetrieveRequestZ]);
+
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
@@ -77,10 +89,10 @@ export class Client {
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async retrieve(args: KeyRetrieveRequest): Promise<Arc>;
+  async retrieve(args: SingleRetrieveArgs): Promise<Arc>;
   async retrieve(args: RetrieveArgs): Promise<Arc[]>;
   async retrieve(args: RetrieveArgs): Promise<Arc | Arc[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,

@@ -31,6 +31,7 @@ type StatusZodObject<D extends z.ZodType> = z.ZodObject<{
   message: z.ZodString;
   description: z.ZodOptional<z.ZodString>;
   time: typeof TimeStamp.z;
+  name: z.ZodDefault<z.ZodString>;
   details: D;
 }>;
 
@@ -42,6 +43,7 @@ interface StatusZFunction {
 export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
   z.object({
     key: z.string(),
+    name: z.string().default(""),
     variant: variantZ,
     message: z.string(),
     description: z.string().optional(),
@@ -51,6 +53,7 @@ export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
 
 export type Status<D = undefined, V extends Variant = Variant> = {
   key: string;
+  name: string;
   variant: V;
   message: string;
   description?: string;
@@ -59,7 +62,7 @@ export type Status<D = undefined, V extends Variant = Variant> = {
 
 export type Crude<D = undefined, V extends Variant = Variant> = Optional<
   Status<D, V>,
-  "time" | "key"
+  "time" | "key" | "name"
 >;
 
 export interface ExceptionDetails {
@@ -87,6 +90,7 @@ export const create = <D = undefined, V extends Variant = Variant>(
   ({
     key: id.create(),
     time: TimeStamp.now(),
+    name: "",
     ...spec,
   }) as unknown as Status<D, V>;
 

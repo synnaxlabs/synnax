@@ -10,10 +10,6 @@ export const SYMBOLS: Record<string, types.Spec<any>> = {
     Form,
     Symbol: Constant,
     Preview: Constant,
-    defaultProps: () => ({
-      value: 0,
-      dataType: "float32",
-      units: "",
-    }),
+    defaultProps: () => ({ value: 0 }),
   },
 };

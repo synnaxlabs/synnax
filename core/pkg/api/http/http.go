@@ -137,9 +137,9 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve")
 
 	// arc
-	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.SlateCreateResponse](router, "/api/v1/arc/create")
-	t.ArcDelete = fhttp.UnaryServer[api.SlateDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
-	t.ArcRetrieve = fhttp.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse](router, "/api/v1/arc/retrieve")
+	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create")
+	t.ArcDelete = fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
+	t.ArcRetrieve = fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve")
 
 	// STATUS
 	t.StatusSet = fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set")

@@ -3,12 +3,12 @@ import z from "zod/v4";
 
 import { Base } from "@/arc/stage/Base";
 import { type types } from "@/arc/stage/types";
-import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
 import { Text } from "@/text";
 
 export const config = z.object({
+  key: z.string(),
   variant: status.variantZ,
   message: z.string(),
   description: z.string().optional(),

@@ -16,7 +16,13 @@ const CREATE_COMMAND: Palette.Command = {
   key: "create_arc",
   name: "Create an Arc",
   icon: <Icon.Arc />,
-  onSelect: ({ placeLayout }) => placeLayout(Arc.createEditor()),
+  onSelect: ({ placeLayout, rename, handleError }) => {
+    handleError(async () => {
+      const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
+      if (name == null) return;
+      placeLayout(Arc.createEditor({ name }));
+    }, "Failed to create arc");
+  },
 };
 
 const OPEN_EXPLORER_COMMAND: Palette.Command = {
