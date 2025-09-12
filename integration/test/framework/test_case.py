@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
 import logging
+import os
 import sys
 import threading
 import time
@@ -109,6 +110,7 @@ class TestCase(ABC):
         **params: Any,
     ) -> None:
 
+        os.makedirs("test/results", exist_ok=True)
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
