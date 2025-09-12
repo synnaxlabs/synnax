@@ -38,7 +38,9 @@ export const resourceTypeZ = z.enum([
   "task",
   "policy",
   "table",
+  "arc",
   "schematic_symbol",
+  "status",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

@@ -43,8 +43,8 @@ const STORE_CONFIG: flux.StoreConfig<{
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
-  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
-  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
 };
 
 export const render = (): void => {

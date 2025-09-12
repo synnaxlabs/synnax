@@ -19,7 +19,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { location, type NumericTimeRange, TimeStamp, xy } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";

@@ -20,6 +20,7 @@ require (
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
+	github.com/tetratelabs/wazero v1.9.0
 	github.com/uptrace/uptrace-go v1.37.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.42.0

@@ -24,6 +24,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Arc } from "@/arc";
 import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -46,6 +47,7 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
+import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { User } from "@/user";
@@ -73,6 +75,8 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
+  ...Arc.LAYOUTS,
+  ...Status.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

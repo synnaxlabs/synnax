@@ -349,8 +349,12 @@ export const { actions, reducer } = createSlice({
         if (source == null || target == null) return;
         const sourceProps = schematic.props[source.key];
         const targetProps = schematic.props[target.key];
-        if (sourceProps.color === targetProps.color && sourceProps.color != null)
-          edge.color = sourceProps.color;
+        if (
+          sourceProps.color === targetProps.color &&
+          sourceProps.color != null &&
+          edge.data != null
+        )
+          edge.data.color = sourceProps.color;
       });
       schematic.edges = edges;
       const anySelected =
@@ -435,9 +439,9 @@ export const { actions, reducer } = createSlice({
               nodeProps.color = theme.colors.gray.l11;
         });
         edges.forEach((edge) => {
-          if (edge.color != null && shouldChange(edge.color as string))
-            edge.color = theme.colors.gray.l11;
-          else edge.color ??= theme.colors.gray.l11;
+          if (edge.data?.color != null && shouldChange(edge.data.color as string))
+            edge.data.color = theme.colors.gray.l11;
+          else if (edge.data != null) edge.data.color ??= theme.colors.gray.l11;
         });
       });
     },

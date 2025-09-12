@@ -1,0 +1,68 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package std
+
+import (
+	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/x/telem"
+)
+
+var symbolStableFor = ir.Symbol{
+	Name: "stable_for",
+	Kind: ir.KindStage,
+	Type: ir.Stage{
+		Config: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"duration"},
+			Values: []ir.Type{ir.Number{}},
+		},
+		Return: ir.Number{},
+	},
+}
+
+type stableFor struct {
+	base
+	duration    telem.TimeSpan
+	value       uint64
+	lastSent    uint64
+	lastChanged telem.TimeStamp
+	now         func() telem.TimeStamp
+}
+
+func (s *stableFor) Next(ctx context.Context, val value.Value) {
+	if val.Value != s.value {
+		s.value = val.Value
+		s.lastChanged = s.now()
+	}
+	if s.now()-s.lastChanged >= telem.TimeStamp(s.duration) && s.lastSent != s.value {
+		s.lastSent = s.value
+		val.Param = "output"
+		s.outputHandler(ctx, val)
+	}
+}
+
+func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
+	duration := telem.TimeSpan(cfg.Node.Config["duration"].(float64))
+	now := cfg.Now
+	if now == nil {
+		now = telem.Now
+	}
+	stg := &stableFor{
+		base:     base{key: cfg.Node.Key},
+		duration: duration,
+		now:      now,
+	}
+	return stg, nil
+}

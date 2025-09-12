@@ -1,0 +1,35 @@
+// Basic mathematical operations
+
+func add(a f32, b f32) f32 {
+    return a + b
+}
+
+func subtract(a f32, b f32) f32 {
+    return a - b
+}
+
+func multiply(a f32, b f32) f32 {
+    return a * b
+}
+
+func divide(a f32, b f32) f32 {
+    return a / b
+}
+
+// More complex calculations
+func average(a f32, b f32, c f32) f32 {
+    sum := a + b + c
+    return sum / 3
+}
+
+func distance(x1 f32, y1 f32, x2 f32, y2 f32) f32 {
+    dx := x2 - x1
+    dy := y2 - y1
+    return dx * dx + dy * dy  // Returns squared distance
+}
+
+func lerp(start f32, end f32, t f32) f32 {
+    // Linear interpolation
+    diff := end - start
+    return start + diff * t
+}

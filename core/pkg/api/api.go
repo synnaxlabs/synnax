@@ -159,6 +159,14 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	// Arc
+	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
+	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
+	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
+	// STATUS
+	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
+	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
+	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -181,6 +189,8 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
+	Arc          *ArcService
+	Status       *StatusService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -247,7 +257,6 @@ func (a *Layer) BindTo(t Transport) {
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
 		t.RangeAliasList,
-		t.RangeAliasRetrieve,
 		t.RangeRename,
 		t.RangeAliasDelete,
 
@@ -318,6 +327,16 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+
+		// STATUS
+		t.StatusSet,
+		t.StatusRetrieve,
+		t.StatusDelete,
+
+		// Arc
+		t.ArcCreate,
+		t.ArcDelete,
+		t.ArcRetrieve,
 	)
 
 	// AUTH
@@ -367,7 +386,6 @@ func (a *Layer) BindTo(t Transport) {
 	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
 	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
 	t.RangeAliasList.BindHandler(a.Range.AliasList)
-	t.RangeAliasRetrieve.BindHandler(a.Range.AliasRetrieve)
 	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
 
 	// WORKSPACE
@@ -436,6 +454,16 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+
+	// STATUS
+	t.StatusSet.BindHandler(a.Status.Set)
+	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
+	t.StatusDelete.BindHandler(a.Status.Delete)
+
+	// Arc
+	t.ArcCreate.BindHandler(a.Arc.Create)
+	t.ArcDelete.BindHandler(a.Arc.Delete)
+	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -461,5 +489,7 @@ func New(configs ...Config) (*Layer, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
+	api.Status = NewStatusService(api.provider)
+	api.Arc = NewArcService(api.provider)
 	return api, nil
 }

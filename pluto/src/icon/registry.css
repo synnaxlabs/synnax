@@ -75,3 +75,7 @@
 .pluto-icon--reset {
     fill: var(--pluto-gray-l11);
 }
+
+.pluto-icon--boolean {
+    fill: currentColor;
+}
