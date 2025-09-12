@@ -458,7 +458,7 @@ class Range(RangePayload):
         key: RangeKey = UUID(int=0),
     ) -> Range:
         """
-        This method is deprecated in favor of create_child_range() and is 
+        This method is deprecated in favor of create_child_range() and is
         maintained for backwards compatibility.
         """
         warnings.warn(
