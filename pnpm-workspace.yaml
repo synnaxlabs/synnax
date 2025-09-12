@@ -7,7 +7,6 @@ packages:
   - docs/videos
   - drift
   - freighter/ts
-  - integration/ts
   - pluto
   - x/media
   - x/ts

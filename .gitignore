@@ -200,6 +200,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# |||| TEST RESULTS ||||
+integration/test/results/
+
 # |||| LANDING SITE ||||
 
 synnax-data/**
@@ -252,7 +255,6 @@ assets
 
 # |||| OTHER ||||
 .obsidian
-test
 src/**.js
 
 # ||| Build Binary |||
