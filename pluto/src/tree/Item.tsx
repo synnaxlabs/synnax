@@ -10,7 +10,6 @@
 import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ComponentType } from "react";
 
 import { type Button } from "@/button";
 import { Caret } from "@/caret";
@@ -29,50 +28,44 @@ export type ItemProps<
     offsetMultiplier?: number;
   };
 
-export const Item = <K extends record.Key, E extends Button.ElementType = "div">(
-  props: ItemProps<K, E>,
-) => {
-  const {
-    depth,
-    hasChildren,
-    expanded,
-    children,
-    style,
-    className,
-    loading,
-    useMargin = false,
-    offsetMultiplier = 2.5,
-    ...rest
-  } = props;
-
-  return (
-    <Select.ListItem
-      className={CSS(
-        CSS.BE("tree", "item"),
-        depth !== 0 && CSS.M("show-rules"),
-        useMargin && CSS.M("margin"),
-        className,
-      )}
-      style={{
-        [CSS.var("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
-        ...style,
-      }}
-      gap="small"
-      align="center"
-      // Cast rest props - TS can't prove remaining props match after destructuring tree-specific ones
-      {...(rest as Select.ListItemProps<K, Button.ElementType>)}
-    >
-      {hasChildren && (
-        <Caret.Animated
-          className={CSS.BE("tree", "expansion-indicator")}
-          key="caret"
-          enabled={expanded}
-          enabledLoc="bottom"
-          disabledLoc="right"
-        />
-      )}
-      {children}
-      {loading && <Icon.Loading />}
-    </Select.ListItem>
-  );
-};
+export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
+  depth,
+  hasChildren,
+  expanded,
+  children,
+  style,
+  className,
+  loading,
+  useMargin = false,
+  offsetMultiplier = 2.5,
+  ...rest
+}: ItemProps<K, E>) => (
+  <Select.ListItem
+    className={CSS(
+      CSS.BE("tree", "item"),
+      depth !== 0 && CSS.M("show-rules"),
+      useMargin && CSS.M("margin"),
+      className,
+    )}
+    style={{
+      [CSS.var("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
+      ...style,
+    }}
+    gap="small"
+    align="center"
+    // Cast rest props - TS can't prove remaining props match after destructuring tree-specific ones
+    {...(rest as Select.ListItemProps<K, Button.ElementType>)}
+  >
+    {hasChildren && (
+      <Caret.Animated
+        className={CSS.BE("tree", "expansion-indicator")}
+        key="caret"
+        enabled={expanded}
+        enabledLoc="bottom"
+        disabledLoc="right"
+      />
+    )}
+    {children}
+    {loading && <Icon.Loading />}
+  </Select.ListItem>
+);
