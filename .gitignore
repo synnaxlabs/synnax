@@ -255,7 +255,6 @@ assets
 
 # |||| OTHER ||||
 .obsidian
-test
 src/**.js
 
 # ||| Build Binary |||

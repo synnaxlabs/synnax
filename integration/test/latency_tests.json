@@ -1,5 +1,5 @@
 {
-  "$schema": "./test-schema.json",
+  "$schema": "test_schema.json",
   "sequences": [
     {
       "sequence_name": "Async_ABC",
