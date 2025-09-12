@@ -653,43 +653,6 @@ importers:
         specifier: 'catalog:'
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.0.12)(jsdom@26.1.0)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0)
 
-  integration/ts:
-    dependencies:
-      '@synnaxlabs/client':
-        specifier: workspace:^
-        version: link:../../client/ts
-      '@synnaxlabs/x':
-        specifier: workspace:^
-        version: link:../../x/ts
-      tsx:
-        specifier: ^4.20.3
-        version: 4.20.3
-    devDependencies:
-      '@synnaxlabs/tsconfig':
-        specifier: workspace:^
-        version: link:../../configs/ts
-      '@synnaxlabs/vite-plugin':
-        specifier: workspace:^
-        version: link:../../configs/vite
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.0.12
-      eslint:
-        specifier: 'catalog:'
-        version: 9.30.1
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
-      typescript:
-        specifier: 'catalog:'
-        version: 5.8.3
-      vite:
-        specifier: 'catalog:'
-        version: 7.0.4(@types/node@24.0.12)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0)
-      vitest:
-        specifier: 'catalog:'
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.0.12)(jsdom@26.1.0)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0)
-
   pluto:
     dependencies:
       '@fontsource-variable/inter':
@@ -9359,14 +9322,14 @@ snapshots:
       '@remotion/media-parser': 4.0.323
       '@remotion/studio': 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      css-loader: 5.2.7(webpack@5.96.1)
+      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.25.0))
       esbuild: 0.25.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-refresh: 0.9.0
       remotion: 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.96.1)
+      style-loader: 4.0.0(webpack@5.96.1(esbuild@0.25.0))
       webpack: 5.96.1(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -11058,7 +11021,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1):
+  css-loader@5.2.7(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.6)
       loader-utils: 2.0.4
@@ -11961,6 +11924,7 @@ snapshots:
   get-tsconfig@4.10.1:
     dependencies:
       resolve-pkg-maps: 1.0.0
+    optional: true
 
   github-slugger@2.0.0: {}
 
@@ -13968,7 +13932,8 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
-  resolve-pkg-maps@1.0.0: {}
+  resolve-pkg-maps@1.0.0:
+    optional: true
 
   resolve@1.22.10:
     dependencies:
@@ -14412,7 +14377,7 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  style-loader@4.0.0(webpack@5.96.1):
+  style-loader@4.0.0(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       webpack: 5.96.1(esbuild@0.25.0)
 
@@ -14635,6 +14600,7 @@ snapshots:
       get-tsconfig: 4.10.1
     optionalDependencies:
       fsevents: 2.3.3
+    optional: true
 
   turbo-darwin-64@2.5.4:
     optional: true
