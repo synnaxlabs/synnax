@@ -102,6 +102,7 @@ describe("useContext", () => {
     it("should return override context when provided", () => {
       const status: status.Status = {
         key: "test",
+        name: "test",
         variant: "success",
         message: "",
         description: undefined,
