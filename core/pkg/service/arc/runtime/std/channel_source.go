@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -30,14 +32,21 @@ var symbolChannelSource = ir.Symbol{
 	},
 }
 
-type channelSource struct{ base }
+type channelSource struct {
+	base
+	values ChannelData
+}
 
-func (c *channelSource) Next(ctx context.Context, value stage.Value) {
-	c.outputHandler(ctx, value)
+func (c *channelSource) Next(ctx context.Context, val value.Value) {
+	key := c.readChannels[0]
+	values := value.FromSeries(c.values.Get(key), address.Address(c.key), "")
+	for _, v := range values {
+		c.outputHandler(ctx, v)
+	}
 }
 
 func createChannelSource(_ context.Context, cfg Config) (stage.Stage, error) {
-	source := &channelSource{base{key: cfg.Node.Key}}
+	source := &channelSource{base: base{key: cfg.Node.Key}, values: cfg.ChannelData}
 	source.readChannels = unsafe.ReinterpretSlice[uint32, channel.Key](cfg.Node.Channels.Read.Keys())
 	return source, nil
 }

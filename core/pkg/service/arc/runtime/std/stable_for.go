@@ -10,6 +10,7 @@
 package std
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -39,20 +40,27 @@ type stableFor struct {
 	now         func() telem.TimeStamp
 }
 
-func (s *stableFor) Next(ctx context.Context, value stage.Value) {
-	if value.Value != s.lastSent {
-		s.value = value.Value
+func (s *stableFor) Next(ctx context.Context, val value.Value) {
+	if val.Value != s.value {
+		s.value = val.Value
 		s.lastChanged = s.now()
 	}
-	if telem.Since(s.lastChanged) > s.duration && s.lastSent != s.value {
+	if s.now()-s.lastChanged >= telem.TimeStamp(s.duration) && s.lastSent != s.value {
 		s.lastSent = s.value
-		s.outputHandler(ctx, value)
+		s.outputHandler(ctx, val)
 	}
 }
 
 func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
 	duration := telem.TimeSpan(cfg.Node.Config["duration"].(int))
-	stg := &stableFor{}
-	stg.duration = duration
+	now := cfg.Now
+	if now == nil {
+		now = telem.Now
+	}
+	stg := &stableFor{
+		base:     base{key: cfg.Node.Key},
+		duration: duration,
+		now:      now,
+	}
 	return stg, nil
 }

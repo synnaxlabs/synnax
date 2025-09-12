@@ -10,6 +10,7 @@
 package std
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -50,7 +51,7 @@ func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
 	return s, nil
 }
 
-func (s *setStatus) Next(ctx context.Context, _ stage.Value) {
+func (s *setStatus) Next(ctx context.Context, _ value.Value) {
 	stat := status.Status{}
 	stat.Key = s.key
 	stat.Variant = s.variant

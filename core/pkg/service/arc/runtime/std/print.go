@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 )
 
 var symbolPrinter = arc.Symbol{
@@ -30,6 +31,6 @@ func createPrinter(_ context.Context, cfg Config) (stage.Stage, error) {
 	return &printer{base{key: cfg.Node.Key}}, nil
 }
 
-func (p *printer) Next(_ context.Context, value stage.Value) {
-	fmt.Println(value)
+func (p *printer) Next(_ context.Context, val value.Value) {
+	fmt.Println(val)
 }

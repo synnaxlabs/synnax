@@ -250,18 +250,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	if l.Arc, err = arc.OpenService(
-		ctx,
-		arc.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("arc"),
-			DB:              cfg.Distribution.DB,
-			Ontology:        cfg.Distribution.Ontology,
-			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
-		},
-	); !ok(err, l.Arc) {
-		return nil, err
-	}
+
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
@@ -272,6 +261,21 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Group:           cfg.Distribution.Group,
 		},
 	); !ok(err, l.Status) {
+		return nil, err
+	}
+
+	if l.Arc, err = arc.OpenService(
+		ctx,
+		arc.ServiceConfig{
+			Instrumentation: cfg.Instrumentation.Child("arc"),
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Channel:         cfg.Distribution.Channel,
+			Signals:         cfg.Distribution.Signals,
+			Status:          l.Status,
+		},
+	); !ok(err, l.Arc) {
 		return nil, err
 	}
 	return l, nil

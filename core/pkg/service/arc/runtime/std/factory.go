@@ -12,33 +12,32 @@ package std
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Constructor = func(ctx context.Context, cfg Config) (stage.Stage, error)
 
 var factories = map[string]Constructor{
-	"ge": createBinaryOpFactory(func(a, b uint64) uint64 {
-		return lo.Ternary[uint64](a >= b, 1, 0)
-	}),
-	"gt": createBinaryOpFactory(func(a, b uint64) uint64 {
-		return lo.Ternary[uint64](a > b, 1, 0)
-	}),
-	"le": createBinaryOpFactory(func(a, b uint64) uint64 {
-		return lo.Ternary[uint64](a <= b, 1, 0)
-	}),
-	"lt": createBinaryOpFactory(func(a, b uint64) uint64 {
-		return lo.Ternary[uint64](a <= b, 1, 0)
-	}),
-	"eq": createBinaryOpFactory(func(a, b uint64) uint64 {
-		return lo.Ternary[uint64](a == b, 1, 0)
-	}),
+	"ge":         GEFactory,
+	"gt":         GTFactory,
+	"le":         LEFactory,
+	"lt":         LTFactory,
+	"eq":         EQFactory,
+	"ne":         NEFactory,
+	"add":        AddFactory,
+	"sub":        SubFactory,
+	"mul":        MulFactory,
+	"div":        DivFactory,
+	"mod":        ModFactory,
+	"constant":   newConstant,
+	"select":     createSelect,
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
 	"printer":    createPrinter,
@@ -52,6 +51,7 @@ var Resolver = ir.MapResolver{
 	"lt":         symbolLT,
 	"eq":         symbolEQ,
 	"ne":         symbolNE,
+	"constant":   symbolConstant,
 	"on":         symbolChannelSource,
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
@@ -59,10 +59,16 @@ var Resolver = ir.MapResolver{
 	"set_status": symbolSetStatus,
 }
 
+type ChannelData interface {
+	Get(key channel.Key) telem.Series
+}
+
 type Config struct {
 	alamos.Instrumentation
-	Node   ir.Node
-	Status *status.Service
+	Node        ir.Node
+	Status      *status.Service
+	ChannelData ChannelData
+	Now         func() telem.TimeStamp
 }
 
 func Create(ctx context.Context, cfg Config) (stage.Stage, error) {

@@ -23,7 +23,7 @@ func (r *Runtime) bind() {
 }
 
 func (r *Runtime) channelReadU8(_ context.Context, key uint32) uint8 {
-	v, ok := r.values[channel.Key(key)]
+	v, ok := r.mu.values[channel.Key(key)]
 	if !ok || v.Len() == 0 || v.DataType != telem.Uint8T {
 		return 0
 	}

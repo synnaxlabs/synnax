@@ -12,6 +12,7 @@ package runtime
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -89,7 +91,10 @@ type Runtime struct {
 	// requests are used to manage the life cycle of the telemetry frame streamer.
 	requests confluence.Inlet[framer.StreamerRequest]
 	// values are the current telemetry values for each requested channel in the program.
-	values map[channel.Key]telem.Series
+	mu struct {
+		sync.RWMutex
+		values map[channel.Key]telem.Series
+	}
 	// nodes are all nodes in the program
 	nodes map[string]stage.Stage
 	// close is a shutdown handler that stops internal processes
@@ -102,8 +107,14 @@ func (r *Runtime) Close() error {
 	return r.close.Close()
 }
 
+func (r *Runtime) Get(key channel.Key) telem.Series {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.mu.values[key]
+}
+
 func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
-	return func(ctx context.Context, value stage.Value) {
+	return func(ctx context.Context, value value.Value) {
 		for _, edge := range r.module.Edges {
 			if edge.Source.Node == nodeKey && edge.Source.Param == value.Param {
 				value.Param = edge.Target.Param
@@ -113,17 +124,17 @@ func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
 	}
 }
 
-func (r *Runtime) processOutput(ctx context.Context, value framer.StreamerResponse) error {
-	for i, ser := range value.Frame.RawSeries() {
-		if value.Frame.ShouldExcludeRaw(i) {
+func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse) error {
+	for i, ser := range res.Frame.RawSeries() {
+		if res.Frame.ShouldExcludeRaw(i) {
 			continue
 		}
-		r.values[value.Frame.RawKeyAt(i)] = ser
+		r.mu.values[res.Frame.RawKeyAt(i)] = ser
 	}
-	keys := value.Frame.KeysSlice()
+	keys := res.Frame.KeysSlice()
 	for _, node := range r.nodes {
 		if len(lo.Intersect(node.ReadChannels(), keys)) > 0 {
-			node.Next(ctx, stage.Value{})
+			node.Next(ctx, value.Value{})
 		}
 	}
 	return nil
@@ -177,7 +188,7 @@ func createStreamPipeline(
 	return p, requests, nil
 }
 
-func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
+func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
 	// Priority 1: Resolve node from inside of module
 	_, ok := cfg.Module.GetStage(arcNode.Type)
 	if ok {
@@ -185,8 +196,9 @@ func create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, err
 	}
 	// Priority 2: Attempt t find the stage i the standard library.
 	return std.Create(ctx, std.Config{
-		Node:   arcNode,
-		Status: cfg.Status,
+		Node:        arcNode,
+		Status:      cfg.Status,
+		ChannelData: r,
 	})
 }
 
@@ -197,9 +209,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	r := &Runtime{
 		module: cfg.Module,
-		values: make(map[channel.Key]telem.Series),
 		nodes:  make(map[string]stage.Stage),
 	}
+	r.mu.values = make(map[channel.Key]telem.Series)
 	if len(cfg.Module.WASM) != 0 {
 		r.wasm = wazero.NewRuntime(ctx)
 	}
@@ -209,7 +221,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	for _, nodeSpec := range cfg.Module.Nodes {
-		n, err := create(ctx, cfg, nodeSpec)
+		n, err := r.create(ctx, cfg, nodeSpec)
 		if err != nil {
 			return nil, err
 		}

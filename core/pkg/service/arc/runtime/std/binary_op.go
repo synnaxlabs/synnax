@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/x/maps"
 )
 
@@ -35,29 +36,86 @@ var (
 
 type operator struct {
 	base
-	compare func(a, b stage.Value) bool
-	a, b    *stage.Value
+	compare func(a, b value.Value) bool
+	a, b    *value.Value
 }
 
-func (n *operator) Next(ctx context.Context, value stage.Value) {
-	if value.Param == "a" {
-		n.a = &value
+func (n *operator) Next(ctx context.Context, val value.Value) {
+	if val.Param == "a" {
+		n.a = &val
 	} else {
-		n.b = &value
+		n.b = &val
 	}
 	if n.a != nil && n.b != nil {
-		n.outputHandler(ctx, stage.Value{
-			Param: "output",
-			Type:  ir.U8{},
-			Value: n.compare(*n.a, *n.b),
-		})
+		var result uint8
+		if n.compare(*n.a, *n.b) {
+			result = 1
+		} else {
+			result = 0
+		}
+		n.outputHandler(ctx, value.Value{
+			Address: val.Address,
+			Param:   "output",
+			Type:    ir.U8{},
+		}.PutUint8(result))
+		n.a = nil
+		n.b = nil
 	}
 }
 
-func createBinaryOpFactory(compare func(a, b uint64) uint64) Constructor {
+func createBinaryOpFactory(compare func(a, b value.Value) bool) Constructor {
 	return func(_ context.Context, cfg Config) (stage.Stage, error) {
 		o := &operator{compare: compare}
 		o.key = cfg.Node.Key
 		return o, nil
 	}
 }
+
+// Comparison operator factories
+var (
+	GEFactory = createBinaryOpFactory(func(a, b value.Value) bool { return a.Ge(b) })
+	LEFactory = createBinaryOpFactory(func(a, b value.Value) bool { return a.Le(b) })
+	LTFactory = createBinaryOpFactory(func(a, b value.Value) bool { return a.Lt(b) })
+	GTFactory = createBinaryOpFactory(func(a, b value.Value) bool { return a.Gt(b) })
+	EQFactory = createBinaryOpFactory(func(a, b value.Value) bool { return a.Eq(b) })
+	NEFactory = createBinaryOpFactory(func(a, b value.Value) bool { return !a.Eq(b) })
+)
+
+// Arithmetic operator types and symbols
+type arithmeticOperator struct {
+	base
+	operate func(a, b value.Value) value.Value
+	a, b    *value.Value
+}
+
+func (n *arithmeticOperator) Next(ctx context.Context, val value.Value) {
+	if val.Param == "a" {
+		n.a = &val
+	} else {
+		n.b = &val
+	}
+	if n.a != nil && n.b != nil {
+		result := n.operate(*n.a, *n.b)
+		result.Param = "output"
+		n.outputHandler(ctx, result)
+		n.a = nil
+		n.b = nil
+	}
+}
+
+func createArithmeticOpFactory(operate func(a, b value.Value) value.Value) Constructor {
+	return func(_ context.Context, cfg Config) (stage.Stage, error) {
+		o := &arithmeticOperator{operate: operate}
+		o.key = cfg.Node.Key
+		return o, nil
+	}
+}
+
+// Arithmetic operator factories
+var (
+	AddFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Add(b) })
+	SubFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Sub(b) })
+	MulFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Mul(b) })
+	DivFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Div(b) })
+	ModFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Mod(b) })
+)

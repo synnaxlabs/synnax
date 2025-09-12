@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -34,7 +35,7 @@ func (b *base) WriteChannels() []channel.Key { return b.readChannels }
 
 func (b *base) Flow(signal.Context) {}
 
-func (b *base) Next(context.Context, stage.Value) {}
+func (b *base) Next(context.Context, value.Value) {}
 
 func (b *base) OnOutput(handler stage.OutputHandler) {
 	b.outputHandler = handler

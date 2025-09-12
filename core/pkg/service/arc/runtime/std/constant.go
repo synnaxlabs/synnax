@@ -16,25 +16,34 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/x/signal"
 )
 
-var symbolSelect = ir.Symbol{
-	Name: "select",
+var symbolConstant = ir.Symbol{
+	Name: "constant",
 	Kind: ir.KindStage,
-	Type: ir.Stage{Config: maps.Ordered[string, ir.Type]{}},
+	Type: ir.Stage{
+		Config: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"value"},
+			Values: []ir.Type{ir.Number{}},
+		},
+	},
 }
 
-type selectStage struct{ base }
+type constant struct {
+	base
+	value value.Value
+}
 
-func (s *selectStage) Next(ctx context.Context, val value.Value) {
-	if val.Value == 0 {
-		val.Param = "true"
-	} else {
-		val.Param = "false"
+func (c *constant) Flow(ctx signal.Context) { c.outputHandler(ctx, c.value) }
+
+func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
+	c := &constant{
+		base: base{key: cfg.Node.Key},
+		value: value.Value{
+			Param: "output",
+			Type:  ir.Number{},
+		}.Put(cfg.Node.Config["value"]),
 	}
-	s.outputHandler(ctx, val)
-}
-
-func createSelect(_ context.Context, cfg Config) (stage.Stage, error) {
-	return &selectStage{base: base{key: cfg.Node.Key}}, nil
+	return c, nil
 }
