@@ -6,6 +6,9 @@
       "sequence_order": "sequential",
       "tests": [
         {
+          "case": "ranges_basic"
+        },
+        {
           "case": "example_basic"
         },
         {

@@ -57,6 +57,7 @@ class Ranges_Basic(TestCase):
         # Child Range 1: By creating a sub-range of the parent
         child_range_1_name = f"{self.name}_child_1"
         self._log_message(f"Creating child range 1: {child_range_1_name}")
+        # Purposely using the deprecated method to verify backwards compatibility
         parent_range.create_sub_range(
             name=child_range_1_name,
             time_range=sy.TimeRange(
@@ -99,7 +100,7 @@ class Ranges_Basic(TestCase):
             return
 
         # Get child ranges using ontology
-        children = self.client.ontology.retrieve_children(my_range.ontology_id)
+        children = parent_range.children
         if len(children) != 2:
             self._log_message(f"Expected 2 children, got {len(children)}")
             self.fail()

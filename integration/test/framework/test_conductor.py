@@ -755,7 +755,7 @@ class TestConductor:
             for i, test in enumerate(self.test_results):
                 # Cycle through colors using modulo
                 color = color_wheel[i % len(color_wheel)]
-                conductor_range.create_sub_range(
+                conductor_range.create_child_range(
                     name=test.name,
                     time_range=sy.TimeRange(
                         start=test.start_time,

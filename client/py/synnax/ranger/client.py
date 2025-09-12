@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import functools
+import warnings
 from typing import Callable, overload
 from uuid import UUID
 
@@ -432,7 +433,7 @@ class Range(RangePayload):
         start = self.time_range.start
         self.__frame_client.write(start, to, series)
 
-    def create_sub_range(
+    def create_child_range(
         self,
         *,
         name: str,
@@ -447,6 +448,42 @@ class Range(RangePayload):
             key=key,
             parent=ID(type="range", key=str(self.key)),
         )
+
+    def create_sub_range(
+        self,
+        *,
+        name: str,
+        time_range: TimeRange,
+        color: str = "",
+        key: RangeKey = UUID(int=0),
+    ) -> Range:
+        """
+        This method is deprecated in favor of create_child_range() and is 
+        maintained for backwards compatibility.
+        """
+        warnings.warn(
+            "create_sub_range() is deprecated and will be removed in a future version. "
+            "Use create_child_range() instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.create_child_range(
+            name=name,
+            time_range=time_range,
+            color=color,
+            key=key,
+        )
+
+    @property
+    def children(self) -> list[Range]:
+        """Returns a list of child ranges of this range."""
+        return self.retrieve_children()
+
+    def retrieve_children(self) -> list[Range]:
+        """Retrieves all child ranges of this range."""
+        res = self._ontology.retrieve_children(self.ontology_id)
+        range_children = [r for r in res if r.id.type == "range"]
+        return self._client.retrieve(keys=[r.id.key for r in range_children])
 
     def snapshots(self) -> list[Task]:
         res = self._ontology.retrieve_children(self.ontology_id)
@@ -628,6 +665,32 @@ class RangeClient:
     ) -> list[Range]:
         _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
+
+    def create_child_range(
+        self,
+        parent_range: Range,
+        *,
+        name: str,
+        time_range: TimeRange,
+        color: str = "",
+        key: RangeKey = UUID(int=0),
+    ) -> Range:
+        """Creates a child range of the given parent range. This is a passthrough
+        method to parent_range.create_child_range().
+
+        :param parent_range: The parent range to create a child of
+        :param name: The name of the child range
+        :param time_range: The time range of the child range
+        :param color: Optional color for the child range
+        :param key: Optional key for the child range
+        :return: The created child range
+        """
+        return parent_range.create_child_range(
+            name=name,
+            time_range=time_range,
+            color=color,
+            key=key,
+        )
 
     def __sugar(self, ranges: list[RangePayload]):
         return [

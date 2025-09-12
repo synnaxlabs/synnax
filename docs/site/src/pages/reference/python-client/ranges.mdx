@@ -61,31 +61,16 @@ creating a new one.
 
 ## Creating Child Ranges
 
-There are two ways to create child ranges: by creating a sub-range of a parent range, or
-specifying a parent range.
-
-### Creating a Sub-Range of a Parent
+For more information on child ranges, see the
+[ranges](/concepts/ranges#child-ranges) page.
 
 ```python
-child_range = parent_range.create_sub_range(
+child_range = parent_range.create_child_range(
     name="My Child Range",
     time_range=sy.TimeRange(
         start = datetime.strptime("2023-2-12 12:30:00", time_format),
         end = datetime.strptime("2023-2-12 14:30:00", time_format),
     ),
-)
-```
-
-### Defining a Parent by Ontology ID
-
-```python
-child_range = client.ranges.create(
-    parent=sy.ontology.ID(type="range", key=str(parent_range.key)),
-    name="My Child Range",
-    time_range=sy.TimeRange(
-        start = datetime.strptime("2023-2-12 12:30:00", time_format),
-        end = datetime.strptime("2023-2-12 14:30:00", time_format),
-  ),
 )
 ```
 
@@ -138,10 +123,10 @@ the missing range will be omitted from the returned list.
 
 ### Retrieving Child Ranges
 
-We can retrieve child ranges using the `client.ontology.retrieve_children` method.
+We can retrieve child ranges using the `children` property.
 
 ```python
-child_ranges = client.ontology.retrieve_children(my_range.ontology_id)
+child_ranges = my_range.children
 ```
 
 <Divider.Divider x />
