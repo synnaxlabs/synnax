@@ -67,7 +67,7 @@ class BenchLatencyReport(TestCase):
                         start = sy.TimeStamp.now()
                         writer.write(cmd_channel, self.test_state)
                         value = stream.read()
-                        times.append(sy.TimeStamp.since(start).microseconds)
+                        times.append(sy.TimeStamp.since(start))
                         cycles += 1
 
         except Exception as e:
@@ -75,8 +75,8 @@ class BenchLatencyReport(TestCase):
 
         self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
 
-        # Convert deque to NumPy array and then to milliseconds
-        times_ms = np.array(times, dtype=np.float64) / 1000
+        # Convert times to milliseconds for better readability
+        times_ms = [float(t.microseconds) / 1000 for t in times]
 
         # Calculate jitter metrics
         peak_to_peak_jitter = max(times_ms) - min(times_ms)
