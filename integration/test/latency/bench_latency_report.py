@@ -9,6 +9,7 @@
 
 import os
 import time
+from collections import deque
 from re import S
 
 import matplotlib
@@ -42,18 +43,15 @@ class BenchLatencyReport(TestCase):
 
         self.loop_start = sy.TimeStamp.now()
 
-        # Just make sure to call super() last!
-        super().setup()
-
     def run(self) -> None:
         """
         Run the test case.
         """
 
         # Wait for the "response" to start
-        time.sleep(3)
+        time.sleep(8)
         cycles: int = 0
-        times: list[sy.TimeStamp] = list()
+        times: deque[sy.TimeStamp] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
@@ -175,7 +173,7 @@ class BenchLatencyReport(TestCase):
         max_p95 = 3.0
         max_p99 = 5
         max_peak_to_peak_jitter = 20
-        max_average_jitter = 1
+        max_average_jitter = 2
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"

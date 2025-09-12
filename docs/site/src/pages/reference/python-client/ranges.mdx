@@ -59,6 +59,21 @@ my_range = client.ranges.create(
 In the event the range already exists, Synnax will return the existing range instead of
 creating a new one.
 
+## Creating Child Ranges
+
+For more information on child ranges, see the
+[ranges](/reference/concepts/ranges#child-ranges) page.
+
+```python
+child_range = parent_range.create_child_range(
+    name="My Child Range",
+    time_range=sy.TimeRange(
+        start = datetime.strptime("2023-2-12 12:30:00", time_format),
+        end = datetime.strptime("2023-2-12 14:30:00", time_format),
+    ),
+)
+```
+
 <Divider.Divider x />
 
 ## Retrieving Ranges
@@ -105,6 +120,14 @@ my_ranges = client.ranges.retrieve(names=["My Range", my_other_range.key])
 
 In these examples, Synnax will not raise an error if a range cannot be found. Instead,
 the missing range will be omitted from the returned list.
+
+### Retrieving Child Ranges
+
+We can retrieve child ranges using the `children` property.
+
+```python
+child_ranges = my_range.children
+```
 
 <Divider.Divider x />
 

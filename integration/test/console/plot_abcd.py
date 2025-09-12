@@ -20,7 +20,7 @@ class Plot_Abcd(Plot):
 
     def setup(self) -> None:
         super().setup()
-        self.configure(loop_rate=0.5, manual_timeout=60)
+        self.configure(loop_rate=0.5, manual_timeout=30)
 
         self.subscribe(["d_ab", "d_bc", "d_cd", "d_da"])
         self.subscribe(
