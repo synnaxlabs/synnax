@@ -8,13 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import platform
+import time
+from test.framework.test_case import TestCase
 from typing import Any
 
 import synnax as sy
-import time
 from synnax.hardware import ni
-
-from test.framework.test_case import TestCase
 
 
 class Driver(TestCase):

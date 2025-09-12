@@ -63,7 +63,7 @@ plugins = ["pydantic.mypy"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = "synnax"
+module = "synnax.*"
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

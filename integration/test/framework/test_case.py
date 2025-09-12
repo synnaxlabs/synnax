@@ -151,6 +151,7 @@ class TestCase(ABC):
         self._auto_pass = False
 
         self.subscribed_channels: Set[str] = set()
+        self.channel_objects: Set[sy.Channel] = set()
 
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -158,6 +159,7 @@ class TestCase(ABC):
             is_index=True,
             retrieve_if_name_exists=True,
         )
+        self.channel_objects.add(self.time_index)
 
         self.tlm = {
             f"{self.name}_time": sy.TimeStamp.now(),
@@ -433,14 +435,14 @@ class TestCase(ABC):
         data_type: sy.DataType,
         initial_value: Any = None,
         append_name: bool = True,
-    ) -> None:
+    ) -> sy.Channel:
         """Create a telemetry channel with name {self.name}_{name}."""
         if append_name:
             tlm_name = f"{self.name}_{name}"
         else:
             tlm_name = name
 
-        self.client.channels.create(
+        new_channel = self.client.channels.create(
             name=tlm_name,
             data_type=data_type,
             index=self.time_index.key,
@@ -448,6 +450,9 @@ class TestCase(ABC):
         )
 
         self.tlm[tlm_name] = initial_value
+        self.channel_objects.add(new_channel)
+
+        return new_channel
 
     def subscribe(self, channels: Union[str, List[str]]) -> None:
         """Subscribe to channels. Can take either a single channel name or a list of channels."""
