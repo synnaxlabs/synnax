@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, status } from "@synnaxlabs/client";
+import { useEffect } from "react";
 
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { createList } from "@/flux/list";
 import { createRetrieve } from "@/flux/retrieve";
 import { createUpdate } from "@/flux/update";
@@ -91,3 +92,8 @@ export const { useRetrieve } = createRetrieve<UseStatusParams, status.Status, Su
     ],
   },
 );
+
+export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
+  const store = Flux.useStore<SubStore>();
+  useEffect(() => store.statuses.onSet(onSet), [store]);
+};
