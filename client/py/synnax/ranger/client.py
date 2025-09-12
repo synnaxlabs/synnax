@@ -666,32 +666,6 @@ class RangeClient:
         _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
 
-    def create_child_range(
-        self,
-        parent_range: Range,
-        *,
-        name: str,
-        time_range: TimeRange,
-        color: str = "",
-        key: RangeKey = UUID(int=0),
-    ) -> Range:
-        """Creates a child range of the given parent range. This is a passthrough
-        method to parent_range.create_child_range().
-
-        :param parent_range: The parent range to create a child of
-        :param name: The name of the child range
-        :param time_range: The time range of the child range
-        :param color: Optional color for the child range
-        :param key: Optional key for the child range
-        :return: The created child range
-        """
-        return parent_range.create_child_range(
-            name=name,
-            time_range=time_range,
-            color=color,
-            key=key,
-        )
-
     def __sugar(self, ranges: list[RangePayload]):
         return [
             Range(
