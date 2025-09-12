@@ -28,9 +28,9 @@ type selectStage struct{ base }
 
 func (s *selectStage) Next(ctx context.Context, val value.Value) {
 	if val.Value == 0 {
-		val.Param = "true"
-	} else {
 		val.Param = "false"
+	} else {
+		val.Param = "true"
 	}
 	s.outputHandler(ctx, val)
 }

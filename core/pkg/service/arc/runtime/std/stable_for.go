@@ -10,8 +10,9 @@
 package std
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
@@ -23,8 +24,8 @@ var symbolStableFor = ir.Symbol{
 	Name: "stable_for",
 	Kind: ir.KindStage,
 	Type: ir.Stage{
-		Params: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"value"},
+		Config: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"duration"},
 			Values: []ir.Type{ir.Number{}},
 		},
 		Return: ir.Number{},

@@ -9,7 +9,12 @@
 
 package status
 
-import "github.com/synnaxlabs/x/telem"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Variant is a general classification mechanism for statuses.
 type Variant string
@@ -39,4 +44,58 @@ type Status[D any] struct {
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 	// Details are customizable details for component specific statuses.
 	Details D `json:"details" msgpack:"details"`
+}
+
+// String returns a formatted string representation of the Status.
+func (s Status[D]) String() string {
+	var b strings.Builder
+
+	var variantIcon string
+	switch s.Variant {
+	case InfoVariant:
+		variantIcon = "ℹ"
+	case SuccessVariant:
+		variantIcon = "✓"
+	case ErrorVariant:
+		variantIcon = "✗"
+	case WarningVariant:
+		variantIcon = "⚠"
+	case DisabledVariant:
+		variantIcon = "⊘"
+	case LoadingVariant:
+		variantIcon = "◌"
+	default:
+		variantIcon = "•"
+	}
+
+	_, _ = fmt.Fprintf(&b, "[%s %s]", variantIcon, s.Variant)
+
+	if s.Name != "" {
+		_, _ = fmt.Fprintf(&b, " %s", s.Name)
+	}
+
+	if s.Key != "" && s.Key != s.Name {
+		_, _ = fmt.Fprintf(&b, " (%s)", s.Key)
+	}
+
+	if s.Message != "" {
+		_, _ = fmt.Fprintf(&b, ": %s", s.Message)
+	}
+
+	if s.Description != "" {
+		_, _ = fmt.Fprintf(&b, "\n  %s", s.Description)
+	}
+
+	if s.Time != 0 {
+		_, _ = fmt.Fprintf(&b, "\n  @ %s", s.Time)
+	}
+
+	if detailStr := fmt.Sprintf("%v", s.Details); detailStr != "" && detailStr != "<nil>" && detailStr != "0" {
+		var zero D
+		if fmt.Sprintf("%v", zero) != detailStr {
+			_, _ = fmt.Fprintf(&b, "\n  Details: %v", s.Details)
+		}
+	}
+
+	return b.String()
 }

@@ -10,8 +10,9 @@
 package std
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"

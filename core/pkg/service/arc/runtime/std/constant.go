@@ -41,7 +41,7 @@ func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
 	c := &constant{
 		base: base{key: cfg.Node.Key},
 		value: value.Value{
-			Param: "output",
+			Param: "",
 			Type:  ir.Number{},
 		}.Put(cfg.Node.Config["value"]),
 	}
