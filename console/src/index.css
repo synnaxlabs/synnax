@@ -22,6 +22,7 @@ body {
     margin: 0;
     height: 100%;
     width: 100%;
+    color: var(--pluto-gray-l10);
 }
 
 ::-webkit-scrollbar {

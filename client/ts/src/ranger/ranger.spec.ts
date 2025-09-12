@@ -7,16 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
-import { type ranger } from "@/ranger";
+import { ranger } from "@/ranger";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
 describe("Ranger", () => {
+  describe("payload", () => {
+    it("should validate the time range", () => {
+      const payload = ranger.payloadZ.parse({
+        name: "My New One Second Range",
+        key: uuid.create(),
+        timeRange: { start: 0, end: 1 },
+      });
+      expect(payload).toBeDefined();
+      expect(payload.timeRange.start.valueOf()).toBe(0n);
+      expect(payload.timeRange.end.valueOf()).toBe(1n);
+    });
+    it("should not validate the time range if it is invalid", () => {
+      const input = {
+        name: "My New One Second Range",
+        key: uuid.create(),
+        timeRange: { start: 1, end: 0 },
+      };
+      expect(() => ranger.payloadZ.parse(input)).toThrow(z.ZodError);
+    });
+  });
   describe("create", () => {
     it("should create a single range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));

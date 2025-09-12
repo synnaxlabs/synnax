@@ -37,7 +37,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     );
     this.renderAxis(props, dataToDecimal.reverse());
     this.renderYAxes(props, dataToDecimal);
-    this.renderRangeAnnotations(props, dataToDecimal);
+    this.renderRanges(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -78,7 +78,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return this.childrenOfType<YAxis>(YAxis.TYPE);
   }
 
-  get rangeAnnotations(): readonly range.Provider[] {
+  get ranges(): readonly range.Provider[] {
     return this.childrenOfType<range.Provider>(range.Provider.TYPE);
   }
 
@@ -88,12 +88,12 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  private renderRangeAnnotations(
+  private renderRanges(
     props: XAxisRenderProps,
     xDataToDecimalScale: scale.Scale,
   ): void {
     const bound = this.bounds(props.hold);
-    this.rangeAnnotations.forEach((el) =>
+    this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,

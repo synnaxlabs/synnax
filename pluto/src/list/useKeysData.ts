@@ -11,6 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type List } from "@/list";
+import { type GetItem } from "@/list/Frame";
 
 export interface UseKeysDataReturn<K extends record.Key = record.Key>
   extends Required<Pick<List.FrameProps<K, record.Keyed<K>>, "getItem">> {
@@ -21,10 +22,14 @@ export const useKeysData = <K extends record.Key = record.Key>(
   data: K[] | readonly K[],
 ): UseKeysDataReturn<K> => {
   const getItem = useCallback(
-    (key?: K) => {
+    ((key: K | K[]) => {
+      if (Array.isArray(key)) {
+        const keys = new Set(key);
+        return data.filter((d) => keys.has(d)).map((d) => ({ key: d }));
+      }
       const option = data.find((option) => option === key);
       return option ? { key: option } : undefined;
-    },
+    }) as GetItem<K, record.Keyed<K>>,
     [data],
   );
   return { data: data as K[], getItem };

@@ -25,19 +25,21 @@ type UnionZ struct {
 	schemas []Schema
 }
 
-// Union creates a new union schema that can accept values of multiple types.
-// This is the entry point for creating union validation schemas.
+// Union creates a new union schema that can accept values of multiple types. This is
+// the entry point for creating union validation schemas.
 func Union(schemas ...Schema) UnionZ {
 	var v any
-	u := UnionZ{baseZ: baseZ{dataType: UnionT, expectedType: reflect.TypeOf(v)}, schemas: schemas}
+	u := UnionZ{
+		baseZ:   baseZ{dataType: UnionT, expectedType: reflect.TypeOf(v)},
+		schemas: schemas,
+	}
 	u.wrapper = u
 	return u
 }
 
 var _ Schema = (*UnionZ)(nil)
 
-// Optional marks the union field as optional.
-// Optional fields can be nil or omitted.
+// Optional marks the union field as optional. Optional fields can be nil or omitted.
 func (u UnionZ) Optional() UnionZ { u.optional = true; return u }
 
 // Shape returns the base shape of the union schema.
@@ -46,15 +48,14 @@ func (u UnionZ) Shape() Shape { return u.baseZ }
 // validateDestination validates that the destination is compatible with union data
 // Union accepts any destination type since it can contain various types
 func (u UnionZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("union", dest)
 	}
 	return nil
 }
 
-// Dump converts the given data according to the union schema.
-// It tries each schema in sequence until one succeeds.
-// Returns an error if no schema can handle the data.
+// Dump converts the given data according to the union schema. It tries each schema in
+// sequence until one succeeds. Returns an error if no schema can handle the data.
 func (u UnionZ) Dump(data any) (any, error) {
 	if data == nil {
 		if u.optional {
@@ -79,9 +80,8 @@ func (u UnionZ) Dump(data any) (any, error) {
 	return dest, err
 }
 
-// Parse converts the given data according to the union schema.
-// It tries each schema in sequence until one succeeds.
-// Returns an error if no schema can handle the data.
+// Parse converts the given data according to the union schema. It tries each schema in
+// sequence until one succeeds. Returns an error if no schema can handle the data.
 func (u UnionZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := u.validateDestination(destVal); err != nil {

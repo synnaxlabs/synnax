@@ -23,7 +23,9 @@ export type Params = Key | Name | Keys | Names;
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
-  timeRange: TimeRange.z,
+  timeRange: TimeRange.z.refine((tr) => tr.isValid, {
+    error: "Time range must be valid",
+  }),
   color: z.string().optional(),
   labels: label.labelZ
     .array()

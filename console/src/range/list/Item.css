@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.ranger__select-single-dialog {
-    width: 800px;
+@container (max-width: 500px) {
+    .console-range__list-item {
+        .pluto-tags {
+            display: none;
+        }
+    }
+}
+
+.console-range__list-item {
+    padding-left: 1rem;
 }

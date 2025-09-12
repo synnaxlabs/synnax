@@ -73,6 +73,11 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
   });
 
+  test("constructing from MIN and MAX as numbers", () => {
+    expect(new TimeStamp(TimeStamp.MIN.nanoseconds).equals(TimeStamp.MIN)).toBe(true);
+    expect(new TimeStamp(TimeStamp.MAX.nanoseconds).equals(TimeStamp.MAX)).toBe(true);
+  });
+
   test("construct from time string", () => {
     const ts = new TimeStamp("12:30", "UTC");
     expect(ts.date().getUTCHours()).toEqual(12);

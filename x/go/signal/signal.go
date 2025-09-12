@@ -10,16 +10,16 @@
 package signal
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
 
-// Context is an extension of the standard context.Context that provides a way to
-// signal a goroutine to maybeStop.
+// Context is an extension of the standard context.Context that provides a way to signal
+// a goroutine to maybeStop.
 type Context interface {
 	context.Context
 	Go
@@ -37,15 +37,19 @@ func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFun
 
 // WithTimeout returns a Context derived from core that is canceled by the given
 // timeout. If any goroutine returns a non-nil error, the Context will be canceled.
-func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
+func WithTimeout(
+	ctx context.Context,
+	d time.Duration,
+	opts ...Option,
+) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
 	c := newCore(ctx, cancel, opts...)
 	return c, cancel
 }
 
 // Isolated opens a new signal context completely isolated from any parent contexts.
-// This is equivalent to context.Background(), and is used to manage and independent
-// set of go-routines.
+// This is equivalent to context.Background(), and is used to manage and independent set
+// of go-routines.
 func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
@@ -61,11 +65,7 @@ func newCore(
 	cancel context.CancelFunc,
 	opts ...Option,
 ) *core {
-	c := &core{
-		options: newOptions(opts),
-		Context: ctx,
-		cancel:  cancel,
-	}
+	c := &core{options: newOptions(opts), Context: ctx, cancel: cancel}
 	c.mu.stopped = make(chan struct{})
 	return c
 }
@@ -82,16 +82,17 @@ type core struct {
 	}
 }
 
-// Stopped returns a channel that is closed when all routines in the context have stopped.
-// This can be used to wait for all routines to complete.
+// Stopped returns a channel that is closed when all routines in the context have
+// stopped. This can be used to wait for all routines to complete.
 func (c *core) Stopped() <-chan struct{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.mu.stopped
 }
 
-// maybeStop checks if all routines have stopped and closes the stopped channel if they have.
-// This is called after each routine completes to potentially signal that all routines are done.
+// maybeStop checks if all routines have stopped and closes the stopped channel if they
+// have. This is called after each routine completes to potentially signal that all
+// routines are done.
 func (c *core) maybeStop() {
 	select {
 	case <-c.mu.stopped:
@@ -106,8 +107,8 @@ func (c *core) maybeStop() {
 	}
 }
 
-// routineDiagnostics returns a formatted string containing information about all routines
-// in the context, including their keys, states, and any failure reasons.
+// routineDiagnostics returns a formatted string containing information about all
+// routines in the context, including their keys, states, and any failure reasons.
 func (c *core) routineDiagnostics() string {
 	var b strings.Builder
 	for _, i := range c.routines() {
@@ -117,8 +118,8 @@ func (c *core) routineDiagnostics() string {
 }
 
 // unsafeRunningKeys returns a slice of keys for all routines that are currently in the
-// Running state. This method is not thread-safe and should only be called while
-// holding the appropriate locks.
+// Running state. This method is not thread-safe and should only be called while holding
+// the appropriate locks.
 func (c *core) unsafeRunningKeys() []string {
 	running := make([]string, 0, len(c.mu.routines))
 	for _, r := range c.mu.routines {
