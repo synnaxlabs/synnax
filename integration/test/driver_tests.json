@@ -1,0 +1,14 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Driver_Tests",
+      "sequence_order": "random",
+      "tests": [
+        {
+          "case": "driver/driver"
+        }
+      ]
+    }
+  ]
+}

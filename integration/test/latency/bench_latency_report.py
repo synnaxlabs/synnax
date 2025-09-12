@@ -208,7 +208,6 @@ class BenchLatencyReport(TestCase):
             self.fail()
         self._log_message(average_jitter_msg)
 
-        os.makedirs("test/results", exist_ok=True)
         plt.savefig("test/results/bench_latency_load.png", dpi=300, bbox_inches="tight")
         self._log_message(
             f"Saved benchmark plot to: {os.path.abspath('test/results/bench_latency_load.png')}"

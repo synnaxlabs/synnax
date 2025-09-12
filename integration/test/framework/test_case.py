@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
 import logging
+import os
 import sys
 import threading
 import time
@@ -109,6 +110,7 @@ class TestCase(ABC):
         **params: Any,
     ) -> None:
 
+        os.makedirs("test/results", exist_ok=True)
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
@@ -148,8 +150,10 @@ class TestCase(ABC):
         self.streamer_thread: threading.Thread = threading.Thread()
         self._should_stop = False
         self.is_running = True
+        self._auto_pass = False
 
         self.subscribed_channels: Set[str] = set()
+        self.channel_objects: Set[sy.Channel] = set()
 
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -157,6 +161,7 @@ class TestCase(ABC):
             is_index=True,
             retrieve_if_name_exists=True,
         )
+        self.channel_objects.add(self.time_index)
 
         self.tlm = {
             f"{self.name}_time": sy.TimeStamp.now(),
@@ -432,14 +437,14 @@ class TestCase(ABC):
         data_type: sy.DataType,
         initial_value: Any = None,
         append_name: bool = True,
-    ) -> None:
+    ) -> sy.Channel:
         """Create a telemetry channel with name {self.name}_{name}."""
         if append_name:
             tlm_name = f"{self.name}_{name}"
         else:
             tlm_name = name
 
-        self.client.channels.create(
+        new_channel = self.client.channels.create(
             name=tlm_name,
             data_type=data_type,
             index=self.time_index.key,
@@ -447,6 +452,9 @@ class TestCase(ABC):
         )
 
         self.tlm[tlm_name] = initial_value
+        self.channel_objects.add(new_channel)
+
+        return new_channel
 
     def subscribe(self, channels: Union[str, List[str]]) -> None:
         """Subscribe to channels. Can take either a single channel name or a list of channels."""
@@ -535,6 +543,10 @@ class TestCase(ABC):
     def name(self, value: str) -> None:
         """Set the name of the test case."""
         self._name = value
+
+    def auto_pass(self) -> None:
+        self._log_message("⚠️ AutoPass enabled. ⚠️")
+        self._auto_pass = True
 
     @property
     def STATUS(self) -> STATUS:
@@ -699,12 +711,14 @@ class TestCase(ABC):
             # Even if the child classes don't call super()
 
             self.STATUS = STATUS.INITIALIZING
-            self.setup()
+            if not self._auto_pass:
+                self.setup()
 
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            self.run()
+            if not self._auto_pass:
+                self.run()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:

@@ -86,7 +86,6 @@ class Plot(Console):
         Save a screenshot of the plot area including axes with margin
         """
         if path is None:
-            os.makedirs("test/results", exist_ok=True)
             path = f"test/results/{self.name}.png"
 
         plot_locator = self.page.locator(".pluto-line-plot")
