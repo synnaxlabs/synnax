@@ -29,15 +29,13 @@ export type DateTimeProps<E extends Generic.ElementType = "p"> = Omit<
 };
 
 export const DateTime = <E extends Generic.ElementType = "p">({
-  ref,
   format = "dateTime",
   suppliedTZ = "UTC",
   displayTZ = "local",
   children,
   ...rest
 }: DateTimeProps<E>): ReactElement => (
-  // @ts-expect-error - generic component errors
-  <Text<E> ref={ref} {...rest}>
+  <Text<E> {...(rest as TextProps<E>)}>
     {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
   </Text>
 );
