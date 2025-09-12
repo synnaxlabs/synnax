@@ -9,6 +9,7 @@
 
 import os
 import time
+from collections import deque
 from re import S
 
 import matplotlib
@@ -42,18 +43,15 @@ class BenchLatencyReport(TestCase):
 
         self.loop_start = sy.TimeStamp.now()
 
-        # Just make sure to call super() last!
-        super().setup()
-
     def run(self) -> None:
         """
         Run the test case.
         """
 
         # Wait for the "response" to start
-        time.sleep(3)
+        time.sleep(8)
         cycles: int = 0
-        times: list[sy.TimeStamp] = list()
+        times: deque[sy.TimeStamp] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
@@ -69,7 +67,7 @@ class BenchLatencyReport(TestCase):
                         start = sy.TimeStamp.now()
                         writer.write(cmd_channel, self.test_state)
                         value = stream.read()
-                        times.append(sy.TimeStamp.since(start))
+                        times.append(sy.TimeStamp.since(start).microseconds)
                         cycles += 1
 
         except Exception as e:
@@ -77,8 +75,8 @@ class BenchLatencyReport(TestCase):
 
         self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
 
-        # Convert times to milliseconds for better readability
-        times_ms = [float(t.microseconds) / 1000 for t in times]
+        # Convert deque to NumPy array and then to milliseconds
+        times_ms = np.array(times, dtype=np.float64) / 1000
 
         # Calculate jitter metrics
         peak_to_peak_jitter = max(times_ms) - min(times_ms)

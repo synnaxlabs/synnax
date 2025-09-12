@@ -45,13 +45,11 @@ class BenchLatencyResponse(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # Just make sure to call super() last!
-        super().setup()
-
     def run(self) -> None:
         """
         Run the test case.
         """
+        time.sleep(5)
         start: float = time.time()
         uptime: int = 0
 
@@ -64,7 +62,7 @@ class BenchLatencyResponse(TestCase):
                 with self.bench_client.open_writer(
                     sy.TimeStamp.now(), state_channel
                 ) as writer:
-                    while uptime < 10:
+                    while uptime < 15:
                         frame = stream.read(timeout=2.5)
                         if frame is not None:
                             writer.write(state_channel, frame[cmd_channel])
