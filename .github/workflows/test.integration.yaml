@@ -26,7 +26,8 @@ on:
         default: "0000000000"
         type: string
       SEQUENCE:
-        description: "Test case sequence to run (optional - will auto-discover if empty)"
+        description:
+          "Test case sequence to run (optional - will auto-discover if empty)"
         required: false
         default: ""
         type: string
@@ -88,13 +89,11 @@ jobs:
           SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
-          
           if [ -z "${SEQUENCE}" ]; then
             echo "SEQUENCE_ARG=" >> $GITHUB_OUTPUT
           else
             echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
           fi
-          
           if [ "${SKIP_BUILD}" = "false" ]; then
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           else
@@ -206,7 +205,6 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-
       - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
@@ -229,12 +227,6 @@ jobs:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
-
-      - name: Setup Windows SDK
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        with:
-          sdk-version: 22000
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -324,7 +316,6 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
 
-
       - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
@@ -404,7 +395,6 @@ jobs:
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
-
 
       - name: Upload Core Binary as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -556,7 +546,9 @@ jobs:
         id: test-conductor
         timeout-minutes: 5
         working-directory: integration
-        run: poetry run test-conductor --name test-conductor-unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run:
+          poetry run test-conductor --name test-conductor-unix ${{
+          needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -625,7 +617,9 @@ jobs:
         id: test-conductor
         timeout-minutes: 5
         working-directory: integration
-        run: poetry run test-conductor --name test-conductor-unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run:
+          poetry run test-conductor --name test-conductor-unix ${{
+          needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

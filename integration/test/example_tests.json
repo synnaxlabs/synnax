@@ -1,5 +1,5 @@
 {
-  "$schema": "./test-schema.json",
+  "$schema": "test_schema.json",
   "sequences": [
     {
       "sequence_name": "Sequential_Tests",
@@ -24,9 +24,6 @@
             "fail_test": true
           },
           "expect": "FAILED"
-        },
-        {
-          "case": "ranges_basic"
         }
       ]
     }

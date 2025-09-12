@@ -54,7 +54,7 @@ check_version() {
 # Main script execution
 get_version
 
-paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
+paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py" "../integration")
 
 version_check_passed=true
 

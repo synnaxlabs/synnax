@@ -1059,7 +1059,6 @@ def main() -> None:
         conductor.create_ranges()
         conductor.log_message(f"Fin.")
         gc.enable()
-
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 

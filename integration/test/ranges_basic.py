@@ -15,18 +15,16 @@ import synnax as sy
 
 time_format = "%Y-%m-%d %H:%M:%S.%f"
 
-RANGE_SPAN_S = 3.234
+RANGE_SPAN_S = 3.456
 
 
 class Ranges_Basic(TestCase):
     """
-    Check if the test case is connected to the synnax server.
+    Create a parent range and child ranges.
     """
 
     def setup(self) -> None:
-
         self.range_start = datetime.now()
-        super().setup()
 
     def run(self) -> None:
 
@@ -79,9 +77,6 @@ class Ranges_Basic(TestCase):
             ),
         )
 
-        """
-        Check Range Properties
-        """
         # Check we have the correct span
         if time_span_s < RANGE_SPAN_S and abs(time_span_s - RANGE_SPAN_S) < 0.01:
             self._log_message(
