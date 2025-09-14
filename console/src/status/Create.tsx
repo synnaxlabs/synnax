@@ -61,12 +61,12 @@ export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
             placeholder: "Name",
           }}
         />
+        <Form.Field<status.Variant> path="variant" label="Variant">
+          {({ value, onChange }) => (
+            <Status.SelectVariant value={value} onChange={onChange} />
+          )}
+        </Form.Field>
       </Form.Form>
-      <Form.Field<status.Variant> path="variant" label="Variant">
-        {({ value, onChange }) => (
-          <Status.SelectVariant value={value} onChange={onChange} />
-        )}
-      </Form.Field>
     </Flex.Box>
   );
 };
