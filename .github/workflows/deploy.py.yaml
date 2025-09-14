@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - .github/workflows/deploy.py.yaml
+      - alamos/py/**
+      - freighter/py/**
+      - client/py/**
   workflow_dispatch:
 
 jobs:
@@ -12,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Poetry
         run: pipx install poetry
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: client/py/pyproject.toml
           cache: poetry
@@ -40,7 +45,6 @@ jobs:
               - freighter/py/**
             client:
               - *shared
-              - *alamos
               - *freighter
               - client/py/**
 

@@ -30,10 +30,11 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
+      - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - pluto/**
       - relic.conf
+      - scripts/EnVar.dll
       - turbo.json
       - vendor/mbedtls/**
       - vendor/open62541/**
@@ -41,9 +42,6 @@ on:
       - x/go/**
       - x/ts/**
   pull_request:
-    branches:
-      - main
-      - rc
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -60,7 +58,6 @@ on:
       - core/**
       - drift/**
       - driver/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
@@ -69,10 +66,9 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
+      - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - pluto/**
-      - relic.conf
       - turbo.json
       - vendor/mbedtls/**
       - vendor/open62541/**
@@ -106,12 +102,12 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     needs: setup
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
     steps:
       - name: Create Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { data: releases } = await github.rest.repos.listReleases({
@@ -179,12 +175,12 @@ jobs:
           --announce_rc //driver
 
       - name: Download relic for Windows signing
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
       - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path relic-bin
@@ -216,7 +212,7 @@ jobs:
           fi
 
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -232,7 +228,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: Sign macOS Driver Binary
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         run: |
           # Create entitlements file to disable library validation for LabJack support
           cat > driver-entitlements.plist << 'EOF'
@@ -252,7 +248,7 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Sign Windows Driver Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -285,7 +281,7 @@ jobs:
           }
 
       - name: Upload and Move Driver Binary
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -296,14 +292,14 @@ jobs:
       - name: Move Driver to Assets
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
             mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           else
             mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
       - name: Create Driver Install Script for NI Linux RT
-        if: matrix.os == 'ubuntu-22.04' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-22.04' && github.event_name != 'pull_request'
         shell: bash
         run: |
           cat > install-driver-nilinuxrt.sh << 'EOF'
@@ -341,21 +337,15 @@ jobs:
 
       - name: Copy Console Assets to Server
         shell: bash
-        run: |
-          mkdir -p core/pkg/service/console/dist
-          cp -r console/dist/* core/pkg/service/console/dist/
-
-      - name: Download Dependencies
-        working-directory: core
-        run: go mod download
+        run: cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build
         working-directory: core
         run: |
-          go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         working-directory: core
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
@@ -364,7 +354,7 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
 
       - name: Sign Windows Server Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -373,14 +363,14 @@ jobs:
           relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
 
       - name: Upload Release Asset
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
           # Ensure EnVar.dll is present in the correct plugin path
@@ -391,14 +381,14 @@ jobs:
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer
-          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
+          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"
               exit 1
           }
 
       - name: Sign Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -407,40 +397,40 @@ jobs:
           relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
       - name: Upload Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
         working-directory: core
 
       - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         run: |
           docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -452,7 +442,7 @@ jobs:
           fi
 
       - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         run: |
           docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}

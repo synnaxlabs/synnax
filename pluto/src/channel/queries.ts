@@ -99,7 +99,7 @@ export const formSchema = channel.newZ
   });
 
 export const calculatedFormSchema = formSchema
-  .extend({
+  .safeExtend({
     expression: z
       .string()
       .min(1, "Expression must not be empty")
