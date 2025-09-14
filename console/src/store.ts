@@ -32,6 +32,7 @@ import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
+// @ts-expect-error - (SY-2940) some weird stuff with type inferences is going on here.
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
