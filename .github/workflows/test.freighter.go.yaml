@@ -58,6 +58,6 @@ jobs:
       - name: Test
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
-          --trace --github-output
+          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --trace
+          --github-output
         working-directory: freighter/go
