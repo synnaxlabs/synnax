@@ -13,11 +13,23 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - x/cpp/**
-      - x/go/**/*.pb.h
+      - x/go/**/*.pb.go
   push:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.freighter.cpp.yaml
+      - freighter/cpp/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - x/cpp/**
+      - x/go/**/*.pb.go
   workflow_dispatch:
 
 jobs:
@@ -39,10 +51,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
+        uses: actions/checkout@v5
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -55,9 +64,9 @@ jobs:
         if: matrix.format
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+          sudo apt-get install -y clang-format-21
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-21
 
       - name: Check Formatting
         if: matrix.format
