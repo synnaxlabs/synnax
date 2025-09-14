@@ -12,7 +12,7 @@ on:
       - freighter/go/**
       - go.work
       - go.work.sum
-      - scripts/check-gofmt.sh
+      - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh freighter/go
+        run: ./scripts/check_gofmt.sh freighter/go
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output

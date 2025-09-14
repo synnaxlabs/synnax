@@ -391,7 +391,7 @@ jobs:
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer
-          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
+          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"
               exit 1

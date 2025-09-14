@@ -20,7 +20,7 @@ on:
       - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
+      - scripts/check_clang_format.sh
       - vendor/**
       - x/cpp/**
       - x/go/**
@@ -106,7 +106,7 @@ jobs:
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: scripts/check-clang-format.sh driver
+        run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
         run:

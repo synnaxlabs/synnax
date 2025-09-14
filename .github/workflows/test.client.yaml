@@ -31,7 +31,7 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - scripts/check-clang-format.sh
+      - scripts/check_clang_format.sh
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -80,7 +80,7 @@ jobs:
               - freighter/cpp/**
               - MODULE.bazel
               - MODULE.bazel.lock
-              - scripts/check-clang-format.sh
+              - scripts/check_clang_format.sh
               - x/cpp/**
             py:
               - *shared
@@ -171,7 +171,7 @@ jobs:
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: scripts/check-clang-format.sh client/cpp
+        run: scripts/check_clang_format.sh client/cpp
 
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results

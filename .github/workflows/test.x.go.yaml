@@ -7,7 +7,7 @@ on:
       - alamos/go/**
       - go.work
       - go.work.sum
-      - scripts/check-gofmt.sh
+      - scripts/check_gofmt.sh
       - x/go/**
   push:
     branches:
@@ -44,7 +44,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh x/go
+        run: ./scripts/check_gofmt.sh x/go
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output

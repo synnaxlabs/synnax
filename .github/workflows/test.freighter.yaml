@@ -19,7 +19,7 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - scripts/check-gofmt.sh
+      - scripts/check_gofmt.sh
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -57,7 +57,7 @@ jobs:
               - x/go/**
             integration:
               - *server
-              - scripts/check-gofmt.sh
+              - scripts/check_gofmt.sh
             py:
               - *server
               - alamos/py/**
@@ -118,7 +118,7 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
-        run: ./scripts/check-gofmt.sh freighter/integration
+        run: ./scripts/check_gofmt.sh freighter/integration
 
   py:
     name: Test - Python
