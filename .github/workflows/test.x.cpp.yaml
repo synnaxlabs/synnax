@@ -12,7 +12,7 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - x/cpp/**
-      - x/go/**/*.pb.h
+      - x/go/**/*.pb.go
   push:
     branches:
       - main
@@ -27,7 +27,7 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - x/cpp/**
-      - x/go/**/*.pb.h
+      - x/go/**/*.pb.go
   workflow_dispatch:
 
 jobs:
