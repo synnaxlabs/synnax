@@ -15,7 +15,6 @@ on:
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - relic.conf
       - turbo.json
       - vendor/lua-language-server/**
       - x/media/**

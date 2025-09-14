@@ -69,7 +69,6 @@ on:
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - relic.conf
       - turbo.json
       - vendor/mbedtls/**
       - vendor/open62541/**
