@@ -64,9 +64,9 @@ jobs:
         if: matrix.format
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-21
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-21
+          sudo apt-get install -y clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
         if: matrix.format
