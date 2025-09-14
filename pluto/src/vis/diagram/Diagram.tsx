@@ -485,6 +485,7 @@ const Core = ({
               CSS.BE("symbol", "container"),
             )}
             nodes={nodes_}
+            // @ts-expect-error - edge types
             edges={edges_}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
