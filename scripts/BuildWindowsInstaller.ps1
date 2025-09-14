@@ -22,7 +22,7 @@ Write-Host "Moving synnax binary to scripts directory..."
 Move-Item -Force ..\synnax\synnax-server.exe .\
 
 Write-Host "Building Windows installer..."
-& makensis /DVERSION=$version windows-installer.nsi
+& makensis /DVERSION=$version windows_installer.nsi
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to build Windows installer"
     exit 1
