@@ -24,7 +24,7 @@ export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
   timeRange: TimeRange.z.refine((tr) => tr.isValid, {
-    error: "Time range must be valid",
+    error: "Time range start time must be before or equal to time range end time",
   }),
   color: z.string().optional(),
   labels: label.labelZ

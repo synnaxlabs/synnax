@@ -36,7 +36,9 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: 1, end: 0 },
       };
-      expect(() => ranger.payloadZ.parse(input)).toThrow(z.ZodError);
+      expect(() => ranger.payloadZ.parse(input)).toThrow(
+        "Time range start time must be before or equal to time range end time",
+      );
     });
   });
   describe("create", () => {
