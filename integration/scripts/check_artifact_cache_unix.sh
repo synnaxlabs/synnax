@@ -157,32 +157,9 @@ else
 fi
 
 if [ -n "${CACHED_RUN}" ]; then
-
-    # Download the cached artifacts (we already verified the artifact exists)
-    echo "Downloading cached ${ARTIFACT_NAME} from run ${CACHED_RUN}..."
-
-    if gh run download "${CACHED_RUN}" --name "${ARTIFACT_NAME}" --dir ./; then
-        echo "Successfully downloaded cached artifacts"
-
-        # Make the binary executable (not needed for Windows .exe files)
-        if [ "${PLATFORM}" = "linux" ]; then
-            chmod +x ./synnax-v*-linux
-        elif [ "${PLATFORM}" = "macos" ]; then
-            chmod +x ./synnax-v*-macos
-        fi
-
-        # Move to core directory
-        if [ "${PLATFORM}" = "windows" ]; then
-            mv ./synnax-v*-windows.exe core/ 2>/dev/null || true
-        else
-            mv ./synnax-v*-${PLATFORM}* core/ 2>/dev/null || true
-        fi
-
-    else
-        echo "Failed to download artifact ${ARTIFACT_NAME} from run ${CACHED_RUN}, will build from scratch"
-        echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
-    fi
+    echo "✅ Cache hit! Found all required artifacts in run ${CACHED_RUN}"
+    echo "Will skip build and use cached artifacts"
 else
-    echo "No cached artifacts available, will build from scratch"
+    echo "❌ No cached artifacts available, will build from scratch"
     echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
 fi
