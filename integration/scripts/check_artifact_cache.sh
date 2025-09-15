@@ -89,7 +89,24 @@ if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
     )
 
     # Get all changed files since last successful build
-    CHANGED_FILES=$(git diff --name-only "${RECENT_SHA}" HEAD 2>/dev/null || echo "")
+    echo "DEBUG: Current HEAD: $(git rev-parse HEAD)"
+    echo "DEBUG: Current HEAD short: $(git rev-parse --short HEAD)"
+    echo "DEBUG: RECENT_SHA: ${RECENT_SHA}"
+    echo "DEBUG: Running git diff --name-only ${RECENT_SHA} HEAD"
+
+    # Try the git diff command step by step
+    git diff --name-only "${RECENT_SHA}" HEAD > /tmp/git_diff_output.txt 2>/tmp/git_diff_error.txt
+    git_diff_exit_code=$?
+
+    echo "DEBUG: git diff exit code: ${git_diff_exit_code}"
+    echo "DEBUG: git diff stdout:"
+    cat /tmp/git_diff_output.txt || echo "No stdout file"
+    echo "DEBUG: git diff stderr:"
+    cat /tmp/git_diff_error.txt || echo "No stderr file"
+
+    CHANGED_FILES=$(cat /tmp/git_diff_output.txt)
+    echo "DEBUG: CHANGED_FILES length: ${#CHANGED_FILES}"
+    echo "DEBUG: CHANGED_FILES content: '${CHANGED_FILES}'"
 
     if [ -z "${CHANGED_FILES}" ]; then
         echo "No changes detected since last build"
