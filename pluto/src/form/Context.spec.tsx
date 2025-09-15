@@ -266,7 +266,7 @@ describe("useContext", () => {
       it("should throw error with default function name when used outside Form context", () => {
         expect(() => {
           renderHook(() => Form.useFieldState("status"));
-        }).toThrow("useContext must be used within a Form context value");
+        }).toThrow("Form.useContext must be used within a Form context value");
       });
     });
 
@@ -274,7 +274,7 @@ describe("useContext", () => {
       it("should throw error with default function name when used outside Form context", () => {
         expect(() => {
           renderHook(() => Form.useFieldValue("count"));
-        }).toThrow("useContext must be used within a Form context value");
+        }).toThrow("Form.useContext must be used within a Form context value");
       });
     });
 
@@ -282,13 +282,13 @@ describe("useContext", () => {
       it("should throw error for useContext in Form.useFieldList", () => {
         expect(() => {
           renderHook(() => Form.useFieldList("items"));
-        }).toThrow("useContext must be used within a Form context value");
+        }).toThrow("Form.useContext must be used within a Form context value");
       });
 
       it("should throw error for useContext in Form.useFieldListUtils", () => {
         expect(() => {
           renderHook(() => Form.useFieldListUtils("tags"));
-        }).toThrow("useContext must be used within a Form context value");
+        }).toThrow("Form.useContext must be used within a Form context value");
       });
     });
   });
