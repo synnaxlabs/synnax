@@ -9,8 +9,9 @@ set -e
 PLATFORM=${1:-linux}
 
 if [ "${PLATFORM}" = "all" ]; then
-    ARTIFACT_NAMES=("synnax-core-linux" "synnax-core-windows" "synnax-core-macos")
-    echo "Checking for all platform artifacts: ${ARTIFACT_NAMES[*]}"
+    # Only check for enabled platforms (macOS is currently disabled)
+    ARTIFACT_NAMES=("synnax-core-linux" "synnax-core-windows")
+    echo "Checking for enabled platform artifacts: ${ARTIFACT_NAMES[*]}"
 else
     ARTIFACT_NAMES=("synnax-core-${PLATFORM}")
     echo "Checking for ${PLATFORM} artifact: ${ARTIFACT_NAMES[*]}"
