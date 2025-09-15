@@ -8,40 +8,59 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Flex, List, Select, Status as StatusComp, Text } from "@synnaxlabs/pluto";
+import {
+  Flex,
+  Form,
+  Input,
+  List,
+  Select,
+  Status,
+  stopPropagation,
+  Text,
+} from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
-export const Item = (props: ItemProps): ReactElement => {
+export const Item = (props: ItemProps): ReactElement | null => {
   const { itemKey } = props;
-  const { onSelect, selected } = Select.useItemState(itemKey);
-  const { getItem } = List.useUtilContext<status.Key, status.Status>();
-  const item = getItem?.(itemKey);
+  const item = List.useItem<status.Key, status.Status>(itemKey);
+  const { form } = Status.useForm({
+    params: {},
+    initialValues: item,
+    autoSave: true,
+    sync: true,
+  });
+  const { selected, onSelect } = Select.useItemState(itemKey);
 
-  if (item == null) return <></>;
+  if (item == null) return null;
+  const { name, time, variant, message } = item;
 
   return (
-    <List.Item<status.Key> {...props} selected={selected} onSelect={onSelect}>
-      <Flex.Box style={{ padding: "0.75rem 1rem" }}>
-        <Flex.Box x justify="between" align="center">
-          <StatusComp.Summary variant={item.variant} level="p" weight={500}>
-            {item.name}
-          </StatusComp.Summary>
-          <Text.DateTime
-            level="small"
-            color="gray"
-            format="dateTime"
-          >
-            {item.time}
-          </Text.DateTime>
-        </Flex.Box>
-        {item.message && (
-          <Text.Text level="small" color="gray" style={{ marginTop: "0.5rem" }}>
-            {item.message}
+    <List.Item<status.Key> {...props} justify="between">
+      <Form.Form<typeof Status.formSchema> {...form}>
+        <Flex.Box x empty>
+          <Input.Checkbox
+            value={selected}
+            onChange={onSelect}
+            size="medium"
+            onClick={stopPropagation}
+            ghost={!selected}
+          />
+          <Text.Text level="p" weight={450}>
+            {name}
           </Text.Text>
-        )}
-      </Flex.Box>
+        </Flex.Box>
+        <Flex.Box x align="center">
+          <Text.DateTime level="small" color="gray" format="dateTime">
+            {time}
+          </Text.DateTime>
+          <Text.Text level="p" status={variant}>
+            {message}
+            <Status.Indicator variant={variant} />
+          </Text.Text>
+        </Flex.Box>
+      </Form.Form>
     </List.Item>
   );
 };
