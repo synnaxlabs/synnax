@@ -85,7 +85,6 @@ if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
         "integration/"
         "*.md"
         "LICENSE"
-        ".git*"
         ".editorconfig"
     )
 
