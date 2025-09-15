@@ -12,6 +12,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2916-binary-artifact-caching
   workflow_dispatch:
     inputs:
       RUN_NAME:
