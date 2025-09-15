@@ -88,10 +88,24 @@ else
             done
 
             if [ "${ALL_ARTIFACTS_FOUND}" = "true" ]; then
-                echo "All required artifacts found in run ${run_id} with SHA ${sha}"
-                CACHED_RUN="${run_id}"
-                RECENT_SHA="${sha}"
-                break
+                # Check if this run actually built artifacts (not just used cached ones)
+                # We do this by checking if the run has upload activity for our artifacts
+                echo "All required artifacts found in run ${run_id}, checking if run actually built them..."
+
+                # Get the workflow run details to see if it uploaded artifacts
+                RUN_JOBS=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs")
+
+                # Check if any job uploaded artifacts (has "Upload" steps that succeeded)
+                BUILT_ARTIFACTS=$(echo "${RUN_JOBS}" | jq -r '.jobs[].steps[]? | select(.name | contains("Upload") and contains("Artifact")) | select(.conclusion == "success") | .name' | head -1)
+
+                if [ -n "${BUILT_ARTIFACTS}" ]; then
+                    echo "✅ Run ${run_id} actually built artifacts (found upload steps)"
+                    CACHED_RUN="${run_id}"
+                    RECENT_SHA="${sha}"
+                    break
+                else
+                    echo "⏭️  Run ${run_id} used cached artifacts, skipping to find original build"
+                fi
             else
                 echo "Not all required artifacts found in run ${run_id}"
             fi
