@@ -123,7 +123,7 @@ echo Downloading artifacts from run: %REF_RUN_ID%
 
 rem Verify the run exists and has artifacts
 echo Verifying run %REF_RUN_ID% exists...
-"%gh_cmd%" run view %REF_RUN_ID% --repo nico-synnax/synnax-fork
+"%gh_cmd%" run view %REF_RUN_ID%
 if %errorlevel% neq 0 (
     echo ❌ Error: Cannot access run %REF_RUN_ID%
     exit /b 1
@@ -134,7 +134,7 @@ if not exist ".\binaries" mkdir ".\binaries"
 
 rem Download artifacts using GitHub CLI
 echo "Downloading synnax-core-windows artifact..."
-"%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-windows --dir .\binaries --repo synnaxlabs/synnax
+"%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-windows --dir .\binaries
 
 rem Check both exit code and if files were actually downloaded
 if %errorlevel% neq 0 (
