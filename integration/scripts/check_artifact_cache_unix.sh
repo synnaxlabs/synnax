@@ -7,7 +7,14 @@
 set -e
 
 PLATFORM=${1:-linux}
-ARTIFACT_NAME="synnax-core-${PLATFORM}"
+
+if [ "${PLATFORM}" = "all" ]; then
+    ARTIFACT_NAMES=("synnax-core-linux" "synnax-core-windows" "synnax-core-macos")
+    echo "Checking for all platform artifacts: ${ARTIFACT_NAMES[*]}"
+else
+    ARTIFACT_NAMES=("synnax-core-${PLATFORM}")
+    echo "Checking for ${PLATFORM} artifact: ${ARTIFACT_NAMES[*]}"
+fi
 
 echo "Searching for cached artifacts..."
 
@@ -46,7 +53,7 @@ else
     RECENT_SHA=""
 
     echo ""
-    echo "Now checking each successful run for artifact ${ARTIFACT_NAME}..."
+    echo "Now checking each successful run for required artifacts..."
 
     # Process runs one by one to avoid subshell issues
     for row in $(echo "${RUNS_WITH_ARTIFACTS}" | jq -r '.[] | @base64'); do
@@ -58,23 +65,34 @@ else
         sha=$(_jq '.headSha')
 
         if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
-            echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
+            echo "Checking run ${run_id} for required artifacts..."
 
-            # Check if this run has our artifact - with debug output
+            # Check if this run has our artifacts - with debug output
             echo "Running: gh api repos/:owner/:repo/actions/runs/${run_id}/artifacts"
             ARTIFACTS_JSON=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts")
             echo "Artifacts in run ${run_id}:"
             echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[]? | .name'
 
-            ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[]? | select(.name == $name) | .name' | head -1)
+            # Check if all required artifacts exist
+            ALL_ARTIFACTS_FOUND=true
+            for artifact_name in "${ARTIFACT_NAMES[@]}"; do
+                ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${artifact_name}" '.artifacts[]? | select(.name == $name) | .name' | head -1)
+                if [ -z "${ARTIFACT_EXISTS}" ]; then
+                    echo "Artifact ${artifact_name} not found in run ${run_id}"
+                    ALL_ARTIFACTS_FOUND=false
+                    break
+                else
+                    echo "Found artifact ${artifact_name} in run ${run_id}"
+                fi
+            done
 
-            if [ -n "${ARTIFACT_EXISTS}" ]; then
-                echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
+            if [ "${ALL_ARTIFACTS_FOUND}" = "true" ]; then
+                echo "All required artifacts found in run ${run_id} with SHA ${sha}"
                 CACHED_RUN="${run_id}"
                 RECENT_SHA="${sha}"
                 break
             else
-                echo "Artifact ${ARTIFACT_NAME} not found in run ${run_id}"
+                echo "Not all required artifacts found in run ${run_id}"
             fi
         fi
     done

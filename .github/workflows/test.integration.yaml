@@ -87,10 +87,10 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
-      REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
+      SKIP_BUILD: ${{ steps.update-outputs.outputs.SKIP_BUILD || steps.set-outputs.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.update-outputs.outputs.REF_RUN_ID || steps.set-outputs.outputs.REF_RUN_ID }}
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
-      USE_CACHE: ${{ steps.set-outputs.outputs.USE_CACHE }}
+      USE_CACHE: ${{ steps.update-outputs.outputs.USE_CACHE || steps.set-outputs.outputs.USE_CACHE }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -127,6 +127,28 @@ jobs:
               echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
             fi
             echo "USE_CACHE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for Cached Artifacts
+        if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' && steps.set-outputs.outputs.USE_CACHE == 'true' }}
+        id: check-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: integration/scripts/check_artifact_cache_unix.sh all
+
+      - name: Update Outputs Based on Cache
+        id: update-outputs
+        run: |
+          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
+            echo "SKIP_BUILD=true" >> $GITHUB_OUTPUT
+            echo "REF_RUN_ID=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
+            echo "USE_CACHE=false" >> $GITHUB_OUTPUT
+            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
+          else
+            echo "SKIP_BUILD=${{ steps.set-outputs.outputs.SKIP_BUILD }}" >> $GITHUB_OUTPUT
+            echo "REF_RUN_ID=${{ steps.set-outputs.outputs.REF_RUN_ID }}" >> $GITHUB_OUTPUT
+            echo "USE_CACHE=${{ steps.set-outputs.outputs.USE_CACHE }}" >> $GITHUB_OUTPUT
+            echo "No cached artifacts found, will build from scratch"
           fi
 
   confirm-host-ubuntu-latest:
@@ -175,37 +197,17 @@ jobs:
     timeout-minutes: 75
     runs-on: ubuntu-latest
     needs: [setup, confirm-host-ubuntu-latest]
-    outputs:
-      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
-      - name: Check and Download Cached Artifacts
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
-        id: check-cache
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: integration/scripts/check_artifact_cache_unix.sh linux
-
-      - name: Set Artifact Run ID
-        id: set-artifact-run-id
-        run: |
-          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
-            echo "run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
-            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
-          else
-            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-            echo "Using current run artifacts ${{ github.run_id }}"
-          fi
-
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
@@ -214,7 +216,7 @@ jobs:
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -224,11 +226,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -236,20 +238,20 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (Ubuntu Latest)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         run: integration/scripts/build_core_unix.sh
 
@@ -258,7 +260,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-linux
@@ -275,38 +277,17 @@ jobs:
     timeout-minutes: 75
     runs-on: windows-latest
     needs: [setup, confirm-host-windows-latest]
-    outputs:
-      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
-      - name: Check and Download Cached Artifacts
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
-        id: check-cache
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: integration/scripts/check_artifact_cache_unix.sh windows
-
-      - name: Set Artifact Run ID
-        id: set-artifact-run-id
-        shell: cmd
-        run: |
-          if "${{ steps.check-cache.outputs.CACHE_HIT }}" == "true" (
-            echo run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }} >> %GITHUB_OUTPUT%
-            echo Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}
-          ) else (
-            echo run_id=${{ github.run_id }} >> %GITHUB_OUTPUT%
-            echo Using current run artifacts ${{ github.run_id }}
-          )
-
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
@@ -315,7 +296,7 @@ jobs:
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -325,11 +306,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -337,34 +318,34 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
           xcopy /E /I /Y console\dist\* core\pkg\service\console\dist\
 
       - name: Build Driver (Windows)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
       - name: Move Driver to Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
           if not exist core\pkg\service\hardware\embedded\assets mkdir core\pkg\service\hardware\embedded\assets
           copy bazel-bin\driver\driver.exe core\pkg\service\hardware\embedded\assets\driver.exe
 
       - name: Get Version
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         working-directory: core
         shell: cmd
@@ -373,7 +354,7 @@ jobs:
           echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
 
       - name: Build Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: core
         run:
           go build -tags driver,console -o synnax-v${{
@@ -393,7 +374,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-windows
@@ -411,37 +392,17 @@ jobs:
     timeout-minutes: 75
     runs-on: macos-latest
     needs: [setup, confirm-host-macos-latest]
-    outputs:
-      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
-      - name: Check and Download Cached Artifacts
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
-        id: check-cache
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: integration/scripts/check_artifact_cache_unix.sh macos
-
-      - name: Set Artifact Run ID
-        id: set-artifact-run-id
-        run: |
-          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
-            echo "run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
-            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
-          else
-            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-            echo "Using current run artifacts ${{ github.run_id }}"
-          fi
-
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
@@ -450,7 +411,7 @@ jobs:
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -460,11 +421,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -472,22 +433,22 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (macOS)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         run: integration/scripts/build_core_unix.sh
 
@@ -496,7 +457,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-macos
@@ -527,7 +488,7 @@ jobs:
         shell: cmd
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.build-windows-latest.outputs.artifact_run_id }}
+          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/DownloadArtifactsWindows.cmd
 
   deploy-and-test-windows:
@@ -608,7 +569,7 @@ jobs:
       - name: Download and Setup macOS Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.build-macos-latest.outputs.artifact_run_id }}
+          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-macos:
@@ -680,7 +641,7 @@ jobs:
       - name: Download and Setup Linux Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.build-ubuntu-latest.outputs.artifact_run_id }}
+          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-ubuntu:
