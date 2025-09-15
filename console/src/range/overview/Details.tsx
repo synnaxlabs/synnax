@@ -55,7 +55,11 @@ const ParentRangeButton = ({
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+          placeLayout({
+            ...OVERVIEW_LAYOUT,
+            key: parent.key,
+            name: parent.name,
+          })
         }
       >
         <Icon />
@@ -85,9 +89,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
-  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
-    ctx: form,
-  });
+  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>(
+    "name",
+    {
+      ctx: form,
+    },
+  );
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
@@ -152,25 +159,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
+
           <Flex.Box x style={{ height: "fit-content" }} gap="small">
-            <Button.Button
-              tooltip={`Download data for ${name} as a CSV`}
-              tooltipLocation={"bottom"}
-              variant="text"
-              onClick={() =>
-                handleError(async () => {
-                  await promptDownloadCSVModal(
-                    {
-                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
-                      name,
-                    },
-                    { icon: "Range" },
-                  );
-                }, "Failed to download CSV")
-              }
-            >
-              <Icon.CSV color={9} />
-            </Button.Button>
             <Button.Button
               tooltip={`Copy Python code to retrieve ${name}`}
               tooltipLocation="bottom"
@@ -187,6 +177,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.TypeScript color={9} />
             </Button.Button>
+            <Divider.Divider y />
             <Button.Button
               variant="text"
               tooltip={`Copy link to ${name}`}
@@ -196,20 +187,61 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.Link color={9} />
             </Button.Button>
+            <Button.Button
+              tooltip={`Download data for ${name} as a CSV`}
+              tooltipLocation={"bottom"}
+              variant="text"
+              onClick={() =>
+                handleError(async () => {
+                  await promptDownloadCSVModal(
+                    {
+                      timeRanges: [
+                        form.get<NumericTimeRange>("timeRange").value,
+                      ],
+                      name,
+                    },
+                    { icon: "Range" },
+                  );
+                }, "Failed to download CSV")
+              }
+            >
+              <Icon.CSV color={9} />
+            </Button.Button>
             <Divider.Divider y />
             {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
-          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
+          <Form.Field<number>
+            path="timeRange.start"
+            padHelpText={false}
+            label="From"
+          >
             {(p) => (
-              <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+              <Input.DateTime
+                level="h4"
+                variant="text"
+                onlyChangeOnBlur
+                {...p}
+              />
             )}
           </Form.Field>
-          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
-          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
+          <Icon.Arrow.Right
+            style={{ width: "3rem", height: "3rem" }}
+            color={9}
+          />
+          <Form.Field<number>
+            padHelpText={false}
+            path="timeRange.end"
+            label="To"
+          >
             {(p) => (
-              <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
+              <Input.DateTime
+                onlyChangeOnBlur
+                level="h4"
+                variant="text"
+                {...p}
+              />
             )}
           </Form.Field>
         </Flex.Box>
