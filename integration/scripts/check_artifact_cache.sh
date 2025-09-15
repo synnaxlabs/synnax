@@ -124,6 +124,6 @@ fi
 if [ -n "${CACHED_RUN}" ]; then
     echo "✅ Cache hit! Found all required artifacts in run ${CACHED_RUN}"
 else
-    echo "❌ No cached artifacts available, will build from scratch"
+    echo "Building artifacts from scratch"
     echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
 fi
