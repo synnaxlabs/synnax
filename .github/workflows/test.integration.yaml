@@ -134,7 +134,7 @@ jobs:
         id: check-cache
         env:
           GH_TOKEN: ${{ github.token }}
-        run: integration/scripts/check_artifact_cache_unix.sh all
+        run: integration/scripts/check_artifact_cache.sh all
 
       - name: Update Outputs Based on Cache
         id: update-outputs
