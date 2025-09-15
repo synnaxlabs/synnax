@@ -33,7 +33,7 @@ else
 
     echo ""
     echo "Successful runs only on branch ${CURRENT_BRANCH}:"
-    gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --status="success" --limit=10 --json="databaseId,headSha,conclusion,displayTitle" | jq -r '.[] | "\(.databaseId) \(.conclusion) \(.headSha[0:8]) \(.displayTitle)"'
+    gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --status="success" --limit=50 --json="databaseId,headSha,conclusion,displayTitle" | jq -r '.[] | "\(.databaseId) \(.conclusion) \(.headSha[0:8]) \(.displayTitle)"'
 
     # Search through recent successful runs to find one that has our artifact
     RUNS_WITH_ARTIFACTS=$(gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --status="success" --limit=50 --json="databaseId,headSha")
@@ -61,12 +61,12 @@ else
             echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
 
             # Check if this run has our artifact - with debug output
-            echo "Running: gh run view ${run_id} --json artifacts"
-            ARTIFACTS_JSON=$(gh run view "${run_id}" --json "artifacts")
+            echo "Running: gh api repos/:owner/:repo/actions/runs/${run_id}/artifacts"
+            ARTIFACTS_JSON=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts")
             echo "Artifacts in run ${run_id}:"
-            echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[] | .name'
+            echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[]? | .name'
 
-            ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
+            ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[]? | select(.name == $name) | .name' | head -1)
 
             if [ -n "${ARTIFACT_EXISTS}" ]; then
                 echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
