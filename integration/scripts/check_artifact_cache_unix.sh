@@ -22,9 +22,14 @@ if [ -n "${EXACT_MATCH_RUN}" ]; then
 else
     # Check for recent successful run and compare file changes
     echo "No exact match, checking if recent artifacts can be reused..."
+
+    # First, let's see what runs we have
+    echo "Recent successful runs:"
+    gh run list --workflow="test.integration.yaml" --status="success" --limit=5 --json="databaseId,headSha,conclusion" | jq -r '.[] | "\(.databaseId) \(.headSha) \(.conclusion)"'
+
     RECENT_RUN=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=10 --json="databaseId,headSha" | jq -r '.[0] | .databaseId + " " + .headSha')
 
-    if [ -n "${RECENT_RUN}" ]; then
+    if [ -n "${RECENT_RUN}" ] && [ "${RECENT_RUN}" != "null null" ]; then
         RECENT_RUN_ID=$(echo "${RECENT_RUN}" | cut -d' ' -f1)
         RECENT_SHA=$(echo "${RECENT_RUN}" | cut -d' ' -f2)
 
@@ -34,7 +39,7 @@ else
         # Check if changes are only in safe directories that don't require rebuild
         SAFE_PATHS=(
             "docs/"
-            "integration/test/"
+            "integration/"
             "*.md"
             "LICENSE"
             ".git*"
@@ -91,6 +96,10 @@ if [ -n "${CACHED_RUN}" ]; then
 
     # Download the cached artifacts
     echo "Downloading cached ${ARTIFACT_NAME} from run ${CACHED_RUN}..."
+
+    # First check what artifacts exist in this run
+    echo "Available artifacts in run ${CACHED_RUN}:"
+    gh run view "${CACHED_RUN}" --json "artifacts" | jq -r '.artifacts[] | .name'
 
     # First check if the artifact exists
     ARTIFACT_EXISTS=$(gh run view "${CACHED_RUN}" --json "artifacts" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
