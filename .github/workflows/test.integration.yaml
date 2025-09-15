@@ -16,7 +16,6 @@ on:
   push:
     branches:
       - main
-      - rc
       - sy-2916-binary-artifact-caching
   workflow_dispatch:
     inputs:
