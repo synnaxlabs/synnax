@@ -111,7 +111,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: setup
+    needs: [setup, create-release]
     permissions:
       contents: write
     env:
