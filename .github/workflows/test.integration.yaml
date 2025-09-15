@@ -25,9 +25,9 @@ on:
         default: false
         type: boolean
       REF_RUN_ID:
-        description: "Reference run ID for artifacts (when SKIP_BUILD is true)"
+        description: "Reference run ID for artifacts (when SKIP_BUILD is true, blank for most recent)"
         required: false
-        default: "0000000000"
+        default: ""
         type: string
       SEQUENCE:
         description:
@@ -84,13 +84,18 @@ jobs:
       SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
       REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
+      USE_CACHE: ${{ steps.set-outputs.outputs.USE_CACHE }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
       - name: Set outputs
         id: set-outputs
         env:
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
-          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '0000000000' }}
+          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
           SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
 
@@ -102,8 +107,20 @@ jobs:
 
           if [ "${SKIP_BUILD}" = "false" ]; then
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
+            echo "USE_CACHE=true" >> $GITHUB_OUTPUT
           else
-            echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
+            if [ -z "${REF_RUN_ID}" ]; then
+              # Find most recent successful workflow run with artifacts
+              RECENT_RUN_ID=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=50 --json="databaseId,conclusion" --jq='.[].databaseId' | head -1)
+              if [ -n "${RECENT_RUN_ID}" ]; then
+                echo "REF_RUN_ID=${RECENT_RUN_ID}" >> $GITHUB_OUTPUT
+              else
+                echo "REF_RUN_ID=0000000000" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
+            fi
+            echo "USE_CACHE=false" >> $GITHUB_OUTPUT
           fi
 
   confirm-host-ubuntu-latest:
@@ -157,19 +174,26 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
+      - name: Check and Download Cached Artifacts
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
+        id: check-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: integration/scripts/check_artifact_cache_unix.sh linux
+
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -179,11 +203,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -191,20 +215,20 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (Ubuntu Latest)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         id: version
         run: integration/scripts/build_core_unix.sh
 
@@ -235,19 +259,26 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
+      - name: Check and Download Cached Artifacts
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
+        id: check-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: integration/scripts/check_artifact_cache_unix.sh windows
+
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -257,11 +288,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -269,34 +300,34 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         shell: cmd
         run: |
           xcopy /E /I /Y console\dist\* core\pkg\service\console\dist\
 
       - name: Build Driver (Windows)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
       - name: Move Driver to Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         shell: cmd
         run: |
           if not exist core\pkg\service\hardware\embedded\assets mkdir core\pkg\service\hardware\embedded\assets
           copy bazel-bin\driver\driver.exe core\pkg\service\hardware\embedded\assets\driver.exe
 
       - name: Get Version
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         id: version
         working-directory: core
         shell: cmd
@@ -305,7 +336,7 @@ jobs:
           echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
 
       - name: Build Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         working-directory: core
         run:
           go build -tags driver,console -o synnax-v${{
@@ -348,19 +379,26 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
 
+      - name: Check and Download Cached Artifacts
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && needs.setup.outputs.USE_CACHE == 'true' }}
+        id: check-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: integration/scripts/check_artifact_cache_unix.sh macos
+
       - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
           repository-cache: true
 
       - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
@@ -370,11 +408,11 @@ jobs:
             **/go.sum
 
       - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
@@ -382,22 +420,22 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Core
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         run: |
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (macOS)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         id: version
         run: integration/scripts/build_core_unix.sh
 
