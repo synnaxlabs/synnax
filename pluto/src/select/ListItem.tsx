@@ -26,6 +26,5 @@ export const ListItem = <
 ) => {
   const { itemKey } = props;
   const selectProps = useItemState(itemKey);
-  // @ts-expect-error - generic element issues
-  return <List.Item<E> {...selectProps} {...props} />;
+  return <List.Item<K, E> {...selectProps} {...props} />;
 };
