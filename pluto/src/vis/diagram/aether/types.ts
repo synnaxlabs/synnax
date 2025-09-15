@@ -125,12 +125,18 @@ export const translateNodesForward = (
   }));
 
 /** Translates edges from their pluto representation to their react-flow representation. */
-export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<record.Unknown>> =>
+export const translateEdgesForward = (
+  edges: Edge[],
+): Array<rf.Edge<record.Unknown>> =>
   edges.map(({ data, ...edge }) => ({
     ...edge,
     id: edge.key,
     data,
-    markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      strokeWidth: 2,
+      color: "var(--pluto-gray-l8)",
+    },
   }));
 
 /** Translates nodes from their react-flow representation to their pluto representation. */

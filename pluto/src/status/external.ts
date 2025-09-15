@@ -13,5 +13,6 @@ export * from "@/status/CreateIcon";
 export * from "@/status/Indicator";
 export * from "@/status/Notification";
 export * from "@/status/queries";
+export * from "@/status/Select";
 export * from "@/status/SelectVariant";
 export * from "@/status/Summary";

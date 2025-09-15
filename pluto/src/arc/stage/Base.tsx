@@ -7,7 +7,7 @@ import { Flex } from "@/flex";
 import { type Icon } from "@/icon";
 import { Text } from "@/text";
 
-interface HandleSpec {
+export interface HandleSpec {
   key: string;
   Icon: Icon.FC;
 }
@@ -144,7 +144,12 @@ export const Base = ({
   children,
   scale,
 }: BaseProps) => (
-  <Minimal sources={sources} sinks={sinks} style={{ padding: "1rem" }} scale={scale}>
+  <Minimal
+    sources={sources}
+    sinks={sinks}
+    style={{ padding: "1rem" }}
+    scale={scale}
+  >
     <Configuration
       type={type}
       icon={icon}
@@ -179,8 +184,10 @@ export const Minimal = ({
   const sinkHandleCount = sinks?.length ?? 0;
   const sourceHandleCount = sources?.length ?? 0;
   const adjustedStyle: CSSProperties = { ...style };
-  if (sinkHandleCount === 0 || centerSinks) adjustedStyle.borderTopLeftRadius = "1rem";
-  if (sinkHandleCount < 2 || centerSinks) adjustedStyle.borderBottomLeftRadius = "1rem";
+  if (sinkHandleCount === 0 || centerSinks)
+    adjustedStyle.borderTopLeftRadius = "1rem";
+  if (sinkHandleCount < 2 || centerSinks)
+    adjustedStyle.borderBottomLeftRadius = "1rem";
   if (sourceHandleCount === 0 || centerSources)
     adjustedStyle.borderTopRightRadius = "1rem";
   if (sourceHandleCount < 2 || centerSources)
@@ -191,6 +198,7 @@ export const Minimal = ({
       <SinkHandles handles={sinks} center={centerSinks} />
       <Flex.Box
         y
+        className={CSS.BE("arc", "stage", "body")}
         background={0}
         bordered
         borderColor={6}

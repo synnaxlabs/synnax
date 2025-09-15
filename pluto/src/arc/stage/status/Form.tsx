@@ -6,12 +6,15 @@ import { Form as Core } from "@/form";
 import { Status } from "@/status";
 
 export const Form = (): ReactElement => (
-  <Flex.Box x grow>
-    <Core.Field<status.Variant> path="variant" style={{ width: "30rem" }}>
-      {({ value, onChange }) => (
-        <Status.SelectVariant value={value} onChange={onChange} />
-      )}
+  <Flex.Box y grow empty>
+    <Core.Field<string> path="statusKey" label="Status">
+      {(p) => <Status.Select {...p} />}
     </Core.Field>
-    <Core.TextField path="message" grow />
+    <Flex.Box x grow>
+      <Core.Field<status.Variant> path="variant" style={{ width: "30rem" }}>
+        {(p) => <Status.SelectVariant {...p} />}
+      </Core.Field>
+      <Core.TextField path="message" grow />
+    </Flex.Box>
   </Flex.Box>
 );

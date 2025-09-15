@@ -55,7 +55,10 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import { translateGraphToconsole, translateGraphToServer } from "@/arc/types/translate";
+import {
+  translateGraphToconsole,
+  translateGraphToServer,
+} from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
@@ -84,7 +87,11 @@ const StageRenderer = ({
     (props: object) => {
       if (key == null) return;
       dispatch(
-        setElementProps({ layoutKey, key: symbolKey, props: { key, ...props } }),
+        setElementProps({
+          layoutKey,
+          key: symbolKey,
+          props: { key, ...props },
+        }),
       );
     },
     [symbolKey, layoutKey, key, dispatch],
@@ -125,7 +132,13 @@ interface StatusChipProps {
 
 const StatusChip = ({ layoutKey }: StatusChipProps) => {
   const status = Status.useRetrieve({ key: layoutKey });
-  return <Status.Summary {...status.data} />;
+  return (
+    <Status.Summary
+      variant="disabled"
+      message="Arc not deployed"
+      {...status.data}
+    />
+  );
 };
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
@@ -158,8 +171,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes, changes) => {
-      // @ts-expect-error - Sometimes, the nodes do have dragging
-      if (nodes.some((n) => n.dragging) || changes.some((c) => c.type === "select"))
+      if (
+        // @ts-expect-error - Sometimes, the nodes do have dragging
+        nodes.some((n) => n.dragging) ||
+        changes.some((c) => c.type === "select")
+      )
         // don't remember dragging a node or selecting an element
         dispatch(setNodes({ key: layoutKey, nodes }));
       else undoableDispatch(setNodes({ key: layoutKey, nodes }));
@@ -167,15 +183,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, dispatch, undoableDispatch],
   );
 
-  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
-    (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
-    [layoutKey, dispatch],
-  );
+  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] =
+    useCallback(
+      (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
+      [layoutKey, dispatch],
+    );
 
-  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
-    (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
-    [layoutKey, dispatch],
-  );
+  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] =
+    useCallback(
+      (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
+      [layoutKey, dispatch],
+    );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) =>
@@ -185,7 +203,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
-      <StageRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
+      <StageRenderer
+        layoutKey={layoutKey}
+        dispatch={undoableDispatch}
+        {...props}
+      />
     ),
     [layoutKey, undoableDispatch],
   );
@@ -273,7 +295,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleDoubleClick = useCallback(() => {
     if (!arc.graph.editable) return;
     dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+      Layout.setNavDrawerVisible({
+        windowKey,
+        key: "visualization",
+        value: true,
+      }),
     );
   }, [windowKey, arc.graph.editable, dispatch]);
 
@@ -382,7 +408,13 @@ export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 export const createEditor =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
-    const { name = "Arc Editor", location = "mosaic", window, tab, ...rest } = initial;
+    const {
+      name = "Arc Editor",
+      location = "mosaic",
+      window,
+      tab,
+      ...rest
+    } = initial;
     const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {

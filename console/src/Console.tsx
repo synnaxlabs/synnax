@@ -9,8 +9,8 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
-import "@synnaxlabs/pluto/dist/pluto.css";
 
+// import "@synnaxlabs/pluto/dist/pluto.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import {
   type Color,
@@ -145,7 +145,10 @@ const MainUnderContext = (): ReactElement => {
       alamos={{ level: "info" }}
     >
       <Auth.Guard>
-        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+        <Code.Provider
+          importExtensions={Lua.EXTENSIONS}
+          initServices={Lua.SERVICES}
+        >
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>

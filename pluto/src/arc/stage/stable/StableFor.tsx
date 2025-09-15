@@ -1,7 +1,7 @@
 import { color, TimeSpan } from "@synnaxlabs/x";
 import z from "zod/v4";
 
-import { Base } from "@/arc/stage/Base";
+import { Base, type HandleSpec } from "@/arc/stage/Base";
 import { type types } from "@/arc/stage/types";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
@@ -16,14 +16,18 @@ export type SymbolProps = types.SymbolProps<Config>;
 
 const PURPLE_HEX = color.construct("#635BFF");
 
+const SINKS: HandleSpec[] = [{ key: "input", Icon: Icon.Number }];
+
+const SOURCES: HandleSpec[] = [{ key: "output", Icon: Icon.Number }];
+
 export const StableFor = ({ duration }: SymbolProps) => (
   <Base
     type="Stable For"
     Icon={<Icon.Time />}
     color={color.cssString(color.setAlpha(PURPLE_HEX, 0.2))}
     textColor={color.cssString(PURPLE_HEX)}
-    sinks={[{ key: "input", Icon: Icon.Number }]}
-    sources={[{ key: "output", Icon: Icon.Number }]}
+    sinks={SINKS}
+    sources={SOURCES}
   >
     <Text.Text level="h4" weight={500} variant="code">
       {new TimeSpan(duration).toString()}
