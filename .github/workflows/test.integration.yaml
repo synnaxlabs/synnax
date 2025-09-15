@@ -1,7 +1,13 @@
 name: Test - Integration
 
-run-name:
-  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
+run-name: >-
+  ${{
+    github.event.inputs.RUN_NAME ||
+    format('Test - Integration: {0}',
+      github.event.head_commit.message ||
+      github.event.pull_request.title ||
+      github.ref_name
+    )
   }}
 
 on:
@@ -38,7 +44,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 env:
