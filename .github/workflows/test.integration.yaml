@@ -8,6 +8,10 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
     inputs:
       RUN_NAME:
@@ -172,6 +176,9 @@ jobs:
         with:
           go-version-file: go.work
           cache: true
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -249,6 +256,9 @@ jobs:
         with:
           go-version-file: go.work
           cache: true
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -361,6 +371,9 @@ jobs:
         with:
           go-version-file: go.work
           cache: true
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
