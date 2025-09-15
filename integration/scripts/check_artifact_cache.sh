@@ -92,51 +92,74 @@ if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
     echo "DEBUG: Current HEAD: $(git rev-parse HEAD)"
     echo "DEBUG: Current HEAD short: $(git rev-parse --short HEAD)"
     echo "DEBUG: RECENT_SHA: ${RECENT_SHA}"
-    echo "DEBUG: Running git diff --name-only ${RECENT_SHA} HEAD"
 
-    # Try the git diff command step by step
-    git diff --name-only "${RECENT_SHA}" HEAD > /tmp/git_diff_output.txt 2>/tmp/git_diff_error.txt
-    git_diff_exit_code=$?
+    # Check if the RECENT_SHA exists in the current repository
+    if ! git cat-file -e "${RECENT_SHA}" 2>/dev/null; then
+        echo "DEBUG: RECENT_SHA ${RECENT_SHA} not found in current repository, fetching more history..."
+        git fetch --unshallow || git fetch --depth=100 || echo "Fetch failed, continuing with available history"
+    fi
 
-    echo "DEBUG: git diff exit code: ${git_diff_exit_code}"
-    echo "DEBUG: git diff stdout:"
-    cat /tmp/git_diff_output.txt || echo "No stdout file"
-    echo "DEBUG: git diff stderr:"
-    cat /tmp/git_diff_error.txt || echo "No stderr file"
-
-    CHANGED_FILES=$(cat /tmp/git_diff_output.txt)
-    echo "DEBUG: CHANGED_FILES length: ${#CHANGED_FILES}"
-    echo "DEBUG: CHANGED_FILES content: '${CHANGED_FILES}'"
-
-    if [ -z "${CHANGED_FILES}" ]; then
-        echo "No changes detected since last build"
-        NEEDS_REBUILD=false
+    # Check again if the SHA exists
+    if ! git cat-file -e "${RECENT_SHA}" 2>/dev/null; then
+        echo "WARNING: Cannot find SHA ${RECENT_SHA} in repository history"
+        echo "Forcing rebuild due to missing reference commit"
+        NEEDS_REBUILD=true
     else
-        echo "Changed files since last build:"
-        echo "${CHANGED_FILES}"
-        NEEDS_REBUILD=false
+        echo "DEBUG: Running git diff --name-only ${RECENT_SHA} HEAD"
 
-        # Check each changed file against safe paths
-        while IFS= read -r file; do
-            if [ -z "${file}" ]; then
-                continue
-            fi
+        # Try the git diff command step by step
+        git diff --name-only "${RECENT_SHA}" HEAD > /tmp/git_diff_output.txt 2>/tmp/git_diff_error.txt
+        git_diff_exit_code=$?
 
-            IS_SAFE=false
-            for safe_path in "${SAFE_PATHS[@]}"; do
-                if [[ "${file}" == ${safe_path} ]] || [[ "${file}" == ${safe_path}* ]]; then
-                    echo "  ${file} - SAFE (matches ${safe_path})"
-                    IS_SAFE=true
+        echo "DEBUG: git diff exit code: ${git_diff_exit_code}"
+
+        if [ ${git_diff_exit_code} -ne 0 ]; then
+            echo "DEBUG: git diff failed, stderr:"
+            cat /tmp/git_diff_error.txt || echo "No stderr file"
+            echo "Forcing rebuild due to git diff failure"
+            NEEDS_REBUILD=true
+        else
+            echo "DEBUG: git diff stdout:"
+            cat /tmp/git_diff_output.txt || echo "No stdout file"
+
+            CHANGED_FILES=$(cat /tmp/git_diff_output.txt)
+            echo "DEBUG: CHANGED_FILES length: ${#CHANGED_FILES}"
+            echo "DEBUG: CHANGED_FILES content: '${CHANGED_FILES}'"
+        fi
+    fi
+
+    # Only process CHANGED_FILES if NEEDS_REBUILD hasn't been set to true already
+    if [ "${NEEDS_REBUILD}" != "true" ]; then
+        if [ -z "${CHANGED_FILES}" ]; then
+            echo "No changes detected since last build"
+            NEEDS_REBUILD=false
+        else
+            echo "Changed files since last build:"
+            echo "${CHANGED_FILES}"
+            NEEDS_REBUILD=false
+
+            # Check each changed file against safe paths
+            while IFS= read -r file; do
+                if [ -z "${file}" ]; then
+                    continue
+                fi
+
+                IS_SAFE=false
+                for safe_path in "${SAFE_PATHS[@]}"; do
+                    if [[ "${file}" == ${safe_path} ]] || [[ "${file}" == ${safe_path}* ]]; then
+                        echo "  ${file} - SAFE (matches ${safe_path})"
+                        IS_SAFE=true
+                        break
+                    fi
+                done
+
+                if [ "${IS_SAFE}" = "false" ]; then
+                    echo "  ${file} - REBUILD REQUIRED (not in safe paths)"
+                    NEEDS_REBUILD=true
                     break
                 fi
-            done
-
-            if [ "${IS_SAFE}" = "false" ]; then
-                echo "  ${file} - REBUILD REQUIRED (not in safe paths)"
-                NEEDS_REBUILD=true
-                break
-            fi
-        done <<< "${CHANGED_FILES}"
+            done <<< "${CHANGED_FILES}"
+        fi
     fi
 
     if [ "${NEEDS_REBUILD}" = "false" ]; then
