@@ -175,6 +175,8 @@ jobs:
     timeout-minutes: 75
     runs-on: ubuntu-latest
     needs: [setup, confirm-host-ubuntu-latest]
+    outputs:
+      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -186,6 +188,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/check_artifact_cache_unix.sh linux
+
+      - name: Set Artifact Run ID
+        id: set-artifact-run-id
+        run: |
+          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
+            echo "run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
+            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
+          else
+            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+            echo "Using current run artifacts ${{ github.run_id }}"
+          fi
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
@@ -245,7 +258,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-linux
@@ -262,6 +275,8 @@ jobs:
     timeout-minutes: 75
     runs-on: windows-latest
     needs: [setup, confirm-host-windows-latest]
+    outputs:
+      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -273,6 +288,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/check_artifact_cache_unix.sh windows
+
+      - name: Set Artifact Run ID
+        id: set-artifact-run-id
+        shell: cmd
+        run: |
+          if "${{ steps.check-cache.outputs.CACHE_HIT }}" == "true" (
+            echo run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }} >> %GITHUB_OUTPUT%
+            echo Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}
+          ) else (
+            echo run_id=${{ github.run_id }} >> %GITHUB_OUTPUT%
+            echo Using current run artifacts ${{ github.run_id }}
+          )
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
@@ -366,7 +393,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-windows
@@ -384,6 +411,8 @@ jobs:
     timeout-minutes: 75
     runs-on: macos-latest
     needs: [setup, confirm-host-macos-latest]
+    outputs:
+      artifact_run_id: ${{ steps.set-artifact-run-id.outputs.run_id }}
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -395,6 +424,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/check_artifact_cache_unix.sh macos
+
+      - name: Set Artifact Run ID
+        id: set-artifact-run-id
+        run: |
+          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
+            echo "run_id=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
+            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
+          else
+            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+            echo "Using current run artifacts ${{ github.run_id }}"
+          fi
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
@@ -456,7 +496,7 @@ jobs:
         run: echo "Build skipped - using reference artifacts"
 
       - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && steps.check-cache.outputs.CACHE_HIT != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-core-macos
@@ -487,7 +527,7 @@ jobs:
         shell: cmd
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
+          REF_RUN_ID: ${{ needs.build-windows-latest.outputs.artifact_run_id }}
         run: integration/scripts/DownloadArtifactsWindows.cmd
 
   deploy-and-test-windows:
@@ -568,7 +608,7 @@ jobs:
       - name: Download and Setup macOS Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
+          REF_RUN_ID: ${{ needs.build-macos-latest.outputs.artifact_run_id }}
         run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-macos:
@@ -640,7 +680,7 @@ jobs:
       - name: Download and Setup Linux Artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
+          REF_RUN_ID: ${{ needs.build-ubuntu-latest.outputs.artifact_run_id }}
         run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-ubuntu:
