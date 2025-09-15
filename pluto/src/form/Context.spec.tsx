@@ -26,6 +26,34 @@ const mockInitialValues = {
   age: 25,
 };
 
+const mockOverride: Form.ContextValue = {
+  mode: "preview" as const,
+  bind: () => () => {},
+  set: () => {},
+  get: () => ({
+    value: "test",
+    status: {
+      key: "test",
+      variant: "success" as const,
+      message: "",
+      description: undefined,
+      time: TimeStamp.now(),
+    },
+    touched: false,
+    required: false,
+  }),
+  reset: () => {},
+  remove: () => {},
+  value: () => ({ test: "value" }),
+  validate: () => false,
+  validateAsync: async () => false,
+  has: () => false,
+  setStatus: () => {},
+  clearStatuses: () => {},
+  setCurrentStateAsInitialValues: () => {},
+  getStatuses: () => [],
+};
+
 // Wrapper that provides Form context
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use({
@@ -37,16 +65,21 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 
 describe("useContext", () => {
   describe("error handling when used outside Form context", () => {
-    it("should throw error with default function name when used outside context", () => {
+    it("should throw error with default function name when used outside context without override", () => {
       expect(() => {
         renderHook(() => useContext());
-      }).toThrow("useContext must be used within a Form context value");
+      }).toThrow("Form.useContext must be used within a Form context value");
     });
 
-    it("should throw error with custom function name when used outside context", () => {
+    it("should throw error with custom function name when used outside context without override", () => {
       expect(() => {
         renderHook(() => useContext(undefined, "CustomFunction"));
       }).toThrow("CustomFunction must be used within a Form context value");
+    });
+
+    it("should NOT throw error when override is provided even outside context", () => {
+      const { result } = renderHook(() => useContext(mockOverride, "CustomFunction"));
+      expect(result.current).toBe(mockOverride);
     });
 
     it("should throw error with Field component name when used outside context", () => {
@@ -73,6 +106,27 @@ describe("useContext", () => {
       }).toThrow(
         "useFieldValue(settings.theme) must be used within a Form context value",
       );
+    });
+  });
+
+  describe("override behavior", () => {
+    it("should use override even when context is null", () => {
+      // This should not throw even though we're outside a Form context
+      const { result } = renderHook(() => useContext(mockOverride));
+
+      expect(result.current).toBe(mockOverride);
+      expect(result.current.mode).toBe("preview");
+      expect(result.current.validate()).toBe(false);
+    });
+
+    it("should prioritize override over internal context when both exist", () => {
+      const { result } = renderHook(() => useContext(mockOverride), {
+        wrapper: FormWrapper,
+      });
+
+      // Should use override, not the internal context
+      expect(result.current).toBe(mockOverride);
+      expect(result.current.mode).toBe("preview");
     });
   });
 
@@ -107,28 +161,6 @@ describe("useContext", () => {
         description: undefined,
         time: TimeStamp.now(),
       };
-      const mockOverride = {
-        mode: "normal" as const,
-        bind: () => () => {},
-        set: () => {},
-        get: () => ({
-          value: "override",
-          status,
-          touched: false,
-          required: false,
-        }),
-        reset: () => {},
-        remove: () => {},
-        value: () => ({}),
-        validate: () => true,
-        validateAsync: async () => true,
-        has: () => true,
-        setStatus: () => {},
-        clearStatuses: () => {},
-        setCurrentStateAsInitialValues: () => {},
-        getStatuses: () => [],
-      };
-
       const { result } = renderHook(() => useContext(mockOverride, "TestFunction"), {
         wrapper: FormWrapper,
       });
