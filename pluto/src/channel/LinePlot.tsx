@@ -19,12 +19,12 @@ import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
+import { LinePlot as Core } from "@/lineplot";
+import { Range } from "@/lineplot/range";
+import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
-import { LinePlot as Core } from "@/vis/lineplot";
-import { Range } from "@/vis/lineplot/range";
-import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
 

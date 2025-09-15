@@ -22,7 +22,7 @@ describe("Symbol Client", () => {
   });
   describe("create", () => {
     it("should create a single symbol", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "Test Symbol",
         data: {
           svg: "<svg></svg>",
@@ -37,7 +37,7 @@ describe("Symbol Client", () => {
     });
 
     it("should create multiple symbols", async () => {
-      const symbols = await client.workspaces.schematic.symbols.create({
+      const symbols = await client.workspaces.schematics.symbols.create({
         symbols: [
           {
             name: "Symbol 1",
@@ -58,13 +58,13 @@ describe("Symbol Client", () => {
 
   describe("retrieve", () => {
     it("should retrieve a single symbol by key", async () => {
-      const created = await client.workspaces.schematic.symbols.create({
+      const created = await client.workspaces.schematics.symbols.create({
         name: "Retrieve Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         key: created.key,
       });
       expect(retrieved.key).toBe(created.key);
@@ -72,18 +72,18 @@ describe("Symbol Client", () => {
     });
 
     it("should retrieve multiple symbols by keys", async () => {
-      const created1 = await client.workspaces.schematic.symbols.create({
+      const created1 = await client.workspaces.schematics.symbols.create({
         name: "Multi Test 1",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
-      const created2 = await client.workspaces.schematic.symbols.create({
+      const created2 = await client.workspaces.schematics.symbols.create({
         name: "Multi Test 2",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         keys: [created1.key, created2.key],
       });
       expect(retrieved).toHaveLength(2);
@@ -92,15 +92,15 @@ describe("Symbol Client", () => {
 
   describe("rename", () => {
     it("should rename a symbol", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "Original Name",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
-      await client.workspaces.schematic.symbols.rename(symbol.key, "New Name");
+      await client.workspaces.schematics.symbols.rename(symbol.key, "New Name");
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         key: symbol.key,
       });
       expect(retrieved.name).toBe("New Name");
@@ -109,23 +109,23 @@ describe("Symbol Client", () => {
 
   describe("delete", () => {
     it("should delete a single symbol", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "Delete Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
-      await client.workspaces.schematic.symbols.delete(symbol.key);
+      await client.workspaces.schematics.symbols.delete(symbol.key);
 
       await expect(
-        client.workspaces.schematic.symbols.retrieve({ key: symbol.key }),
+        client.workspaces.schematics.symbols.retrieve({ key: symbol.key }),
       ).rejects.toThrow();
     });
   });
 
   describe("retrieveGroup", () => {
     it("should retrieve the symbol group", async () => {
-      const group = await client.workspaces.schematic.symbols.retrieveGroup();
+      const group = await client.workspaces.schematics.symbols.retrieveGroup();
       expect(group.key).toBeDefined();
       expect(group.name).toBe("Schematic Symbols");
     });

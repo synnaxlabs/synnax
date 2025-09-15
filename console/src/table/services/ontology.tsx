@@ -47,7 +47,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({ client, selection }) => {
       const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.table.delete(ids.map((id) => id.key));
+      await client.workspaces.tables.delete(ids.map((id) => id.key));
     },
     onError: (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -97,17 +97,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
   execute: async ({ client, id, name }) =>
-    await client.workspaces.table.rename(id.key, name),
+    await client.workspaces.tables.rename(id.key, name),
   rollback: ({ id: { key }, name, store }) =>
     store.dispatch(Layout.rename({ key, name })),
 };
 
 const loadTable = async (
   client: Synnax,
-  id: ontology.ID,
+  { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const table = await client.workspaces.table.retrieve(id.key);
+  const table = await client.workspaces.tables.retrieve({ key });
   placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
 };
 
@@ -128,19 +128,19 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
-  id,
+  id: { key },
   location,
   nodeKey,
   placeLayout,
   handleError,
 }) =>
   handleError(async () => {
-    const table = await client.workspaces.table.retrieve(id.key);
+    const table = await client.workspaces.tables.retrieve({ key });
     placeLayout(
       Table.create({
         name: table.name,
         ...table.data,
-        key: id.key,
+        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

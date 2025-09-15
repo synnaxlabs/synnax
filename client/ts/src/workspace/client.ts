@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
-import { linePlot } from "@/workspace/lineplot";
+import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {
   type Key,
@@ -57,18 +57,18 @@ export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
 export class Client {
   readonly type = "workspace";
-  readonly schematic: schematic.Client;
-  readonly linePlot: linePlot.Client;
-  readonly log: log.Client;
-  readonly table: table.Client;
+  readonly schematics: schematic.Client;
+  readonly lineplots: lineplot.Client;
+  readonly logs: log.Client;
+  readonly tables: table.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.schematic = new schematic.Client(client);
-    this.linePlot = new linePlot.Client(client);
-    this.log = new log.Client(client);
-    this.table = new table.Client(client);
+    this.schematics = new schematic.Client(client);
+    this.lineplots = new lineplot.Client(client);
+    this.logs = new log.Client(client);
+    this.tables = new table.Client(client);
   }
 
   async create(workspace: New): Promise<Workspace>;

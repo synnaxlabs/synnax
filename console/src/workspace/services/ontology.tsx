@@ -114,7 +114,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       client,
     }) => {
       const workspaceID = selection.resourceIDs[0];
-      const schematic = await client.workspaces.schematic.create(workspaceID.key, {
+      const schematic = await client.workspaces.schematics.create(workspaceID.key, {
         name: "New Schematic",
         snapshot: false,
         data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
@@ -156,7 +156,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       client,
     }) => {
       const workspaceID = selection.resourceIDs[0];
-      const linePlot = await client.workspaces.linePlot.create(workspaceID.key, {
+      const linePlot = await client.workspaces.lineplots.create(workspaceID.key, {
         name: "New Line Plot",
         data: deep.copy(LinePlot.ZERO_SLICE_STATE),
       });
@@ -190,7 +190,7 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       client,
     }) => {
       const workspaceID = selection.resourceIDs[0];
-      const log = await client.workspaces.log.create(workspaceID.key, {
+      const log = await client.workspaces.logs.create(workspaceID.key, {
         name: "New Log",
         data: deep.copy(Log.ZERO_STATE),
       });
@@ -222,7 +222,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       client,
     }) => {
       const workspaceID = selection.resourceIDs[0];
-      const table = await client.workspaces.table.create(workspaceID.key, {
+      const table = await client.workspaces.tables.create(workspaceID.key, {
         name: "New Table",
         data: deep.copy(Table.ZERO_STATE),
       });

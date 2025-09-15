@@ -55,7 +55,7 @@ export interface RetrieveParams {
 const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
   const cached = store.schematicSymbols.get(key);
   if (cached != null) return cached;
-  const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
+  const symbol = await client.workspaces.schematics.symbols.retrieve({ key });
   store.schematicSymbols.set(key, symbol);
   return symbol;
 };
@@ -108,7 +108,7 @@ export const useList = Flux.createList<
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);
       if (keys.length === 0) return [];
-      const symbols = await client.workspaces.schematic.symbols.retrieve({
+      const symbols = await client.workspaces.schematics.symbols.retrieve({
         ...rest,
         keys,
       });
@@ -122,7 +122,7 @@ export const useList = Flux.createList<
       });
       return symbols;
     }
-    const res = await client.workspaces.schematic.symbols.retrieve(rest);
+    const res = await client.workspaces.schematics.symbols.retrieve(rest);
     store.schematicSymbols.set(res);
     return res;
   },
@@ -195,7 +195,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   },
   update: async ({ client, value, reset }) => {
     const payload = value();
-    const created = await client.workspaces.schematic.symbols.create(payload);
+    const created = await client.workspaces.schematics.symbols.create(payload);
     reset({ ...created, parent: payload.parent });
   },
   mountListeners: ({ store, params, reset, get }) => {
@@ -224,7 +224,7 @@ export interface RenameArgs {
 export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
-    await client.workspaces.schematic.symbols.rename(value.key, value.name);
+    await client.workspaces.schematics.symbols.rename(value.key, value.name);
     store.schematicSymbols.set(value.key, (p) => {
       if (p == null) return p;
       return { ...p, name: value.name };
@@ -239,7 +239,7 @@ export interface DeleteArgs {
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
-    await client.workspaces.schematic.symbols.delete(value.key);
+    await client.workspaces.schematics.symbols.delete(value.key);
     store.schematicSymbols.delete(value.key);
   },
 });
@@ -251,5 +251,5 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
 >({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
-    await client.workspaces.schematic.symbols.retrieveGroup(),
+    await client.workspaces.schematics.symbols.retrieveGroup(),
 });

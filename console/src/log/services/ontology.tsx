@@ -47,7 +47,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({ client, selection }) => {
       const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.log.delete(ids.map((id) => id.key));
+      await client.workspaces.logs.delete(ids.map((id) => id.key));
     },
     onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -100,14 +100,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
-  execute: async ({ client, id, name }) =>
-    await client.workspaces.log.rename(id.key, name),
+  execute: async ({ client, id: { key }, name }) =>
+    await client.workspaces.logs.rename(key, name),
   rollback: ({ id: { key }, name, store }) =>
     store.dispatch(Layout.rename({ key, name })),
 };
 
-const loadLog = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
-  const log = await client.workspaces.log.retrieve(id.key);
+const loadLog = async (
+  client: Synnax,
+  { key }: ontology.ID,
+  placeLayout: Layout.Placer,
+) => {
+  const log = await client.workspaces.logs.retrieve({ key });
   placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
 };
 
@@ -128,19 +132,19 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
-  id,
+  id: { key },
   location,
   nodeKey,
   placeLayout,
   handleError,
 }) =>
   handleError(async () => {
-    const log = await client.workspaces.log.retrieve(id.key);
+    const log = await client.workspaces.logs.retrieve({ key });
     placeLayout(
       Log.create({
         name: log.name,
         ...log.data,
-        key: id.key,
+        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

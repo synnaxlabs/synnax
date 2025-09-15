@@ -281,12 +281,13 @@ export const createForm =
     const saveAsync = useCallback(
       async (opts: FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
+        const rollbacks = new Set<Destructor>();
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          const args = { client, params, store, ...form, set: noNotifySet };
+          const args = { client, params, store, rollbacks, ...form, set: noNotifySet };
           if (!(await form.validateAsync())) return false;
           setResult(pendingResult(name, "updating", undefined));
           if ((await beforeSave?.(args)) === false) {
@@ -299,6 +300,11 @@ export const createForm =
           if (afterSave != null) afterSave(args);
           return true;
         } catch (error) {
+          try {
+            rollbacks.forEach((rollback) => rollback());
+          } catch (rollbackError) {
+            console.error("Error rolling back changes:", rollbackError);
+          }
           if (signal?.aborted !== true)
             setResult(errorResult<undefined>(name, "update", error));
           return false;

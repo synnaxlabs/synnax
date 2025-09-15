@@ -19,15 +19,13 @@ export interface SubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  UseDeleteArgs,
-  SubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
   name: "Table",
   update: async ({ client, value, store }) => {
     const keys = array.toArray(value);
     const ids = keys.map((k) => table.ontologyID(k));
-    store.relationships.delete(Ontology.filterRelationshipsThatHaveResource(ids));
-    await client.workspaces.table.delete(value);
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    store.relationships.delete(relFilter);
+    await client.workspaces.tables.delete(value);
   },
 });

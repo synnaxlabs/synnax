@@ -22,7 +22,7 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.workspaces.schematic.create(ws.key, {
+      const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
         data: { one: 1 },
       });
@@ -37,12 +37,12 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.workspaces.schematic.create(ws.key, {
+      const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
         data: { one: 1 },
       });
-      await client.workspaces.schematic.rename(schematic.key, "Schematic2");
-      const res = await client.workspaces.schematic.retrieve({
+      await client.workspaces.schematics.rename(schematic.key, "Schematic2");
+      const res = await client.workspaces.schematics.retrieve({
         key: schematic.key,
       });
       expect(res.name).toEqual("Schematic2");
@@ -54,12 +54,12 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.workspaces.schematic.create(ws.key, {
+      const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
         data: { one: 1 },
       });
-      await client.workspaces.schematic.setData(schematic.key, { two: 2 });
-      const res = await client.workspaces.schematic.retrieve({
+      await client.workspaces.schematics.setData(schematic.key, { two: 2 });
+      const res = await client.workspaces.schematics.retrieve({
         key: schematic.key,
       });
       expect(res.data.two).toEqual(2);
@@ -71,13 +71,13 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.workspaces.schematic.create(ws.key, {
+      const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
         data: { one: 1 },
       });
-      await client.workspaces.schematic.delete(schematic.key);
+      await client.workspaces.schematics.delete(schematic.key);
       await expect(
-        client.workspaces.schematic.retrieve({ key: schematic.key }),
+        client.workspaces.schematics.retrieve({ key: schematic.key }),
       ).rejects.toThrow();
     });
   });
@@ -87,11 +87,11 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.workspaces.schematic.create(ws.key, {
+      const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
         data: { one: 1 },
       });
-      const schematic2 = await client.workspaces.schematic.copy(
+      const schematic2 = await client.workspaces.schematics.copy(
         schematic.key,
         "Schematic2",
         false,
@@ -106,17 +106,17 @@ describe("Schematic", () => {
           name: "Schematic",
           layout: { one: 1 },
         });
-        const schematic = await client.workspaces.schematic.create(ws.key, {
+        const schematic = await client.workspaces.schematics.create(ws.key, {
           name: "Schematic",
           data: { one: 1 },
         });
-        const schematic2 = await client.workspaces.schematic.copy(
+        const schematic2 = await client.workspaces.schematics.copy(
           schematic.key,
           "Schematic2",
           true,
         );
         await expect(
-          client.workspaces.schematic.setData(schematic2.key, { two: 2 }),
+          client.workspaces.schematics.setData(schematic2.key, { two: 2 }),
         ).rejects.toThrow(ValidationError);
       });
     });

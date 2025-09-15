@@ -23,7 +23,7 @@ import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { LinePlot } from "@/vis/lineplot";
+import { LinePlot } from "@/lineplot";
 import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps

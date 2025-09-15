@@ -22,6 +22,7 @@ import {
 } from "@/flux/result";
 import { type state } from "@/state";
 import { Synnax } from "@/synnax";
+import { Destructor } from "@synnaxlabs/x";
 
 /**
  * Arguments passed to the update function.
@@ -38,6 +39,8 @@ export interface UpdateArgs<Data extends state.State, ScopedStore extends Store 
   onChange: state.PureSetter<Data>;
   /** The store to update */
   store: ScopedStore;
+  /** Set of rollback functions to execute if the update fails */
+  rollbacks: Set<Destructor>;
 }
 
 /**
@@ -145,6 +148,7 @@ const useObservable = <Data extends state.State, ScopedStore extends Store = {}>
   const handleUpdate = useCallback(
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
+      const rollbacks = new Set<Destructor>();
       try {
         if (client == null) {
           onChange(nullClientResult(name, "update"));
@@ -165,12 +169,18 @@ const useObservable = <Data extends state.State, ScopedStore extends Store = {}>
           },
           value,
           store,
+          rollbacks,
         });
         if (signal?.aborted === true) return false;
         if (!updated) onChange(successResult(name, "updated", value));
         if (afterUpdate != null) await afterUpdate({ client, value });
         return true;
       } catch (error) {
+        try {
+          rollbacks.forEach((rollback) => rollback());
+        } catch (rollbackError) {
+          console.error(`failed to rollback changes to ${name}`, rollbackError);
+        }
         if (signal?.aborted !== true) onChange(errorResult(name, "update", error));
         return false;
       }

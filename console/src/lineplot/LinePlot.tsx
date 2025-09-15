@@ -109,7 +109,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       if (data == null) return;
       const la = Layout.selectRequired(s, layoutKey);
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.linePlot.create(ws, {
+      await client.workspaces.lineplots.create(ws, {
         key: layoutKey,
         name: la.name,
         data,
@@ -509,7 +509,7 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
+      const { data } = await client.workspaces.lineplots.retrieve({ key: layoutKey });
       return data as State;
     },
     actionCreator: internalCreate,

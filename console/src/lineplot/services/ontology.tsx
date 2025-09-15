@@ -46,7 +46,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({ client, selection }) => {
       const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.linePlot.delete(ids.map((id) => id.key));
+      await client.workspaces.lineplots.delete(ids.map((id) => id.key));
     },
     onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -104,7 +104,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ store, id, name }) => store.dispatch(Layout.rename({ key: id.key, name })),
   execute: async ({ client, id, name }) =>
-    await client.workspaces.linePlot.rename(id.key, name),
+    await client.workspaces.lineplots.rename(id.key, name),
   rollback: ({ store, id }, prevName) =>
     store.dispatch(Layout.rename({ key: id.key, name: prevName })),
 };
@@ -115,8 +115,8 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  client.workspaces.linePlot
-    .retrieve(selection[0].id.key)
+  client.workspaces.lineplots
+    .retrieve({ key: selection[0].id.key })
     .then((linePlot) => {
       placeLayout(
         LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
@@ -133,14 +133,14 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
-  id,
+  id: { key },
   location,
   nodeKey,
   placeLayout,
   handleError,
 }): void =>
   handleError(async () => {
-    const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+    const linePlot = await client.workspaces.lineplots.retrieve({ key });
     placeLayout(
       LinePlot.create({
         ...linePlot.data,

@@ -7,15 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
-export type UseDeleteArgs = schematic.Key | schematic.Key[];
+export type UseDeleteArgs = schematic.Params;
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
+interface SubStore extends Flux.Store {
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+}
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
   name: "Schematic",
-  update: async ({ client, value }) => {
-    if (value != null) await client.workspaces.schematic.delete(value);
+  update: async ({ client, value, rollbacks, store }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((k) => schematic.ontologyID(k));
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    await client.workspaces.schematics.delete(value);
   },
 });

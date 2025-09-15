@@ -7,14 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type linePlot } from "@synnaxlabs/client";
+import { linePlot } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export type UseDeleteArgs = linePlot.Params;
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
+interface SubStore extends Flux.Store {
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+}
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
   name: "LinePlot",
-  update: async ({ client, value }) =>
-    await client.workspaces.linePlot.delete(value),
+  update: async ({ client, value, rollbacks, store }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((k) => linePlot.ontologyID(k));
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    await client.workspaces.lineplots.delete(value);
+  },
 });

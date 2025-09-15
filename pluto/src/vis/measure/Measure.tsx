@@ -14,7 +14,7 @@ import { Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
-import { LinePlot } from "@/vis/lineplot";
+import { LinePlot } from "@/lineplot";
 import { measure } from "@/vis/measure/aether";
 
 type ClickMode = "one" | "two" | "clear" | "empty";

@@ -42,7 +42,7 @@ export const useSyncComponent = (
       const layout = Layout.selectRequired(storeState, layoutKey);
       const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.log.create(ws, {
+      await client.workspaces.logs.create(ws, {
         key: layoutKey,
         name: layout.name,
         data: setData,
@@ -112,7 +112,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.log.retrieve(layoutKey);
+      const { key, data } = await client.workspaces.logs.retrieve({ key: layoutKey });
       return { key, ...data } as State;
     },
     actionCreator: internalCreate,

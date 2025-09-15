@@ -48,7 +48,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({ client, selection }) => {
       const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.schematic.delete(ids.map((id) => id.key));
+      await client.workspaces.schematics.delete(ids.map((id) => id.key));
     },
     onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -69,7 +69,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const schematics = await Promise.all(
         resourceIDs.map(
           async (id) =>
-            await client.workspaces.schematic.copy(
+            await client.workspaces.schematics.copy(
               id.key,
               `${getResource(id).name} (copy)`,
               false,
@@ -164,17 +164,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
   execute: async ({ client, id, name }) =>
-    await client.workspaces.schematic.rename(id.key, name),
+    await client.workspaces.schematics.rename(id.key, name),
   rollback: ({ id: { key }, name, store }) =>
     store.dispatch(Layout.rename({ key, name })),
 };
 
 const loadSchematic = async (
   client: Synnax,
-  id: ontology.ID,
+  { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const schematic = await client.workspaces.schematic.retrieve(id.key);
+  const schematic = await client.workspaces.schematics.retrieve({ key });
   placeLayout(
     Schematic.create({
       ...schematic.data,
@@ -203,19 +203,19 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
-  id,
+  id: { key },
   location,
   nodeKey,
   placeLayout,
   handleError,
 }) =>
   handleError(async () => {
-    const schematic = await client.workspaces.schematic.retrieve(id.key);
+    const schematic = await client.workspaces.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
         name: schematic.name,
         ...schematic.data,
-        key: id.key,
+        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

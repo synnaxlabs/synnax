@@ -42,7 +42,7 @@ describe("Symbol queries", () => {
         ontology.ROOT_ID,
         "test-symbols-parent",
       );
-      const symbol1 = await client.workspaces.schematic.symbols.create({
+      const symbol1 = await client.workspaces.schematics.symbols.create({
         name: "symbol1",
         parent: parent.ontologyID,
         data: {
@@ -55,7 +55,7 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      const symbol2 = await client.workspaces.schematic.symbols.create({
+      const symbol2 = await client.workspaces.schematics.symbols.create({
         name: "symbol2",
         parent: parent.ontologyID,
         data: {
@@ -98,7 +98,7 @@ describe("Symbol queries", () => {
         ontology.ROOT_ID,
         `test-symbols-search-${uniqueId}`,
       );
-      await client.workspaces.schematic.symbols.create({
+      await client.workspaces.schematics.symbols.create({
         name: "valve red",
         parent: parent.ontologyID,
         data: {
@@ -111,7 +111,7 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      await client.workspaces.schematic.symbols.create({
+      await client.workspaces.schematics.symbols.create({
         name: "pump blue",
         parent: parent.ontologyID,
         data: {
@@ -124,7 +124,7 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      await client.workspaces.schematic.symbols.create({
+      await client.workspaces.schematics.symbols.create({
         name: "valve purple",
         parent: parent.ontologyID,
         data: {
@@ -167,7 +167,7 @@ describe("Symbol queries", () => {
         ontology.ROOT_ID,
         `test-symbols-live-${uniqueId}`,
       );
-      await client.workspaces.schematic.symbols.create({
+      await client.workspaces.schematics.symbols.create({
         name: "initial-symbol",
         parent: parent.ontologyID,
         data: {
@@ -199,7 +199,7 @@ describe("Symbol queries", () => {
       });
 
       await act(async () => {
-        await client.workspaces.schematic.symbols.create({
+        await client.workspaces.schematics.symbols.create({
           name: "new-symbol",
           parent: parent.ontologyID,
           data: {
@@ -227,7 +227,7 @@ describe("Symbol queries", () => {
 
   describe("retrieve", () => {
     it("should retrieve a single symbol by key", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "retrieve-test",
         parent: ontology.ROOT_ID,
         data: {
@@ -278,7 +278,7 @@ describe("Symbol queries", () => {
         return key;
       });
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         key: key!,
       });
       expect(retrieved.name).toBe("created-symbol");
@@ -290,7 +290,7 @@ describe("Symbol queries", () => {
         ontology.ROOT_ID,
         "test-symbol-update",
       );
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "original-name",
         parent: parent.ontologyID,
         data: {
@@ -326,7 +326,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         key: symbol.key,
       });
       expect(retrieved.name).toBe("updated-name");
@@ -336,7 +336,7 @@ describe("Symbol queries", () => {
 
   describe("useRename", () => {
     it("should rename an existing symbol", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "original-name",
         parent: ontology.ROOT_ID,
         data: {
@@ -360,7 +360,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.workspaces.schematic.symbols.retrieve({
+      const retrieved = await client.workspaces.schematics.symbols.retrieve({
         key: symbol.key,
       });
       expect(retrieved.name).toBe("new-name");
@@ -369,7 +369,7 @@ describe("Symbol queries", () => {
 
   describe("useDelete", () => {
     it("should delete an existing symbol", async () => {
-      const symbol = await client.workspaces.schematic.symbols.create({
+      const symbol = await client.workspaces.schematics.symbols.create({
         name: "to-be-deleted",
         parent: ontology.ROOT_ID,
         data: {
@@ -394,7 +394,7 @@ describe("Symbol queries", () => {
       });
 
       await expect(
-        client.workspaces.schematic.symbols.retrieve({
+        client.workspaces.schematics.symbols.retrieve({
           keys: [symbol.key],
         }),
       ).rejects.toThrow("not found");
