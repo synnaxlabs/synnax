@@ -22,7 +22,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, nodes, shape },
   } = props;
   const ungroup = useUngroupSelection();
@@ -160,7 +160,7 @@ const useCreateEmpty = (): ((
     Ontology.TreeContextMenuProps & { newID: ontology.ID }
   >({
     onMutate: async ({
-      selection: { ids: ids },
+      selection: { ids },
       state: { nodes, setNodes, expand, getResource, setResource },
       newID,
     }) => {
@@ -183,7 +183,7 @@ const useCreateEmpty = (): ((
     },
     mutationFn: async ({
       client,
-      selection: { ids: ids },
+      selection: { ids },
       newID,
       state: { getResource },
     }) => {

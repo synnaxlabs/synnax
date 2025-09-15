@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { Icon, Menu as PMenu, Mosaic, Task as Core, Text } from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -40,45 +40,22 @@ const handleSelect: Ontology.HandleSelect = ({
   );
 };
 
-const useDelete = () => {
+const useDelete = ({
+  state: { getResource },
+  selection: { ids },
+  removeLayout,
+}: Ontology.TreeContextMenuProps) => {
   const confirm = Ontology.useConfirmDelete({ type: "Task" });
-  return useMutation({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { ids: ids },
-    }) => {
-      const prevNodes = Tree.deepCopy(nodes);
-      const resources = ids.map((id) => getResource(id));
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async (props: Ontology.TreeContextMenuProps) => {
-      const {
-        client,
-        selection: { ids: ids },
-        removeLayout,
-      } = props;
-      const keys = ids.map((id) => id.key);
-      await client.hardware.tasks.delete(keys);
-      removeLayout(...keys);
-    },
-    onError: (
-      e: Error,
-      { handleError, selection: { ids: ids }, state: { getResource } },
-    ) => {
-      let message = "Failed to delete tasks";
-      if (ids.length === 1)
-        message = `Failed to delete task ${getResource(ids[0]).name}`;
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, message);
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(async () => {
+    const ok = await confirm(getResource(ids));
+    if (!ok) return false;
+    removeLayout(...keys);
+    return true;
+  }, [confirm, ids, getResource, dispatch]);
+  const { update } = Core.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -90,16 +67,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     handleError,
     state: { getResource, shape },
   } = props;
-  const { ids: ids, rootID } = selection;
+  const { ids, rootID } = selection;
   const resources = getResource(ids);
-  const del = useDelete();
+  const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Common.Task.useExport();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
   const onSelect = {
-    delete: () => del(props),
+    delete: handleDelete,
     edit: () =>
       handleSelect({
         selection: resources,

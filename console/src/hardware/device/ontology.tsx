@@ -12,7 +12,7 @@ import "@/hardware/device/ontology.css";
 import { ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -37,7 +37,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 const handleConfigure = ({
-  selection: { ids: ids },
+  selection: { ids },
   state: { getResource },
   placeLayout,
   handleError,
@@ -54,7 +54,7 @@ const handleConfigure = ({
 const useHandleChangeIdentifier = () => {
   const rename = useRename();
   return ({
-    selection: { ids: ids },
+    selection: { ids },
     state: { getResource },
     handleError,
     client,
@@ -87,49 +87,34 @@ const useHandleChangeIdentifier = () => {
   };
 };
 
-const useDelete = () => {
+const useDelete = ({
+  state: { getResource },
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Device" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes },
-      selection: { ids: ids },
-      state: { getResource },
-    }) => {
-      const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(ids);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ selection: { ids: ids }, client }) =>
-      await client.hardware.devices.delete(ids.map((id) => id.key)),
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (errors.Canceled.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, `Failed to delete devices`);
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const beforeUpdate = useCallback(
+    async () => await confirm(getResource(ids)),
+    [confirm, getResource, ids],
+  );
+  const { update } = Device.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
-  const handleDelete = useDelete();
+  const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
   const handleChangeIdentifier = useHandleChangeIdentifier();
   if (ids.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
-    delete: () => handleDelete(props),
+    delete: handleDelete,
     rename: () => Text.edit(ontology.idToString(ids[0])),
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),

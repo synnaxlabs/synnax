@@ -19,7 +19,7 @@ import { useSelectHasPermission } from "@/user/selectors";
 
 const editPermissions = ({
   placeLayout,
-  selection: { ids: ids },
+  selection: { ids },
   state: { getResource },
 }: Ontology.TreeContextMenuProps) => {
   const user = getResource(ids[0]).data as user.User;
@@ -32,7 +32,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { ids: ids },
+      selection: { ids },
     }) => {
       const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
@@ -45,7 +45,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { ids: ids }, client }) =>
+    mutationFn: async ({ selection: { ids }, client }) =>
       await client.user.delete(ids.map((id) => id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -59,7 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
     state: { getResource },
-    selection: { ids: ids },
+    selection: { ids },
   } = props;
   const handleDelete = useDelete();
   const handleSelect = {

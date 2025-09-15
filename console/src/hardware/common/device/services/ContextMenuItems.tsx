@@ -30,7 +30,7 @@ export const ContextMenuItems = ({
   children,
   configureLayout,
   state: { getResource },
-  selection: { ids: ids },
+  selection: { ids },
   taskContextMenuItemConfigs,
 }: ContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();

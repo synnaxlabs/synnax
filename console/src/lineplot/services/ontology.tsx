@@ -30,8 +30,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       removeLayout,
       state: { nodes, setNodes, getResource },
     }) => {
-      if (!(await confirm(getResource(selection.ids))))
-        throw new errors.Canceled();
+      if (!(await confirm(getResource(selection.ids)))) throw new errors.Canceled();
       const ids = ontology.parseIDs(selection.ids);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
@@ -58,7 +57,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const del = useDelete();

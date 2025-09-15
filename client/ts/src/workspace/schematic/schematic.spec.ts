@@ -91,11 +91,11 @@ describe("Schematic", () => {
         name: "Schematic",
         data: { one: 1 },
       });
-      const schematic2 = await client.workspaces.schematics.copy(
-        schematic.key,
-        "Schematic2",
-        false,
-      );
+      const schematic2 = await client.workspaces.schematics.copy({
+        key: schematic.key,
+        name: "Schematic2",
+        snapshot: false,
+      });
       expect(schematic2.name).toEqual("Schematic2");
       expect(schematic2.key).not.toEqual(uuid.ZERO);
       expect(schematic2.data.one).toEqual(1);
@@ -110,11 +110,11 @@ describe("Schematic", () => {
           name: "Schematic",
           data: { one: 1 },
         });
-        const schematic2 = await client.workspaces.schematics.copy(
-          schematic.key,
-          "Schematic2",
-          true,
-        );
+        const schematic2 = await client.workspaces.schematics.copy({
+          key: schematic.key,
+          name: "Schematic2",
+          snapshot: true,
+        });
         await expect(
           client.workspaces.schematics.setData(schematic2.key, { two: 2 }),
         ).rejects.toThrow(ValidationError);

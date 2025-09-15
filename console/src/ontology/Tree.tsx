@@ -555,7 +555,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         selection: {
           rootID: root,
           parentID,
-          ids: ids,
+          ids,
         },
         state: getState(),
         ...getBaseProps(client),

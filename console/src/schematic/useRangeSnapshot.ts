@@ -43,11 +43,11 @@ export const useRangeSnapshot = () => {
       if (rng == null) throw new Error("No active range selected");
       const ids = await Promise.all(
         array.toArray(schematics).map(async (s) => {
-          const newSchematic = await client.workspaces.schematics.copy(
-            s.key,
-            `${s.name} (Snapshot)`,
-            true,
-          );
+          const newSchematic = await client.workspaces.schematics.copy({
+            key: s.key,
+            name: `${s.name} (Snapshot)`,
+            snapshot: true,
+          });
           return schematic.ontologyID(newSchematic.key);
         }),
       );

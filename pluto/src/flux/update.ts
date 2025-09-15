@@ -84,9 +84,11 @@ export interface UseObservableUpdateArgs<Data extends state.State> {
   scope?: string;
   /** Function to run before the update operation. If the function returns undefined,
    * the update will be cancelled. */
-  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | boolean>;
+  beforeUpdate?: (
+    args: BeforeUpdateArgs<Data>,
+  ) => Promise<Data | boolean> | Data | boolean;
   /** Function to run after the update operation. */
-  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
+  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void> | void;
 }
 
 export interface BeforeUpdateArgs<Data extends state.State> {

@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, primitive, type record } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -115,47 +115,15 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({
-    type: "Channel",
+export const useDelete = ({
+  state: { getResource },
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const confirm = useConfirmDelete({ type: "Channel" });
+  const { update } = PChannel.useDelete({
+    beforeUpdate: async () => await confirm(getResource(ids)),
   });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { ids: ids },
-    }) => {
-      const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(ids);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection: { ids: ids } }) =>
-      await client.channels.delete(ids.map(({ key }) => Number(key))),
-    onError: (
-      e,
-      {
-        selection: { ids: ids },
-        handleError,
-        state: { setNodes, getResource },
-      },
-      prevNodes,
-    ) => {
-      if (errors.Canceled.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
-      let message = "Failed to delete channels";
-      if (ids.length === 1) {
-        const resource = getResource(ids[0]);
-        message = `Failed to delete channel ${resource.name}`;
-      }
-      handleError(e, message);
-    },
-  }).mutate;
+  return useCallback(() => update(ids.map(({ key }) => Number(key))), [update, ids]);
 };
 
 export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -164,13 +132,11 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     mutationFn: async ({
       client,
       store,
-      selection: { ids: ids },
+      selection: { ids },
       state: { getResource },
     }) => {
       const resources = getResource(ids);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(ids[0]),
-      );
+      const [value, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
       if (!renamed) return;
       const activeRange = Range.select(store.getState());
       if (activeRange == null) return;
@@ -179,11 +145,7 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      {
-        selection: { ids: ids },
-        handleError,
-        state: { setNodes, getResource },
-      },
+      { selection: { ids }, handleError, state: { setNodes, getResource } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -195,25 +157,15 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
 export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      selection: { ids: ids },
-      state: { getResource },
-    }) => {
+    mutationFn: async ({ client, selection: { ids }, state: { getResource } }) => {
       const resources = getResource(ids);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(ids[0]),
-      );
+      const [value, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
       if (!renamed) return;
       await client.channels.rename(Number(resources[0].id.key), value);
     },
     onError: (
       e: Error,
-      {
-        selection: { ids: ids },
-        handleError,
-        state: { setNodes, getResource },
-      },
+      { selection: { ids }, handleError, state: { setNodes, getResource } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -228,7 +180,7 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     mutationFn: async ({
       client,
       store,
-      selection: { ids: ids },
+      selection: { ids },
       state: { getResource },
     }) => {
       const resources = getResource(ids);
@@ -239,11 +191,7 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      {
-        selection: { ids: ids },
-        handleError,
-        state: { setNodes, getResource },
-      },
+      { selection: { ids }, handleError, state: { setNodes, getResource } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -255,7 +203,7 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
 const useOpenCalculated =
   () =>
   ({
-    selection: { ids: ids },
+    selection: { ids },
     placeLayout,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
@@ -271,17 +219,14 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
   const resources = getResource(ids);
-  const channelKeys = useMemo(
-    () => ids.map((r) => Number(r.key)),
-    [ids],
-  );
+  const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
   const channels = PChannel.useRetrieveMany({
     rangeKey: activeRange?.key,
     keys: channelKeys,
@@ -289,13 +234,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
   const delAlias = useDeleteAlias();
-  const del = useDelete();
+  const handleDelete = useDelete(props);
   const handleRename = useRename();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
-    delete: () => del(props),
+    delete: handleDelete,
     deleteAlias: () => delAlias(props),
     alias: () => setAlias(props),
     rename: () => handleRename(props),

@@ -105,7 +105,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection: { ids: ids }, client, store }) => {
+    mutationFn: async ({ selection: { ids }, client, store }) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null) return;
       const keys = ids.map((r) => r.key);
@@ -121,7 +121,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e,
-      { handleError, selection: { ids: ids }, state: { getResource } },
+      { handleError, selection: { ids }, state: { getResource } },
     ) => {
       const rangeNames = ids.map((r) => getResource(r).name);
       handleError(
@@ -134,7 +134,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
 const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({
-      selection: { ids: ids },
+      selection: { ids },
       state: { getResource },
       client,
       store,
@@ -155,7 +155,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (
       e,
-      { handleError, selection: { ids: ids }, state: { getResource } },
+      { handleError, selection: { ids }, state: { getResource } },
     ) => {
       const names = ids.map((r) => getResource(r).name);
       handleError(
@@ -167,7 +167,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const placeLayout = Layout.usePlacer();
-  return ({ selection: { ids: ids }, state: { getResource } }) =>
+  return ({ selection: { ids }, state: { getResource } }) =>
     placeLayout({
       ...OVERVIEW_LAYOUT,
       name: getResource(ids[0]).name,
@@ -183,7 +183,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { ids: ids },
+      selection: { ids },
       store,
       removeLayout,
     }) => {
@@ -198,13 +198,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       removeLayout(...ids.map((id) => ontology.idToString(id)));
       return nodes;
     },
-    mutationFn: async ({ selection: { ids: ids }, client }) =>
+    mutationFn: async ({ selection: { ids }, client }) =>
       await client.ranges.delete(ids.map((r) => r.key)),
     onError: (
       e,
       {
         handleError,
-        selection: { ids: ids },
+        selection: { ids },
         state: { setNodes, getResource },
         store,
       },
@@ -228,7 +228,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     store,
     state: { getResource, shape },
     placeLayout,

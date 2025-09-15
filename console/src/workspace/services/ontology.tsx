@@ -48,7 +48,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { ids: ids },
+      selection: { ids },
     }) => {
       const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
@@ -62,7 +62,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({
-      selection: { ids: ids },
+      selection: { ids },
       client,
       store,
       state: { getResource },
@@ -247,7 +247,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete();

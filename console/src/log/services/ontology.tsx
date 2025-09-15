@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
-import { errors, strings } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { Icon, Log as Core, Menu as PMenu, Mosaic, Text } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -23,37 +24,21 @@ import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = ({
+  state: { getResource },
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Log" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      selection: { ids },
-      removeLayout,
-      state: { nodes, setNodes, getResource },
-    }) => {
-      const resources = getResource(ids);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      const keys = ids.map((id) => id.key);
-      removeLayout(...keys);
-      const prevNodes = Tree.deepCopy(nodes);
-      const next = Tree.removeNode({
-        tree: nodes,
-        keys: ids.map((id) => ontology.idToString(id)),
-      });
-      setNodes([...next]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.ids);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.logs.delete(ids.map((id) => id.key));
-    },
-    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(err)) return;
-      handleError(err, "Failed to delete log");
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(async () => {
+    const ok = await confirm(getResource(ids));
+    if (!ok) return false;
+    dispatch(Log.remove({ keys }));
+    return true;
+  }, [dispatch, keys]);
+  const { update } = Core.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -61,14 +46,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const del = useDelete();
+  const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Log.useExport();
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const onSelect = useAsyncActionMenu({
-    delete: () => del(props),
+    delete: handleDelete,
     rename: () => Text.edit(ontology.idToString(firstID)),
     link: () =>
       handleLink({

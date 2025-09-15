@@ -15,7 +15,7 @@ import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { shape },
   } = props;
   const group = Group.useCreateFromSelection();

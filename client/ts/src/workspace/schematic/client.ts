@@ -14,10 +14,7 @@ import { z } from "zod";
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
-import {
-  type Key as WorkspaceKey,
-  keyZ as workspaceKeyZ,
-} from "@/workspace/payload";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
@@ -50,13 +47,14 @@ const copyReqZ = z.object({
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
 const singleRetrieveArgsZ = z
-  .object({    key: keyZ,  })
+  .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
 export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 export type MultiRetrieveArgs = z.input<typeof retrieveReqZ>;
+export type CopyArgs = z.input<typeof copyReqZ>;
 
 const retrieveResZ = z.object({ schematics: nullableArrayZ(remoteZ) });
 
@@ -79,10 +77,7 @@ export class Client {
   }
 
   async create(workspace: WorkspaceKey, schematic: New): Promise<Schematic>;
-  async create(
-    workspace: WorkspaceKey,
-    schematics: New[],
-  ): Promise<Schematic[]>;
+  async create(workspace: WorkspaceKey, schematics: New[]): Promise<Schematic[]>;
   async create(
     workspace: WorkspaceKey,
     schematics: New | New[],
@@ -145,11 +140,11 @@ export class Client {
     );
   }
 
-  async copy(key: Key, name: string, snapshot: boolean): Promise<Schematic> {
+  async copy(args: CopyArgs): Promise<Schematic> {
     const res = await sendRequired(
       this.client,
       COPY_ENDPOINT,
-      { key, name, snapshot },
+      args,
       copyReqZ,
       copyResZ,
     );

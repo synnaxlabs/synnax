@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, ranger } from "@synnaxlabs/client";
-import { deep, type Optional, primitive } from "@synnaxlabs/x";
+import { channel, DataType, ontology, ranger } from "@synnaxlabs/client";
+import { array, deep, type Optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
 
 export const FLUX_STORE_KEY = "channels";
@@ -22,6 +23,8 @@ export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel>
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_CHANNEL_LISTENER: Flux.ChannelListener<SubStore, typeof channel.keyZ> = {
@@ -453,5 +456,21 @@ export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
       range,
       alias,
     });
+  },
+});
+
+export type UseDeleteArgs = channel.Key | channel.Keys;
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+  name: "Channel",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((k) => channel.ontologyID(k));
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.channels.delete(keys));
+    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    store.channels.delete(keys);
+    await client.channels.delete(keys);
   },
 });

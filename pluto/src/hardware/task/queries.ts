@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, task } from "@synnaxlabs/client";
-import { type Optional } from "@synnaxlabs/x";
+import { ontology, type rack, type Synnax, task } from "@synnaxlabs/client";
+import { array, type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "tasks";
 
@@ -21,6 +22,8 @@ export interface FluxStore
 
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 // Temporary hack that filters the set of commands that should change the
@@ -322,3 +325,18 @@ export const createForm = <
     },
   );
 };
+
+export type UseDeleteArgs = task.Key | task.Key[];
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+  name: "Task",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((key) => task.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.add(store.tasks.delete(keys));
+    await client.hardware.tasks.delete(keys);
+  },
+});

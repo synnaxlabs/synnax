@@ -17,6 +17,7 @@ export type UseDeleteArgs = schematic.Params;
 
 interface SubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
@@ -27,5 +28,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
     const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     await client.workspaces.schematics.delete(value);
+  },
+});
+
+export interface UseCopyArgs extends schematic.CopyArgs {}
+
+export const { useUpdate: useCopy } = Flux.createUpdate<UseCopyArgs, SubStore>({
+  name: "Schematic",
+  update: async ({ client, value }) => {
+    await client.workspaces.schematics.copy(value);
   },
 });

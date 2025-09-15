@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type Synnax } from "@synnaxlabs/client";
-import { primitive, type record } from "@synnaxlabs/x";
+import { device, ontology, type Synnax } from "@synnaxlabs/client";
+import { array, primitive, type record } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "devices";
 
@@ -19,6 +20,8 @@ export interface FluxStore extends Flux.UnaryStore<string, device.Device> {}
 
 interface SubStore extends Flux.Store {
   devices: Flux.UnaryStore<device.Key, device.Device>;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.deviceZ> = {
@@ -142,3 +145,18 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device, Su
     ],
   },
 );
+
+export type UseDeleteArgs = device.Key | device.Key[];
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+  name: "Device",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((key) => device.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.add(store.devices.delete(keys));
+    await client.hardware.devices.delete(keys);
+  },
+});

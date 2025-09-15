@@ -8,9 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  Icon,
+  Menu as PMenu,
+  Mosaic,
+  Table as Core,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -21,55 +30,39 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = ({
+  state: { getResource },
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Table" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      selection,
-      removeLayout,
-      state: { nodes, setNodes, getResource },
-    }) => {
-      if (!(await confirm(getResource(selection.ids))))
-        throw new errors.Canceled();
-      const ids = ontology.parseIDs(selection.ids);
-      const keys = ids.map((id) => id.key);
-      removeLayout(...keys);
-      const prevNodes = Tree.deepCopy(nodes);
-      const next = Tree.removeNode({
-        tree: nodes,
-        keys: ids.map((id) => ontology.idToString(id)),
-      });
-      setNodes([...next]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.ids);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.tables.delete(ids.map((id) => id.key));
-    },
-    onError: (e, { state: { setNodes }, handleError }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete table");
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(async () => {
+    const ok = await confirm(getResource(ids));
+    if (!ok) return false;
+    dispatch(Schematic.remove({ keys }));
+    return true;
+  }, [confirm, ids]);
+  const { update } = Core.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids: ids, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const del = useDelete();
+  const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Table.useExport();
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const first = getResource(firstID);
   const onSelect = useAsyncActionMenu({
-    delete: () => del(props),
+    delete: handleDelete,
     rename: () => Text.edit(ontology.idToString(firstID)),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
     export: () => handleExport(first.id.key),
