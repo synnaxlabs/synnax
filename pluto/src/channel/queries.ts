@@ -474,3 +474,22 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
     await client.channels.delete(keys);
   },
 });
+
+export interface UseDeleteAliasArgs {
+  range?: ranger.Key;
+  channels?: channel.Key | channel.Key[];
+}
+
+export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
+  UseDeleteAliasArgs,
+  SubStore
+>({
+  name: "Channel",
+  update: async ({ client, store, value: { range, channels }, rollbacks }) => {
+    if (range == null || channels == null) return;
+    const arrChannels = array.toArray(channels);
+    await client.ranges.deleteAlias(range, arrChannels);
+    const aliasKeys = arrChannels.map((c) => ranger.aliasKey({ range, channel: c }));
+    rollbacks.add(store.rangeAliases.delete(aliasKeys));
+  },
+});

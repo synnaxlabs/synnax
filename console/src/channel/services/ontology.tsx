@@ -19,8 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, primitive, type record } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { primitive, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -126,79 +125,58 @@ export const useDelete = ({
   return useCallback(() => update(ids.map(({ key }) => Number(key))), [update, ids]);
 };
 
-export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      store,
-      selection: { ids },
-      state: { getResource },
-    }) => {
-      const resources = getResource(ids);
-      const [value, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
-      if (!renamed) return;
-      const activeRange = Range.select(store.getState());
-      if (activeRange == null) return;
-      const rng = await client.ranges.retrieve(activeRange.key);
-      await rng.setAlias(Number(resources[0].id.key), value);
+export const useSetAlias = ({
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const activeRange = Range.useSelectActiveKey();
+  const { update } = PChannel.useUpdateAlias({
+    beforeUpdate: async ({ value }) => {
+      const [alias, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
+      if (!renamed) return false;
+      return { ...value, alias };
     },
-    onError: (
-      e: Error,
-      { selection: { ids }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(ids[0]);
-      handleError(e, `Failed to set alias for ${first.name}`);
-    },
-  }).mutate;
+  });
+  return useCallback(
+    () =>
+      update({
+        range: activeRange ?? undefined,
+        channel: Number(ids[0].key),
+        alias: "",
+      }),
+    [update, activeRange, ids],
+  );
+};
 
-export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({ client, selection: { ids }, state: { getResource } }) => {
-      const resources = getResource(ids);
-      const [value, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
-      if (!renamed) return;
-      await client.channels.rename(Number(resources[0].id.key), value);
+export const useRename = ({
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const { update } = PChannel.useRename({
+    beforeUpdate: async ({ value }) => {
+      const [name, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
+      if (!renamed) return false;
+      return { ...value, name };
     },
-    onError: (
-      e: Error,
-      { selection: { ids }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(ids[0]);
-      handleError(e, `Failed to rename ${first.name}`);
-    },
-  }).mutate;
+  });
+  return useCallback(
+    () => update({ key: Number(ids[0].key), name: "" }),
+    [update, ids],
+  );
+};
 
-export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      store,
-      selection: { ids },
-      state: { getResource },
-    }) => {
-      const resources = getResource(ids);
-      const activeRange = Range.select(store.getState());
-      if (activeRange == null) return;
-      const rng = await client.ranges.retrieve(activeRange.key);
-      await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
-    },
-    onError: (
-      e: Error,
-      { selection: { ids }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(ids[0]);
-      handleError(e, `Failed to remove alias on ${first.name}`);
-    },
-  }).mutate;
+export const useDeleteAlias = ({
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const activeRange = Range.useSelectActiveKey();
+  const { update } = PChannel.useDeleteAlias();
+  return useCallback(
+    () =>
+      update({
+        range: activeRange ?? undefined,
+        channels: ids.map((id) => Number(id.key)),
+      }),
+    [update, ids],
+  );
+};
 
 const useOpenCalculated =
   () =>
@@ -224,7 +202,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
-  const setAlias = useSetAlias();
+  const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
   const channels = PChannel.useRetrieveMany({
@@ -233,17 +211,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   });
   const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
-  const delAlias = useDeleteAlias();
+  const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
-  const handleRename = useRename();
+  const handleRename = useRename(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: handleDelete,
-    deleteAlias: () => delAlias(props),
-    alias: () => setAlias(props),
-    rename: () => handleRename(props),
+    deleteAlias: handleDeleteAlias,
+    alias: handleSetAlias,
+    rename: handleRename,
     link: () => handleLink({ name: first.name, ontologyID: first.id }),
     openCalculated: () => openCalculated(props),
   };

@@ -57,7 +57,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
       if (!methods.validate()) return;
       const values = methods.value();
       if (client == null) throw new DisconnectedError();
-      await client.user.create({ ...values });
+      await client.users.create({ ...values });
       onClose();
     },
     onError: (e) => handleError(e, "Failed to register user"),

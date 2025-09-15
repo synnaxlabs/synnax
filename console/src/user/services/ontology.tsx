@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type user } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -27,32 +26,18 @@ const editPermissions = ({
   placeLayout(layout);
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = ({
+  selection: { ids },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "User" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { ids },
-    }) => {
-      const resources = getResource(ids);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      const prevNodes = Tree.deepCopy(nodes);
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: ids.map((id) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ selection: { ids }, client }) =>
-      await client.user.delete(ids.map((id) => id.key)),
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete users");
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const beforeUpdate = useCallback(
+    async () => await confirm(getResource(ids)),
+    [confirm, getResource, ids],
+  );
+  const { update } = User.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -61,11 +46,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
-  const handleDelete = useDelete();
+  const handleDelete = useDelete(props);
   const handleSelect = {
     permissions: () => editPermissions(props),
     rename: () => Text.edit(ontology.idToString(ids[0])),
-    delete: () => handleDelete(props),
+    delete: handleDelete,
   };
   const singleResource = ids.length === 1;
   const hasRootUser = ids.some((id) => {
@@ -110,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name }) =>
-    await client.user.changeUsername(id.key, name),
+    await client.users.changeUsername(id.key, name),
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
