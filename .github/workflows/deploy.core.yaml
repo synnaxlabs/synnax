@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2950-fix-core-deployment-issues
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -95,8 +96,10 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else
+          else if [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          else if [ "${GITHUB_REF}" == "refs/heads/sy-2950-fix-core-deployment-issues" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)-sy-2950-fix-core-deployment-issues" >> $GITHUB_OUTPUT
           fi
 
   create-release:
@@ -376,6 +379,14 @@ jobs:
           # Ensure EnVar.dll is present in the correct plugin path
           $pluginPath = "${env:ProgramFiles(x86)}\NSIS\Plugins\x86-unicode"
           Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
+
+          # Log whether EnVar.dll was successfully copied
+          if (Test-Path "$pluginPath\EnVar.dll") {
+              Write-Host "EnVar.dll successfully copied to $pluginPath"
+          } else {
+              Write-Error "Failed to copy EnVar.dll to $pluginPath"
+              exit 1
+          }
 
           # Prepare the binary for packaging
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe

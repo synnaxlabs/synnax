@@ -1,6 +1,6 @@
-Push-Location ..\synnax
+Push-Location ..\core
 
-$version = Get-Content ..\synnax\pkg\version\VERSION -Raw
+$version = Get-Content ..\core\pkg\version\VERSION -Raw
 if (-not $version) {
     Write-Error "Failed to read version file"
     exit 1
@@ -9,7 +9,7 @@ $version = $version.Trim()
 Write-Host "Building version: $version"
 
 Write-Host "Building synnax binary..."
-& go build -tags driver -o synnax-server.exe
+& go build -tags console,driver -o synnax-server.exe
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to build synnax binary"
     exit 1
@@ -19,7 +19,7 @@ if ($LASTEXITCODE -ne 0) {
 Pop-Location
 
 Write-Host "Moving synnax binary to scripts directory..."
-Move-Item -Force ..\synnax\synnax-server.exe .\
+Move-Item -Force ..\core\synnax-server.exe .\
 
 Write-Host "Building Windows installer..."
 & makensis /DVERSION=$version windows_installer.nsi
