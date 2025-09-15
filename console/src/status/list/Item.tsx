@@ -14,12 +14,15 @@ import {
   Icon,
   Input,
   List,
+  Menu,
   Select,
   Status,
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
+
+import { ContextMenu } from "@/status/list/ContextMenu";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
@@ -33,6 +36,9 @@ export const Item = (props: ItemProps): ReactElement | null => {
     sync: true,
   });
   const { selected, onSelect } = Select.useItemState(itemKey);
+  const { getItem } = List.useUtilContext<status.Key, status.Status>();
+  if (getItem == null) throw new Error("getItem is null");
+  const menuProps = Menu.useContextMenu();
 
   if (item == null) return null;
   const { name, time, variant, message } = item;
@@ -43,8 +49,14 @@ export const Item = (props: ItemProps): ReactElement | null => {
       justify="between"
       selected={selected}
       rounded={!selected}
+      onContextMenu={menuProps.open}
     >
       <Form.Form<typeof Status.formSchema> {...form}>
+        <Menu.ContextMenu
+          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
+          onClick={stopPropagation}
+          {...menuProps}
+        />
         <Flex.Box x empty>
           <Input.Checkbox
             value={selected}
