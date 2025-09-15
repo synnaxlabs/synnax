@@ -123,7 +123,7 @@ echo Downloading artifacts from run: %REF_RUN_ID%
 
 rem Verify the run exists and has artifacts
 echo Verifying run %REF_RUN_ID% exists...
-"%gh_cmd%" run view %REF_RUN_ID% --repo synnaxlabs/synnax
+"%gh_cmd%" run view %REF_RUN_ID% --repo nico-synnax/synnax-fork
 if %errorlevel% neq 0 (
     echo ❌ Error: Cannot access run %REF_RUN_ID%
     exit /b 1
