@@ -1,8 +1,7 @@
 name: Test - Integration
 
-run-name:
-  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
-  }}
+run-name: >
+  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name) }}
 
 on:
   pull_request:
@@ -26,8 +25,7 @@ on:
         default: ""
         type: string
       SEQUENCE:
-        description:
-          "Test case sequence to run (optional - will auto-discover if empty)"
+        description: "Test case sequence to run (optional - will auto-discover if empty)"
         required: false
         default: ""
         type: string
@@ -106,7 +104,6 @@ jobs:
             echo "USE_CACHE=true" >> $GITHUB_OUTPUT
           else
             if [ -z "${REF_RUN_ID}" ]; then
-              # Find most recent successful workflow run with artifacts
               RECENT_RUN_ID=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=50 --json="databaseId,conclusion" --jq='.[].databaseId' | head -1)
               if [ -n "${RECENT_RUN_ID}" ]; then
                 echo "REF_RUN_ID=${RECENT_RUN_ID}" >> $GITHUB_OUTPUT
