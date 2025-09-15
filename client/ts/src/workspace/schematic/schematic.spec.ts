@@ -42,7 +42,9 @@ describe("Schematic", () => {
         data: { one: 1 },
       });
       await client.workspaces.schematic.rename(schematic.key, "Schematic2");
-      const res = await client.workspaces.schematic.retrieve(schematic.key);
+      const res = await client.workspaces.schematic.retrieve({
+        key: schematic.key,
+      });
       expect(res.name).toEqual("Schematic2");
     });
   });
@@ -57,7 +59,9 @@ describe("Schematic", () => {
         data: { one: 1 },
       });
       await client.workspaces.schematic.setData(schematic.key, { two: 2 });
-      const res = await client.workspaces.schematic.retrieve(schematic.key);
+      const res = await client.workspaces.schematic.retrieve({
+        key: schematic.key,
+      });
       expect(res.data.two).toEqual(2);
     });
   });
@@ -73,7 +77,7 @@ describe("Schematic", () => {
       });
       await client.workspaces.schematic.delete(schematic.key);
       await expect(
-        client.workspaces.schematic.retrieve(schematic.key),
+        client.workspaces.schematic.retrieve({ key: schematic.key }),
       ).rejects.toThrow();
     });
   });
