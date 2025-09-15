@@ -11,6 +11,7 @@ import { type status } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
+  Icon,
   Input,
   List,
   Select,
@@ -37,7 +38,12 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const { name, time, variant, message } = item;
 
   return (
-    <List.Item<status.Key> {...props} justify="between">
+    <List.Item<status.Key>
+      {...props}
+      justify="between"
+      selected={selected}
+      rounded={!selected}
+    >
       <Form.Form<typeof Status.formSchema> {...form}>
         <Flex.Box x empty>
           <Input.Checkbox
@@ -47,18 +53,17 @@ export const Item = (props: ItemProps): ReactElement | null => {
             onClick={stopPropagation}
             ghost={!selected}
           />
-          <Text.Text level="p" weight={450}>
+          <Text.Text level="p" status={variant}>
+            <Status.Indicator variant={variant} />
             {name}
+            <Icon.Caret.Right />
+            {message}
           </Text.Text>
         </Flex.Box>
         <Flex.Box x align="center">
-          <Text.DateTime level="small" color="gray" format="dateTime">
+          <Text.DateTime level="p" color="gray" format="dateTime">
             {time}
           </Text.DateTime>
-          <Text.Text level="p" status={variant}>
-            {message}
-            <Status.Indicator variant={variant} />
-          </Text.Text>
         </Flex.Box>
       </Form.Form>
     </List.Item>
