@@ -35,7 +35,7 @@ describe("Table", () => {
         data: { one: 1 },
       });
       await client.workspaces.table.rename(table.key, "Table2");
-      const res = await client.workspaces.table.retrieve(table.key);
+      const res = await client.workspaces.table.retrieve({ key: table.key });
       expect(res.name).toEqual("Table2");
     });
   });
@@ -47,7 +47,7 @@ describe("Table", () => {
         data: { one: 1 },
       });
       await client.workspaces.table.setData(table.key, { two: 2 });
-      const res = await client.workspaces.table.retrieve(table.key);
+      const res = await client.workspaces.table.retrieve({ key: table.key });
       expect(res.data.two).toEqual(2);
     });
   });
@@ -59,7 +59,7 @@ describe("Table", () => {
         data: { one: 1 },
       });
       await client.workspaces.table.delete(table.key);
-      await expect(client.workspaces.table.retrieve(table.key)).rejects.toThrow();
+      await expect(client.workspaces.table.retrieve({ key: table.key })).rejects.toThrow();
     });
   });
 });

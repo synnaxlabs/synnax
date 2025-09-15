@@ -35,7 +35,7 @@ describe("Log", () => {
         data: { one: 1 },
       });
       await client.workspaces.log.rename(log.key, "Log2");
-      const res = await client.workspaces.log.retrieve(log.key);
+      const res = await client.workspaces.log.retrieve({ key: log.key });
       expect(res.name).toEqual("Log2");
     });
   });
@@ -47,7 +47,7 @@ describe("Log", () => {
         data: { one: 1 },
       });
       await client.workspaces.log.setData(log.key, { two: 2 });
-      const res = await client.workspaces.log.retrieve(log.key);
+      const res = await client.workspaces.log.retrieve({ key: log.key });
       expect(res.data.two).toEqual(2);
     });
   });
@@ -59,7 +59,7 @@ describe("Log", () => {
         data: { one: 1 },
       });
       await client.workspaces.log.delete(log.key);
-      await expect(client.workspaces.log.retrieve(log.key)).rejects.toThrow();
+      await expect(client.workspaces.log.retrieve({ key: log.key })).rejects.toThrow();
     });
   });
 });

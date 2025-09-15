@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { type log } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
-export type UseDeleteArgs = schematic.Key | schematic.Key[];
+export type UseDeleteArgs = log.Params;
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
-  name: "Schematic",
-  update: async ({ client, value }) => {
-    if (value != null) await client.workspaces.schematic.delete(value);
-  },
+  name: "Log",
+  update: async ({ client, value }) =>
+    await client.workspaces.log.delete(value),
 });

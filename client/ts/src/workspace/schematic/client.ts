@@ -135,8 +135,6 @@ export class Client {
     return isSingle ? res.schematics[0] : res.schematics;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,

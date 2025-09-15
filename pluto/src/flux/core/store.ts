@@ -25,7 +25,10 @@ interface ListenerScope<K extends record.Key> {
   key?: K;
 }
 
-export interface SetHandler<Value, SetExtra extends unknown | undefined = undefined> {
+export interface SetHandler<
+  Value,
+  SetExtra extends unknown | undefined = undefined,
+> {
   (value: Value, variant: SetExtra): void | Promise<void>;
 }
 
@@ -39,10 +42,14 @@ export class ScopedUnaryStore<
   SetExtra extends unknown | undefined = undefined,
 > {
   private readonly entries: Map<Key, Value> = new Map();
-  private readonly setListeners: Map<SetHandler<Value, SetExtra>, ListenerScope<Key>> =
-    new Map();
-  private readonly deleteListeners: Map<DeleteHandler<Key>, ListenerScope<Key>> =
-    new Map();
+  private readonly setListeners: Map<
+    SetHandler<Value, SetExtra>,
+    ListenerScope<Key>
+  > = new Map();
+  private readonly deleteListeners: Map<
+    DeleteHandler<Key>,
+    ListenerScope<Key>
+  > = new Map();
   private readonly handleError: status.ErrorHandler;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
 
@@ -59,12 +66,24 @@ export class ScopedUnaryStore<
     key: Key,
     value: state.SetArg<Value | undefined>,
     variant: SetExtra,
-  ): void {
+  ): (() => void) | undefined {
     const prev = this.entries.get(key);
     const next = state.executeSetter(value, prev);
-    if (next == null || (prev != null && this.equal(next, prev, key))) return;
+    if (next == null || (prev != null && this.equal(next, prev, key)))
+      return undefined;
     this.entries.set(key, next);
     this.notifySet(scope, key, next, variant);
+
+    // Return rollback function
+    return () => {
+      if (prev === undefined) {
+        this.entries.delete(key);
+        this.notifyDelete(scope, key);
+      } else {
+        this.entries.set(key, prev);
+        this.notifySet(scope, key, prev, variant);
+      }
+    };
   }
 
   /**
@@ -73,24 +92,41 @@ export class ScopedUnaryStore<
    * @param key - The key to set
    * @param value - The value to set, or a function to compute the value from the previous state
    * @param opts - Options for the set operation
+   * @returns A rollback function that undoes the set operation
    */
   set(
     scope: string,
     key: Key | Array<Value & record.Keyed<Key>>,
     value?: state.SetArg<Value | undefined> | SetExtra,
     extra?: SetExtra,
-  ): void {
+  ): () => void {
+    const rollbacks: Array<(() => void) | undefined> = [];
+
     if (Array.isArray(key))
-      return key.forEach((val) => this.setOne(scope, val.key, val, value as SetExtra));
-    this.setOne(
-      scope,
-      key,
-      value as state.SetArg<Value | undefined>,
-      extra as SetExtra,
-    );
+      key.forEach((val) => {
+        const rollback = this.setOne(scope, val.key, val, value as SetExtra);
+        if (rollback) rollbacks.push(rollback);
+      });
+    else {
+      const rollback = this.setOne(
+        scope,
+        key,
+        value as state.SetArg<Value | undefined>,
+        extra as SetExtra,
+      );
+      if (rollback) rollbacks.push(rollback);
+    }
+
+    // Return combined rollback function
+    return () => {
+      // Execute rollbacks in reverse order
+      for (let i = rollbacks.length - 1; i >= 0; i--) rollbacks[i]?.();
+    };
   }
 
-  get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
+  get(
+    keys: Key | Key[] | ((value: Value) => boolean),
+  ): Value | Value[] | undefined {
     if (typeof keys === "function")
       return Array.from(this.entries.values()).filter(keys);
     if (Array.isArray(keys))
@@ -109,14 +145,38 @@ export class ScopedUnaryStore<
   }
 
   /**
-   * Deletes an entry from the store and notifies delete listeners.
-   * @param key - The key to delete
+   * Deletes entries from the store and notifies delete listeners.
+   * @param key - The key(s) to delete or a filter function
+   * @param variant - Optional variant data for set operations during rollback
+   * @returns A rollback function that restores the deleted entries
    */
-  delete(scope: string, key: Key | Key[]) {
-    array.toArray(key).forEach((k) => {
+  delete(
+    scope: string,
+    key: Key | Key[] | ((value: Value, key: Key) => boolean),
+    variant?: SetExtra,
+  ): () => void {
+    const toDelete: Array<{ key: Key; value: Value }> = [];
+
+    if (typeof key === "function")
+      this.entries.forEach((value, k) => {
+        if (key(value, k)) toDelete.push({ key: k, value });
+      });
+    else
+      array.toArray(key).forEach((k) => {
+        const value = this.entries.get(k);
+        if (value !== undefined) toDelete.push({ key: k, value });
+      });
+
+    toDelete.forEach(({ key: k }) => {
       this.entries.delete(k);
       this.notifyDelete(scope, k);
     });
+
+    return () =>
+      toDelete.forEach(({ key: k, value }) => {
+        this.entries.set(k, value);
+        this.notifySet(scope, k, value, variant as SetExtra);
+      });
   }
 
   clear() {
@@ -130,7 +190,11 @@ export class ScopedUnaryStore<
    * @param key - Optional key to filter notifications (if provided, only changes to this key trigger the callback)
    * @returns A destructor function to remove the listener
    */
-  onSet(scope: string, callback: SetHandler<Value, SetExtra>, key?: Key): Destructor {
+  onSet(
+    scope: string,
+    callback: SetHandler<Value, SetExtra>,
+    key?: Key,
+  ): Destructor {
     this.setListeners.set(callback, { scope, key });
     return () => this.setListeners.delete(callback);
   }
@@ -169,7 +233,10 @@ export class ScopedUnaryStore<
       const matchesKey = listenerKey.key == null || listenerKey.key === key;
       const matchesScope = listenerKey.scope !== scope;
       if (matchesKey && matchesScope)
-        this.handleError(async () => callback(key), "Failed to notify delete listener");
+        this.handleError(
+          async () => callback(key),
+          "Failed to notify delete listener",
+        );
     });
   }
 
@@ -179,12 +246,15 @@ export class ScopedUnaryStore<
         key: Key | Array<Value & record.Keyed<Key>>,
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
-      ) => this.set(scope, key, valueOrVariant, variant),
+      ): (() => void) => this.set(scope, key, valueOrVariant, variant),
       get: ((key: Key | Key[] | ((value: Value) => boolean)) =>
         this.get(key)) as UnaryStore<Key, Value>["get"],
       list: () => this.list(),
       has: (key: Key) => this.has(key),
-      delete: (key: Key | Key[]) => this.delete(scope, key),
+      delete: (
+        key: Key | Key[] | ((value: Value, key: Key) => boolean),
+        variant?: SetExtra,
+      ): (() => void) => this.delete(scope, key, variant),
       onSet: (callback: SetHandler<Value, SetExtra>, key?: Key) =>
         this.onSet(scope, callback, key),
       onDelete: (callback, key) => this.onDelete(scope, callback, key),
@@ -207,7 +277,9 @@ export interface ChannelListener<
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */
-  onChange: (args: ChannelListenerArgs<ScopedStore, Z>) => Promise<void> | void;
+  onChange: (
+    args: ChannelListenerArgs<ScopedStore, Z>,
+  ) => Promise<unknown> | unknown;
 }
 
 /**
@@ -263,17 +335,30 @@ export type UnaryStore<
   get(keys: Key[] | ((value: Value) => boolean)): Value[];
   list(): Value[];
   has(key: Key): boolean;
-  delete(key: Key | Key[]): void;
   onSet(callback: SetHandler<Value, SetExtra>, key?: Key): Destructor;
   onDelete(callback: DeleteHandler<Key>, key?: Key): Destructor;
 } & (IsExactlyUndefined<SetExtra> extends true
   ? {
-      set(key: Key, value: state.SetArg<Value | undefined>): void;
-      set(values: Array<Value & record.Keyed<Key>>): void;
+      set(key: Key, value: state.SetArg<Value | undefined>): () => void;
+      set(values: Array<Value & record.Keyed<Key>>): () => void;
+      delete(
+        key: Key | Key[] | ((value: Value, key: Key) => boolean),
+      ): () => void;
     }
   : {
-      set(key: Key, value: state.SetArg<Value | undefined>, variant: SetExtra): void;
-      set(values: Array<Value & record.Keyed<Key>>, variant: SetExtra): void;
+      set(
+        key: Key,
+        value: state.SetArg<Value | undefined>,
+        variant: SetExtra,
+      ): () => void;
+      set(
+        values: Array<Value & record.Keyed<Key>>,
+        variant: SetExtra,
+      ): () => void;
+      delete(
+        key: Key | Key[] | ((value: Value, key: Key) => boolean),
+        variant?: SetExtra,
+      ): () => void;
     });
 
 /**
@@ -281,7 +366,9 @@ export type UnaryStore<
  * Each property is a UnaryStore with its own key-value type.
  */
 export interface Store {
-  [key: string]: UnaryStore<any, any, undefined> | UnaryStore<string, any, unknown>;
+  [key: string]:
+    | UnaryStore<any, any, undefined>
+    | UnaryStore<string, any, unknown>;
 }
 
 export interface InternalStore {
@@ -312,8 +399,10 @@ export const scopeStore = <ScopedStore extends Store>(
   scope: string,
 ): ScopedStore =>
   Object.fromEntries(
-    Object.entries(store).map(([key]): [string, UnaryStore<string, any, unknown>] => [
-      key,
-      store[key].scope(scope),
-    ]),
+    Object.entries(store).map(
+      ([key]): [string, UnaryStore<string, any, unknown>] => [
+        key,
+        store[key].scope(scope),
+      ],
+    ),
   ) as ScopedStore;
