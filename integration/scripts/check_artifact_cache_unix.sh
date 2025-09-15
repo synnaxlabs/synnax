@@ -45,40 +45,41 @@ else
     CACHED_RUN=""
     RECENT_SHA=""
 
-    # Use a temporary file to avoid subshell variable scope issues
-    TEMP_FILE=$(mktemp)
-
     echo ""
     echo "Now checking each successful run for artifact ${ARTIFACT_NAME}..."
 
-    echo "${RUNS_WITH_ARTIFACTS}" | jq -r '.[] | "\(.databaseId) \(.headSha)"' | {
-        while read -r run_id sha; do
-            if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
-                echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
+    # Process runs one by one to avoid subshell issues
+    for row in $(echo "${RUNS_WITH_ARTIFACTS}" | jq -r '.[] | @base64'); do
+        _jq() {
+            echo ${row} | base64 --decode | jq -r ${1}
+        }
 
-                # Check if this run has our artifact - with debug output
-                echo "Running: gh run view ${run_id} --json artifacts"
-                ARTIFACTS_JSON=$(gh run view "${run_id}" --json "artifacts")
-                echo "Artifacts in run ${run_id}:"
-                echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[] | .name'
+        run_id=$(_jq '.databaseId')
+        sha=$(_jq '.headSha')
 
-                ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
+        if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
+            echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
 
-                if [ -n "${ARTIFACT_EXISTS}" ]; then
-                    echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
-                    echo "${run_id} ${sha}" > "${TEMP_FILE}"
-                    break
-                else
-                    echo "Artifact ${ARTIFACT_NAME} not found in run ${run_id}"
-                fi
+            # Check if this run has our artifact - with debug output
+            echo "Running: gh run view ${run_id} --json artifacts"
+            ARTIFACTS_JSON=$(gh run view "${run_id}" --json "artifacts")
+            echo "Artifacts in run ${run_id}:"
+            echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[] | .name'
+
+            ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
+
+            if [ -n "${ARTIFACT_EXISTS}" ]; then
+                echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
+                CACHED_RUN="${run_id}"
+                RECENT_SHA="${sha}"
+                break
+            else
+                echo "Artifact ${ARTIFACT_NAME} not found in run ${run_id}"
             fi
-        done
-    }
+        fi
+    done
 
-    if [ -f "${TEMP_FILE}" ] && [ -s "${TEMP_FILE}" ]; then
-        CACHED_RUN=$(cat "${TEMP_FILE}" | cut -d' ' -f1)
-        RECENT_SHA=$(cat "${TEMP_FILE}" | cut -d' ' -f2)
-        rm "${TEMP_FILE}"
+    if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
         echo "Found run ${CACHED_RUN} with artifacts, comparing changes since SHA ${RECENT_SHA}..."
 
         # Check if changes are only in safe directories that don't require rebuild
@@ -130,7 +131,6 @@ else
             CACHED_RUN=""
         fi
     else
-        rm "${TEMP_FILE}" 2>/dev/null || true
         echo "No recent successful runs with artifacts found"
         echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
         CACHED_RUN=""
