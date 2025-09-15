@@ -40,8 +40,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   offsetMultiplier = 2.5,
   ...rest
 }: ItemProps<K, E>) => (
-  // @ts-expect-error - generic element issues
-  <Select.ListItem<K, E>
+  <Select.ListItem
     className={CSS(
       CSS.BE("tree", "item"),
       depth !== 0 && CSS.M("show-rules"),
@@ -54,7 +53,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     }}
     gap="small"
     align="center"
-    {...rest}
+    // Cast rest props - TS can't prove remaining props match after destructuring tree-specific ones
+    {...(rest as Select.ListItemProps<K, Button.ElementType>)}
   >
     {hasChildren && (
       <Caret.Animated
