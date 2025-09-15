@@ -44,6 +44,7 @@ export const purgeState = (state: State): State => {
   // Reset control states.
   state.control = "released";
   state.controlAcquireTrigger = 0;
+  state.toolbar = { ...state.toolbar, activeTab: "symbols" };
   return state;
 };
 
@@ -264,7 +265,6 @@ export const { actions, reducer } = createSlice({
         clearSelections(schematic);
       }
       state.schematics[layoutKey] = schematic;
-      state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
