@@ -556,9 +556,15 @@ export const createList =
 
     const getItem = useCallback(
       ((key?: K | K[]) => {
-        if (key == null) return undefined;
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
+        // Zero-value keys that are not null or undefined are common as
+        // initialized fields in various data structures ("", 0, etc.).
+        // A 'zero-value' is never valid as a key in Synnax, and a simple
+        // null check would result in excessive server refetches for
+        // keys we already know are invalid, so we do a full check
+        // for a zero-value instead.
+        if (primitive.isZero(key)) return undefined;
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
