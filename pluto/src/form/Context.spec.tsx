@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -154,13 +154,6 @@ describe("useContext", () => {
     });
 
     it("should return override context when provided", () => {
-      const status: status.Status = {
-        key: "test",
-        variant: "success",
-        message: "",
-        description: undefined,
-        time: TimeStamp.now(),
-      };
       const { result } = renderHook(() => useContext(mockOverride, "TestFunction"), {
         wrapper: FormWrapper,
       });
