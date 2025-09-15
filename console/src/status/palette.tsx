@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Icon, Status } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";
+import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
 export const CREATE_COMMAND: Palette.Command = {
   key: "create_status",
@@ -19,4 +20,11 @@ export const CREATE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_COMMAND];
+export const OPEN_EXPLORER_COMMAND: Palette.Command = {
+  key: "open_status_explorer",
+  name: "Open Status Explorer",
+  icon: <Icon.Explore />,
+  onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
+};
+
+export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

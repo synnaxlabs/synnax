@@ -14,7 +14,7 @@ import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create_arc",
-  name: "Create an Arc",
+  name: "Create an Arc Automation",
   icon: <Icon.Arc />,
   onSelect: ({ placeLayout, rename, handleError }) => {
     handleError(async () => {

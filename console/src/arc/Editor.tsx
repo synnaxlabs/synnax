@@ -28,6 +28,7 @@ import {
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { tr } from "zod/v4/locales";
 
 import {
   select,
@@ -56,7 +57,7 @@ import {
   ZERO_STATE,
 } from "@/arc/slice";
 import {
-  translateGraphToconsole,
+  translateGraphToconsole as translateGraphToConsole,
   translateGraphToServer,
 } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
@@ -437,12 +438,14 @@ export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
     fetcher: async (client, layoutKey) => {
       try {
         const arc = await client.arcs.retrieve({ key: layoutKey });
+        const graph = translateGraphToConsole(arc.graph);
+        console.log(graph);
         const state: State = {
           version: "0.0.0",
           key: arc.key,
           type: TYPE,
           remoteCreated: false,
-          graph: translateGraphToconsole(arc.graph),
+          graph,
         };
         return state;
       } catch (__) {
