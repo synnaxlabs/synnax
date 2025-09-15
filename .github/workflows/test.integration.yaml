@@ -1,24 +1,13 @@
 name: Test - Integration
 
-run-name: >-
-  ${{
-    github.event.inputs.RUN_NAME ||
-    format(github.event.head_commit.message ||
-      github.event.pull_request.title ||
-      github.ref_name
-    )
+run-name:
+  ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
   }}
 
 on:
   pull_request:
     branches:
       - main
-      - rc
-      - randomz
-  push:
-    branches:
-      - main
-      - sy-2916-binary-artifact-caching
   workflow_dispatch:
     inputs:
       RUN_NAME:
@@ -44,8 +33,8 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CACHE_SCOPE: deploy-synnax
@@ -498,7 +487,6 @@ jobs:
       - self-hosted
       - windows-latest
     needs: [setup, download-artifacts-windows]
-    if: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -651,7 +639,6 @@ jobs:
       - self-hosted
       - ubuntu-latest
     needs: [setup, download-artifacts-ubuntu]
-    if: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
