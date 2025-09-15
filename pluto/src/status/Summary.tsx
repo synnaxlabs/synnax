@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/x";
+import { primitive, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -35,8 +35,9 @@ export const Summary = ({
 }: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   variant ??= textStatusVariant;
-  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
-  const hasDescription = description != null;
+  if (!hideIcon)
+    icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  const hasDescription = primitive.isNonZero(description);
   children ??= message;
   const baseText = (
     <BaseText.Text
@@ -50,12 +51,11 @@ export const Summary = ({
     </BaseText.Text>
   );
   if (!hasDescription) return baseText;
-  const descriptionText =
-    description.length === 0 ? null : (
-      <BaseText.Text level="small" color={8}>
-        {description}
-      </BaseText.Text>
-    );
+  const descriptionText = (
+    <BaseText.Text level="small" color={8}>
+      {description}
+    </BaseText.Text>
+  );
   return (
     <Flex.Box y align="start" gap="small" center {...rest}>
       {baseText}
