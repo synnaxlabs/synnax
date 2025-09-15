@@ -28,7 +28,6 @@ import {
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { tr } from "zod/v4/locales";
 
 import {
   select,
@@ -255,44 +254,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-      ["Escape"],
-      ["Control", "Z"],
-      ["Control", "Shift", "Z"],
-      ["Control", "A"],
-    ],
-    loose: true,
-    region: ref,
-    callback: useCallback(
-      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (ref.current == null || stage !== "start") return;
-        const region = box.construct(ref.current);
-        const copy = triggers.some((t) => t.includes("C"));
-        const isClear = triggers.some((t) => t.includes("Escape"));
-        const isAll = triggers.some((t) => t.includes("A"));
-        const isUndo =
-          triggers.some((t) => t.includes("Z")) &&
-          triggers.some((t) => t.includes("Control")) &&
-          !triggers.some((t) => t.includes("Shift"));
-        const isRedo =
-          triggers.some((t) => t.includes("Z")) &&
-          triggers.some((t) => t.includes("Control")) &&
-          triggers.some((t) => t.includes("Shift"));
-        const pos = calculatePos(region, cursor, viewportRef.current);
-        if (copy) dispatch(copySelection({ pos }));
-        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
-        else if (isUndo) undo();
-        else if (isRedo) redo();
-        else if (isAll) dispatch(selectAll({ key: layoutKey }));
-        else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
-      },
-      [layoutKey, undoableDispatch, undo, redo, dispatch],
-    ),
-  });
-
   const handleDoubleClick = useCallback(() => {
     if (!arc.graph.editable) return;
     dispatch(
@@ -439,7 +400,6 @@ export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
       try {
         const arc = await client.arcs.retrieve({ key: layoutKey });
         const graph = translateGraphToConsole(arc.graph);
-        console.log(graph);
         const state: State = {
           version: "0.0.0",
           key: arc.key,
