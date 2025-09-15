@@ -28,6 +28,7 @@ else
         RECENT_RUN_ID=$(echo "${RECENT_RUN}" | cut -d' ' -f1)
         RECENT_SHA=$(echo "${RECENT_RUN}" | cut -d' ' -f2)
 
+        echo "Found recent successful run ${RECENT_RUN_ID} with SHA ${RECENT_SHA}"
         echo "Comparing changes since last successful build (${RECENT_SHA})..."
 
         # Check if changes are only in safe directories that don't require rebuild
@@ -38,6 +39,7 @@ else
             "LICENSE"
             ".git*"
             ".editorconfig"
+            ".github/workflows/test.integration.yaml"
         )
 
         # Get all changed files
@@ -89,25 +91,35 @@ if [ -n "${CACHED_RUN}" ]; then
 
     # Download the cached artifacts
     echo "Downloading cached ${ARTIFACT_NAME} from run ${CACHED_RUN}..."
-    if gh run download "${CACHED_RUN}" --name "${ARTIFACT_NAME}" --dir ./; then
-        echo "Successfully downloaded cached artifacts"
 
-        # Make the binary executable (not needed for Windows .exe files)
-        if [ "${PLATFORM}" = "linux" ]; then
-            chmod +x ./synnax-v*-linux
-        elif [ "${PLATFORM}" = "macos" ]; then
-            chmod +x ./synnax-v*-macos
-        fi
+    # First check if the artifact exists
+    ARTIFACT_EXISTS=$(gh run view "${CACHED_RUN}" --json "artifacts" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
 
-        # Move to core directory
-        if [ "${PLATFORM}" = "windows" ]; then
-            mv ./synnax-v*-windows.exe core/ 2>/dev/null || true
+    if [ -n "${ARTIFACT_EXISTS}" ]; then
+        echo "Found artifact ${ARTIFACT_NAME} in run ${CACHED_RUN}"
+        if gh run download "${CACHED_RUN}" --name "${ARTIFACT_NAME}" --dir ./; then
+            echo "Successfully downloaded cached artifacts"
+
+            # Make the binary executable (not needed for Windows .exe files)
+            if [ "${PLATFORM}" = "linux" ]; then
+                chmod +x ./synnax-v*-linux
+            elif [ "${PLATFORM}" = "macos" ]; then
+                chmod +x ./synnax-v*-macos
+            fi
+
+            # Move to core directory
+            if [ "${PLATFORM}" = "windows" ]; then
+                mv ./synnax-v*-windows.exe core/ 2>/dev/null || true
+            else
+                mv ./synnax-v*-${PLATFORM}* core/ 2>/dev/null || true
+            fi
+
         else
-            mv ./synnax-v*-${PLATFORM}* core/ 2>/dev/null || true
+            echo "Failed to download artifact ${ARTIFACT_NAME} from run ${CACHED_RUN}, will build from scratch"
+            echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
         fi
-
     else
-        echo "Failed to download cached artifacts, will build from scratch"
+        echo "Artifact ${ARTIFACT_NAME} not found in run ${CACHED_RUN}, will build from scratch"
         echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
     fi
 else
