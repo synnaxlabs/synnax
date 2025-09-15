@@ -95,21 +95,27 @@ if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
         echo "No changes detected since last build"
         NEEDS_REBUILD=false
     else
-        echo "Changed files since last build: ${CHANGED_FILES}"
+        echo "Changed files since last build:"
+        echo "${CHANGED_FILES}"
         NEEDS_REBUILD=false
 
         # Check each changed file against safe paths
         while IFS= read -r file; do
+            if [ -z "${file}" ]; then
+                continue
+            fi
+
             IS_SAFE=false
             for safe_path in "${SAFE_PATHS[@]}"; do
                 if [[ "${file}" == ${safe_path} ]] || [[ "${file}" == ${safe_path}* ]]; then
+                    echo "  ${file} - SAFE (matches ${safe_path})"
                     IS_SAFE=true
                     break
                 fi
             done
 
             if [ "${IS_SAFE}" = "false" ]; then
-                echo "Change detected in ${file} - rebuild required"
+                echo "  ${file} - REBUILD REQUIRED (not in safe paths)"
                 NEEDS_REBUILD=true
                 break
             fi
@@ -117,18 +123,18 @@ if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
     fi
 
     if [ "${NEEDS_REBUILD}" = "false" ]; then
-        echo "No rebuild required, using cached artifacts from run ${CACHED_RUN}"
-        echo "CACHE_HIT=true" >> $GITHUB_OUTPUT
-        echo "CACHED_RUN_ID=${CACHED_RUN}" >> $GITHUB_OUTPUT
+        echo "All changes are in safe paths, using cached artifacts from run ${CACHED_RUN}"
+        echo "CACHE_HIT=true" >> ${GITHUB_OUTPUT:-/dev/null}
+        echo "CACHED_RUN_ID=${CACHED_RUN}" >> ${GITHUB_OUTPUT:-/dev/null}
         CACHED_RUN="${CACHED_RUN}"
     else
-        echo "Rebuild required due to source changes"
-        echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
+        echo "Rebuild required due to changes outside safe paths"
+        echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
         CACHED_RUN=""
     fi
 else
     echo "No recent successful builds with artifacts found"
-    echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
+    echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
     CACHED_RUN=""
 fi
 
@@ -138,5 +144,5 @@ if [ -n "${CACHED_RUN}" ]; then
     echo "Will skip build and use cached artifacts"
 else
     echo "❌ No cached artifacts available, will build from scratch"
-    echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
+    echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
 fi

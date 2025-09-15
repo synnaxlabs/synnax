@@ -14,6 +14,7 @@ on:
     branches:
       - main
       - rc
+      - random
   push:
     branches:
       - main
