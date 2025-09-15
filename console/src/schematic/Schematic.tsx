@@ -371,7 +371,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
-  Triggers.useUndo({
+  Diagram.useTriggers({
     onCopy: handleCopySelection,
     onPaste: handlePasteSelection,
     onSelectAll: handleSelectAll,

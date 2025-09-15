@@ -21,7 +21,6 @@ import {
   Menu as PMenu,
   Status,
   Theming,
-  Triggers,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
@@ -39,7 +38,6 @@ import {
 } from "@/arc/selectors";
 import {
   addElement,
-  calculatePos,
   clearSelection,
   copySelection,
   internalCreate,
@@ -214,22 +212,24 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const calculateCursorPosition = useCallback(
+    (cursor: xy.Crude) =>
+      Diagram.calculateCursorPosition(
+        box.construct(ref.current),
+        cursor,
+        viewportRef.current,
+      ),
+    [],
+  );
+
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null || event == null) return valid;
-      const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
         const spec = Core.Stage.REGISTRY[key];
         if (spec == null) return;
-        const pos = xy.truncate(
-          calculatePos(
-            region,
-            { x: event.clientX, y: event.clientY },
-            viewportRef.current,
-          ),
-          0,
-        );
+        const pos = xy.truncate(calculateCursorPosition(event), 0);
         undoableDispatch(
           addElement({
             key: layoutKey,
@@ -273,6 +273,43 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
     [layoutKey, dispatch],
   );
+
+  const handleCopySelection = useCallback(
+    (cursor: xy.XY) =>
+      dispatch(copySelection({ pos: calculateCursorPosition(cursor) })),
+    [dispatch, calculateCursorPosition],
+  );
+
+  const handlePasteSelection = useCallback(
+    (cursor: xy.XY) =>
+      dispatch(
+        pasteSelection({
+          pos: calculateCursorPosition(cursor),
+          key: layoutKey,
+        }),
+      ),
+    [dispatch, calculateCursorPosition, layoutKey],
+  );
+
+  const handleSelectAll = useCallback(
+    () => dispatch(selectAll({ key: layoutKey })),
+    [dispatch, layoutKey],
+  );
+
+  const handleClearSelection = useCallback(
+    () => dispatch(clearSelection({ key: layoutKey })),
+    [dispatch, layoutKey],
+  );
+
+  Diagram.useTriggers({
+    onCopy: handleCopySelection,
+    onPaste: handlePasteSelection,
+    onSelectAll: handleSelectAll,
+    onClear: handleClearSelection,
+    onUndo: undo,
+    onRedo: redo,
+    region: ref,
+  });
 
   const { update: create } = Arc.useCreate();
 

@@ -1,5 +1,22 @@
+
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type arc } from "@synnaxlabs/client";
-import { Flex, type Flux, Icon, Input, List as PList, Select } from "@synnaxlabs/pluto";
+import {
+  Flex,
+  type Flux,
+  Icon,
+  Input,
+  List as PList,
+  Select,
+} from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Item, type ItemProps } from "@/arc/list/Item";
@@ -9,7 +26,7 @@ export interface ListProps
       Flux.UseListReturn<PList.PagerParams, arc.Key, arc.Arc>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,
-    Pick<ItemProps, "showLabels" | "showStatus"> {
+    Pick<ItemProps, "showStatus"> {
   enableSearch?: boolean;
 }
 
@@ -19,7 +36,6 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
-  showLabels = true,
   showStatus = true,
 }: ListProps) => {
   const { fetchMore, search } = PList.usePager({ retrieve });
@@ -58,7 +74,7 @@ export const List = ({
       )}
       <PList.Items<arc.Key>>
         {({ key, ...rest }) => (
-          <Item key={key} {...rest} showLabels={showLabels} showStatus={showStatus} />
+          <Item key={key} {...rest} showStatus={showStatus} />
         )}
       </PList.Items>
     </Select.Frame>

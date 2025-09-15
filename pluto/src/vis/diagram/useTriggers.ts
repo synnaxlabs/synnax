@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Triggers } from "@synnaxlabs/pluto";
-import { box, type xy } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo";
+type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
   all: [["Control", "A"]],
@@ -20,12 +20,13 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
   clear: [["Escape"]],
   undo: [["Control", "Z"]],
   redo: [["Control", "Shift", "Z"]],
-  defaultMode: null,
+  default: [],
+  defaultMode: "default",
 };
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
-export interface UseUndoProps extends Pick<Triggers.UseProps, "region"> {
+export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
   onUndo: () => void;
   onRedo: () => void;
   onCopy: (cursor: xy.XY) => void;
@@ -34,7 +35,7 @@ export interface UseUndoProps extends Pick<Triggers.UseProps, "region"> {
   onSelectAll: () => void;
 }
 
-export const useUndo = ({
+export const useTriggers = ({
   onCopy,
   onPaste,
   onClear,
@@ -42,7 +43,7 @@ export const useUndo = ({
   onUndo,
   onRedo,
   region,
-}: UseUndoProps) => {
+}: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
     loose: true,

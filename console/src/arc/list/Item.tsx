@@ -8,7 +8,6 @@ import {
   Menu,
   Select,
   stopPropagation,
-  Tag,
   Text,
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
@@ -16,11 +15,10 @@ import { useMemo } from "react";
 import { ContextMenu } from "@/arc/list/ContextMenu";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
-  showLabels?: boolean;
   showStatus?: boolean;
 }
 
-export const Item = ({ showLabels = true, showStatus: _, ...props }: ItemProps) => {
+export const Item = ({ showStatus: _, ...props }: ItemProps) => {
   const { itemKey } = props;
   const { getItem } = List.useUtilContext<arc.Key, arc.Arc>();
   if (getItem == null) throw new Error("getItem is null");
@@ -31,7 +29,6 @@ export const Item = ({ showLabels = true, showStatus: _, ...props }: ItemProps) 
     return {
       key: arc.key,
       name: arc.name,
-      version: arc.version,
       graph: arc.graph,
       text: arc.text,
     };
@@ -45,7 +42,7 @@ export const Item = ({ showLabels = true, showStatus: _, ...props }: ItemProps) 
     sync: true,
     autoSave: true,
   });
-  const { name, labels } = arc;
+  const { name, } = arc;
 
   const menuProps = Menu.useContextMenu();
 
@@ -73,16 +70,6 @@ export const Item = ({ showLabels = true, showStatus: _, ...props }: ItemProps) 
             onClick={stopPropagation}
           />
           <Text.Text level="p">{name}</Text.Text>
-        </Flex.Box>
-        <Flex.Box x align="center">
-          <Tag.Tags variant="text">
-            {showLabels &&
-              labels?.map((l) => (
-                <Tag.Tag key={l.key} color={l.color} size="small">
-                  {l.name}
-                </Tag.Tag>
-              ))}
-          </Tag.Tags>
         </Flex.Box>
       </Form.Form>
     </List.Item>
