@@ -45,10 +45,10 @@ const useDelete = () => {
   return useMutation({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
+      selection: { ids: ids },
     }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      const resources = resourceIDs.map((id) => getResource(id));
+      const resources = ids.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -61,20 +61,20 @@ const useDelete = () => {
     mutationFn: async (props: Ontology.TreeContextMenuProps) => {
       const {
         client,
-        selection: { resourceIDs },
+        selection: { ids: ids },
         removeLayout,
       } = props;
-      const keys = resourceIDs.map((id) => id.key);
+      const keys = ids.map((id) => id.key);
       await client.hardware.tasks.delete(keys);
       removeLayout(...keys);
     },
     onError: (
       e: Error,
-      { handleError, selection: { resourceIDs }, state: { getResource } },
+      { handleError, selection: { ids: ids }, state: { getResource } },
     ) => {
       let message = "Failed to delete tasks";
-      if (resourceIDs.length === 1)
-        message = `Failed to delete task ${getResource(resourceIDs[0]).name}`;
+      if (ids.length === 1)
+        message = `Failed to delete task ${getResource(ids[0]).name}`;
       if (errors.Canceled.matches(e)) return;
       handleError(e, message);
     },
@@ -90,8 +90,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     handleError,
     state: { getResource, shape },
   } = props;
-  const { resourceIDs, rootID } = selection;
-  const resources = getResource(resourceIDs);
+  const { ids: ids, rootID } = selection;
+  const resources = getResource(ids);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Common.Task.useExport();
@@ -111,17 +111,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    rename: () => Text.edit(ontology.idToString(ids[0])),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    export: () => handleExport(resourceIDs[0].key),
+    export: () => handleExport(ids[0].key),
     rangeSnapshot: () => snap(resources),
     group: () => group(props),
   };
-  const singleResource = resourceIDs.length === 1;
+  const singleResource = ids.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

@@ -32,7 +32,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       newID,
     }) => {
       if (selection.parentID == null) return;
-      const resourcesToGroup = getResourcesToGroup(selection.resourceIDs, shape);
+      const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
       const prevNodes = Tree.deepCopy(nodes);
       const res: ontology.Resource = {
         key: ontology.idToString(newID),
@@ -64,7 +64,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       if (selection.parentID == null) return;
       const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
       if (!renamed) throw new errors.Canceled();
-      const resourcesToGroup = getResourcesToGroup(selection.resourceIDs, shape);
+      const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
       await client.ontology.groups.create(selection.parentID, groupName, newID.key);
       await client.ontology.moveChildren(
         selection.parentID,

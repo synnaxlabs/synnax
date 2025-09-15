@@ -37,12 +37,12 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 const handleConfigure = ({
-  selection: { resourceIDs },
+  selection: { ids: ids },
   state: { getResource },
   placeLayout,
   handleError,
 }: Ontology.TreeContextMenuProps) => {
-  const resource = getResource(resourceIDs[0]);
+  const resource = getResource(ids[0]);
   try {
     const make = makeZ.parse(resource.data?.make);
     placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
@@ -54,12 +54,12 @@ const handleConfigure = ({
 const useHandleChangeIdentifier = () => {
   const rename = useRename();
   return ({
-    selection: { resourceIDs },
+    selection: { ids: ids },
     state: { getResource },
     handleError,
     client,
   }: Ontology.TreeContextMenuProps) => {
-    const resource = getResource(resourceIDs[0]);
+    const resource = getResource(ids[0]);
     handleError(async () => {
       const device = await client.hardware.devices.retrieve({ key: resource.id.key });
       const identifier =
@@ -92,11 +92,11 @@ const useDelete = () => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes },
-      selection: { resourceIDs },
+      selection: { ids: ids },
       state: { getResource },
     }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -106,8 +106,8 @@ const useDelete = () => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resourceIDs }, client }) =>
-      await client.hardware.devices.delete(resourceIDs.map((id) => id.key)),
+    mutationFn: async ({ selection: { ids: ids }, client }) =>
+      await client.hardware.devices.delete(ids.map((id) => id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
@@ -118,19 +118,19 @@ const useDelete = () => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids: ids, rootID },
     state: { getResource, shape },
   } = props;
-  const singleResource = resourceIDs.length === 1;
-  const first = getResource(resourceIDs[0]);
+  const singleResource = ids.length === 1;
+  const first = getResource(ids[0]);
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
   const handleChangeIdentifier = useHandleChangeIdentifier();
-  if (resourceIDs.length === 0) return null;
+  if (ids.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => handleDelete(props),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    rename: () => Text.edit(ontology.idToString(ids[0])),
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),
   };
@@ -143,7 +143,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     hasIdentifier(getMake(first.data?.make));
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       {singleResource && (
         <>
           <Menu.RenameItem />

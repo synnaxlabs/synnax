@@ -122,10 +122,10 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
+      selection: { ids: ids },
     }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -135,18 +135,22 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ client, selection: { resourceIDs } }) =>
-      await client.channels.delete(resourceIDs.map(({ key }) => Number(key))),
+    mutationFn: async ({ client, selection: { ids: ids } }) =>
+      await client.channels.delete(ids.map(({ key }) => Number(key))),
     onError: (
       e,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
+      {
+        selection: { ids: ids },
+        handleError,
+        state: { setNodes, getResource },
+      },
       prevNodes,
     ) => {
       if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete channels";
-      if (resourceIDs.length === 1) {
-        const resource = getResource(resourceIDs[0]);
+      if (ids.length === 1) {
+        const resource = getResource(ids[0]);
         message = `Failed to delete channel ${resource.name}`;
       }
       handleError(e, message);
@@ -160,12 +164,12 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     mutationFn: async ({
       client,
       store,
-      selection: { resourceIDs },
+      selection: { ids: ids },
       state: { getResource },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
+        ontology.idToString(ids[0]),
       );
       if (!renamed) return;
       const activeRange = Range.select(store.getState());
@@ -175,11 +179,15 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
+      {
+        selection: { ids: ids },
+        handleError,
+        state: { setNodes, getResource },
+      },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
+      const first = getResource(ids[0]);
       handleError(e, `Failed to set alias for ${first.name}`);
     },
   }).mutate;
@@ -189,23 +197,27 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
     mutationFn: async ({
       client,
-      selection: { resourceIDs },
+      selection: { ids: ids },
       state: { getResource },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
+        ontology.idToString(ids[0]),
       );
       if (!renamed) return;
       await client.channels.rename(Number(resources[0].id.key), value);
     },
     onError: (
       e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
+      {
+        selection: { ids: ids },
+        handleError,
+        state: { setNodes, getResource },
+      },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
+      const first = getResource(ids[0]);
       handleError(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
@@ -216,10 +228,10 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     mutationFn: async ({
       client,
       store,
-      selection: { resourceIDs },
+      selection: { ids: ids },
       state: { getResource },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       const activeRange = Range.select(store.getState());
       if (activeRange == null) return;
       const rng = await client.ranges.retrieve(activeRange.key);
@@ -227,11 +239,15 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
+      {
+        selection: { ids: ids },
+        handleError,
+        state: { setNodes, getResource },
+      },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
+      const first = getResource(ids[0]);
       handleError(e, `Failed to remove alias on ${first.name}`);
     },
   }).mutate;
@@ -239,12 +255,12 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
 const useOpenCalculated =
   () =>
   ({
-    selection: { resourceIDs },
+    selection: { ids: ids },
     placeLayout,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
-    if (resourceIDs.length !== 1) return;
-    const resource = getResource(resourceIDs[0]);
+    if (ids.length !== 1) return;
+    const resource = getResource(ids[0]);
     return placeLayout(
       Channel.createCalculatedLayout({
         key: Number(resource.id.key),
@@ -255,16 +271,16 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids: ids, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
-  const resources = getResource(resourceIDs);
+  const resources = getResource(ids);
   const channelKeys = useMemo(
-    () => resourceIDs.map((r) => Number(r.key)),
-    [resourceIDs],
+    () => ids.map((r) => Number(r.key)),
+    [ids],
   );
   const channels = PChannel.useRetrieveMany({
     rangeKey: activeRange?.key,
@@ -293,7 +309,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       {isCalc && (
         <>
           <PMenu.Divider />

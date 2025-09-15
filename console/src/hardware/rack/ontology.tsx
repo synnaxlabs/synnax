@@ -29,9 +29,9 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
+      selection: { ids: ids },
     }) => {
-      const resources = resourceIDs.map((id) => getResource(id));
+      const resources = ids.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -42,8 +42,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resourceIDs }, client }) =>
-      await client.hardware.racks.delete(resourceIDs.map((id) => Number(id.key))),
+    mutationFn: async ({ selection: { ids: ids }, client }) =>
+      await client.hardware.racks.delete(ids.map((id) => Number(id.key))),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.Canceled.matches(e)) return;
@@ -54,8 +54,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const copy = useCopyToClipboard();
-  return ({ selection: { resourceIDs }, state: { getResource } }) => {
-    copy(resourceIDs[0].key, `key to ${getResource(resourceIDs[0]).name}`);
+  return ({ selection: { ids: ids }, state: { getResource } }) => {
+    copy(ids[0].key, `key to ${getResource(ids[0]).name}`);
   };
 };
 
@@ -92,7 +92,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection,
     state: { shape },
   } = props;
-  const { resourceIDs, rootID } = selection;
+  const { ids: ids, rootID } = selection;
   const handleDelete = useDelete();
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
@@ -103,7 +103,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
         rename,
-        rackKey: Number(resourceIDs[0].key),
+        rackKey: Number(ids[0].key),
       });
       if (layout == null) return;
       placeLayout(layout);
@@ -111,16 +111,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const onSelect = {
     group: () => group(props),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    rename: () => Text.edit(ontology.idToString(ids[0])),
     createSequence,
     copy: () => copyKeyToClipboard(props),
     delete: () => handleDelete(props),
   };
-  const isSingle = resourceIDs.length === 1;
+  const isSingle = ids.length === 1;
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
       <Group.MenuItem
-        resourceIDs={resourceIDs}
+        ids={ids}
         rootID={rootID}
         shape={shape}
         showBottomDivider

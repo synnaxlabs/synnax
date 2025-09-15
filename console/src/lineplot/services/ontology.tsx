@@ -30,9 +30,9 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       removeLayout,
       state: { nodes, setNodes, getResource },
     }) => {
-      if (!(await confirm(getResource(selection.resourceIDs))))
+      if (!(await confirm(getResource(selection.ids))))
         throw new errors.Canceled();
-      const ids = ontology.parseIDs(selection.resourceIDs);
+      const ids = ontology.parseIDs(selection.ids);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
@@ -44,7 +44,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.resourceIDs);
+      const ids = ontology.parseIDs(selection.ids);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.lineplots.delete(ids.map((id) => id.key));
     },
@@ -58,15 +58,15 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids: ids, rootID },
     state: { getResource, shape },
   } = props;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = LinePlot.useExport();
   const group = Group.useCreateFromSelection();
-  const firstID = resourceIDs[0];
-  const isSingle = resourceIDs.length === 1;
+  const firstID = ids[0];
+  const isSingle = ids.length === 1;
   const first = getResource(firstID);
   const onSelect = {
     delete: () => del(props),
@@ -83,7 +83,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Item itemKey="delete">
         <Icon.Delete />
         Delete

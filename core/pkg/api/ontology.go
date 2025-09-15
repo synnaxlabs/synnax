@@ -87,7 +87,7 @@ func (o *OntologyService) Retrieve(
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: ontology.ResourceIDs(res.Resources),
+		Objects: ontology.ids(res.Resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}

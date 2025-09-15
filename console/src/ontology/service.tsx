@@ -70,7 +70,7 @@ export interface TreeContextMenuProps extends BaseProps {
   selection: {
     parentID: ontology.ID;
     rootID: ontology.ID;
-    resourceIDs: ontology.ID[];
+    ids: ontology.ID[];
   };
   state: TreeState;
 }

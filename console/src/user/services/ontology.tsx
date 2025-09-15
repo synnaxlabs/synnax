@@ -19,10 +19,10 @@ import { useSelectHasPermission } from "@/user/selectors";
 
 const editPermissions = ({
   placeLayout,
-  selection: { resourceIDs },
+  selection: { ids: ids },
   state: { getResource },
 }: Ontology.TreeContextMenuProps) => {
-  const user = getResource(resourceIDs[0]).data as user.User;
+  const user = getResource(ids[0]).data as user.User;
   const layout = Permissions.createEditLayout(user);
   placeLayout(layout);
 };
@@ -32,21 +32,21 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
+      selection: { ids: ids },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resourceIDs.map((id) => ontology.idToString(id)),
+          keys: ids.map((id) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resourceIDs }, client }) =>
-      await client.user.delete(resourceIDs.map((id) => id.key)),
+    mutationFn: async ({ selection: { ids: ids }, client }) =>
+      await client.user.delete(ids.map((id) => id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.Canceled.matches(e)) return;
@@ -59,20 +59,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
     state: { getResource },
-    selection: { resourceIDs },
+    selection: { ids: ids },
   } = props;
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    rename: () => Text.edit(ontology.idToString(ids[0])),
     delete: () => handleDelete(props),
   };
-  const singleResource = resourceIDs.length === 1;
-  const hasRootUser = resourceIDs.some((id) => {
+  const singleResource = ids.length === 1;
+  const hasRootUser = ids.some((id) => {
     const user = getResource(id).data as user.User;
     return user.rootUser;
   });
-  const isNotCurrentUser = getResource(resourceIDs[0]).name !== client.props.username;
+  const isNotCurrentUser = getResource(ids[0]).name !== client.props.username;
   const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
 

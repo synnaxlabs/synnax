@@ -27,13 +27,12 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Log" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
-      selection: { resourceIDs },
+      selection: { ids },
       removeLayout,
       state: { nodes, setNodes, getResource },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
-      const ids = ontology.parseIDs(resourceIDs);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
@@ -45,7 +44,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.resourceIDs);
+      const ids = ontology.parseIDs(selection.ids);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.logs.delete(ids.map((id) => id.key));
     },
@@ -59,14 +58,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Log.useExport();
   const group = Group.useCreateFromSelection();
-  const firstID = resourceIDs[0];
+  const firstID = ids[0];
   const firstResource = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
@@ -74,17 +73,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: firstResource.name,
-        ontologyID: resourceIDs[0],
+        ontologyID: ids[0],
       }),
-    export: () => handleExport(resourceIDs[0].key),
+    export: () => handleExport(ids[0].key),
     group: () => group(props),
   });
-  const isSingle = resourceIDs.length === 1;
+  const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Divider />
       {isSingle && (
         <>

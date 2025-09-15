@@ -213,14 +213,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client, handleError, resourceStore.setItem],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
-  const handleSyncRelationshipDelete = useCallback((rel: ontology.Relationship) => {
+  const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-    setNodes((prevNodes) =>
-      Core.removeNode({ keys: [ontology.idToString(rel.to)], tree: prevNodes }),
-    );
+    const keys = [ontology.idToString(rel.to)];
+    setNodes((prevNodes) => [...Core.removeNode({ keys, tree: prevNodes })]);
   }, []);
-  Ontology.useRelationshipDeleteSynchronizer(handleSyncRelationshipDelete);
-  const handleSyncRelationshipSet = useCallback((rel: ontology.Relationship) => {
+  Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
+  const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     const { from, to } = rel;
     setNodes((prevNodes) => {
@@ -242,7 +241,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       return nextNodes;
     });
   }, []);
-  Ontology.useRelationshipSetSynchronizer(handleSyncRelationshipSet);
+  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
   const handleExpand = useCallback(
     ({ action, clicked: clickedStringID }: Core.HandleExpandProps<string>): void => {
@@ -258,13 +257,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           key: ontology.idToString(r.id),
           children: services[r.id.type].hasChildren ? [] : undefined,
         }));
-        const resourceIDs = new Set(resources.map((r) => ontology.idToString(r.id)));
+        const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
         setNodes((prevNodes) => [
           ...Core.updateNodeChildren({
             tree: prevNodes,
             parent: clickedStringID,
             updater: (prevNodes) => [
-              ...prevNodes.filter(({ key }) => !resourceIDs.has(key)),
+              ...prevNodes.filter(({ key }) => !ids.has(key)),
               ...converted,
             ],
           }),
@@ -536,7 +535,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       else keys = selectedRef.current;
       const nodeSnapshot = nodesRef.current;
 
-      const resourceIDs = keys.map((key) => ontology.idZ.parse(key));
+      const ids = keys.map((key) => ontology.idZ.parse(key));
 
       // TODO: we might be selecting two nodes that are not ascendants or
       // descendants of the other ones. We need to change this function to
@@ -556,13 +555,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         selection: {
           rootID: root,
           parentID,
-          resourceIDs,
+          ids: ids,
         },
         state: getState(),
         ...getBaseProps(client),
       };
 
-      const allSameType = resourceIDs.every((id) => id.type === firstID.type);
+      const allSameType = ids.every((id) => id.type === firstID.type);
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = services[firstID.type].TreeContextMenu;

@@ -12,7 +12,6 @@ import { useEffect } from "react";
 
 import { Flux } from "@/flux";
 import { type List } from "@/list";
-import { re } from "mathjs";
 
 export interface RelationshipFluxStore
   extends Flux.UnaryStore<string, ontology.Relationship> {}
@@ -208,8 +207,12 @@ export const retrieveCachedParentID = (store: SubStore, id: ontology.ID) => {
   return res[0].from.key;
 };
 
-export const filterRelationshipsThatHaveResource = (resources: ontology.ID[]) => (rel: ontology.Relationship) =>
-  resources.some((resource) => ontology.idsEqual(rel.to, resource) || ontology.idsEqual(rel.from, resource))
+export const filterRelationshipsThatHaveResource =
+  (resources: ontology.ID[]) => (rel: ontology.Relationship) =>
+    resources.some(
+      (resource) =>
+        ontology.idsEqual(rel.to, resource) || ontology.idsEqual(rel.from, resource),
+    );
 
 export const retrieveParentID = Flux.createRetrieve<
   RetrieveParentIDParams,

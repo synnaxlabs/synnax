@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { type FetchOptions } from "@/flux/core/params";
@@ -22,7 +23,6 @@ import {
 } from "@/flux/result";
 import { type state } from "@/state";
 import { Synnax } from "@/synnax";
-import { Destructor } from "@synnaxlabs/x";
 
 /**
  * Arguments passed to the update function.

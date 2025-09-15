@@ -48,9 +48,9 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
+      selection: { ids: ids },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -62,12 +62,12 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({
-      selection: { resourceIDs },
+      selection: { ids: ids },
       client,
       store,
       state: { getResource },
     }) => {
-      const resources = getResource(resourceIDs);
+      const resources = getResource(ids);
       await client.workspaces.delete(resources.map(({ id }) => id.key));
       const s = store.getState();
       const activeKey = selectActiveKey(s);
@@ -113,7 +113,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspaceID = selection.resourceIDs[0];
+      const workspaceID = selection.ids[0];
       const schematic = await client.workspaces.schematics.create(workspaceID.key, {
         name: "New Schematic",
         snapshot: false,
@@ -155,7 +155,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspaceID = selection.resourceIDs[0];
+      const workspaceID = selection.ids[0];
       const linePlot = await client.workspaces.lineplots.create(workspaceID.key, {
         name: "New Line Plot",
         data: deep.copy(LinePlot.ZERO_SLICE_STATE),
@@ -189,7 +189,7 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspaceID = selection.resourceIDs[0];
+      const workspaceID = selection.ids[0];
       const log = await client.workspaces.logs.create(workspaceID.key, {
         name: "New Log",
         data: deep.copy(Log.ZERO_STATE),
@@ -221,7 +221,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspaceID = selection.resourceIDs[0];
+      const workspaceID = selection.ids[0];
       const table = await client.workspaces.tables.create(workspaceID.key, {
         name: "New Table",
         data: deep.copy(Table.ZERO_STATE),
@@ -247,7 +247,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
-    selection: { resourceIDs, rootID },
+    selection: { ids: ids, rootID },
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete();
@@ -255,7 +255,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createPlot = useCreateLinePlot();
   const createLog = useCreateLog();
   const createTable = useCreateTable();
-  const firstID = selection.resourceIDs[0];
+  const firstID = selection.ids[0];
   const importPlot = LinePlotServices.useImport(firstID.key);
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(firstID.key);
@@ -263,7 +263,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleExport = useExport(EXTRACTORS);
   const importLog = LogServices.useImport(firstID.key);
   const importTable = TableServices.useImport(firstID.key);
-  const resources = getResource(resourceIDs);
+  const resources = getResource(ids);
   const first = resources[0];
   const handleSelect = {
     delete: () => handleDelete(props),
@@ -291,7 +291,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Divider />
       {singleResource && (
         <>
