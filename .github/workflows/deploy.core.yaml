@@ -96,9 +96,9 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else if [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
-          else if [ "${GITHUB_REF}" == "refs/heads/sy-2950-fix-core-deployment-issues" ]; then
+          elif [ "${GITHUB_REF}" == "refs/heads/sy-2950-fix-core-deployment-issues" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-sy-2950-fix-core-deployment-issues" >> $GITHUB_OUTPUT
           fi
 
