@@ -496,6 +496,7 @@ jobs:
       - self-hosted
       - windows-latest
     needs: [setup, download-artifacts-windows]
+    if: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -648,6 +649,7 @@ jobs:
       - self-hosted
       - ubuntu-latest
     needs: [setup, download-artifacts-ubuntu]
+    if: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5

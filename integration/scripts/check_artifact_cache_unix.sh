@@ -20,21 +20,40 @@ if [ -n "${EXACT_MATCH_RUN}" ]; then
     echo "CACHED_RUN_ID=${EXACT_MATCH_RUN}" >> $GITHUB_OUTPUT
     CACHED_RUN="${EXACT_MATCH_RUN}"
 else
-    # Check for recent successful run and compare file changes
-    echo "No exact match, checking if recent artifacts can be reused..."
+    # Check for recent successful run that has artifacts and compare file changes
+    echo "No exact match, searching for most recent run with artifacts..."
 
-    # First, let's see what runs we have
-    echo "Recent successful runs:"
-    gh run list --workflow="test.integration.yaml" --status="success" --limit=5 --json="databaseId,headSha,conclusion" | jq -r '.[] | "\(.databaseId) \(.headSha) \(.conclusion)"'
+    # Search through recent successful runs to find one that has our artifact
+    RUNS_WITH_ARTIFACTS=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=50 --json="databaseId,headSha")
 
-    RECENT_RUN=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=10 --json="databaseId,headSha" | jq -r '.[0] | .databaseId + " " + .headSha')
+    CACHED_RUN=""
+    RECENT_SHA=""
 
-    if [ -n "${RECENT_RUN}" ] && [ "${RECENT_RUN}" != "null null" ]; then
-        RECENT_RUN_ID=$(echo "${RECENT_RUN}" | cut -d' ' -f1)
-        RECENT_SHA=$(echo "${RECENT_RUN}" | cut -d' ' -f2)
+    # Use a temporary file to avoid subshell variable scope issues
+    TEMP_FILE=$(mktemp)
 
-        echo "Found recent successful run ${RECENT_RUN_ID} with SHA ${RECENT_SHA}"
-        echo "Comparing changes since last successful build (${RECENT_SHA})..."
+    echo "${RUNS_WITH_ARTIFACTS}" | jq -r '.[] | "\(.databaseId) \(.headSha)"' | {
+        while read -r run_id sha; do
+            if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
+                echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
+
+                # Check if this run has our artifact
+                ARTIFACT_EXISTS=$(gh run view "${run_id}" --json "artifacts" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
+
+                if [ -n "${ARTIFACT_EXISTS}" ]; then
+                    echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
+                    echo "${run_id} ${sha}" > "${TEMP_FILE}"
+                    break
+                fi
+            fi
+        done
+    }
+
+    if [ -f "${TEMP_FILE}" ] && [ -s "${TEMP_FILE}" ]; then
+        CACHED_RUN=$(cat "${TEMP_FILE}" | cut -d' ' -f1)
+        RECENT_SHA=$(cat "${TEMP_FILE}" | cut -d' ' -f2)
+        rm "${TEMP_FILE}"
+        echo "Found run ${CACHED_RUN} with artifacts, comparing changes since SHA ${RECENT_SHA}..."
 
         # Check if changes are only in safe directories that don't require rebuild
         SAFE_PATHS=(
@@ -76,17 +95,17 @@ else
         fi
 
         if [ "${NEEDS_REBUILD}" = "false" ]; then
-            echo "No rebuild required, using cached artifacts from run ${RECENT_RUN_ID}"
+            echo "No rebuild required, using cached artifacts from run ${CACHED_RUN}"
             echo "CACHE_HIT=true" >> $GITHUB_OUTPUT
-            echo "CACHED_RUN_ID=${RECENT_RUN_ID}" >> $GITHUB_OUTPUT
-            CACHED_RUN="${RECENT_RUN_ID}"
+            echo "CACHED_RUN_ID=${CACHED_RUN}" >> $GITHUB_OUTPUT
         else
             echo "Rebuild required due to source changes"
             echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
             CACHED_RUN=""
         fi
     else
-        echo "No recent successful runs found"
+        rm "${TEMP_FILE}" 2>/dev/null || true
+        echo "No recent successful runs with artifacts found"
         echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
         CACHED_RUN=""
     fi
@@ -94,44 +113,31 @@ fi
 
 if [ -n "${CACHED_RUN}" ]; then
 
-    # Download the cached artifacts
+    # Download the cached artifacts (we already verified the artifact exists)
     echo "Downloading cached ${ARTIFACT_NAME} from run ${CACHED_RUN}..."
 
-    # First check what artifacts exist in this run
-    echo "Available artifacts in run ${CACHED_RUN}:"
-    gh run view "${CACHED_RUN}" --json "artifacts" | jq -r '.artifacts[] | .name'
+    if gh run download "${CACHED_RUN}" --name "${ARTIFACT_NAME}" --dir ./; then
+        echo "Successfully downloaded cached artifacts"
 
-    # First check if the artifact exists
-    ARTIFACT_EXISTS=$(gh run view "${CACHED_RUN}" --json "artifacts" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
-
-    if [ -n "${ARTIFACT_EXISTS}" ]; then
-        echo "Found artifact ${ARTIFACT_NAME} in run ${CACHED_RUN}"
-        if gh run download "${CACHED_RUN}" --name "${ARTIFACT_NAME}" --dir ./; then
-            echo "Successfully downloaded cached artifacts"
-
-            # Make the binary executable (not needed for Windows .exe files)
-            if [ "${PLATFORM}" = "linux" ]; then
-                chmod +x ./synnax-v*-linux
-            elif [ "${PLATFORM}" = "macos" ]; then
-                chmod +x ./synnax-v*-macos
-            fi
-
-            # Move to core directory
-            if [ "${PLATFORM}" = "windows" ]; then
-                mv ./synnax-v*-windows.exe core/ 2>/dev/null || true
-            else
-                mv ./synnax-v*-${PLATFORM}* core/ 2>/dev/null || true
-            fi
-
-        else
-            echo "Failed to download artifact ${ARTIFACT_NAME} from run ${CACHED_RUN}, will build from scratch"
-            echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
+        # Make the binary executable (not needed for Windows .exe files)
+        if [ "${PLATFORM}" = "linux" ]; then
+            chmod +x ./synnax-v*-linux
+        elif [ "${PLATFORM}" = "macos" ]; then
+            chmod +x ./synnax-v*-macos
         fi
+
+        # Move to core directory
+        if [ "${PLATFORM}" = "windows" ]; then
+            mv ./synnax-v*-windows.exe core/ 2>/dev/null || true
+        else
+            mv ./synnax-v*-${PLATFORM}* core/ 2>/dev/null || true
+        fi
+
     else
-        echo "Artifact ${ARTIFACT_NAME} not found in run ${CACHED_RUN}, will build from scratch"
+        echo "Failed to download artifact ${ARTIFACT_NAME} from run ${CACHED_RUN}, will build from scratch"
         echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
     fi
 else
-    echo "No cached artifacts found for current commit, will build from scratch"
+    echo "No cached artifacts available, will build from scratch"
     echo "CACHE_HIT=false" >> $GITHUB_OUTPUT
 fi
