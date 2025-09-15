@@ -15,7 +15,8 @@ export interface ResourceSet extends change.Set<ID, Resource> {}
 export interface ResourceDelete extends change.Delete<ID, Resource> {}
 export type RelationshipChange = change.Change<Relationship, undefined>;
 export interface RelationshipSet extends change.Set<Relationship, undefined> {}
-export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
+export interface RelationshipDelete
+  extends change.Delete<Relationship, undefined> {}
 
 export const resourceTypeZ = z.enum([
   "label",
@@ -49,7 +50,9 @@ const stringIDZ = z.string().transform((v) => {
   return { type: resourceTypeZ.parse(type), key: key ?? "" };
 });
 
-export const idZ = z.object({ type: resourceTypeZ, key: z.string() }).or(stringIDZ);
+export const idZ = z
+  .object({ type: resourceTypeZ, key: z.string() })
+  .or(stringIDZ);
 
 export type ID = z.infer<typeof idZ>;
 
@@ -87,12 +90,14 @@ export const oppositeRelationshipDirection = (
   direction: RelationshipDirection,
 ): RelationshipDirection => (direction === "to" ? "from" : "to");
 
-export const relationshipZ = z.object({ from: idZ, type: z.string(), to: idZ }).or(
-  z.string().transform((v) => {
-    const [from, type, to] = v.split("->");
-    return { from: idZ.parse(from), type, to: idZ.parse(to) };
-  }),
-);
+export const relationshipZ = z
+  .object({ from: idZ, type: z.string(), to: idZ })
+  .or(
+    z.string().transform((v) => {
+      const [from, type, to] = v.split("->");
+      return { from: idZ.parse(from), type, to: idZ.parse(to) };
+    }),
+  );
 export type Relationship = z.infer<typeof relationshipZ>;
 
 export const relationshipToString = (relationship: Relationship) =>
@@ -113,8 +118,11 @@ export const matchRelationship = (
   if (match.type != null && match.type !== relationship.type) return false;
   if (match.from?.type != null && match.from.type !== relationship.from.type)
     return false;
-  if (match.to?.type != null && match.to.type !== relationship.to.type) return false;
-  if (match.from?.key != null && match.from.key !== relationship.from.key) return false;
-  if (match.to?.key != null && match.to.key !== relationship.to.key) return false;
+  if (match.to?.type != null && match.to.type !== relationship.to.type)
+    return false;
+  if (match.from?.key != null && match.from.key !== relationship.from.key)
+    return false;
+  if (match.to?.key != null && match.to.key !== relationship.to.key)
+    return false;
   return true;
 };

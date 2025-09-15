@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "Arc"
+const ontologyType ontology.Type = "arc"
 
 // OntologyID returns unique identifier for the Arc within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {

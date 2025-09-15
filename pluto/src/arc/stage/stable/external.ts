@@ -13,7 +13,7 @@ export const SYMBOLS: Record<string, types.Spec<any>> = {
     Symbol: StableFor,
     Preview: StableFor,
     defaultProps: () => ({
-      duration: TimeSpan.milliseconds(250).valueOf(),
+      duration: TimeSpan.milliseconds(250).nanoseconds,
     }),
   },
 };
