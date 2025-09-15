@@ -23,8 +23,24 @@ else
     # Check for recent successful run that has artifacts and compare file changes
     echo "No exact match, searching for most recent run with artifacts..."
 
+    # Get current branch name
+    CURRENT_BRANCH=$(git branch --show-current)
+    echo "Current branch: ${CURRENT_BRANCH}"
+
+    # First, show all runs from test.integration.yaml for debugging
+    echo "All recent runs from test.integration.yaml workflow on branch ${CURRENT_BRANCH}:"
+    gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --limit=20 --json="databaseId,headSha,status,conclusion,displayTitle" | jq -r '.[] | "\(.databaseId) \(.status) \(.conclusion) \(.headSha[0:8]) \(.displayTitle)"'
+
+    echo ""
+    echo "Successful runs only on branch ${CURRENT_BRANCH}:"
+    gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --status="success" --limit=10 --json="databaseId,headSha,conclusion,displayTitle" | jq -r '.[] | "\(.databaseId) \(.conclusion) \(.headSha[0:8]) \(.displayTitle)"'
+
     # Search through recent successful runs to find one that has our artifact
-    RUNS_WITH_ARTIFACTS=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=50 --json="databaseId,headSha")
+    RUNS_WITH_ARTIFACTS=$(gh run list --workflow="test.integration.yaml" --branch="${CURRENT_BRANCH}" --status="success" --limit=50 --json="databaseId,headSha")
+
+    echo ""
+    echo "Raw JSON response from gh run list:"
+    echo "${RUNS_WITH_ARTIFACTS}"
 
     CACHED_RUN=""
     RECENT_SHA=""
@@ -32,18 +48,28 @@ else
     # Use a temporary file to avoid subshell variable scope issues
     TEMP_FILE=$(mktemp)
 
+    echo ""
+    echo "Now checking each successful run for artifact ${ARTIFACT_NAME}..."
+
     echo "${RUNS_WITH_ARTIFACTS}" | jq -r '.[] | "\(.databaseId) \(.headSha)"' | {
         while read -r run_id sha; do
             if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
                 echo "Checking run ${run_id} for artifact ${ARTIFACT_NAME}..."
 
-                # Check if this run has our artifact
-                ARTIFACT_EXISTS=$(gh run view "${run_id}" --json "artifacts" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
+                # Check if this run has our artifact - with debug output
+                echo "Running: gh run view ${run_id} --json artifacts"
+                ARTIFACTS_JSON=$(gh run view "${run_id}" --json "artifacts")
+                echo "Artifacts in run ${run_id}:"
+                echo "${ARTIFACTS_JSON}" | jq -r '.artifacts[] | .name'
+
+                ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${ARTIFACT_NAME}" '.artifacts[] | select(.name == $name) | .name' | head -1)
 
                 if [ -n "${ARTIFACT_EXISTS}" ]; then
                     echo "Found artifact ${ARTIFACT_NAME} in run ${run_id} with SHA ${sha}"
                     echo "${run_id} ${sha}" > "${TEMP_FILE}"
                     break
+                else
+                    echo "Artifact ${ARTIFACT_NAME} not found in run ${run_id}"
                 fi
             fi
         done
