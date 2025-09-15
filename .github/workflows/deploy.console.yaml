@@ -81,6 +81,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
