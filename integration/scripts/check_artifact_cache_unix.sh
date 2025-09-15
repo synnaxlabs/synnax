@@ -20,10 +20,43 @@ fi
 echo "Searching for cached artifacts..."
 
 # First check for exact commit match
-EXACT_MATCH_RUN=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=100 --json="databaseId,headSha" | jq -r --arg sha "$(git rev-parse HEAD)" '.[] | select(.headSha == $sha) | .databaseId' | head -1)
+EXACT_MATCH_RUNS=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=100 --json="databaseId,headSha" | jq -r --arg sha "$(git rev-parse HEAD)" '.[] | select(.headSha == $sha) | .databaseId')
+
+EXACT_MATCH_RUN=""
+if [ -n "${EXACT_MATCH_RUNS}" ]; then
+    echo "Found exact commit matches, checking which one actually built artifacts..."
+    for run_id in ${EXACT_MATCH_RUNS}; do
+        echo "Checking if run ${run_id} built artifacts..."
+
+        # Check if this run has all required artifacts
+        ARTIFACTS_JSON=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts")
+        ALL_ARTIFACTS_FOUND=true
+        for artifact_name in "${ARTIFACT_NAMES[@]}"; do
+            ARTIFACT_EXISTS=$(echo "${ARTIFACTS_JSON}" | jq -r --arg name "${artifact_name}" '.artifacts[]? | select(.name == $name) | .name' | head -1)
+            if [ -z "${ARTIFACT_EXISTS}" ]; then
+                ALL_ARTIFACTS_FOUND=false
+                break
+            fi
+        done
+
+        if [ "${ALL_ARTIFACTS_FOUND}" = "true" ]; then
+            # Check if this run actually built artifacts
+            RUN_JOBS=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs")
+            BUILT_ARTIFACTS=$(echo "${RUN_JOBS}" | jq -r '.jobs[].steps[]? | select(.name | contains("Upload") and contains("Artifact")) | select(.conclusion == "success") | .name' | head -1)
+
+            if [ -n "${BUILT_ARTIFACTS}" ]; then
+                echo "✅ Exact match run ${run_id} actually built artifacts"
+                EXACT_MATCH_RUN="${run_id}"
+                break
+            else
+                echo "⏭️  Exact match run ${run_id} used cached artifacts, continuing search..."
+            fi
+        fi
+    done
+fi
 
 if [ -n "${EXACT_MATCH_RUN}" ]; then
-    echo "Found exact commit match from run ${EXACT_MATCH_RUN}"
+    echo "Found exact commit match that built artifacts: run ${EXACT_MATCH_RUN}"
     echo "CACHE_HIT=true" >> $GITHUB_OUTPUT
     echo "CACHED_RUN_ID=${EXACT_MATCH_RUN}" >> $GITHUB_OUTPUT
     CACHED_RUN="${EXACT_MATCH_RUN}"
