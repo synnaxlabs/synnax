@@ -377,9 +377,9 @@ jobs:
         shell: powershell
         run: |
           # Install NSIS if not already installed
-          choco install nsis -y
-          which nsis
-          which makensis
+          choco install nsis -y --no-progress
+          Get-Command nsis
+          Get-Command makensis
 
 
           # # Define NSIS paths
