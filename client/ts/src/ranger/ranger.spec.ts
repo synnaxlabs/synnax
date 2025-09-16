@@ -10,7 +10,6 @@
 import { uuid } from "@synnaxlabs/x";
 import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
 import { ranger } from "@/ranger";
