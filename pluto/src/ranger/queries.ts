@@ -768,3 +768,25 @@ const DELETE_ALIAS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof aliasDele
 export const ALIAS_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_ALIAS_LISTENER, DELETE_ALIAS_LISTENER],
 };
+
+export interface UseRenameArgs {
+  key: ranger.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Range",
+  update: async ({ client, value, store, rollbacks }) => {
+    const { key, name } = value;
+    rollbacks.add(
+      store.ranges.set(key, (p) =>
+        p == null ? undefined : client.ranges.sugarOne({ ...p, name }),
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(key, (p) => (p == null ? undefined : { ...p, name })),
+    );
+    await client.ranges.rename(key, name);
+    return value;
+  },
+});

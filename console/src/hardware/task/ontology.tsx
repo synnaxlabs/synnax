@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, task } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Task as Core, Text } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -24,6 +24,7 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
+import { type RootState } from "@/store";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -58,6 +59,34 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
+export const useRename = ({
+  selection: { ids },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps) => {
+  const store = useStore<RootState>();
+  const { update } = Core.useRename({
+    beforeUpdate: async ({ value, rollbacks }) => {
+      const { key, name: oldName } = value;
+      const [name, renamed] = await Text.asyncEdit(
+        ontology.idToString(task.ontologyID(key)),
+      );
+      if (!renamed) return false;
+      const layout = Layout.selectByFilter(
+        store.getState(),
+        (l) => (l.args as FormLayoutArgs)?.taskKey === key,
+      );
+      if (layout != null) {
+        store.dispatch(Layout.rename({ key: layout.key, name }));
+        rollbacks.add(() => Layout.rename({ key: layout.key, name: oldName }));
+      }
+      return { ...value, name };
+    },
+  });
+  const firstID = ids[0];
+  const oldName = getResource(firstID).name;
+  return useCallback(() => update({ key: firstID.key, name: oldName }), [update]);
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     store,
@@ -75,6 +104,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
+  const rename = useRename(props);
   const onSelect = {
     delete: handleDelete,
     edit: () =>
@@ -88,7 +118,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Text.edit(ontology.idToString(ids[0])),
+    rename,
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(ids[0].key),
     rangeSnapshot: () =>
@@ -128,19 +158,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name, store }) => {
-    const task = await client.hardware.tasks.retrieve({ key: id.key });
-    await client.hardware.tasks.create({ ...task, name });
-    const layout = Layout.selectByFilter(
-      store.getState(),
-      (l) => (l.args as FormLayoutArgs)?.taskKey === id.key,
-    );
-    if (layout == null) return;
-    store.dispatch(Layout.rename({ key: layout.key, name }));
-  },
-};
-
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
@@ -164,8 +181,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems: ({ id }) => [
     { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
   ],
-  allowRename: () => true,
-  onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

@@ -399,34 +399,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     },
   });
 
-  const dropMutation = useMutation<
-    void,
-    Error,
-    { source: ontology.ID; ids: ontology.ID[]; destination: ontology.ID },
-    Core.Node<string>[]
-  >({
-    onMutate: ({ ids, destination }) => {
-      const nodesSnapshot = nodesRef.current;
-      const prevNodes = Core.deepCopy(nodesSnapshot);
-      const keys = ids.map((id) => ontology.idToString(id));
-      // Move the nodes in the tree.
-      const next = Core.moveNode({
-        tree: nodesSnapshot,
-        destination: ontology.idToString(destination),
-        keys,
-      });
-      setNodes([...next]);
-      return prevNodes;
-    },
-    mutationFn: async ({ source, ids, destination }) => {
-      if (client == null) return;
-      await client.ontology.moveChildren(source, destination, ...ids);
-    },
-    onError: (error, _, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(error, "Failed to move resources");
-    },
-  });
+  const moveChildren = Ontology.useMoveChildren();
 
   const handleDrop = useCallback(
     (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
@@ -450,19 +423,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       });
       const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       contract(...keys);
-      dropMutation.mutate({
-        source: sourceID,
-        ids: keys.map((key) => ontology.idZ.parse(key)),
-        destination,
-      });
+      const ids = keys.map((key) => ontology.idZ.parse(key));
+      moveChildren.update({ source: sourceID, destination, ids });
       return moved;
     },
     [client, contract, root],
   );
 
-  const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Tree.Item",
-  });
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "Tree.Item" });
 
   const handleDragStart = useCallback(
     (itemKey: string) => {

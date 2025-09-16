@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, rack } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -44,11 +44,18 @@ const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => voi
   };
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    const rack = await client.hardware.racks.retrieve({ key: Number(id.key) });
-    await client.hardware.racks.create({ ...rack, name });
-  },
+const useRename = (props: Ontology.TreeContextMenuProps) => {
+  const { update } = Rack.useRename({
+    beforeUpdate: async ({ value }) => {
+      const [name, renamed] = await Text.asyncEdit(
+        ontology.idToString(rack.ontologyID(value.key)),
+      );
+      if (!renamed) return false;
+      return { ...value, name };
+    },
+  });
+  const firstKey = Number(props.selection.ids[0].key);
+  return useCallback(() => update({ key: firstKey, name: "" }), [update, firstKey]);
 };
 
 const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
@@ -80,14 +87,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { ids, rootID } = selection;
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
-  const rename = Modals.useRename();
+  const openRenameModal = Modals.useRename();
+  const rename = useRename(props);
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
-        rename,
+        rename: openRenameModal,
         rackKey: Number(ids[0].key),
       });
       if (layout == null) return;
@@ -96,7 +104,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const onSelect = {
     group: () => group(props),
-    rename: () => Text.edit(ontology.idToString(ids[0])),
+    rename,
     createSequence,
     copy: () => copyKeyToClipboard(props),
     delete: handleDelete,
@@ -133,8 +141,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => false,
   onSelect: () => {},
   haulItems: () => [],
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   Item,
 };

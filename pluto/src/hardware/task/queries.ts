@@ -399,3 +399,31 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArg
     return value;
   },
 });
+
+export interface UseRenameArgs {
+  key: task.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Task",
+  update: async ({ client, value, rollbacks, store }) => {
+    const { key, name } = value;
+    rollbacks.add(
+      store.tasks.set(
+        key,
+        (p) =>
+          p == null ? undefined : client.hardware.tasks.sugar({ ...p.payload, name }),
+        "config",
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(ontology.idToString(task.ontologyID(key)), (p) =>
+        p == null ? undefined : { ...p, name },
+      ),
+    );
+    const t = await retrieveByKey(client, store, { key });
+    await client.hardware.tasks.create({ ...t.payload, name });
+    return value;
+  },
+});

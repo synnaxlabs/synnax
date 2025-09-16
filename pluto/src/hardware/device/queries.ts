@@ -203,3 +203,19 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
     return res.find((r) => r.name === "Devices")?.id;
   },
 });
+
+export interface UseRenameArgs {
+  key: device.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Device",
+  update: async ({ value, client, rollbacks, store }) => {
+    const { key, name } = value;
+    const dev = await retrieveByKey(client, store, { key });
+    rollbacks.add(store.devices.set(dev.key, dev));
+    await client.hardware.devices.create({ ...dev, name });
+    return value;
+  },
+});

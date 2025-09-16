@@ -11,30 +11,39 @@ import { useCallback, useState } from "react";
 
 import { errorResult, pendingResult, type Result, successResult } from "@/flux/result";
 
-export type UseAsyncOperationReturn<F extends (...args: any[]) => Promise<any>> =
+export interface UseActionArgs<F extends (...args: any[]) => Promise<any>> {
+  resourceName: string;
+  opName: string;
+  action: F;
+}
+
+export type UseActionReturn<F extends (...args: any[]) => Promise<any>> =
   Result<undefined> & {
-    run: () => void;
-    runAsync: () => Promise<ReturnType<F>>;
+    run: (...args: Parameters<F>) => void;
+    runAsync: (...args: Parameters<F>) => Promise<ReturnType<F>>;
   };
 
-export const useAsyncOperation = <F extends (...args: any[]) => Promise<any>>(
-  resourceName: string,
-  opName: string,
-  operation: F,
-): UseAsyncOperationReturn<F> => {
-  const [status, setStatus] = useState<Result<undefined>>(
+export const useAction = <F extends (...args: any[]) => Promise<any>>({
+  resourceName,
+  opName,
+  action,
+}: UseActionArgs<F>): UseActionReturn<F> => {
+  const [status, setStatus] = useState<Result<undefined>>(() =>
     successResult(resourceName, opName, undefined),
   );
-  const runAsync = useCallback(async () => {
-    try {
-      setStatus(pendingResult(resourceName, opName, undefined));
-      const res = await operation();
-      setStatus(successResult(resourceName, opName, undefined));
-      return res;
-    } catch (error) {
-      setStatus(errorResult(resourceName, opName, error));
-    }
-  }, [operation]);
-  const run = useCallback(() => void runAsync(), [operation]);
+  const runAsync = useCallback(
+    async (...args: Parameters<F>) => {
+      try {
+        setStatus(pendingResult(resourceName, opName, undefined));
+        const res = await action(...args);
+        setStatus(successResult(resourceName, opName, undefined));
+        return res;
+      } catch (error) {
+        setStatus(errorResult(resourceName, opName, error));
+      }
+    },
+    [action],
+  );
+  const run = useCallback((...args: Parameters<F>) => void runAsync(...args), [action]);
   return { ...status, run, runAsync };
 };

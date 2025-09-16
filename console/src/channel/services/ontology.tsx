@@ -323,7 +323,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onSelect: handleSelect,
   canDrop,
   haulItems,
-  allowRename,
   Item,
   TreeContextMenu,
 };

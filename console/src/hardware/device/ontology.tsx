@@ -9,7 +9,7 @@
 
 import "@/hardware/device/ontology.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { device, ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
@@ -26,15 +26,8 @@ import {
   hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
-import { useRename } from "@/modals/Rename";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
-
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    const device = await client.hardware.devices.retrieve({ key: id.key });
-    await client.hardware.devices.create({ ...device, name });
-  },
-};
 
 const handleConfigure = ({
   selection: { ids },
@@ -52,7 +45,7 @@ const handleConfigure = ({
 };
 
 const useHandleChangeIdentifier = () => {
-  const rename = useRename();
+  const rename = Modals.useRename();
   return ({
     selection: { ids },
     state: { getResource },
@@ -101,6 +94,20 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
+const useRename = (props: Ontology.TreeContextMenuProps) => {
+  const { update } = Device.useRename({
+    beforeUpdate: async ({ value }) => {
+      const [name, renamed] = await Text.asyncEdit(
+        ontology.idToString(device.ontologyID(value.key)),
+      );
+      if (!renamed) return false;
+      return { ...value, name };
+    },
+  });
+  const firstId = props.selection.ids[0];
+  return useCallback(() => update({ key: firstId.key, name: "" }), []);
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -109,13 +116,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
+  const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleChangeIdentifier = useHandleChangeIdentifier();
   if (ids.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: handleDelete,
-    rename: () => Text.edit(ontology.idToString(ids[0])),
+    rename,
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),
   };
@@ -206,8 +214,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "device",
   icon,
   hasChildren: false,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   Item,
 };

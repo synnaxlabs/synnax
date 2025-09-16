@@ -254,3 +254,40 @@ export const retrieveParentID = Flux.createRetrieve<
     }),
   ],
 });
+
+export interface UseMoveChildrenArgs {
+  source: ontology.ID;
+  destination: ontology.ID;
+  ids: ontology.ID[];
+}
+
+export const { useUpdate: useMoveChildren } = Flux.createUpdate<
+  UseMoveChildrenArgs,
+  FluxSubStore
+>({
+  name: "Resources",
+  update: async ({ client, value, store, rollbacks }) => {
+    const { source, destination, ids } = value;
+    rollbacks.add(
+      store.relationships.delete((rel) =>
+        ids.some((id) =>
+          ontology.matchRelationship(rel, {
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            from: source,
+            to: id,
+          }),
+        ),
+      ),
+    );
+    ids.forEach((id) => {
+      const rel = {
+        from: destination,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: id,
+      };
+      rollbacks.add(store.relationships.set(ontology.relationshipToString(rel), rel));
+    });
+    await client.ontology.moveChildren(source, destination, ...ids);
+    return value;
+  },
+});

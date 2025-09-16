@@ -97,6 +97,7 @@ export interface UseObservableUpdateArgs<
 }
 
 export interface BeforeUpdateArgs<Data extends state.State> {
+  rollbacks: Set<Destructor>;
   client: Client;
   value: Data;
 }
@@ -181,7 +182,7 @@ const useObservable = <
       try {
         onChange((p) => pendingResult(name, "updating", p.data));
         if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({ client, value });
+          const updatedValue = await beforeUpdate({ client, value, rollbacks });
           if (updatedValue === false) return false;
           if (updatedValue !== true) value = updatedValue;
         }
@@ -202,8 +203,8 @@ const useObservable = <
           console.error(`failed to rollback changes to ${name}`, rollbackError);
         }
         if (signal?.aborted !== true) {
-          const result = errorResult(name, "update", error);
-          onChange(errorResult(name, "update", error));
+          const result = errorResult<Data | undefined>(name, "update", error);
+          onChange(result);
           await afterFailure?.({ client, status: result.status, value });
         }
         return false;
@@ -215,10 +216,7 @@ const useObservable = <
     (value: Data, opts?: FetchOptions) => void handleUpdate(value, opts),
     [handleUpdate],
   );
-  return {
-    update: handleSyncUpdate,
-    updateAsync: handleUpdate,
-  };
+  return { update: handleSyncUpdate, updateAsync: handleUpdate };
 };
 
 /**

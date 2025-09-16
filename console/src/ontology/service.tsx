@@ -111,9 +111,7 @@ export interface Service {
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
-  allowRename: AllowRename;
   Item?: FC<TreeItemProps>;
-  onRename?: HandleTreeRename;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
   PaletteListItem?: PaletteListItem;
@@ -125,7 +123,6 @@ export const NOOP_SERVICE: Omit<Service, "type"> = {
   onSelect: () => {},
   canDrop: () => false,
   haulItems: () => [],
-  allowRename: () => false,
 };
 
 export interface Services extends Record<ontology.ResourceType, Service> {}

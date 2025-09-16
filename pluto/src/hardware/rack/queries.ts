@@ -65,7 +65,7 @@ const DEFAULT_PARAMS = {
   includeStatus: true,
 };
 
-const retrieveFn = async ({
+const retrieveSingle = async ({
   client,
   params,
   store,
@@ -81,7 +81,12 @@ const retrieveFn = async ({
   return rack;
 };
 
-export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, FluxSubStore>({
+export const useList = Flux.createList<
+  ListParams,
+  rack.Key,
+  rack.Payload,
+  FluxSubStore
+>({
   name: "Racks",
   retrieveCached: ({ store }) => store.racks.list(),
   retrieve: async ({ client, params, store }) => {
@@ -93,7 +98,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, FluxS
     return racks;
   },
   retrieveByKey: async ({ client, key, store }) =>
-    await retrieveFn({ client, params: { key }, store }),
+    await retrieveSingle({ client, params: { key }, store }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.racks.onSet((rack) => onChange(rack.key, rack)),
     store.racks.onDelete(onDelete),
@@ -111,7 +116,7 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   FluxSubStore
 >({
   name: "Rack",
-  retrieve: retrieveFn,
+  retrieve: retrieveSingle,
   mountListeners: ({ store, onChange, params: { key } }) => [
     store.racks.onSet(onChange, key),
   ],
@@ -129,6 +134,29 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     rollbacks.add(store.racks.delete(keys));
     await client.hardware.racks.delete(keys);
+    return value;
+  },
+});
+
+export interface UseRenameArgs {
+  key: rack.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Rack",
+  update: async ({ value, client, rollbacks, store }) => {
+    const { key, name } = value;
+    rollbacks.add(
+      store.racks.set(value.key, (p) => (p == null ? undefined : { ...p, name })),
+    );
+    rollbacks.add(
+      store.resources.set(ontology.idToString(rack.ontologyID(key)), (p) =>
+        p == null ? undefined : { ...p, name },
+      ),
+    );
+    const r = await retrieveSingle({ client, params: { key }, store });
+    await client.hardware.racks.create({ ...r, name });
     return value;
   },
 });
