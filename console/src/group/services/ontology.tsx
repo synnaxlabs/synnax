@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
 import { Flux, Group, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -20,6 +20,24 @@ import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+}: Ontology.TreeContextMenuProps) => {
+  const { update } = Group.useRename({
+    beforeUpdate: async ({ value }) => {
+      const { key } = value;
+      const [name, renamed] = await Text.asyncEdit(
+        ontology.idToString(group.ontologyID(key)),
+      );
+      if (!renamed) return false;
+      return { key, name };
+    },
+  });
+  return useCallback(() => update({ key: firstID.key, name: "" }), [firstID]);
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -31,13 +49,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
+  const rename = useRename(props);
   const isSingle = ids.length === 1;
   const isZeroDepth =
     Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
     ontology.idsEqual(rootID, ontology.ROOT_ID);
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup.update(props),
-    rename: () => Text.edit(ontology.idToString(firstID)),
+    rename,
     newGroup: createEmptyGroup,
     group: () => createFromSelection(props),
     link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),
@@ -212,19 +231,6 @@ const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    try {
-      await client.ontology.groups.rename(id.key, name);
-    } catch (e) {
-      // We check for this because the rename might be a side effect of creating
-      // a new group, in which case the group might not exist yet. This is fine
-      // and we don't want to throw an error.
-      if (!NotFoundError.matches(e)) throw e;
-    }
-  },
-};
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "group",
@@ -232,7 +238,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => true,
   // This haul item allows the group to be dragged between nodes in the tree.
   haulItems: ({ id }) => [id],
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
 };

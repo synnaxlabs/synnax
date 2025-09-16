@@ -19,6 +19,7 @@ export interface FluxStore extends Flux.UnaryStore<group.Key, group.Payload> {}
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_GROUP_LISTENER: Flux.ChannelListener<FluxSubStore, typeof group.groupZ> = {
@@ -40,12 +41,12 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
 export const singleRetrieve = async (
   key: group.Key,
   client: Synnax,
-  FluxSubStore: FluxSubStore,
+  store: FluxSubStore,
 ) => {
-  const cached = FluxSubStore.groups.get(key);
+  const cached = store.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));
-  FluxSubStore.groups.set(key, group.groupZ.parse(res.data));
+  store.groups.set(key, group.groupZ.parse(res.data));
   return group.groupZ.parse(res.data);
 };
 
@@ -134,20 +135,6 @@ export const useList = Flux.createList<
   ],
 });
 
-export interface RenameValue {
-  key: string;
-  name: string;
-}
-
-export const { useUpdate: useRename } = Flux.createUpdate<RenameValue, FluxSubStore>({
-  name: "Group",
-  update: async ({ client, value, store }) => {
-    await client.ontology.groups.rename(value.key, value.name);
-    store.groups.set(value.key, value);
-    return value;
-  },
-});
-
 export interface DeleteValue {
   key: string;
 }
@@ -164,3 +151,25 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, FluxSubSt
 export interface UseUpdateArgs {
   parent: ontology.ID;
 }
+
+export interface UseRenameArgs {
+  key: string;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Group",
+  update: async ({ client, value, store, rollbacks }) => {
+    const { key, name } = value;
+    rollbacks.add(
+      store.groups.set(key, (p) => (p == null ? undefined : { ...p, name })),
+    );
+    rollbacks.add(
+      store.resources.set(ontology.idToString(group.ontologyID(key)), (p) =>
+        p == null ? undefined : { ...p, name },
+      ),
+    );
+    await client.ontology.groups.rename(key, name);
+    return value;
+  },
+});
