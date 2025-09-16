@@ -377,10 +377,10 @@ jobs:
         shell: powershell
         run: |
           # Install NSIS if not already installed
-          choco install nsis -y --no-progress
+          choco install nsis.portable -y --no-progress
 
-          $nsisDir = 'C:\Program Files (x86)\NSIS'
-          if (Test-Path $nsisDir) { $env:Path = "$nsisDir;$env:Path" }
+          # $nsisDir = 'C:\Program Files (x86)\NSIS'
+          # if (Test-Path $nsisDir) { $env:Path = "$nsisDir;$env:Path" }
 
           where.exe nsis
           Get-Command nsis
