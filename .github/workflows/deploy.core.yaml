@@ -376,11 +376,21 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
-          # Install makensis (NSIS) if not already installed
+          # Install NSIS if not already installed
           choco install nsis -y
 
-          # Check location of makensis
-          which makensis
+          # Check location of nsis
+          $nsisPath = (Get-Command nsis -ErrorAction SilentlyContinue)?.Source
+          if (-not $nsisPath) {
+              # Try to find makensis.exe in PATH as fallback
+              $nsisPath = (Get-Command makensis.exe -ErrorAction SilentlyContinue)?.Source
+          }
+          if (-not $nsisPath) {
+              Write-Error "NSIS (nsis or makensis.exe) not found in PATH after installation."
+              exit 1
+          } else {
+              Write-Host "NSIS found at $nsisPath"
+          }
 
           # Define NSIS paths
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
@@ -425,8 +435,8 @@ jobs:
           # Prepare the binary for packaging
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
-          # Build the installer
-          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
+          # Build the installer using nsis
+          nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"
               exit 1
