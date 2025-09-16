@@ -229,6 +229,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>(
       if (p == null) return p;
       return { ...p, name: value.name };
     });
+    return value;
   },
 });
 
@@ -241,6 +242,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>(
   update: async ({ client, value, store }) => {
     await client.workspaces.schematics.symbols.delete(value.key);
     store.schematicSymbols.delete(value.key);
+    return value;
   },
 });
 

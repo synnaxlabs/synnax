@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { schematic, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -15,9 +15,21 @@ import { Ontology } from "@/ontology";
 
 export type UseDeleteArgs = schematic.Params;
 
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+  SubStore,
+  schematic.Key,
+  schematic.Schematic
+> = { listeners: [] };
+
+export const FLUX_STORE_KEY = "schematics";
+
+export interface FluxStore
+  extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
+
 interface SubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
@@ -25,17 +37,42 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
   update: async ({ client, value, rollbacks, store }) => {
     const keys = array.toArray(value);
     const ids = keys.map((k) => schematic.ontologyID(k));
-    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     await client.workspaces.schematics.delete(value);
+    return value;
   },
 });
 
 export interface UseCopyArgs extends schematic.CopyArgs {}
 
-export const { useUpdate: useCopy } = Flux.createUpdate<UseCopyArgs, SubStore>({
+export const { useUpdate: useCopy } = Flux.createUpdate<
+  UseCopyArgs,
+  SubStore,
+  schematic.Schematic
+>({
   name: "Schematic",
-  update: async ({ client, value }) => {
-    await client.workspaces.schematics.copy(value);
+  update: async ({ client, value }) => await client.workspaces.schematics.copy(value),
+});
+
+export interface UseCreateArgs extends schematic.New {
+  workspace: workspace.Key;
+}
+
+export interface UseCreateResult extends schematic.Schematic {
+  workspace: workspace.Key;
+}
+
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  UseCreateArgs,
+  SubStore,
+  UseCreateResult
+>({
+  name: "Schematic",
+  update: async ({ client, value, store }) => {
+    const { workspace, ...rest } = value;
+    const s = await client.workspaces.schematics.create(workspace, rest);
+    store.schematics.set(s.key, s);
+    return { ...s, workspace };
   },
 });

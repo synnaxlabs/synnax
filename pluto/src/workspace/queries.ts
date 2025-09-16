@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { workspace } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "workspaces";
 
@@ -18,6 +20,8 @@ export interface FluxStore
 
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
@@ -26,14 +30,16 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 > = {
   channel: workspace.SET_CHANNEL_NAME,
   schema: workspace.workspaceZ,
-  onChange: ({ store, changed }) => { store.workspaces.set(changed.key, changed) },
+  onChange: ({ store, changed }) => {
+    store.workspaces.set(changed.key, changed);
+  },
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<SubStore, typeof workspace.keyZ> =
-{
-  channel: workspace.DELETE_CHANNEL_NAME,
-  schema: workspace.keyZ,
-  onChange: ({ store, changed }) => store.workspaces.delete(changed),
+  {
+    channel: workspace.DELETE_CHANNEL_NAME,
+    schema: workspace.keyZ,
+    onChange: ({ store, changed }) => store.workspaces.delete(changed),
   };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -74,4 +80,20 @@ export const useList = Flux.createList<
     store.workspaces.onSet((workspace) => onChange(workspace.key, workspace)),
     store.workspaces.onDelete(onDelete),
   ],
+});
+
+export type UseDeleteArgs = workspace.Key | workspace.Key[];
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+  name: "Workspace",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((key) => workspace.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.resources.delete(keys));
+    rollbacks.add(store.workspaces.delete(keys));
+    await client.workspaces.delete(keys);
+    return value;
+  },
 });

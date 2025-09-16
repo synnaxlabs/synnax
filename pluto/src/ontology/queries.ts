@@ -207,7 +207,7 @@ export const retrieveCachedParentID = (store: SubStore, id: ontology.ID) => {
   return res[0].from.key;
 };
 
-export const filterRelationshipsThatHaveResource =
+export const filterRelationshipsThatHaveIDs =
   (resources: ontology.ID[]) => (rel: ontology.Relationship) =>
     resources.some(
       (resource) =>

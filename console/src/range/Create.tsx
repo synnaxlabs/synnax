@@ -30,8 +30,8 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
+import { fromClientRange } from "@/range/translate";
 import { Triggers } from "@/triggers";
 
 export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;

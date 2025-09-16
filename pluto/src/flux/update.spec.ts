@@ -29,7 +29,7 @@ describe("update", () => {
     it("should return a success result as its initial state", () => {
       const { useUpdate } = Flux.createUpdate<number>({
         name: "Resource",
-        update: async () => {},
+        update: async () => 0,
       });
       const { result } = renderHook(useUpdate, { wrapper });
       expect(result.current.variant).toEqual("success");
@@ -81,6 +81,7 @@ describe("update", () => {
     it("should return a loading result when the update function is being executed", async () => {
       const update = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
+        return 0;
       };
       const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
       const { result } = renderHook(useUpdate, { wrapper });

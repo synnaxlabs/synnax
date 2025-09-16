@@ -35,8 +35,6 @@ export interface UpdateArgs<Data extends state.State, ScopedStore extends Store 
   value: Data;
   /** The Synnax client instance for making requests */
   client: Client;
-  /** Function to update the form state with new data */
-  onChange: state.PureSetter<Data>;
   /** The store to update */
   store: ScopedStore;
   /** Set of rollback functions to execute if the update fails */
@@ -52,11 +50,12 @@ export interface UpdateArgs<Data extends state.State, ScopedStore extends Store 
 export interface CreateUpdateArgs<
   Data extends state.State,
   ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
 > {
   /** The name of the resource being updated (used for status messages) */
   name: string;
   /** Function that performs the actual update operation */
-  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<void>;
+  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<OutputData | false>;
 }
 
 /**
@@ -76,8 +75,12 @@ export interface UseObservableUpdateReturn<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
+ * @template OutputData The type of data returned by the update operation
  */
-export interface UseObservableUpdateArgs<Data extends state.State> {
+export interface UseObservableUpdateArgs<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> {
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<Data | undefined>>;
   /** The scope to use for the update operation */
@@ -88,7 +91,7 @@ export interface UseObservableUpdateArgs<Data extends state.State> {
     args: BeforeUpdateArgs<Data>,
   ) => Promise<Data | boolean> | Data | boolean;
   /** Function to run after the update operation. */
-  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void> | void;
+  afterUpdate?: (args: AfterUpdateArgs<OutputData>) => Promise<void> | void;
 }
 
 export interface BeforeUpdateArgs<Data extends state.State> {
@@ -106,8 +109,10 @@ export interface AfterUpdateArgs<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  */
-export interface UseDirectUpdateArgs<Data extends state.State>
-  extends Omit<UseObservableUpdateArgs<Data>, "onChange"> {}
+export interface UseDirectUpdateArgs<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> extends Omit<UseObservableUpdateArgs<Data, OutputData>, "onChange"> {}
 
 /**
  * Return type for the direct update hook, combining result state with update functions.
@@ -123,28 +128,37 @@ export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | unde
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface CreateUpdateReturn<Data extends state.State> {
+export interface CreateUpdateReturn<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> {
   /** Hook that provides update functions with external state management */
   useObservableUpdate: (
-    args: UseObservableUpdateArgs<Data>,
+    args: UseObservableUpdateArgs<Data, OutputData>,
   ) => UseObservableUpdateReturn<Data>;
   /** Hook that provides update functions with internal state management */
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) => UseDirectUpdateReturn<Data>;
+  useUpdate: (
+    args?: UseDirectUpdateArgs<Data, OutputData>,
+  ) => UseDirectUpdateReturn<Data>;
 }
 
 /**
  * Internal hook for observable updates with external state management.
  * @internal
  */
-const useObservable = <Data extends state.State, ScopedStore extends Store = {}>({
+const useObservable = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>({
   onChange,
   update,
   name,
   scope,
   beforeUpdate,
   afterUpdate,
-}: UseObservableUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseObservableUpdateReturn<Data> => {
+}: UseObservableUpdateArgs<Data, OutputData> &
+  CreateUpdateArgs<Data, ScopedStore, OutputData>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
   const store = useStore<ScopedStore>(scope);
   const handleUpdate = useCallback(
@@ -157,25 +171,20 @@ const useObservable = <Data extends state.State, ScopedStore extends Store = {}>
           return false;
         }
         onChange((p) => pendingResult(name, "updating", p.data));
-        let updated = false;
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, value });
           if (updatedValue === false) return false;
           if (updatedValue !== true) value = updatedValue;
         }
-        await update({
+        const oValue = await update({
           client,
-          onChange: (value) => {
-            updated = true;
-            onChange(successResult(name, "updated", value));
-          },
           value,
           store,
           rollbacks,
         });
-        if (signal?.aborted === true) return false;
-        if (!updated) onChange(successResult(name, "updated", value));
-        if (afterUpdate != null) await afterUpdate({ client, value });
+        if (signal?.aborted === true || oValue == false) return false;
+        onChange(successResult(name, "updated", value));
+        if (afterUpdate != null) await afterUpdate({ client, value: oValue });
         return true;
       } catch (error) {
         try {
@@ -203,15 +212,19 @@ const useObservable = <Data extends state.State, ScopedStore extends Store = {}>
  * Internal hook for direct updates with internal state management.
  * @internal
  */
-const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
+const useDirect = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>({
   name,
   ...restArgs
-}: UseDirectUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
+}: UseDirectUpdateArgs<Data, OutputData> &
+  CreateUpdateArgs<Data, ScopedStore, OutputData>): UseDirectUpdateReturn<Data> => {
   const [result, setResult] = useState<Result<Data | undefined>>(
     successResult(name, "updated", undefined),
   );
-  const methods = useObservable<Data, ScopedStore>({
+  const methods = useObservable<Data, ScopedStore, OutputData>({
     ...restArgs,
     name,
     onChange: setResult,
@@ -267,11 +280,15 @@ const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
  * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
  * ```
  */
-export const createUpdate = <Data extends state.State, ScopedStore extends Store = {}>(
-  createArgs: CreateUpdateArgs<Data, ScopedStore>,
-): CreateUpdateReturn<Data> => ({
-  useObservableUpdate: (args: UseObservableUpdateArgs<Data>) =>
-    useObservable<Data, ScopedStore>({ ...args, ...createArgs }),
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) =>
-    useDirect<Data, ScopedStore>({ ...args, ...createArgs }),
+export const createUpdate = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>(
+  createArgs: CreateUpdateArgs<Data, ScopedStore, OutputData>,
+): CreateUpdateReturn<Data, OutputData> => ({
+  useObservableUpdate: (args: UseObservableUpdateArgs<Data, OutputData>) =>
+    useObservable<Data, ScopedStore, OutputData>({ ...args, ...createArgs }),
+  useUpdate: (args?: UseDirectUpdateArgs<Data, OutputData>) =>
+    useDirect<Data, ScopedStore, OutputData>({ ...args, ...createArgs }),
 });

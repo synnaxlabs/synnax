@@ -10,9 +10,19 @@
 import "@/hardware/common/device/Configure.css";
 
 import { type device, DisconnectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { deep, type record, strings } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Button,
+  Device as Core,
+  Flex,
+  Form,
+  Icon,
+  Nav,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { deep, type record, status, strings } from "@synnaxlabs/x";
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
@@ -54,17 +64,23 @@ const Internal = <
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
-  const client = Synnax.use();
   const [step, setStep] = useState<"name" | "identifier">("name");
   const isNameStep = step === "name";
   const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const handleError = Status.useErrorHandler();
-  const { isPending, mutate } = useMutation<void, Error, void>({
-    onError: (e) => handleError(e, `Failed to configure ${name}`),
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
+  const deviceToCreate = () => ({
+    ...device,
+    configured: true,
+    name: methods.get<string>("name").value,
+    properties: {
+      ...deep.copy(initialProperties),
+      ...device.properties,
+      identifier: methods.get<string>("identifier").value,
+    },
+  });
+  const { update, variant } = Core.useCreate({
+    beforeUpdate: async () => {
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -73,22 +89,14 @@ const Internal = <
           );
           setTimeout(() => identifierRef.current?.focus(), 100);
         }
-        return;
+        return false;
       }
-      if (!methods.validate("identifier")) return;
-      await client.hardware.devices.create({
-        ...device,
-        configured: true,
-        name: methods.get<string>("name").value,
-        properties: {
-          ...deep.copy(initialProperties),
-          ...device.properties,
-          identifier: methods.get<string>("identifier").value,
-        },
-      });
-      onClose();
+      if (!methods.validate("identifier")) return false;
+      return deviceToCreate();
     },
+    afterUpdate: onClose,
   });
+
   return (
     <Flex.Box align="stretch" className={CSS.B("configure")} empty>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
@@ -154,8 +162,8 @@ const Internal = <
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
-            status={isPending ? "loading" : undefined}
-            onClick={() => mutate()}
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => update(deviceToCreate())}
             variant="filled"
             trigger={Triggers.SAVE}
             type="submit"

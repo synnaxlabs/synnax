@@ -55,11 +55,11 @@ export interface CreateValue extends group.Payload {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, SubStore>({
   name: "Group",
-  update: async ({ value, client, onChange, store }) => {
+  update: async ({ value, client, store }) => {
     const { parent } = value;
     const res = await client.ontology.groups.create(parent, value.name, value.key);
     store.groups.set(res.key, res);
-    onChange({ ...res, parent });
+    return { ...res, parent };
   },
 });
 
@@ -138,7 +138,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameValue, SubStore>
   name: "Group",
   update: async ({ client, value, store }) => {
     await client.ontology.groups.rename(value.key, value.name);
-    store.groups.set(value.key, { ...value, name: value.name });
+    store.groups.set(value.key, value);
+    return value;
   },
 });
 
@@ -151,5 +152,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, SubStore>
   update: async ({ client, value, store }) => {
     await client.ontology.groups.delete(value.key);
     store.groups.delete(value.key);
+    return value;
   },
 });

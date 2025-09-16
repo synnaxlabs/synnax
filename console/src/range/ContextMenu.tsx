@@ -8,28 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { array, errors } from "@synnaxlabs/x";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Ranger, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { type ReactElement, useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
-import {
-  create as createLinePlot,
-  LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
-} from "@/lineplot/layout";
-import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
+import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
-import { type RootState } from "@/store";
+import { fromClientRange } from "@/range/translate";
+import { useAddToActivePlot } from "@/range/useAddToActivePlot";
+import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
@@ -45,15 +43,6 @@ export const SnapshotMenuItem = ({
     </PMenu.Item>
   ) : null;
 
-export const fromClientRange = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
-  array.toArray(ranges).map((range) => ({
-    variant: "static",
-    key: range.key,
-    name: range.name,
-    timeRange: range.timeRange.numeric,
-    persisted: true,
-  }));
-
 export const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Client,
@@ -66,45 +55,6 @@ export const fetchIfNotInState = async (
     return range[0];
   }
   return existing;
-};
-
-export const useAddToNewPlot = (): ((key: string) => void) => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      if (client == null) throw new DisconnectedError();
-      const res = await fetchIfNotInState(store, client, key);
-      placeLayout(
-        createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
-      );
-    },
-    onError: (e) => handleError(e, "Failed to add range to new plot"),
-  }).mutate;
-};
-
-const useAddToActivePlot = (): ((key: string) => void) => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      const active = Layout.selectActiveMosaicLayout(store.getState());
-      if (active == null || client == null) return;
-      await fetchIfNotInState(store, client, key);
-      store.dispatch(
-        setLinePlotRanges({
-          key: active.key,
-          axisKey: "x1",
-          mode: "add",
-          ranges: [key],
-        }),
-      );
-    },
-    onError: (e) => handleError(e, "Failed to add range to plot"),
-  }).mutate;
 };
 
 export const deleteMenuItem = (
@@ -169,17 +119,18 @@ export const addChildRangeMenuItem = (
 );
 
 export const useViewDetails = (): ((key: string) => void) => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      if (client == null) throw new DisconnectedError();
-      const rng = await client.ranges.retrieve(key);
-      placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
+  const { retrieve } = Ranger.useRetrieveObservable({
+    onChange: ({ data, variant, status }) => {
+      if (variant !== "success") {
+        if (variant === "error") addStatus(status);
+        return;
+      }
+      placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
     },
-    onError: (e) => handleError(e, "Failed to view details"),
-  }).mutate;
+  });
+  return useCallback((key: string) => retrieve({ key }), [retrieve]);
 };
 
 export const useDelete = () => {
@@ -274,8 +225,8 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     link: () =>
       rangeExists &&
       handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
-    addToActivePlot: () => addToActivePlot(key),
-    addToNewPlot: () => addToNewPlot(key),
+    addToActivePlot: () => addToActivePlot([key]),
+    addToNewPlot: () => addToNewPlot([key]),
     addChildRange: handleAddChildRange,
     setAsActive: handleSetActive,
     clearActive: handleClearActive,

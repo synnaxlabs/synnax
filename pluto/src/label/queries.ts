@@ -144,5 +144,8 @@ export interface UseDeleteArgs {
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
-  update: async ({ client, value }) => await client.labels.delete(value.key),
+  update: async ({ client, value }) => {
+    await client.labels.delete(value.key);
+    return value;
+  },
 });

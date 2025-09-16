@@ -333,10 +333,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
     const ids = keys.map((key) => task.ontologyID(key));
-    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     rollbacks.add(store.tasks.delete(keys));
     await client.hardware.tasks.delete(keys);
+    return value;
   },
 });

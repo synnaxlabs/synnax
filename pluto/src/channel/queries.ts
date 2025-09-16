@@ -412,11 +412,12 @@ export const useList = Flux.createList<
   ],
 });
 
-export const update = Flux.createUpdate<channel.New, SubStore>({
+export const update = Flux.createUpdate<channel.New, SubStore, channel.Channel>({
   name: "Channel",
   update: async ({ client, value, store }) => {
     const ch = await client.channels.create(value);
     store.channels.set(ch.key, ch);
+    return ch;
   },
 });
 
@@ -429,12 +430,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>(
   name: "Channel",
   update: async ({ client, value, store }) => {
     const { key, name } = value;
-    if (key == null) return;
+    if (key == null) return false;
     await client.channels.rename(key, name);
     store.channels.set(key, (p) => {
       if (p == null) return p;
       return client.channels.sugar({ ...p, name });
     });
+    return value;
   },
 });
 
@@ -449,13 +451,14 @@ export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
   name: "Channel Alias",
   update: async ({ client, value: v, store }) => {
     const { range, channel, alias } = v;
-    if (range == null || channel == null) return;
+    if (range == null || channel == null) return false;
     await client.ranges.setAlias(range, channel, alias);
     store.rangeAliases.set(ranger.aliasKey({ range, channel }), {
       channel,
       range,
       alias,
     });
+    return v;
   },
 });
 
@@ -466,12 +469,13 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
     const ids = keys.map((k) => channel.ontologyID(k));
-    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.channels.delete(keys));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     store.channels.delete(keys);
     await client.channels.delete(keys);
+    return value;
   },
 });
 
@@ -485,11 +489,13 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
   SubStore
 >({
   name: "Channel",
-  update: async ({ client, store, value: { range, channels }, rollbacks }) => {
-    if (range == null || channels == null) return;
+  update: async ({ client, store, value, rollbacks }) => {
+    const { range, channels } = value;
+    if (range == null || channels == null) return false;
     const arrChannels = array.toArray(channels);
     await client.ranges.deleteAlias(range, arrChannels);
     const aliasKeys = arrChannels.map((c) => ranger.aliasKey({ range, channel: c }));
     rollbacks.add(store.rangeAliases.delete(aliasKeys));
+    return value;
   },
 });

@@ -262,7 +262,11 @@ export interface RetrieveParams {
   key: ranger.Key;
 }
 
-export const useRetrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
+  RetrieveParams,
+  ranger.Range,
+  SubStore
+>({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) =>
     await cachedRetrieve(client, store, key),
@@ -300,6 +304,131 @@ export const useRetrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, Sub
       }
     }, key),
   ],
+});
+
+export interface RetrieveMultipleParams {
+  keys: ranger.Keys;
+}
+
+export const {
+  useRetrieve: useRetrieveMultiple,
+  useRetrieveObservable: useRetrieveObservableMultiple,
+} = Flux.createRetrieve<RetrieveMultipleParams, ranger.Range[], SubStore>({
+  name: "Ranges",
+  retrieve: async ({ client, params: { keys }, store }) => {
+    const ranges: ranger.Range[] = [];
+    const uncachedKeys: ranger.Key[] = [];
+
+    // First, get all cached ranges
+    for (const key of keys) {
+      const cached = store.ranges.get(key);
+      if (cached != null) {
+        const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+        const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+        const next: ranger.Payload = { ...cached.payload, labels };
+        if (parent != null) {
+          const cachedParent = store.ranges.get(parent);
+          if (cachedParent != null) next.parent = cachedParent.payload;
+        }
+        ranges.push(client.ranges.sugarOne(next));
+      } else uncachedKeys.push(key);
+    }
+
+    // Retrieve uncached ranges if any
+    if (uncachedKeys.length > 0) {
+      const uncachedRanges = await client.ranges.retrieve({
+        keys: uncachedKeys,
+        includeParent: true,
+        includeLabels: true,
+      });
+      for (const range of uncachedRanges) {
+        store.ranges.set(range.key, range);
+        if (range.labels != null) store.labels.set(range.labels);
+        ranges.push(range);
+      }
+    }
+
+    return ranges;
+  },
+  mountListeners: ({ store, onChange, client, params: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.ranges.onSet(async (range) => {
+        if (!keysSet.has(range.key)) return;
+        onChange((prev) => prev.map((r) => (r.key === range.key ? range : r)));
+      }),
+      store.ranges.onDelete(async (key) => {
+        if (!keysSet.has(key)) return;
+        onChange((prev) => prev.filter((r) => r.key !== key));
+      }),
+      store.relationships.onSet(async (relationship) => {
+        for (const key of keys) {
+          const isLabelChange = Label.matchRelationship(
+            relationship,
+            ranger.ontologyID(key),
+          );
+          if (isLabelChange) {
+            const label = await client.labels.retrieve({ key: relationship.to.key });
+            store.labels.set(relationship.to.key, label);
+            onChange((prev) =>
+              prev.map((r) => {
+                if (r.key !== key) return r;
+                return client.ranges.sugarOne({
+                  ...r,
+                  labels: [
+                    ...(r.labels ?? []).filter((l) => l.key !== label.key),
+                    label,
+                  ],
+                });
+              }),
+            );
+          }
+          const isParentChange = ontology.matchRelationship(relationship, {
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: ranger.ontologyID(key),
+          });
+          if (isParentChange) {
+            const parent = await client.ranges.retrieve(relationship.from.key);
+            store.ranges.set(relationship.from.key, parent);
+            onChange((prev) =>
+              prev.map((r) => {
+                if (r.key !== key) return r;
+                return client.ranges.sugarOne({ ...r, parent });
+              }),
+            );
+          }
+        }
+      }),
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        for (const key of keys) {
+          const isLabelChange = Label.matchRelationship(rel, ranger.ontologyID(key));
+          if (isLabelChange)
+            onChange((prev) =>
+              prev.map((r) => {
+                if (r.key !== key) return r;
+                return client.ranges.sugarOne({
+                  ...r,
+                  labels: r.labels?.filter((l) => l.key !== rel.to.key),
+                });
+              }),
+            );
+
+          const isParentChange = ontology.matchRelationship(rel, {
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: ranger.ontologyID(key),
+          });
+          if (isParentChange)
+            onChange((prev) =>
+              prev.map((r) => {
+                if (r.key !== key) return r;
+                return client.ranges.sugarOne({ ...r, parent: null });
+              }),
+            );
+        }
+      }),
+    ];
+  },
 });
 
 export const formSchema = z.object({
@@ -575,6 +704,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<UseDeleteKVArgs>({
     const { key, rangeKey } = value;
     const kv = client.ranges.getKV(rangeKey);
     await kv.delete(key);
+    return value;
   },
 });
 
@@ -582,19 +712,19 @@ export interface UseUpdateKVArgs extends ListKVParams, ranger.KVPair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<UseUpdateKVArgs>({
   name: "Range Meta Data",
-  update: async ({ client, value, onChange }) => {
+  update: async ({ client, value }) => {
     const kv = client.ranges.getKV(value.range);
     await kv.set(value.key, value.value);
-    onChange(value);
+    return value;
   },
 });
 
 export const { useUpdate } = Flux.createUpdate<ranger.Payload, SubStore>({
   name: "Range",
-  update: async ({ client, value, onChange, store }) => {
+  update: async ({ client, value, store }) => {
     const rng = await client.ranges.create(value);
     store.ranges.set(rng.key, rng);
-    onChange(rng);
+    return rng.payload;
   },
 });
 
@@ -606,6 +736,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   update: async ({ client, value, store }) => {
     await client.ranges.delete(value);
     store.ranges.delete(value);
+    return value;
   },
 });
 

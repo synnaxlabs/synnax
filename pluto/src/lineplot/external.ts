@@ -11,6 +11,7 @@ export * from "@/lineplot/Axis";
 export * from "@/lineplot/Legend";
 export * from "@/lineplot/Line";
 export * from "@/lineplot/LinePlot";
+export * from "@/lineplot/queries";
 export * from "@/lineplot/Title";
 export * from "@/lineplot/tooltip";
 export * from "@/lineplot/useBoundQuerier";

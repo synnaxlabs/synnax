@@ -138,7 +138,7 @@ const RangeAnnotationContextMenu = ({
   const handleDownloadAsCSV = () =>
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
-  const handleOpenInNewPlot = () => addRangeToNewPlot(range.key);
+  const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
   const placeLayout = Layout.usePlacer();
   const handleViewDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });

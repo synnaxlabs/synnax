@@ -153,10 +153,26 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
     const ids = keys.map((key) => device.ontologyID(key));
-    const relFilter = Ontology.filterRelationshipsThatHaveResource(ids);
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     rollbacks.add(store.devices.delete(keys));
     await client.hardware.devices.delete(keys);
+    return value;
+  },
+});
+
+export interface UseUpdateArgs extends device.New {}
+
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  UseUpdateArgs,
+  SubStore,
+  device.Device
+>({
+  name: "Device",
+  update: async ({ value, client, rollbacks, store }) => {
+    const dev = await client.hardware.devices.create(value);
+    rollbacks.add(store.devices.set(dev.key, dev));
+    return dev;
   },
 });
