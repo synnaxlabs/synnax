@@ -415,6 +415,10 @@ jobs:
               exit 1
           }
 
+          # List all files in the .\scripts directory after building
+          Write-Host "Listing all files in the .\scripts directory:"
+          Get-ChildItem -Recurse .\scripts | Format-List
+
       # - name: Sign Windows Installer
       #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
       #   env:
