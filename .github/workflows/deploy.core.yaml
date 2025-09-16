@@ -345,7 +345,7 @@ jobs:
       - name: Build
         working-directory: core
         run: |
-          go build -tags -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
