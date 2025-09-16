@@ -93,7 +93,7 @@ const Internal = <
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
     },
-    afterUpdate: onClose,
+    afterSuccess: onClose,
   });
 
   return (

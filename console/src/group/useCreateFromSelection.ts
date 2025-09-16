@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Text, Tree } from "@synnaxlabs/pluto";
-import { errors, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { Flux, Text, Tree } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";
@@ -21,24 +20,41 @@ export interface CreateFromSelection {
 }
 
 interface CreateArgs extends Ontology.TreeContextMenuProps {
-  newID: ontology.ID;
+  group: group.Payload;
+  prevNodes?: Tree.Node<string>[];
 }
 
-export const useCreateFromSelection = (): CreateFromSelection => {
-  const create = useMutation<void, Error, CreateArgs, Tree.Node[]>({
-    onMutate: async ({
-      selection,
-      state: { nodes, setNodes, setSelection, shape, setResource },
-      newID,
-    }) => {
-      if (selection.parentID == null) return;
+export const useCreateFromSelection = () => {
+  const { update } = Flux.createUpdate<CreateArgs>({
+    name: "Group",
+    update: async ({ client, value }) => {
+      const {
+        selection: { parentID, ids },
+        state: { shape },
+        group: { name, key },
+      } = value;
+      const resourcesToGroup = getResourcesToGroup(ids, shape);
+      await client.ontology.groups.create(parentID, name, key);
+      await client.ontology.moveChildren(
+        parentID,
+        group.ontologyID(key),
+        ...resourcesToGroup,
+      );
+      return value;
+    },
+  }).useUpdate({
+    beforeUpdate: async ({ value }) => {
+      const {
+        selection,
+        state: { nodes, setNodes, setSelection, shape, setResource },
+        group: { key },
+      } = value;
+      if (selection.parentID == null) return false;
+      const newID = group.ontologyID(key);
+      const newIDString = ontology.idToString(newID);
       const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
       const prevNodes = Tree.deepCopy(nodes);
-      const res: ontology.Resource = {
-        key: ontology.idToString(newID),
-        id: newID,
-        name: "",
-      };
+      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
       setResource(res);
       const destination = ontology.idsEqual(selection.rootID, selection.parentID)
         ? null
@@ -46,10 +62,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       let nextNodes = Tree.setNode({
         tree: nodes,
         destination,
-        additions: {
-          key: ontology.idToString(newID),
-          children: [],
-        },
+        additions: { key: ontology.idToString(newID), children: [] },
       });
       nextNodes = Tree.moveNode({
         tree: nextNodes,
@@ -58,28 +71,25 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       });
       setNodes([...nextNodes]);
       setSelection([ontology.idToString(newID)]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection, newID, state: { shape } }: CreateArgs) => {
-      if (selection.parentID == null) return;
       const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
-      if (!renamed) throw new errors.Canceled();
-      const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
-      await client.ontology.groups.create(selection.parentID, groupName, newID.key);
-      await client.ontology.moveChildren(
-        selection.parentID,
-        newID,
-        ...resourcesToGroup,
-      );
+      if (!renamed) return false;
+      return { ...value, prevNodes, group: { ...value.group, name: groupName } };
     },
-    onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
+    afterFailure: async ({
+      status,
+      value: {
+        prevNodes,
+        addStatus,
+        state: { setNodes },
+      },
+    }) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to group resources");
+      addStatus(status);
     },
-  }).mutate;
+  });
   return useCallback(
-    (props) => create({ ...props, newID: group.ontologyID(uuid.create()) }),
-    [create],
+    (props: Ontology.TreeContextMenuProps) =>
+      update({ ...props, group: { key: uuid.create(), name: "" } }),
+    [update],
   );
 };

@@ -53,7 +53,7 @@ const useCopy = ({
   state: { getResource },
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const copy = Core.useCopy({
-    afterUpdate: async () => Text.edit(ontology.idToString(ids[0])),
+    afterSuccess: async () => Text.edit(ontology.idToString(ids[0])),
   });
   return () =>
     ids.map((id) => {

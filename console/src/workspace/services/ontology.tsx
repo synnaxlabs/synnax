@@ -54,7 +54,7 @@ const useDelete = ({
   const store = useStore<RootState>();
   const dispatch = useDispatch();
   const beforeUpdate = useCallback(async () => await confirm(getResource(ids)), [ids]);
-  const afterUpdate = useCallback(() => {
+  const afterSuccess = useCallback(() => {
     const s = store.getState();
     const activeKey = selectActiveKey(s);
     const active = ids.find((id) => id.key === activeKey);
@@ -63,7 +63,7 @@ const useDelete = ({
       dispatch(Layout.clearWorkspace());
     }
   }, [ids, dispatch, store]);
-  const { update } = Core.useDelete({ beforeUpdate, afterUpdate });
+  const { update } = Core.useDelete({ beforeUpdate, afterSuccess });
   return useCallback(() => update(keys), [keys]);
 };
 
@@ -93,7 +93,7 @@ const useCreateSchematic = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PSchematic.useCreate({
-    afterUpdate: async ({ value }) => {
+    afterSuccess: async ({ value }) => {
       const { workspace, ...schematic } = value;
       await maybeChangeWorkspace(workspace);
       const { key, name, snapshot } = schematic;
@@ -119,7 +119,7 @@ const useCreateLinePlot = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PLinePlot.useCreate({
-    afterUpdate: async ({ value }) => {
+    afterSuccess: async ({ value }) => {
       const { workspace, ...linePlot } = value;
       await maybeChangeWorkspace(workspaceID.key);
       placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
@@ -143,7 +143,7 @@ const useCreateLog = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PLog.useCreate({
-    afterUpdate: async ({ value }) => {
+    afterSuccess: async ({ value }) => {
       const { workspace, ...log } = value;
       await maybeChangeWorkspace(workspace);
       placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
@@ -167,7 +167,7 @@ const useCreateTable = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PTable.useCreate({
-    afterUpdate: async ({ value }) => {
+    afterSuccess: async ({ value }) => {
       const { workspace, ...table } = value;
       await maybeChangeWorkspace(workspace);
       placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
