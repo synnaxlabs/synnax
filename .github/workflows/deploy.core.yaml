@@ -102,34 +102,34 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-sy-2950-fix-core-deployment-issues" >> $GITHUB_OUTPUT
           fi
 
-  create-release:
-    runs-on: ubuntu-latest
-    needs: setup
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: write
-    steps:
-      - name: Create Release
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
-            if (release != null) return release.id
-            const { data: { id } } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
-              name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
-              draft: false,
-              prerelease: false
-            });
+  # create-release:
+  #   runs-on: ubuntu-latest
+  #   needs: setup
+  #   if: github.event_name != 'pull_request'
+  #   permissions:
+  #     contents: write
+  #   steps:
+  #     - name: Create Release
+  #       uses: actions/github-script@v8
+  #       with:
+  #         script: |
+  #           const { data: releases } = await github.rest.repos.listReleases({
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo
+  #           })
+  #           const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
+  #           if (release != null) return release.id
+  #           const { data: { id } } = await github.rest.repos.createRelease({
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
+  #             name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
+  #             draft: false,
+  #             prerelease: false
+  #           });
 
   build:
-    needs: [setup, create-release]
+    needs: [setup]
     name: Build (${{ matrix.os }})
     permissions:
       contents: write
@@ -378,9 +378,12 @@ jobs:
         run: |
           # Install NSIS if not already installed
           choco install nsis -y --no-progress
-          Get-Command nsis
-          Get-Command makensis
 
+          $nsisDir = 'C:\Program Files (x86)\NSIS'
+          if (Test-Path $nsisDir) { $env:Path = "$nsisDir;$env:Path" }
+
+          where.exe nsis
+          Get-Command nsis
 
           # # Define NSIS paths
           # $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
@@ -441,12 +444,12 @@ jobs:
       #   run: |
       #     relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
-      - name: Upload Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+      # - name: Upload Windows Installer
+      #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   run: |
+      #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
