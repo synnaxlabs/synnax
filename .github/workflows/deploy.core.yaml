@@ -102,34 +102,34 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-sy-2950-fix-core-deployment-issues" >> $GITHUB_OUTPUT
           fi
 
-  # create-release:
-  #   runs-on: ubuntu-latest
-  #   needs: setup
-  #   if: github.event_name != 'pull_request'
-  #   permissions:
-  #     contents: write
-  #   steps:
-  #     - name: Create Release
-  #       uses: actions/github-script@v8
-  #       with:
-  #         script: |
-  #           const { data: releases } = await github.rest.repos.listReleases({
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo
-  #           })
-  #           const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
-  #           if (release != null) return release.id
-  #           const { data: { id } } = await github.rest.repos.createRelease({
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo,
-  #             tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
-  #             name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
-  #             draft: false,
-  #             prerelease: false
-  #           });
+  create-release:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    steps:
+      - name: Create Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
+            if (release != null) return release.id
+            const { data: { id } } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
+              name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
+              draft: false,
+              prerelease: false
+            });
 
   build:
-    needs: [setup]
+    needs: [setup, create-release]
     name: Build (${{ matrix.os }})
     permissions:
       contents: write
@@ -317,11 +317,11 @@ jobs:
       #     EOF
       #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      # - name: Set up Go
-      #   uses: actions/setup-go@v5
-      #   with:
-      #     go-version-file: go.work
-      #     cache-dependency-path: go.work.sum
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
       # - name: Set up pnpm
       #   uses: pnpm/action-setup@v4
@@ -342,10 +342,10 @@ jobs:
       #   shell: bash
       #   run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      # - name: Build
-      #   working-directory: core
-      #   run: |
-      #     go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Build
+        working-directory: core
+        run: |
+          go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -376,64 +376,23 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
-          # Install NSIS if not already installed
           choco install nsis.portable -y --no-progress
 
-          # $nsisDir = 'C:\Program Files (x86)\NSIS'
-          # if (Test-Path $nsisDir) { $env:Path = "$nsisDir;$env:Path" }
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $pluginsDir = Join-Path $nsisDir "Plugins"
+          $pluginPath = Join-Path $pluginsDir "x86-unicode"
 
-          where.exe nsis
-          Get-Command nsis
+          # Ensure EnVar.dll is present in the correct plugin path
+          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
 
-          # # Define NSIS paths
-          # $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
-          # $pluginsDir = Join-Path $nsisDir "Plugins"
-          # $pluginPath = Join-Path $pluginsDir "x86-unicode"
+          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
-          # # 1. Test that the NSIS directory exists
-          # if (-Not (Test-Path $nsisDir)) {
-          #     Write-Error "NSIS directory does not exist at $nsisDir"
-          #     exit 1
-          # } else {
-          #     Write-Host "NSIS directory exists at $nsisDir"
-          # }
-
-          # # 2. Test that the Plugins directory exists
-          # if (-Not (Test-Path $pluginsDir)) {
-          #     Write-Error "NSIS Plugins directory does not exist at $pluginsDir"
-          #     exit 1
-          # } else {
-          #     Write-Host "NSIS Plugins directory exists at $pluginsDir"
-          # }
-
-          # # 3. Test that the x86-unicode directory exists
-          # if (-Not (Test-Path $pluginPath)) {
-          #     Write-Error "NSIS x86-unicode plugins directory does not exist at $pluginPath"
-          #     exit 1
-          # } else {
-          #     Write-Host "NSIS x86-unicode plugins directory exists at $pluginPath"
-          # }
-
-          # # Ensure EnVar.dll is present in the correct plugin path
-          # Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
-
-          # # Log whether EnVar.dll was successfully copied
-          # if (Test-Path "$pluginPath\EnVar.dll") {
-          #     Write-Host "EnVar.dll successfully copied to $pluginPath"
-          # } else {
-          #     Write-Error "Failed to copy EnVar.dll to $pluginPath"
-          #     exit 1
-          # }
-
-          # # Prepare the binary for packaging
-          # Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
-
-          # # Build the installer using nsis
-          # nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
-          # if ($LASTEXITCODE -ne 0) {
-          #     Write-Error "Failed to build Windows installer"
-          #     exit 1
-          # }
+          # Build the installer using nsis
+          nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to build Windows installer"
+              exit 1
+          }
 
       # - name: Sign Windows Installer
       #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
@@ -444,12 +403,12 @@ jobs:
       #   run: |
       #     relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
-      # - name: Upload Windows Installer
-      #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      #   run: |
-      #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+      - name: Upload Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
