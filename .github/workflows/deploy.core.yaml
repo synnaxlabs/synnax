@@ -317,11 +317,11 @@ jobs:
       #     EOF
       #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      # - name: Set up Go
-      #   uses: actions/setup-go@v5
-      #   with:
-      #     go-version-file: go.work
-      #     cache-dependency-path: go.work.sum
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
       # - name: Set up pnpm
       #   uses: pnpm/action-setup@v4
@@ -342,10 +342,10 @@ jobs:
       #   shell: bash
       #   run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      # - name: Build
-      #   working-directory: core
-      #   run: |
-      #     go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Build
+        working-directory: core
+        run: |
+          go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -376,11 +376,20 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
-          choco install nsis.portable -y --no-progress
+          choco install nsis -y --no-progress
 
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
           $pluginsDir = Join-Path $nsisDir "Plugins"
+          if (-Not (Test-Path $pluginsDir)) {
+              Write-Error "Plugins directory '$pluginsDir' does not exist."
+              exit 1
+          }
           $pluginPath = Join-Path $pluginsDir "x86-unicode"
+          if (-Not (Test-Path $pluginPath)) {
+              Write-Error "Plugin path '$pluginPath' does not exist."
+              exit 1
+          }
 
           where.exe nsis
 
