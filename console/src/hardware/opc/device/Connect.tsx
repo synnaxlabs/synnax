@@ -21,11 +21,10 @@ import {
   Rack,
   Status,
   Synnax,
-  Text,
 } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -250,43 +249,28 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   );
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const client = Synnax.use();
-  const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || layoutKey === CONNECT_LAYOUT_TYPE)
-        return [
-          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
-          deep.copy(ZERO_PROPERTIES),
-        ];
-      const dev = await client.hardware.devices.retrieve<Properties>({
-        key: layoutKey,
-      });
-      dev.properties = migrateProperties(dev.properties);
-      return [
-        { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
-        dev.properties,
-      ];
-    },
-  });
-  if (isPending)
-    return (
-      <Text.Text center level="h4" status="loading">
-        Loading Configuration from Synnax Server
-      </Text.Text>
-    );
-  if (isError)
-    return (
-      <Flex.Box style={{ padding: "3rem" }}>
-        <Text.Text level="h2" status="error">
-          Failed to load configuration for server with key {layoutKey}
-        </Text.Text>
-        <Text.Text status="error">{error.message}</Text.Text>
-      </Flex.Box>
-    );
+const { useRetrieve: useRetrieveDevice } = Device.createRetrieve<Properties>();
 
-  const [initialValues, properties] = data;
+export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const {
+    data,
+    variant,
+    status: { key, ...status },
+  } = useRetrieveDevice({ key: layoutKey });
+  const [initialValues, properties] = useMemo(() => {
+    if (layoutKey === CONNECT_LAYOUT_TYPE || variant !== "success")
+      return [
+        { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
+        deep.copy(ZERO_PROPERTIES),
+      ];
+    data.properties = migrateProperties(data.properties);
+    return [
+      { name: data.name, rack: data.rack, connection: data.properties.connection },
+      data.properties,
+    ];
+  }, [data]);
+
+  if (variant !== "success") return <Status.Summary key={key} {...status} />;
   return (
     <Internal
       initialValues={initialValues}

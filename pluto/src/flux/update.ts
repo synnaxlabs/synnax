@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { type Destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { type FetchOptions } from "@/flux/core/params";
@@ -91,7 +91,9 @@ export interface UseObservableUpdateArgs<
     args: BeforeUpdateArgs<Data>,
   ) => Promise<Data | boolean> | Data | boolean;
   /** Function to run after the update operation. */
-  afterUpdate?: (args: AfterUpdateArgs<OutputData>) => Promise<void> | void;
+  afterSuccess?: (args: AfterSuccessArgs<OutputData>) => Promise<void> | void;
+  /** Function to run after the update operation fails. */
+  afterFailure?: (args: AfterFailureArgs<Data>) => Promise<void> | void;
 }
 
 export interface BeforeUpdateArgs<Data extends state.State> {
@@ -99,8 +101,14 @@ export interface BeforeUpdateArgs<Data extends state.State> {
   value: Data;
 }
 
-export interface AfterUpdateArgs<Data extends state.State> {
+export interface AfterSuccessArgs<Data extends state.State> {
   client: Client;
+  value: Data;
+}
+
+export interface AfterFailureArgs<Data extends state.State> {
+  client: Client;
+  status: status.Status;
   value: Data;
 }
 
@@ -156,7 +164,8 @@ const useObservable = <
   name,
   scope,
   beforeUpdate,
-  afterUpdate,
+  afterSuccess,
+  afterFailure,
 }: UseObservableUpdateArgs<Data, OutputData> &
   CreateUpdateArgs<Data, ScopedStore, OutputData>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
@@ -165,11 +174,11 @@ const useObservable = <
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
       const rollbacks = new Set<Destructor>();
+      if (client == null) {
+        onChange(nullClientResult(name, "update"));
+        return false;
+      }
       try {
-        if (client == null) {
-          onChange(nullClientResult(name, "update"));
-          return false;
-        }
         onChange((p) => pendingResult(name, "updating", p.data));
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, value });
@@ -184,7 +193,7 @@ const useObservable = <
         });
         if (signal?.aborted === true || oValue == false) return false;
         onChange(successResult(name, "updated", value));
-        if (afterUpdate != null) await afterUpdate({ client, value: oValue });
+        await afterSuccess?.({ client, value: oValue });
         return true;
       } catch (error) {
         try {
@@ -192,7 +201,11 @@ const useObservable = <
         } catch (rollbackError) {
           console.error(`failed to rollback changes to ${name}`, rollbackError);
         }
-        if (signal?.aborted !== true) onChange(errorResult(name, "update", error));
+        if (signal?.aborted !== true) {
+          const result = errorResult(name, "update", error);
+          onChange(errorResult(name, "update", error));
+          await afterFailure?.({ client, status: result.status, value });
+        }
         return false;
       }
     },

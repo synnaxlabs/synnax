@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
-import { errors, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { Flux, Group, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
@@ -26,7 +26,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, nodes, shape },
   } = props;
   const ungroup = useUngroupSelection();
-  const createEmptyGroup = useCreateEmpty();
+  const createEmptyGroup = useCreateEmpty(props);
   const createFromSelection = useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
@@ -36,9 +36,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
     ontology.idsEqual(rootID, ontology.ROOT_ID);
   const onSelect = useAsyncActionMenu({
-    ungroup: () => ungroup(props),
+    ungroup: () => ungroup.update(props),
     rename: () => Text.edit(ontology.idToString(firstID)),
-    newGroup: () => createEmptyGroup(props),
+    newGroup: createEmptyGroup,
     group: () => createFromSelection(props),
     link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),
   });
@@ -84,10 +84,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({ client, selection, state: { nodes } }) => {
-      if (selection.parentID == null) return;
+interface UseUngroupArgs extends Ontology.TreeContextMenuProps {
+  prevNodes?: Tree.Node<string>[];
+}
+
+const useUngroupSelection = () =>
+  Flux.createUpdate<UseUngroupArgs>({
+    name: "Group",
+    update: async ({ client, value: args }) => {
+      const {
+        selection,
+        state: { nodes },
+      } = args;
+      if (selection.parentID == null) return args;
       const resourceIDStrings = new Set(
         selection.ids.map((id) => ontology.idToString(id)),
       );
@@ -101,108 +110,106 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         await client.ontology.moveChildren(id, parentID, ...childKeys);
       }
       await client.ontology.groups.delete(...selection.ids.map((id) => id.key));
+      return args;
     },
-    onError: async (
-      e,
-      { selection, handleError, state: { setNodes, nodes: prevNodes } },
-    ) => {
-      if (selection.parentID == null || prevNodes == null) return;
-      setNodes(prevNodes);
-      handleError(e, "Failed to ungroup resources");
+  }).useUpdate({
+    beforeUpdate: async ({ value: args }: Flux.BeforeUpdateArgs<UseUngroupArgs>) => {
+      const {
+        selection,
+        state: { shape, nodes, setNodes },
+      } = args;
+      if (selection.parentID == null) return false;
+      // Sort the groups by depth that way deeper nested groups are ungrouped first.
+      selection.ids.sort(
+        (a, b) =>
+          Tree.getDepth(ontology.idToString(a), shape) -
+          Tree.getDepth(ontology.idToString(b), shape),
+      );
+      const prevNodes = Tree.deepCopy(nodes);
+      const nextNodes = [
+        ...selection.ids.reduce(
+          (acc, id) => {
+            const key = ontology.idToString(id);
+            const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
+            acc = Tree.moveNode({
+              tree: acc,
+              destination: ontology.idsEqual(selection.parentID, selection.rootID)
+                ? null
+                : ontology.idToString(selection.parentID),
+              keys: children.map((c) => c.key),
+            });
+            acc = Tree.removeNode({ tree: acc, keys: key });
+            return [...acc];
+          },
+          [...nodes],
+        ),
+      ];
+      setNodes(nextNodes);
+      return { ...args, prevNodes };
+    },
+    afterFailure: async ({
+      status,
+      value: {
+        addStatus,
+        prevNodes,
+        state: { setNodes },
+      },
+    }: Flux.AfterFailureArgs<UseUngroupArgs>) => {
+      addStatus(status);
+      if (prevNodes != null) setNodes(prevNodes);
     },
   });
-  return (props: Ontology.TreeContextMenuProps) => {
-    // Instead of using an onMutate argument to the useMutationHook, we do the eager
-    // update beforehand so we can pass the previous nodes to the mutation. This lets
-    // the mutationFn have access to the un-removed nodes while still allowing us
-    // to eagerly update the UI.
-    const {
-      selection,
-      state: { nodes, setNodes, shape },
-    } = props;
-    if (selection.parentID == null) return;
-    // Sort the groups by depth that way deeper nested groups are ungrouped first.
-    selection.ids.sort(
-      (a, b) =>
-        Tree.getDepth(ontology.idToString(a), shape) -
-        Tree.getDepth(ontology.idToString(b), shape),
-    );
-    const prevNodes = Tree.deepCopy(nodes);
-    const nextNodes = [
-      ...selection.ids.reduce(
-        (acc, id) => {
-          const key = ontology.idToString(id);
-          const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
-          acc = Tree.moveNode({
-            tree: acc,
-            destination: ontology.idsEqual(selection.parentID, selection.rootID)
-              ? null
-              : ontology.idToString(selection.parentID),
-            keys: children.map((c) => c.key),
-          });
-          acc = Tree.removeNode({ tree: acc, keys: key });
-          return [...acc];
-        },
-        [...nodes],
-      ),
-    ];
-    setNodes(nextNodes);
-    mut.mutate({ ...props, state: { ...props.state, nodes: prevNodes } });
-  };
-};
 
-const useCreateEmpty = (): ((
-  props: Ontology.TreeContextMenuProps,
-) => Promise<void>) => {
-  const mut = useMutation<
-    void,
-    Error,
-    Ontology.TreeContextMenuProps & { newID: ontology.ID }
-  >({
-    onMutate: async ({
-      selection: { ids },
-      state: { nodes, setNodes, expand, getResource, setResource },
-      newID,
-    }) => {
-      if (ids.length === 0) return;
-      const resource = getResource(ids[ids.length - 1]);
-      const res: ontology.Resource = {
-        key: ontology.idToString(newID),
-        id: newID,
-        name: "",
-      };
-      setResource(res);
-      expand(ontology.idToString(resource.id));
-      setNodes([
-        ...Tree.setNode({
-          tree: nodes,
-          destination: ontology.idToString(resource.id),
-          additions: res,
-        }),
-      ]);
-    },
-    mutationFn: async ({
-      client,
-      selection: { ids },
-      newID,
-      state: { getResource },
-    }) => {
-      const resource = getResource(ids[ids.length - 1]);
-      const [name, renamed] = await Text.asyncEdit(ontology.idToString(newID));
-      if (!renamed) throw new errors.Canceled();
-      await client.ontology.groups.create(resource.id, name, newID.key);
-    },
-    onError: async (
-      e,
-      { state: { nodes, setNodes }, handleError, selection, newID },
-    ) => {
-      if (selection.ids.length === 0) return;
-      if (!errors.Canceled.matches(e)) handleError(e, "Failed to create group");
-      setNodes([...Tree.removeNode({ tree: nodes, keys: ontology.idToString(newID) })]);
-    },
+const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
+  const { update } = Group.useCreate({
+    beforeUpdate: useCallback(
+      async ({ value }: Flux.BeforeUpdateArgs<Group.CreateValue>) => {
+        const {
+          state: { nodes, setNodes, expand, setResource },
+        } = props;
+        const newID = group.ontologyID(uuid.create());
+        const newIDString = ontology.idToString(newID);
+        const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+        setResource(res);
+        const parentIDString = ontology.idToString(value.parent);
+        expand(parentIDString);
+        setNodes([
+          ...Tree.setNode({
+            tree: nodes,
+            destination: parentIDString,
+            additions: res,
+          }),
+        ]);
+        const [name, renamed] = await Text.asyncEdit(newIDString);
+        if (!renamed) return false;
+        return { ...value, key: newID.key, name };
+      },
+      [props],
+    ),
+    afterFailure: useCallback(
+      async ({ status, value }: Flux.AfterFailureArgs<Group.CreateValue>) => {
+        const {
+          addStatus,
+          state: { nodes, setNodes },
+        } = props;
+        addStatus(status);
+        setNodes([
+          ...Tree.removeNode({
+            tree: nodes,
+            keys: ontology.idToString(group.ontologyID(value.key)),
+          }),
+        ]);
+      },
+      [props],
+    ),
   });
-  return async (props: Ontology.TreeContextMenuProps) =>
-    mut.mutate({ ...props, newID: group.ontologyID(uuid.create()) });
+  const {
+    selection: { ids },
+  } = props;
+  return useCallback(
+    () => update({ key: uuid.create(), name: "", parent: ids[0] }),
+    [ids],
+  );
 };
 
 const handleRename: Ontology.HandleTreeRename = {
