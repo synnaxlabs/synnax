@@ -379,18 +379,6 @@ jobs:
           # Install NSIS if not already installed
           choco install nsis -y
 
-          # Check location of nsis
-          $nsisPath = (Get-Command nsis -ErrorAction SilentlyContinue)?.Source
-          if (-not $nsisPath) {
-              # Try to find makensis.exe in PATH as fallback
-              $nsisPath = (Get-Command makensis.exe -ErrorAction SilentlyContinue)?.Source
-          }
-          if (-not $nsisPath) {
-              Write-Error "NSIS (nsis or makensis.exe) not found in PATH after installation."
-              exit 1
-          } else {
-              Write-Host "NSIS found at $nsisPath"
-          }
 
           # Define NSIS paths
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
