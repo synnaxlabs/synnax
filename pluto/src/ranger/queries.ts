@@ -719,7 +719,7 @@ export const { useUpdate: useUpdateKV } = Flux.createUpdate<UseUpdateKVArgs>({
   },
 });
 
-export const { useUpdate } = Flux.createUpdate<ranger.Payload, SubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<ranger.New, SubStore>({
   name: "Range",
   update: async ({ client, value, store }) => {
     const rng = await client.ranges.create(value);

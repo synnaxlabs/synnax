@@ -9,8 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Ranger, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import {
+  type Flux,
+  Icon,
+  Menu as PMenu,
+  Ranger,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -135,33 +143,44 @@ export const useViewDetails = (): ((key: string) => void) => {
 
 export const useDelete = () => {
   const dispatch = useDispatch();
-  const client = Synnax.use();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
   };
-  const handleError = Status.useErrorHandler();
   const confirm = useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-
-  return useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const rng = ranges.find((r) => r.key === key);
-      if (rng == null || !(await confirm(rng))) throw new errors.Canceled();
-      handleRemove([key]);
-      remover(key);
-      return rng;
-    },
-    mutationFn: async (key: string) => await client?.ranges.delete(key),
-    onError: (e, _, range) => {
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete range");
-      dispatch(add({ ranges: [range as Range] }));
-    },
+  const { update } = Ranger.useDelete({
+    beforeUpdate: useCallback(
+      async ({ value }: Flux.BeforeUpdateArgs<ranger.Key | ranger.Key[]>) => {
+        const keys = array.toArray(value);
+        const rng = ranges.filter((r) => keys.includes(r.key));
+        if (!(await confirm(rng))) return false;
+        handleRemove(keys);
+        remover(...keys);
+        return true;
+      },
+      [],
+    ),
   });
+  return update;
+};
+
+export const usePersist = () => {
+  const dispatch = useDispatch();
+  const ranges = useSelectMultiple();
+  const { update } = Ranger.useCreate();
+  return useCallback(
+    (key: string) => {
+      const range = ranges.find((r) => r.key === key);
+      if (range == null || range.variant === "dynamic") return;
+      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
+      update(range);
+    },
+    [dispatch, ranges],
+  );
 };
 
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
@@ -175,7 +194,6 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
   };
-  const handleError = Status.useErrorHandler();
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Layout.useSelectActiveMosaicLayout();
@@ -195,33 +213,17 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   };
 
   const rangeExists = rng != null;
-
   const del = useDelete();
-
-  const save = useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
-      return range;
-    },
-    mutationFn: async (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      await client?.ranges.create({ ...range });
-    },
-    onError: (e) => handleError(e, "Failed to save range"),
-  });
-
+  const persist = usePersist();
   const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => Text.edit(`text-${key}`),
     create: () => handleCreate(),
     remove: () => rangeExists && handleRemove([rng.key]),
-    delete: () => rangeExists && del.mutate(rng.key),
+    delete: () => rangeExists && del(rng.key),
     details: () => rangeExists && handleViewDetails(rng.key),
-    save: () => rangeExists && save.mutate(rng.key),
+    save: () => rangeExists && persist(rng.key),
     link: () =>
       rangeExists &&
       handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),

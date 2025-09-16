@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import { ontology, rack } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "racks";
 
@@ -17,6 +19,8 @@ export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
@@ -76,6 +80,7 @@ const retrieveFn = async ({
   }
   return rack;
 };
+
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
   name: "Racks",
   retrieveCached: ({ store }) => store.racks.list(),
@@ -110,4 +115,20 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   mountListeners: ({ store, onChange, params: { key } }) => [
     store.racks.onSet(onChange, key),
   ],
+});
+
+export type UseDeleteArgs = rack.Key | rack.Key[];
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+  name: "Rack",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((key) => rack.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.add(store.racks.delete(keys));
+    await client.hardware.racks.delete(keys);
+    return value;
+  },
 });

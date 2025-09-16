@@ -9,8 +9,7 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -24,32 +23,18 @@ const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,
 });
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = ({
+  selection: { ids },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Rack" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { ids },
-    }) => {
-      const resources = ids.map((id) => getResource(id));
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      const prevNodes = Tree.deepCopy(nodes);
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ selection: { ids }, client }) =>
-      await client.hardware.racks.delete(ids.map((id) => Number(id.key))),
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete racks");
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => Number(id.key)), [ids]);
+  const beforeUpdate = useCallback(
+    async () => await confirm(getResource(ids)),
+    [confirm, getResource],
+  );
+  const { update } = Rack.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -93,7 +78,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { shape },
   } = props;
   const { ids, rootID } = selection;
-  const handleDelete = useDelete();
+  const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -114,17 +99,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Text.edit(ontology.idToString(ids[0])),
     createSequence,
     copy: () => copyKeyToClipboard(props),
-    delete: () => handleDelete(props),
+    delete: handleDelete,
   };
   const isSingle = ids.length === 1;
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem
-        ids={ids}
-        rootID={rootID}
-        shape={shape}
-        showBottomDivider
-      />
+      <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
       {isSingle && (
         <>
           <Menu.RenameItem />
