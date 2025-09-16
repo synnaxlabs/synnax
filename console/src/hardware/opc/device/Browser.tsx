@@ -18,7 +18,6 @@ import {
   Icon,
   List,
   Status,
-  Task,
   Text,
   TimeSpan,
   Tree,
@@ -29,15 +28,9 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
-import {
-  SCAN_COMMAND_TYPE,
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  type scanConfigZ,
-  type ScannedNode,
-  type scanStatusDataZ,
-  type scanTypeZ,
-} from "@/hardware/opc/task/types";
+import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
+
+import { useRetrieveScanTask } from "./useRetrieveScanTask";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -82,21 +75,11 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
-const { useRetrieve: useRetrieveScanTask } = Task.createRetrieve<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
->({ schemas: SCAN_SCHEMAS });
-
 export const Browser = ({ device }: BrowserProps) => {
   const handleError = Status.useErrorHandler();
   const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
   const opcNodesStore = List.useMapData<string, ScannedNode>();
-
-  const { data: scanTask } = useRetrieveScanTask({
-    type: SCAN_TYPE,
-    rack: device.rack,
-  });
+  const scanTask = useRetrieveScanTask(device.rack);
 
   const [, setLoading] = useState<string>();
   const expand = useMutation({

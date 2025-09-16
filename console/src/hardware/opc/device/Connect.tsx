@@ -53,6 +53,7 @@ import {
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+import { useRetrieveScanTask } from "./useRetrieveScanTask";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
@@ -82,33 +83,20 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
-  const testConnectionMutation = useMutation({
-    onError: (e) => handleError(e, "Failed to test connection"),
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      if (!methods.validate()) return;
-      const rack = await client.hardware.racks.retrieve({
-        key: methods.get<rack.Key>("rack").value,
-      });
-      const scanTasks = await client.hardware.tasks.retrieve({
-        types: [SCAN_TYPE],
-        rack: rack.key,
-        schemas: SCAN_SCHEMAS,
-      });
-      if (scanTasks.length === 0)
-        throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
-      const task = scanTasks[0];
-      const state = await task.executeCommandSync(
+  const rack = methods.get<rack.Key>("rack").value;
+  const scanTask = useRetrieveScanTask(rack);
+  const testConnection = () =>
+    handleError(async () => {
+      if (scanTask == null || !methods.validate()) return;
+      const state = await scanTask.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
         TimeSpan.seconds(10),
         { connection: methods.get("connection").value },
       );
       setConnectionState(state);
-    },
-  });
-  const connectMutation = useMutation({
-    onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
-    mutationFn: async () => {
+    }, "Failed to test connection");
+  const connect = () =>
+    handleError(async () => {
       if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
@@ -133,8 +121,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         configured: true,
       });
       onClose();
-    },
-  });
+    }, "Failed to connect to OPC UA Server");
+
   const hasSecurity =
     Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
       "connection.securityMode",
