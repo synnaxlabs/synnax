@@ -380,6 +380,7 @@ jobs:
 
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
+          $makensisDir = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
           $pluginsDir = Join-Path $nsisDir "Plugins"
           if (-Not (Test-Path $pluginsDir)) {
               Write-Error "Plugins directory '$pluginsDir' does not exist."
@@ -392,6 +393,7 @@ jobs:
           }
 
           where.exe nsis
+          where.exe makensis
 
           if (-Not (Test-Path $pluginPath)) {
               Write-Error "Plugin path '$pluginPath' does not exist."
@@ -409,7 +411,7 @@ jobs:
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer using nsis
-          nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
+          makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"
               exit 1
