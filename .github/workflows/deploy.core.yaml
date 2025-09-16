@@ -317,11 +317,11 @@ jobs:
       #     EOF
       #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
+      # - name: Set up Go
+      #   uses: actions/setup-go@v5
+      #   with:
+      #     go-version-file: go.work
+      #     cache-dependency-path: go.work.sum
 
       # - name: Set up pnpm
       #   uses: pnpm/action-setup@v4
@@ -342,10 +342,10 @@ jobs:
       #   shell: bash
       #   run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      - name: Build
-        working-directory: core
-        run: |
-          go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      # - name: Build
+      #   working-directory: core
+      #   run: |
+      #     go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -365,12 +365,12 @@ jobs:
       #   run: |
       #     relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
 
-      - name: Upload Release Asset
-        if: github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      # - name: Upload Release Asset
+      #   if: github.event_name != 'pull_request'
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   run: |
+      #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
@@ -378,57 +378,59 @@ jobs:
         run: |
           # Install NSIS if not already installed
           choco install nsis -y
+          which nsis
+          which makensis
 
 
-          # Define NSIS paths
-          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
-          $pluginsDir = Join-Path $nsisDir "Plugins"
-          $pluginPath = Join-Path $pluginsDir "x86-unicode"
+          # # Define NSIS paths
+          # $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          # $pluginsDir = Join-Path $nsisDir "Plugins"
+          # $pluginPath = Join-Path $pluginsDir "x86-unicode"
 
-          # 1. Test that the NSIS directory exists
-          if (-Not (Test-Path $nsisDir)) {
-              Write-Error "NSIS directory does not exist at $nsisDir"
-              exit 1
-          } else {
-              Write-Host "NSIS directory exists at $nsisDir"
-          }
+          # # 1. Test that the NSIS directory exists
+          # if (-Not (Test-Path $nsisDir)) {
+          #     Write-Error "NSIS directory does not exist at $nsisDir"
+          #     exit 1
+          # } else {
+          #     Write-Host "NSIS directory exists at $nsisDir"
+          # }
 
-          # 2. Test that the Plugins directory exists
-          if (-Not (Test-Path $pluginsDir)) {
-              Write-Error "NSIS Plugins directory does not exist at $pluginsDir"
-              exit 1
-          } else {
-              Write-Host "NSIS Plugins directory exists at $pluginsDir"
-          }
+          # # 2. Test that the Plugins directory exists
+          # if (-Not (Test-Path $pluginsDir)) {
+          #     Write-Error "NSIS Plugins directory does not exist at $pluginsDir"
+          #     exit 1
+          # } else {
+          #     Write-Host "NSIS Plugins directory exists at $pluginsDir"
+          # }
 
-          # 3. Test that the x86-unicode directory exists
-          if (-Not (Test-Path $pluginPath)) {
-              Write-Error "NSIS x86-unicode plugins directory does not exist at $pluginPath"
-              exit 1
-          } else {
-              Write-Host "NSIS x86-unicode plugins directory exists at $pluginPath"
-          }
+          # # 3. Test that the x86-unicode directory exists
+          # if (-Not (Test-Path $pluginPath)) {
+          #     Write-Error "NSIS x86-unicode plugins directory does not exist at $pluginPath"
+          #     exit 1
+          # } else {
+          #     Write-Host "NSIS x86-unicode plugins directory exists at $pluginPath"
+          # }
 
-          # Ensure EnVar.dll is present in the correct plugin path
-          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
+          # # Ensure EnVar.dll is present in the correct plugin path
+          # Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
 
-          # Log whether EnVar.dll was successfully copied
-          if (Test-Path "$pluginPath\EnVar.dll") {
-              Write-Host "EnVar.dll successfully copied to $pluginPath"
-          } else {
-              Write-Error "Failed to copy EnVar.dll to $pluginPath"
-              exit 1
-          }
+          # # Log whether EnVar.dll was successfully copied
+          # if (Test-Path "$pluginPath\EnVar.dll") {
+          #     Write-Host "EnVar.dll successfully copied to $pluginPath"
+          # } else {
+          #     Write-Error "Failed to copy EnVar.dll to $pluginPath"
+          #     exit 1
+          # }
 
-          # Prepare the binary for packaging
-          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          # # Prepare the binary for packaging
+          # Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
-          # Build the installer using nsis
-          nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
+          # # Build the installer using nsis
+          # nsis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
+          # if ($LASTEXITCODE -ne 0) {
+          #     Write-Error "Failed to build Windows installer"
+          #     exit 1
+          # }
 
       # - name: Sign Windows Installer
       #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
