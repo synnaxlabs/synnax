@@ -169,6 +169,12 @@ const singleRetrieveArgsZ = z.union([
   z
     .object({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+  z
+    .object({
+      type: z.string(),
+      rack: rackKeyZ.optional(),
+    })
+    .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
 export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 
@@ -330,7 +336,7 @@ export class Client {
   }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
-    const isSingle = "key" in args || "name" in args;
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,

@@ -14,7 +14,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  SubStore,
+  FluxSubStore,
   table.Key,
   table.Table
 > = { listeners: [] };
@@ -25,13 +25,13 @@ export interface FluxStore extends Flux.UnaryStore<table.Key, table.Table> {}
 
 export type UseDeleteArgs = table.Params;
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Table",
   update: async ({ client, value, rollbacks, store }) => {
     const keys = array.toArray(value);
@@ -53,7 +53,7 @@ export interface UseCreateResult extends table.Table {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
-  SubStore,
+  FluxSubStore,
   UseCreateResult
 >({
   name: "Table",

@@ -534,7 +534,7 @@ describe("list", () => {
     });
   });
 
-  interface SubStore extends Flux.Store {
+  interface FluxSubStore extends Flux.Store {
     ranges: aetherRanger.FluxStore;
   }
 
@@ -793,7 +793,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -819,7 +819,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -846,7 +846,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -873,7 +873,7 @@ describe("list", () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -901,7 +901,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -936,7 +936,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<TestParams, number, record.Keyed<number>, SubStore>({
+          Flux.createList<TestParams, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -962,7 +962,7 @@ describe("list", () => {
 
       renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxSubStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
@@ -992,7 +992,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxSubStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -1039,7 +1039,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxSubStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -1082,7 +1082,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxSubStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
@@ -1135,7 +1135,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxSubStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),

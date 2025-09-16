@@ -7,11 +7,11 @@ export const FLUX_STORE_KEY = "ranges";
 
 export interface FluxStore extends flux.UnaryStore<ranger.Key, ranger.Range> {}
 
-interface SubStore extends flux.Store {
+interface FluxSubStore extends flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_LISTENER: flux.ChannelListener<SubStore, typeof ranger.payloadZ> = {
+const SET_LISTENER: flux.ChannelListener<FluxSubStore, typeof ranger.payloadZ> = {
   channel: ranger.SET_CHANNEL_NAME,
   schema: ranger.payloadZ,
   onChange: async ({ store, changed, client }) => {
@@ -31,14 +31,14 @@ const SET_LISTENER: flux.ChannelListener<SubStore, typeof ranger.payloadZ> = {
   },
 };
 
-const DELETE_LISTENER: flux.ChannelListener<SubStore, typeof ranger.keyZ> = {
+const DELETE_LISTENER: flux.ChannelListener<FluxSubStore, typeof ranger.keyZ> = {
   channel: ranger.DELETE_CHANNEL_NAME,
   schema: ranger.keyZ,
   onChange: ({ store, changed }) => store.ranges.delete(changed),
 };
 
 export const FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
-  SubStore,
+  FluxSubStore,
   ranger.Key,
   ranger.Range
 > = {

@@ -20,7 +20,7 @@ export const FLUX_STORE_KEY = "tasks";
 export interface FluxStore
   extends Flux.UnaryStore<task.Key, task.Task, ChangeVariant> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -33,7 +33,7 @@ const LOADING_COMMANDS = ["start", "stop"];
 
 type ChangeVariant = "config" | "status";
 
-const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
+const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.keyZ,
   onChange: async ({ store, changed: key, client }) =>
@@ -44,7 +44,7 @@ const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
     ),
 };
 
-const DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
+const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
   channel: task.DELETE_CHANNEL_NAME,
   schema: task.keyZ,
   onChange: ({ store, changed }) => store.tasks.delete(changed),
@@ -52,7 +52,7 @@ const DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
 
 const unknownStatusZ = task.statusZ(z.unknown());
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof unknownStatusZ> = {
   channel: task.STATUS_CHANNEL_NAME,
   schema: unknownStatusZ,
   onChange: async ({ store, changed, client }) => {
@@ -70,7 +70,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ>
   },
 };
 
-const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ> = {
+const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.commandZ> = {
   channel: task.COMMAND_CHANNEL_NAME,
   schema: task.commandZ,
   onChange: ({ store, changed, client }) =>
@@ -95,7 +95,7 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ>
 export const useStatusSynchronizer = (
   onStatus: (status: task.Status) => void,
 ): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = Flux.useStore<FluxSubStore>();
   useEffect(
     () =>
       store.tasks.onSet((task) => {
@@ -105,7 +105,7 @@ export const useStatusSynchronizer = (
   );
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
 };
 
@@ -120,7 +120,7 @@ const retrieveByKey = async <
   StatusData extends z.ZodType = z.ZodType,
 >(
   client: Synnax,
-  store: SubStore,
+  store: FluxSubStore,
   params: RetrieveQueryParams & { key: task.Key },
   schemas?: task.Schemas<Type, Config, StatusData>,
 ): Promise<task.Task<Type, Config, StatusData>> => {
@@ -145,7 +145,7 @@ export const createRetrieveQuery = <
   Flux.createRetrieve<
     RetrieveQueryParams,
     task.Task<Type, Config, StatusData> | null,
-    SubStore
+    FluxSubStore
   >({
     name: "Task",
     retrieve: async ({ client, params, store }) => {
@@ -171,7 +171,7 @@ export interface ListParams {
   limit?: number;
 }
 
-export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore>({
+export const useList = Flux.createList<ListParams, task.Key, task.Task, FluxSubStore>({
   name: "Task",
   retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, params, store }) => {
@@ -269,66 +269,68 @@ export const createForm = <
 }: CreateFormArgs<Type, Config, StatusData>) => {
   const schema = createSchema<Type, Config, StatusData>(schemas);
   const actualInitialValues = taskToFormValues<Type, Config, StatusData>(initialValues);
-  return Flux.createForm<UseFormParams, FormSchema<Type, Config, StatusData>, SubStore>(
-    {
-      name: "Task",
-      schema,
-      initialValues: actualInitialValues,
-      retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
-        if (key == null) return;
-        const task = await retrieveByKey<Type, Config, StatusData>(
-          client,
-          store,
-          { key },
-          schemas,
-        );
-        reset(taskToFormValues(task.payload));
-      },
-      update: async ({ client, store, ...form }) => {
-        const value = form.value();
-        const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
-        const task = await rack.createTask({
-          key: value.key,
-          name: value.name,
-          type: value.type,
-          config: value.config,
-        });
-        store.tasks.set(
-          task.key,
-          (p) => {
-            if (p == null) return p;
-            task.status = p.status;
-            return task;
-          },
-          "config",
-        );
-        const updatedValues = taskToFormValues<Type, Config, StatusData>(
-          task.payload as task.Payload<Type, Config, StatusData>,
-        );
-        form.set("key", updatedValues.key);
-        form.set("name", updatedValues.name);
-        form.set("rackKey", updatedValues.rackKey);
-        form.set("type", updatedValues.type);
-        form.set("config", updatedValues.config);
-        form.set("snapshot", updatedValues.snapshot);
-      },
-      mountListeners: ({ store, get, reset, set }) => [
-        store.tasks.onSet((task, variant) => {
-          const prevKey = get<string>("key", { optional: true })?.value;
-          if (prevKey == null || prevKey !== task.key) return;
-          if (variant === "config") {
-            const payload = task.payload as task.Payload<Type, Config, StatusData>;
-            reset(taskToFormValues(payload));
-          } else if (variant === "status") set("status", task.status);
-        }),
-      ],
+  return Flux.createForm<
+    UseFormParams,
+    FormSchema<Type, Config, StatusData>,
+    FluxSubStore
+  >({
+    name: "Task",
+    schema,
+    initialValues: actualInitialValues,
+    retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
+      if (key == null) return;
+      const task = await retrieveByKey<Type, Config, StatusData>(
+        client,
+        store,
+        { key },
+        schemas,
+      );
+      reset(taskToFormValues(task.payload));
     },
-  );
+    update: async ({ client, store, ...form }) => {
+      const value = form.value();
+      const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
+      const task = await rack.createTask({
+        key: value.key,
+        name: value.name,
+        type: value.type,
+        config: value.config,
+      });
+      store.tasks.set(
+        task.key,
+        (p) => {
+          if (p == null) return p;
+          task.status = p.status;
+          return task;
+        },
+        "config",
+      );
+      const updatedValues = taskToFormValues<Type, Config, StatusData>(
+        task.payload as task.Payload<Type, Config, StatusData>,
+      );
+      form.set("key", updatedValues.key);
+      form.set("name", updatedValues.name);
+      form.set("rackKey", updatedValues.rackKey);
+      form.set("type", updatedValues.type);
+      form.set("config", updatedValues.config);
+      form.set("snapshot", updatedValues.snapshot);
+    },
+    mountListeners: ({ store, get, reset, set }) => [
+      store.tasks.onSet((task, variant) => {
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null || prevKey !== task.key) return;
+        if (variant === "config") {
+          const payload = task.payload as task.Payload<Type, Config, StatusData>;
+          reset(taskToFormValues(payload));
+        } else if (variant === "status") set("status", task.status);
+      }),
+    ],
+  });
 };
 
 export type UseDeleteArgs = task.Key | task.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Task",
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
@@ -341,3 +343,35 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
     return value;
   },
 });
+
+export type UseRetrieveArgs = task.SingleRetrieveArgs;
+
+export interface CreateRetrieveArgs<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> {
+  schemas: task.Schemas<Type, Config, StatusData>;
+}
+
+export const createRetrieve = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>({
+  schemas,
+}: CreateRetrieveArgs<Type, Config, StatusData>) =>
+  Flux.createRetrieve<
+    UseRetrieveArgs,
+    task.Task<Type, Config, StatusData>,
+    FluxSubStore
+  >({
+    name: "Task",
+    retrieve: async ({ client, params }) => {
+      const task = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
+        ...params,
+        schemas,
+      });
+      return task;
+    },
+  });

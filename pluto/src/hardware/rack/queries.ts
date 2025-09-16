@@ -17,13 +17,13 @@ export const FLUX_STORE_KEY = "racks";
 
 export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
   channel: rack.SET_CHANNEL_NAME,
   schema: rack.keyZ,
   onChange: async ({ store, changed, client }) => {
@@ -35,13 +35,13 @@ const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
   },
 };
 
-const DELETE_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+const DELETE_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
   channel: rack.DELETE_CHANNEL_NAME,
   schema: rack.keyZ,
   onChange: ({ store, changed }) => store.racks.delete(changed),
 };
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.statusZ> = {
   channel: rack.STATUS_CHANNEL_NAME,
   schema: rack.statusZ,
   onChange: ({ store, changed }) =>
@@ -50,7 +50,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> =
     ),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
 };
 
@@ -69,7 +69,7 @@ const retrieveFn = async ({
   client,
   params,
   store,
-}: Flux.RetrieveArgs<RetrieveParams, SubStore>) => {
+}: Flux.RetrieveArgs<RetrieveParams, FluxSubStore>) => {
   let rack = store.racks.get(params.key);
   if (rack == null) {
     rack = await client.hardware.racks.retrieve({
@@ -81,7 +81,7 @@ const retrieveFn = async ({
   return rack;
 };
 
-export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
+export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, FluxSubStore>({
   name: "Racks",
   retrieveCached: ({ store }) => store.racks.list(),
   retrieve: async ({ client, params, store }) => {
@@ -108,7 +108,7 @@ export interface RetrieveParams {
 export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   RetrieveParams,
   rack.Payload,
-  SubStore
+  FluxSubStore
 >({
   name: "Rack",
   retrieve: retrieveFn,
@@ -119,7 +119,7 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
 
 export type UseDeleteArgs = rack.Key | rack.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Rack",
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);

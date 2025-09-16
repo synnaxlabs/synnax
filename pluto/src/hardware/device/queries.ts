@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, type Synnax } from "@synnaxlabs/client";
+import { device, group, ontology, type Synnax } from "@synnaxlabs/client";
 import { array, primitive, type record } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
@@ -18,13 +18,13 @@ export const FLUX_STORE_KEY = "devices";
 
 export interface FluxStore extends Flux.UnaryStore<string, device.Device> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   devices: Flux.UnaryStore<device.Key, device.Device>;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.deviceZ> = {
+const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.deviceZ> = {
   channel: device.SET_CHANNEL_NAME,
   schema: device.deviceZ,
   onChange: ({ store, changed }) =>
@@ -34,13 +34,13 @@ const SET_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.deviceZ>
     }),
 };
 
-const DELETE_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.keyZ> = {
+const DELETE_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.keyZ> = {
   channel: device.DELETE_CHANNEL_NAME,
   schema: device.keyZ,
   onChange: ({ store, changed }) => store.devices.delete(changed),
 };
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof device.statusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.statusZ> = {
   channel: device.STATUS_CHANNEL_NAME,
   schema: device.statusZ,
   onChange: ({ store, changed }) => {
@@ -50,12 +50,12 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof device.statusZ>
   },
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER, SET_STATUS_LISTENER],
 };
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = Flux.useStore<FluxSubStore>();
   useEffect(() => store.devices.onSet(onSet), [store]);
 };
 
@@ -65,7 +65,7 @@ const retrieveByKey = async <
   Model extends string = string,
 >(
   client: Synnax,
-  store: SubStore,
+  store: FluxSubStore,
   params: device.SingleRetrieveArgs,
 ): Promise<device.Device<Properties, Make, Model>> => {
   const cached = store.devices.get(params.key);
@@ -86,7 +86,7 @@ export const createRetrieve = <
   Flux.createRetrieve<
     device.SingleRetrieveArgs,
     device.Device<Properties, Make, Model>,
-    SubStore
+    FluxSubStore
   >({
     name: "Device",
     retrieve: async ({ client, params, store }) =>
@@ -107,48 +107,51 @@ export const {
 
 export interface ListParams extends device.MultiRetrieveArgs {}
 
-export const useList = Flux.createList<ListParams, device.Key, device.Device, SubStore>(
-  {
-    name: "Devices",
-    retrieveCached: ({ store, params }) =>
-      store.devices.get((d) => {
-        if (primitive.isNonZero(params.makes) && !params.makes.includes(d.make))
-          return false;
-        if (primitive.isNonZero(params.models) && !params.models.includes(d.model))
-          return false;
-        if (primitive.isNonZero(params.racks) && !params.racks.includes(d.rack))
-          return false;
-        if (
-          primitive.isNonZero(params.locations) &&
-          !params.locations.includes(d.location)
-        )
-          return false;
-        if (primitive.isNonZero(params.names) && !params.names.includes(d.name))
-          return false;
-        if (primitive.isNonZero(params.keys) && !params.keys.includes(d.key))
-          return false;
-        return true;
-      }),
-    retrieve: async ({ client, params, store }) => {
-      const devices = await client.hardware.devices.retrieve({
-        includeStatus: true,
-        ...params,
-      });
-      devices.forEach((d) => store.devices.set(d.key, d));
-      return devices;
-    },
-    retrieveByKey: async ({ client, key, store }) =>
-      await retrieveByKey(client, store, { key }),
-    mountListeners: ({ store, onChange, onDelete }) => [
-      store.devices.onSet((changed) => onChange(changed.key, changed)),
-      store.devices.onDelete(onDelete),
-    ],
+export const useList = Flux.createList<
+  ListParams,
+  device.Key,
+  device.Device,
+  FluxSubStore
+>({
+  name: "Devices",
+  retrieveCached: ({ store, params }) =>
+    store.devices.get((d) => {
+      if (primitive.isNonZero(params.makes) && !params.makes.includes(d.make))
+        return false;
+      if (primitive.isNonZero(params.models) && !params.models.includes(d.model))
+        return false;
+      if (primitive.isNonZero(params.racks) && !params.racks.includes(d.rack))
+        return false;
+      if (
+        primitive.isNonZero(params.locations) &&
+        !params.locations.includes(d.location)
+      )
+        return false;
+      if (primitive.isNonZero(params.names) && !params.names.includes(d.name))
+        return false;
+      if (primitive.isNonZero(params.keys) && !params.keys.includes(d.key))
+        return false;
+      return true;
+    }),
+  retrieve: async ({ client, params, store }) => {
+    const devices = await client.hardware.devices.retrieve({
+      includeStatus: true,
+      ...params,
+    });
+    devices.forEach((d) => store.devices.set(d.key, d));
+    return devices;
   },
-);
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveByKey(client, store, { key }),
+  mountListeners: ({ store, onChange, onDelete }) => [
+    store.devices.onSet((changed) => onChange(changed.key, changed)),
+    store.devices.onDelete(onDelete),
+  ],
+});
 
 export type UseDeleteArgs = device.Key | device.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Device",
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
@@ -166,7 +169,7 @@ export interface UseUpdateArgs extends device.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseUpdateArgs,
-  SubStore,
+  FluxSubStore,
   device.Device
 >({
   name: "Device",
@@ -174,5 +177,29 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const dev = await client.hardware.devices.create(value);
     rollbacks.add(store.devices.set(dev.key, dev));
     return dev;
+  },
+});
+
+export interface UseRetrieveGroupArgs {}
+
+export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+  UseRetrieveGroupArgs,
+  ontology.ID | undefined,
+  FluxSubStore
+>({
+  name: "Device Group",
+  retrieve: async ({ client, store }) => {
+    const rels = store.relationships.get((rel) =>
+      ontology.matchRelationship(rel, {
+        from: ontology.ROOT_ID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      }),
+    );
+    const groups = store.resources.get(rels.map((rel) => ontology.idToString(rel.to)));
+    const cachedRes = groups.find((group) => group.name === "Devices");
+    if (cachedRes != null) return cachedRes.id;
+    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    store.resources.set(res);
+    return res.find((r) => r.name === "Devices")?.id;
   },
 });

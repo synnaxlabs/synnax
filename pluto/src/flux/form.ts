@@ -55,17 +55,17 @@ export interface FormRetrieveArgs<
 export interface CreateFormArgs<
   FormParams extends Params,
   DataSchema extends z.ZodType<state.State>,
-  SubStore extends Store,
+  FluxSubStore extends Store,
 > {
   name: string;
   /** Zod schema for form validation */
   schema: DataSchema;
   /** Default values to use when creating new forms */
   initialValues: z.infer<DataSchema>;
-  update: (args: FormUpdateArgs<DataSchema, SubStore>) => Promise<void>;
-  retrieve: (args: FormRetrieveArgs<FormParams, DataSchema, SubStore>) => Promise<void>;
+  update: (args: FormUpdateArgs<DataSchema, FluxSubStore>) => Promise<void>;
+  retrieve: (args: FormRetrieveArgs<FormParams, DataSchema, FluxSubStore>) => Promise<void>;
   mountListeners?: (
-    args: FormMountListenersArgs<SubStore, FormParams, DataSchema>,
+    args: FormMountListenersArgs<FluxSubStore, FormParams, DataSchema>,
   ) => Destructor | Destructor[];
 }
 
@@ -208,7 +208,7 @@ export const createForm =
   <
     FormParams extends Params,
     Schema extends z.ZodType<state.State>,
-    SubStore extends Store = {},
+    FluxSubStore extends Store = {},
   >({
     name,
     schema,
@@ -216,7 +216,7 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
-  }: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> =>
+  }: CreateFormArgs<FormParams, Schema, FluxSubStore>): UseForm<FormParams, Schema> =>
   ({
     params,
     initialValues,
@@ -233,7 +233,7 @@ export const createForm =
     );
     const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
-    const store = useStore<SubStore>(scope);
+    const store = useStore<FluxSubStore>(scope);
     const listeners = useDestructors();
 
     const form = Form.use<Schema>({

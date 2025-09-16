@@ -9,7 +9,6 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -19,13 +18,13 @@ import {
   Icon,
   List,
   Status,
-  Synnax,
+  Task,
   Text,
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -83,29 +82,22 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
+const { useRetrieve: useRetrieveScanTask } = Task.createRetrieve<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+>({ schemas: SCAN_SCHEMAS });
+
 export const Browser = ({ device }: BrowserProps) => {
-  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
   const opcNodesStore = List.useMapData<string, ScannedNode>();
-  const { data: scanTask } = useQuery({
-    queryKey: [client?.key],
-    queryFn: async () => {
-      if (client == null) return null;
-      const scanTasks = await client.hardware.tasks.retrieve<
-        typeof scanTypeZ,
-        typeof scanConfigZ,
-        typeof scanStatusDataZ
-      >({
-        types: [SCAN_TYPE],
-        rack: device.rack,
-        schemas: SCAN_SCHEMAS,
-      });
-      if (scanTasks.length === 0)
-        throw new UnexpectedError(`No scan task found for device ${device.name}`);
-      return scanTasks[0];
-    },
+
+  const { data: scanTask } = useRetrieveScanTask({
+    type: SCAN_TYPE,
+    rack: device.rack,
   });
+
   const [, setLoading] = useState<string>();
   const expand = useMutation({
     mutationFn: async ({

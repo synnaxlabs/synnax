@@ -12,6 +12,7 @@ import "@/hardware/opc/device/Connect.css";
 import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
+  Device,
   Divider,
   Flex,
   Form,

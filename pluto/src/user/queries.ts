@@ -15,12 +15,12 @@ import { Ontology } from "@/ontology";
 
 export type UseDeleteArgs = user.Key | user.Key[];
 
-export interface SubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "User",
   update: async ({ client, value, store, rollbacks }) => {
     const keys = array.toArray(value);
@@ -30,5 +30,29 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStor
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     await client.users.delete(keys);
     return value;
+  },
+});
+
+export interface UseRetrieveGroupArgs {}
+
+export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+  UseRetrieveGroupArgs,
+  ontology.ID | undefined,
+  FluxSubStore
+>({
+  name: "User Group",
+  retrieve: async ({ client, store }) => {
+    const rels = store.relationships.get((rel) =>
+      ontology.matchRelationship(rel, {
+        from: ontology.ROOT_ID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      }),
+    );
+    const groups = store.resources.get(rels.map((rel) => ontology.idToString(rel.to)));
+    const cachedRes = groups.find((group) => group.name === "Users");
+    if (cachedRes != null) return cachedRes.id;
+    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    store.resources.set(res);
+    return res.find((r) => r.name === "Users")?.id;
   },
 });

@@ -13,11 +13,8 @@ import { array } from "@synnaxlabs/x";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  SubStore,
-  log.Key,
-  log.Log
-> = { listeners: [] };
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, log.Key, log.Log> =
+  { listeners: [] };
 
 export const FLUX_STORE_KEY = "logs";
 
@@ -25,13 +22,13 @@ export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
 
 export type UseDeleteArgs = log.Params;
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Log",
   update: async ({ client, value, rollbacks, store }) => {
     const keys = array.toArray(value);
@@ -53,7 +50,7 @@ export interface UseCreateResult extends log.Log {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
-  SubStore,
+  FluxSubStore,
   UseCreateResult
 >({
   name: "Log",

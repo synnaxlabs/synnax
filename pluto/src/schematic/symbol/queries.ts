@@ -17,13 +17,13 @@ export const FLUX_STORE_KEY = "schematicSymbols";
 export interface FluxStore
   extends Flux.UnaryStore<schematic.symbol.Key, schematic.symbol.Symbol> {}
 
-export interface SubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
 const SET_SYMBOL_LISTENER: Flux.ChannelListener<
-  SubStore,
+  FluxSubStore,
   typeof schematic.symbol.symbolZ
 > = {
   channel: schematic.symbol.SET_CHANNEL_NAME,
@@ -32,7 +32,7 @@ const SET_SYMBOL_LISTENER: Flux.ChannelListener<
 };
 
 const DELETE_SYMBOL_LISTENER: Flux.ChannelListener<
-  SubStore,
+  FluxSubStore,
   typeof schematic.symbol.keyZ
 > = {
   channel: schematic.symbol.DELETE_CHANNEL_NAME,
@@ -41,7 +41,7 @@ const DELETE_SYMBOL_LISTENER: Flux.ChannelListener<
 };
 
 export const STORE_CONFIG: Flux.UnaryStoreConfig<
-  SubStore,
+  FluxSubStore,
   schematic.symbol.Key,
   schematic.symbol.Symbol
 > = {
@@ -52,7 +52,7 @@ export interface RetrieveParams {
   key: string;
 }
 
-const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
+const retrieveByKey = async (client: Synnax, key: string, store: FluxSubStore) => {
   const cached = store.schematicSymbols.get(key);
   if (cached != null) return cached;
   const symbol = await client.workspaces.schematics.symbols.retrieve({ key });
@@ -63,7 +63,7 @@ const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
 export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
   RetrieveParams,
   schematic.symbol.Symbol,
-  SubStore
+  FluxSubStore
 >({
   name: "SchematicSymbols",
   retrieve: async ({ client, params, store }) =>
@@ -91,7 +91,7 @@ export const useList = Flux.createList<
   ListParams,
   string,
   schematic.symbol.Symbol,
-  SubStore
+  FluxSubStore
 >({
   sort: (a, b) => a.name.localeCompare(b.name),
   retrieveCached: ({ params, store }) => {
@@ -159,7 +159,7 @@ export const formSchema = schematic.symbol.symbolZ
     parent: ontology.idZ,
   });
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStore>({
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
   name: "SchematicSymbols",
   initialValues: {
     version: 1,
@@ -221,7 +221,7 @@ export interface RenameArgs {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, FluxSubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
     await client.workspaces.schematics.symbols.rename(value.key, value.name);
@@ -237,7 +237,7 @@ export interface DeleteArgs {
   key: string;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, FluxSubStore>({
   name: "SchematicSymbols",
   update: async ({ client, value, store }) => {
     await client.workspaces.schematics.symbols.delete(value.key);
@@ -249,7 +249,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, SubStore>(
 export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   {},
   group.Payload,
-  SubStore
+  FluxSubStore
 >({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
