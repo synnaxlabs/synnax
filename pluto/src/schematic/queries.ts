@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, type workspace } from "@synnaxlabs/client";
+import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -74,5 +74,31 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const s = await client.workspaces.schematics.create(workspace, rest);
     store.schematics.set(s.key, s);
     return { ...s, workspace };
+  },
+});
+
+export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> {}
+
+export interface UseSnapshotArgs {
+  schematics: SnapshotPair | SnapshotPair[];
+  parentID: ontology.ID;
+}
+
+export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArgs>({
+  name: "Schematic",
+  update: async ({ client, value }) => {
+    const { schematics, parentID } = value;
+    const ids = await Promise.all(
+      array.toArray(schematics).map(async (s) => {
+        const newSchematic = await client.workspaces.schematics.copy({
+          key: s.key,
+          name: `${s.name} (Snapshot)`,
+          snapshot: true,
+        });
+        return schematic.ontologyID(newSchematic.key);
+      }),
+    );
+    await client.ontology.addChildren(parentID, ...ids);
+    return value;
   },
 });

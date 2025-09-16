@@ -375,3 +375,27 @@ export const createRetrieve = <
       return task;
     },
   });
+
+export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
+
+export interface UseSnapshotArgs {
+  tasks: SnapshotPair | SnapshotPair[];
+  parentID: ontology.ID;
+}
+
+export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArgs>({
+  name: "Task",
+  update: async ({ client, value }) => {
+    const { tasks: taskPairs, parentID } = value;
+    const tasks = await Promise.all(
+      array
+        .toArray(taskPairs)
+        .map(({ key, name }) =>
+          client.hardware.tasks.copy(key, `${name} (Snapshot)`, true),
+        ),
+    );
+    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
+    await client.ontology.addChildren(parentID, ...otgIDs);
+    return value;
+  },
+});

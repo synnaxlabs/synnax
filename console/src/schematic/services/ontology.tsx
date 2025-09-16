@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import {
+  type Flux,
   Icon,
   Menu as PMenu,
   Mosaic,
   Schematic as Core,
+  Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -62,14 +64,44 @@ const useCopy = ({
     });
 };
 
-const useSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const snapshot = Schematic.useRangeSnapshot();
-  return ({ selection: { ids }, state: { getResource } }) => {
+export const useRangeSnapshot = () => {
+  const addStatus = Status.useAdder();
+  const rng = Range.useSelect();
+  const buildMessage = useCallback(
+    ({ schematics }: Core.UseSnapshotArgs) =>
+      `${strings.naturalLanguageJoin(
+        array.toArray(schematics).map((s) => s.name),
+        "schematic",
+      )} to ${rng?.name ?? "active range"}`,
+    [rng],
+  );
+  const { update } = Core.useCreateSnapshot({
+    afterSuccess: useCallback(
+      ({ value }: Flux.AfterSuccessArgs<Core.UseSnapshotArgs>) =>
+        addStatus({
+          variant: "success",
+          message: `Successfully snapshotted ${buildMessage(value)}`,
+        }),
+      [buildMessage, addStatus],
+    ),
+    afterFailure: ({ status, value }: Flux.AfterFailureArgs<Core.UseSnapshotArgs>) =>
+      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(value)}` }),
+  });
+  return ({
+    selection: { ids },
+    state: { getResource },
+  }: Ontology.TreeContextMenuProps) => {
+    if (rng == null)
+      return addStatus({
+        variant: "error",
+        message: "Cannot snapshot schematics without an active range",
+      });
     const schematics = ids.map((id) => ({
       key: id.key,
       name: getResource(id).name,
     }));
-    snapshot(schematics);
+    const parentID = ranger.ontologyID(rng.key);
+    update({ schematics, parentID });
   };
 };
 
@@ -81,7 +113,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const handleDelete = useDelete(props);
   const handleCopy = useCopy(props);
-  const snapshot = useSnapshot();
+  const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const group = Group.useCreateFromSelection();

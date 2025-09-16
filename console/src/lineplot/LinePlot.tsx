@@ -37,7 +37,6 @@ import {
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import {
   type ReactElement,
   useCallback,
@@ -242,33 +241,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [syncDispatch, layoutKey],
   );
 
-  const xAxisChannelChange = useMutation<
-    void,
-    Error,
-    Omit<Channel.AxisProps, "location">
-  >({
-    mutationFn: async (axis) => {
-      const key = vis.channels[axis.key as XAxisKey];
-      const prevKey = prevVis?.channels[axis.key as XAxisKey];
-      if (client == null || key === prevKey) return;
-      let newType: axis.TickType = "time";
-      if (primitive.isNonZero(key)) {
-        const ch = await client.channels.retrieve(key);
-        if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
-      }
-      if (axis.type === newType) return;
-      syncDispatch(
-        setAxis({
-          key: layoutKey,
-          axisKey: axis.key as AxisKey,
-          axis: { ...(axis as AxisState), type: newType },
-          triggerRender: true,
-        }),
-      );
-    },
-  });
-  useEffect(() => {
-    xAxisChannelChange.mutate(vis.axes.axes.x1);
+  useAsyncEffect(async () => {
+    const axis = vis.axes.axes.x1;
+    const axisKey = axis.key as XAxisKey;
+    const key = vis.channels[axisKey];
+    const prevKey = prevVis?.channels[axisKey];
+    if (client == null || key === prevKey) return;
+    let newType: axis.TickType = "time";
+    if (primitive.isNonZero(key)) {
+      const ch = await client.channels.retrieve(key);
+      if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
+    }
+    if (axis.type === newType) return;
+    syncDispatch(
+      setAxis({
+        key: layoutKey,
+        axisKey,
+        axis: { ...(axis as AxisState), type: newType },
+        triggerRender: true,
+      }),
+    );
   }, [vis.channels.x1]);
 
   const propsLines = buildLines(vis, ranges);

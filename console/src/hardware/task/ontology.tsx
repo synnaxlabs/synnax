@@ -91,7 +91,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Text.edit(ontology.idToString(ids[0])),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(ids[0].key),
-    rangeSnapshot: () => snap(resources),
+    rangeSnapshot: () =>
+      snap({ tasks: resources.map(({ id: { key }, name }) => ({ key, name })) }),
     group: () => group(props),
   };
   const singleResource = ids.length === 1;

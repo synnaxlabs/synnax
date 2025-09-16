@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import {
   type Haul,
   Icon,
@@ -16,10 +15,10 @@ import {
   Menu as PMenu,
   Ranger,
   Select,
+  Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, type CrudeTimeRange, strings } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -43,8 +42,8 @@ import {
 } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { select, useSelect } from "@/range/selectors";
-import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
+import { useSelect } from "@/range/selectors";
+import { add, remove, rename, setActive } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
@@ -84,27 +83,27 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
-const fetchIfNotInState = async (
-  store: Store<StoreState>,
-  client: Synnax,
-  keys: string | string[],
-): Promise<void> => {
-  const keyList = array.toArray(keys);
-  const missing = keyList.filter((key) => select(store.getState(), key) == null);
-  if (missing.length === 0) return;
-  const ranges = await client.ranges.retrieve(missing);
-  store.dispatch(add({ ranges: fromClientRange(ranges) }));
-};
-
-const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection, client, store }) => {
-      const id = selection.ids[0];
-      await fetchIfNotInState(store, client, id.key);
-      store.dispatch(setActive(id.key));
+const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const addStatus = Status.useAdder();
+  const dispatch = useDispatch();
+  const { retrieve } = Ranger.useRetrieveObservable({
+    onChange: ({ data, variant, status }) => {
+      if (variant !== "success") {
+        if (variant === "error") addStatus(status);
+        return;
+      }
+      dispatch(add({ ranges: fromClientRange(data) }));
+      dispatch(setActive(data.key));
     },
-    onError: (e, { handleError }) => handleError(e, "Failed to activate range"),
-  }).mutate;
+  });
+  return useCallback(
+    (props: Ontology.TreeContextMenuProps) => {
+      const { key } = props.selection.ids[0];
+      retrieve({ key });
+    },
+    [retrieve],
+  );
+};
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const placeLayout = Layout.usePlacer();

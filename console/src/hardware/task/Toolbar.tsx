@@ -354,9 +354,9 @@ const ContextMenu = ({
       export: () => handleExport(keys[0]),
       delete: () => onDelete(keys),
       rangeSnapshot: () =>
-        snapshotToActiveRange(
-          selectedTasks.map(({ name, ontologyID }) => ({ id: ontologyID, name })),
-        ),
+        snapshotToActiveRange({
+          tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({ key, name })),
+        }),
     }),
     [
       onStart,
