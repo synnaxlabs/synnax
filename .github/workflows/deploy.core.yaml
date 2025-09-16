@@ -190,29 +190,29 @@ jobs:
       #     Move-Item -Force relic.exe relic-bin\
       #     echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # - name: Determine OS
-      #   id: os
-      #   shell: bash
-      #   run: |
-      #     if [ "${{ matrix.os }}" = "macos-latest" ]; then
-      #       echo "OS=macos" >> $GITHUB_OUTPUT
-      #     elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-      #       echo "OS=linux" >> $GITHUB_OUTPUT
-      #     elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-      #       echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
-      #     elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-      #       echo "OS=windows" >> $GITHUB_OUTPUT
-      #     fi
+      - name: Determine OS
+        id: os
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            echo "OS=macos" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            echo "OS=linux" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
+            echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            echo "OS=windows" >> $GITHUB_OUTPUT
+          fi
 
-      # - name: Determine Executable Name
-      #   id: executable
-      #   shell: bash
-      #   run: |
-      #     if [ "${{ matrix.os }}" = "windows-latest" ]; then
-      #       echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-      #     else
-      #       echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-      #     fi
+      - name: Determine Executable Name
+        id: executable
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
+          else
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          fi
 
       # - name: Import Apple Developer Certificate
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -317,11 +317,11 @@ jobs:
       #     EOF
       #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      # - name: Set up Go
-      #   uses: actions/setup-go@v5
-      #   with:
-      #     go-version-file: go.work
-      #     cache-dependency-path: go.work.sum
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
       # - name: Set up pnpm
       #   uses: pnpm/action-setup@v4
@@ -342,10 +342,10 @@ jobs:
       #   shell: bash
       #   run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      # - name: Build
-      #   working-directory: core
-      #   run: |
-      #     go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Build
+        working-directory: core
+        run: |
+          go build -tags -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -365,12 +365,12 @@ jobs:
       #   run: |
       #     relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
 
-      # - name: Upload Release Asset
-      #   if: github.event_name != 'pull_request'
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      #   run: |
-      #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Upload Release Asset
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
@@ -431,14 +431,15 @@ jobs:
               Write-Error "Failed to build Windows installer"
               exit 1
           }
-      - name: Sign Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+
+      # - name: Sign Windows Installer
+      #   if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
+      #   env:
+      #     AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      #     AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      #     AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      #   run: |
+      #     relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
       - name: Upload Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
