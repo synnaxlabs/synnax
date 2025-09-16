@@ -317,11 +317,11 @@ jobs:
       #     EOF
       #     gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
+      # - name: Set up Go
+      #   uses: actions/setup-go@v5
+      #   with:
+      #     go-version-file: go.work
+      #     cache-dependency-path: go.work.sum
 
       # - name: Set up pnpm
       #   uses: pnpm/action-setup@v4
@@ -342,10 +342,10 @@ jobs:
       #   shell: bash
       #   run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      - name: Build
-        working-directory: core
-        run: |
-          go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+      # - name: Build
+      #   working-directory: core
+      #   run: |
+      #     go build -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       # - name: Sign macOS Server Binary
       #   if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -381,6 +381,18 @@ jobs:
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $pluginsDir = Join-Path $nsisDir "Plugins"
           $pluginPath = Join-Path $pluginsDir "x86-unicode"
+
+          where.exe nsis
+
+          if (-Not (Test-Path $pluginPath)) {
+              Write-Error "Plugin path '$pluginPath' does not exist."
+              exit 1
+          }
+
+          if (-Not (Test-Path ".\scripts\EnVar.dll")) {
+              Write-Error "Required file '.\scripts\EnVar.dll' does not exist."
+              exit 1
+          }
 
           # Ensure EnVar.dll is present in the correct plugin path
           Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
