@@ -71,7 +71,8 @@ const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
         allowDoubleClick={false}
         value={resource.name}
         overflow="ellipsis"
-        style={{ width: 0, flexGrow: 1 }}
+        style={{ width: 0 }}
+        grow
         onChange
       />
       <Rack.StatusIndicator status={status} />

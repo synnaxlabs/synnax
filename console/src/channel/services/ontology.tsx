@@ -290,16 +290,17 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
   const I = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <Flex.Box gap="small" x align="center">
-        <I style={{ color: "var(--pluto-gray-l10" }} />
-        <Text.MaybeEditable
-          id={ontology.idToString(id)}
-          allowDoubleClick={false}
-          value={name}
-          disabled={!allowRename(resource)}
-          onChange
-        />
-      </Flex.Box>
+      <I style={{ color: "var(--pluto-gray-l10" }} />
+      <Text.MaybeEditable
+        id={ontology.idToString(id)}
+        allowDoubleClick={false}
+        value={name}
+        overflow="ellipsis"
+        style={{ width: 0 }}
+        grow
+        disabled={!allowRename(resource)}
+        onChange
+      />
       {data.virtual && (
         <Icon.Virtual
           style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}
