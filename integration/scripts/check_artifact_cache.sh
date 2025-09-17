@@ -22,7 +22,7 @@ fi
 REBUILD_PATHS=(
     ".bazeliskrc"
     ".bazelrc"
-    ".github/workflows/${GITHUB_WORKFLOW:-test.integration.yaml}"
+    ".github/workflows/**"
     "alamos/go/**"
     "alamos/ts/**"
     "aspen/**"
