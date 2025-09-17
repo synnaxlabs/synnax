@@ -31,6 +31,25 @@ interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
+export type UseRetrieveArgs = linePlot.SingleRetrieveArgs;
+
+export const retrieveSingle = async ({
+  store,
+  client,
+  params: { key },
+}: Flux.RetrieveArgs<UseRetrieveArgs, FluxSubStore>) => {
+  const cached = store.lineplots.get(key);
+  if (cached != null) return cached;
+  const plot = await client.workspaces.lineplots.retrieve({ key });
+  return plot;
+};
+
+export const { useRetrieve } = Flux.createRetrieve<
+  UseRetrieveArgs,
+  linePlot.LinePlot,
+  FluxSubStore
+>({ name: "LinePlot", retrieve: retrieveSingle });
+
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "LinePlot",
   update: async ({ client, value, rollbacks, store }) => {
@@ -62,5 +81,29 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const l = await client.workspaces.lineplots.create(workspace, rest);
     store.lineplots.set(l.key, l);
     return { ...l, workspace };
+  },
+});
+
+export interface UseRenameArgs {
+  key: linePlot.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "LinePlot",
+  update: async ({ client, value, rollbacks, store }) => {
+    const { key } = value;
+    await client.workspaces.lineplots.rename(key, value.name);
+    rollbacks.add(
+      store.lineplots.set(key, (p) =>
+        p == null ? undefined : { ...p, name: value.name },
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(key, (r) =>
+        r == null ? undefined : { ...r, name: value.name },
+      ),
+    );
+    return value;
   },
 });

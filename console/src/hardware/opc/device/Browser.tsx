@@ -83,10 +83,10 @@ export const Browser = ({ device }: BrowserProps) => {
     run: expand,
     variant,
     status: { key, ...status },
-  } = Flux.useAsyncOperation(
-    "OPC Node",
-    "Retrieve",
-    async ({
+  } = Flux.useAction({
+    resourceName: "OPC Node",
+    opName: "Retrieve",
+    action: async ({
       action,
       delay,
       clicked,
@@ -121,7 +121,7 @@ export const Browser = ({ device }: BrowserProps) => {
           }),
         ]);
     },
-  );
+  });
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);

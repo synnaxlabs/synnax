@@ -26,7 +26,6 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { array, deep, type observe } from "@synnaxlabs/x";
-import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import {
   createContext,
   type DragEvent,
@@ -58,7 +57,6 @@ interface InternalProps {
 }
 
 interface ContextValue {
-  onRename: (key: string, name: string) => void;
   onDrop: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onDragStart: (itemKey: string) => void;
   onDragEnd: (e: DragEvent) => void;
@@ -73,7 +71,6 @@ const useContext = (): ContextValue => useRequiredContext(Context);
 const DefaultItem = ({
   onDoubleClick,
   resource,
-  onRename,
   icon,
   id,
   loading,
@@ -81,10 +78,10 @@ const DefaultItem = ({
 }: TreeItemProps) => (
   <Core.Item {...rest} onDoubleClick={onDoubleClick}>
     {icon}
-    <Text.Editable
+    <Text.MaybeEditable
       id={ontology.idToString(id)}
       value={resource.name}
-      onChange={onRename}
+      onChange
       allowDoubleClick={false}
       style={{
         userSelect: "none",
@@ -103,12 +100,7 @@ const itemRenderProp = Component.renderProp(
     const resource = List.useItem<string, ontology.Resource>(itemKey);
     const service = useServices()[id.type];
     const Item = service.Item ?? DefaultItem;
-    const { onRename, onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } =
-      useContext();
-    const handleRename = useCallback(
-      (name: string) => onRename(itemKey, name),
-      [onRename, itemKey],
-    );
+    const { onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } = useContext();
     const handleDoubleClick = useCallback(
       () => onDoubleClick(itemKey),
       [onDoubleClick, itemKey],
@@ -152,7 +144,6 @@ const itemRenderProp = Component.renderProp(
         icon={icon as Icon.ReactElement}
         resource={resource}
         loading={loading}
-        onRename={handleRename}
       />
     );
   },
@@ -354,51 +345,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
 
-  const rename = useMutation<
-    void,
-    Error,
-    { key: string; name: string },
-    { prevName: string }
-  >({
-    onMutate: ({ key, name: newName }) => {
-      const id = ontology.idZ.parse(key);
-      const svc = services[id.type];
-      if (svc.allowRename == null || svc.onRename == null || client == null) return;
-      const state = getState();
-      const prevName = state.getResource(id).name;
-      svc.onRename?.eager?.({ id, name: newName, state, ...getBaseProps(client) });
-      const prev = state.getResource(id);
-      prev.name = newName;
-      resourceStore.setItem(prev);
-      return { prevName };
-    },
-    mutationFn: useCallback<MutationFunction<void, { key: string; name: string }>>(
-      async ({ key, name }: { key: string; name: string }) => {
-        const id = ontology.idZ.parse(key);
-        const svc = services[id.type];
-        if (svc.allowRename == null || svc.onRename == null || client == null) return;
-        await svc?.onRename?.execute?.({
-          id,
-          name,
-          state: getState(),
-          ...getBaseProps(client),
-        });
-      },
-      [services],
-    ),
-    onError: (error, { key, name }, ctx) => {
-      if (ctx == null || client == null) return;
-      const { prevName } = ctx;
-      const id = ontology.idZ.parse(key);
-      const svc = services[id.type];
-      handleError(error, `Failed to rename ${prevName} to ${name}`);
-      svc.onRename?.rollback?.(
-        { id, name, state: getState(), ...getBaseProps(client) },
-        prevName,
-      );
-    },
-  });
-
   const moveChildren = Ontology.useMoveChildren();
 
   const handleDrop = useCallback(
@@ -463,11 +409,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       ]);
     },
     [getResource, selectedRef],
-  );
-
-  const handleRename = useCallback(
-    (key: string, name: string) => rename.mutate({ key, name }),
-    [rename],
   );
 
   const handleDoubleClick = useCallback(
@@ -549,14 +490,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(
     () => ({
-      onRename: handleRename,
       onDrop: handleDrop,
       useLoading,
       onDoubleClick: handleDoubleClick,
       onDragStart: handleDragStart,
       onDragEnd,
     }),
-    [handleRename, handleDrop, handleDoubleClick, useLoading, onDragEnd],
+    [handleDrop, handleDoubleClick, useLoading, onDragEnd],
   );
 
   return (

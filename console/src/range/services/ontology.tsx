@@ -9,6 +9,7 @@
 
 import { ontology } from "@synnaxlabs/client";
 import {
+  type Flux,
   type Haul,
   Icon,
   List,
@@ -71,18 +72,6 @@ const handleSelect: Ontology.HandleSelect = ({
     });
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ store, id, name }) => {
-    store.dispatch(rename({ key: id.key, name }));
-    store.dispatch(Layout.rename({ key: id.key, name }));
-  },
-  execute: async ({ client, id, name }) => await client.ranges.rename(id.key, name),
-  rollback: ({ store, id }, prevName) => {
-    store.dispatch(rename({ key: id.key, name: prevName }));
-    store.dispatch(Layout.rename({ key: id.key, name: prevName }));
-  },
-};
-
 const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const addStatus = Status.useAdder();
   const dispatch = useDispatch();
@@ -138,6 +127,36 @@ const useDelete = ({
   return useCallback(() => update(keys), [keys]);
 };
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps) => {
+  const dispatch = useDispatch();
+  const { update } = Ranger.useRename({
+    beforeUpdate: useCallback(
+      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Ranger.UseRenameArgs>) => {
+        const { name: oldName } = value;
+        const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+        if (!renamed) return false;
+        dispatch(Layout.rename({ key: firstID.key, name }));
+        dispatch(rename({ key: firstID.key, name }));
+        rollbacks.add(() => {
+          dispatch(Layout.rename({ key: firstID.key, name: oldName }));
+          dispatch(rename({ key: firstID.key, name: oldName }));
+        });
+        return { ...value, name };
+      },
+      [firstID],
+    ),
+  });
+  return useCallback(
+    () => update({ key: firstID.key, name: getResource(firstID).name }),
+    [firstID],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -149,6 +168,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const layout = Layout.useSelectActiveMosaicLayout();
   const keys = ids.map((id) => id.key);
   const handleDelete = useDelete(props);
+  const rename = useRename(props);
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activate = useActivate();
@@ -166,7 +186,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const viewDetails = useViewDetails();
   const handleSelect = {
     delete: handleDelete,
-    rename: () => Text.edit(ontology.idToString(ids[0])),
+    rename,
     setAsActive: () => activate(props),
     addToActivePlot: () => addToActivePlot(keys),
     addToNewPlot: () => addToNewPlot(keys),
@@ -241,8 +261,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onSelect: handleSelect,
   canDrop: () => true,
   haulItems,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   PaletteListItem,
 };

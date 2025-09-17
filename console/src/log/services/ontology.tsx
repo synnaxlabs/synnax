@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { Icon, Log as Core, Menu as PMenu, Mosaic, Text } from "@synnaxlabs/pluto";
+import { type Flux, Icon, Log as Core, Menu as PMenu, Mosaic, Text } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
@@ -41,6 +41,31 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(
+    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
+      const { name: oldName } = value;
+      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      if (!renamed) return false;
+      dispatch(Layout.rename({ key: firstID.key, name }));
+      rollbacks.add(() => dispatch(Layout.rename({ key: firstID.key, name: oldName })));
+      return { ...value, name };
+    },
+    [dispatch, firstID],
+  );
+  const { update } = Core.useRename({ beforeUpdate });
+  return useCallback(
+    () => update({ key: firstID.key, name: getResource(firstID).name }),
+    [update, firstID, getResource],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -49,12 +74,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Log.useExport();
+  const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     delete: handleDelete,
-    rename: () => Text.edit(ontology.idToString(firstID)),
+    rename,
     link: () =>
       handleLink({
         name: firstResource.name,
@@ -82,13 +108,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
-  execute: async ({ client, id: { key }, name }) =>
-    await client.workspaces.logs.rename(key, name),
-  rollback: ({ id: { key }, name, store }) =>
-    store.dispatch(Layout.rename({ key, name })),
-};
 
 const loadLog = async (
   client: Synnax,
@@ -144,8 +163,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems: ({ id }) => [
     { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
   ],
-  allowRename: () => true,
-  onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

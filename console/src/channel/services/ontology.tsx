@@ -278,13 +278,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item = ({
-  id,
-  resource,
-  icon: _,
-  onRename,
-  ...rest
-}: Ontology.TreeItemProps) => {
+export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps) => {
   const activeRange = Range.useSelect();
   const res = PChannel.useRetrieve({
     key: Number(id.key),
@@ -303,7 +297,7 @@ export const Item = ({
           allowDoubleClick={false}
           value={name}
           disabled={!allowRename(resource)}
-          onChange={onRename}
+          onChange
         />
       </Flex.Box>
       {data.virtual && (

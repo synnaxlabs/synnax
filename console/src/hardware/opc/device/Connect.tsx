@@ -9,12 +9,13 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Device,
   Divider,
   Flex,
+  Flux,
   Form,
   Input,
   Nav,
@@ -23,7 +24,6 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
@@ -45,14 +45,13 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
   type TestConnectionStatus,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+
 import { useRetrieveScanTask } from "./useRetrieveScanTask";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
@@ -81,12 +80,13 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
   const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
-  const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const rack = methods.get<rack.Key>("rack").value;
   const scanTask = useRetrieveScanTask(rack);
-  const testConnection = () =>
-    handleError(async () => {
+  const testConnection = Flux.useAction({
+    resourceName: "Connection",
+    opName: "Test",
+    action: async () => {
       if (scanTask == null || !methods.validate()) return;
       const state = await scanTask.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
@@ -94,12 +94,15 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         { connection: methods.get("connection").value },
       );
       setConnectionState(state);
-    }, "Failed to test connection");
-  const connect = () =>
-    handleError(async () => {
+    },
+  });
+  const connect = Flux.useAction({
+    resourceName: "",
+    opName: "Connect",
+    action: async () => {
       if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
-      await testConnectionMutation.mutateAsync();
+      await testConnection.runAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve({
@@ -121,7 +124,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         configured: true,
       });
       onClose();
-    }, "Failed to connect to OPC UA Server");
+    },
+  });
 
   const hasSecurity =
     Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
@@ -129,7 +133,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       { ctx: methods },
     ) != NO_SECURITY_MODE;
   const status =
-    testConnectionMutation.isPending || connectMutation.isPending
+    testConnection.variant === "loading" || connect.variant === "loading"
       ? "loading"
       : undefined;
   return (
@@ -220,15 +224,11 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           <Button.Button
             trigger={Triggers.SAVE}
             status={status}
-            onClick={() => testConnectionMutation.mutate()}
+            onClick={testConnection.run}
           >
             Test Connection
           </Button.Button>
-          <Button.Button
-            status={status}
-            onClick={() => connectMutation.mutate()}
-            variant="filled"
-          >
+          <Button.Button status={status} onClick={connect.run} variant="filled">
             Save
           </Button.Button>
         </Nav.Bar.End>

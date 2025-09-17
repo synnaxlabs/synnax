@@ -174,13 +174,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item = ({
-  id,
-  resource,
-  className,
-  onRename,
-  ...rest
-}: Ontology.TreeItemProps) => {
+const Item = ({ id, resource, className, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
   const devStatus = Device.useRetrieve({ key: id.key }).data?.status;
   return (
@@ -192,7 +186,7 @@ const Item = ({
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}
-          onChange={onRename}
+          onChange
           overflow="ellipsis"
         />
         <Text.Text

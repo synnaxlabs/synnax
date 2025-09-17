@@ -32,6 +32,25 @@ interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
+export type UseRetrieveArgs = schematic.SingleRetrieveArgs;
+
+export const retrieveSingle = async ({
+  store,
+  client,
+  params: { key },
+}: Flux.RetrieveArgs<UseRetrieveArgs, FluxSubStore>) => {
+  const cached = store.schematics.get(key);
+  if (cached != null) return cached;
+  const s = await client.workspaces.schematics.retrieve({ key });
+  return s;
+};
+
+export const { useRetrieve } = Flux.createRetrieve<
+  UseRetrieveArgs,
+  schematic.Schematic,
+  FluxSubStore
+>({ name: "Schematic", retrieve: retrieveSingle });
+
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Schematic",
   update: async ({ client, value, rollbacks, store }) => {
@@ -99,6 +118,30 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArg
       }),
     );
     await client.ontology.addChildren(parentID, ...ids);
+    return value;
+  },
+});
+
+export interface UseRenameArgs {
+  key: schematic.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Schematic",
+  update: async ({ client, value, rollbacks, store }) => {
+    const { key } = value;
+    await client.workspaces.schematics.rename(key, value.name);
+    rollbacks.add(
+      store.schematics.set(key, (s) =>
+        s == null ? undefined : { ...s, name: value.name },
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(key, (r) =>
+        r == null ? undefined : { ...r, name: value.name },
+      ),
+    );
     return value;
   },
 });

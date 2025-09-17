@@ -58,7 +58,7 @@ const useRename = (props: Ontology.TreeContextMenuProps) => {
   return useCallback(() => update({ key: firstKey, name: "" }), [update, firstKey]);
 };
 
-const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
+const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
   const res = Rack.useRetrieve({ key: Number(id.key) });
   const status = res.data?.status;
@@ -70,7 +70,6 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
         id={itemKey}
         allowDoubleClick={false}
         value={resource.name}
-        onChange={(name) => onRename?.(name)}
         overflow="ellipsis"
         style={{ width: 0, flexGrow: 1 }}
       />

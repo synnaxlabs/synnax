@@ -100,6 +100,30 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
+export interface UseRenameArgs {
+  key: workspace.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Workspace",
+  update: async ({ client, value, rollbacks, store }) => {
+    const { key, name } = value;
+    await client.workspaces.rename(key, name);
+    rollbacks.add(
+      store.workspaces.set(key, (w) =>
+        w == null ? undefined : { ...w, name },
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(key, (r) =>
+        r == null ? undefined : { ...r, name },
+      ),
+    );
+    return value;
+  },
+});
+
 export interface UseRetrieveGroupArgs {}
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<

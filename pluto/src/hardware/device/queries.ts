@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, group, ontology, type Synnax } from "@synnaxlabs/client";
+import { device, ontology, type Synnax } from "@synnaxlabs/client";
 import { array, primitive, type record } from "@synnaxlabs/x";
 import { useEffect } from "react";
 

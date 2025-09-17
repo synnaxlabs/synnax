@@ -28,6 +28,25 @@ interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
+export type UseRetrieveArgs = log.SingleRetrieveArgs;
+
+export const retrieveSingle = async ({
+  store,
+  client,
+  params: { key },
+}: Flux.RetrieveArgs<UseRetrieveArgs, FluxSubStore>) => {
+  const cached = store.logs.get(key);
+  if (cached != null) return cached;
+  const l = await client.workspaces.logs.retrieve({ key });
+  return l;
+};
+
+export const { useRetrieve } = Flux.createRetrieve<
+  UseRetrieveArgs,
+  log.Log,
+  FluxSubStore
+>({ name: "Log", retrieve: retrieveSingle });
+
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Log",
   update: async ({ client, value, rollbacks, store }) => {
@@ -59,5 +78,29 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const l = await client.workspaces.logs.create(workspace, rest);
     store.logs.set(l.key, l);
     return { ...l, workspace };
+  },
+});
+
+export interface UseRenameArgs {
+  key: log.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Log",
+  update: async ({ client, value, rollbacks, store }) => {
+    const { key } = value;
+    await client.workspaces.logs.rename(key, value.name);
+    rollbacks.add(
+      store.logs.set(key, (l) =>
+        l == null ? undefined : { ...l, name: value.name },
+      ),
+    );
+    rollbacks.add(
+      store.resources.set(key, (r) =>
+        r == null ? undefined : { ...r, name: value.name },
+      ),
+    );
+    return value;
   },
 });

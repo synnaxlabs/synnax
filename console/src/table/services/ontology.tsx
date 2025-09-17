@@ -9,6 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import {
+  type Flux,
   Icon,
   Menu as PMenu,
   Mosaic,
@@ -50,6 +51,31 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(
+    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
+      const { name: oldName } = value;
+      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      if (!renamed) return false;
+      dispatch(Layout.rename({ key: firstID.key, name }));
+      rollbacks.add(() => dispatch(Layout.rename({ key: firstID.key, name: oldName })));
+      return { ...value, name };
+    },
+    [dispatch, firstID],
+  );
+  const { update } = Core.useRename({ beforeUpdate });
+  return useCallback(
+    () => update({ key: firstID.key, name: getResource(firstID).name }),
+    [update, firstID, getResource],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -58,12 +84,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Table.useExport();
+  const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const first = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     delete: handleDelete,
-    rename: () => Text.edit(ontology.idToString(firstID)),
+    rename,
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
     export: () => handleExport(first.id.key),
     group: () => group(props),
@@ -87,13 +114,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
-  execute: async ({ client, id, name }) =>
-    await client.workspaces.tables.rename(id.key, name),
-  rollback: ({ id: { key }, name, store }) =>
-    store.dispatch(Layout.rename({ key, name })),
-};
 
 const loadTable = async (
   client: Synnax,
@@ -149,8 +169,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems: ({ id }) => [
     { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
   ],
-  allowRename: () => true,
-  onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

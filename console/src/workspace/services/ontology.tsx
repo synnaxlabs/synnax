@@ -9,6 +9,7 @@
 
 import { DisconnectedError, ontology } from "@synnaxlabs/client";
 import {
+  type Flux,
   Icon,
   LinePlot as PLinePlot,
   Log as PLog,
@@ -184,6 +185,31 @@ const useCreateTable = ({
   );
 };
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const dispatch = useDispatch();
+  const beforeUpdate = useCallback(
+    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
+      const { name: oldName } = value;
+      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      if (!renamed) return false;
+      dispatch(rename({ key: firstID.key, name }));
+      rollbacks.add(() => dispatch(rename({ key: firstID.key, name: oldName })));
+      return { ...value, name };
+    },
+    [dispatch, firstID],
+  );
+  const { update } = Core.useRename({ beforeUpdate });
+  return useCallback(
+    () => update({ key: firstID.key, name: getResource(firstID).name }),
+    [update, firstID, getResource],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
@@ -203,11 +229,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleExport = useExport(EXTRACTORS);
   const importLog = LogServices.useImport(firstID.key);
   const importTable = TableServices.useImport(firstID.key);
+  const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
   const handleSelect = {
     delete: handleDelete,
-    rename: () => Text.edit(ontology.idToString(first.id)),
+    rename: handleRename,
     group: () => group(props),
     createLog,
     createPlot,
@@ -309,12 +336,6 @@ const handleSelect: Ontology.HandleSelect = ({
     });
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ id, name, store }) => store.dispatch(rename({ key: id.key, name })),
-  execute: async ({ client, id, name }) => await client.workspaces.rename(id.key, name),
-  rollback: ({ id, store }, prevName) =>
-    store.dispatch(rename({ key: id.key, name: prevName })),
-};
 
 const VALID_CHILDREN: ontology.ResourceType[] = [
   "schematic",
@@ -329,8 +350,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "workspace",
   icon: <Icon.Workspace />,
   onSelect: handleSelect,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   canDrop: ({ items }) =>
     items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type user } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
@@ -40,6 +40,27 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
+const useRename = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const beforeUpdate = useCallback(
+    async ({ value }: Flux.BeforeUpdateArgs<User.UseRenameArgs>) => {
+      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      if (!renamed) return false;
+      return { ...value, name };
+    },
+    [firstID],
+  );
+  const { update } = User.useRename({ beforeUpdate });
+  return useCallback(
+    () => update({ key: firstID.key, name: getResource(firstID).name }),
+    [update, firstID, getResource],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
@@ -47,9 +68,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids },
   } = props;
   const handleDelete = useDelete(props);
+  const rename = useRename(props);
   const handleSelect = {
     permissions: () => editPermissions(props),
-    rename: () => Text.edit(ontology.idToString(ids[0])),
+    rename,
     delete: handleDelete,
   };
   const singleResource = ids.length === 1;
@@ -93,16 +115,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) =>
-    await client.users.changeUsername(id.key, name),
-};
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "user",
   icon: <Icon.User />,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
 };

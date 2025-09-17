@@ -13,6 +13,7 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
+  type Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -23,7 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { array, errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -54,11 +55,6 @@ const EmptyContent = () => {
   );
 };
 
-interface RenameArgs {
-  name: string;
-  key: task.Key;
-}
-
 interface StartStopArgs {
   command: Common.Task.Command;
   keys: task.Key[];
@@ -80,53 +76,53 @@ const Content = () => {
   });
   const { fetchMore } = List.usePager({ retrieve });
 
-  const rename = useMutation({
-    onMutate: ({ key }) => getItem(key)?.name ?? "task",
-    mutationFn: async ({ name, key }: RenameArgs) => {
-      const tsk = getItem(key);
-      if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-      if (tsk.status?.details.running === true) {
-        const confirmed = await confirm({
-          message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
-          description: `This will cause ${tsk.name} to stop and be reconfigured.`,
-          cancel: { label: "Cancel" },
-          confirm: { label: "Rename", variant: "error" },
-        });
-        if (!confirmed) return;
-      }
-      dispatch(Layout.rename({ key, name }));
-      if (client == null) throw new DisconnectedError();
-      await client.hardware.tasks.create({ ...tsk, name });
-    },
-    onError: (e, { name }, oldName) => {
-      handleError(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
-    },
-  }).mutate;
+  const { update: rename } = Task.useRename({
+    beforeUpdate: useCallback(
+      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Task.UseRenameArgs>) => {
+        const { key, name } = value;
+        const tsk = getItem(key);
+        if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
+        const oldName = tsk.name;
+        if (tsk.status?.details.running === true) {
+          const confirmed = await confirm({
+            message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
+            description: `This will cause ${tsk.name} to stop and be reconfigured.`,
+            cancel: { label: "Cancel" },
+            confirm: { label: "Rename", variant: "error" },
+          });
+          if (!confirmed) return false;
+        }
+        dispatch(Layout.rename({ key, name }));
+        rollbacks.add(() => dispatch(Layout.rename({ key, name: oldName })));
+        return value;
+      },
+      [],
+    ),
+  });
 
-  const handleDelete = useMutation({
-    mutationFn: async (keys: string[]) => {
-      setSelected([]);
-      if (keys.length === 0) return;
-      if (client == null) throw new DisconnectedError();
-      const names = strings.naturalLanguageJoin(
-        getItem(keys).map(({ name }) => name),
-        "tasks",
-      );
-      const confirmed = await confirm({
-        message: `Are you sure you want to delete ${names}?`,
-        description: "This action cannot be undone.",
-        cancel: { label: "Cancel" },
-        confirm: { label: "Delete", variant: "error" },
-      });
-      if (!confirmed) return;
-      await client.hardware.tasks.delete(keys);
-      dispatch(Layout.remove({ keys }));
-    },
-    onError: (e) => {
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete tasks");
-    },
-  }).mutate;
+  const { update: handleDelete } = Task.useDelete({
+    beforeUpdate: useCallback(
+      async ({ value: keys }: Flux.BeforeUpdateArgs<Task.UseDeleteArgs>) => {
+        setSelected([]);
+        if (keys.length === 0) return false;
+        const names = strings.naturalLanguageJoin(
+          getItem(array.toArray(keys)).map(({ name }) => name),
+          "tasks",
+        );
+        const confirmed = await confirm({
+          message: `Are you sure you want to delete ${names}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        });
+        if (!confirmed) return false;
+        dispatch(Layout.remove({ keys: array.toArray(keys) }));
+        return keys;
+      },
+      [client, dispatch, getItem],
+    ),
+    afterFailure: ({ status }) => addStatus(status),
+  });
 
   const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
