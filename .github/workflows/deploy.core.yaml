@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - rc
-      - sy-2178-modbus-integration
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -165,9 +164,8 @@ jobs:
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on Macos
-        if: matrix.os == 'macos-15'
-        run: |
-          brew install autoconf automake libtool
+        if: matrix.os == 'macos-latest'
+        run: brew install autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
