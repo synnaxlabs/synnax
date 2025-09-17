@@ -81,11 +81,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: package.json
-
       - name: Create Release
         id: create-release
         uses: actions/github-script@v8
@@ -109,7 +104,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: setup
+    needs: [setup, create-release]
     permissions:
       contents: write
     env:
