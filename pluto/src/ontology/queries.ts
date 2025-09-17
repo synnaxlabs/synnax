@@ -126,7 +126,8 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
         parents: direction === "from",
       });
     },
-    retrieveByKey: async ({ client, key }) => await client.ontology.retrieve(key),
+    retrieveByKey: async ({ client, key }) =>
+      await client.ontology.retrieve(ontology.idZ.parse(key)),
     mountListeners: ({ store, onChange, onDelete, client, params: { id } }) => [
       store.relationships.onSet(async (relationship) => {
         if (

@@ -29,7 +29,7 @@ export const useExport = () => Export.use(extract, "symbol");
 
 interface ExportGroupArgs {
   client: Client | null;
-  group: group.Payload;
+  group: group.Group;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
   confirm: Modals.PromptConfirm;
@@ -115,13 +115,13 @@ const exportGroup = async ({
   });
 };
 
-export const useExportGroup = (): ((group: group.Payload) => void) => {
+export const useExportGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   return useCallback(
-    (group: group.Payload) => {
+    (group: group.Group) => {
       handleError(
         () => exportGroup({ client, group, handleError, addStatus, confirm }),
         "Failed to export symbol group",

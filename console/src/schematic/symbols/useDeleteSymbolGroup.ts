@@ -13,13 +13,13 @@ import { useCallback } from "react";
 
 import { useConfirmDelete } from "@/ontology/hooks";
 
-export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
+export const useDeleteSymbolGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirmDelete = useConfirmDelete({ type: "Group" });
   return useCallback(
-    (g: group.Payload) => {
+    (g: group.Group) => {
       handleError(async () => {
         const confirmed = await confirmDelete(g);
         if (!confirmed) return;

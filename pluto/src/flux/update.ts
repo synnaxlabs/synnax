@@ -176,7 +176,6 @@ const useObservable = <
       const { signal } = opts;
       const rollbacks = new Set<Destructor>();
       const runRollbacks = () => {
-        console.log("running rollbacks");
         try {
           rollbacks.forEach((rollback) => rollback());
         } catch (error) {

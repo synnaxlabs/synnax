@@ -428,7 +428,7 @@ export class Client {
       retrieveGroupReqZ,
       retrieveGroupResZ,
     );
-    return new group.Group(res.group.name, res.group.key);
+    return res.group;
   }
 }
 

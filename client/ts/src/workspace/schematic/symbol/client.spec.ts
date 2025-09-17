@@ -10,15 +10,18 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { ontology } from "@/ontology";
-import { type group } from "@/ontology/group";
+import { group } from "@/ontology/group";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
 describe("Symbol Client", () => {
-  let group: group.Group;
+  let symbolGroup: group.Group;
   beforeAll(async () => {
-    group = await client.ontology.groups.create(ontology.ROOT_ID, "Test Symbols");
+    symbolGroup = await client.ontology.groups.create({
+      parent: ontology.ROOT_ID,
+      name: "Test Symbols",
+    });
   });
   describe("create", () => {
     it("should create a single symbol", async () => {
@@ -30,7 +33,7 @@ describe("Symbol Client", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
       expect(symbol.name).toBe("Test Symbol");
       expect(symbol.key).toBeDefined();
@@ -48,7 +51,7 @@ describe("Symbol Client", () => {
             data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
           },
         ],
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
       expect(symbols).toHaveLength(2);
       expect(symbols[0].name).toBe("Symbol 1");
@@ -61,7 +64,7 @@ describe("Symbol Client", () => {
       const created = await client.workspaces.schematics.symbols.create({
         name: "Retrieve Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
 
       const retrieved = await client.workspaces.schematics.symbols.retrieve({
@@ -75,12 +78,12 @@ describe("Symbol Client", () => {
       const created1 = await client.workspaces.schematics.symbols.create({
         name: "Multi Test 1",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
       const created2 = await client.workspaces.schematics.symbols.create({
         name: "Multi Test 2",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
 
       const retrieved = await client.workspaces.schematics.symbols.retrieve({
@@ -95,7 +98,7 @@ describe("Symbol Client", () => {
       const symbol = await client.workspaces.schematics.symbols.create({
         name: "Original Name",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
 
       await client.workspaces.schematics.symbols.rename(symbol.key, "New Name");
@@ -112,7 +115,7 @@ describe("Symbol Client", () => {
       const symbol = await client.workspaces.schematics.symbols.create({
         name: "Delete Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID,
+        parent: group.ontologyID(symbolGroup.key),
       });
 
       await client.workspaces.schematics.symbols.delete(symbol.key);

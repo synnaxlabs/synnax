@@ -20,7 +20,7 @@ export interface CreateFromSelection {
 }
 
 interface CreateArgs extends Ontology.TreeContextMenuProps {
-  group: group.Payload;
+  group: group.Group;
   prevNodes?: Tree.Node<string>[];
 }
 

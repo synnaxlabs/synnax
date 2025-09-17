@@ -248,7 +248,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, FluxSubSto
 
 export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   {},
-  group.Payload,
+  group.Group,
   FluxSubStore
 >({
   name: "SchematicSymbols",

@@ -309,7 +309,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
 
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
-  const group = List.useItem<group.Key, group.Payload & { Icon?: Icon.FC }>(itemKey);
+  const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon: GroupIcon } = group;
@@ -448,7 +448,7 @@ const GroupListContextMenu = ({
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
-  const item = List.useItem<group.Key, group.Payload>(firstKey);
+  const item = List.useItem<group.Key, group.Group>(firstKey);
   const renameModal = Modals.useRename();
   const exportGroup = useExportGroup();
   const deleteSymbolGroup = useDeleteSymbolGroup();
@@ -507,7 +507,7 @@ const GroupList = ({
   onChange,
   symbolGroupID,
 }: GroupListProps): ReactElement => {
-  const staticData = List.useStaticData<group.Key, group.Payload>({
+  const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Symbol.GROUPS,
   });
   const remoteData = Group.useList({ initialParams: { parent: symbolGroupID } });
@@ -518,7 +518,7 @@ const GroupList = ({
   const data = List.useCombinedData({ first: staticData, second: remoteData });
   const menuProps = Menu.useContextMenu();
   return (
-    <Select.Frame<group.Key, group.Payload>
+    <Select.Frame<group.Key, group.Group>
       {...data}
       value={value}
       onChange={onChange}

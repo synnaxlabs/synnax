@@ -447,6 +447,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, FluxSubSto
       ),
     );
     rollbacks.add(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
+    await client.channels.rename(key, name);
     return value;
   },
 });

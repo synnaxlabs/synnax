@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, ontology } from "@synnaxlabs/client";
+import { createTestClient, group, ontology } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -38,13 +38,13 @@ describe("Symbol queries", () => {
 
   describe("useList", () => {
     it("should return a list of symbols for a given parent", async () => {
-      const parent = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "test-symbols-parent",
-      );
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "test-symbols-parent",
+      });
       const symbol1 = await client.workspaces.schematics.symbols.create({
         name: "symbol1",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -57,7 +57,7 @@ describe("Symbol queries", () => {
       });
       const symbol2 = await client.workspaces.schematics.symbols.create({
         name: "symbol2",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -70,12 +70,13 @@ describe("Symbol queries", () => {
       });
 
       const { result } = renderHook(
-        () => Symbol.useList({ initialParams: { parent: parent.ontologyID } }),
+        () =>
+          Symbol.useList({ initialParams: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: parent.ontologyID });
+        result.current.retrieve({ parent: group.ontologyID(parent.key) });
       });
 
       await waitFor(() => {
@@ -94,13 +95,13 @@ describe("Symbol queries", () => {
 
     it("should filter symbols by search term", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        `test-symbols-search-${uniqueId}`,
-      );
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `test-symbols-search-${uniqueId}`,
+      });
       await client.workspaces.schematics.symbols.create({
         name: "valve red",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -113,7 +114,7 @@ describe("Symbol queries", () => {
       });
       await client.workspaces.schematics.symbols.create({
         name: "pump blue",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -126,7 +127,7 @@ describe("Symbol queries", () => {
       });
       await client.workspaces.schematics.symbols.create({
         name: "valve purple",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -141,13 +142,19 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialParams: { parent: parent.ontologyID, searchTerm: "valve" },
+            initialParams: {
+              parent: group.ontologyID(parent.key),
+              searchTerm: "valve",
+            },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: parent.ontologyID, searchTerm: "valve" });
+        result.current.retrieve({
+          parent: group.ontologyID(parent.key),
+          searchTerm: "valve",
+        });
       });
 
       await waitFor(() => {
@@ -163,13 +170,13 @@ describe("Symbol queries", () => {
 
     it("should update when a new symbol is added", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        `test-symbols-live-${uniqueId}`,
-      );
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `test-symbols-live-${uniqueId}`,
+      });
       await client.workspaces.schematics.symbols.create({
         name: "initial-symbol",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg></svg>",
           states: [],
@@ -184,13 +191,13 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialParams: { parent: parent.ontologyID },
+            initialParams: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: parent.ontologyID });
+        result.current.retrieve({ parent: group.ontologyID(parent.key) });
       });
 
       await waitFor(() => {
@@ -201,7 +208,7 @@ describe("Symbol queries", () => {
       await act(async () => {
         await client.workspaces.schematics.symbols.create({
           name: "new-symbol",
-          parent: parent.ontologyID,
+          parent: group.ontologyID(parent.key),
           data: {
             svg: "<svg></svg>",
             states: [],
@@ -255,13 +262,13 @@ describe("Symbol queries", () => {
 
   describe("useForm", () => {
     it("should create a new symbol", async () => {
-      const parent = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "test-symbol-create",
-      );
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "test-symbol-create",
+      });
 
       const { result } = renderHook(
-        () => Symbol.useForm({ params: { parent: parent.ontologyID } }),
+        () => Symbol.useForm({ params: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -286,13 +293,13 @@ describe("Symbol queries", () => {
     });
 
     it("should update an existing symbol", async () => {
-      const parent = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "test-symbol-update",
-      );
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "test-symbol-update",
+      });
       const symbol = await client.workspaces.schematics.symbols.create({
         name: "original-name",
-        parent: parent.ontologyID,
+        parent: group.ontologyID(parent.key),
         data: {
           svg: "<svg>original</svg>",
           states: [],
@@ -307,7 +314,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useForm({
-            params: { key: symbol.key, parent: parent.ontologyID },
+            params: { key: symbol.key, parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
