@@ -45,7 +45,6 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
       label: cancelLabel = "Cancel",
       delay: cancelDelay = 0,
     } = cancel;
-    console.log(confirmDelay);
     const footer = (
       <>
         <Triggers.SaveHelpText action={confirmLabel} />

@@ -260,10 +260,10 @@ export const Logo = {
   LabJack,
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
+  Modbus,
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
-  Modbus,
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
