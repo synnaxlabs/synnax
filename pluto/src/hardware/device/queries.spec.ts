@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, device } from "@synnaxlabs/client";
+import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -23,7 +23,8 @@ describe("queries", () => {
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
-  describe("retrieve", () => {
+
+  describe("useRetrieve", () => {
     it("should return a device", async () => {
       const rack = await client.hardware.racks.create({
         name: "test",
@@ -708,6 +709,101 @@ describe("queries", () => {
         expect(secondResult.current.data).not.toContain(dev2.key);
         expect(secondResult.current.data).not.toContain(dev3.key);
       });
+    });
+  });
+
+  describe("useCreate", () => {
+    it("should create a device", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "test",
+      });
+      const { result } = renderHook(() => Device.useCreate(), {
+        wrapper,
+      });
+      const key = id.create();
+      const dev: device.Device = {
+        key,
+        rack: rack.key,
+        location: "location",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+      };
+      await act(async () => {
+        await result.current.updateAsync(dev);
+      });
+      expect(result.current.variant).toEqual("success");
+      const retrieved = await client.hardware.devices.retrieve({ key });
+      expect(retrieved.key).toEqual(key);
+      expect(retrieved.name).toEqual("test");
+      expect(retrieved.make).toEqual("ni");
+      expect(retrieved.model).toEqual("dog");
+      expect(retrieved.properties).toEqual({ cat: "dog" });
+    });
+  });
+
+  describe("useRename", () => {
+    it("should rename a device", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "test",
+      });
+      const dev = await client.hardware.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "location",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+      });
+      const { result } = renderHook(() => Device.useRename(), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: dev.key, name: "new-name" });
+      });
+      expect(result.current.variant).toEqual("success");
+      const retrieved = await client.hardware.devices.retrieve({ key: dev.key });
+      expect(retrieved.name).toEqual("new-name");
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete a device", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "test",
+      });
+      const dev = await client.hardware.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "location",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+      });
+      const { result } = renderHook(() => Device.useDelete(), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync(dev.key);
+      });
+      expect(result.current.variant).toEqual("success");
+      await expect(client.hardware.devices.retrieve({ key: dev.key })).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+  });
+
+  describe("useRetrieveGroupID", () => {
+    it("should retrieve the group ID", async () => {
+      const { result } = renderHook(() => Device.useRetrieveGroupID({}), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.type).toEqual("group");
+      expect(result.current.data?.key).not.toBeFalsy();
     });
   });
 });
