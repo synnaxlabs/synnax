@@ -111,17 +111,15 @@ const useUngroupSelection = () =>
   Flux.createUpdate<UseUngroupArgs>({
     name: "Group",
     update: async ({ client, value: args }) => {
-      const {
-        selection,
-        state: { nodes },
-      } = args;
-      if (selection.parentID == null) return args;
+      const { selection, prevNodes } = args;
+      if (selection.parentID == null || prevNodes == null) return args;
       const resourceIDStrings = new Set(
         selection.ids.map((id) => ontology.idToString(id)),
       );
       for (const id of selection.ids) {
         const children =
-          Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
+          Tree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
+          [];
         const parentID = selection.parentID;
         const childKeys = ontology.parseIDs(
           children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
@@ -182,42 +180,31 @@ const useUngroupSelection = () =>
 const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
-      async ({ value }: Flux.BeforeUpdateArgs<Group.CreateValue>) => {
+      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Group.CreateValue>) => {
         const {
-          state: { nodes, setNodes, expand, setResource },
+          state: { nodes: tree, setNodes, expand, setResource },
         } = props;
         const newID = group.ontologyID(uuid.create());
         const newIDString = ontology.idToString(newID);
         const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+        const node: Tree.Node<string> = { key: newIDString, children: [] };
         setResource(res);
-        const parentIDString = ontology.idToString(value.parent);
-        expand(parentIDString);
-        setNodes([
-          ...Tree.setNode({
-            tree: nodes,
-            destination: parentIDString,
-            additions: res,
-          }),
-        ]);
+        const destination = ontology.idToString(value.parent);
+        expand(destination);
+        setNodes([...Tree.setNode({ tree, destination, additions: node })]);
+        rollbacks.add(() =>
+          setNodes([...Tree.removeNode({ tree, keys: newIDString })]),
+        );
         const [name, renamed] = await Text.asyncEdit(newIDString);
-        if (!renamed) return false;
+        if (!renamed || name === "") return false;
         return { ...value, key: newID.key, name };
       },
       [props],
     ),
     afterFailure: useCallback(
-      async ({ status, value }: Flux.AfterFailureArgs<Group.CreateValue>) => {
-        const {
-          addStatus,
-          state: { nodes, setNodes },
-        } = props;
+      async ({ status }: Flux.AfterFailureArgs<Group.CreateValue>) => {
+        const { addStatus } = props;
         addStatus(status);
-        setNodes([
-          ...Tree.removeNode({
-            tree: nodes,
-            keys: ontology.idToString(group.ontologyID(value.key)),
-          }),
-        ]);
       },
       [props],
     ),

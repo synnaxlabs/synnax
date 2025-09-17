@@ -284,7 +284,6 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
     key: Number(id.key),
     rangeKey: activeRange?.key,
   }).data;
-  console.log(resource.name, res?.name);
   let name = resource.name;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;

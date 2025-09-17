@@ -175,6 +175,14 @@ const useObservable = <
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
       const rollbacks = new Set<Destructor>();
+      const runRollbacks = () => {
+        console.log("running rollbacks");
+        try {
+          rollbacks.forEach((rollback) => rollback());
+        } catch (error) {
+          console.error(`failed to rollback changes to ${name}`, error);
+        }
+      };
       if (client == null) {
         onChange(nullClientResult(name, "update"));
         return false;
@@ -183,7 +191,10 @@ const useObservable = <
         onChange((p) => pendingResult(name, "updating", p.data));
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, value, rollbacks });
-          if (updatedValue === false) return false;
+          if (updatedValue === false) {
+            runRollbacks();
+            return false;
+          }
           if (updatedValue !== true) value = updatedValue;
         }
         const oValue = await update({
@@ -192,16 +203,15 @@ const useObservable = <
           store,
           rollbacks,
         });
-        if (signal?.aborted === true || oValue == false) return false;
+        if (signal?.aborted === true || oValue == false) {
+          runRollbacks();
+          return false;
+        }
         onChange(successResult(name, "updated", value));
         await afterSuccess?.({ client, value: oValue });
         return true;
       } catch (error) {
-        try {
-          rollbacks.forEach((rollback) => rollback());
-        } catch (rollbackError) {
-          console.error(`failed to rollback changes to ${name}`, rollbackError);
-        }
+        runRollbacks();
         if (signal?.aborted !== true) {
           const result = errorResult<Data | undefined>(name, "update", error);
           onChange(result);
