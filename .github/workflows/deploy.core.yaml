@@ -36,6 +36,7 @@ on:
       - relic.conf
       - scripts/EnVar.dll
       - turbo.json
+      - vendor/libmodbus/**
       - vendor/mbedtls/**
       - vendor/open62541/**
       - x/cpp/**
@@ -70,6 +71,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
+      - vendor/libmodbus/**
       - vendor/mbedtls/**
       - vendor/open62541/**
       - x/cpp/**
@@ -143,14 +145,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
+      - name: Install MSYS2
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            autoconf automake libtool
+
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Deps On Ubuntu
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool
+
+      - name: Install Deps on Macos
+        if: matrix.os == 'macos-latest'
+        run: brew install autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
