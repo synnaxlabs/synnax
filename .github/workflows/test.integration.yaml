@@ -1,6 +1,6 @@
 name: Test - Integration
 
-run-name: >
+run-name:
   ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name)
   }}
 
@@ -8,9 +8,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - rc
   workflow_dispatch:
     inputs:
       RUN_NAME:
@@ -178,7 +175,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Confirm Host (Unix)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os != 'windows-latest'
         run: integration/scripts/confirm_host_unix.sh
 
       - name: Confirm Host (Windows)
@@ -244,19 +241,6 @@ jobs:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
-      - name: Determine OS
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        id: os
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_OUTPUT
-          fi
-
       - name: Determine Executable Name
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: executable
@@ -272,12 +256,11 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: bash
         run: |
-          mkdir -p core/pkg/service/hardware/embedded/assets
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
@@ -288,7 +271,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
