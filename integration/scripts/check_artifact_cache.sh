@@ -66,6 +66,7 @@ done
 
 if [ -n "${CACHED_RUN}" ] && [ -n "${RECENT_SHA}" ]; then
     SAFE_PATHS=(
+        ".github/workflows/test.integration.yaml"
         "docs/"
         "integration/"
         "*.md"

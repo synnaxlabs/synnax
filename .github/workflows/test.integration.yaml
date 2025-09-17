@@ -87,9 +87,6 @@ jobs:
         ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
-      USE_CACHE:
-        ${{ steps.update-outputs.outputs.USE_CACHE ||
-        steps.set-outputs.outputs.USE_CACHE }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -120,45 +117,33 @@ jobs:
             echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
           fi
 
-          if [ "${SKIP_BUILD}" = "false" ]; then
-            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
-            echo "USE_CACHE=true" >> $GITHUB_OUTPUT
-          else
+          if [ "${SKIP_BUILD}" = "true" ]; then
             if [ -z "${REF_RUN_ID}" ]; then
-              RECENT_RUN_ID=$(gh run list --workflow="test.integration.yaml" --status="success" --limit=50 --json="databaseId,conclusion" --jq='.[].databaseId' | head -1)
-              if [ -n "${RECENT_RUN_ID}" ]; then
-                echo "REF_RUN_ID=${RECENT_RUN_ID}" >> $GITHUB_OUTPUT
-              else
-                echo "REF_RUN_ID=0000000000" >> $GITHUB_OUTPUT
-              fi
+              echo "Empty REF_RUN_ID. Setting SKIP_BUILD to false."
+              echo "SKIP_BUILD=false" >> $GITHUB_OUTPUT
             else
               echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
             fi
-            echo "USE_CACHE=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Check for Cached Artifacts
-        if:
-          ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' &&
-          steps.set-outputs.outputs.USE_CACHE == 'true' }}
+        if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' }}
         id: check-cache
         env:
           GH_TOKEN: ${{ github.token }}
         run: integration/scripts/check_artifact_cache.sh all
 
       - name: Update Outputs Based on Cache
+        if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' }}
         id: update-outputs
         run: |
           if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
+            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
             echo "SKIP_BUILD=true" >> $GITHUB_OUTPUT
             echo "REF_RUN_ID=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
-            echo "USE_CACHE=false" >> $GITHUB_OUTPUT
-            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
           else
-            echo "SKIP_BUILD=${{ steps.set-outputs.outputs.SKIP_BUILD }}" >> $GITHUB_OUTPUT
-            echo "REF_RUN_ID=${{ steps.set-outputs.outputs.REF_RUN_ID }}" >> $GITHUB_OUTPUT
-            echo "USE_CACHE=${{ steps.set-outputs.outputs.USE_CACHE }}" >> $GITHUB_OUTPUT
-            echo "Using artifacts from run ${{ steps.set-outputs.outputs.REF_RUN_ID }}"
+            echo "Using this run's artifacts ${{ github.run_id }}"
+            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           fi
 
   confirm-host:
