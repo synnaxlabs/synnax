@@ -126,7 +126,7 @@ const useUngroupSelection = () =>
         );
         await client.ontology.moveChildren(id, parentID, ...childKeys);
       }
-      await client.ontology.groups.delete(...selection.ids.map((id) => id.key));
+      await client.ontology.groups.delete(selection.ids.map((id) => id.key));
       return args;
     },
   }).useUpdate({

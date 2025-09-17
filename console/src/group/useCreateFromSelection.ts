@@ -34,7 +34,7 @@ export const useCreateFromSelection = () => {
         group: { name, key },
       } = value;
       const resourcesToGroup = getResourcesToGroup(ids, shape);
-      await client.ontology.groups.create(parentID, name, key);
+      await client.ontology.groups.create({ parent: parentID, name, key });
       await client.ontology.moveChildren(
         parentID,
         group.ontologyID(key),

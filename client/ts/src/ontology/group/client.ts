@@ -35,7 +35,7 @@ const CREATE_ENDPOINT = "/ontology/create-group";
 const RENAME_ENDPOINT = "/ontology/rename-group";
 const DELETE_ENDPOINT = "/ontology/delete-group";
 
-export interface CreateArgs extends z.input<typeof createReqZ> {}
+export interface CreateArgs extends z.infer<typeof createReqZ> {}
 
 export class Client {
   client: UnaryClient;
