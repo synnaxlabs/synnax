@@ -109,13 +109,13 @@ jobs:
           SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
           if [ -z "${SEQUENCE}" ]; then
             echo "SEQUENCE_ARG=" >> $GITHUB_OUTPUT
           else
             echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
           fi
 
+          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
           if [ "${SKIP_BUILD}" = "true" ]; then
             if [ -z "${REF_RUN_ID}" ]; then
               echo "Empty REF_RUN_ID. Setting SKIP_BUILD to false."
@@ -141,7 +141,7 @@ jobs:
             echo "SKIP_BUILD=true" >> $GITHUB_OUTPUT
             echo "REF_RUN_ID=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
           else
-            echo "Using this run's artifacts ${{ github.run_id }}"
+            echo "Using this run's artifacts - ${{ github.run_id }}"
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           fi
 
