@@ -14,6 +14,7 @@ import { Modals } from "@/modals";
 
 interface UseConfirmDeleteProps {
   type: string;
+  icon?: string;
   description?: string;
 }
 
@@ -24,6 +25,7 @@ interface ConfirmDeleteItem {
 }
 export const useConfirmDelete = ({
   type,
+  icon,
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {
   const confirm = Modals.useConfirm();
@@ -44,7 +46,7 @@ export const useConfirmDelete = ({
           },
           cancel: { label: "Cancel" },
         },
-        { name: `${type}.Delete`, icon: type },
+        { name: `${type}.Delete`, icon: icon ?? type },
       )) ?? false
     );
   };

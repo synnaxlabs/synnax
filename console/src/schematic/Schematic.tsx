@@ -31,7 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
+import { box, deep, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -57,7 +57,6 @@ import {
   useSelectVersion,
 } from "@/schematic/selectors";
 import {
-  addElement,
   calculatePos,
   clearSelection,
   copySelection,
@@ -78,6 +77,7 @@ import {
   toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
@@ -142,7 +142,7 @@ const SymbolRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.SYMBOLS[key as Core.Variant];
+  const C = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -255,13 +255,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
+
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null || event == null) return valid;
       const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
-        const spec = Core.SYMBOLS[key as Core.Variant];
+        const spec = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
         if (spec == null) return;
         const pos = xy.truncate(
           calculatePos(
@@ -271,14 +273,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           ),
           0,
         );
-        undoableDispatch(
-          addElement({
-            key: layoutKey,
-            elKey: id.create(),
-            node: { position: pos, zIndex: spec.zIndex },
-            props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
-          }),
-        );
+        handleAddElement(key.toString(), pos, data);
       });
       return valid;
     },

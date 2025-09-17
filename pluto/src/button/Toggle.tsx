@@ -36,9 +36,9 @@ export const Toggle = ({
       onChange(!value);
     }}
     onContextMenu={(e: React.MouseEvent) => {
+      if (!rightClickToggle) return;
       e.preventDefault();
       e.stopPropagation();
-      if (!rightClickToggle) return;
       onChange(!value);
     }}
     variant={value ? checkedVariant : uncheckedVariant}

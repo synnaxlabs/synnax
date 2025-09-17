@@ -110,6 +110,136 @@ describe("State", () => {
       const fieldState = state.getState("name");
       expect(fieldState.touched).toBe(false);
     });
+
+    describe("markTouched option", () => {
+      it("should mark field as touched when markTouched is true", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("name", "Jane Doe", { markTouched: true });
+        const fieldState = state.getState("name");
+        expect(fieldState.touched).toBe(true);
+      });
+
+      it("should not mark field as touched when markTouched is false", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("name", "Jane Doe", { markTouched: false });
+        const fieldState = state.getState("name");
+        expect(fieldState.touched).toBe(false);
+      });
+
+      it("should mark field as touched by default when value changes", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("name", "Jane Doe");
+        const fieldState = state.getState("name");
+        expect(fieldState.touched).toBe(true);
+      });
+
+      it("should mark nested fields as touched when markTouched is true", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("profile.bio", "New bio", { markTouched: true });
+        const fieldState = state.getState("profile.bio");
+        expect(fieldState.touched).toBe(true);
+      });
+
+      it("should not mark nested fields as touched when markTouched is false", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("profile.bio", "New bio", { markTouched: false });
+        const fieldState = state.getState("profile.bio");
+        expect(fieldState.touched).toBe(false);
+      });
+
+      it("should mark array elements as touched when markTouched is true", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("tags.0", "new-tag", { markTouched: true });
+        const fieldState = state.getState("tags.0");
+        expect(fieldState.touched).toBe(true);
+      });
+
+      it("should not mark array elements as touched when markTouched is false", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("tags.0", "new-tag", { markTouched: false });
+        const fieldState = state.getState("tags.0");
+        expect(fieldState.touched).toBe(false);
+      });
+
+      it("should still clear touched when value equals initial regardless of markTouched", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("name", "Jane Doe", { markTouched: true });
+        expect(state.getState("name").touched).toBe(true);
+
+        // Setting back to initial should clear touched even with markTouched: true
+        state.setValue("name", "John Doe", { markTouched: true });
+        expect(state.getState("name").touched).toBe(false);
+      });
+
+      it("should handle markTouched for entire object replacement", () => {
+        const state = new State(initialValues, basicSchema);
+        const newValues = { ...initialValues, name: "Jane Doe" };
+        state.setValue("", newValues, { markTouched: true });
+        const fieldState = state.getState("");
+        expect(fieldState.touched).toBe(true);
+      });
+
+      it("should respect markTouched when setting undefined values", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("optionalField", "some value", { markTouched: true });
+        expect(state.getState("optionalField").touched).toBe(true);
+
+        state.setValue("optionalField", undefined, { markTouched: false });
+        expect(state.getState("optionalField", { optional: true })).toBeNull();
+      });
+
+      it("should work with validation when markTouched is used", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("email", "invalid-email", { markTouched: true });
+
+        const isValid = state.validate();
+        expect(isValid).toBe(false);
+
+        const fieldState = state.getState("email");
+        expect(fieldState.touched).toBe(true);
+        expect(fieldState.status.variant).toBe("error");
+      });
+
+      it("should not trigger validation for untouched fields when markTouched is false", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setValue("email", "invalid-email", { markTouched: false });
+
+        const isValid = state.validate();
+        expect(isValid).toBe(true);
+
+        const fieldState = state.getState("email");
+        expect(fieldState.touched).toBe(false);
+        expect(fieldState.status.variant).toBe("success");
+      });
+
+      it("should handle complex nested updates with markTouched", () => {
+        const state = new State(initialValues, basicSchema);
+        const newProfile = {
+          bio: "Updated bio",
+          website: "https://newsite.com",
+        };
+        state.setValue("profile", newProfile, { markTouched: true });
+
+        expect(state.getState("profile").touched).toBe(true);
+        expect(state.getState("profile.bio").touched).toBe(false);
+        expect(state.getState("profile.website").touched).toBe(false);
+      });
+
+      it("should clear orphaned touched paths even with markTouched option", () => {
+        const state = new State(initialValues, basicSchema);
+
+        // Add a new item and mark its child as touched
+        state.setValue("tags", [...state.values.tags, "new-tag"], {
+          markTouched: true,
+        });
+        state.setValue("tags.2", "modified-tag", { markTouched: true });
+        expect(state.getState("tags.2").touched).toBe(true);
+
+        // Remove the item - should clear the orphaned touched path
+        state.setValue("tags", initialValues.tags, { markTouched: false });
+        expect(state.hasBeenTouched).toBe(false);
+      });
+    });
   });
 
   describe("setStatus and clearStatus", () => {

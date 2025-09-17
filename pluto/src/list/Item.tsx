@@ -56,9 +56,9 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   style,
   ...rest
 }: ItemProps<K, E>): ReactElement => (
-  // @ts-expect-error - generic element issues
-  <Button.Button<E>
-    el={el}
+  <Button.Button
+    // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
+    el={el as Button.ElementType}
     defaultEl="div"
     id={itemKey.toString()}
     variant="text"

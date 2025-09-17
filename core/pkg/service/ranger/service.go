@@ -39,12 +39,15 @@ type Config struct {
 	// Signals is used to publish signals on channels when ranges are created, updated,
 	// deleted, along with changes to aliases and key-value pairs.
 	Signals *signals.Provider
-	Label   *label.Service
+	// Label is the label service used to attach, remove, and query labels related to
+	// changes.
+	Label *label.Service
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a range service.
+	DefaultConfig = Config{}
 )
 
 // Validate implements config.Config.

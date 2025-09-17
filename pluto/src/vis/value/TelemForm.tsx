@@ -48,9 +48,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     sourceP.segments.rollingAverage.props,
   );
 
-  const handleChange = (
-    segments: telem.SourcePipelineProps["segments"],
-  ): void => {
+  const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {
     const t = telem.sourcePipeline("string", {
       connections: VALUE_CONNECTIONS,
       segments: {
@@ -84,7 +82,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to Value.TelemForm");
 
-  const { data } = Channel.retrieve.useDirect({ params: { key: source.channel } });
+  const { data } = Channel.useRetrieve({ key: source.channel });
   useEffect(() => {
     if (data == null) return;
     onChange({ ...value, tooltip: [data.name] });
@@ -117,7 +115,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Form.Field<color.Crude>
           hideIfNull
-          label="Color"
+          label="Stale Color"
           align="start"
           path="stalenessColor"
         >
@@ -131,9 +129,9 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Form.Field>
         <Form.NumericField
           path="stalenessTimeout"
-          label="Staleness Timeout"
+          label="Stale Timeout"
           inputProps={{
-            bounds: { lower: 0, upper: Infinity },
+            bounds: { lower: 1, upper: Infinity },
             endContent: "s",
           }}
         />
