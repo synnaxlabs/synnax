@@ -1596,7 +1596,10 @@ export class DataType
   }
 
   /** @returns a string representation of the DataType. */
-  toString(): string {
+  toString(): string;
+  toString(short?: boolean): string;
+  toString(short: boolean = false): string {
+    if (short) return DataType.SHORT_STRINGS.get(this.valueOf()) ?? this.valueOf();
     return this.valueOf();
   }
 
@@ -1821,6 +1824,23 @@ export class DataType
     DataType.STRING,
     DataType.JSON,
   ];
+
+  static readonly SHORT_STRINGS = new Map<string, string>([
+    [DataType.UINT8.toString(), "u8"],
+    [DataType.UINT16.toString(), "u16"],
+    [DataType.UINT32.toString(), "u32"],
+    [DataType.UINT64.toString(), "u64"],
+    [DataType.INT8.toString(), "i8"],
+    [DataType.INT16.toString(), "i16"],
+    [DataType.INT32.toString(), "i32"],
+    [DataType.INT64.toString(), "i64"],
+    [DataType.FLOAT32.toString(), "f32"],
+    [DataType.FLOAT64.toString(), "f64"],
+    [DataType.TIMESTAMP.toString(), "ts"],
+    [DataType.UUID.toString(), "uuid"],
+    [DataType.STRING.toString(), "str"],
+    [DataType.JSON.toString(), "json"],
+  ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
