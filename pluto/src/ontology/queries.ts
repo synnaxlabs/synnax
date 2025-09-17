@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -46,7 +47,15 @@ const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
     store.relationships.delete(ontology.relationshipToString(changed)),
 };
 
-export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
+export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+  FluxSubStore,
+  string,
+  ontology.Relationship
+> = {
+  equal: (a, b) =>
+    ontology.idsEqual(a.from, b.from) &&
+    ontology.idsEqual(a.to, b.to) &&
+    a.type === b.type,
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
@@ -70,6 +79,7 @@ const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<
 };
 
 export const RESOURCE_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
+  equal: (a, b) => deep.equal(a, b),
   listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
 };
 
