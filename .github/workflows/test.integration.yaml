@@ -125,6 +125,8 @@ jobs:
             fi
           fi
 
+          echo "Testing forced rebuild"
+
       - name: Check for Cached Artifacts
         if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' }}
         id: check-cache
