@@ -52,7 +52,6 @@ REBUILD_PATHS=(
     "x/cpp/**"
     "x/go/**"
     "x/ts/**"
-    "integration/"
 )
 
 check_run_has_artifacts() {
