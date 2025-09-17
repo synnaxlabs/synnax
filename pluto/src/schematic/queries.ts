@@ -130,18 +130,10 @@ export interface UseRenameArgs {
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
   name: "Schematic",
   update: async ({ client, value, rollbacks, store }) => {
-    const { key } = value;
-    await client.workspaces.schematics.rename(key, value.name);
-    rollbacks.add(
-      store.schematics.set(key, (s) =>
-        s == null ? undefined : { ...s, name: value.name },
-      ),
-    );
-    rollbacks.add(
-      store.resources.set(key, (r) =>
-        r == null ? undefined : { ...r, name: value.name },
-      ),
-    );
+    const { key, name } = value;
+    await client.workspaces.schematics.rename(key, name);
+    rollbacks.add(Flux.partialUpdate(store.schematics, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
     return value;
   },
 });

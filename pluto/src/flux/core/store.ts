@@ -88,21 +88,29 @@ export class ScopedUnaryStore<
    */
   set(
     scope: string,
-    key: Key | Array<Value & record.Keyed<Key>>,
+    key: Key | Array<Value & record.Keyed<Key>> | (Value & record.Keyed<Key>),
     value?: state.SetArg<Value | undefined> | SetExtra,
     extra?: SetExtra,
   ): () => void {
     const rollbacks: Array<(() => void) | undefined> = [];
 
+    // Case 1: Array of values with keys
     if (Array.isArray(key))
       key.forEach((val) => {
         const rollback = this.setOne(scope, val.key, val, value as SetExtra);
         if (rollback) rollbacks.push(rollback);
       });
+    // Case 2: Single value with key property
+    else if (typeof key === "object" && "key" in key) {
+      const val = key;
+      const rollback = this.setOne(scope, val.key, val, value as SetExtra);
+      if (rollback) rollbacks.push(rollback);
+    }
+    // Case 3: Key with separate value
     else {
       const rollback = this.setOne(
         scope,
-        key,
+        key as Key,
         value as state.SetArg<Value | undefined>,
         extra as SetExtra,
       );
@@ -227,7 +235,7 @@ export class ScopedUnaryStore<
   scope(scope: string): UnaryStore<Key, Value, SetExtra> {
     return {
       set: (
-        key: Key | Array<Value & record.Keyed<Key>>,
+        key: Key | Array<Value & record.Keyed<Key>> | (Value & record.Keyed<Key>),
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
       ): (() => void) => this.set(scope, key, valueOrVariant, variant),
@@ -322,7 +330,9 @@ export type UnaryStore<
 } & (IsExactlyUndefined<SetExtra> extends true
   ? {
       set(key: Key, value: state.SetArg<Value | undefined>): () => void;
-      set(values: Array<Value & record.Keyed<Key>>): () => void;
+      set(
+        value: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+      ): () => void;
       delete(key: Key | Key[] | ((value: Value, key: Key) => boolean)): () => void;
     }
   : {
@@ -379,3 +389,16 @@ export const scopeStore = <ScopedStore extends Store>(
       store[key].scope(scope),
     ]),
   ) as ScopedStore;
+
+export const partialUpdate = <Key extends record.Key, Value extends Record<any, any>>(
+  store: UnaryStore<Key, Value>,
+  key: Key,
+  value: Partial<Value>,
+): Destructor => store.set(key, (p) => (p == null ? undefined : { ...p, ...value }));
+
+export const skipNull =
+  <Value extends state.State>(
+    f: state.SetFunc<Value>,
+  ): state.SetFunc<Value | undefined> =>
+  (v) =>
+    v == null ? undefined : f(v);

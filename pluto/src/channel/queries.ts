@@ -438,14 +438,15 @@ interface RenameArgs {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, FluxSubStore>({
   name: "Channel",
-  update: async ({ client, value, store }) => {
+  update: async ({ client, value, store, rollbacks }) => {
     const { key, name } = value;
-    if (key == null) return false;
-    await client.channels.rename(key, name);
-    store.channels.set(key, (p) => {
-      if (p == null) return p;
-      return client.channels.sugar({ ...p, name });
-    });
+    rollbacks.add(
+      store.channels.set(
+        key,
+        Flux.skipNull((p) => client.channels.sugar({ ...p, name })),
+      ),
+    );
+    rollbacks.add(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
     return value;
   },
 });

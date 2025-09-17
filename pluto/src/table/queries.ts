@@ -92,18 +92,10 @@ export interface UseRenameArgs {
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
   name: "Table",
   update: async ({ client, value, rollbacks, store }) => {
-    const { key } = value;
+    const { key, name } = value;
     await client.workspaces.tables.rename(key, value.name);
-    rollbacks.add(
-      store.tables.set(key, (t) =>
-        t == null ? undefined : { ...t, name: value.name },
-      ),
-    );
-    rollbacks.add(
-      store.resources.set(key, (r) =>
-        r == null ? undefined : { ...r, name: value.name },
-      ),
-    );
+    rollbacks.add(Flux.partialUpdate(store.tables, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, table.ontologyID(key), name));
     return value;
   },
 });

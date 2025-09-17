@@ -92,18 +92,10 @@ export interface UseRenameArgs {
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
   name: "LinePlot",
   update: async ({ client, value, rollbacks, store }) => {
-    const { key } = value;
-    await client.workspaces.lineplots.rename(key, value.name);
-    rollbacks.add(
-      store.lineplots.set(key, (p) =>
-        p == null ? undefined : { ...p, name: value.name },
-      ),
-    );
-    rollbacks.add(
-      store.resources.set(key, (r) =>
-        r == null ? undefined : { ...r, name: value.name },
-      ),
-    );
+    const { key, name } = value;
+    rollbacks.add(Flux.partialUpdate(store.lineplots, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, linePlot.ontologyID(key), name));
+    await client.workspaces.lineplots.rename(key, name);
     return value;
   },
 });

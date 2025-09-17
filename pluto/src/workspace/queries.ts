@@ -110,16 +110,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   update: async ({ client, value, rollbacks, store }) => {
     const { key, name } = value;
     await client.workspaces.rename(key, name);
-    rollbacks.add(
-      store.workspaces.set(key, (w) =>
-        w == null ? undefined : { ...w, name },
-      ),
-    );
-    rollbacks.add(
-      store.resources.set(key, (r) =>
-        r == null ? undefined : { ...r, name },
-      ),
-    );
+    rollbacks.add(Flux.partialUpdate(store.workspaces, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, workspace.ontologyID(key), name));
     return value;
   },
 });

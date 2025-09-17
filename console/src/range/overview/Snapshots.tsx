@@ -95,7 +95,7 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildren({
+  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildList({
     initialParams: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });

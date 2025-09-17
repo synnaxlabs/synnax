@@ -10,7 +10,7 @@
 import { group, ontology, type Synnax } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
 
@@ -161,14 +161,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   name: "Group",
   update: async ({ client, value, store, rollbacks }) => {
     const { key, name } = value;
-    rollbacks.add(
-      store.groups.set(key, (p) => (p == null ? undefined : { ...p, name })),
-    );
-    rollbacks.add(
-      store.resources.set(ontology.idToString(group.ontologyID(key)), (p) =>
-        p == null ? undefined : { ...p, name },
-      ),
-    );
+    rollbacks.add(Flux.partialUpdate(store.groups, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, group.ontologyID(key), name));
     await client.ontology.groups.rename(key, name);
     return value;
   },

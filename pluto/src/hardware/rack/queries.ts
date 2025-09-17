@@ -147,14 +147,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   name: "Rack",
   update: async ({ value, client, rollbacks, store }) => {
     const { key, name } = value;
-    rollbacks.add(
-      store.racks.set(value.key, (p) => (p == null ? undefined : { ...p, name })),
-    );
-    rollbacks.add(
-      store.resources.set(ontology.idToString(rack.ontologyID(key)), (p) =>
-        p == null ? undefined : { ...p, name },
-      ),
-    );
+    rollbacks.add(Flux.partialUpdate(store.racks, value.key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
     const r = await retrieveSingle({ client, params: { key }, store });
     await client.hardware.racks.create({ ...r, name });
     return value;

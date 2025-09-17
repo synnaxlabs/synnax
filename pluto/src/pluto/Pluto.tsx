@@ -20,6 +20,8 @@ import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
 import { Label } from "@/label";
+import { type LinePlot } from "@/lineplot";
+import { type Log } from "@/log";
 import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Ranger } from "@/ranger";
@@ -65,6 +67,8 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
+  [LinePlot.FLUX_STORE_KEY]: LinePlot.FluxStore;
+  [Log.FLUX_STORE_KEY]: Log.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,

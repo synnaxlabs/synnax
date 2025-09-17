@@ -417,11 +417,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
         "config",
       ),
     );
-    rollbacks.add(
-      store.resources.set(ontology.idToString(task.ontologyID(key)), (p) =>
-        p == null ? undefined : { ...p, name },
-      ),
-    );
+    rollbacks.add(Ontology.renameFluxResource(store, task.ontologyID(key), name));
     const t = await retrieveByKey(client, store, { key });
     await client.hardware.tasks.create({ ...t.payload, name });
     return value;

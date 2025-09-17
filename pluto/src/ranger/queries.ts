@@ -783,9 +783,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
         p == null ? undefined : client.ranges.sugarOne({ ...p, name }),
       ),
     );
-    rollbacks.add(
-      store.resources.set(key, (p) => (p == null ? undefined : { ...p, name })),
-    );
+    rollbacks.add(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
     await client.ranges.rename(key, name);
     return value;
   },

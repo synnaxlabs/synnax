@@ -21,7 +21,7 @@ export interface ResourceFluxStore extends Flux.UnaryStore<string, ontology.Reso
 export const RELATIONSHIPS_FLUX_STORE_KEY = "relationships";
 export const RESOURCES_FLUX_STORE_KEY = "resources";
 
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [RELATIONSHIPS_FLUX_STORE_KEY]: RelationshipFluxStore;
   [RESOURCES_FLUX_STORE_KEY]: ResourceFluxStore;
 }
@@ -116,11 +116,6 @@ interface UseDependentQueryParams extends List.PagerParams {
   id?: ontology.ID;
 }
 
-interface FluxSubStore extends Flux.Store {
-  relationships: RelationshipFluxStore;
-  resources: ResourceFluxStore;
-}
-
 export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>
   Flux.createList<UseDependentQueryParams, string, ontology.Resource, FluxSubStore>({
     name: "useDependents",
@@ -166,7 +161,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
     ],
   });
 
-export const useChildren = createDependentsListHook("to");
+export const useChildList = createDependentsListHook("to");
 
 export interface ListParams extends ontology.RetrieveRequest {}
 
@@ -291,3 +286,23 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
     return value;
   },
 });
+
+export const renameFluxResource = (
+  store: FluxSubStore,
+  id: ontology.ID,
+  name: string,
+) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
+
+export interface UseRetrieveChildrenRequest {
+  id: ontology.ID;
+}
+
+export const { useRetrieveObservable: useRetrieveObservableChildren } =
+  Flux.createRetrieve<UseRetrieveChildrenRequest, ontology.Resource[], FluxSubStore>({
+    name: "Resources",
+    retrieve: async ({ client, params, store }) => {
+      const children = await client.ontology.retrieveChildren(params.id);
+      store.resources.set(children);
+      return children;
+    },
+  });

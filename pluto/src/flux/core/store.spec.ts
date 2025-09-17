@@ -43,6 +43,42 @@ describe("Core Store", () => {
           expect(store.get("key1")).toBe("value1");
         });
 
+        it("should set a single value with key property", () => {
+          interface KeyedValue extends record.Keyed<string> {
+            key: string;
+            value: string;
+          }
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+
+          const item: KeyedValue = { key: "key1", value: "value1" };
+          store.set(item);
+
+          expect(store.get("key1")).toEqual({ key: "key1", value: "value1" });
+        });
+
+        it("should set multiple values with key property using array", () => {
+          interface KeyedValue extends record.Keyed<string> {
+            key: string;
+            value: string;
+          }
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+
+          const items: KeyedValue[] = [
+            { key: "key1", value: "value1" },
+            { key: "key2", value: "value2" },
+            { key: "key3", value: "value3" },
+          ];
+          store.set(items);
+
+          expect(store.get("key1")).toEqual({ key: "key1", value: "value1" });
+          expect(store.get("key2")).toEqual({ key: "key2", value: "value2" });
+          expect(store.get("key3")).toEqual({ key: "key3", value: "value3" });
+        });
+
         it("should update an existing value", () => {
           const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
             "scope",
@@ -101,6 +137,67 @@ describe("Core Store", () => {
           store.set("key1", () => null as any);
           expect(store.get("key1")).toBe("value1");
         });
+
+        it("should distinguish between key and keyed object types", () => {
+          // This test validates that when we pass different numbers of arguments,
+          // the store correctly interprets them
+          interface ComplexValue extends record.Keyed<string> {
+            key: string;
+            data: number;
+          }
+
+          const store = new ScopedUnaryStore<string, ComplexValue>(
+            basicHandleError,
+          ).scope("scope");
+
+          // Case 1: Setting with explicit key and value (2 arguments)
+          // The first arg is the key, second is the value
+          store.set("explicitKey", { key: "valueKey", data: 100 });
+          expect(store.get("explicitKey")).toEqual({ key: "valueKey", data: 100 });
+
+          // Case 2: Setting with single keyed object (1 argument)
+          // Should use the object's key property as the key
+          const singleObj: ComplexValue = { key: "derivedKey", data: 200 };
+          store.set(singleObj);
+          expect(store.get("derivedKey")).toEqual({ key: "derivedKey", data: 200 });
+
+          // Case 3: Setting with array of keyed objects
+          // Each object's key property is used as its key
+          store.set([
+            { key: "arrayKey1", data: 300 },
+            { key: "arrayKey2", data: 400 },
+          ]);
+          expect(store.get("arrayKey1")).toEqual({ key: "arrayKey1", data: 300 });
+          expect(store.get("arrayKey2")).toEqual({ key: "arrayKey2", data: 400 });
+        });
+
+        it("should handle mixed set operations", () => {
+          interface KeyedData extends record.Keyed<string> {
+            key: string;
+            value: number;
+          }
+
+          const store = new ScopedUnaryStore<string, KeyedData>(basicHandleError).scope(
+            "scope",
+          );
+
+          // Set using key-value pair
+          store.set("key1", { key: "key1", value: 100 });
+
+          // Set using single keyed object
+          store.set({ key: "key2", value: 200 });
+
+          // Set using array of keyed objects
+          store.set([
+            { key: "key3", value: 300 },
+            { key: "key4", value: 400 },
+          ]);
+
+          expect(store.get("key1")).toEqual({ key: "key1", value: 100 });
+          expect(store.get("key2")).toEqual({ key: "key2", value: 200 });
+          expect(store.get("key3")).toEqual({ key: "key3", value: 300 });
+          expect(store.get("key4")).toEqual({ key: "key4", value: 400 });
+        });
       });
 
       describe("Rollback Functionality", () => {
@@ -150,6 +247,42 @@ describe("Core Store", () => {
             expect(store.get("key1")).toBeUndefined();
             expect(store.get("key2")).toBeUndefined();
             expect(store.get("key3")).toBeUndefined();
+          });
+
+          it("should rollback a single keyed value set operation", () => {
+            interface KeyedString extends record.Keyed<string> {
+              key: string;
+              value: string;
+            }
+            const store = new ScopedUnaryStore<string, KeyedString>(
+              basicHandleError,
+            ).scope("scope");
+
+            const item: KeyedString = { key: "key1", value: "value1" };
+            const rollback = store.set(item);
+
+            expect(store.get("key1")).toEqual({ key: "key1", value: "value1" });
+
+            rollback();
+            expect(store.get("key1")).toBeUndefined();
+          });
+
+          it("should rollback update of existing entry using keyed value", () => {
+            interface KeyedString extends record.Keyed<string> {
+              key: string;
+              value: string;
+            }
+            const store = new ScopedUnaryStore<string, KeyedString>(
+              basicHandleError,
+            ).scope("scope");
+
+            store.set({ key: "key1", value: "initial" });
+            const rollback = store.set({ key: "key1", value: "updated" });
+
+            expect(store.get("key1")).toEqual({ key: "key1", value: "updated" });
+
+            rollback();
+            expect(store.get("key1")).toEqual({ key: "key1", value: "initial" });
           });
 
           it("should notify delete listeners when rolling back new entry", () => {
@@ -427,9 +560,10 @@ describe("Core Store", () => {
         });
 
         it("should combine filter with value and key checks", () => {
-          const store = new ScopedUnaryStore<string, { value: number; active: boolean }>(
-            basicHandleError,
-          ).scope("scope");
+          const store = new ScopedUnaryStore<
+            string,
+            { value: number; active: boolean }
+          >(basicHandleError).scope("scope");
 
           store.set("item1", { value: 10, active: true });
           store.set("item2", { value: 20, active: false });

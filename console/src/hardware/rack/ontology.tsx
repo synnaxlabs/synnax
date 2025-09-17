@@ -72,6 +72,7 @@ const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
         value={resource.name}
         overflow="ellipsis"
         style={{ width: 0, flexGrow: 1 }}
+        onChange
       />
       <Rack.StatusIndicator status={status} />
     </Tree.Item>

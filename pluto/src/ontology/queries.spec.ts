@@ -33,7 +33,7 @@ describe("Ontology Queries", () => {
 
       const { result } = renderHook(
         () =>
-          Ontology.useChildren({
+          Ontology.useChildList({
             initialParams: { id: parent.ontologyID },
           }),
         { wrapper },
@@ -52,7 +52,7 @@ describe("Ontology Queries", () => {
       await client.ontology.groups.create(parent.ontologyID, "child2");
       const { result } = renderHook(
         () =>
-          Ontology.useChildren({
+          Ontology.useChildList({
             initialParams: { id: parent.ontologyID },
           }),
         { wrapper },
@@ -87,7 +87,7 @@ describe("Ontology Queries", () => {
       );
       const { result } = renderHook(
         () =>
-          Ontology.useChildren({
+          Ontology.useChildList({
             initialParams: { id: parent.ontologyID },
           }),
         { wrapper },
