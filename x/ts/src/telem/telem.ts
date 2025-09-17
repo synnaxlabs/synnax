@@ -1743,7 +1743,7 @@ export class DataType
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
   /** Represents a boolean value. Alias for UINT8. */
-  static readonly BOOLEAN = this.UINT8;
+  static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type */
@@ -1825,7 +1825,7 @@ export class DataType
     DataType.JSON,
   ];
 
-  static readonly SHORT_STRINGS = new Map<string, string>([
+  private static readonly SHORT_STRINGS = new Map<string, string>([
     [DataType.UINT8.toString(), "u8"],
     [DataType.UINT16.toString(), "u16"],
     [DataType.UINT32.toString(), "u32"],
@@ -1836,6 +1836,7 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
