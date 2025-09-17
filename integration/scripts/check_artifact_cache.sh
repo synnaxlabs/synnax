@@ -52,6 +52,7 @@ REBUILD_PATHS=(
     "x/cpp/**"
     "x/go/**"
     "x/ts/**"
+    "integration/"
 )
 
 check_run_has_artifacts() {
@@ -148,7 +149,7 @@ main() {
 
     echo "CACHE_HIT=true" >> ${GITHUB_OUTPUT:-/dev/null}
     echo "CACHED_RUN_ID=${cached_run_id}" >> ${GITHUB_OUTPUT:-/dev/null}
-    echo "✅ Cache hit! Found all required artifacts in run ${cached_run_id}"
+    echo "✅ Cache hit! Found all required artifacts in run ${cached_run_id} (${cached_sha:0:8})"
 }
 
 main
