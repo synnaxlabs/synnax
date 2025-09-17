@@ -19,13 +19,39 @@ else
     ARTIFACT_NAMES=("synnax-core-${PLATFORM}")
 fi
 
-SAFE_PATHS=(
-    ".github/workflows/test.integration.yaml"
-    "docs/"
-    "integration/"
-    "*.md"
-    "LICENSE"
-    ".editorconfig"
+REBUILD_PATHS=(
+    ".bazeliskrc"
+    ".bazelrc"
+    ".github/workflows/${GITHUB_WORKFLOW:-test.integration.yaml}"
+    "alamos/go/**"
+    "alamos/ts/**"
+    "aspen/**"
+    "cesium/**"
+    "client/cpp/**"
+    "client/ts/**"
+    "configs/ts/**"
+    "configs/vite/**"
+    "console/**"
+    "core/**"
+    "drift/**"
+    "driver/**"
+    "freighter/cpp/**"
+    "freighter/go/**"
+    "freighter/ts/**"
+    "go.work"
+    "go.work.sum"
+    "MODULE.bazel"
+    "MODULE.bazel.lock"
+    "package.json"
+    "pluto/**"
+    "pnpm-lock.yaml"
+    "pnpm-workspace.yaml"
+    "turbo.json"
+    "vendor/mbedtls/**"
+    "vendor/open62541/**"
+    "x/cpp/**"
+    "x/go/**"
+    "x/ts/**"
 )
 
 check_run_has_artifacts() {
@@ -88,15 +114,15 @@ check_if_rebuild_needed() {
             continue
         fi
 
-        local is_safe=false
-        for safe_path in "${SAFE_PATHS[@]}"; do
-            if [[ "${file}" == ${safe_path} ]] || [[ "${file}" == ${safe_path}* ]]; then
-                is_safe=true
+        local needs_rebuild=false
+        for rebuild_path in "${REBUILD_PATHS[@]}"; do
+            if [[ "${file}" == ${rebuild_path} ]] || [[ "${file}" == ${rebuild_path}* ]]; then
+                needs_rebuild=true
                 break
             fi
         done
 
-        if [ "${is_safe}" = "false" ]; then
+        if [ "${needs_rebuild}" = "true" ]; then
             return 0
         fi
     done <<< "${changed_files}"
