@@ -27,7 +27,7 @@ class BenchLatencyReport(TestCase):
 
     def setup(self) -> None:
 
-        self.configure(timeout_limit=15)
+        self.set_manual_timeout(15)
 
         self.report_client = sy.Synnax(
             host=self.synnax_connection.server_address,
@@ -48,8 +48,6 @@ class BenchLatencyReport(TestCase):
         Run the test case.
         """
 
-        # Wait for the "response" to start
-        time.sleep(8)
         cycles: int = 0
         times: deque[sy.TimeStamp] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
@@ -57,7 +55,6 @@ class BenchLatencyReport(TestCase):
         cmd_channel: str = self.cmd_channel
         bench_time: sy.TimeSpan = sy.TimeSpan.SECOND * 3
 
-        # Set channels here to avoid calling "self"
         try:
             with self.report_client.open_streamer(state_channel) as stream:
                 with self.report_client.open_writer(

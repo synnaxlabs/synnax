@@ -19,6 +19,8 @@ class BenchLatencyResponse(TestCase):
 
     def setup(self) -> None:
 
+        self.set_manual_timeout(15)
+
         self.bench_client = sy.Synnax(
             host=self.synnax_connection.server_address,
             port=self.synnax_connection.port,
@@ -49,26 +51,21 @@ class BenchLatencyResponse(TestCase):
         """
         Run the test case.
         """
-        time.sleep(5)
+
         start: float = time.time()
         uptime: int = 0
-
-        # Set channels here to avoid calling "self"
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
-        try:
 
+        try:
             with self.bench_client.open_streamer(cmd_channel) as stream:
                 with self.bench_client.open_writer(
                     sy.TimeStamp.now(), state_channel
                 ) as writer:
-                    while uptime < 15:
-                        frame = stream.read(timeout=2.5)
+                    while self.should_continue:
+                        frame = stream.read(timeout=3)
                         if frame is not None:
                             writer.write(state_channel, frame[cmd_channel])
-                        else:
-                            # Only check uptime if we're not getting frames
-                            uptime = int(time.time() - start)
 
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")

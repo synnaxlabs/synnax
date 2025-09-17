@@ -54,11 +54,11 @@ class Ranges_Basic(TestCase):
         end_time = my_range.time_range.end
         time_span_s = sy.TimeSpan(end_time - start_time).seconds
 
-        # Child Range 1: By creating a sub-range of the parent
+        # Child Range 1: By defining a parent
         child_range_1_name = f"{self.name}_child_1"
-        self._log_message(f"Creating child range 1: {child_range_1_name}")
-        # Purposely using the deprecated method to verify backwards compatibility
-        parent_range.create_sub_range(
+        self._log_message(f"Creating child range 2: {child_range_1_name}")
+        self.client.ranges.create(
+            parent=sy.ontology.ID(type="range", key=str(parent_range.key)),
             name=child_range_1_name,
             time_range=sy.TimeRange(
                 start=self.range_start,
@@ -66,12 +66,23 @@ class Ranges_Basic(TestCase):
             ),
         )
 
-        # Child Range 2: By defining a parent
+        # Child Range 2: By creating a child-range of the parent
         child_range_2_name = f"{self.name}_child_2"
         self._log_message(f"Creating child range 2: {child_range_2_name}")
-        self.client.ranges.create(
-            parent=sy.ontology.ID(type="range", key=str(parent_range.key)),
+        parent_range.create_child_range(
             name=child_range_2_name,
+            time_range=sy.TimeRange(
+                start=self.range_start,
+                end=self.range_end,
+            ),
+        )
+
+        # Child Range 3: By creating a sub-range of the parent
+        # Method is deprecated and will be removed in a future release.
+        child_range_3_name = f"{self.name}_child_3"
+        self._log_message(f"Creating child range 3: {child_range_3_name}")
+        parent_range.create_sub_range(
+            name=child_range_3_name,
             time_range=sy.TimeRange(
                 start=self.range_start,
                 end=self.range_end,
@@ -99,15 +110,19 @@ class Ranges_Basic(TestCase):
             self.fail()
             return
 
-        # Get child ranges using ontology
+        # Get child ranges using children property
         children = parent_range.children
-        if len(children) != 2:
-            self._log_message(f"Expected 2 children, got {len(children)}")
+        if len(children) != 3:
+            self._log_message(f"Expected 3 children, got {len(children)}")
             self.fail()
             return
 
         child_names = {child.name for child in children}
-        expected_child_names = {child_range_1_name, child_range_2_name}
+        expected_child_names = {
+            child_range_1_name,
+            child_range_2_name,
+            child_range_3_name,
+        }
         if child_names != expected_child_names:
             self._log_message(
                 f"Expected child names {expected_child_names}, got {child_names}"

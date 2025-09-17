@@ -259,6 +259,5 @@ src/**.js
 
 # ||| Build Binary |||
 freighter/integration/integration
-integration/integration/
-!integration/test/
+integration/integration
 core/synnax

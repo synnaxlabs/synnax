@@ -458,8 +458,8 @@ class Range(RangePayload):
         key: RangeKey = UUID(int=0),
     ) -> Range:
         """
-        This method is deprecated in favor of create_child_range() and is
-        maintained for backwards compatibility.
+        This method is deprecated and will be removed in a future release.
+        Use create_child_range instead.
         """
         warnings.warn(
             "create_sub_range() is deprecated and will be removed in a future version. "
@@ -477,10 +477,6 @@ class Range(RangePayload):
     @property
     def children(self) -> list[Range]:
         """Returns a list of child ranges of this range."""
-        return self.retrieve_children()
-
-    def retrieve_children(self) -> list[Range]:
-        """Retrieves all child ranges of this range."""
         res = self._ontology.retrieve_children(self.ontology_id)
         range_children = [r for r in res if r.id.type == "range"]
         return self._client.retrieve(keys=[r.id.key for r in range_children])
