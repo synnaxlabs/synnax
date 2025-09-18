@@ -4,6 +4,7 @@ This directory contains code to test and prototype opc ua workflows.
 
 ## OPC UA Write task
 
-1. run `bash run-opc-server.sh`
-2. run `bash run-client-observer.sh`
-3. run `bash run-client-writer.sh` and observe output of `run-client-observer.sh` to see changes in opc ua nodes written to.
+1. run `./run_opc_server.sh`
+2. run `./run_client_observer.sh`
+3. run `./run_client_writer.sh` and observe output of `./run_client_observer.sh` to see
+   changes in opc ua nodes written to.
