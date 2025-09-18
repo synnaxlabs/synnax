@@ -479,6 +479,8 @@ class Range(RangePayload):
         """Returns a list of child ranges of this range."""
         res = self._ontology.retrieve_children(self.ontology_id)
         range_children = [r for r in res if r.id.type == "range"]
+        if len(range_children) == 0:
+            return []
         return self._client.retrieve(keys=[r.id.key for r in range_children])
 
     def snapshots(self) -> list[Task]:

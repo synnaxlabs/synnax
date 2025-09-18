@@ -82,30 +82,20 @@ class TestDefinition:
         return self.case
 
 
-@dataclass
-class ColorWheel:
-    """Data class to store color wheel for test conductor."""
-
-    _colors: List[str] = field(
-        default_factory=lambda: [
-            "#FF0000",  # Red (0°)
-            "#FF8000",  # Orange (30°)
-            "#FFFF00",  # Yellow (60°)
-            "#80FF80",  # Lime (90°)
-            "#AAFFAA",  # Green (120°)
-            "#00FF80",  # Spring Green (150°)
-            "#00FFFF",  # Cyan (180°)
-            "#0080FF",  # Sky Blue (210°)
-            "#0000FF",  # Blue (240°)
-            "#8000FF",  # Purple (270°)
-            "#FF00FF",  # Magenta (300°)
-            "#FF0080",  # Rose (330°)
-        ]
-    )
-
-    def __call__(self, index: int) -> str:
-        """Get color by index with automatic modulus to handle any index value."""
-        return self._colors[index % len(self._colors)]
+COLORS: List[str] = [
+    "#FF0000",  # Red (0°)
+    "#FF8000",  # Orange (30°)
+    "#FFFF00",  # Yellow (60°)
+    "#80FF80",  # Lime (90°)
+    "#AAFFAA",  # Green (120°)
+    "#00FF80",  # Spring Green (150°)
+    "#00FFFF",  # Cyan (180°)
+    "#0080FF",  # Sky Blue (210°)
+    "#0000FF",  # Blue (240°)
+    "#8000FF",  # Purple (270°)
+    "#FF00FF",  # Magenta (300°)
+    "#FF0080",  # Rose (330°)
+]
 
 
 class TestConductor:
@@ -165,9 +155,6 @@ class TestConductor:
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
         self.active_tests: List[Tuple[TestCase, datetime]] = []
-
-        # Initialize color wheel for range creation
-        self.COLOR_WHEEL = ColorWheel()
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -766,7 +753,7 @@ class TestConductor:
                 ),
             )
             for i, test in enumerate(self.test_results):
-                color = self.COLOR_WHEEL(i)
+                color = COLORS[i % len(COLORS)]
                 conductor_range.create_child_range(
                     name=test.name,
                     time_range=sy.TimeRange(
