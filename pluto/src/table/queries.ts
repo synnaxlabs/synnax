@@ -41,6 +41,7 @@ export const retrieveSingle = async ({
   const cached = store.tables.get(key);
   if (cached != null) return cached;
   const t = await client.workspaces.tables.retrieve({ key });
+  store.tables.set(t);
   return t;
 };
 
@@ -48,7 +49,13 @@ export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   table.Table,
   FluxSubStore
->({ name: "Table", retrieve: retrieveSingle });
+>({
+  name: "Table",
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, params: { key }, onChange }) => [
+    store.tables.onSet(onChange, key),
+  ],
+});
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Table",

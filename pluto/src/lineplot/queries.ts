@@ -41,6 +41,7 @@ export const retrieveSingle = async ({
   const cached = store.lineplots.get(key);
   if (cached != null) return cached;
   const plot = await client.workspaces.lineplots.retrieve({ key });
+  store.lineplots.set(plot);
   return plot;
 };
 
@@ -48,7 +49,13 @@ export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   linePlot.LinePlot,
   FluxSubStore
->({ name: "LinePlot", retrieve: retrieveSingle });
+>({
+  name: "LinePlot",
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, params: { key }, onChange }) => [
+    store.lineplots.onSet(onChange, key),
+  ],
+});
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "LinePlot",

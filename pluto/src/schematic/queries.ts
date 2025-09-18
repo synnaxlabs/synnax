@@ -42,6 +42,7 @@ export const retrieveSingle = async ({
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
   const s = await client.workspaces.schematics.retrieve({ key });
+  store.schematics.set(s);
   return s;
 };
 
@@ -49,7 +50,13 @@ export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   schematic.Schematic,
   FluxSubStore
->({ name: "Schematic", retrieve: retrieveSingle });
+>({
+  name: "Schematic",
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, params: { key }, onChange }) => [
+    store.schematics.onSet(onChange, key),
+  ],
+});
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Schematic",

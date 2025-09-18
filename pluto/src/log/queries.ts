@@ -38,6 +38,7 @@ export const retrieveSingle = async ({
   const cached = store.logs.get(key);
   if (cached != null) return cached;
   const l = await client.workspaces.logs.retrieve({ key });
+  store.logs.set(l);
   return l;
 };
 
@@ -45,7 +46,13 @@ export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   log.Log,
   FluxSubStore
->({ name: "Log", retrieve: retrieveSingle });
+>({
+  name: "Log",
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, params: { key }, onChange }) => [
+    store.logs.onSet(onChange, key),
+  ],
+});
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: "Log",
