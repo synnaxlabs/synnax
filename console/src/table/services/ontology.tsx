@@ -15,10 +15,8 @@ import {
   Mosaic,
   Table as Core,
   Text,
-  Tree,
 } from "@synnaxlabs/pluto";
-import { errors, strings } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { strings } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -26,7 +24,6 @@ import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
-import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -88,13 +85,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const first = getResource(firstID);
-  const onSelect = useAsyncActionMenu({
+  const onSelect = {
     delete: handleDelete,
     rename,
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
     export: () => handleExport(first.id.key),
     group: () => group(props),
-  });
+  };
   const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
@@ -113,7 +110,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     </PMenu.Menu>
   );
 };
-
 
 const loadTable = async (
   client: Synnax,

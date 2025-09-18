@@ -16,7 +16,6 @@ import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
-import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
@@ -54,13 +53,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isZeroDepth =
     Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
     ontology.idsEqual(rootID, ontology.ROOT_ID);
-  const onSelect = useAsyncActionMenu({
+  const onSelect = {
     ungroup: () => ungroup.update(props),
     rename,
     newGroup: createEmptyGroup,
     group: () => createFromSelection(props),
     link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),
-  });
+  };
   const isDelete = ids.every((id) => {
     const node = Tree.findNode({ tree: nodes, key: ontology.idToString(id) });
     return node?.children == null || node?.children.length === 0;

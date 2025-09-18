@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { type Flux, Icon, Log as Core, Menu as PMenu, Mosaic, Text } from "@synnaxlabs/pluto";
+import {
+  type Flux,
+  Icon,
+  Log as Core,
+  Menu as PMenu,
+  Mosaic,
+  Text,
+} from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
@@ -17,7 +24,6 @@ import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
-import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Log } from "@/log";
@@ -78,7 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
-  const onSelect = useAsyncActionMenu({
+  const onSelect = {
     delete: handleDelete,
     rename,
     link: () =>
@@ -88,7 +94,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       }),
     export: () => handleExport(ids[0].key),
     group: () => group(props),
-  });
+  };
   const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
@@ -107,7 +113,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     </PMenu.Menu>
   );
 };
-
 
 const loadLog = async (
   client: Synnax,

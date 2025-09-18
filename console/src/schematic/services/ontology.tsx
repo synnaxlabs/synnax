@@ -25,7 +25,6 @@ import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
-import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -146,7 +145,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const firstID = ids[0];
   const resources = getResource(ids);
   const first = resources[0];
-  const onSelect = useAsyncActionMenu({
+  const onSelect = {
     delete: handleDelete,
     copy: handleCopy,
     rangeSnapshot: () => snapshot(props),
@@ -154,7 +153,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     export: () => handleExport(first.id.key),
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
-  });
+  };
   const canEditSchematic = Schematic.useSelectHasPermission();
   const isSingle = ids.length === 1;
   return (
@@ -188,7 +187,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     </PMenu.Menu>
   );
 };
-
 
 const loadSchematic = async (
   client: Synnax,
