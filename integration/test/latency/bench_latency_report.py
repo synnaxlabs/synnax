@@ -176,19 +176,19 @@ class BenchLatencyReport(TestCase):
         p90_msg = f"P90: {p90:.2f}ms"
         if p90 > max_p90:
             p90_msg += f" is greater than {max_p90}ms (FAILED)"
-            self._log_message("self.fail(⚠️)")
+            self.fail()
         self._log_message(p90_msg)
 
         p95_msg = f"P95: {p95:.2f}ms"
         if p95 > max_p95:
             p95_msg += f" is greater than {max_p95}ms (FAILED)"
-            self._log_message("self.fail(⚠️)")
+            self.fail()
         self._log_message(p95_msg)
 
         p99_msg = f"P99: {p99:.2f}ms"
         if p99 > max_p99:
             p99_msg += f" is greater than {max_p99}ms (FAILED)"
-            self._log_message("self.fail(⚠️)")
+            self.fail()
         self._log_message(p99_msg)
 
         peak_to_peak_jitter_msg = f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms"
@@ -196,13 +196,13 @@ class BenchLatencyReport(TestCase):
             peak_to_peak_jitter_msg += (
                 f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
             )
-            self._log_message("self.fail(⚠️)")
+            self.fail()
         self._log_message(peak_to_peak_jitter_msg)
 
         average_jitter_msg = f"Average jitter: {average_jitter:.2f}ms"
         if average_jitter > max_average_jitter:
             average_jitter_msg += f" is greater than {max_average_jitter}ms (FAILED)"
-            self._log_message("self.fail(⚠️)")
+            self.fail()
         self._log_message(average_jitter_msg)
 
         os.makedirs("test/results", exist_ok=True)
