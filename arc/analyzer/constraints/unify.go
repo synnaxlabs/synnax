@@ -44,6 +44,11 @@ func (s *System) Unify() error {
 
 // unifyTypes attempts to unify two types, updating substitutions as needed
 func (s *System) unifyTypes(t1, t2 ir.Type, source Constraint) error {
+	return s.unifyTypesWithVisited(t1, t2, source, make(map[string]bool))
+}
+
+// unifyTypesWithVisited is the internal recursive function with cycle detection
+func (s *System) unifyTypesWithVisited(t1, t2 ir.Type, source Constraint, visiting map[string]bool) error {
 	// Apply existing substitutions first
 	t1 = s.ApplySubstitutions(t1)
 	t2 = s.ApplySubstitutions(t2)
@@ -53,25 +58,41 @@ func (s *System) unifyTypes(t1, t2 ir.Type, source Constraint) error {
 		return nil
 	}
 
-	// Handle type variables
+	// Handle type variables with cycle detection
 	if tv1, ok := t1.(ir.TypeVariable); ok {
-		return s.unifyTypeVariable(tv1, t2, source)
+		if visiting[tv1.Name] {
+			// We're already visiting this type variable, which means there's a cycle
+			// Break the cycle by not recursing further
+			return nil
+		}
+		visiting[tv1.Name] = true
+		err := s.unifyTypeVariableWithVisited(tv1, t2, source, visiting)
+		delete(visiting, tv1.Name)
+		return err
 	}
 	if tv2, ok := t2.(ir.TypeVariable); ok {
-		return s.unifyTypeVariable(tv2, t1, source)
+		if visiting[tv2.Name] {
+			// We're already visiting this type variable, which means there's a cycle
+			// Break the cycle by not recursing further
+			return nil
+		}
+		visiting[tv2.Name] = true
+		err := s.unifyTypeVariableWithVisited(tv2, t1, source, visiting)
+		delete(visiting, tv2.Name)
+		return err
 	}
 
 	// Handle compound types
 	if ch1, ok1 := t1.(ir.Chan); ok1 {
 		if ch2, ok2 := t2.(ir.Chan); ok2 {
-			return s.unifyTypes(ch1.ValueType, ch2.ValueType, source)
+			return s.unifyTypesWithVisited(ch1.ValueType, ch2.ValueType, source, visiting)
 		}
 		return errors.Newf("cannot unify channel %v with %v", t1, t2)
 	}
 
 	if s1, ok1 := t1.(ir.Series); ok1 {
 		if s2, ok2 := t2.(ir.Series); ok2 {
-			return s.unifyTypes(s1.ValueType, s2.ValueType, source)
+			return s.unifyTypesWithVisited(s1.ValueType, s2.ValueType, source, visiting)
 		}
 		return errors.Newf("cannot unify series %v with %v", t1, t2)
 	}
@@ -89,17 +110,22 @@ func (s *System) unifyTypes(t1, t2 ir.Type, source Constraint) error {
 
 // unifyTypeVariable unifies a type variable with another type
 func (s *System) unifyTypeVariable(tv ir.TypeVariable, other ir.Type, source Constraint) error {
+	return s.unifyTypeVariableWithVisited(tv, other, source, make(map[string]bool))
+}
+
+// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
+func (s *System) unifyTypeVariableWithVisited(tv ir.TypeVariable, other ir.Type, source Constraint, visiting map[string]bool) error {
 	// Check if the type variable already has a substitution
 	if existing, exists := s.substitutions[tv.Name]; exists {
 		// Try to unify the existing substitution with the new type
-		return s.unifyTypes(existing, other, source)
+		return s.unifyTypesWithVisited(existing, other, source, visiting)
 	}
 
 	// Check if other is also a type variable
 	if otherTV, ok := other.(ir.TypeVariable); ok {
 		// Check if the other variable has a substitution
 		if otherSub, exists := s.substitutions[otherTV.Name]; exists {
-			return s.unifyTypeVariable(tv, otherSub, source)
+			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
 		}
 
 		// Neither has a substitution - link them

@@ -22,9 +22,6 @@ type Type interface {
 	fmt.Stringer
 }
 
-type Number struct{}
-
-func (n Number) String() string { return "number" }
 
 type U8 struct{}
 

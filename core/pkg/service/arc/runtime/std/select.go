@@ -21,7 +21,17 @@ import (
 var symbolSelect = ir.Symbol{
 	Name: "select",
 	Kind: ir.KindStage,
-	Type: ir.Stage{Config: maps.Ordered[string, ir.Type]{}},
+	Type: ir.Stage{
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"condition", "false", "true"},
+			Values: []ir.Type{
+				ir.U8{}, // Boolean condition
+				ir.NewTypeVariable("T", nil), // false branch value
+				ir.NewTypeVariable("T", nil), // true branch value
+			},
+		},
+		Return: ir.NewTypeVariable("T", nil), // Return type matches branches
+	},
 }
 
 type selectStage struct{ base }

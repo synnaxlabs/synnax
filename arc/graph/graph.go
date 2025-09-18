@@ -239,15 +239,13 @@ func Analyze(
 		// Get target input type
 		var targetType ir.Type
 		if edge.Target.Param == "" {
-			// Connecting to first parameter
+			// Connecting to first parameter (or no parameter if stage has none)
 			if targetStage.Params.Count() > 0 {
 				_, targetType = targetStage.Params.At(0)
 			} else {
-				ctx.Diagnostics.AddError(
-					errors.Newf("target node '%s' has no parameters", edge.Target.Node),
-					nil,
-				)
-				return ir.IR{}, *ctx.Diagnostics
+				// Stage has no parameters - it will ignore the input
+				// This is allowed, similar to JavaScript functions ignoring extra arguments
+				targetType = nil
 			}
 		} else {
 			// Connecting to specific parameter
@@ -263,6 +261,7 @@ func Analyze(
 		}
 
 		// Create type constraint for polymorphic types
+		// Only if both source and target types exist (target might be nil for parameterless stages)
 		if sourceType != nil && targetType != nil {
 			if err := atypes.CheckEqual(ctx.Constraints, sourceType, targetType, nil,
 				fmt.Sprintf("edge from %s.%s to %s.%s",

@@ -27,8 +27,12 @@ var symbolSetStatus = ir.Symbol{
 	Kind: ir.KindStage,
 	Type: ir.Stage{
 		Config: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"status_key", "variant", "message"},
+			Keys:   []string{"key", "variant", "message"},
 			Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}},
+		},
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"trigger"},
+			Values: []ir.Type{ir.NewTypeVariable("T", nil)},
 		},
 	},
 }
@@ -44,7 +48,7 @@ type setStatus struct {
 func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
 	s := &setStatus{
 		cfg:     cfg,
-		key:     cfg.Node.Config["status_key"].(string),
+		key:     cfg.Node.Config["key"].(string),
 		message: cfg.Node.Config["message"].(string),
 		variant: xstatus.Variant(cfg.Node.Config["variant"].(string)),
 	}

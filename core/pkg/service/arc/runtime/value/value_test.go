@@ -254,12 +254,16 @@ var _ = Describe("Value", func() {
 				{telem.Float32T, ir.F32{}},
 				{telem.StringT, ir.String{}},
 				{telem.TimeStampT, ir.TimeStamp{}},
-				{telem.DataType("unknown"), ir.Number{}},
+				{telem.DataType("unknown"), nil},
 			}
 
 			for _, tt := range tests {
 				result := value.DataTypeToIRType(tt.dt)
-				Expect(result).To(Equal(tt.expected))
+				if tt.expected == nil {
+					Expect(result).To(BeNil())
+				} else {
+					Expect(result).To(Equal(tt.expected))
+				}
 			}
 		})
 	})

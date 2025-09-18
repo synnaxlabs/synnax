@@ -124,15 +124,32 @@ func (s *System) HasTypeVariables() bool {
 
 // ApplySubstitutions replaces all type variables in a type with their resolved types
 func (s *System) ApplySubstitutions(t ir.Type) ir.Type {
+	visited := make(map[string]bool)
+	return s.applySubstitutionsWithVisited(t, visited)
+}
+
+// applySubstitutionsWithVisited is the internal recursive function with cycle detection
+func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]bool) ir.Type {
 	if t == nil {
 		return nil
 	}
 
 	// If it's a type variable, substitute it
 	if tv, ok := t.(ir.TypeVariable); ok {
+		// Check for cycles
+		if visited[tv.Name] {
+			// We've seen this type variable before in this recursion - stop to avoid infinite loop
+			return t
+		}
+
 		if sub, exists := s.substitutions[tv.Name]; exists {
+			// Mark as visited before recursing
+			visited[tv.Name] = true
 			// Recursively apply substitutions in case the substitution contains type variables
-			return s.ApplySubstitutions(sub)
+			result := s.applySubstitutionsWithVisited(sub, visited)
+			// Unmark after recursion
+			visited[tv.Name] = false
+			return result
 		}
 		// No substitution found, return as-is (will be caught as error later)
 		return t
@@ -140,10 +157,10 @@ func (s *System) ApplySubstitutions(t ir.Type) ir.Type {
 
 	// Handle compound types
 	if ch, ok := t.(ir.Chan); ok {
-		return ir.Chan{ValueType: s.ApplySubstitutions(ch.ValueType)}
+		return ir.Chan{ValueType: s.applySubstitutionsWithVisited(ch.ValueType, visited)}
 	}
 	if series, ok := t.(ir.Series); ok {
-		return ir.Series{ValueType: s.ApplySubstitutions(series.ValueType)}
+		return ir.Series{ValueType: s.applySubstitutionsWithVisited(series.ValueType, visited)}
 	}
 
 	// Handle Stage type - resolve type variables in params, config, and return
@@ -151,19 +168,19 @@ func (s *System) ApplySubstitutions(t ir.Type) ir.Type {
 		// Create new maps for config and params with resolved types
 		newConfig := &maps.Ordered[string, ir.Type]{}
 		for k, v := range stage.Config.Iter() {
-			newConfig.Put(k, s.ApplySubstitutions(v))
+			newConfig.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
 
 		newParams := &maps.Ordered[string, ir.Type]{}
 		for k, v := range stage.Params.Iter() {
-			newParams.Put(k, s.ApplySubstitutions(v))
+			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
 
 		return ir.Stage{
 			Key:               stage.Key,
 			Config:            *newConfig,
 			Params:            *newParams,
-			Return:            s.ApplySubstitutions(stage.Return),
+			Return:            s.applySubstitutionsWithVisited(stage.Return, visited),
 			StatefulVariables: stage.StatefulVariables,
 			Channels:          stage.Channels,
 			Body:              stage.Body,
@@ -174,13 +191,13 @@ func (s *System) ApplySubstitutions(t ir.Type) ir.Type {
 	if fn, ok := t.(ir.Function); ok {
 		newParams := &maps.Ordered[string, ir.Type]{}
 		for k, v := range fn.Params.Iter() {
-			newParams.Put(k, s.ApplySubstitutions(v))
+			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
 
 		return ir.Function{
 			Key:    fn.Key,
 			Params: *newParams,
-			Return: s.ApplySubstitutions(fn.Return),
+			Return: s.applySubstitutionsWithVisited(fn.Return, visited),
 			Body:   fn.Body,
 		}
 	}

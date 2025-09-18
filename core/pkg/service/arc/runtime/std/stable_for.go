@@ -26,9 +26,13 @@ var symbolStableFor = ir.Symbol{
 	Type: ir.Stage{
 		Config: maps.Ordered[string, ir.Type]{
 			Keys:   []string{"duration"},
-			Values: []ir.Type{ir.Number{}},
+			Values: []ir.Type{ir.TimeSpan{}},
 		},
-		Return: ir.Number{},
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"input"},
+			Values: []ir.Type{ir.NewTypeVariable("T", nil)}, // Any type
+		},
+		Return: ir.NewTypeVariable("T", nil), // Pass through same type
 	},
 }
 
@@ -54,7 +58,18 @@ func (s *stableFor) Next(ctx context.Context, val value.Value) {
 }
 
 func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
-	duration := telem.TimeSpan(cfg.Node.Config["duration"].(float64))
+	// Handle both int and float64 for duration
+	var duration telem.TimeSpan
+	switch v := cfg.Node.Config["duration"].(type) {
+	case float64:
+		duration = telem.TimeSpan(v)
+	case int:
+		duration = telem.TimeSpan(v)
+	case int64:
+		duration = telem.TimeSpan(v)
+	default:
+		duration = telem.TimeSpan(0)
+	}
 	now := cfg.Now
 	if now == nil {
 		now = telem.Now

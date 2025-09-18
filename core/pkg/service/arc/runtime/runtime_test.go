@@ -80,7 +80,7 @@ var _ = Describe("Runtime", Ordered, func() {
 	})
 
 	Describe("Alarm", func() {
-		FIt("Should update alarm statuses", func() {
+		It("Should update alarm statuses", func() {
 			ch := &channel.Channel{
 				Name:     "ox_pt_1",
 				Virtual:  true,

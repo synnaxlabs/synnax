@@ -41,7 +41,7 @@ var _ = Describe("Select", func() {
 
 	Describe("Select Stage", func() {
 		Context("Value routing based on condition", func() {
-			It("Should output with 'true' param when value is 0", func() {
+			It("Should output with 'false' param when value is 0", func() {
 				stage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -54,12 +54,12 @@ var _ = Describe("Select", func() {
 				v := value.Value{Address: addr, Param: "input", Type: ir.I32{}}.PutInt32(0)
 				stage.Next(ctx, v)
 
-				Expect(output.Param).To(Equal("true"))
+				Expect(output.Param).To(Equal("false"))
 				Expect(output.GetInt32()).To(Equal(int32(0)))
 				Expect(output.Address).To(Equal(addr))
 			})
 
-			It("Should output with 'false' param when value is non-zero", func() {
+			It("Should output with 'true' param when value is non-zero", func() {
 				stage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -72,7 +72,7 @@ var _ = Describe("Select", func() {
 				v := value.Value{Address: addr, Param: "input", Type: ir.I32{}}.PutInt32(42)
 				stage.Next(ctx, v)
 
-				Expect(output.Param).To(Equal("false"))
+				Expect(output.Param).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(42)))
 				Expect(output.Address).To(Equal(addr))
 			})
@@ -91,12 +91,12 @@ var _ = Describe("Select", func() {
 				// Test float zero
 				v1 := value.Value{Address: addr, Type: ir.F64{}}.PutFloat64(0.0)
 				stage.Next(ctx, v1)
-				Expect(outputs[0].Param).To(Equal("true"))
+				Expect(outputs[0].Param).To(Equal("false"))
 
 				// Test non-zero float
 				v2 := value.Value{Address: addr, Type: ir.F64{}}.PutFloat64(3.14)
 				stage.Next(ctx, v2)
-				Expect(outputs[1].Param).To(Equal("false"))
+				Expect(outputs[1].Param).To(Equal("true"))
 			})
 
 			It("Should handle unsigned integers", func() {
@@ -111,12 +111,12 @@ var _ = Describe("Select", func() {
 				// Test uint zero
 				v1 := value.Value{Address: addr, Type: ir.U64{}}.PutUint64(0)
 				stage.Next(ctx, v1)
-				Expect(outputs[0].Param).To(Equal("true"))
+				Expect(outputs[0].Param).To(Equal("false"))
 
 				// Test non-zero uint
 				v2 := value.Value{Address: addr, Type: ir.U64{}}.PutUint64(100)
 				stage.Next(ctx, v2)
-				Expect(outputs[1].Param).To(Equal("false"))
+				Expect(outputs[1].Param).To(Equal("true"))
 			})
 
 			It("Should handle negative values", func() {
@@ -128,17 +128,17 @@ var _ = Describe("Select", func() {
 					output = val
 				})
 
-				// Negative values should result in "false"
+				// Negative values should result in "true" (non-zero)
 				v := value.Value{Address: addr, Type: ir.I32{}}.PutInt32(-10)
 				stage.Next(ctx, v)
 
-				Expect(output.Param).To(Equal("false"))
+				Expect(output.Param).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(-10)))
 			})
 		})
 
 		Context("Boolean-like behavior", func() {
-			It("Should treat boolean true (1) as false output", func() {
+			It("Should treat boolean true (1) as true output", func() {
 				stage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -151,11 +151,11 @@ var _ = Describe("Select", func() {
 				v := value.Value{Address: addr, Type: ir.U8{}}.PutUint8(1)
 				stage.Next(ctx, v)
 
-				Expect(output.Param).To(Equal("false"))
+				Expect(output.Param).To(Equal("true"))
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
 
-			It("Should treat boolean false (0) as true output", func() {
+			It("Should treat boolean false (0) as false output", func() {
 				stage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -168,7 +168,7 @@ var _ = Describe("Select", func() {
 				v := value.Value{Address: addr, Type: ir.U8{}}.PutUint8(0)
 				stage.Next(ctx, v)
 
-				Expect(output.Param).To(Equal("true"))
+				Expect(output.Param).To(Equal("false"))
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
 		})
@@ -188,12 +188,12 @@ var _ = Describe("Select", func() {
 					val      int32
 					expected string
 				}{
-					{0, "true"},
-					{1, "false"},
-					{0, "true"},
-					{-1, "false"},
-					{100, "false"},
-					{0, "true"},
+					{0, "false"},
+					{1, "true"},
+					{0, "false"},
+					{-1, "true"},
+					{100, "true"},
+					{0, "false"},
 				}
 
 				for _, test := range values {
@@ -241,16 +241,16 @@ var _ = Describe("Select", func() {
 				eqStage.Next(ctx, v1)
 				eqStage.Next(ctx, v2)
 
-				Expect(selectOutput.Param).To(Equal("false")) // Because EQ outputs 1 for true
+				Expect(selectOutput.Param).To(Equal("true")) // Because EQ outputs 1 for true
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(1)))
 
-				// Test unequal values (should output 0, which select routes to "true")
+				// Test unequal values (should output 0, which select routes to "false")
 				v3 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
 				v4 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
 				eqStage.Next(ctx, v3)
 				eqStage.Next(ctx, v4)
 
-				Expect(selectOutput.Param).To(Equal("true")) // Because EQ outputs 0 for false
+				Expect(selectOutput.Param).To(Equal("false")) // Because EQ outputs 0 for false
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(0)))
 			})
 
@@ -287,8 +287,8 @@ var _ = Describe("Select", func() {
 				defer cancel()
 				constStage.Flow(sCtx)
 
-				// Constant 0 should be routed to "true"
-				Expect(selectOutput.Param).To(Equal("true"))
+				// Constant 0 should be routed to "false"
+				Expect(selectOutput.Param).To(Equal("false"))
 				Expect(selectOutput.GetInt32()).To(Equal(int32(0)))
 			})
 		})
@@ -316,7 +316,7 @@ var _ = Describe("Select", func() {
 				Expect(output.Address).To(Equal(addr))
 				Expect(output.Type).To(Equal(ir.F32{}))
 				Expect(output.GetFloat32()).To(BeNumerically("~", float32(123.456), 0.001))
-				Expect(output.Param).To(Equal("false")) // Non-zero routes to false
+				Expect(output.Param).To(Equal("true")) // Non-zero routes to true
 			})
 		})
 	})

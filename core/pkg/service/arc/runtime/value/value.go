@@ -240,8 +240,9 @@ func DataTypeToIRType(dt telem.DataType) ir.Type {
 	case telem.TimeStampT:
 		return ir.TimeStamp{}
 	default:
-		// For unknown types, return a generic Number type
-		return ir.Number{}
+		// For unknown types, return nil (untyped)
+		// The actual type should be determined by context
+		return nil
 	}
 }
 

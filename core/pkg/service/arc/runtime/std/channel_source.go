@@ -26,9 +26,11 @@ var symbolChannelSource = ir.Symbol{
 	Type: ir.Stage{
 		Config: ir.NamedTypes{
 			Keys:   []string{"channel"},
-			Values: []ir.Type{ir.Chan{}},
+			Values: []ir.Type{ir.Chan{}}, // Channel reference
 		},
-		Return: ir.Number{},
+		// Return type should be based on the channel's data type
+		// This would ideally be determined at graph analysis time
+		Return: ir.NewTypeVariable("T", nil), // Depends on channel type
 	},
 }
 

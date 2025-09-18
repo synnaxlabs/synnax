@@ -10,18 +10,11 @@
 package constraints_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/ir"
 )
-
-func TestConstraints(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Constraints Suite")
-}
 
 var _ = Describe("Constraint System", func() {
 	var system *constraints.System

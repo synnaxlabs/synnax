@@ -25,8 +25,9 @@ var symbolConstant = ir.Symbol{
 	Type: ir.Stage{
 		Config: maps.Ordered[string, ir.Type]{
 			Keys:   []string{"value"},
-			Values: []ir.Type{ir.Number{}},
+			Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 		},
+		Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
 	},
 }
 
@@ -38,11 +39,13 @@ type constant struct {
 func (c *constant) Flow(ctx signal.Context) { c.outputHandler(ctx, c.value) }
 
 func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
+	// The actual type will be determined by the graph analysis
+	// For runtime, we just store the value
 	c := &constant{
 		base: base{key: cfg.Node.Key},
 		value: value.Value{
 			Param: "output",
-			Type:  ir.Number{},
+			// Type will be determined at runtime based on the actual value
 		}.Put(cfg.Node.Config["value"]),
 	}
 	return c, nil

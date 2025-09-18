@@ -18,20 +18,24 @@ import (
 	"github.com/synnaxlabs/x/maps"
 )
 
-var (
-	binaryOpIrType = ir.Stage{
-		Params: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"a", "b"},
-			Values: []ir.Type{ir.Number{}, ir.Number{}},
-		},
-		Return: ir.U8{},
+func createComparisonSymbol(name string) ir.Symbol {
+	params := maps.Ordered[string, ir.Type]{}
+	params.Put("a", ir.NewTypeVariable("T", ir.NumericConstraint{}))
+	params.Put("b", ir.NewTypeVariable("T", ir.NumericConstraint{}))
+	return ir.Symbol{
+		Name: name,
+		Kind: ir.KindStage,
+		Type: ir.Stage{Params: params, Return: ir.U8{}},
 	}
-	symbolGE = ir.Symbol{Name: "ge", Kind: ir.KindStage, Type: binaryOpIrType}
-	symbolLE = ir.Symbol{Name: "le", Kind: ir.KindStage, Type: binaryOpIrType}
-	symbolLT = ir.Symbol{Name: "lt", Kind: ir.KindStage, Type: binaryOpIrType}
-	symbolGT = ir.Symbol{Name: "gt", Kind: ir.KindStage, Type: binaryOpIrType}
-	symbolEQ = ir.Symbol{Name: "eq", Kind: ir.KindStage, Type: binaryOpIrType}
-	symbolNE = ir.Symbol{Name: "ne", Kind: ir.KindStage, Type: binaryOpIrType}
+}
+
+var (
+	symbolGE = createComparisonSymbol("ge")
+	symbolLE = createComparisonSymbol("le")
+	symbolLT = createComparisonSymbol("lt")
+	symbolGT = createComparisonSymbol("gt")
+	symbolEQ = createComparisonSymbol("eq")
+	symbolNE = createComparisonSymbol("ne")
 )
 
 type operator struct {
@@ -58,6 +62,8 @@ func (n *operator) Next(ctx context.Context, val value.Value) {
 			Param:   "output",
 			Type:    ir.U8{},
 		}.PutUint8(result))
+		n.a = nil
+		n.b = nil
 	}
 }
 
@@ -79,7 +85,6 @@ var (
 	NEFactory = createBinaryOpFactory(func(a, b value.Value) bool { return !a.Eq(b) })
 )
 
-// Arithmetic operator types and symbols
 type arithmeticOperator struct {
 	base
 	operate func(a, b value.Value) value.Value
@@ -109,7 +114,32 @@ func createArithmeticOpFactory(operate func(a, b value.Value) value.Value) Const
 	}
 }
 
-// Arithmetic operator factories
+// createArithmeticSymbol creates a polymorphic arithmetic operator symbol
+func createArithmeticSymbol(name string) ir.Symbol {
+	return ir.Symbol{
+		Name: name,
+		Kind: ir.KindStage,
+		Type: ir.Stage{
+			Params: maps.Ordered[string, ir.Type]{
+				Keys: []string{"a", "b"},
+				Values: []ir.Type{
+					ir.NewTypeVariable("T", ir.NumericConstraint{}),
+					ir.NewTypeVariable("T", ir.NumericConstraint{}),
+				},
+			},
+			Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+		},
+	}
+}
+
+var (
+	symbolAdd = createArithmeticSymbol("add")
+	symbolSub = createArithmeticSymbol("sub")
+	symbolMul = createArithmeticSymbol("mul")
+	symbolDiv = createArithmeticSymbol("div")
+	symbolMod = createArithmeticSymbol("mod")
+)
+
 var (
 	AddFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Add(b) })
 	SubFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Sub(b) })
