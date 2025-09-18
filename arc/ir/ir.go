@@ -86,12 +86,18 @@ type Edge struct {
 	Target Handle `json:"target"`
 }
 
+// ConstraintSystem is an interface for type constraint resolution
+type ConstraintSystem interface {
+	ApplySubstitutions(t Type) Type
+}
+
 type IR struct {
-	Stages    []Stage    `json:"stages"`
-	Functions []Function `json:"functions"`
-	Nodes     []Node     `json:"nodes"`
-	Edges     []Edge     `json:"edges"`
-	Symbols   *Scope     `json:"-"`
+	Stages      []Stage           `json:"stages"`
+	Functions   []Function        `json:"functions"`
+	Nodes       []Node            `json:"nodes"`
+	Edges       []Edge            `json:"edges"`
+	Symbols     *Scope            `json:"-"`
+	Constraints ConstraintSystem  `json:"-"`
 }
 
 func (ir IR) GetStage(key string) (Stage, bool) {

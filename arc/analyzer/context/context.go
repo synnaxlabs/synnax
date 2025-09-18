@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 )
@@ -21,6 +22,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 	context.Context
 	Scope       *ir.Scope
 	Diagnostics *diagnostics.Diagnostics
+	Constraints *constraints.System
 	AST         AST
 	Hint        ir.Type
 }
@@ -44,6 +46,7 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 		Context:     ctx,
 		Scope:       ir.CreateRootScope(resolver),
 		Diagnostics: &diagnostics.Diagnostics{},
+		Constraints: constraints.New(),
 		AST:         ast,
 	}
 
@@ -54,6 +57,7 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		Context:     ctx.Context,
 		Scope:       ctx.Scope,
 		Diagnostics: ctx.Diagnostics,
+		Constraints: ctx.Constraints,
 		AST:         next,
 		Hint:        ctx.Hint,
 	}

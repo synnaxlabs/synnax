@@ -104,9 +104,42 @@ type TimeStamp struct{}
 
 func (t TimeStamp) String() string { return "timestamp" }
 
+// TypeVariable represents a polymorphic type that will be resolved during analysis.
+// It allows stages to accept and return generic types with constraints.
+type TypeVariable struct {
+	// Name identifies the type variable (e.g., "T", "T1", "T2")
+	Name string
+	// Constraint specifies what types this variable can be unified with.
+	// nil means unconstrained, Number{} means numeric types only, etc.
+	Constraint Type
+}
+
+func (tv TypeVariable) String() string {
+	if tv.Constraint != nil {
+		return fmt.Sprintf("%s:%s", tv.Name, tv.Constraint.String())
+	}
+	return tv.Name
+}
+
+// NumericConstraint constrains a type variable to numeric types
+type NumericConstraint struct{}
+
+func (nc NumericConstraint) String() string { return "numeric" }
+
 func IsNumeric(t Type) bool {
 	if ch, isChan := t.(Chan); isChan {
 		t = ch.ValueType
+	}
+	// Type variables with numeric constraints are considered numeric
+	if tv, ok := t.(TypeVariable); ok {
+		if tv.Constraint == nil {
+			return false // Unconstrained type variable is not specifically numeric
+		}
+		if _, ok := tv.Constraint.(NumericConstraint); ok {
+			return true
+		}
+		// Check if constraint is a concrete numeric type
+		return IsNumeric(tv.Constraint)
 	}
 	switch t {
 	case U8{}, U16{}, U32{}, U64{}, I8{}, I16{}, I32{}, I64{}, F32{}, F64{}:
@@ -215,3 +248,15 @@ func TypeFromTelem(t telem.DataType) Type {
 		return nil
 	}
 }
+
+// IsTypeVariable checks if a type is a type variable
+func IsTypeVariable(t Type) bool {
+	_, ok := t.(TypeVariable)
+	return ok
+}
+
+// NewTypeVariable creates a new type variable with the given name and constraint
+func NewTypeVariable(name string, constraint Type) TypeVariable {
+	return TypeVariable{Name: name, Constraint: constraint}
+}
+

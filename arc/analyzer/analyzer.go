@@ -26,7 +26,7 @@ import (
 type Diagnostics = diagnostics.Diagnostics
 
 func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
-	// First pass: collect declarations with empty type signatures
+	// PASS 1: Collect declarations with empty type signatures
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
@@ -55,7 +55,7 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 		}
 	}
 
-	// Second pass: analyze tree
+	// PASS 2: Analyze tree and collect constraints
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
 			if !analyzeFunctionDeclaration(context.Child(ctx, funcDecl)) {
@@ -71,6 +71,20 @@ func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
 			}
 		}
 	}
+
+	// PASS 3: Unify type variables and resolve all types
+	if ctx.Constraints.HasTypeVariables() {
+		if err := ctx.Constraints.Unify(); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+
+		// Apply substitutions to all types in the symbol table
+		if !applyTypeSubstitutions(ctx) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -201,6 +215,28 @@ func blockAlwaysReturns(block parser.IBlockContext) bool {
 		// (assignments, expressions, etc. don't affect return paths)
 	}
 	return false
+}
+
+// applyTypeSubstitutions applies resolved type variables throughout the symbol table
+func applyTypeSubstitutions(ctx context.Context[parser.IProgramContext]) bool {
+	// Walk the entire symbol table and apply substitutions
+	return applySubstitutionsToScope(ctx, ctx.Scope)
+}
+
+func applySubstitutionsToScope(ctx context.Context[parser.IProgramContext], scope *ir.Scope) bool {
+	// Apply substitutions to the current scope's type
+	if scope.Type != nil {
+		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
+	}
+
+	// Recursively apply to children
+	for _, child := range scope.Children {
+		if !applySubstitutionsToScope(ctx, child) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext]) bool {

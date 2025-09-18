@@ -82,17 +82,22 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 					}
 					exprType := atypes.InferFromExpression(childCtx)
 					if exprType != nil && expectedType != nil {
-						if !atypes.Compatible(expectedType, exprType) {
-							ctx.Diagnostics.AddError(
-								errors.Newf(
-									"type mismatch: config parameter '%s' expects %s but got %s",
-									key,
-									expectedType,
-									exprType,
-								),
-								configVal,
-							)
-							return false
+						// Use constraint-based checking for type variables
+						if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
+							"config parameter '"+key+"' for stage '"+name+"'"); err != nil {
+							// Only report error if neither type is a type variable
+							if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
+								ctx.Diagnostics.AddError(
+									errors.Newf(
+										"type mismatch: config parameter '%s' expects %s but got %s",
+										key,
+										expectedType,
+										exprType,
+									),
+									configVal,
+								)
+								return false
+							}
 						}
 					}
 				}
@@ -119,7 +124,65 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 	}
 
 	// Step 3: Validate that stage arguments are compatible with previous flow node.
-	if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
+	// Check if previous node is a channel
+	if prevChannelNode := prevNode.ChannelIdentifier(); prevChannelNode != nil {
+		channelName := prevChannelNode.IDENTIFIER().GetText()
+		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, prevChannelNode)
+			return false
+		}
+		if channelSym.Kind != ir.KindChannel {
+			ctx.Diagnostics.AddError(
+				errors.Newf("%s is not a channel", channelName),
+				prevChannelNode,
+			)
+			return false
+		}
+		// If this stage has parameters, the channel's value type should match the first param
+		if stageType.Params.Count() > 0 {
+			_, paramType := stageType.Params.At(0)
+			chanType := channelSym.Type.(ir.Chan)
+			// Create constraint between channel value type and parameter type
+			if err := atypes.CheckEqual(ctx.Constraints, chanType.ValueType, paramType, ctx.AST,
+				"channel to stage parameter connection"); err != nil {
+				// Only report error if neither type is a type variable
+				if !atypes.HasTypeVariables(chanType.ValueType) && !atypes.HasTypeVariables(paramType) {
+					ctx.Diagnostics.AddError(errors.Newf(
+						"channel %s value type %s does not match stage %s parameter type %s",
+						channelName,
+						chanType.ValueType,
+						name,
+						paramType,
+					), ctx.AST)
+					return false
+				}
+			}
+		}
+	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
+		// Handle expression -> stage connection
+		// The expression creates a synthetic stage, so we need to get its return type
+		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
+
+		// If this stage has parameters, the expression's type should match the first param
+		if stageType.Params.Count() > 0 {
+			_, paramType := stageType.Params.At(0)
+			// Create constraint between expression type and parameter type
+			if err := atypes.CheckEqual(ctx.Constraints, exprType, paramType, ctx.AST,
+				"expression to stage parameter connection"); err != nil {
+				// Only report error if neither type is a type variable
+				if !atypes.HasTypeVariables(exprType) && !atypes.HasTypeVariables(paramType) {
+					ctx.Diagnostics.AddError(errors.Newf(
+						"expression type %s does not match stage %s parameter type %s",
+						exprType,
+						name,
+						paramType,
+					), ctx.AST)
+					return false
+				}
+			}
+		}
+	} else if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
 		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
 		// lookup stage in symbol table
 		sym, err := ctx.Scope.Resolve(ctx, prevTaskName)
@@ -144,17 +207,23 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 			return false
 		}
 		// Validate that the return type of the previous stage matches the arg type
-		// of the ntext stage.
+		// of the next stage.
 		if stageType.Params.Count() > 0 {
 			_, t := stageType.Params.At(0)
-			if !ir.Equal(prevTaskType.Return, t) {
-				ctx.Diagnostics.AddError(errors.Newf(
-					"return type %s of %s is not equal to argument type %s of %s",
-					prevTaskType.Return,
-					prevTaskName,
-					t,
-					name,
-				), ctx.AST)
+			// Use constraint-based checking for type variables
+			if err := atypes.CheckEqual(ctx.Constraints, prevTaskType.Return, t, ctx.AST,
+				"flow connection between stages"); err != nil {
+				// Only report error if neither type is a type variable
+				if !atypes.HasTypeVariables(prevTaskType.Return) && !atypes.HasTypeVariables(t) {
+					ctx.Diagnostics.AddError(errors.Newf(
+						"return type %s of %s is not equal to argument type %s of %s",
+						prevTaskType.Return,
+						prevTaskName,
+						t,
+						name,
+					), ctx.AST)
+					return false
+				}
 			}
 		}
 	}

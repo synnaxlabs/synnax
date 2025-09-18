@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
@@ -150,12 +151,11 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
-	// Step 3: Analyze flow statement relationships
+	// Step 3: Analyze node configurations
 	for i, n := range g.Nodes {
-		// What do we want to validate.
-		// 1: Config parameters match their expected types.
-		// 2: Stage definition actually exists for node.
-		// 2: Edge inputs and outputs are compatible
+		// Validate:
+		// 1: Stage definition actually exists for node.
+		// 2: Config parameters match their expected types.
 		stageScope, err := ctx.Scope.Resolve(ctx, n.Type)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, nil)
@@ -190,14 +190,114 @@ func Analyze(
 		}
 	}
 
-	// Step 4: Return the IR
+	// Step 4: Analyze edge connections and create type constraints
+	nodeTypes := make(map[string]ir.Stage)
+	for _, n := range g.Nodes {
+		stageScope, _ := ctx.Scope.Resolve(ctx, n.Type)
+		nodeTypes[n.Key] = stageScope.Type.(ir.Stage)
+	}
+
+	for _, edge := range g.Edges {
+		// Validate source node exists
+		sourceStage, ok := nodeTypes[edge.Source.Node]
+		if !ok {
+			ctx.Diagnostics.AddError(
+				errors.Newf("edge source node '%s' not found", edge.Source.Node),
+				nil,
+			)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+
+		// Validate target node exists
+		targetStage, ok := nodeTypes[edge.Target.Node]
+		if !ok {
+			ctx.Diagnostics.AddError(
+				errors.Newf("edge target node '%s' not found", edge.Target.Node),
+				nil,
+			)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+
+		// Get source output type (from return or specific param)
+		var sourceType ir.Type
+		if edge.Source.Param == "" {
+			// Using the stage's return type
+			sourceType = sourceStage.Return
+		} else {
+			// Using a specific output parameter
+			sourceType, ok = sourceStage.Params.Get(edge.Source.Param)
+			if !ok {
+				ctx.Diagnostics.AddError(
+					errors.Newf("source param '%s' not found in node '%s'",
+						edge.Source.Param, edge.Source.Node),
+					nil,
+				)
+				return ir.IR{}, *ctx.Diagnostics
+			}
+		}
+
+		// Get target input type
+		var targetType ir.Type
+		if edge.Target.Param == "" {
+			// Connecting to first parameter
+			if targetStage.Params.Count() > 0 {
+				_, targetType = targetStage.Params.At(0)
+			} else {
+				ctx.Diagnostics.AddError(
+					errors.Newf("target node '%s' has no parameters", edge.Target.Node),
+					nil,
+				)
+				return ir.IR{}, *ctx.Diagnostics
+			}
+		} else {
+			// Connecting to specific parameter
+			targetType, ok = targetStage.Params.Get(edge.Target.Param)
+			if !ok {
+				ctx.Diagnostics.AddError(
+					errors.Newf("target param '%s' not found in node '%s'",
+						edge.Target.Param, edge.Target.Node),
+					nil,
+				)
+				return ir.IR{}, *ctx.Diagnostics
+			}
+		}
+
+		// Create type constraint for polymorphic types
+		if sourceType != nil && targetType != nil {
+			if err := atypes.CheckEqual(ctx.Constraints, sourceType, targetType, nil,
+				fmt.Sprintf("edge from %s.%s to %s.%s",
+					edge.Source.Node, edge.Source.Param,
+					edge.Target.Node, edge.Target.Param)); err != nil {
+				// Only report error if neither type is a type variable
+				if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(targetType) {
+					ctx.Diagnostics.AddError(errors.Newf(
+						"type mismatch: edge from %s (%s) to %s (%s)",
+						edge.Source.Node, sourceType,
+						edge.Target.Node, targetType,
+					), nil)
+					return ir.IR{}, *ctx.Diagnostics
+				}
+			}
+		}
+	}
+
+	// Step 5: Unify type variables if any were found
+	if ctx.Constraints.HasTypeVariables() {
+		if err := ctx.Constraints.Unify(); err != nil {
+			ctx.Diagnostics.AddError(err, nil)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+	}
+
+	// Step 6: Return the IR
 	return ir.IR{
-		Symbols:   ctx.Scope,
-		Stages:    g.Stages,
-		Edges:     g.Edges,
-		Functions: g.Functions,
+		Symbols:     ctx.Scope,
+		Stages:      g.Stages,
+		Edges:       g.Edges,
+		Functions:   g.Functions,
 		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
 			return item.Node
 		}),
+		Constraints: ctx.Constraints,
 	}, *ctx.Diagnostics
 }

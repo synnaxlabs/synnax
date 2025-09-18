@@ -27,6 +27,21 @@ const (
 	Hint
 )
 
+func (s Severity) String() string {
+	switch s {
+	case Error:
+		return "error"
+	case Warning:
+		return "warning"
+	case Info:
+		return "info"
+	case Hint:
+		return "hint"
+	default:
+		return fmt.Sprintf("Severity(%d)", s)
+	}
+}
+
 // Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
 	Key      string   `json:"key"`
@@ -70,7 +85,7 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString(fmt.Sprintf("%d:%d %s: %s", diag.Line, diag.Column, diag.Severity, diag.Message))
+		sb.WriteString(fmt.Sprintf("%d:%d %s: %s", diag.Line, diag.Column, diag.Severity.String(), diag.Message))
 	}
 	return sb.String()
 }

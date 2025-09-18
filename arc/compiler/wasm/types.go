@@ -52,6 +52,11 @@ const (
 var MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
 
 func ConvertType(t ir.Type) ValueType {
+	// Type variables should never reach the compiler - they must be resolved during analysis
+	if ir.IsTypeVariable(t) {
+		panic(errors.Newf("compiler received unresolved type variable: %v", t))
+	}
+
 	switch t {
 	case ir.I8{}, ir.I16{}, ir.I32{}, ir.U8{}, ir.U16{}, ir.U32{}:
 		return I32

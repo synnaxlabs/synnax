@@ -45,7 +45,7 @@ func Analyze(
 	if !analyzer.AnalyzeProgram(ctx) {
 		return ir.IR{}, *ctx.Diagnostics
 	}
-	i := ir.IR{Symbols: ctx.Scope}
+	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
 
 	// Stage 2: Iterate through the root scope children to assemble
 	// functions and stages.
