@@ -335,7 +335,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
 
-  const moveChildren = Ontology.useMoveChildren();
+  const moveChildren = Ontology.useMoveChildren({});
 
   const handleDrop = useCallback(
     (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
@@ -360,6 +360,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       contract(...keys);
       const ids = keys.map((key) => ontology.idZ.parse(key));
+      const next = Core.moveNode({
+        tree: nodesSnapshot,
+        destination: ontology.idToString(destination),
+        keys,
+      });
+      setNodes([...next]);
       moveChildren.update({ source: sourceID, destination, ids });
       return moved;
     },
