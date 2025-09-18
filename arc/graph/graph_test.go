@@ -523,79 +523,79 @@ var _ = Describe("Graph", func() {
 		Describe("Integration", func() {
 			It("Should parse and analyze a complete alarm system graph", func() {
 				g := arc.Graph{
-				Nodes: []graph.Node{
-					{Node: arc.Node{
-						Key:    "on",
-						Type:   "on",
-						Config: map[string]any{"channel": 12},
-					}},
-					{Node: arc.Node{
-						Key:    "constant",
-						Type:   "constant",
-						Config: map[string]any{"value": 10},
-					}},
-					{Node: arc.Node{
-						Key:    "ge",
-						Type:   "ge",
-						Config: map[string]any{},
-					}},
-					{Node: arc.Node{
-						Key:  "stable_for",
-						Type: "stable_for",
-						Config: map[string]any{
-							"duration": int(telem.Millisecond * 1),
+					Nodes: []graph.Node{
+						{Node: arc.Node{
+							Key:    "on",
+							Type:   "on",
+							Config: map[string]any{"channel": 12},
+						}},
+						{Node: arc.Node{
+							Key:    "constant",
+							Type:   "constant",
+							Config: map[string]any{"value": 10},
+						}},
+						{Node: arc.Node{
+							Key:    "ge",
+							Type:   "ge",
+							Config: map[string]any{},
+						}},
+						{Node: arc.Node{
+							Key:  "stable_for",
+							Type: "stable_for",
+							Config: map[string]any{
+								"duration": int(telem.Millisecond * 1),
+							},
+						}},
+						{Node: arc.Node{
+							Key:  "select",
+							Type: "select",
+						}},
+						{Node: arc.Node{
+							Key:  "status_success",
+							Type: "set_status",
+							Config: map[string]any{
+								"key":     "ox_alarm",
+								"variant": "success",
+								"message": "OX Pressure Nominal",
+							},
+						}},
+						{Node: arc.Node{
+							Key:  "status_error",
+							Type: "set_status",
+							Config: map[string]any{
+								"key":     "ox_alarm",
+								"variant": "error",
+								"message": "OX Pressure Alarm",
+							},
+						}},
+					},
+					Edges: []arc.Edge{
+						{
+							Source: arc.Handle{Node: "on"},
+							Target: arc.Handle{Node: "ge", Param: "a"},
 						},
-					}},
-					{Node: arc.Node{
-						Key:  "select",
-						Type: "select",
-					}},
-					{Node: arc.Node{
-						Key:  "status_success",
-						Type: "set_status",
-						Config: map[string]any{
-							"key":     "ox_alarm",
-							"variant": "success",
-							"message": "OX Pressure Nominal",
+						{
+							Source: arc.Handle{Node: "constant"},
+							Target: arc.Handle{Node: "ge", Param: "b"},
 						},
-					}},
-					{Node: arc.Node{
-						Key:  "status_error",
-						Type: "set_status",
-						Config: map[string]any{
-							"key":     "ox_alarm",
-							"variant": "error",
-							"message": "OX Pressure Alarm",
+						{
+							Source: arc.Handle{Node: "ge"},
+							Target: arc.Handle{Node: "stable_for"},
 						},
-					}},
-				},
-				Edges: []arc.Edge{
-					{
-						Source: arc.Handle{Node: "on"},
-						Target: arc.Handle{Node: "ge", Param: "a"},
+						{
+							Source: arc.Handle{Node: "stable_for"},
+							Target: arc.Handle{Node: "select"},
+						},
+						{
+							Source: arc.Handle{Node: "select", Param: "false"},
+							Target: arc.Handle{Node: "status_success"},
+						},
+						{
+							Source: arc.Handle{Node: "select", Param: "true"},
+							Target: arc.Handle{Node: "status_error"},
+						},
 					},
-					{
-						Source: arc.Handle{Node: "constant"},
-						Target: arc.Handle{Node: "ge", Param: "b"},
-					},
-					{
-						Source: arc.Handle{Node: "ge"},
-						Target: arc.Handle{Node: "stable_for"},
-					},
-					{
-						Source: arc.Handle{Node: "stable_for"},
-						Target: arc.Handle{Node: "select"},
-					},
-					{
-						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success"},
-					},
-					{
-						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error"},
-					},
-				},
-			}
+				}
 
 				// First, define the stage signatures that this graph expects
 				// Using polymorphic types for constant, ge, and stable_for
@@ -603,7 +603,7 @@ var _ = Describe("Graph", func() {
 
 				stages := []ir.Stage{
 					{
-						Key:    "on",
+						Key: "on",
 						Config: ir.NamedTypes{
 							Keys:   []string{"channel"},
 							Values: []ir.Type{ir.U32{}},
@@ -611,23 +611,23 @@ var _ = Describe("Graph", func() {
 						Return: ir.F64{}, // Returns sensor reading
 					},
 					{
-						Key:    "constant",
+						Key: "constant",
 						Config: ir.NamedTypes{
 							Keys:   []string{"value"},
-							Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})}, // Polymorphic - takes type T
+							Values: []ir.Type{ir.NewTypeVariable("A", ir.NumericConstraint{})},
 						},
-						Return: ir.NewTypeVariable("T", ir.NumericConstraint{}), // Returns same type T (but a new instance)
+						Return: ir.NewTypeVariable("A", ir.NumericConstraint{}),
 					},
 					{
 						Key: "ge",
 						Params: ir.NamedTypes{
-							Keys:   []string{"a", "b"},
+							Keys: []string{"a", "b"},
 							Values: []ir.Type{
-								ir.NewTypeVariable("T", ir.NumericConstraint{}),
-								ir.NewTypeVariable("T", ir.NumericConstraint{}),
-							}, // Both params must be same numeric type T
+								ir.NewTypeVariable("B", ir.NumericConstraint{}),
+								ir.NewTypeVariable("B", ir.NumericConstraint{}),
+							},
 						},
-						Return: ir.U8{}, // Returns boolean (U8)
+						Return: ir.U8{},
 					},
 					{
 						Key: "stable_for",
@@ -637,9 +637,9 @@ var _ = Describe("Graph", func() {
 						},
 						Params: ir.NamedTypes{
 							Keys:   []string{"input"},
-							Values: []ir.Type{ir.NewTypeVariable("U", nil)}, // Takes any type U
+							Values: []ir.Type{ir.NewTypeVariable("C", nil)},
 						},
-						Return: ir.NewTypeVariable("U", nil), // Returns same type U (new instance)
+						Return: ir.NewTypeVariable("C", nil),
 					},
 					{
 						Key: "select",
@@ -647,7 +647,6 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"condition", "false", "true"},
 							Values: []ir.Type{ir.U8{}, ir.U8{}, ir.U8{}},
 						},
-						// The select stage routes to either "true" or "false" output
 						Return: ir.U8{},
 					},
 					{
