@@ -1,6 +1,7 @@
-import { createTestClient, task } from "@synnaxlabs/client";
+import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { exp } from "mathjs";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
@@ -15,10 +16,7 @@ describe("queries", () => {
   const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {
@@ -284,6 +282,405 @@ describe("queries", () => {
         expect(taskInList?.status?.variant).toEqual("loading");
         expect(taskInList?.status?.message).toEqual("Running start command...");
         expect(taskInList?.status?.details.running).toBe(true);
+      });
+    });
+  });
+
+  describe("useRetrieve", () => {
+    it("should retrieve a task by key", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "retrieveRack",
+      });
+      const testTask = await rack.createTask({
+        name: "retrieve_test",
+        type: "testType",
+        config: { value: "test" },
+      });
+
+      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.key).toEqual(testTask.key);
+      expect(result.current.data?.name).toEqual("retrieve_test");
+      expect(result.current.data?.type).toEqual("testType");
+      expect(result.current.data?.config).toEqual({ value: "test" });
+    });
+
+    it("should retrieve task with status", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "statusRack",
+      });
+      const testTask = await rack.createTask({
+        name: "status_task",
+        type: "testType",
+        config: {},
+      });
+
+      const taskStatus: task.Status = status.create({
+        key: id.create(),
+        variant: "success",
+        message: "Task running",
+        details: {
+          task: testTask.key,
+          running: true,
+          data: {},
+        },
+      });
+
+      await act(async () => {
+        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        await writer.write(task.STATUS_CHANNEL_NAME, [taskStatus]);
+        await writer.close();
+      });
+
+      const { result } = renderHook(
+        () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.status?.variant).toEqual("success");
+      expect(result.current.data?.status?.message).toEqual("Task running");
+    });
+
+    it("should update when task is renamed", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "renameRack",
+      });
+      const testTask = await rack.createTask({
+        name: "original_retrieve",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const retrieve = Task.useRetrieve({ key: testTask.key });
+          const rename = Task.useRename();
+          return { retrieve, rename };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
+
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testTask.key,
+          name: "renamed_retrieve",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.name).toEqual("renamed_retrieve");
+      });
+    });
+
+    it("should update when task status changes", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "statusUpdateRack",
+      });
+      const testTask = await rack.createTask({
+        name: "status_update_task",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const newStatus: task.Status = status.create({
+        key: id.create(),
+        variant: "error",
+        message: "Task failed",
+        details: {
+          task: testTask.key,
+          running: false,
+          data: { error: "Test error" },
+        },
+      });
+
+      await act(async () => {
+        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        await writer.write(task.STATUS_CHANNEL_NAME, [newStatus]);
+        await writer.close();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("error");
+        expect(result.current.data?.status?.message).toEqual("Task failed");
+        expect(result.current.data?.status?.details.data).toEqual({
+          error: "Test error",
+        });
+      });
+    });
+
+    it("should handle retrieval with schemas", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "schemaRack",
+      });
+      const testTask = await rack.createTask({
+        name: "schema_task",
+        type: "typedTask",
+        config: { port: 8080, host: "localhost" },
+      });
+
+      const schemas = {
+        typeSchema: z.literal("typedTask"),
+        configSchema: z.object({
+          port: z.number(),
+          host: z.string(),
+        }),
+        statusDataSchema: z.any(),
+      };
+
+      const { useRetrieve } = Task.createRetrieve(schemas);
+
+      const { result } = renderHook(() => useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.type).toEqual("typedTask");
+      expect(result.current.data?.config.port).toEqual(8080);
+      expect(result.current.data?.config.host).toEqual("localhost");
+    });
+  });
+
+  describe("useCreateSnapshot", () => {
+    it("should create a snapshot of a single task", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "snapshotRack",
+      });
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "testType",
+        config: { value: "original" },
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "snapshot_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const snapshot = await client.hardware.tasks.retrieve({
+        name: `${originalName} (Snapshot)`,
+      });
+      expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
+      expect(snapshot.snapshot).toBe(true);
+      expect(snapshot.config).toEqual({ value: "original" });
+    });
+
+    it("should create snapshots of multiple tasks", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "multiSnapshotRack",
+      });
+      const originalName1 = id.create();
+      const originalName2 = id.create();
+      const task1 = await rack.createTask({
+        name: originalName1,
+        type: "testType",
+        config: { id: 1 },
+      });
+      const task2 = await rack.createTask({
+        name: originalName2,
+        type: "testType",
+        config: { id: 2 },
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "multi_snapshot_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: [
+            { key: task1.key, name: task1.name },
+            { key: task2.key, name: task2.name },
+          ],
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const firstSnapshotName = `${originalName1} (Snapshot)`;
+      const secondSnapshotName = `${originalName2} (Snapshot)`;
+      const snapshots = await client.hardware.tasks.retrieve({
+        names: [firstSnapshotName, secondSnapshotName],
+      });
+      const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
+      const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
+      expect(snapshot1).toBeDefined();
+      expect(snapshot2).toBeDefined();
+      expect(snapshot1?.snapshot).toBe(true);
+      expect(snapshot2?.snapshot).toBe(true);
+      expect(snapshot1?.config).toEqual({ id: 1 });
+      expect(snapshot2?.config).toEqual({ id: 2 });
+    });
+
+    it("should add snapshots to parent ontology group", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "ontologyRack",
+      });
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "testType",
+        config: {},
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "ontology_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const children = await client.ontology.retrieveChildren(
+        group.ontologyID(parentGroup.key),
+      );
+      expect(children.length).toBeGreaterThan(0);
+
+      const snapshotChild = children.find(
+        (c) => c.name === `${originalTask.name} (Snapshot)`,
+      );
+      expect(snapshotChild).toBeDefined();
+    });
+
+    it("should preserve task configuration in snapshots", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "configRack",
+      });
+      const complexConfig = {
+        host: "localhost",
+        port: 8080,
+        settings: {
+          timeout: 5000,
+          retries: 3,
+        },
+      };
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "complexType",
+        config: complexConfig,
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "config_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const snapshot = await client.hardware.tasks.retrieve({
+        name: `${originalName} (Snapshot)`,
+      });
+      expect(snapshot).toBeDefined();
+      expect(snapshot.config).toEqual(complexConfig);
+      expect(snapshot.type).toEqual("complexType");
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete a single task", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "deleteRack",
+      });
+      const testTask = await rack.createTask({
+        name: "delete_single",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const list = Task.useList();
+          const del = Task.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(testTask.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync(testTask.key);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(testTask.key);
+      });
+    });
+
+    it("should delete multiple tasks", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "deleteMultiRack",
+      });
+      const task1 = await rack.createTask({
+        name: "delete_multi_1",
+        type: "testType",
+        config: {},
+      });
+      const task2 = await rack.createTask({
+        name: "delete_multi_2",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const list = Task.useList();
+          const del = Task.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(task1.key);
+      expect(result.current.list.data).toContain(task2.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync([task1.key, task2.key]);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(task1.key);
+        expect(result.current.list.data).not.toContain(task2.key);
       });
     });
   });

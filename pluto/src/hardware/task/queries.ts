@@ -109,10 +109,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
 };
 
-export interface RetrieveQueryParams {
-  key?: task.Key;
-  includeStatus?: boolean;
-}
+export type UseRetrieveParams = task.SingleRetrieveArgs;
 
 const retrieveByKey = async <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -121,49 +118,49 @@ const retrieveByKey = async <
 >(
   client: Synnax,
   store: FluxSubStore,
-  params: RetrieveQueryParams & { key: task.Key },
+  params: UseRetrieveParams,
   schemas?: task.Schemas<Type, Config, StatusData>,
 ): Promise<task.Task<Type, Config, StatusData>> => {
-  const cached = store.tasks.get(params.key);
-  if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
+  if ("key" in params && params.key != null) {
+    const cached = store.tasks.get(params.key.toString());
+    if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
+  }
   const task = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
     ...params,
     includeStatus: true,
     schemas,
   });
-  store.tasks.set(params.key, task as unknown as task.Task, "config");
+  store.tasks.set(task.key.toString(), task as unknown as task.Task, "config");
   return task;
 };
 
-export const createRetrieveQuery = <
+export const createRetrieve = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  schemas: task.Schemas<Type, Config, StatusData>,
+  schemas?: task.Schemas<Type, Config, StatusData>,
 ) =>
   Flux.createRetrieve<
-    RetrieveQueryParams,
+    UseRetrieveParams,
     task.Task<Type, Config, StatusData> | null,
     FluxSubStore
   >({
     name: "Task",
-    retrieve: async ({ client, params, store }) => {
-      if (params.key == null) return null;
-      return await retrieveByKey<Type, Config, StatusData>(
-        client,
-        store,
-        { key: params.key, includeStatus: true },
-        schemas,
-      );
+    retrieve: async ({ client, params, store }) =>
+      await retrieveByKey<Type, Config, StatusData>(client, store, params, schemas),
+    mountListeners: ({ store, params, onChange }) => {
+      if (!("key" in params) || params.key == null) return [];
+      return [
+        store.tasks.onSet((task) => {
+          if ("key" in params && params.key != null && task.key === params.key)
+            onChange(task as unknown as task.Task<Type, Config, StatusData>);
+        }, params.key.toString()),
+      ];
     },
-    mountListeners: ({ store, params: { key }, onChange }) => [
-      store.tasks.onSet((task) => {
-        if (key == null || task.key !== key) return;
-        onChange(task as unknown as task.Task<Type, Config, StatusData>);
-      }, key),
-    ],
   });
+
+export const { useRetrieve } = createRetrieve();
 
 export interface ListParams {
   term?: string;
@@ -343,38 +340,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     return value;
   },
 });
-
-export type UseRetrieveArgs = task.SingleRetrieveArgs;
-
-export interface CreateRetrieveArgs<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
-  schemas: task.Schemas<Type, Config, StatusData>;
-}
-
-export const createRetrieve = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->({
-  schemas,
-}: CreateRetrieveArgs<Type, Config, StatusData>) =>
-  Flux.createRetrieve<
-    UseRetrieveArgs,
-    task.Task<Type, Config, StatusData>,
-    FluxSubStore
-  >({
-    name: "Task",
-    retrieve: async ({ client, params }) => {
-      const task = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
-        ...params,
-        schemas,
-      });
-      return task;
-    },
-  });
 
 export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 

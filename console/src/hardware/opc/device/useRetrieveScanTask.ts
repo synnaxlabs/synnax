@@ -22,7 +22,7 @@ const { useRetrieve } = Task.createRetrieve<
   typeof scanTypeZ,
   typeof scanConfigZ,
   typeof scanStatusDataZ
->({ schemas: SCAN_SCHEMAS });
+>(SCAN_SCHEMAS);
 
 export const useRetrieveScanTask = (rack: rack.Key) =>
   useRetrieve({ type: SCAN_TYPE, rack }).data;

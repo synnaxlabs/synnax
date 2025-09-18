@@ -13,10 +13,7 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {
@@ -221,6 +218,122 @@ describe("queries", () => {
         const rackInList = result.current.getItem(testRack.key);
         expect(rackInList?.status?.variant).toEqual("warning");
         expect(rackInList?.status?.message).toEqual("Rack needs attention");
+      });
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete a single rack", async () => {
+      const testRack = await client.hardware.racks.create({
+        name: "delete_single",
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Rack.useList();
+          const del = Rack.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(testRack.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync(testRack.key);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(testRack.key);
+      });
+    });
+
+    it("should delete multiple racks", async () => {
+      const rack1 = await client.hardware.racks.create({
+        name: "delete_multi_1",
+      });
+      const rack2 = await client.hardware.racks.create({
+        name: "delete_multi_2",
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Rack.useList();
+          const del = Rack.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(rack1.key);
+      expect(result.current.list.data).toContain(rack2.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync([rack1.key, rack2.key]);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(rack1.key);
+        expect(result.current.list.data).not.toContain(rack2.key);
+      });
+    });
+  });
+
+  describe("useRename", () => {
+    it("should rename a rack", async () => {
+      const testRack = await client.hardware.racks.create({
+        name: "original_name",
+      });
+      const { result } = renderHook(
+        () => {
+          const retrieve = Rack.useRetrieve({ key: testRack.key });
+          const rename = Rack.useRename();
+          return { retrieve, rename };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      expect(result.current.retrieve.data?.name).toEqual("original_name");
+
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testRack.key,
+          name: "renamed_rack",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.name).toEqual("renamed_rack");
+      });
+    });
+
+    it("should update rack in list after rename", async () => {
+      const testRack = await client.hardware.racks.create({
+        name: "list_original",
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Rack.useList();
+          const rename = Rack.useRename();
+          return { list, rename };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.getItem(testRack.key)?.name).toEqual("list_original");
+
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testRack.key,
+          name: "list_renamed",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.list.getItem(testRack.key)?.name).toEqual("list_renamed");
       });
     });
   });

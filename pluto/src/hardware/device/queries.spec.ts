@@ -46,9 +46,7 @@ describe("queries", () => {
     });
 
     it("should update the query when the device is updated", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "test",
-      });
+      const rack = await client.hardware.racks.create({ name: "test" });
       const dev = await client.hardware.devices.create({
         key: id.create(),
         name: "test",
@@ -63,9 +61,11 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
-      await client.hardware.devices.create({
-        ...dev,
-        name: "test2",
+      await act(async () => {
+        await client.hardware.devices.create({
+          ...dev,
+          name: "test2",
+        });
       });
       await waitFor(() => {
         expect(result.current.data?.name).toEqual("test2");
