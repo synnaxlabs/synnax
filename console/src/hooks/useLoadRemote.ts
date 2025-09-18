@@ -38,7 +38,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   const get = useMutation({
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
-      return fetcher(client, layoutKey);
+      return await fetcher(client, layoutKey);
     },
     onError: (e) => handleError(e, `Failed to load ${name}`),
   });

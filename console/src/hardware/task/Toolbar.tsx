@@ -13,7 +13,7 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
-  type Flux,
+  Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -24,8 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { array, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -65,7 +64,6 @@ const filterExternal = (task: task.Task) => !task.internal && !task.snapshot;
 const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = PMenu.useContextMenu();
@@ -124,8 +122,10 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const startOrStop = useMutation({
-    mutationFn: async ({ command, keys }: StartStopArgs) => {
+  const startOrStop = Flux.useAction({
+    resourceName: "Task",
+    opName: "command",
+    action: async ({ command, keys }: StartStopArgs) => {
       if (client == null) throw new DisconnectedError();
       const filteredKeys = keys.filter((k) => {
         const status = getItem(k)?.status;
@@ -142,14 +142,13 @@ const Content = () => {
       );
       statuses.forEach((s) => addStatus({ ...s, time: TimeStamp.now() }));
     },
-    onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
-  }).mutate;
+  });
   const handleStart = useCallback(
-    (keys: string[]) => startOrStop({ command: "start", keys }),
+    (keys: string[]) => startOrStop.run({ command: "start", keys }),
     [startOrStop],
   );
   const handleStop = useCallback(
-    (keys: string[]) => startOrStop({ command: "stop", keys }),
+    (keys: string[]) => startOrStop.run({ command: "stop", keys }),
     [startOrStop],
   );
   const handleEdit = useCallback(
@@ -181,7 +180,7 @@ const Content = () => {
   );
   const handleListItemStopStart = useCallback(
     (command: Common.Task.Command, key: task.Key) =>
-      startOrStop({ command, keys: [key] }),
+      startOrStop.run({ command, keys: [key] }),
     [startOrStop],
   );
   return (

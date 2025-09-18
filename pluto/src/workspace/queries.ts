@@ -9,6 +9,7 @@
 
 import { ontology, workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
+import type z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -51,6 +52,16 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
 export interface RetrieveParams {
   key: workspace.Key;
 }
+
+const retrieveSingle = async (
+  args: Flux.RetrieveArgs<RetrieveParams, FluxSubStore>,
+) => {
+  const cached = args.store.workspaces.get(args.params.key);
+  if (cached != null) return cached;
+  const workspace = await args.client.workspaces.retrieve(args.params.key);
+  args.store.workspaces.set(workspace.key, workspace);
+  return workspace;
+};
 
 export const { useRetrieve } = Flux.createRetrieve<
   RetrieveParams,
@@ -137,5 +148,31 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
     const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
     store.resources.set(res);
     return res.find((r) => r.name === "Workspaces")?.id;
+  },
+});
+
+export const formSchema = workspace.workspaceZ.partial({ key: true });
+
+const INITIAL_VALUES: z.infer<typeof formSchema> = {
+  name: "",
+  layout: {},
+};
+
+export const useForm = Flux.createForm<
+  Partial<RetrieveParams>,
+  typeof formSchema,
+  FluxSubStore
+>({
+  name: "Workspace",
+  schema: formSchema,
+  initialValues: INITIAL_VALUES,
+  retrieve: async ({ client, store, params: { key }, reset }) => {
+    if (key == null) return;
+    const res = await retrieveSingle({ client, store, params: { key } });
+    reset(res);
+  },
+  update: async ({ client, value, set }) => {
+    const res = await client.workspaces.create(value());
+    set("key", res.key);
   },
 });

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Progress, Status, Text } from "@synnaxlabs/pluto";
-import { Size } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
+import { Size, status } from "@synnaxlabs/x";
+import { useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
@@ -46,11 +46,14 @@ export const Info: Layout.Renderer = () => {
   const [amountDownloaded, setAmountDownloaded] = useState(Size.bytes(0));
   const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
 
-  const handleError = Status.useErrorHandler();
-
-  const updateMutation = useMutation({
-    onError: (e) => handleError(e, "Failed to update Synnax Console"),
-    mutationFn: async () => {
+  const {
+    run,
+    variant,
+    status: { key, ...stat },
+  } = Flux.useAction({
+    resourceName: "Console",
+    opName: "Update",
+    action: async () => {
       if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
       if (update == null) return;
@@ -79,7 +82,7 @@ export const Info: Layout.Renderer = () => {
       Checking for updates
     </Status.Summary>
   );
-  if (updateMutation.isPending)
+  if (variant === "loading")
     if (progressPercent === 100)
       updateContent = (
         <Status.Summary level="h4" variant="loading" gap="medium">
@@ -101,7 +104,7 @@ export const Info: Layout.Renderer = () => {
           </Flex.Box>
         </Flex.Box>
       );
-  else if (updateQuery.isSuccess)
+  else if (variant == "success")
     if (updateQuery.data != null) {
       const version = updateQuery.data.version;
       updateContent = (
@@ -111,8 +114,8 @@ export const Info: Layout.Renderer = () => {
           </Status.Summary>
           <Button.Button
             variant="filled"
-            disabled={updateMutation.isPending}
-            onClick={() => updateMutation.mutate()}
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => run()}
           >
             Update & Restart
           </Button.Button>
@@ -124,18 +127,7 @@ export const Info: Layout.Renderer = () => {
           Up to date
         </Status.Summary>
       );
-  else if (updateQuery.isError)
-    updateContent = (
-      <Status.Summary level="h4" variant="error">
-        Error checking for update: {updateQuery.error.message}
-      </Status.Summary>
-    );
-  else if (updateMutation.isError)
-    updateContent = (
-      <Status.Summary level="h4" variant="error">
-        Error updating: {updateMutation.error.message}
-      </Status.Summary>
-    );
+  else updateContent = <Status.Summary level="h4" {...stat} />;
 
   return (
     <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
