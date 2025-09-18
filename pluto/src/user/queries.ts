@@ -9,15 +9,29 @@
 
 import { ontology, user } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export type UseDeleteArgs = user.Key | user.Key[];
 
+export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
+
+export const FLUX_STORE_KEY = "user";
+
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+  FluxSubStore,
+  user.Key,
+  user.User
+> = {
+  listeners: [],
+};
+
 export interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
@@ -32,6 +46,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     return value;
   },
 });
+
+export const retrieveSingle = async ({
+  client,
+  params,
+  store,
+}: Flux.RetrieveArgs<{ key: string }, FluxSubStore>) => {
+  const { key } = params;
+  const cached = store.users.get(key);
+  if (cached != null) return cached;
+  const user = await client.users.retrieve(params);
+  store.users.set(user.key, user);
+  return user;
+};
 
 export interface UseRenameArgs {
   key: user.Key;
@@ -74,5 +101,41 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
     const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
     store.resources.set(res);
     return res.find((r) => r.name === "Users")?.id;
+  },
+});
+
+export const formSchema = user.newZ.extend({
+  password: z.string().min(1, "Password is required"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+});
+
+export interface UseFormParams {
+  key?: user.Key;
+}
+
+const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+  key: "",
+  username: "",
+  firstName: "",
+  lastName: "",
+  password: "",
+};
+
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
+  name: "User",
+  schema: formSchema,
+  initialValues: ZERO_FORM_VALUES,
+  retrieve: async ({ client, params: { key }, reset, store }) => {
+    if (key == null) return;
+    const user = await retrieveSingle({
+      client,
+      params: { key },
+      store,
+    });
+    reset(user);
+  },
+  update: async ({ client, value }) => {
+    await client.users.create(value());
   },
 });

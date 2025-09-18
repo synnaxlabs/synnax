@@ -341,7 +341,10 @@ export type UnaryStore<
         value: state.SetArg<Value | undefined>,
         variant: SetExtra,
       ): () => void;
-      set(values: Array<Value & record.Keyed<Key>>, variant: SetExtra): () => void;
+      set(
+        values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+        variant: SetExtra,
+      ): () => void;
       delete(
         key: Key | Key[] | ((value: Value, key: Key) => boolean),
         variant?: SetExtra,
