@@ -42,6 +42,7 @@ common::ConfigureResult configure_read(
              .message = "Device disconnected: " + d_err.message(),
              .details = synnax::TaskStatusDetails{.task = task.key}}
         );
+        result.error = d_err;
         return result;
     }
     std::unique_ptr<common::Source> source;
@@ -79,6 +80,7 @@ common::ConfigureResult configure_write(
              .message = "Device disconnected: " + d_err.message(),
              .details = synnax::TaskStatusDetails{.task = task.key}}
         );
+        result.error = d_err;
         return result;
     }
     result.auto_start = cfg.auto_start;
