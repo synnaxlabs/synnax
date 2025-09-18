@@ -422,15 +422,6 @@ export const useList = Flux.createList<
   ],
 });
 
-export const update = Flux.createUpdate<channel.New, FluxSubStore, channel.Channel>({
-  name: "Channel",
-  update: async ({ client, value, store }) => {
-    const ch = await client.channels.create(value);
-    store.channels.set(ch.key, ch);
-    return ch;
-  },
-});
-
 interface RenameArgs {
   key: channel.Key;
   name: string;
