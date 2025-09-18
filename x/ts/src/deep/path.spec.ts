@@ -168,6 +168,28 @@ describe("path", () => {
     });
   });
 
+  describe("path includes a .", () => {
+    it("should get a value in case the path includes a zero", () => {
+      const data = { "a.b": { c: 1 } };
+      expect(deep.get(data, "a.b.c")).toEqual(1);
+    });
+    it("should prefer setting an existing value if a key contains a zero instead of creating a new object", () => {
+      const data = { "a.b": { c: 1 } };
+      deep.set(data, "a.b.d", 2);
+      expect(data).toEqual({ "a.b": { c: 1, d: 2 } });
+    });
+    it("should work with keys that contain a zero", () => {
+      const data = {
+        channels: [
+          { key: "key.period", color: "blue" },
+          { key: "noPeriod", color: "red" },
+        ],
+      };
+      expect(deep.get(data, "channels.key.period.color")).toEqual("blue");
+      expect(deep.get(data, "channels.noPeriod.color")).toEqual("red");
+    });
+  });
+
   describe("transformPath", () => {
     it("should transform a path", () => {
       expect(deep.transformPath("a.b.c", (part) => part.toUpperCase())).toEqual(

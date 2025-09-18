@@ -54,13 +54,12 @@ export type Key<T, D extends number = 5> = [D] extends [never]
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
   getter?: (obj: record.Unknown, key: string) => unknown;
-  separator?: string;
 }
 
 /**
- * A function that gets the value at the given path on the object. If the path does not exist
- * and the optional flag is set to true, null will be returned. If the path does not exist and
- * the optional flag is set to false, an error will be thrown.
+ * A function that gets the value at the given path on the object. If the path does not
+ * exist and the optional flag is set to true, null will be returned. If the path does
+ * not exist and the optional flag is set to false, an error will be thrown.
  * @param obj the object to get the value from.
  * @param path the path to get the value at.
  * @param options the options for getting the value.
@@ -90,9 +89,9 @@ export interface TypedGet<V = record.Unknown, T = record.Unknown> {
 /**
  * Executes the given replacer function on each part of the path.
  * @param path the path to transform
- * @param replacer the function to execute on each part of the path. If multiple
- * parts are returned, they will be joined with a period. If null/undefined is returned,
- * the part will be removed from the path.
+ * @param replacer the function to execute on each part of the path. If multiple parts
+ * are returned, they will be joined with a period. If null/undefined is returned, the
+ * part will be removed from the path.
  * @returns the transformed path.
  */
 export const transformPath = (
@@ -102,18 +101,17 @@ export const transformPath = (
     index: number,
     parts: string[],
   ) => string | string[] | undefined,
-  separator = ".",
 ): string => {
-  const parts = path.split(separator);
+  const parts = path.split(SEPARATOR);
   const result = parts
     .map((part, index) => {
       const r = replacer(part, index, parts);
       if (r == null) return null;
       if (typeof r === "string") return r;
-      return r.join(separator);
+      return r.join(SEPARATOR);
     })
     .filter((part) => part != null);
-  return result.join(separator);
+  return result.join(SEPARATOR);
 };
 
 const defaultGetter = (obj: record.Unknown, key: string): unknown => {
@@ -127,19 +125,19 @@ const defaultGetter = (obj: record.Unknown, key: string): unknown => {
 };
 
 export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
-  const parts = path.split(".");
+  const parts = path.split(SEPARATOR);
   parts.forEach((part, i) => {
     obj = defaultGetter(obj as record.Unknown, part) as T;
     if (obj != null && typeof obj === "object" && "key" in obj)
       parts[i] = obj.key as string;
   });
-  return parts.join(".");
+  return parts.join(SEPARATOR);
 };
 
 /**
- * Gets the value at the given path on the object. If the path does not exist
- * and the optional flag is set to true, null will be returned. If the path does
- * not exist and the optional flag is set to false, an error will be thrown.
+ * Gets the value at the given path on the object. If the path does not exist and the
+ * optional flag is set to true, null will be returned. If the path does not exist and
+ * the optional flag is set to false, an error will be thrown.
  * @param obj the object to get the value from.
  * @param path the path to get the value at.
  * @param opts the options for getting the value.
@@ -150,22 +148,30 @@ export const resolvePath = <T = record.Unknown>(path: string, obj: T): string =>
 export const get = (<V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,
-  opts: GetOptions = { optional: false, separator: "." },
+  opts: GetOptions = { optional: false },
 ): V | null => {
-  opts.separator ??= ".";
   const { optional, getter = defaultGetter } = opts;
-  const parts = path.split(opts.separator);
+  const parts = path.split(SEPARATOR);
   if (parts.length === 1 && parts[0] === "") return obj as record.Unknown as V;
-  let result: record.Unknown = obj as record.Unknown;
-  for (const part of parts) {
-    const v = getter(result, part);
-    if (v == null) {
-      if (optional) return null;
-      throw new Error(`Path ${path} does not exist. ${part} is null`);
+
+  // Recursive helper to try combining path segments, starting with the shortest
+  const tryGet = (currentObj: record.Unknown, remainingParts: string[]): V | null => {
+    if (remainingParts.length === 0) return currentObj as V;
+
+    // Try the shortest possible prefix as a key, then increase
+    for (let i = 1; i <= remainingParts.length; i++) {
+      const combinedKey = remainingParts.slice(0, i).join(SEPARATOR);
+      const v = getter(currentObj, combinedKey);
+      if (v != null) {
+        if (i === remainingParts.length) return v as V;
+        return tryGet(v as record.Unknown, remainingParts.slice(i));
+      }
     }
-    result = v as record.Unknown;
-  }
-  return result as V;
+    if (optional) return null;
+    throw new Error(`Path ${path} does not exist. ${remainingParts[0]} is null`);
+  };
+
+  return tryGet(obj as record.Unknown, parts);
 }) as Get;
 
 const getIndex = (part: string): number | null => {
@@ -174,24 +180,64 @@ const getIndex = (part: string): number | null => {
   return parseInt(part);
 };
 
+// Helper to find the best matching key in the current object for the next path
+// segment(s)
+const findBestKey = (
+  obj: record.Unknown,
+  remainingParts: string[],
+): [string, number] | null => {
+  // Try all possible prefixes, from shortest to longest
+  for (let i = 1; i <= remainingParts.length; i++) {
+    const candidateKey = remainingParts.slice(0, i).join(SEPARATOR);
+    const v = defaultGetter(obj, candidateKey);
+    if (v != null) return [candidateKey, i];
+  }
+  return null;
+};
+
 /**
- * Sets the value at the given path on the object. If the parents of the deep path
- * do not exist, new objects will be created.
+ * Sets the value at the given path on the object. If the parents of the deep path do
+ * not exist, new objects will be created. Prefers setting existing key paths that
+ * contain periods versus creating a new one, but if none exist, creates the shorter
+ * path rather than the longer one.
  * @param obj the object to set the value on.
  * @param path the path to set the value at.
  * @param value the value to set.
  */
 export const set = <V>(obj: V, path: string, value: unknown): void => {
-  const parts = path.split(".");
+  const parts = path.split(SEPARATOR);
   let result: record.Unknown = obj as record.Unknown;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
-    const v = defaultGetter(result, part);
-    if (v == null) throw new Error(`Path ${path} does not exist. ${part} is null`);
+
+  let i = 0;
+  while (i < parts.length - 1) {
+    // Prefer existing keys that may contain periods
+    const best = findBestKey(result, parts.slice(i, parts.length - 1));
+    let part: string;
+    if (best != null) [part, i] = [best[0], i + best[1]];
+    else {
+      // If no existing key, use the shortest possible (single part)
+      part = parts[i];
+      i++;
+    }
+    let v = defaultGetter(result, part);
+    if (v == null) {
+      // Create an object or array if it doesn't exist If the next part looks like an
+      // array index, create an array, else object
+      const nextPart = parts[i];
+      const idx = getIndex(nextPart);
+      v = idx != null ? [] : {};
+      result[part] = v;
+    }
     result = v as record.Unknown;
   }
   try {
     if (!Array.isArray(result)) {
+      // Prefer existing key with periods if present
+      const best = findBestKey(result, [parts[parts.length - 1]]);
+      if (best != null) {
+        result[best[0]] = value;
+        return;
+      }
       result[parts[parts.length - 1]] = value;
       return;
     }
@@ -223,7 +269,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
  * @returns the object with the value removed.
  */
 export const remove = <V>(obj: V, path: string): void => {
-  const parts = path.split(".");
+  const parts = path.split(SEPARATOR);
   let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
@@ -247,7 +293,7 @@ export const remove = <V>(obj: V, path: string): void => {
  * @returns the element at the given index in the path
  */
 export const element = (path: string, index: number): string => {
-  const parts = path.split(".");
+  const parts = path.split(SEPARATOR);
   if (index < 0) return parts[parts.length + index];
   return parts[index];
 };
@@ -286,8 +332,8 @@ export const has = <V = record.Unknown, T = record.Unknown>(
  */
 export const pathsMatch = (path: string, pattern: string): boolean => {
   if (pattern.length === 0) return true;
-  const parts = path.split(".");
-  const patterns = pattern.split(".");
+  const parts = path.split(SEPARATOR);
+  const patterns = pattern.split(SEPARATOR);
   if (patterns.length > parts.length) return false;
   for (let i = 0; i < patterns.length; i++) {
     const part = parts[i];
@@ -297,3 +343,5 @@ export const pathsMatch = (path: string, pattern: string): boolean => {
   }
   return true;
 };
+
+export const SEPARATOR = ".";
