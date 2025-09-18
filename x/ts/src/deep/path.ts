@@ -101,17 +101,18 @@ export const transformPath = (
     index: number,
     parts: string[],
   ) => string | string[] | undefined,
+  separator: string = SEPARATOR,
 ): string => {
-  const parts = path.split(SEPARATOR);
+  const parts = path.split(separator);
   const result = parts
     .map((part, index) => {
       const r = replacer(part, index, parts);
       if (r == null) return null;
       if (typeof r === "string") return r;
-      return r.join(SEPARATOR);
+      return r.join(separator);
     })
     .filter((part) => part != null);
-  return result.join(SEPARATOR);
+  return result.join(separator);
 };
 
 const defaultGetter = (obj: record.Unknown, key: string): unknown => {
