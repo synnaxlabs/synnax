@@ -82,6 +82,22 @@ class TestDefinition:
         return self.case
 
 
+COLORS: List[str] = [
+    "#FF0000",  # Red (0°)
+    "#FF8000",  # Orange (30°)
+    "#FFFF00",  # Yellow (60°)
+    "#80FF80",  # Lime (90°)
+    "#AAFFAA",  # Green (120°)
+    "#00FF80",  # Spring Green (150°)
+    "#00FFFF",  # Cyan (180°)
+    "#0080FF",  # Sky Blue (210°)
+    "#0000FF",  # Blue (240°)
+    "#8000FF",  # Purple (270°)
+    "#FF00FF",  # Magenta (300°)
+    "#FF0080",  # Rose (330°)
+]
+
+
 class TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
 
@@ -122,6 +138,7 @@ class TestConductor:
         )
 
         # Initialize state and collections
+        self.start_time = datetime.now()
         self.state = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
@@ -459,16 +476,16 @@ class TestConductor:
 
             # Get test result
             if result_container:
-                result = result_container[0]
+                test_result = result_container[0]
             else:
-                result = TestResult(
+                test_result = TestResult(
                     test_name=test_def.case,
                     name=test_def.name or test_def.case.split("/")[-1],
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(result)
+            self.test_results.append(test_result)
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
@@ -512,16 +529,16 @@ class TestConductor:
 
             # Get test result
             if result_containers[i]:
-                result = result_containers[i][0]
+                test_result = result_containers[i][0]
             else:
-                result = TestResult(
+                test_result = TestResult(
                     test_name=tests_to_execute[i].case,
                     name=tests_to_execute[i].name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(result)
+            self.test_results.append(test_result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def wait_for_completion(self) -> None:
@@ -724,6 +741,29 @@ class TestConductor:
             self._notify_status_change(result)
 
         return result
+
+    def create_ranges(self) -> None:
+        """Create a range in Synnax with the given name and time span."""
+        try:
+            conductor_range = self.client.ranges.create(
+                name=self.name,
+                time_range=sy.TimeRange(
+                    start=self.start_time,
+                    end=datetime.now(),
+                ),
+            )
+            for i, test in enumerate(self.test_results):
+                color = COLORS[i % len(COLORS)]
+                conductor_range.create_child_range(
+                    name=test.name,
+                    time_range=sy.TimeRange(
+                        start=test.start_time,
+                        end=test.end_time,
+                    ),
+                    color=color,
+                )
+        except Exception as e:
+            raise RuntimeError(f"Failed to create range for {self.name}: {e}")
 
     def _test_runner_thread(
         self, test_def: TestDefinition, result_container: List[TestResult]
@@ -1014,6 +1054,8 @@ def main() -> None:
         conductor.shutdown()
         raise
     finally:
+        # Ranges must be created last for the test_conductor to be available as a parent.
+        conductor.create_ranges()
         conductor.log_message(f"Fin.")
         gc.enable()
         if conductor.test_results:
