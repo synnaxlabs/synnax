@@ -238,7 +238,7 @@ func Analyze(
 
 		// Get target input type
 		var targetType ir.Type
-		if edge.Target.Param == "" {
+		if edge.Target.Param == "output" {
 			// Connecting to first parameter (or no parameter if stage has none)
 			if targetStage.Params.Count() > 0 {
 				_, targetType = targetStage.Params.At(0)
@@ -252,8 +252,8 @@ func Analyze(
 			targetType, ok = targetStage.Params.Get(edge.Target.Param)
 			if !ok {
 				ctx.Diagnostics.AddError(
-					errors.Newf("target param '%s' not found in node '%s'",
-						edge.Target.Param, edge.Target.Node),
+					errors.Newf("target param '%s' not found in node '%s' (%s)",
+						edge.Target.Param, edge.Target.Node, targetStage.Key),
 					nil,
 				)
 				return ir.IR{}, *ctx.Diagnostics

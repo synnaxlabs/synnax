@@ -11,12 +11,18 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { Arc } from "@/arc";
 import { Ontology } from "@/ontology";
+import { Synnax } from "@synnaxlabs/client";
 
 const handleSelect: Ontology.HandleSelect = ({ selection, placeLayout }) => {
   selection.forEach((s) => {
     placeLayout(Arc.createEditor({ key: s.id.key }));
   });
 };
+
+const load = async (
+  client: Synnax,
+  id: ontology
+)
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

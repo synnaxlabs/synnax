@@ -26,7 +26,13 @@ export const Symbol = ({ channel }: SymbolProps) => {
       textColor="var(--pluto-primary-z)"
       sources={[{ key: "output", Icon: Icon.Number }]}
     >
-      <Text.Text level="p" weight={500} color={10}>
+      <Text.Text
+        level="p"
+        weight={500}
+        color={10}
+        style={{ maxWidth: 100 }}
+        overflow="ellipsis"
+      >
         {name}
       </Text.Text>
     </Base>

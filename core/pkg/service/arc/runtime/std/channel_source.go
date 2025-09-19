@@ -11,7 +11,6 @@ package std
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
