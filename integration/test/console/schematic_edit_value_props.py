@@ -36,25 +36,26 @@ class Schematic_Edit_Value_Props(Schematic):
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
 
         self._log_message("Checking edited properties of schematic value")
-        # Create a new node with edited properties using node classes
-        edited_node = self.add_to_schematic(
-            "Value",
+        node.edit_properties(
             f"{self.name}_time",
-            notation="scientific",
-            precision=4,
-            averaging_window=4,
-            stale_color="#FF0000",
-            stale_timeout=10,
+            {
+                "notation": "scientific",
+                "precision": 4,
+                "averaging_window": 4,
+                "stale_color": "#FF0000",
+                "stale_timeout": 10,
+            }
         )
+
         expected_edited_props = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
             "precision": 4,
             "averaging_window": 4,
-            "stale_color": "#FF0000",  # pluto-warning-m1
+            "stale_color": "#FF0000", # pluto-warning-m1
             "stale_timeout": 10,
         }
-        edited_props = edited_node.get_properties()
+        edited_props = node.get_properties()
         assert (
             edited_props == expected_edited_props
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"

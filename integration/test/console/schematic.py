@@ -9,7 +9,6 @@
 
 import re
 import time
-import inspect
 from test.console.console import Console
 from typing import Any, Dict, Optional
 from abc import ABC
@@ -18,14 +17,17 @@ from playwright.sync_api import Page
 
 class SchematicNode(ABC):
     """Base class for all schematic nodes"""
-
+    page: Page
+    node_id: str
+    channel_name: str
+    label: str
+    
     def __init__(self, page: Page, node_id: str, channel_name: str):
         self.page = page
         self.node_id = node_id
         self.channel_name = channel_name
-
+        self.label = channel_name
         self.set_label(channel_name)
-
 
     def _click_node(self) -> Any:
         node = self.page.get_by_test_id(self.node_id)
@@ -41,6 +43,8 @@ class SchematicNode(ABC):
             )
         label_input.fill(label)
         
+    def edit_properties( ) -> Dict[str, Any]:
+        return {}
         
     def set_channel(self, input_field: str, channel_name: str) -> None:
 
@@ -63,6 +67,8 @@ class SchematicNode(ABC):
             search_input.press("ArrowDown")
             search_input.press("Enter")
 
+    def get_properties(self) -> Dict[str, Any]:
+        return {}
 
     def click(self):
         """Click on the node"""
@@ -71,7 +77,7 @@ class SchematicNode(ABC):
 
 class ValueNode(SchematicNode):
     """Schematic value/telemetry node"""
-
+    channel_name: str
     notation: str
     precision: int
     averaging_window: int
@@ -83,27 +89,19 @@ class ValueNode(SchematicNode):
 
     def edit_properties(self,
                        channel_name: Optional[str] = None,
-                       properties: Optional[Dict[str, Any]] = None,
-                       # Backward compatibility - individual parameters
-                       notation: Optional[str] = None,
-                       precision: Optional[str] = None,
-                       averaging_window: Optional[str] = None,
-                       stale_color: Optional[str] = None,
-                       stale_timeout: Optional[str] = None) -> None:
-        if properties:
-            notation = properties.get("notation", notation)
-            precision = properties.get("precision", precision)
-            averaging_window = properties.get("averaging_window", averaging_window)
-            stale_color = properties.get("stale_color", stale_color)
-            stale_timeout = properties.get("stale_timeout", stale_timeout)
+                       properties: Optional[Dict[str, Any]] = None
+                    ) -> None:
+
+        properties = properties or {}
+        notation = properties.get("notation")
+        precision = properties.get("precision")
+        averaging_window = properties.get("averaging_window")
+        stale_color = properties.get("stale_color")
+        stale_timeout = properties.get("stale_timeout")
 
         self._click_node()
-        self.page.wait_for_selector("text=Properties", timeout=3000)
         self.page.get_by_text("Properties").click()
-        self.page.wait_for_selector("text=Telemetry", timeout=3000)
         self.page.get_by_text("Telemetry").click()
-
-        self.page.wait_for_selector("text=Input Channel", timeout=3000)
         self.set_channel("Input Channel", channel_name)
 
         if notation is not None:
@@ -159,6 +157,8 @@ class ValueNode(SchematicNode):
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the node"""
         self._click_node()
+        self.page.get_by_text("Properties").click()
+        self.page.get_by_text("Telemetry").click()
 
         # Extract properties - adjust selectors based on actual UI structure
         props = {
@@ -231,15 +231,10 @@ class SetpointNode(SchematicNode):
         super().__init__(page, node_id, channel_name)
 
     def edit_properties(self, channel_name: Optional[str] = None) -> None:
-
-
         self._click_node()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
-
         self.set_channel("Command Channel", channel_name)
-        
-
 
     def set_control_authority(self, authority: int) -> None:
         self._click_node()
@@ -263,6 +258,7 @@ class Schematic(Console):
     def setup(self) -> None:
         super().setup()
         self.create_page("Schematic")
+        self.page.locator(".react-flow__pane").dblclick()
 
     def create_node(self, node_type: str, node_id: str, channel_name: str, **kwargs) -> SchematicNode:
         """Factory method to create node objects"""
@@ -289,14 +285,6 @@ class Schematic(Console):
     ) -> SchematicNode:
         """
         Add a node to the schematic and return the configured node object
-
-        Args:
-            node_type: Type of node ("Value", "Setpoint", etc.)
-            channel_name: Channel name for the node
-            **kwargs: Node-specific configuration parameters
-
-        Returns:
-            Configured SchematicNode object
         """
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
@@ -312,6 +300,7 @@ class Schematic(Console):
         nodes_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         self.click_on_pane()
+        self.page.wait_for_selector(f"text={node_type}", timeout=3000)
         self.page.get_by_text(node_type).first.click()
 
         # Wait for new node to appear
@@ -335,7 +324,7 @@ class Schematic(Console):
         elif node_type.lower() == "setpoint":
             # Apply kwargs as properties for SetpointNode
             node.edit_properties(channel_name)
-        
+        self.click_on_pane()
         
         return node
 
