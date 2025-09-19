@@ -26,21 +26,23 @@
 .console-range__overview {
     container-type: size;
     height: 100%;
-    .console-metadata__item {
-        .console-metadata__delete {
-            opacity: 0;
-        }
-        &:hover {
-            & .console-metadata__delete {
-                opacity: 1;
-            }
-        }
-    }
 }
 
 .console-range__metadata {
     .pluto-header {
         margin-bottom: 2rem;
+    }
+}
+
+.console-snapshots__list-item {
+    padding: 1.5rem;
+    .console-snapshots__delete {
+        opacity: 0;
+    }
+    &:hover {
+        .console-snapshots__delete {
+            opacity: 1;
+        }
     }
 }
 

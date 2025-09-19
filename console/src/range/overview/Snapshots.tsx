@@ -70,8 +70,8 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   },
 };
 
-const SnapshotsListItem = (props: List.ItemProps<string>) => {
-  const { itemKey } = props;
+const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
+  const { itemKey } = rest;
   const entry = List.useItem<string, ontology.Resource>(itemKey);
   if (entry == null) return null;
   const { id, name } = entry;
@@ -98,8 +98,8 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
   };
   return (
     <List.Item
-      style={{ padding: "1.5rem" }}
-      {...props}
+      className={CSS(CSS.BE("snapshots", "list-item"), className)}
+      {...rest}
       justify="between"
       onSelect={handleSelect}
     >
