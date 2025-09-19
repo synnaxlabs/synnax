@@ -28,12 +28,14 @@ class Schematic_Set_Output(Schematic):
         value_node.move(200, 0)
 
         self.connect_nodes(setpoint_node, "right", value_node, "left")
+        setpoint_node.set_value(47)
+
+        """
         self.connect_nodes(value_node, "right", setpoint_node, "left")
         self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
         self.connect_nodes(value_node, "bottom", value_node, "right")
+        """
 
         
-
-
         self._log_message("Remove the time.sleep(10) before merge!!!")
         time.sleep(10)
