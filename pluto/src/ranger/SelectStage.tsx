@@ -9,7 +9,6 @@
 
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
 import { type Stage, STAGE_ICONS, STAGE_NAMES, STAGES } from "@/ranger/stage";
 import { Select } from "@/select";
 
@@ -17,7 +16,7 @@ export interface SelectStageProps
   extends Omit<Select.StaticProps<Stage>, "data" | "resourceName"> {}
 
 export const SelectStage = (props: SelectStageProps): ReactElement => (
-  <Select.Static {...props} data={DATA} resourceName="Stage" icon={<Icon.ToDo />} />
+  <Select.Static {...props} data={DATA} resourceName="Stage" />
 );
 
 const DATA: Select.StaticEntry<Stage>[] = STAGES.map((s) => {

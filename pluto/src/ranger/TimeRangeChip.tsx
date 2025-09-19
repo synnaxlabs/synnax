@@ -32,7 +32,7 @@ const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string]
   if (tr.start.isToday) startTime = `Today ${startTime}`;
   if (tr.end.equals(TimeStamp.MAX)) {
     if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
-    return `Starting ${startTime}`;
+    return `Starts ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
   const endTime = new TimeStamp(tr.end).fString(endFormat, "local");
