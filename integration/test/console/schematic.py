@@ -34,6 +34,11 @@ class SchematicNode(ABC):
         self.node = self.page.get_by_test_id(self.node_id)
         self.set_label(channel_name)
 
+    def _disable_edit_mode(self) -> None:
+        edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
+        if edit_off_icon.count() > 0:
+            edit_off_icon.click()
+  
     def _click_node(self) -> Any:
         self.node.locator("div").first.click(force=True)
         time.sleep(0.1)
@@ -126,6 +131,28 @@ class SchematicNode(ABC):
                 f"Node {self.node_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
             )
 
+    def get_value(self) -> float:
+        """Get the current value of the node"""
+        self._click_node()
+        value_str = (
+            self.page.locator("text=Value").locator("..").locator("input").input_value()
+        )
+        return float(value_str)
+    
+    def set_value(self, value: Any = None) -> None:
+
+        if value is None:
+            raise ValueError(f"{self.label}: Set Value cannot be None")
+        
+        self._disable_edit_mode()
+        self._click_node()
+
+        # Fill the input and set the value
+        value_input = self.node.locator("input[type='number'], input").first
+        value_input.fill(str(value))
+        set_button = self.node.locator("button").filter(has_text="Set")
+        set_button.click()
+        
 
 class ValueNode(SchematicNode):
     """Schematic value/telemetry node"""
@@ -145,9 +172,6 @@ class ValueNode(SchematicNode):
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-
-        if channel_name is None:
-            return {}
 
         # Always enforce label = channel_name for easy identification when
         # setting the channel. The label can still be updated independently.
@@ -214,13 +238,6 @@ class ValueNode(SchematicNode):
 
         return {}
 
-    def get_value(self) -> float:
-        """Get the current value of the node"""
-        self._click_node()
-        value_str = (
-            self.page.locator("text=Value").locator("..").locator("input").input_value()
-        )
-        return float(value_str)
 
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the node"""
