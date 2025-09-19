@@ -137,13 +137,13 @@ class Console(TestCase):
         self.page.keyboard.press("Enter")
 
     def create_a_channel(
-        self, 
-        channel_name: str, 
+        self,
+        channel_name: str,
         virtual: bool = False,
         is_index: bool = False,
         data_type: str = "Timestamp",
         index: str = "",
-        ) -> None:
+    ) -> None:
 
         if is_index == False and index == "":
             raise ValueError("Index must be provided if is_index is False")
