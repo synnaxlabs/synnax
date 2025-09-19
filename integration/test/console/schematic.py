@@ -11,7 +11,7 @@ import re
 import time
 from abc import ABC
 from test.console.console import Console
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from playwright.sync_api import Page, Locator
 
@@ -382,6 +382,56 @@ class Schematic(Console):
         self._log_message(f"Added node {node_type} with channel {channel_name}")
 
         return node
+
+    def connect_nodes(
+        self,
+        source_node: SchematicNode,
+        source_handle: str,
+        target_node: SchematicNode,
+        target_handle: str,
+    ) -> None:
+        """
+        Connect two nodes by dragging from source handle to target handle.
+        """
+        source_x, source_y = self.find_node_handle(source_node, source_handle)
+        target_x, target_y = self.find_node_handle(target_node, target_handle)
+
+        self._log_message(
+            f"Connecting {source_node.label}:{source_handle} to {target_node.label}:{target_handle}"
+        )
+
+        self.page.mouse.move(source_x, source_y)
+        self.page.mouse.down()
+        self.page.mouse.move(target_x, target_y, steps=10)
+        self.page.mouse.up()
+
+    def find_node_handle(self, node: SchematicNode, handle: str) -> Tuple[float, float]:
+
+        valid_handles = ["left", "right", "top", "bottom"]
+        if handle not in valid_handles:
+            raise ValueError(f"Invalid handle: {handle}")
+
+        node_box = node.node.bounding_box()
+        if not node_box:
+            raise RuntimeError(
+                f"Could not get bounding box for target node {node.label}"
+            )
+
+        # Calculate target handle coordinates
+        if handle == "left":
+            handle_x = node_box["x"]
+            handle_y = node_box["y"] + node_box["height"] / 2
+        elif handle == "right":
+            handle_x = node_box["x"] + node_box["width"]
+            handle_y = node_box["y"] + node_box["height"] / 2
+        elif handle == "top":
+            handle_x = node_box["x"] + node_box["width"] / 2
+            handle_y = node_box["y"]
+        else:  # bottom
+            handle_x = node_box["x"] + node_box["width"] / 2
+            handle_y = node_box["y"] + node_box["height"]
+
+        return handle_x, handle_y
 
     def click_on_pane(self) -> None:
 
