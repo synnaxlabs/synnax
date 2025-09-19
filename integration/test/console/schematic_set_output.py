@@ -33,7 +33,7 @@ class Schematic_Set_Output(Schematic):
 
         set_p_value = 47.23333333
         setpoint_node.set_value(set_p_value)
-        time.sleep(0.1)
+        time.sleep(1)
         actual_value = self.get_value(CHANNEL_NAME)
 
         self._log_message(f"Verifying setpoint value: {set_p_value}")
@@ -41,9 +41,10 @@ class Schematic_Set_Output(Schematic):
             actual_value == set_p_value
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
 
+        time.sleep(1)
         set_p_value = 1.0101
         setpoint_node.set_value(set_p_value)
-        time.sleep(0.2)
+        time.sleep(1)
         actual_value = self.get_value(CHANNEL_NAME)
 
         self._log_message(f"Verifying setpoint value: {set_p_value}")
