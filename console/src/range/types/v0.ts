@@ -16,13 +16,9 @@ export const baseRangeZ = z.object({
   persisted: z.boolean(),
 });
 
-export const timeRangeZ = z.object({ start: z.number(), end: z.number() });
-
-export type TimeRange = z.infer<typeof timeRangeZ>;
-
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
-  timeRange: timeRangeZ,
+  timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
 export type StaticRange = z.infer<typeof staticRangeZ>;
