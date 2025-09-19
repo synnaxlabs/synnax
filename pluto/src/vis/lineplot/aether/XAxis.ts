@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type FindResult } from "@/vis/line/aether/line";
 import {
@@ -93,12 +93,14 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     xDataToDecimalScale: scale.Scale,
   ): void {
     const bound = this.bounds(props.hold);
+    const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
+    const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
     this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,
-        timeRange: new TimeRange(bound.lower, bound.upper),
+        timeRange,
       }),
     );
   }
