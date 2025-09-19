@@ -24,6 +24,21 @@ export interface TimeRangeChipProps
   variant?: "text" | "outlined";
 }
 
+const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string] => {
+  const tr = new TimeRange(timeRange).makeValid();
+  if (tr.start.equals(TimeStamp.MAX)) return null;
+  const startFormat = tr.start.isToday ? "time" : "dateTime";
+  let startTime = new TimeStamp(tr.start).fString(startFormat, "local");
+  if (tr.start.isToday) startTime = `Today ${startTime}`;
+  if (tr.end.equals(TimeStamp.MAX)) {
+    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
+    return `Starting ${startTime}`;
+  }
+  const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
+  const endTime = new TimeStamp(tr.end).fString(endFormat, "local");
+  return [startTime, endTime];
+};
+
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
@@ -31,42 +46,8 @@ export const TimeRangeChip = ({
   variant = "text",
   ...rest
 }: TimeRangeChipProps): ReactElement | null => {
-  const tr = new TimeRange(timeRange).makeValid();
-  const startIsUnknown = tr.start.equals(TimeStamp.MAX);
-  const startIsToday = tr.start.isToday;
-  const startFormat = startIsToday ? "time" : "dateTime";
-  const startTime = startIsUnknown ? (
-    <Text.Text level={level} color={color} weight={450}>
-      ?
-    </Text.Text>
-  ) : (
-    <Flex.Box x align="center" gap="small">
-      {startIsToday && (
-        <Text.Text level={level} color={color} weight={450}>
-          Today
-        </Text.Text>
-      )}
-      <Text.DateTime level={level} format={startFormat} color={color} weight={450}>
-        {tr.start}
-      </Text.DateTime>
-    </Flex.Box>
-  );
-  const endIsUnknown = tr.end.equals(TimeStamp.MAX);
-  const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
-  const endTime = !endIsUnknown && (
-    <>
-      <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
-      <Text.DateTime
-        level={level}
-        displayTZ="local"
-        format={endFormat}
-        color={color}
-        weight={450}
-      >
-        {tr.end}
-      </Text.DateTime>
-    </>
-  );
+  const formattedTime = formatTime(timeRange);
+  if (formattedTime == null) return null;
   return (
     <Flex.Box
       x
@@ -75,13 +56,17 @@ export const TimeRangeChip = ({
       align="center"
       {...rest}
     >
-      {endIsUnknown && (
-        <Text.Text level={level} color={color} weight={450}>
-          Started
-        </Text.Text>
-      )}
-      {startTime}
-      {endTime}
+      <Text.Text level={level} color={color} weight={450} gap="tiny">
+        {typeof formattedTime === "string" ? (
+          formattedTime
+        ) : (
+          <>
+            {formattedTime[0]}
+            <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
+            {formattedTime[1]}
+          </>
+        )}
+      </Text.Text>
     </Flex.Box>
   );
 };
