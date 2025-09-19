@@ -32,8 +32,6 @@ class Schematic_Edit_Value_Props(Schematic):
         assert (
             default_props == expected_default_props
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
-        
-
 
         self._log_message("Checking edited properties of schematic value")
         expected_edited_props = {
@@ -41,7 +39,7 @@ class Schematic_Edit_Value_Props(Schematic):
             "notation": "scientific",
             "precision": 4,
             "averaging_window": 4,
-            "stale_color": "#FF0000", # pluto-warning-m1
+            "stale_color": "#FF0000",
             "stale_timeout": 10,
         }
         node.edit_properties(
@@ -55,7 +53,7 @@ class Schematic_Edit_Value_Props(Schematic):
 
         self._log_message("Checking new node with non-default properties")
         non_default_props = {
-            "channel": "tc_time",
+            "channel": f"{self.name}_time",
             "notation": "engineering",
             "precision": 7,
             "averaging_window": 3,
@@ -64,7 +62,7 @@ class Schematic_Edit_Value_Props(Schematic):
             }
         non_default_node = self.add_to_schematic(
             "Value", 
-            "tc_uptime",
+            f"{self.name}_uptime",
             non_default_props
         )
         non_default_props = non_default_node.get_properties()
@@ -72,4 +70,6 @@ class Schematic_Edit_Value_Props(Schematic):
             non_default_props == non_default_props
         ), f"Props mismatch!\nActual: {non_default_props}\nExpected: {non_default_props}"
 
-        time.sleep(100)
+
+        self._log_message("Remove the time.sleep() before merge!!")
+        time.sleep(10)

@@ -48,8 +48,6 @@ class SchematicNode(ABC):
                     ) -> Dict[str, Any]:
         if channel_name is not None:
             self.set_channel("Needs Override", channel_name)
-        # Properties parameter is intentionally unused in base class
-        # Subclasses override this method to handle specific properties
         return {}
         
     def set_channel(self, input_field: str, channel_name: str) -> None:
@@ -60,16 +58,25 @@ class SchematicNode(ABC):
                 .locator("button")
                 .first
             )
+            # Click on the selector and fille channel_name
             channel_button.click()
             search_input = self.page.locator("input[placeholder*='Search']")
-            # Using keyboard navigation for selection to avoid conflicts
-            # with other page elements (such as the node label).
             search_input.press("Control+a")
             search_input.type(channel_name)
             self.page.wait_for_timeout(300)
-            search_input.press("ArrowDown")
-            time.sleep(10)
-            search_input.press("Enter")
+            
+            # Iterate through dropdown items
+            channel_found = False 
+            item_selector = self.page.locator(".pluto-list__item").all()
+            for item in item_selector:
+                search_input.press("ArrowDown")
+                if channel_name in item.inner_text().strip():
+                    item.click()
+                    channel_found = True
+                    break
+
+            if not channel_found:
+                raise RuntimeError(f"Could not find channel '{channel_name}' in dropdown")
 
     def get_properties(self) -> Dict[str, Any]:
         return {}
@@ -323,6 +330,8 @@ class Schematic(Console):
 
         node = self.create_node(node_type, node_id, channel_name)
         node.edit_properties(channel_name, properties)
+
+        self._log_message(f"Added node {node_type} with channel {channel_name}")
         
         return node
 
