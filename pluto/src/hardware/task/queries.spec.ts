@@ -1,13 +1,11 @@
 import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
-import { id, status } from "@synnaxlabs/x";
+import { id, status, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { exp } from "mathjs";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { Task } from "@/hardware/task";
-import { Ontology } from "@/ontology";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -15,6 +13,7 @@ const client = createTestClient();
 describe("queries", () => {
   const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
+
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
@@ -685,7 +684,8 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", () => {
+  describe("useForm", async () => {
+    const testRack = await client.hardware.racks.create({ name: "testRack" });
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
@@ -715,10 +715,7 @@ describe("queries", () => {
     });
 
     it("should retrieve and populate form with existing task", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "existingTask",
         type: "testType",
         config: { setting: "value" },
@@ -751,10 +748,7 @@ describe("queries", () => {
     });
 
     it("should save form changes when save is called", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskToUpdate",
         type: "testType",
         config: {},
@@ -847,10 +841,7 @@ describe("queries", () => {
     });
 
     it("should handle beforeSave callback", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskWithBeforeSave",
         type: "testType",
         config: {},
@@ -903,10 +894,7 @@ describe("queries", () => {
     });
 
     it("should handle afterSave callback", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskWithAfterSave",
         type: "testType",
         config: {},
@@ -960,10 +948,7 @@ describe("queries", () => {
     });
 
     it("should update form when task status changes", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "statusTask",
         type: "testType",
         config: {},
@@ -1049,10 +1034,7 @@ describe("queries", () => {
     });
 
     it("should reset form to initial values", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "resetTask",
         type: "testType",
         config: { value: "initial" },
@@ -1124,10 +1106,7 @@ describe("queries", () => {
     });
 
     it("should handle autoSave functionality", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "autoSaveTask",
         type: "testType",
         config: {},
@@ -1174,10 +1153,6 @@ describe("queries", () => {
     });
 
     it("should handle complex config schemas with nested objects", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-
       const complexConfig = {
         connection: {
           host: "localhost",
@@ -1190,7 +1165,7 @@ describe("queries", () => {
         },
       };
 
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "complexTask",
         type: "complexType",
         config: complexConfig,
@@ -1253,6 +1228,47 @@ describe("queries", () => {
           key: testTask.key,
         });
         expect(updatedTask.config.connection.port).toEqual(9090);
+      });
+    });
+  });
+
+  describe("useCommand", () => {
+    it("should execute a command on a task", async () => {
+      const type = "start";
+      const args = { a: "dog" };
+      const testRack = await client.hardware.racks.create({ name: "test" });
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const writer = await client.openWriter(task.STATUS_CHANNEL_NAME);
+
+      const { result } = renderHook(() => Task.useCommand(), { wrapper });
+
+      await act(async () => {
+        result.current.update([{ task: t.key, type, args }]);
+      });
+
+      await waitFor(async () => {
+        const fr = await streamer.read();
+        const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+        const parsed = task.commandZ.parse(sample);
+        const stat: task.Status = {
+          key: parsed.key,
+          variant: "success",
+          message: "Command executed successfully",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: true, data: {} },
+        };
+        await writer.write(task.STATUS_CHANNEL_NAME, [stat]);
+      });
+      streamer.close();
+      await writer.close();
+      await waitFor(async () => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toHaveLength(1);
       });
     });
   });
