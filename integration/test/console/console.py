@@ -150,15 +150,16 @@ class Console(TestCase):
 
         self.command_palette("Create a Channel")
 
-        name_input = (
-            self.page.locator("text=Name").locator("..").locator("input").first
-        )
+        name_input = self.page.locator("text=Name").locator("..").locator("input").first
         name_input.fill(channel_name)
         if virtual:
             self.page.get_by_text("Virtual").click()
         if is_index:
             is_index_toggle = (
-                self.page.locator("text=Is Index").locator("..").locator("input[type='checkbox']").first
+                self.page.locator("text=Is Index")
+                .locator("..")
+                .locator("input[type='checkbox']")
+                .first
             )
             is_index_toggle.click()
         else:
@@ -169,7 +170,7 @@ class Console(TestCase):
         self._log_message(f"Created channel {channel_name}")
 
     def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
-    
+
         channel_button = (
             self.page.locator(f"text={input_field}")
             .locator("..")
@@ -192,6 +193,4 @@ class Console(TestCase):
                 break
 
         if not channel_found:
-            raise RuntimeError(
-                f"Could not find channel '{input_text}' in dropdown"
-            )
+            raise RuntimeError(f"Could not find channel '{input_text}' in dropdown")
