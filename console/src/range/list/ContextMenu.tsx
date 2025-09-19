@@ -41,9 +41,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const isEmpty = ranges.length === 0;
   const isSingle = ranges.length === 1;
   const placeLayout = Layout.usePlacer();
-  const favoritedKeys = useSelectKeys();
-  const anyFavorited = ranges.some((r) => favoritedKeys.includes(r.key));
-  const anyNotFavorited = ranges.some((r) => !favoritedKeys.includes(r.key));
+  const favoriteKeys = useSelectKeys();
+  const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
+  const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
   const dispatch = useDispatch();
   const ctx = Form.useContext();
   const rename = Modals.useRename();
@@ -77,7 +77,11 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     delete: () => {
       handleError(async () => {
         const confirmed = await confirm(ranges);
-        if (confirmed) del(ranges.map((r) => r.key));
+        if (!confirmed) return;
+        const keys = ranges.map((r) => r.key);
+        dispatch(remove({ keys }));
+        dispatch(Layout.remove({ keys }));
+        del(keys);
       }, "Failed to delete range");
     },
     addChildRange: handleAddChildRange,
@@ -96,13 +100,13 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
         </>
       )}
       <Divider.Divider x />
-      {anyNotFavorited && (
+      {someAreNotFavorites && (
         <PMenu.Item itemKey="favorite">
           <Icon.StarFilled />
           Add to favorites
         </PMenu.Item>
       )}
-      {anyFavorited && (
+      {someAreFavorites && (
         <PMenu.Item itemKey="unfavorite">
           <Icon.StarOutlined />
           Remove from favorites
