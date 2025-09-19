@@ -401,7 +401,10 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			return oCtx, s.handler(ctx, stream)
 		}),
 	)
-	if err := stream.close(handlerErr); err != nil {
+	// ErrCloseSent is returned when the client abruptly closes the connection,
+	// which happens when performing tasks like reloading web pages. As such,
+	// we don't consider it anomalous and don't log it.
+	if err := errors.Skip(stream.close(handlerErr), ws.ErrCloseSent); err != nil {
 		s.L.Error("error closing connection", zap.Error(err))
 	}
 }

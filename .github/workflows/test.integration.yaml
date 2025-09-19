@@ -89,13 +89,11 @@ jobs:
           SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
         run: |
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
-
           if [ -z "${SEQUENCE}" ]; then
             echo "SEQUENCE_ARG=" >> $GITHUB_OUTPUT
           else
             echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
           fi
-
           if [ "${SKIP_BUILD}" = "false" ]; then
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           else
