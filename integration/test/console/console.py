@@ -161,13 +161,12 @@ class Console(TestCase):
                 self.page.locator("text=Is Index").locator("..").locator("input[type='checkbox']").first
             )
             is_index_toggle.click()
-            time.sleep(5)
         else:
-            self._select_from_dropdown("Index", index)
-        if data_type:
             self._select_from_dropdown("Data Type", data_type)
-        time.sleep(10)
-        self.ENTER
+            self._select_from_dropdown("Index", index)
+
+        self.page.get_by_role("button", name="Create").click()
+        self._log_message(f"Created channel {channel_name}")
 
     def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
     
@@ -178,7 +177,6 @@ class Console(TestCase):
             .first
         )
         channel_button.click()
-        time.sleep(0.5)  # Wait for dropdown to open
         search_input = self.page.locator("input[placeholder*='Search']")
         search_input.press("Control+a")
         search_input.type(input_text)
