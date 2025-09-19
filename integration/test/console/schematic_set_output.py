@@ -27,9 +27,14 @@ class Schematic_Set_Output(Schematic):
         value_node = self.add_to_schematic("Value", "command_channel")
         value_node.move(200, 0)
 
-        self.connect_nodes(setpoint_node, "right", value_node, "left")
-        setpoint_node.set_value(47)
+        #self.connect_nodes(setpoint_node, "right", value_node, "left")
+        setpoint_node.set_value(47.23333333)
 
+
+        print(f" setpoint value: {setpoint_node.get_value()}")
+        print(f" value value: {value_node.get_value()}")
+        print("\n\n")
+        time.sleep(10)
         """
         self.connect_nodes(value_node, "right", setpoint_node, "left")
         self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
@@ -38,4 +43,4 @@ class Schematic_Set_Output(Schematic):
 
         
         self._log_message("Remove the time.sleep(10) before merge!!!")
-        time.sleep(10)
+        time.sleep(2)

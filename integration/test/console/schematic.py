@@ -126,7 +126,6 @@ class SchematicNode(ABC):
             abs(final_x - target_x) > grid_tolerance
             or abs(final_y - target_y) > grid_tolerance
         ):
-
             raise RuntimeError(
                 f"Node {self.node_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
             )
@@ -134,9 +133,15 @@ class SchematicNode(ABC):
     def get_value(self) -> float:
         """Get the current value of the node"""
         self._click_node()
-        value_str = (
-            self.page.locator("text=Value").locator("..").locator("input").input_value()
-        )
+
+        # Check if this is a SetpointNode by looking at the class name
+        if self.__class__.__name__ == "SetpointNode":
+            value_str = (
+                self.node.locator("input[type='number'], input").first.input_value()
+            )
+        else:
+            value_str = self.node.inner_text()
+            print(f"Debug: Value string: {value_str}")
         return float(value_str)
     
     def set_value(self, value: Any = None) -> None:
