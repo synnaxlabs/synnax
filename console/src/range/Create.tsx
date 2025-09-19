@@ -132,7 +132,7 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<NumericTimeRange> path="timeRange" required={false}>
+          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
             {(p) => (
               <Ranger.SelectStage
                 {...Ranger.wrapNumericTimeRangeToStage(p)}

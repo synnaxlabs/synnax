@@ -38,7 +38,7 @@ export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
 
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const ranges = getItem(keys);
-  const isEmpty = ranges.length === 0;
+  const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
@@ -91,15 +91,13 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {isSingle && <Menu.RenameItem />}
-      {!isEmpty && deleteMenuItem}
       {isSingle && (
         <>
-          <Divider.Divider x />
+          <Menu.RenameItem />
           {createChildRangeMenuItem}
+          <Divider.Divider x />
         </>
       )}
-      <Divider.Divider x />
       {someAreNotFavorites && (
         <PMenu.Item itemKey="favorite">
           <Icon.StarFilled />
@@ -112,6 +110,14 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           Remove from favorites
         </PMenu.Item>
       )}
+      {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
+      {isNotEmpty && (
+        <>
+          {deleteMenuItem}
+          <Divider.Divider x />
+        </>
+      )}
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

@@ -28,7 +28,7 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface ValueInputProps extends Input.TextProps {}
+interface ValueInputProps extends Input.TextProps {}
 
 const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   const isLink = link.is(value);
@@ -51,13 +51,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         <Icon.Copy />
       </Button.Button>
       {isLink && (
-        <Button.Button
-          href={value}
-          target="_blank"
-          autoFormatHref
-          style={{ padding: "1rem" }}
-          variant="outlined"
-        >
+        <Button.Button href={value} target="_blank" autoFormatHref variant="outlined">
           <Icon.LinkExternal />
         </Button.Button>
       )}
@@ -65,7 +59,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   );
 };
 
-export interface MetaDataListItemProps extends List.ItemProps<string> {
+interface MetaDataListItemProps extends List.ItemProps<string> {
   isCreate?: boolean;
   visible?: boolean;
   rangeKey: ranger.Key;

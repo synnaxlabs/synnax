@@ -325,24 +325,52 @@ I can successfully:
   - [ ] Create a new persisted range.
   - [ ] Create a range with a parent range.
   - [ ] Add labels while creating a range.
+  - [ ] Update the start and end times through changing the stage of a range
 - **Range Details**
-  - [ ] Rename a range.
   - [ ] Rename a range from the tab name.
+  - [ ] Rename a range.
+  - [ ] Navigate to a parent range from a range
+  - [ ] Copy Python code
+  - [ ] Copy TypeScript code
+  - [ ] Copy a link to the range
+  - [ ] Open and successfully download data as a CSV
+  - [ ] Favorite the range
+  - [ ] Unfavorite the range
   - [ ] Change start and end times.
+  - [ ] Change start and end times via the stage
   - [ ] Add labels.
-  - [ ] Set metadata.
-  - [ ] Open a link from metadata.
-  - [ ] Delete metadata.
-  - [ ] Add child ranges.
-  - [ ] Open snapshots.
-  - [ ] Navigate to and from child ranges.
-  - [ ] Download a range as a CSV.
-  - [ ] Download multiple channels for a range as a CSV.
+  - [ ] Remove labels.
+  - **Child Ranges**
+    - [ ] Click and navigate to a child range
+    - [ ] Create child ranges
+    - [ ] Change the stage of a child range
+    - [ ] Favorite a child range
+    - [ ] Unfavorite a child range
+    - **Context Menu**
+      - [ ] Rename a child range
+      - [ ] Create a child range
+      - [ ] Favorite a child range
+      - [ ] Favorite multiple child ranges
+      - [ ] Unfavorite a child range
+      - [ ] Unfavorite multiple child ranges
+      - [ ] Delete a child range
+      - [ ] Delete multiple child ranges
+  - **Metadata**
+    - [ ] Set metadata.
+    - [ ] Update the value of metadata.
+    - [ ] Copy the value of metadata to your clipboard
+    - [ ] Open a link from metadata.
+    - [ ] Delete metadata.
+  - **Snapshots**
+    - [ ] Navigate to a snapshot by clicking on it
+    - [ ] Remove a snapshot
 - **Search and Command Palette**
   - [ ] Open an existing range layout window.
   - [ ] Open the "Create Range" dialog.
+  - [ ] Open the Range Explorer
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
+  - [ ] Open the Range Explorer from the toolbar
   - [ ] Switch the active range by clicking it.
   - **Context Menu**
     - [ ] Open the "Create Range" modal.
@@ -353,43 +381,40 @@ I can successfully:
     - [ ] Open the "Create Range" modal with a child range.
     - [ ] Add to the active line plot.
     - [ ] Add to a new line plot.
-    - [ ] Remove from the range toolbar.
+    - [ ] Remove from favorites.
     - [ ] Delete a persisted range.
     - [ ] Copy a link to a persisted range.
     - [ ] Save a local range to Synnax.
-- **Resources Toolbar**
-  - [ ] Open the range overview dialog by double-clicking a range.
+- **Range Explorer**
+  - [ ] Open the range overview dialog by clicking on a range.
+  - [ ] Search ranges
+  - [ ] Filter ranges by labels
+  - [ ] Favorite and unfavorite ranges and see them added to the range toolbar
+  - [ ] Change the stage of a range
   - **Context Menu**
-    - [ ] Set an active range.
-    - [ ] Remove an active range.
-    - [ ] Open the range layout.
-    - [ ] Rename a range.
-    - [ ] Open the "Create Range" modal with a child range.
-    - [ ] Group ranges.
-    - [ ] Add to the active line plot.
-    - [ ] Add multiple ranges to the active line plot.
-    - [ ] Add to a new line plot.
-    - [ ] Add multiple ranges to a new line plot.
-    - [ ] Delete a range.
-    - [ ] Delete multiple ranges.
-    - [ ] Copy a link to a range.
+    - [ ] Rename a range
+    - [ ] Create a child range
+    - [ ] Favorite a range
+    - [ ] Favorite multiple ranges
+    - [ ] Unfavorite a range
+    - [ ] Unfavorite multiple ranges
+    - [ ] Delete a range
+    - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:
-  - Resources Toolbar
+  - Range Explorer
   - Range Overview
   - Range Overview Tab Name
   - Ranges Toolbar
 - [ ] Change the time of a range and ensure synchronization across:
   - Range Details
   - Ranges Toolbar
+  - Range explorer
 - [ ] Add or remove child ranges and ensure synchronization across:
-  - Resources Toolbar
-  - Range Details
+  - Range Details (both parent and child view)
 - [ ] Snapshot a schematic or task and ensure synchronization across:
-  - Resources Toolbar
   - Range Details
 - [ ] Ensure channel aliases synchronize correctly across:
-  - Resources Toolbar
   - Line Plot
   - Line Plot Toolbar
   - Task Configuration Dialog
