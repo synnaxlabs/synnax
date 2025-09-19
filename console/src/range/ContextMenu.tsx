@@ -300,7 +300,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           <PMenu.Divider />
           <PMenu.Item itemKey="remove">
             <Icon.Close />
-            Remove from List
+            Remove from Favorites
           </PMenu.Item>
           {rng.persisted ? (
             <>
