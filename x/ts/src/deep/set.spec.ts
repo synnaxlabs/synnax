@@ -206,6 +206,7 @@ describe("set", () => {
   });
 
   it("should handle setting on sparse arrays", () => {
+    // eslint-disable-next-line no-sparse-arrays
     const obj = { arr: [1, , , 4] };
     deep.set(obj, "arr.1", 2);
     expect(obj.arr[1]).toBe(2);
@@ -218,12 +219,6 @@ describe("set", () => {
     expect(obj.arr[5]).toBe(6);
     expect(obj.arr.length).toBe(6);
   });
-
-  // it("should handle setting with negative array indices in middle of path", () => {
-  //   const obj = { arr: [{ a: 1 }, { a: 2 }, { a: 3 }] };
-  //   deep.set(obj, "arr.-2.a", 99);
-  //   expect(obj.arr[1].a).toBe(99);
-  // });
 
   it("should handle circular reference in path", () => {
     const obj: any = { a: {} };

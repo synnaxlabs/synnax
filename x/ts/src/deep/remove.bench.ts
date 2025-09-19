@@ -72,7 +72,7 @@ describe("deep.remove benchmarks", () => {
 
   bench("remove from large object", () => {
     const obj: any = {};
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 1000; i++)
       obj[`key${i}`] = {
         nested: {
           value: i,
@@ -82,7 +82,7 @@ describe("deep.remove benchmarks", () => {
           },
         },
       };
-    }
+
     deep.remove(obj, "key500.nested.data.name");
   });
 
@@ -93,7 +93,7 @@ describe("deep.remove benchmarks", () => {
       current.next = { level: i, value: "keep" };
       current = current.next;
     }
-    const path = new Array(100).fill("next").join(".") + ".level";
+    const path = `${new Array(100).fill("next").join(".")}.level`;
     deep.remove(obj, path);
   });
 
@@ -146,9 +146,7 @@ describe("deep.remove benchmarks", () => {
 
   bench("repeated remove operations", () => {
     const obj = { a: 1, b: 2, c: 3, d: 4, e: 5 };
-    for (let i = 0; i < 5; i++) {
-      deep.remove(obj, String.fromCharCode(97 + i));
-    }
+    for (let i = 0; i < 5; i++) deep.remove(obj, String.fromCharCode(97 + i));
   });
 
   bench("remove from nested arrays", () => {

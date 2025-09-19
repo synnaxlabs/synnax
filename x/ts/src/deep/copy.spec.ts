@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
 
@@ -73,7 +73,10 @@ describe("copy", () => {
   });
 
   it("should handle Map objects", () => {
-    const map = new Map([["a", 1], ["b", 2]]);
+    const map = new Map([
+      ["a", 1],
+      ["b", 2],
+    ]);
     const obj = { map };
     const copied = deep.copy(obj);
     expect(copied.map).toEqual(map);
@@ -105,7 +108,7 @@ describe("copy", () => {
       obj: { a: 1, b: { c: 2 } },
       date: new Date("2025-01-01"),
       nil: null,
-      undef: undefined
+      undef: undefined,
     };
     const copied = deep.copy(obj);
     expect(copied).toEqual(obj);
@@ -124,6 +127,7 @@ describe("copy", () => {
   });
 
   it("should preserve array length with sparse arrays", () => {
+    // eslint-disable-next-line no-sparse-arrays
     const arr = [1, , , 4];
     const copied = deep.copy(arr);
     expect(copied).toEqual(arr);
@@ -139,8 +143,6 @@ describe("copy", () => {
     if (copied.uint8 instanceof Uint8Array) {
       expect(Array.from(copied.uint8)).toEqual([1, 2, 3]);
       expect(copied.uint8).not.toBe(uint8);
-    } else {
-      expect(Array.from(copied.uint8 as Uint8Array)).toEqual([1, 2, 3]);
-    }
+    } else expect(Array.from(copied.uint8 as Uint8Array)).toEqual([1, 2, 3]);
   });
 });

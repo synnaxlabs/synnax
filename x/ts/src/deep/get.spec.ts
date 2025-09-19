@@ -132,7 +132,7 @@ describe("get", () => {
   });
 
   it("should handle special characters in keys", () => {
-    const obj = { "key-with-dash": 1, "key_with_underscore": 2 };
+    const obj = { "key-with-dash": 1, key_with_underscore: 2 };
     expect(deep.get(obj, "key-with-dash")).toEqual(1);
     expect(deep.get(obj, "key_with_underscore")).toEqual(2);
   });
@@ -145,7 +145,7 @@ describe("get", () => {
 
   it("should handle very long paths", () => {
     const longPath = new Array(100).fill("a").join(".");
-    let obj: any = {};
+    const obj: any = {};
     let current = obj;
     for (let i = 0; i < 99; i++) {
       current.a = {};

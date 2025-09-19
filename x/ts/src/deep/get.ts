@@ -76,6 +76,4 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
 export const has = <V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,
-): boolean => {
-  return get<V, T>(obj, path, { optional: true }) !== null;
-};
+): boolean => get<V, T>(obj, path, { optional: true }) !== null;
