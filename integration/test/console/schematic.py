@@ -31,23 +31,28 @@ class SchematicNode(ABC):
 
     def _click_node(self) -> Any:
         node = self.page.get_by_test_id(self.node_id)
-        node.locator("div").first.click()
+        node.locator("div").first.click(force=True)
         time.sleep(0.1)
 
     def set_label(self, label: str) -> None:
         self._click_node()
-
         self.page.get_by_text("Style").click()
         label_input = (
                 self.page.locator("text=Label").locator("..").locator("input").first
             )
         label_input.fill(label)
         
-    def edit_properties( ) -> Dict[str, Any]:
+    def edit_properties(self,
+                        channel_name:str = None,
+                        properties:Dict[str, Any] = None
+                    ) -> Dict[str, Any]:
+        if channel_name is not None:
+            self.set_channel("Needs Override", channel_name)
+        # Properties parameter is intentionally unused in base class
+        # Subclasses override this method to handle specific properties
         return {}
         
     def set_channel(self, input_field: str, channel_name: str) -> None:
-
         if channel_name is not None:
             channel_button = (
                 self.page.locator(f"text={input_field}")
@@ -57,14 +62,13 @@ class SchematicNode(ABC):
             )
             channel_button.click()
             search_input = self.page.locator("input[placeholder*='Search']")
-            search_input.fill(channel_name)
-            
             # Using keyboard navigation for selection to avoid conflicts
             # with other page elements (such as the node label).
             search_input.press("Control+a")
             search_input.type(channel_name)
             self.page.wait_for_timeout(300)
             search_input.press("ArrowDown")
+            time.sleep(10)
             search_input.press("Enter")
 
     def get_properties(self) -> Dict[str, Any]:
@@ -92,6 +96,12 @@ class ValueNode(SchematicNode):
                        properties: Optional[Dict[str, Any]] = None
                     ) -> None:
 
+        # Always enforce label = channel_name for easy identification when 
+        # setting the channel. The label can still be updated independently.
+        # This prevents confusion when updating a node from channel_name
+        # old_channel -> new_channel and accidentally keeping the old label.
+        self.set_label(channel_name)
+
         properties = properties or {}
         notation = properties.get("notation")
         precision = properties.get("precision")
@@ -99,7 +109,6 @@ class ValueNode(SchematicNode):
         stale_color = properties.get("stale_color")
         stale_timeout = properties.get("stale_timeout")
 
-        self._click_node()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
         self.set_channel("Input Channel", channel_name)
@@ -126,8 +135,12 @@ class ValueNode(SchematicNode):
             )
             averaging_window_input.fill(str(averaging_window))
             averaging_window_input.press("Enter")
-
+            
         if stale_color is not None:
+            if not re.match(r"^#[0-9A-Fa-f]{6}$", properties['stale_color']):
+                raise ValueError(
+                    "stale_color must be a valid hex color (e.g., #FF5733)"
+                )
             color_button = (
                 self.page.locator("text=Color").locator("..").locator("button")
             )
@@ -230,11 +243,12 @@ class SetpointNode(SchematicNode):
     def __init__(self, page: Page, node_id: str, channel_name: str):
         super().__init__(page, node_id, channel_name)
 
-    def edit_properties(self, channel_name: Optional[str] = None) -> None:
-        self._click_node()
+    def edit_properties(self, channel_name: Optional[str] = None, properties: Optional[Dict[str, Any]] = None) -> None:
+        self.set_label(channel_name)
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
         self.set_channel("Command Channel", channel_name)
+        # No properties to for setpoint node
 
     def set_control_authority(self, authority: int) -> None:
         self._click_node()
@@ -260,12 +274,12 @@ class Schematic(Console):
         self.create_page("Schematic")
         self.page.locator(".react-flow__pane").dblclick()
 
-    def create_node(self, node_type: str, node_id: str, channel_name: str, **kwargs) -> SchematicNode:
+    def create_node(self, node_type: str, node_id: str, channel_name: str) -> SchematicNode:
         """Factory method to create node objects"""
         if node_type.lower() == "value":
-            return ValueNode(self.page, node_id, channel_name, **kwargs)
+            return ValueNode(self.page, node_id, channel_name)
         elif node_type.lower() == "setpoint":
-            return SetpointNode(self.page, node_id, channel_name, **kwargs)
+            return SetpointNode(self.page, node_id, channel_name)
         else:
             raise ValueError(f"Unknown node type: {node_type}")
 
@@ -281,7 +295,7 @@ class Schematic(Console):
         self,
         node_type: str,
         channel_name: str,
-        **kwargs
+        properties: Dict[str, Any] = {}
     ) -> SchematicNode:
         """
         Add a node to the schematic and return the configured node object
@@ -289,19 +303,12 @@ class Schematic(Console):
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
-        # Validate hex color if provided
-        if 'stale_color' in kwargs and kwargs['stale_color'] is not None:
-            if not re.match(r"^#[0-9A-Fa-f]{6}$", kwargs['stale_color']):
-                raise ValueError(
-                    "stale_color must be a valid hex color (e.g., #FF5733)"
-                )
-
         # Count existing nodes before adding
         nodes_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         self.click_on_pane()
         self.page.wait_for_selector(f"text={node_type}", timeout=3000)
-        self.page.get_by_text(node_type).first.click()
+        self.page.get_by_text(node_type, exact=True).first.click()
 
         # Wait for new node to appear
         self.page.wait_for_function(
@@ -314,17 +321,8 @@ class Schematic(Console):
             all_nodes[-1].get_attribute("data-testid") or "unknown"
         )  # Last one should be the newest
 
-        # Create SchematicNode object from factory
-        node = self.create_node(node_type, node_id, channel_name, **kwargs)
-
-        # Set up the node with channel and any provided properties
-        if node_type.lower() == "value":
-            # Apply kwargs as properties for ValueNode
-            node.edit_properties(channel_name, kwargs)
-        elif node_type.lower() == "setpoint":
-            # Apply kwargs as properties for SetpointNode
-            node.edit_properties(channel_name)
-        self.click_on_pane()
+        node = self.create_node(node_type, node_id, channel_name)
+        node.edit_properties(channel_name, properties)
         
         return node
 

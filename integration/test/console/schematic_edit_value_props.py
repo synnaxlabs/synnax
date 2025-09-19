@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from test.console.schematic import Schematic
-
+import time
 
 class Schematic_Edit_Value_Props(Schematic):
     """
@@ -18,7 +18,6 @@ class Schematic_Edit_Value_Props(Schematic):
     def run(self) -> None:
 
         self._log_message("Checking default properties of schematic value")
-        # Create a schematic value with default properties using node classes
         node = self.add_to_schematic("Value", f"{self.name}_uptime")
         default_props = node.get_properties()
 
@@ -30,23 +29,13 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#C29D0A",  # pluto-warning-m1
             "stale_timeout": 5,
         }
-
         assert (
             default_props == expected_default_props
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
+        
+
 
         self._log_message("Checking edited properties of schematic value")
-        node.edit_properties(
-            f"{self.name}_time",
-            {
-                "notation": "scientific",
-                "precision": 4,
-                "averaging_window": 4,
-                "stale_color": "#FF0000",
-                "stale_timeout": 10,
-            }
-        )
-
         expected_edited_props = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
@@ -55,7 +44,32 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#FF0000", # pluto-warning-m1
             "stale_timeout": 10,
         }
+        node.edit_properties(
+            channel_name = f"{self.name}_time",
+            properties = expected_edited_props
+        )
         edited_props = node.get_properties()
         assert (
             edited_props == expected_edited_props
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
+
+        self._log_message("Checking new node with non-default properties")
+        non_default_props = {
+            "channel": "tc_time",
+            "notation": "engineering",
+            "precision": 7,
+            "averaging_window": 3,
+            "stale_color": "#00FF00",
+            "stale_timeout": 15,
+            }
+        non_default_node = self.add_to_schematic(
+            "Value", 
+            "tc_uptime",
+            non_default_props
+        )
+        non_default_props = non_default_node.get_properties()
+        assert (
+            non_default_props == non_default_props
+        ), f"Props mismatch!\nActual: {non_default_props}\nExpected: {non_default_props}"
+
+        time.sleep(100)
