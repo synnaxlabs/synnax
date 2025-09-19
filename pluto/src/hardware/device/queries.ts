@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
-import { array, primitive, type record } from "@synnaxlabs/x";
+import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -261,12 +261,13 @@ export const createForm = <
       make: "",
       model: "",
       location: "",
-      configured: false,
+      configured: true,
       properties: {},
     },
     retrieve: async ({ params, client, reset, store, set }) => {
       if (primitive.isZero(params.key)) {
-        set("rack", getInitialRackKey(client, store));
+        set("rack", await getInitialRackKey(client, store));
+        set("key", uuid.create());
         return;
       }
       const device = await retrieveSingle<Properties, Make, Model>(
@@ -288,3 +289,5 @@ export const createForm = <
       }, key);
     },
   });
+
+export const useForm = createForm();

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
-import { id, status } from "@synnaxlabs/x";
+import { id, type record, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -804,6 +804,232 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.type).toEqual("group");
       expect(result.current.data?.key).not.toBeFalsy();
+    });
+  });
+
+  describe("useForm", () => {
+    describe("create mode", () => {
+      it("should initialize with default values for new device", async () => {
+        const { result } = renderHook(() => Device.useForm({ params: { key: "" } }), {
+          wrapper,
+        });
+
+        await waitFor(() => expect(result.current.form.value()).toBeDefined());
+
+        const formData = result.current.form.value();
+        expect(formData.name).toBe("");
+        expect(formData.make).toBe("");
+        expect(formData.model).toBe("");
+        expect(formData.location).toBe("");
+        expect(formData.properties).toEqual({});
+
+        await waitFor(() => expect(result.current.form.value().rack).not.toEqual(0));
+      });
+
+      it("should create a new device on save", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test form rack",
+        });
+        const useForm = Device.createForm();
+        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+          wrapper,
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        act(() => {
+          result.current.form.set("rack", rack.key);
+          result.current.form.set("name", "Test Form Device");
+          result.current.form.set("make", "TestMake");
+          result.current.form.set("model", "TestModel");
+          result.current.form.set("location", "Lab1");
+        });
+
+        await act(async () => {
+          result.current.save();
+        });
+
+        await waitFor(() => {
+          expect(result.current.variant).toBe("success");
+        });
+
+        const key = result.current.form.get<device.Key>("key").value;
+        const retrieved = await client.hardware.devices.retrieve({ key });
+        expect(retrieved).toEqual({
+          key,
+          name: "Test Form Device",
+          make: "TestMake",
+          model: "TestModel",
+          location: "Lab1",
+          rack: rack.key,
+          configured: true,
+          properties: {},
+          status: undefined,
+        });
+      });
+
+      it("should validate required fields", async () => {
+        const useForm = Device.createForm();
+        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+          wrapper,
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        await act(async () => {
+          result.current.save();
+        });
+
+        const nameField = result.current.form.get("name");
+        expect(nameField.status.message).toBe("Name is required");
+        const makeField = result.current.form.get("make");
+        expect(makeField.status.message).toBe("Make is required");
+        const modelField = result.current.form.get("model");
+        expect(modelField.status.message).toBe("Model is required");
+        const locationField = result.current.form.get("location");
+        expect(locationField.status.message).toBe("Location is required");
+      });
+
+      it("should support custom properties", async () => {
+        interface CustomProperties extends record.Unknown {
+          serialNumber: string;
+          calibrationDate: string;
+        }
+
+        const rack = await client.hardware.racks.create({
+          name: "test custom props rack",
+        });
+        const useForm = Device.createForm<CustomProperties>();
+        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+          wrapper,
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        const customProps: CustomProperties = {
+          serialNumber: "SN123456",
+          calibrationDate: "2024-01-01",
+        };
+
+        act(() => {
+          result.current.form.set("rack", rack.key);
+          result.current.form.set("name", "Custom Device");
+          result.current.form.set("make", "CustomMake");
+          result.current.form.set("model", "CustomModel");
+          result.current.form.set("location", "Lab2");
+          result.current.form.set("properties", customProps);
+        });
+
+        await act(async () => {
+          result.current.save();
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        const formData = result.current.form.value();
+        expect(formData.properties).toEqual(customProps);
+      });
+    });
+
+    describe("update mode", () => {
+      it("should load existing device data", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test update rack",
+        });
+        const testDevice = await client.hardware.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Existing Device",
+          make: "ExistingMake",
+          model: "ExistingModel",
+          location: "Lab3",
+          properties: { testProp: "value" },
+        });
+
+        const useForm = Device.createForm();
+        const { result } = renderHook(
+          () =>
+            useForm({
+              params: { key: testDevice.key },
+            }),
+          { wrapper },
+        );
+
+        await waitFor(() => {
+          const formData = result.current.form.value();
+          expect(formData.name).toBe("Existing Device");
+        });
+
+        const formData = result.current.form.value();
+        expect(formData.key).toBe(testDevice.key);
+        expect(formData.rack).toBe(rack.key);
+        expect(formData.make).toBe("ExistingMake");
+        expect(formData.model).toBe("ExistingModel");
+        expect(formData.location).toBe("Lab3");
+        expect(formData.properties).toEqual({ testProp: "value" });
+      });
+
+      it("should update existing device", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test update rack 2",
+        });
+        const testDevice = await client.hardware.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Device to Update",
+          make: "OriginalMake",
+          model: "OriginalModel",
+          location: "Lab3",
+          properties: {},
+        });
+
+        const { result } = renderHook(
+          () => Device.useForm({ params: { key: testDevice.key } }),
+          { wrapper },
+        );
+
+        await waitFor(() => {
+          const formData = result.current.form.value();
+          expect(formData.name).toBe("Device to Update");
+        });
+
+        act(() => {
+          result.current.form.set("name", "Updated Device Name");
+          result.current.form.set("location", "Lab4");
+        });
+
+        await act(async () => {
+          result.current.save();
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        const updatedDevice = await client.hardware.devices.retrieve({
+          key: testDevice.key,
+        });
+        expect(updatedDevice.name).toBe("Updated Device Name");
+        expect(updatedDevice.location).toBe("Lab4");
+      });
+    });
+
+    describe("validation", () => {
+      it("should validate name field", async () => {
+        const { result } = renderHook(() => Device.useForm({ params: { key: "" } }), {
+          wrapper,
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        act(() => {
+          result.current.form.set("name", "");
+        });
+
+        const isValid = result.current.form.validate("name");
+        expect(isValid).toBe(false);
+
+        const msg = result.current.form.get("name").status.message;
+        expect(msg).toEqual("Name is required");
+      });
     });
   });
 });

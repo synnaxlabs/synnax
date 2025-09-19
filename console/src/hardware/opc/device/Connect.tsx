@@ -87,12 +87,12 @@ const beforeSave = async ({
   typeof Device.formSchema,
   Device.FluxSubStore
 >) => {
-  const scanTask = await Task.retrieveSingle(
+  const scanTask = await Task.retrieveSingle({
     client,
     store,
-    { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
-    SCAN_SCHEMAS,
-  );
+    params: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    schemas: SCAN_SCHEMAS,
+  });
   const state = await scanTask.executeCommandSync(
     TEST_CONNECTION_COMMAND_TYPE,
     TimeSpan.seconds(10),

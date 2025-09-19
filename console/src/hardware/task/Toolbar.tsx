@@ -9,11 +9,11 @@
 
 import "@/hardware/task/Toolbar.css";
 
-import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
+import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
-  Flux,
+  type Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -24,7 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -54,12 +54,7 @@ const EmptyContent = () => {
   );
 };
 
-interface StartStopArgs {
-  command: Common.Task.Command;
-  keys: task.Key[];
-}
-
-const filterExternal = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) => !task.internal && !task.snapshot;
 
 const Content = () => {
   const client = Synnax.use();
@@ -69,9 +64,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { data, getItem, subscribe, retrieve } = Task.useList({
-    filter: filterExternal,
-  });
+  const { data, getItem, subscribe, retrieve } = Task.useList({ filter });
   const { fetchMore } = List.usePager({ retrieve });
 
   const { update: rename } = Task.useRename({
@@ -122,34 +115,30 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const startOrStop = Flux.useAction({
-    resourceName: "Task",
-    opName: "command",
-    action: async ({ command, keys }: StartStopArgs) => {
-      if (client == null) throw new DisconnectedError();
-      const filteredKeys = keys.filter((k) => {
-        const status = getItem(k)?.status;
-        if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
-        return Common.Task.shouldExecuteCommand(status, command);
-      });
-      const commands: task.NewCommand[] = filteredKeys.map((k) => ({
-        task: k,
-        type: command,
-      }));
-      const statuses = await client.hardware.tasks.executeCommandSync(
-        commands,
-        TimeSpan.fromSeconds(10),
-      );
-      statuses.forEach((s) => addStatus({ ...s, time: TimeStamp.now() }));
-    },
+  const handleCommandStatus = useCallback(
+    ({ value: statuses }: { value: task.Status[] }) =>
+      statuses.forEach((status) => addStatus(status)),
+    [addStatus],
+  );
+
+  const { update: runCommand } = Task.useCommand({
+    afterSuccess: handleCommandStatus,
+    afterFailure: useCallback(
+      ({ status }: Flux.AfterFailureArgs<Task.UseCommandArgs>) => addStatus(status),
+      [addStatus],
+    ),
   });
+  const handleCommand = useCallback(
+    (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
+    [runCommand],
+  );
   const handleStart = useCallback(
-    (keys: string[]) => startOrStop.run({ command: "start", keys }),
-    [startOrStop],
+    (keys: string[]) => handleCommand(keys, "start"),
+    [handleCommand],
   );
   const handleStop = useCallback(
-    (keys: string[]) => startOrStop.run({ command: "stop", keys }),
-    [startOrStop],
+    (keys: string[]) => handleCommand(keys, "stop"),
+    [handleCommand],
   );
   const handleEdit = useCallback(
     (key: task.Key) => {
@@ -179,9 +168,8 @@ const Content = () => {
     [handleDelete, handleStart, handleStop],
   );
   const handleListItemStopStart = useCallback(
-    (command: Common.Task.Command, key: task.Key) =>
-      startOrStop.run({ command, keys: [key] }),
-    [startOrStop],
+    (command: Common.Task.Command, key: task.Key) => handleCommand([key], command),
+    [handleCommand],
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
