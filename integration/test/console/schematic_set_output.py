@@ -24,4 +24,10 @@ class Schematic_Set_Output(Schematic):
         value_node = self.add_to_schematic("Value", f"{self.name}_uptime")
         value_node.move(200, 0)
 
-        time.sleep(5)
+        self.connect_nodes(setpoint_node, "right", value_node, "left")
+        self.connect_nodes(value_node, "right", setpoint_node, "left")
+        self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
+        self.connect_nodes(value_node, "bottom", value_node, "right")
+
+        self.log_message("Remove the time.sleep(10) before merge!!!")
+        time.sleep(10)
