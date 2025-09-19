@@ -9,50 +9,42 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { device, DisconnectedError, rack, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Device,
   Divider,
   Flex,
-  Flux,
+  type Flux,
   Form,
   Input,
   Nav,
   Rack,
   Status,
-  Synnax,
+  Task,
 } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
-import { useCallback, useMemo, useState } from "react";
-import { z } from "zod";
+import { status } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
-import { Common } from "@/hardware/common";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
-  type ConnectionConfig,
-  connectionConfigZ,
-  MAKE,
-  migrateProperties,
+  type Make,
   NO_SECURITY_MODE,
   type Properties,
   type SecurityMode,
   type SecurityPolicy,
-  ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionStatus,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-
-import { useRetrieveScanTask } from "./useRetrieveScanTask";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
@@ -65,81 +57,74 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
-const formSchema = z.object({
-  name: Common.Device.nameZ,
-  rack: rack.keyZ.refine((k) => k > 0, "Must select a location to connect from"),
-  connection: connectionConfigZ,
-});
-interface FormSchema extends z.infer<typeof formSchema> {}
+const useForm = Device.createForm<Properties, Make>();
 
-interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClose"> {
-  initialValues: FormSchema;
-  properties?: Properties;
-}
+const INITIAL_VALUES: device.Device<Properties, Make> = {
+  key: "",
+  name: "OPC UA Server",
+  make: "opc",
+  model: "opc",
+  location: "",
+  properties: ZERO_PROPERTIES,
+  rack: 0,
+};
 
-const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
-  const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
-  const methods = Form.use({ values: initialValues, schema: formSchema });
-  const rack = methods.get<rack.Key>("rack").value;
-  const scanTask = useRetrieveScanTask(rack);
-  const testConnection = Flux.useAction({
-    resourceName: "Connection",
-    opName: "Test",
-    action: async () => {
-      if (scanTask == null || !methods.validate()) return;
-      const state = await scanTask.executeCommandSync(
-        TEST_CONNECTION_COMMAND_TYPE,
-        TimeSpan.seconds(10),
-        { connection: methods.get("connection").value },
-      );
-      setConnectionState(state);
-    },
-  });
-  const connect = Flux.useAction({
-    resourceName: "",
-    opName: "Connect",
-    action: async () => {
-      if (client == null) throw new DisconnectedError();
-      if (!methods.validate()) return;
-      await testConnection.runAsync();
-      if (connectionState?.variant !== "success")
-        throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve({
-        key: methods.get<rack.Key>("rack").value,
-      });
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
-      await client.hardware.devices.create<Properties>({
-        key,
-        name: methods.get<string>("name").value,
-        model: MAKE,
-        make: MAKE,
-        rack: rack.key,
-        location: methods.get<string>("connection.endpoint").value,
-        properties: {
-          ...ZERO_PROPERTIES,
-          ...properties,
-          connection: methods.get<ConnectionConfig>("connection").value,
-        },
-        configured: true,
-      });
-      onClose();
-    },
+const beforeValidate = ({
+  get,
+  set,
+}: Flux.BeforeValidateArgs<
+  Device.UseRetrieveArgs,
+  typeof Device.formSchema,
+  Device.FluxSubStore
+>) => set("location", get("properties.connection.endpoint").value);
+
+const beforeSave = async ({
+  client,
+  get,
+  store,
+}: Flux.BeforeSaveArgs<
+  Device.UseRetrieveArgs,
+  typeof Device.formSchema,
+  Device.FluxSubStore
+>) => {
+  const scanTask = await Task.retrieveSingle(
+    client,
+    store,
+    { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    SCAN_SCHEMAS,
+  );
+  const state = await scanTask.executeCommandSync(
+    TEST_CONNECTION_COMMAND_TYPE,
+    TimeSpan.seconds(10),
+    { connection: get("properties.connection").value },
+  );
+  if (state.variant === "error") throw new Error(state.message);
+  return true;
+};
+
+export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    params: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
+    initialValues: INITIAL_VALUES,
+    beforeValidate,
+    beforeSave,
+    afterSave: onClose,
   });
 
   const hasSecurity =
-    Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
-      "connection.securityMode",
-      { ctx: methods },
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof Device.formSchema>(
+      "properties.connection.securityMode",
+      { ctx: form },
     ) != NO_SECURITY_MODE;
-  const status =
-    testConnection.variant === "loading" || connect.variant === "loading"
-      ? "loading"
-      : undefined;
   return (
     <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Device.formSchema> {...form}>
           <Form.TextField
             inputProps={{
               level: "h2",
@@ -153,22 +138,22 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
-          <Form.Field<string> path="connection.endpoint">
+          <Form.Field<string> path="properties.connection.endpoint">
             {(p) => (
               <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
             )}
           </Form.Field>
           <Divider.Divider x padded="bottom" />
           <Flex.Box x justify="between">
-            <Form.Field<string> grow path="connection.username">
+            <Form.Field<string> grow path="properties.connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
-            <Form.Field<string> grow path="connection.password">
+            <Form.Field<string> grow path="properties.connection.password">
               {(p) => <Input.Text placeholder="password" type="password" {...p} />}
             </Form.Field>
             <Form.Field<SecurityMode>
               label="Security Mode"
-              path="connection.securityMode"
+              path="properties.connection.securityMode"
             >
               {({ value, onChange }) => (
                 <SelectSecurityMode value={value} onChange={onChange} />
@@ -178,7 +163,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
-            path="connection.securityPolicy"
+            path="properties.connection.securityPolicy"
             label="Security Policy"
           >
             {({ value, onChange }) => (
@@ -189,20 +174,20 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             <>
               <Form.Field<string>
                 label="Client Certificate"
-                path="connection.clientCertificate"
+                path="properties.connection.clientCertificate"
               >
                 {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
                 label="Client Private Key"
-                path="connection.clientPrivateKey"
+                path="properties.connection.clientPrivateKey"
               >
                 {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
                 grow
                 label="Server Certificate"
-                path="connection.serverCertificate"
+                path="properties.connection.serverCertificate"
               >
                 {FS.InputFilePath}
               </Form.Field>
@@ -212,76 +197,22 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       </Flex.Box>
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
-          {connectionState == null ? (
+          {variant == "success" ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Summary status={connectionState.variant}>
-              {connectionState.message}
-            </Status.Summary>
+            <Status.Summary status={variant} message={stat.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            trigger={Triggers.SAVE}
-            status={status}
-            onClick={testConnection.run}
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => save()}
+            variant="filled"
           >
-            Test Connection
-          </Button.Button>
-          <Button.Button status={status} onClick={connect.run} variant="filled">
-            Save
+            Connect
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
     </Flex.Box>
-  );
-};
-
-const { useRetrieve: useRetrieveDevice } = Device.createRetrieve<Properties>();
-
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const {
-    data,
-    variant,
-    status: { key, ...status },
-  } = useRetrieveDevice(
-    { key: layoutKey },
-    {
-      beforeRetrieve: useCallback(
-        ({ params: { key } }: Flux.BeforeRetrieveArgs<Device.UseRetrieveArgs>) => {
-          if (key === CONNECT_LAYOUT_TYPE)
-            return {
-              key: "",
-              name: "OPC UA Server",
-              make: "opc",
-              model: "opc",
-              properties: {
-                ...ZERO_PROPERTIES,
-                connection: { ...ZERO_CONNECTION_CONFIG },
-              },
-              rack: 0,
-            };
-          return true;
-        },
-        [],
-      ),
-    },
-  );
-  const [initialValues, properties] = useMemo(() => {
-    data.properties = migrateProperties(data.properties);
-    return [
-      { name: data.name, rack: data.rack, connection: data.properties.connection },
-      data.properties,
-    ];
-  }, [data]);
-
-  if (variant !== "success") return <Status.Summary key={key} {...status} />;
-  return (
-    <Internal
-      initialValues={initialValues}
-      layoutKey={layoutKey}
-      onClose={onClose}
-      properties={properties}
-    />
   );
 };

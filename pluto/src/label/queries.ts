@@ -10,13 +10,15 @@
 import { label, ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
+import { type Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
-interface FluxSubStore extends Flux.Store {
-  labels: FluxStore;
+export interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
 const SET_LABEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof label.labelZ> = {
@@ -43,11 +45,6 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
 
 interface UseLabelsOfQueryParams {
   id: ontology.ID;
-}
-
-interface FluxSubStore extends Flux.Store {
-  labels: FluxStore;
-  relationships: Flux.UnaryStore<string, ontology.Relationship>;
 }
 
 export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => {
@@ -93,7 +90,12 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
 
 export interface ListParams extends label.MultiRetrieveArgs {}
 
-export const useList = Flux.createList<ListParams, label.Key, label.Label, FluxSubStore>({
+export const useList = Flux.createList<
+  ListParams,
+  label.Key,
+  label.Label,
+  FluxSubStore
+>({
   name: "Labels",
   retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),

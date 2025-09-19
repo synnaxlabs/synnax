@@ -63,7 +63,9 @@ export interface CreateFormArgs<
   /** Default values to use when creating new forms */
   initialValues: z.infer<DataSchema>;
   update: (args: FormUpdateArgs<DataSchema, FluxSubStore>) => Promise<void>;
-  retrieve: (args: FormRetrieveArgs<FormParams, DataSchema, FluxSubStore>) => Promise<void>;
+  retrieve: (
+    args: FormRetrieveArgs<FormParams, DataSchema, FluxSubStore>,
+  ) => Promise<void>;
   mountListeners?: (
     args: FormMountListenersArgs<FluxSubStore, FormParams, DataSchema>,
   ) => Destructor | Destructor[];
@@ -93,10 +95,12 @@ export type UseFormReturn<DataSchema extends z.ZodType<state.State>> = Omit<
 export interface BeforeSaveArgs<
   FormParams extends Params,
   Z extends z.ZodType<state.State>,
+  SubStore extends Store,
 > extends Form.UseReturn<Z> {
   client: Client;
   /** The current form parameters */
   params: FormParams;
+  store: SubStore;
 }
 
 interface FormMountListenersArgs<
@@ -118,7 +122,14 @@ interface FormMountListenersArgs<
 export interface AfterSaveArgs<
   FormParams extends Params,
   Z extends z.ZodType<state.State>,
-> extends BeforeSaveArgs<FormParams, Z> {}
+  SubStore extends Store,
+> extends BeforeSaveArgs<FormParams, Z, SubStore> {}
+
+export interface BeforeValidateArgs<
+  FormParams extends Params,
+  Z extends z.ZodType<state.State>,
+  SubStore extends Store,
+> extends BeforeSaveArgs<FormParams, Z, SubStore> {}
 
 /**
  * Arguments for using a form hook.
@@ -129,6 +140,7 @@ export interface AfterSaveArgs<
 export interface UseFormArgs<
   FormParams extends Params,
   Z extends z.ZodType<state.State>,
+  SubStore extends Store,
 > extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
@@ -136,11 +148,16 @@ export interface UseFormArgs<
   autoSave?: boolean;
   /** Parameters for the form query */
   params: FormParams;
+  /** Function to run before the validation operation. If the function returns undefined,
+   * the validation will be cancelled. */
+  beforeValidate?: (
+    args: BeforeValidateArgs<FormParams, Z, SubStore>,
+  ) => boolean | void;
   /** Function to run before the save operation. If the function returns undefined,
    * the save will be cancelled. */
-  beforeSave?: (args: BeforeSaveArgs<FormParams, Z>) => Promise<boolean>;
+  beforeSave?: (args: BeforeSaveArgs<FormParams, Z, SubStore>) => Promise<boolean>;
   /** Callback function called after successful save */
-  afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
+  afterSave?: (args: AfterSaveArgs<FormParams, Z, SubStore>) => void;
   /** The scope to use for the form operation */
   scope?: string;
 }
@@ -151,8 +168,12 @@ export interface UseFormArgs<
  * @template FormParams The type of parameters for the form query
  * @template Z The Zod schema type for form validation
  */
-export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.State>> {
-  (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
+export interface UseForm<
+  FormParams extends Params,
+  Z extends z.ZodType<state.State>,
+  SubStore extends Store,
+> {
+  (args: UseFormArgs<FormParams, Z, SubStore>): UseFormReturn<Z>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -216,13 +237,18 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
-  }: CreateFormArgs<FormParams, Schema, FluxSubStore>): UseForm<FormParams, Schema> =>
+  }: CreateFormArgs<FormParams, Schema, FluxSubStore>): UseForm<
+    FormParams,
+    Schema,
+    FluxSubStore
+  > =>
   ({
     params,
     initialValues,
     autoSave = false,
     afterSave,
     beforeSave,
+    beforeValidate,
     sync,
     onHasTouched,
     mode,
@@ -288,6 +314,7 @@ export const createForm =
             return false;
           }
           const args = { client, params, store, rollbacks, ...form, set: noNotifySet };
+          if (beforeValidate?.(args) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(pendingResult(name, "updating", undefined));
           if ((await beforeSave?.(args)) === false) {
@@ -310,7 +337,7 @@ export const createForm =
           return false;
         }
       },
-      [name, params, beforeSave, afterSave],
+      [name, params, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
       (opts?: FetchOptions) => void saveAsync(opts),
