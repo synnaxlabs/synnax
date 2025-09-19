@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/x";
+import { primitive, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { useRetrieve } from "@/status/queries";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
@@ -36,7 +37,7 @@ export const Summary = ({
   let icon: Icon.ReactElement | undefined;
   variant ??= textStatusVariant;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
-  const hasDescription = description != null;
+  const hasDescription = primitive.isNonZero(description);
   children ??= message;
   const baseText = (
     <BaseText.Text
@@ -50,16 +51,25 @@ export const Summary = ({
     </BaseText.Text>
   );
   if (!hasDescription) return baseText;
-  const descriptionText =
-    description.length === 0 ? null : (
-      <BaseText.Text level="small" color={8}>
-        {description}
-      </BaseText.Text>
-    );
+  const descriptionText = (
+    <BaseText.Text level="small" color={8}>
+      {description}
+    </BaseText.Text>
+  );
   return (
     <Flex.Box y align="start" gap="small" center {...rest}>
       {baseText}
       {descriptionText}
     </Flex.Box>
   );
+};
+
+export interface RemoteSummaryProps {
+  statusKey: string;
+}
+
+export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
+  const res = useRetrieve({ key: statusKey });
+  const { key, ...rest } = res.data ?? res.status;
+  return <Summary key={key} {...rest} />;
 };

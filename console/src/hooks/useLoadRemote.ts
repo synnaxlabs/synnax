@@ -42,6 +42,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
     },
     onError: (e) => handleError(e, `Failed to load ${name}`),
   });
+  console.log(version)
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);
   useAsyncEffect(

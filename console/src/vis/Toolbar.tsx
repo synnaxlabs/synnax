@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
+import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -28,6 +29,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
+  [Arc.EDIT_LAYOUT_TYPE]: Arc.Toolbar,
 };
 
 const NoVis = (): ReactElement => {

@@ -21,7 +21,7 @@ import { flux } from "@/flux/aether";
 import { core } from "@/flux/core";
 import { useInitializerRef, useRequiredContext } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Status } from "@/status";
+import { useAsyncErrorHandler, useErrorHandler } from "@/status/external";
 import { Synnax } from "@/synnax";
 
 type ContextValue = core.Client;
@@ -51,8 +51,8 @@ export const Provider = <ScopedStore extends flux.Store>({
   ...cfg
 }: ProviderProps<ScopedStore>): ReactElement | null => {
   const synnaxClient = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const handleAsyncError = Status.useAsyncErrorHandler();
+  const handleError = useErrorHandler();
+  const handleAsyncError = useAsyncErrorHandler();
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,

@@ -77,7 +77,9 @@ export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
   const a_ = construct(a);
   const b_ = construct(b);
   if (threshold === 0) return a_.x === b_.x && a_.y === b_.y;
-  return Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold;
+  return (
+    Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold
+  );
 };
 
 /** Is zero is true if the XY coordinate has a semantic x and y value of zero. */
@@ -194,7 +196,10 @@ export const css = (a: Crude): { left: number; top: number } => {
  */
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
-  return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+  return {
+    x: Number(xy.x.toFixed(precision)),
+    y: Number(xy.y.toFixed(precision)),
+  };
 };
 
 /**
@@ -310,4 +315,18 @@ export const swap = (a: Crude): XY => {
 export const round = (a: Crude): XY => {
   const xy = construct(a);
   return { x: Math.round(xy.x), y: Math.round(xy.y) };
+};
+
+/**
+ * Reciprocal of a point.
+ * @param a - The coordinate to invert. Can be provided in any supported format (couple, object, dimensions, etc.)
+ * @returns A new XY coordinate with the x and y values inverted.
+ * @example
+ * reciprocal([1, 2]) // returns { x: 1, y: 0.5 }
+ * reciprocal({ x: 3, y: 4 }) // returns { x: 0.3333333333333333, y: 0.25 }
+ * reciprocal({ width: 5, height: 6 }) // returns { x: 0.2, y: 0.16666666666666666 }
+ */
+export const reciprocal = (a: Crude): XY => {
+  const xy = construct(a);
+  return { x: 1 / xy.x, y: 1 / xy.y };
 };

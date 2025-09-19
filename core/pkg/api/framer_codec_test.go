@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("FramerCodec", func() {
-	Describe("Frame Write Request", func() {
+	Describe("Frame Write ArcCreateRequest", func() {
 		It("Should encode and decode the request correctly", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}

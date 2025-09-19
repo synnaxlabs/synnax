@@ -302,7 +302,7 @@ func start(cmd *cobra.Command) {
 }
 
 func init() {
-	rootCmd.AddCommand(startCmd)
+	root.AddCommand(startCmd)
 	configureStartFlags()
 	bindFlags(startCmd)
 }

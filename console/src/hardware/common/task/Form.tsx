@@ -90,6 +90,7 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   ReturnType<typeof task.statusDetailsZ<StatusData>>
 > => ({
   key: id.create(),
+  name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
   time: TimeStamp.now(),
