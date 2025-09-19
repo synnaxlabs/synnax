@@ -13,13 +13,14 @@ from abc import ABC
 from test.console.console import Console
 from typing import Any, Dict, Optional
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Locator
 
 
 class SchematicNode(ABC):
     """Base class for all schematic nodes"""
 
     page: Page
+    node: Locator
     node_id: str
     channel_name: str
     label: str
@@ -29,11 +30,12 @@ class SchematicNode(ABC):
         self.node_id = node_id
         self.channel_name = channel_name
         self.label = channel_name
+
+        self.node = self.page.get_by_test_id(self.node_id)
         self.set_label(channel_name)
 
     def _click_node(self) -> Any:
-        node = self.page.get_by_test_id(self.node_id)
-        node.locator("div").first.click(force=True)
+        self.node.locator("div").first.click(force=True)
         time.sleep(0.1)
 
     def set_label(self, label: str) -> None:
@@ -43,6 +45,7 @@ class SchematicNode(ABC):
             self.page.locator("text=Label").locator("..").locator("input").first
         )
         label_input.fill(label)
+        self.label = label
 
     def edit_properties(
         self,
@@ -85,9 +88,43 @@ class SchematicNode(ABC):
     def get_properties(self) -> Dict[str, Any]:
         return {}
 
-    def click(self) -> Any:
-        """Click on the node"""
-        return self._click_node()
+    def move(self, delta_x: int, delta_y: int) -> None:
+        """Move the node by the specified number of pixels using drag"""
+        box = self.node.bounding_box()
+        if not box:
+            raise RuntimeError(f"Could not get bounding box for node {self.node_id}")
+
+        # Calculate target position
+        start_x = box["x"] + box["width"] / 2
+        start_y = box["y"] + box["height"] / 2
+        target_x = start_x + delta_x
+        target_y = start_y + delta_y
+
+        # Move
+        self.page.mouse.move(start_x, start_y)
+        self.page.mouse.down()
+        self.page.mouse.move(target_x, target_y, steps=10)
+        self.page.mouse.up()
+
+        # Verify the move
+        new_box = self.node.bounding_box()
+        if not new_box:
+            raise RuntimeError(
+                f"Could not get new bounding box for node {self.node_id}"
+            )
+
+        final_x = new_box["x"] + new_box["width"] / 2
+        final_y = new_box["y"] + new_box["height"] / 2
+
+        grid_tolerance = 25
+        if (
+            abs(final_x - target_x) > grid_tolerance
+            or abs(final_y - target_y) > grid_tolerance
+        ):
+
+            raise RuntimeError(
+                f"Node {self.node_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
+            )
 
 
 class ValueNode(SchematicNode):
@@ -312,14 +349,6 @@ class Schematic(Console):
         else:
             raise ValueError(f"Unknown node type: {node_type}")
 
-    def _get_node(self, node_id: str) -> Any:
-        if not node_id:
-            raise ValueError("node_id cannot be empty")
-        node = self.page.get_by_test_id(node_id)
-        node.locator("div").first.click()
-        time.sleep(0.1)
-        return node
-
     def add_to_schematic(
         self, node_type: str, channel_name: str, properties: Dict[str, Any] = {}
     ) -> SchematicNode:
@@ -356,8 +385,9 @@ class Schematic(Console):
 
     def click_on_pane(self) -> None:
 
-        # Going to change how this is done.
-        # Purpose is to click off of the node.
+        # Going to change how this is done. Purpose is to click off of
+        # the node and onto schematic pane to reset the focus.
+        #
         # MIGHT to move this into the node functionality
         self.page.wait_for_selector(".react-flow__pane", timeout=5000)
         self.page.locator(".react-flow__pane").dblclick()
