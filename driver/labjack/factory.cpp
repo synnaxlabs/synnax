@@ -35,6 +35,13 @@ common::ConfigureResult configure_read(
     }
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) {
+        LOG(WARNING) << "[labjack] failed to acquire device " << cfg.device_key
+                     << " for read task " << task.name << ": " << d_err.message();
+        ctx->set_status(
+            {.variant = status::variant::WARNING,
+             .message = "Device disconnected: " + d_err.message(),
+             .details = synnax::TaskStatusDetails{.task = task.key}}
+        );
         result.error = d_err;
         return result;
     }
@@ -66,6 +73,13 @@ common::ConfigureResult configure_write(
     }
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) {
+        LOG(WARNING) << "[labjack] failed to acquire device " << cfg.device_key
+                     << " for write task " << task.name << ": " << d_err.message();
+        ctx->set_status(
+            {.variant = status::variant::WARNING,
+             .message = "Device disconnected: " + d_err.message(),
+             .details = synnax::TaskStatusDetails{.task = task.key}}
+        );
         result.error = d_err;
         return result;
     }
