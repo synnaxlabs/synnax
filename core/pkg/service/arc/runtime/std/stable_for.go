@@ -11,6 +11,7 @@ package std
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 
@@ -53,6 +54,7 @@ func (s *stableFor) Next(ctx context.Context, val value.Value) {
 	if s.now()-s.lastChanged >= telem.TimeStamp(s.duration) && s.lastSent != s.value {
 		s.lastSent = s.value
 		val.Param = "output"
+		fmt.Println("OUTPUT")
 		s.outputHandler(ctx, val)
 	}
 }

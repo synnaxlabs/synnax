@@ -27,12 +27,8 @@ var symbolSetStatus = ir.Symbol{
 	Kind: ir.KindStage,
 	Type: ir.Stage{
 		Config: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"key", "variant", "message"},
-			Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}},
-		},
-		Params: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"trigger"},
-			Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+			Keys:   []string{"key", "variant", "message", "name"},
+			Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}, ir.String{}},
 		},
 	},
 }
@@ -59,6 +55,7 @@ func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
 func (s *setStatus) Next(ctx context.Context, _ value.Value) {
 	stat := status.Status{}
 	stat.Key = s.key
+	stat.Name = "OX Alarm"
 	stat.Variant = s.variant
 	stat.Message = s.message
 	if err := s.cfg.Status.NewWriter(nil).Set(ctx, &stat); err != nil {

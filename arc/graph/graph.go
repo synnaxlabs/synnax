@@ -220,7 +220,7 @@ func Analyze(
 
 		// Get source output type (from return or specific param)
 		var sourceType ir.Type
-		if edge.Source.Param == "" {
+		if edge.Source.Param == "output" {
 			// Using the stage's return type
 			sourceType = sourceStage.Return
 		} else {
@@ -290,10 +290,10 @@ func Analyze(
 
 	// Step 6: Return the IR
 	return ir.IR{
-		Symbols:     ctx.Scope,
-		Stages:      g.Stages,
-		Edges:       g.Edges,
-		Functions:   g.Functions,
+		Symbols:   ctx.Scope,
+		Stages:    g.Stages,
+		Edges:     g.Edges,
+		Functions: g.Functions,
 		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
 			return item.Node
 		}),

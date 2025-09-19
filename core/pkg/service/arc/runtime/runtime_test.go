@@ -1,6 +1,7 @@
 package runtime_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,7 +81,7 @@ var _ = Describe("Runtime", Ordered, func() {
 	})
 
 	Describe("Alarm", func() {
-		It("Should update alarm statuses", func() {
+		FIt("Should update alarm statuses", func() {
 			ch := &channel.Channel{
 				Name:     "ox_pt_1",
 				Virtual:  true,
@@ -130,6 +131,7 @@ var _ = Describe("Runtime", Ordered, func() {
 						Config: map[string]any{
 							"key":     "ox_alarm",
 							"variant": "success",
+							"name":    "OX Alarm",
 							"message": "OX Pressure Nominal",
 						},
 					}},
@@ -139,25 +141,26 @@ var _ = Describe("Runtime", Ordered, func() {
 						Config: map[string]any{
 							"key":     "ox_alarm",
 							"variant": "error",
-							"message": "OX Pressure Alarm",
+							"name":    "OX Alarm",
+							"message": "OX Pressure Exceed",
 						},
 					}},
 				},
 				Edges: []arc.Edge{
 					{
-						Source: arc.Handle{Node: "on"},
+						Source: arc.Handle{Node: "on", Param: "output"},
 						Target: arc.Handle{Node: "ge", Param: "a"},
 					},
 					{
-						Source: arc.Handle{Node: "constant"},
+						Source: arc.Handle{Node: "constant", Param: "output"},
 						Target: arc.Handle{Node: "ge", Param: "b"},
 					},
 					{
-						Source: arc.Handle{Node: "ge"},
+						Source: arc.Handle{Node: "ge", Param: "output"},
 						Target: arc.Handle{Node: "stable_for"},
 					},
 					{
-						Source: arc.Handle{Node: "stable_for"},
+						Source: arc.Handle{Node: "stable_for", Param: "output"},
 						Target: arc.Handle{Node: "select"},
 					},
 					{
@@ -175,21 +178,30 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(cfg.Module.Edges).To(HaveLen(6))
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
+			time.Sleep(time.Millisecond * 20)
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
+			fmt.Println("V1")
 			Expect(w.Write(core.UnaryFrame(
 				ch.Key(),
 				telem.NewSeriesV[float32](20),
 			))).To(BeTrue())
-			time.Sleep(time.Millisecond * 2)
+			time.Sleep(time.Millisecond * 20)
+			fmt.Println("V2")
 			Expect(w.Write(core.UnaryFrame(
 				ch.Key(),
 				telem.NewSeriesV[float32](25),
 			))).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var stat status.Status
+				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal("error"))
+			}).To(Succeed())
+			fmt.Println("HERE")
 
 			Expect(r.Close()).To(Succeed())
 		})

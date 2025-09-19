@@ -36,7 +36,10 @@ type constant struct {
 	value value.Value
 }
 
-func (c *constant) Flow(ctx signal.Context) { c.outputHandler(ctx, c.value) }
+func (c *constant) Flow(ctx signal.Context) {
+	c.value.Param = "output"
+	c.outputHandler(ctx, c.value)
+}
 
 func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
 	// The actual type will be determined by the graph analysis
