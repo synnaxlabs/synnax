@@ -18,29 +18,35 @@ class Schematic_Set_Output(Schematic):
 
     def run(self) -> None:
 
-        self.create_a_channel("index_channel", is_index=True)
-        self.create_a_channel("command_channel", is_index=False, data_type="Float64", index="index_channel")
+        CHANNEL_NAME = "command_channel"
 
-        setpoint_node = self.add_to_schematic("Setpoint", "command_channel")
+        self.create_a_channel("index_channel", is_index=True)
+        self.create_a_channel(
+            CHANNEL_NAME, is_index=False, data_type="Float64", index="index_channel"
+        )
+
+        setpoint_node = self.add_to_schematic("Setpoint", CHANNEL_NAME)
         setpoint_node.move(-200, 0)
 
-        value_node = self.add_to_schematic("Value", "command_channel")
+        value_node = self.add_to_schematic("Value", CHANNEL_NAME)
         value_node.move(200, 0)
 
-        #self.connect_nodes(setpoint_node, "right", value_node, "left")
-        setpoint_node.set_value(47.23333333)
+        set_p_value = 47.23333333
+        setpoint_node.set_value(set_p_value)
+        time.sleep(0.1)
+        actual_value = self.get_value(CHANNEL_NAME)
 
+        self._log_message(f"Verifying setpoint value: {set_p_value}")
+        assert (
+            actual_value == set_p_value
+        ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
 
-        print(f" setpoint value: {setpoint_node.get_value()}")
-        print(f" value value: {value_node.get_value()}")
-        print("\n\n")
-        time.sleep(10)
-        """
-        self.connect_nodes(value_node, "right", setpoint_node, "left")
-        self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
-        self.connect_nodes(value_node, "bottom", value_node, "right")
-        """
+        set_p_value = 1.0101
+        setpoint_node.set_value(set_p_value)
+        time.sleep(0.2)
+        actual_value = self.get_value(CHANNEL_NAME)
 
-        
-        self._log_message("Remove the time.sleep(10) before merge!!!")
-        time.sleep(2)
+        self._log_message(f"Verifying setpoint value: {set_p_value}")
+        assert (
+            actual_value == set_p_value
+        ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"

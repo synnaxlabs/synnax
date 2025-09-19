@@ -13,7 +13,7 @@ from abc import ABC
 from test.console.console import Console
 from typing import Any, Dict, Optional, Tuple
 
-from playwright.sync_api import Page, Locator
+from playwright.sync_api import Locator, Page
 
 
 class SchematicNode(ABC):
@@ -38,7 +38,7 @@ class SchematicNode(ABC):
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
-  
+
     def _click_node(self) -> Any:
         self.node.locator("div").first.click(force=True)
         time.sleep(0.1)
@@ -61,7 +61,7 @@ class SchematicNode(ABC):
             self.set_channel("Needs Override", channel_name)
         return {}
 
-    def set_channel(self, input_field: str, channel_name: str):
+    def set_channel(self, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
             channel_button = (
                 self.page.locator(f"text={input_field}")
@@ -130,25 +130,11 @@ class SchematicNode(ABC):
                 f"Node {self.node_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
             )
 
-    def get_value(self) -> float:
-        """Get the current value of the node"""
-        self._click_node()
-
-        # Check if this is a SetpointNode by looking at the class name
-        if self.__class__.__name__ == "SetpointNode":
-            value_str = (
-                self.node.locator("input[type='number'], input").first.input_value()
-            )
-        else:
-            value_str = self.node.inner_text()
-            print(f"Debug: Value string: {value_str}")
-        return float(value_str)
-    
     def set_value(self, value: Any = None) -> None:
 
         if value is None:
             raise ValueError(f"{self.label}: Set Value cannot be None")
-        
+
         self._disable_edit_mode()
         self._click_node()
 
@@ -157,7 +143,7 @@ class SchematicNode(ABC):
         value_input.fill(str(value))
         set_button = self.node.locator("button").filter(has_text="Set")
         set_button.click()
-        
+
 
 class ValueNode(SchematicNode):
     """Schematic value/telemetry node"""
@@ -182,7 +168,8 @@ class ValueNode(SchematicNode):
         # setting the channel. The label can still be updated independently.
         # This prevents confusion when updating a node from channel_name
         # old_channel -> new_channel and accidentally keeping the old label.
-        self.set_label(channel_name)
+        if channel_name is not None:
+            self.set_label(channel_name)
 
         properties = properties or {}
         notation = properties.get("notation")
@@ -193,7 +180,8 @@ class ValueNode(SchematicNode):
 
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
-        self.set_channel("Input Channel", channel_name)
+        if channel_name is not None:
+            self.set_channel("Input Channel", channel_name)
 
         if notation is not None:
             notation_button = (
@@ -242,7 +230,6 @@ class ValueNode(SchematicNode):
             stale_timeout_input.press("Enter")
 
         return {}
-
 
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the node"""

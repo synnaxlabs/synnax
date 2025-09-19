@@ -503,6 +503,14 @@ class TestCase(ABC):
         except:
             return default
 
+    def get_value(self, channel_name: str) -> float | None:
+        """Get the latest data value for any channel using the synnax client"""
+        try:
+            latest_data = self.client.read_latest(channel_name)
+            return float(latest_data)
+        except:
+            return None
+
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
