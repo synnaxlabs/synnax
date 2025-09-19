@@ -18,10 +18,34 @@ class Schematic_Set_Output(Schematic):
 
     def run(self) -> None:
         # Use the new node class approach
-
+        """
         value_node = self.add_to_schematic("Value", f"{self.name}_uptime")
+        print("Clicked on value by adding to schematic\n")
+
+        value_node_1 = self.add_to_schematic("Value", f"{self.name}_uptime")
+        print("Clicked on value by adding to schematic\n")
+
+        
+        
+        value_node_2 = self.add_to_schematic("Value", f"{self.name}_time")
         print("Clicked on value by adding to schematic\n")
 
         setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
         print('added setpoint node\n')
+
+        setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        print('added setpoint node\n')
+        """
+        setpoint_node_1 = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        print('added setpoint node\n')
+
+        setpoint_node_2 = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        print('added setpoint node\n')
+
+        setpoint_node_1.set_control_authority("setpoint_in_the_label")
+
+        setpoint_node_3 = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
         
+
+        print("done\n")
+        time.sleep(10)
