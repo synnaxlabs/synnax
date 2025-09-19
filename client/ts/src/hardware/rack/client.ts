@@ -76,7 +76,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 export class Client {
-  readonly type = "rack";
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
 

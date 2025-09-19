@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -61,7 +62,7 @@ describe("Table", () => {
       await client.workspaces.tables.delete(table.key);
       await expect(
         client.workspaces.tables.retrieve({ key: table.key }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

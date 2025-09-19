@@ -56,7 +56,6 @@ export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
 export class Client {
-  readonly type = "workspace";
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly logs: log.Client;

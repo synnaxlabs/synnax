@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -73,7 +74,7 @@ describe("LinePlot", () => {
       await client.workspaces.lineplots.delete(linePlot.key);
       await expect(
         client.workspaces.lineplots.retrieve({ key: linePlot.key }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

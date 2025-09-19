@@ -155,6 +155,7 @@ describe("Ontology", () => {
       expect(parents[0].name).toEqual(name);
     });
   });
+
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
@@ -466,6 +467,21 @@ describe("Ontology", () => {
         const result = ontology.matchRelationship(relationship, match);
         expect(result).toBe(true);
       });
+    });
+  });
+
+  describe("idToString", () => {
+    it("should convert an ID to a string", () => {
+      const result = ontology.idToString({ type: "group", key: "one" });
+      expect(result).toEqual("group:one");
+    });
+
+    it("should convert an array of IDs to strings", () => {
+      const result = ontology.idToString([
+        { type: "group", key: "one" },
+        { type: "channel", key: "two" },
+      ]);
+      expect(result).toEqual(["group:one", "channel:two"]);
     });
   });
 });

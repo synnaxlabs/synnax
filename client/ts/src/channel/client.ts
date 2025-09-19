@@ -230,7 +230,6 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client {
-  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;

@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -59,7 +60,9 @@ describe("Log", () => {
         data: { one: 1 },
       });
       await client.workspaces.logs.delete(log.key);
-      await expect(client.workspaces.logs.retrieve({ key: log.key })).rejects.toThrow();
+      await expect(client.workspaces.logs.retrieve({ key: log.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

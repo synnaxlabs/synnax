@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -78,7 +78,7 @@ describe("Schematic", () => {
       await client.workspaces.schematics.delete(schematic.key);
       await expect(
         client.workspaces.schematics.retrieve({ key: schematic.key }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(NotFoundError);
     });
   });
   describe("copy", () => {
