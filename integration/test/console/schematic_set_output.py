@@ -29,5 +29,5 @@ class Schematic_Set_Output(Schematic):
         self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
         self.connect_nodes(value_node, "bottom", value_node, "right")
 
-        self.log_message("Remove the time.sleep(10) before merge!!!")
+        self._log_message("Remove the time.sleep(10) before merge!!!")
         time.sleep(10)

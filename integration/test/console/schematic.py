@@ -406,32 +406,26 @@ class Schematic(Console):
         self.page.mouse.up()
 
     def find_node_handle(self, node: SchematicNode, handle: str) -> Tuple[float, float]:
-
-        valid_handles = ["left", "right", "top", "bottom"]
-        if handle not in valid_handles:
-            raise ValueError(f"Invalid handle: {handle}")
-
+        """Calculate the coordinates of a node's connection handle."""
         node_box = node.node.bounding_box()
         if not node_box:
-            raise RuntimeError(
-                f"Could not get bounding box for target node {node.label}"
+            raise RuntimeError(f"Could not get bounding box for node {node.label}")
+
+        x, y, w, h = node_box["x"], node_box["y"], node_box["width"], node_box["height"]
+
+        handle_positions = {
+            "left": (x, y + h / 2),
+            "right": (x + w, y + h / 2),
+            "top": (x + w / 2, y),
+            "bottom": (x + w / 2, y + h),
+        }
+
+        if handle not in handle_positions:
+            raise ValueError(
+                f"Invalid handle: {handle}. Must be one of {list(handle_positions.keys())}"
             )
 
-        # Calculate target handle coordinates
-        if handle == "left":
-            handle_x = node_box["x"]
-            handle_y = node_box["y"] + node_box["height"] / 2
-        elif handle == "right":
-            handle_x = node_box["x"] + node_box["width"]
-            handle_y = node_box["y"] + node_box["height"] / 2
-        elif handle == "top":
-            handle_x = node_box["x"] + node_box["width"] / 2
-            handle_y = node_box["y"]
-        else:  # bottom
-            handle_x = node_box["x"] + node_box["width"] / 2
-            handle_y = node_box["y"] + node_box["height"]
-
-        return handle_x, handle_y
+        return handle_positions[handle]
 
     def click_on_pane(self) -> None:
 
