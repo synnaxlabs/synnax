@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import {
   Divider,
   Form,
@@ -19,8 +19,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import {
@@ -62,6 +64,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     dispatch(remove({ keys: ranges.map((r) => r.key) }));
   };
   const handleError = Status.useErrorHandler();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => {
@@ -87,6 +90,11 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     addChildRange: handleAddChildRange,
     favorite: handleFavorite,
     unfavorite: handleUnfavorite,
+    link: () =>
+      handleLink({
+        name: ranges[0].name,
+        ontologyID: ranger.ontologyID(ranges[0].key),
+      }),
   };
 
   return (
@@ -117,6 +125,8 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           <Divider.Divider x />
         </>
       )}
+      <Link.CopyMenuItem />
+      <Divider.Divider direction="x" />
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

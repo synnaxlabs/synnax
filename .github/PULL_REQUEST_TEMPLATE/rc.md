@@ -353,6 +353,7 @@ I can successfully:
       - [ ] Favorite multiple child ranges
       - [ ] Unfavorite a child range
       - [ ] Unfavorite multiple child ranges
+      - [ ] Copy the link to a range
       - [ ] Delete a child range
       - [ ] Delete multiple child ranges
   - **Metadata**
@@ -398,6 +399,7 @@ I can successfully:
     - [ ] Favorite multiple ranges
     - [ ] Unfavorite a range
     - [ ] Unfavorite multiple ranges
+    - [ ] Copy the link to a range
     - [ ] Delete a range
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
