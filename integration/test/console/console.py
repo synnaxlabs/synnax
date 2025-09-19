@@ -150,14 +150,48 @@ class Console(TestCase):
 
         self.command_palette("Create a Channel")
 
-        self.page.get_by_text("Name").fill(channel_name)
+        name_input = (
+            self.page.locator("text=Name").locator("..").locator("input").first
+        )
+        name_input.fill(channel_name)
         if virtual:
             self.page.get_by_text("Virtual").click()
         if is_index:
-            self.page.get_by_text("Is Index").click()
+            is_index_toggle = (
+                self.page.locator("text=Is Index").locator("..").locator("input[type='checkbox']").first
+            )
+            is_index_toggle.click()
         else:
-            self.page.get_by_text("Index").fill(index)
-        if data_type:
-            self.page.get_by_text("Data Type").fill(data_type)
+            self._select_from_dropdown("Data Type", data_type)
+            self._select_from_dropdown("Index", index)
 
-        self.ENTER
+        self.page.get_by_role("button", name="Create").click()
+        self._log_message(f"Created channel {channel_name}")
+
+    def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
+    
+        channel_button = (
+            self.page.locator(f"text={input_field}")
+            .locator("..")
+            .locator("button")
+            .first
+        )
+        channel_button.click()
+        search_input = self.page.locator("input[placeholder*='Search']")
+        search_input.press("Control+a")
+        search_input.type(input_text)
+        self.page.wait_for_timeout(300)
+
+        # Iterate through dropdown items
+        channel_found = False
+        item_selector = self.page.locator(".pluto-list__item").all()
+        for item in item_selector:
+            if item.is_visible() and input_text in item.inner_text().strip():
+                item.click()
+                channel_found = True
+                break
+
+        if not channel_found:
+            raise RuntimeError(
+                f"Could not find channel '{input_text}' in dropdown"
+            )
