@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/deep/copy";
-export * from "@/deep/delete";
 export * from "@/deep/difference";
 export * from "@/deep/equal";
+export * from "@/deep/get";
 export * from "@/deep/merge";
 export * from "@/deep/partial";
 export * from "@/deep/path";
+export * from "@/deep/remove";
+export * from "@/deep/set";
