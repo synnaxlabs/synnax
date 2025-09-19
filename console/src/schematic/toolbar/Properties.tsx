@@ -223,9 +223,9 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Flex.Box align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
       <Input.Item label="Selection Colors" align="start">
-        <Flex.Box y>
+        <Flex.Box x>
           {Object.entries(colorGroups).map(([hex, elements]) => (
             <Color.Swatch
               key={elements[0].key}

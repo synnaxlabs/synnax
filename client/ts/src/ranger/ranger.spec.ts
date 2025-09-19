@@ -7,16 +7,80 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { math, uuid } from "@synnaxlabs/x";
 import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { type ranger } from "@/ranger";
+import { ranger } from "@/ranger";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
 describe("Ranger", () => {
+  describe("payload", () => {
+    it("should validate the time range", () => {
+      const payload = ranger.payloadZ.parse({
+        name: "My New One Second Range",
+        key: uuid.create(),
+        timeRange: { start: 0, end: 1 },
+      });
+      expect(payload).toBeDefined();
+      expect(payload.timeRange.start.valueOf()).toBe(0n);
+      expect(payload.timeRange.end.valueOf()).toBe(1n);
+    });
+    it("should not validate the time range if it is invalid", () => {
+      const input = {
+        name: "My New One Second Range",
+        key: uuid.create(),
+        timeRange: { start: 1, end: 0 },
+      };
+      expect(() => ranger.payloadZ.parse(input)).toThrow(
+        "Time range start time must be before or equal to time range end time",
+      );
+    });
+    it("should validate the time range if the end is less than or equal to the maximum value of an int64", () => {
+      const input = {
+        name: "range with end greater than max int64",
+        key: uuid.create(),
+        timeRange: { start: 1, end: math.MAX_INT64 },
+      };
+      const payload = ranger.payloadZ.parse(input);
+      expect(payload).toBeDefined();
+      expect(payload.timeRange.end.valueOf()).toBe(math.MAX_INT64);
+    });
+    it("should not validate the time range if the end is greater than the maximum value of an int64", () => {
+      const input = {
+        name: "range with end greater than max int64",
+        key: uuid.create(),
+        timeRange: { start: 1, end: math.MAX_INT64 + 1n },
+      };
+      expect(() => ranger.payloadZ.parse(input)).toThrow(
+        "Time range end time must be less than or equal to the maximum value of an int64",
+      );
+    });
+    it("should validate the time range if start is greater than the minimum value of an int64", () => {
+      const input = {
+        name: "range with start greater than min int64",
+        key: uuid.create(),
+        timeRange: { start: math.MIN_INT64, end: 0 },
+      };
+      const payload = ranger.payloadZ.parse(input);
+      expect(payload).toBeDefined();
+      expect(payload.timeRange.start.valueOf()).toBe(math.MIN_INT64);
+      expect(payload.timeRange.end.valueOf()).toBe(0n);
+    });
+    it("should not validate the time range if start is less than the minimum value of an int64", () => {
+      const input = {
+        name: "range with start less than min int64",
+        key: uuid.create(),
+        timeRange: { start: -1n * 2n ** 63n - 1n, end: 0 },
+      };
+      expect(() => ranger.payloadZ.parse(input)).toThrow(
+        "Time range start time must be greater than or equal to the minimum value of an int64",
+      );
+    });
+  });
   describe("create", () => {
     it("should create a single range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));

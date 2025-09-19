@@ -103,7 +103,9 @@ export class TimeStamp
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
-        if (isFinite(value)) value = Math.trunc(value);
+        if (isFinite(value))
+          if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
+          else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;
@@ -505,8 +507,8 @@ export class TimeStamp
   }
 
   /**
-   * @reutrns the integer millisecond that the timestamp corresponds to within
-   * its second.
+   * @returns the integer millisecond that the timestamp corresponds to within its
+   * second.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
@@ -658,7 +660,7 @@ export class TimeStamp
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
+  static readonly MAX = new TimeStamp(math.MAX_INT64);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -1017,7 +1019,7 @@ export class TimeSpan
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
+  static readonly MAX = new TimeSpan(math.MAX_INT64);
 
   /** The minimum possible value for a TimeSpan. */
   static readonly MIN = new TimeSpan(0);
@@ -1025,7 +1027,7 @@ export class TimeSpan
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
-  /** A zod schema for validating and transforming timespans */
+  /** A zod schema for validating and transforming time spans */
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
@@ -1344,12 +1346,12 @@ export class TimeRange implements primitive.Stringer {
   }
 
   /**
-   * Checks if the TimeRange has a zero span.
+   * Checks if the TimeRange is zero (both start and end are TimeStamp.ZERO).
    *
-   * @returns True if the TimeRange has a zero span.
+   * @returns True if both start and end are TimeStamp.ZERO, false otherwise.
    */
   get isZero(): boolean {
-    return this.span.isZero;
+    return this.start.isZero && this.end.isZero;
   }
 
   /**
@@ -1495,9 +1497,6 @@ export class TimeRange implements primitive.Stringer {
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
-  /** The minimum possible time range. */
-  static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
-
   /** A time range whose start and end are both zero. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
 
@@ -1536,7 +1535,7 @@ export class TimeRange implements primitive.Stringer {
       .map((r) => r.makeValid())
       .sort((a, b) => TimeRange.sort(a, b))
       .reduce<TimeRange[]>((simplified, range) => {
-        if (range.isZero) return simplified;
+        if (range.span.isZero) return simplified;
         if (simplified.length === 0) {
           simplified.push(range);
           return simplified;

@@ -9,11 +9,11 @@
 
 import "@/ranger/TimeRangeChip.css";
 
-import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type CrudeTimeRange, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Flex } from "@/flex";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
@@ -21,82 +21,52 @@ export interface TimeRangeChipProps
   extends Flex.BoxProps<"div">,
     Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
-  showSpan?: boolean;
+  variant?: "text" | "outlined";
 }
+
+const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string] => {
+  const tr = new TimeRange(timeRange).makeValid();
+  if (tr.start.equals(TimeStamp.MAX)) return null;
+  const startFormat = tr.start.isToday ? "time" : "dateTime";
+  let startTime = new TimeStamp(tr.start).fString(startFormat, "local");
+  if (tr.start.isToday) startTime = `Today ${startTime}`;
+  if (tr.end.equals(TimeStamp.MAX)) {
+    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
+    return `Starts ${startTime}`;
+  }
+  const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
+  const endTime = new TimeStamp(tr.end).fString(endFormat, "local");
+  return [startTime, endTime];
+};
 
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
   color = 9,
-  showSpan = false,
+  variant = "text",
   ...rest
-}: TimeRangeChipProps): ReactElement => {
-  const startTS = new TimeStamp(timeRange.start);
-  const startFormat = startTS.isToday ? "time" : "dateTime";
-  const endTS = new TimeStamp(timeRange.end);
-  const isOpen = endTS.equals(TimeStamp.MAX);
-  const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
-  const span = startTS.span(endTS);
-
-  const startTime = (
-    <Text.Text x align="center" gap="small">
-      {startTS.isToday && (
-        <Text.Text level={level} color={color} weight={450}>
-          Today
-        </Text.Text>
-      )}
-      <Text.DateTime
-        el="span"
-        level={level}
-        displayTZ="local"
-        format={startFormat}
-        color={color}
-        weight={450}
-      >
-        {startTS}
-      </Text.DateTime>
-    </Text.Text>
-  );
-
-  const endTime = (
-    <>
-      {isOpen ? (
-        <Text.Text level={level} el="span">
-          Now
-        </Text.Text>
-      ) : (
-        <Text.DateTime
-          level={level}
-          el="span"
-          displayTZ="local"
-          format={endFormat}
-          color={color}
-          weight={450}
-        >
-          {endTS}
-        </Text.DateTime>
-      )}
-      {!span.isZero && showSpan && (
-        <Text.Text level={level} color={color} weight={450} el="span">
-          ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
-        </Text.Text>
-      )}
-    </>
-  );
-
+}: TimeRangeChipProps): ReactElement | null => {
+  const formattedTime = formatTime(timeRange);
+  if (formattedTime == null) return null;
   return (
-    <Text.Text
+    <Flex.Box
       x
       gap="small"
-      className={CSS(CSS.B("time-range-chip"))}
+      className={CSS(CSS.B("time-range-chip"), CSS.M(variant))}
       align="center"
-      level={level}
-      color={color}
       {...rest}
     >
-      {startTime}
-      <Icon.Arrow.Right color={9} />
-      {endTime}
-    </Text.Text>
+      <Text.Text level={level} color={color} weight={450} gap="tiny">
+        {typeof formattedTime === "string" ? (
+          formattedTime
+        ) : (
+          <>
+            {formattedTime[0]}
+            <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
+            {formattedTime[1]}
+          </>
+        )}
+      </Text.Text>
+    </Flex.Box>
   );
 };

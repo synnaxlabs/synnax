@@ -97,11 +97,11 @@ export class Static {
         if (i === 0) return TimeRange.ZERO;
         return new TimeRange(series[i - 1].timeRange.end, s.timeRange.start);
       })
-      .filter((t) => !t.isZero && t.isValid);
+      .filter((t) => !t.span.isZero && t.isValid);
     const leadingGap = new TimeRange(tr.start, series[0].timeRange.start);
     const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
-    if (leadingGap.isValid && !leadingGap.isZero) gaps.unshift(leadingGap);
-    if (trailingGap.isValid && !trailingGap.isZero) gaps.push(trailingGap);
+    if (leadingGap.isValid && !leadingGap.span.isZero) gaps.unshift(leadingGap);
+    if (trailingGap.isValid && !trailingGap.span.isZero) gaps.push(trailingGap);
     return { series: new MultiSeries(series), gaps };
   }
 

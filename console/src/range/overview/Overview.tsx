@@ -23,11 +23,11 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     y
     style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
-    gap="medium"
+    gap="large"
   >
     <Details rangeKey={layoutKey} />
-    <MetaData rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
+    <MetaData rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
 );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type record, unique } from "@synnaxlabs/x";
+import { array, type color, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Button } from "@/button";
@@ -26,6 +26,7 @@ import { Text } from "@/text";
 
 export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
+  color?: color.Crude;
 }
 
 export interface MultipleTagProps<K extends record.Key>
@@ -49,6 +50,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
       size="small"
       status={item == null ? "error" : undefined}
       icon={item?.icon ?? icon}
+      color={item?.color}
     >
       {item?.name ?? itemKey}
     </Tag.Tag>
@@ -62,6 +64,7 @@ export interface MultipleTriggerProps<K extends record.Key>
   haulType?: string;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
+  hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
 }
 
@@ -82,6 +85,7 @@ export const MultipleTrigger = <K extends record.Key>({
   placeholder = "Select...",
   variant = "outlined",
   icon,
+  hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {
   const value = Select.useSelection<K>();
@@ -125,6 +129,14 @@ export const MultipleTrigger = <K extends record.Key>({
   );
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0;
+
+  if (hideTags)
+    return (
+      <Dialog.Trigger variant={variant} {...dropProps}>
+        {icon}
+        {placeholder}
+      </Dialog.Trigger>
+    );
 
   return (
     <Tag.Tags

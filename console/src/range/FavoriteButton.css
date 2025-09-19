@@ -9,16 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-textarea {
-    color: var(--pluto-text-color);
-    border: none;
-    background: var(--pluto-background-color);
-    resize: none;
-    white-space: nowrap;
-    overflow-x: hidden;
-    font-size: var(--pluto-h3-size);
+.console-range__favorite-button {
+    transition: opacity 0.2s ease-in-out;
+    will-change: opacity;
 
-    &:focus-within {
-        outline: none;
+    &.console--favorite {
+        color: goldenrod;
     }
 }

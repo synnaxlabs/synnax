@@ -11,10 +11,10 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, status } from "@synnaxlabs/x";
 import {
   type CrudeDensity,
+  type CrudeTimeRange,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
 import { z } from "zod";
@@ -201,7 +201,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<MultiSeries> {
+  async read(tr: CrudeTimeRange): Promise<MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 
