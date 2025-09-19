@@ -25,19 +25,16 @@ interface SubStore extends Flux.Store {
   statuses: FluxStore;
 }
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<
-  SubStore,
-  typeof status.statusZ
-> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.statusZ> = {
   channel: status.SET_CHANNEL_NAME,
   schema: status.statusZ,
-  onChange: ({ store, changed }) => store.statuses.set(changed.key, changed),
+  onChange: ({ store, changed }) => {
+    console.log("C", changed);
+    store.statuses.set(changed.key, changed);
+  },
 };
 
-const DELETE_STATUS_LISTENER: Flux.ChannelListener<
-  SubStore,
-  typeof status.keyZ
-> = {
+const DELETE_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.keyZ> = {
   channel: status.DELETE_CHANNEL_NAME,
   schema: status.keyZ,
   onChange: ({ store, changed }) => store.statuses.delete(changed),
@@ -49,17 +46,10 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 
 export interface ListParams extends status.MultiRetrieveArgs {}
 
-export const useList = createList<
-  ListParams,
-  status.Key,
-  status.Status,
-  SubStore
->({
+export const useList = createList<ListParams, status.Key, status.Status, SubStore>({
   name: "Statuses",
-  retrieve: async ({ client, params }) =>
-    await client.statuses.retrieve(params),
-  retrieveByKey: async ({ client, key }) =>
-    await client.statuses.retrieve({ key }),
+  retrieve: async ({ client, params }) => await client.statuses.retrieve(params),
+  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
   mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
     return [
@@ -88,8 +78,7 @@ export interface SetArgs {
 export const { useUpdate: useSet } = createUpdate<SetArgs, SubStore>({
   name: "Status",
   update: async ({ client, value: { statuses, parent } }) => {
-    if (Array.isArray(statuses))
-      await client.statuses.set(statuses, { parent });
+    if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
   },
 });
@@ -108,21 +97,17 @@ const cachedSingleRetrieve = async ({
   return res;
 };
 
-export const { useRetrieve } = createRetrieve<
-  UseRetrieveArgs,
-  status.Status,
-  SubStore
->({
-  name: "Status",
-  retrieve: cachedSingleRetrieve,
-  mountListeners: ({ store, params: { key }, onChange }) => [
-    store.statuses.onSet(onChange, key),
-  ],
-});
+export const { useRetrieve } = createRetrieve<UseRetrieveArgs, status.Status, SubStore>(
+  {
+    name: "Status",
+    retrieve: cachedSingleRetrieve,
+    mountListeners: ({ store, params: { key }, onChange }) => [
+      store.statuses.onSet(onChange, key),
+    ],
+  },
+);
 
-export const useSetSynchronizer = (
-  onSet: (status: status.Status) => void,
-): void => {
+export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
   const store = Flux.useStore<SubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };

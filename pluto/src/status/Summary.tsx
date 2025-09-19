@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { useRetrieve } from "@/status/queries";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
@@ -35,8 +36,7 @@ export const Summary = ({
 }: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   variant ??= textStatusVariant;
-  if (!hideIcon)
-    icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const hasDescription = primitive.isNonZero(description);
   children ??= message;
   const baseText = (
@@ -62,4 +62,14 @@ export const Summary = ({
       {descriptionText}
     </Flex.Box>
   );
+};
+
+export interface RemoteSummaryProps {
+  statusKey: string;
+}
+
+export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
+  const res = useRetrieve({ key: statusKey });
+  const { key, ...rest } = res.data ?? res.status;
+  return <Summary key={key} {...rest} />;
 };

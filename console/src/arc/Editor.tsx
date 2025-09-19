@@ -131,18 +131,13 @@ interface StatusChipProps {
 const StatusChip = ({ layoutKey }: StatusChipProps) => {
   const status = Status.useRetrieve({ key: layoutKey });
   return (
-    <Status.Summary
-      variant="disabled"
-      message="Arc not deployed"
-      {...status.data}
-    />
+    <Status.Summary variant="disabled" message="Arc not deployed" {...status.data} />
   );
 };
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const arc = useSelect(layoutKey);
-  console.log(arc)
   const name = Layout.useSelectRequiredName(layoutKey);
 
   const dispatch = useDispatch();
@@ -182,17 +177,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, dispatch, undoableDispatch],
   );
 
-  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] =
-    useCallback(
-      (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
-      [layoutKey, dispatch],
-    );
+  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
+    (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
+    [layoutKey, dispatch],
+  );
 
-  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] =
-    useCallback(
-      (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
-      [layoutKey, dispatch],
-    );
+  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
+    (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
+    [layoutKey, dispatch],
+  );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) =>
@@ -202,11 +195,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
-      <StageRenderer
-        layoutKey={layoutKey}
-        dispatch={undoableDispatch}
-        {...props}
-      />
+      <StageRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
     [layoutKey, undoableDispatch],
   );
@@ -408,13 +397,7 @@ export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 export const createEditor =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
-    const {
-      name = "Arc Editor",
-      location = "mosaic",
-      window,
-      tab,
-      ...rest
-    } = initial;
+    const { name = "Arc Editor", location = "mosaic", window, tab, ...rest } = initial;
     const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
@@ -438,7 +421,6 @@ export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
       try {
         const arc = await client.arcs.retrieve({ key: layoutKey });
         const graph = translateGraphToConsole(arc.graph);
-        console.log(graph)
         const state: State = {
           version: "0.0.0",
           key: arc.key,
