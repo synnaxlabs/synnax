@@ -62,11 +62,15 @@ export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 const RESOURCE_SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ontology.idZ> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: async ({ store, changed, client }) =>
-    store.resources.set(
-      ontology.idToString(changed),
-      await client.ontology.retrieve(changed),
-    ),
+  onChange: async ({ store, changed, client }) => {
+    const key = ontology.idToString(changed);
+    // Since resources are likely to change a lot, retrieving a resource
+    // regardless of whether it is in the cache can cause resource bloat.
+    // Instead, we only update the resource if it already exists in the cache.
+    // Newly created resources will still be propagated through relationships.
+    if (!store.resources.has(key)) return;
+    store.resources.set(key, await client.ontology.retrieve(changed));
+  },
 };
 
 const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<
