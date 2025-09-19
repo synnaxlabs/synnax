@@ -49,15 +49,11 @@ export const singleRetrieve = async (
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateParams {
-  key?: group.Key;
-}
-
 export interface CreateValue extends group.Payload {
   parent: ontology.ID;
 }
 
-export const create = Flux.createUpdate<CreateParams, CreateValue, SubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, SubStore>({
   name: "Group",
   update: async ({ value, client, onChange, store }) => {
     const { parent } = value;
@@ -133,21 +129,27 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
   ],
 });
 
-export interface RenameParams {
+export interface RenameValue {
+  key: string;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<RenameValue, SubStore>({
+  name: "Group",
+  update: async ({ client, value, store }) => {
+    await client.ontology.groups.rename(value.key, value.name);
+    store.groups.set(value.key, { ...value, name: value.name });
+  },
+});
+
+export interface DeleteValue {
   key: string;
 }
 
-export const useRename = Flux.createUpdate<RenameParams, string>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, SubStore>({
   name: "Group",
-  update: async ({ client, value, params }) =>
-    await client.ontology.groups.rename(params.key, value),
-}).useDirect;
-
-export interface DeleteParams {
-  key: string;
-}
-
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
-  name: "Group",
-  update: async ({ client, params }) => await client.ontology.groups.delete(params.key),
-}).useDirect;
+  update: async ({ client, value, store }) => {
+    await client.ontology.groups.delete(value.key);
+    store.groups.delete(value.key);
+  },
+});

@@ -2,7 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(target_os = "macos")]
-extern crate cocoa;
+extern crate objc2;
+#[cfg(target_os = "macos")]
+extern crate objc2_app_kit;
+#[cfg(target_os = "macos")]
+extern crate objc2_foundation;
 
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
@@ -12,12 +16,6 @@ use std::thread;
 use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
-#[cfg(target_os = "macos")]
-struct UnsafeWindowHandle(*mut std::ffi::c_void);
-#[cfg(target_os = "macos")]
-unsafe impl Send for UnsafeWindowHandle {}
-#[cfg(target_os = "macos")]
-unsafe impl Sync for UnsafeWindowHandle {}
 
 use tauri::Window;
 
@@ -27,31 +25,40 @@ use tauri_plugin_prevent_default::ModifierKey::{MetaKey};
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
-    let ns_window_handle =
-        UnsafeWindowHandle(win.ns_window().expect("Failed to create window handle"));
-    use cocoa::appkit::{
-        NSView, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{
+        NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
     };
-    let id = ns_window_handle.0 as cocoa::base::id;
+
+    let ns_window = win.ns_window().expect("Failed to create window handle") as *mut AnyObject;
+    let window: Retained<NSWindow> = unsafe { Retained::retain(ns_window as *mut NSWindow).unwrap() };
+
     unsafe {
-        let mut style_mask = id.styleMask();
-        style_mask.set(
-            NSWindowStyleMask::NSFullSizeContentViewWindowMask,
-            transparent,
-        );
-        id.setStyleMask_(style_mask);
-        id.setTitleVisibility_(if transparent {
-            NSWindowTitleVisibility::NSWindowTitleHidden
+        let mut style_mask = window.styleMask();
+        if transparent {
+            style_mask.insert(NSWindowStyleMask::FullSizeContentView);
         } else {
-            NSWindowTitleVisibility::NSWindowTitleVisible
+            style_mask.remove(NSWindowStyleMask::FullSizeContentView);
+        }
+        window.setStyleMask(style_mask);
+
+        window.setTitleVisibility(if transparent {
+            NSWindowTitleVisibility::Hidden
+        } else {
+            NSWindowTitleVisibility::Visible
         });
-        id.setTitlebarAppearsTransparent_(cocoa::base::YES);
-        let close = id.standardWindowButton_(NSWindowButton::NSWindowCloseButton);
-        let miniaturize = id.standardWindowButton_(NSWindowButton::NSWindowMiniaturizeButton);
-        let zoom = id.standardWindowButton_(NSWindowButton::NSWindowZoomButton);
-        let window_buttons = vec![close, miniaturize, zoom];
-        for button in window_buttons {
-            button.removeFromSuperview()
+
+        window.setTitlebarAppearsTransparent(true);
+
+        if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
+            close.removeFromSuperview();
+        }
+        if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
+            miniaturize.removeFromSuperview();
+        }
+        if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
+            zoom.removeFromSuperview();
         }
     }
 }

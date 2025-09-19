@@ -1,7 +1,15 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package pebblekv_test
 
 import (
-	. "github.com/synnaxlabs/x/testutil"
 	"os"
 	"path/filepath"
 
@@ -10,8 +18,8 @@ import (
 	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migrate", func() {
@@ -106,6 +114,115 @@ var _ = Describe("Migrate", func() {
 			Expect(oldDB.Close()).To(Succeed())
 
 			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+		})
+
+		It("should handle database already at v2 newest format", func() {
+			dbPath := filepath.Join(tempDir, "v2-newest-db")
+
+			// Create a database with v2's newest format
+			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
+				FS:                 vfs.Default,
+				FormatMajorVersion: pebble.FormatNewest,
+			}))
+			Expect(db.Set([]byte("test-key"), []byte("test-value"), nil)).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+
+			// Should not require migration
+			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			Expect(requiresMigration).To(BeFalse())
+
+			// Migration should still succeed (no-op)
+			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+
+			// Verify data is still accessible
+			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
+				FS:                 vfs.Default,
+				FormatMajorVersion: pebble.FormatNewest,
+			}))
+			val, closer := MustSucceed2(verifyDB.Get([]byte("test-key")))
+			Expect(string(val)).To(Equal("test-value"))
+			Expect(closer.Close()).To(Succeed())
+			Expect(verifyDB.Close()).To(Succeed())
+		})
+
+		It("should handle database with v2 supported format but not newest", func() {
+			dbPath := filepath.Join(tempDir, "v2-supported-db")
+
+			// Create a database with an older v2 supported format We'll use
+			// FormatMinSupported to create a database with the minimum v2 format
+			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
+				FS:                 vfs.Default,
+				FormatMajorVersion: pebble.FormatMinSupported,
+			}))
+			Expect(db.Set([]byte("data-key"), []byte("data-value"), nil)).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+
+			// Migration should succeed and potentially upgrade format
+			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+
+			// Verify data is still accessible and database works with newest format
+			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
+				FS:                 vfs.Default,
+				FormatMajorVersion: pebble.FormatNewest,
+			}))
+			val, closer := MustSucceed2(verifyDB.Get([]byte("data-key")))
+			Expect(string(val)).To(Equal("data-value"))
+			Expect(closer.Close()).To(Succeed())
+			Expect(verifyDB.Close()).To(Succeed())
+		})
+
+		It("should handle database with v1 newest format", func() {
+			dbPath := filepath.Join(tempDir, "v1-newest-db")
+
+			// Create a database with v1's newest format
+			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
+				FormatMajorVersion: pebblev1.FormatNewest,
+			}))
+			Expect(oldDB.Set([]byte("v1-key"), []byte("v1-value"), nil)).To(Succeed())
+			Expect(oldDB.Close()).To(Succeed())
+
+			// Should require migration (v1 newest to v2 newest)
+			requiresMigration := MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			Expect(requiresMigration).To(BeTrue())
+
+			// Migration should succeed
+			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+
+			// Verify data is accessible with v2
+			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
+				FS:                 vfs.Default,
+				FormatMajorVersion: pebble.FormatNewest,
+			}))
+			val, closer := MustSucceed2(verifyDB.Get([]byte("v1-key")))
+			Expect(string(val)).To(Equal("v1-value"))
+			Expect(closer.Close()).To(Succeed())
+			Expect(verifyDB.Close()).To(Succeed())
+
+			// Should no longer require migration
+			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
+			Expect(requiresMigration).To(BeFalse())
+		})
+
+		It("should verify format versions during migration", func() {
+			dbPath := filepath.Join(tempDir, "format-verification-db")
+
+			// Create very old format database
+			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
+				FormatMajorVersion: pebblev1.FormatMostCompatible, // Very old format
+			}))
+			Expect(oldDB.Close()).To(Succeed())
+
+			// Verify initial format is old
+			dbDesc := MustSucceed(pebble.Peek(dbPath, vfs.Default))
+			initialFormat := dbDesc.FormatMajorVersion
+			Expect(uint64(initialFormat) < uint64(pebble.FormatMinSupported)).To(BeTrue())
+
+			// Migrate
+			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+
+			// Verify final format is newest
+			dbDesc = MustSucceed(pebble.Peek(dbPath, vfs.Default))
+			Expect(dbDesc.FormatMajorVersion).To(Equal(pebble.FormatNewest))
 		})
 	})
 })
