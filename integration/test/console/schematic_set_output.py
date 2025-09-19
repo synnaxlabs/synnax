@@ -21,6 +21,6 @@ class Schematic_Set_Output(Schematic):
 
         value_node = self.add_to_schematic("Value", f"{self.name}_uptime")
         setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
-    
+
         print("done\n")
         time.sleep(10)

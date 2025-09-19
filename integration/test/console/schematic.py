@@ -9,19 +9,21 @@
 
 import re
 import time
+from abc import ABC
 from test.console.console import Console
 from typing import Any, Dict, Optional
-from abc import ABC
+
 from playwright.sync_api import Page
 
 
 class SchematicNode(ABC):
     """Base class for all schematic nodes"""
+
     page: Page
     node_id: str
     channel_name: str
     label: str
-    
+
     def __init__(self, page: Page, node_id: str, channel_name: str):
         self.page = page
         self.node_id = node_id
@@ -38,18 +40,19 @@ class SchematicNode(ABC):
         self._click_node()
         self.page.get_by_text("Style").click()
         label_input = (
-                self.page.locator("text=Label").locator("..").locator("input").first
-            )
+            self.page.locator("text=Label").locator("..").locator("input").first
+        )
         label_input.fill(label)
-        
-    def edit_properties(self,
-                        channel_name:str = None,
-                        properties:Dict[str, Any] = None
-                    ) -> Dict[str, Any]:
+
+    def edit_properties(
+        self,
+        channel_name: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         if channel_name is not None:
             self.set_channel("Needs Override", channel_name)
         return {}
-        
+
     def set_channel(self, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
             channel_button = (
@@ -64,30 +67,32 @@ class SchematicNode(ABC):
             search_input.press("Control+a")
             search_input.type(channel_name)
             self.page.wait_for_timeout(300)
-            
+
             # Iterate through dropdown items
-            channel_found = False 
+            channel_found = False
             item_selector = self.page.locator(".pluto-list__item").all()
             for item in item_selector:
-                search_input.press("ArrowDown")
-                if channel_name in item.inner_text().strip():
+                if item.is_visible() and channel_name in item.inner_text().strip():
                     item.click()
                     channel_found = True
                     break
 
             if not channel_found:
-                raise RuntimeError(f"Could not find channel '{channel_name}' in dropdown")
+                raise RuntimeError(
+                    f"Could not find channel '{channel_name}' in dropdown"
+                )
 
     def get_properties(self) -> Dict[str, Any]:
         return {}
 
-    def click(self):
+    def click(self) -> Any:
         """Click on the node"""
         return self._click_node()
 
 
 class ValueNode(SchematicNode):
     """Schematic value/telemetry node"""
+
     channel_name: str
     notation: str
     precision: int
@@ -98,12 +103,16 @@ class ValueNode(SchematicNode):
     def __init__(self, page: Page, node_id: str, channel_name: str):
         super().__init__(page, node_id, channel_name)
 
-    def edit_properties(self,
-                       channel_name: Optional[str] = None,
-                       properties: Optional[Dict[str, Any]] = None
-                    ) -> None:
+    def edit_properties(
+        self,
+        channel_name: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
 
-        # Always enforce label = channel_name for easy identification when 
+        if channel_name is None:
+            return {}
+
+        # Always enforce label = channel_name for easy identification when
         # setting the channel. The label can still be updated independently.
         # This prevents confusion when updating a node from channel_name
         # old_channel -> new_channel and accidentally keeping the old label.
@@ -142,9 +151,9 @@ class ValueNode(SchematicNode):
             )
             averaging_window_input.fill(str(averaging_window))
             averaging_window_input.press("Enter")
-            
+
         if stale_color is not None:
-            if not re.match(r"^#[0-9A-Fa-f]{6}$", properties['stale_color']):
+            if not re.match(r"^#[0-9A-Fa-f]{6}$", properties["stale_color"]):
                 raise ValueError(
                     "stale_color must be a valid hex color (e.g., #FF5733)"
                 )
@@ -165,6 +174,8 @@ class ValueNode(SchematicNode):
             )
             stale_timeout_input.fill(str(stale_timeout))
             stale_timeout_input.press("Enter")
+
+        return {}
 
     def get_value(self) -> float:
         """Get the current value of the node"""
@@ -250,24 +261,33 @@ class SetpointNode(SchematicNode):
     def __init__(self, page: Page, node_id: str, channel_name: str):
         super().__init__(page, node_id, channel_name)
 
-    def edit_properties(self, channel_name: Optional[str] = None, properties: Optional[Dict[str, Any]] = None) -> None:
+    def edit_properties(
+        self,
+        channel_name: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if channel_name is None:
+            return {}
         self.set_label(channel_name)
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
         self.set_channel("Command Channel", channel_name)
-        # No properties to for setpoint node
+        # No properties for setpoint node
+        return {}
 
     def set_control_authority(self, authority: int) -> None:
+
+        if not (1 <= authority <= 255):
+            raise ValueError("Control authority must be between 1 and 255")
+
         self._click_node()
-        # Not to be confused with the "Properties>Control" 
+        # Not to be confused with the "Properties>Control"
         self.page.get_by_text("Control").first.click()
 
         control_authority_input = (
-            self.page.locator("text=Control Authority")
-            .locator("..")
-            .locator("input")
+            self.page.locator("text=Control Authority").locator("..").locator("input")
         )
-        control_authority_input.fill(authority)
+        control_authority_input.fill(str(authority))
         control_authority_input.press("Enter")
 
 
@@ -281,7 +301,9 @@ class Schematic(Console):
         self.create_page("Schematic")
         self.page.locator(".react-flow__pane").dblclick()
 
-    def create_node(self, node_type: str, node_id: str, channel_name: str) -> SchematicNode:
+    def create_node(
+        self, node_type: str, node_id: str, channel_name: str
+    ) -> SchematicNode:
         """Factory method to create node objects"""
         if node_type.lower() == "value":
             return ValueNode(self.page, node_id, channel_name)
@@ -299,10 +321,7 @@ class Schematic(Console):
         return node
 
     def add_to_schematic(
-        self,
-        node_type: str,
-        channel_name: str,
-        properties: Dict[str, Any] = {}
+        self, node_type: str, channel_name: str, properties: Dict[str, Any] = {}
     ) -> SchematicNode:
         """
         Add a node to the schematic and return the configured node object
@@ -332,7 +351,7 @@ class Schematic(Console):
         node.edit_properties(channel_name, properties)
 
         self._log_message(f"Added node {node_type} with channel {channel_name}")
-        
+
         return node
 
     def click_on_pane(self) -> None:
@@ -344,8 +363,8 @@ class Schematic(Console):
         self.page.locator(".react-flow__pane").dblclick()
         pane = self.page.locator(".react-flow__pane")
         box = pane.bounding_box()
-        # Click in the center of the pane
-        x = box["x"] + box["width"] * 0.95
-        y = box["y"] + box["height"] * 0.95
-        self.page.mouse.dblclick(x, y)
-
+        if box:
+            # Click in the center of the pane
+            x = box["x"] + box["width"] * 0.95
+            y = box["y"] + box["height"] * 0.95
+            self.page.mouse.dblclick(x, y)
