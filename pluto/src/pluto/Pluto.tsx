@@ -65,6 +65,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
@@ -79,6 +80,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
+  [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({
