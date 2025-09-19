@@ -9,7 +9,7 @@
 
 import "@/range/list/Item.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { type ranger, UnexpectedError } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
@@ -48,7 +48,7 @@ export const Item = ({
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
-  if (getItem == null) throw new Error("getItem is null");
+  if (getItem == null) throw new UnexpectedError("getItem is null");
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return null;
@@ -59,20 +59,19 @@ export const Item = ({
       timeRange: item.timeRange.numeric,
     };
   }, [item]);
+  const { form } = Ranger.useForm({
+    params: {},
+    initialValues: initialValues ?? undefined,
+    sync: true,
+    autoSave: true,
+  });
+  const menuProps = Menu.useContextMenu();
   if (initialValues == null || item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
 
-  const { form } = Ranger.useForm({
-    params: {},
-    initialValues,
-    sync: true,
-    autoSave: true,
-  });
-
   const handleSelect = () => placeLayout({ ...OVERVIEW_LAYOUT, name, key: itemKey });
 
-  const menuProps = Menu.useContextMenu();
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"))}
