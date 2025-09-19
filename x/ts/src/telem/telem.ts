@@ -104,7 +104,7 @@ export class TimeStamp
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
         if (isFinite(value))
-          if (value === 2 ** 63 - 1) value = 2n ** 63n - 1n;
+          if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
           else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
@@ -507,8 +507,8 @@ export class TimeStamp
   }
 
   /**
-   * @reutrns the integer millisecond that the timestamp corresponds to within
-   * its second.
+   * @returns the integer millisecond that the timestamp corresponds to within its
+   * second.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
@@ -660,7 +660,7 @@ export class TimeStamp
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
+  static readonly MAX = new TimeStamp(math.MAX_INT64);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -1019,7 +1019,7 @@ export class TimeSpan
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
+  static readonly MAX = new TimeSpan(math.MAX_INT64);
 
   /** The minimum possible value for a TimeSpan. */
   static readonly MIN = new TimeSpan(0);
@@ -1027,7 +1027,7 @@ export class TimeSpan
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
-  /** A zod schema for validating and transforming timespans */
+  /** A zod schema for validating and transforming time spans */
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
@@ -1496,9 +1496,6 @@ export class TimeRange implements primitive.Stringer {
 
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
-
-  /** The minimum possible time range. */
-  static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
 
   /** A time range whose start and end are both zero. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
