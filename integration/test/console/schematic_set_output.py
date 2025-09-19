@@ -17,10 +17,11 @@ class Schematic_Set_Output(Schematic):
     """
 
     def run(self) -> None:
-        # Use the new node class approach
+
+        setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        setpoint_node.move(-200, 0)
 
         value_node = self.add_to_schematic("Value", f"{self.name}_uptime")
-        setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        value_node.move(200, 0)
 
-        print("done\n")
-        time.sleep(10)
+        time.sleep(5)
