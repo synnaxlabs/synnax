@@ -135,3 +135,29 @@ class Console(TestCase):
     @property
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
+
+    def create_a_channel(
+        self, 
+        channel_name: str, 
+        virtual: bool = False,
+        is_index: bool = False,
+        data_type: str = "Timestamp",
+        index: str = "",
+        ) -> None:
+
+        if is_index == False and index == "":
+            raise ValueError("Index must be provided if is_index is False")
+
+        self.command_palette("Create a Channel")
+
+        self.page.get_by_text("Name").fill(channel_name)
+        if virtual:
+            self.page.get_by_text("Virtual").click()
+        if is_index:
+            self.page.get_by_text("Is Index").click()
+        else:
+            self.page.get_by_text("Index").fill(index)
+        if data_type:
+            self.page.get_by_text("Data Type").fill(data_type)
+
+        self.ENTER
