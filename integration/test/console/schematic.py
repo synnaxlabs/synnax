@@ -56,7 +56,7 @@ class SchematicNode(ABC):
             self.set_channel("Needs Override", channel_name)
         return {}
 
-    def set_channel(self, input_field: str, channel_name: str) -> None:
+    def set_channel(self, input_field: str, channel_name: str):
         if channel_name is not None:
             channel_button = (
                 self.page.locator(f"text={input_field}")

@@ -18,16 +18,22 @@ class Schematic_Set_Output(Schematic):
 
     def run(self) -> None:
 
-        setpoint_node = self.add_to_schematic("Setpoint", f"{self.name}_uptime")
+        self.create_a_channel("index_channel", is_index=True)
+        self.create_a_channel("command_channel", is_index=False, data_type="Float64", index="index_channel")
+
+        setpoint_node = self.add_to_schematic("Setpoint", "command_channel")
         setpoint_node.move(-200, 0)
 
-        value_node = self.add_to_schematic("Value", f"{self.name}_uptime")
+        value_node = self.add_to_schematic("Value", "command_channel")
         value_node.move(200, 0)
 
         self.connect_nodes(setpoint_node, "right", value_node, "left")
         self.connect_nodes(value_node, "right", setpoint_node, "left")
         self.connect_nodes(setpoint_node, "bottom", value_node, "bottom")
         self.connect_nodes(value_node, "bottom", value_node, "right")
+
+        
+
 
         self._log_message("Remove the time.sleep(10) before merge!!!")
         time.sleep(10)
