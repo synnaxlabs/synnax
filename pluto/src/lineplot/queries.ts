@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { linePlot, type workspace } from "@synnaxlabs/client";
+import { lineplot, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -15,15 +15,15 @@ import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
-  linePlot.Key,
-  linePlot.LinePlot
+  lineplot.Key,
+  lineplot.LinePlot
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "lineplots";
 
-export interface FluxStore extends Flux.UnaryStore<linePlot.Key, linePlot.LinePlot> {}
+export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
 
-export type UseDeleteArgs = linePlot.Params;
+export type UseDeleteArgs = lineplot.Params;
 
 interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
@@ -31,7 +31,7 @@ interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export type UseRetrieveArgs = linePlot.SingleRetrieveArgs;
+export type UseRetrieveArgs = lineplot.SingleRetrieveArgs;
 
 export const retrieveSingle = async ({
   store,
@@ -47,7 +47,7 @@ export const retrieveSingle = async ({
 
 export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
-  linePlot.LinePlot,
+  lineplot.LinePlot,
   FluxSubStore
 >({
   name: "LinePlot",
@@ -61,7 +61,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   name: "LinePlot",
   update: async ({ client, value, rollbacks, store }) => {
     const keys = array.toArray(value);
-    const ids = keys.map((k) => linePlot.ontologyID(k));
+    const ids = keys.map((k) => lineplot.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     await client.workspaces.lineplots.delete(value);
@@ -69,11 +69,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface UseCreateArgs extends linePlot.New {
+export interface UseCreateArgs extends lineplot.New {
   workspace: workspace.Key;
 }
 
-export interface UseCreateResult extends linePlot.LinePlot {
+export interface UseCreateResult extends lineplot.LinePlot {
   workspace: workspace.Key;
 }
 
@@ -92,7 +92,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 });
 
 export interface UseRenameArgs {
-  key: linePlot.Key;
+  key: lineplot.Key;
   name: string;
 }
 
@@ -101,7 +101,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   update: async ({ client, value, rollbacks, store }) => {
     const { key, name } = value;
     rollbacks.add(Flux.partialUpdate(store.lineplots, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, linePlot.ontologyID(key), name));
+    rollbacks.add(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
     await client.workspaces.lineplots.rename(key, name);
     return value;
   },
