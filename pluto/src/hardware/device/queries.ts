@@ -78,6 +78,8 @@ const retrieveByKey = async <
   return device;
 };
 
+export interface UseRetrieveArgs extends device.SingleRetrieveArgs {}
+
 export const createRetrieve = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,

@@ -10,7 +10,6 @@
 import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
-  Flex,
   type Haul,
   Icon,
   Menu as PMenu,

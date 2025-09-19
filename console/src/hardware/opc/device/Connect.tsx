@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { DisconnectedError, rack, TimeSpan } from "@synnaxlabs/client";
+import { device, DisconnectedError, rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Device,
@@ -24,7 +24,7 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -244,13 +244,30 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     data,
     variant,
     status: { key, ...status },
-  } = useRetrieveDevice({ key: layoutKey });
+  } = useRetrieveDevice(
+    { key: layoutKey },
+    {
+      beforeRetrieve: useCallback(
+        ({ params: { key } }: Flux.BeforeRetrieveArgs<Device.UseRetrieveArgs>) => {
+          if (key === CONNECT_LAYOUT_TYPE)
+            return {
+              key: "",
+              name: "OPC UA Server",
+              make: "opc",
+              model: "opc",
+              properties: {
+                ...ZERO_PROPERTIES,
+                connection: { ...ZERO_CONNECTION_CONFIG },
+              },
+              rack: 0,
+            };
+          return true;
+        },
+        [],
+      ),
+    },
+  );
   const [initialValues, properties] = useMemo(() => {
-    if (layoutKey === CONNECT_LAYOUT_TYPE || variant !== "success")
-      return [
-        { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
-        deep.copy(ZERO_PROPERTIES),
-      ];
     data.properties = migrateProperties(data.properties);
     return [
       { name: data.name, rack: data.rack, connection: data.properties.connection },

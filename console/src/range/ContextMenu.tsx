@@ -18,8 +18,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

@@ -9,9 +9,9 @@
 
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Flux, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 export interface UseLoadRemoteProps<V extends migrate.Migratable> {
@@ -33,14 +33,14 @@ export const useLoadRemote = <V extends migrate.Migratable>({
 }: UseLoadRemoteProps<V>): boolean | null => {
   const dispatch = useDispatch();
   const version = useSelectVersion(layoutKey);
-  const handleError = Status.useErrorHandler();
   const client = Synnax.use();
-  const get = useMutation({
-    mutationFn: async () => {
+  const get = Flux.useAction({
+    resourceName: name,
+    opName: "Retrieve",
+    action: useCallback(async () => {
       if (client == null) throw new DisconnectedError();
-      return await fetcher(client, layoutKey);
-    },
-    onError: (e) => handleError(e, `Failed to load ${name}`),
+      await fetcher(client, layoutKey);
+    }, [layoutKey]),
   });
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);
@@ -48,12 +48,12 @@ export const useLoadRemote = <V extends migrate.Migratable>({
     async (signal) => {
       // If the layout data already exists and is not outdated, don't fetch.
       if (notOutdated) return;
-      const res = await get.mutateAsync();
+      const res = await get.runAsync();
       if (signal.aborted) return;
       if (res == null) return;
       dispatch(actionCreator(res));
     },
-    [get.mutate, notOutdated, layoutKey, targetVersion],
+    [get.runAsync, notOutdated, layoutKey, targetVersion],
   );
   // If the layout data is null or outdated, return null.
   if (version == null || migrate.semVerOlder(version, targetVersion)) return null;
