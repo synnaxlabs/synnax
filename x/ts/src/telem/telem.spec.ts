@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
+import { math } from "@/math";
 import {
   addSamples,
   type CrudeDataType,
@@ -73,9 +74,13 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
   });
 
-  test("constructing from MIN and MAX as numbers", () => {
-    expect(new TimeStamp(TimeStamp.MIN.nanoseconds).equals(TimeStamp.MIN)).toBe(true);
-    expect(new TimeStamp(TimeStamp.MAX.nanoseconds).equals(TimeStamp.MAX)).toBe(true);
+  test("constructing from min and max values of int64s", () => {
+    expect(
+      new TimeStamp(math.MIN_INT64).equals(new TimeStamp(math.MIN_INT64_NUMBER)),
+    ).toBe(true);
+    expect(
+      new TimeStamp(math.MAX_INT64).equals(new TimeStamp(math.MAX_INT64_NUMBER)),
+    ).toBe(true);
   });
 
   test("construct from time string", () => {
