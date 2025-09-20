@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type Synnax } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
+const RESOURCE_NAME = "Group";
 
 export interface FluxStore extends Flux.UnaryStore<group.Key, group.Group> {}
 
@@ -38,13 +39,15 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-interface RetrieveSingleArgs {
+export interface RetrieveQuery {
   key: group.Key;
-  client: Synnax;
-  store: FluxSubStore;
 }
 
-export const retrieveSingle = async ({ key, client, store }: RetrieveSingleArgs) => {
+export const retrieveSingle = async ({
+  query: { key },
+  client,
+  store,
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));
@@ -52,118 +55,112 @@ export const retrieveSingle = async ({ key, client, store }: RetrieveSingleArgs)
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateValue extends group.CreateArgs {}
+export interface CreateParams extends group.CreateArgs {}
 
-export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, FluxSubStore>({
-  name: "Group",
-  update: async ({ value, client, store }) => {
-    const { parent } = value;
-    const res = await client.ontology.groups.create(value);
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ data, client, store }) => {
+    const { parent } = data;
+    const res = await client.ontology.groups.create(data);
     store.groups.set(res.key, res);
     return { ...res, parent };
   },
 });
 
-export interface ListParams {
+export interface ListQuery {
   parent?: ontology.ID;
   searchTerm?: string;
   offset?: number;
   limit?: number;
 }
 
-export const useList = Flux.createList<
-  ListParams,
-  group.Key,
-  group.Group,
-  FluxSubStore
->({
-  name: "Group",
-  retrieveCached: ({ store, params }) => {
-    if (params.parent == null) return [];
-    const rels = store.relationships.get((r) =>
-      ontology.matchRelationship(r, {
-        from: params.parent,
-        type: "parent",
+export const useList = Flux.createList<ListQuery, group.Key, group.Group, FluxSubStore>(
+  {
+    name: RESOURCE_NAME,
+    retrieveCached: ({ store, query: { parent } }) => {
+      if (parent == null) return [];
+      const rels = store.relationships.get((r) =>
+        ontology.matchRelationship(r, { from: parent, type: "parent" }),
+      );
+      return store.groups.get(rels.map((r) => r.to.key));
+    },
+    retrieve: async ({ client, query, store }) => {
+      const { parent } = query;
+      if (parent == null) return [];
+      const res = await client.ontology.retrieveChildren(parent, {
+        ...query,
+        types: ["group"],
+      });
+      const groups = res.map((r) => group.groupZ.parse(r.data));
+      store.groups.set(groups);
+      groups.forEach((g) => {
+        const rel = {
+          from: parent,
+          type: "parent",
+          to: group.ontologyID(g.key),
+        };
+        store.relationships.set(ontology.relationshipToString(rel), rel);
+      });
+      return groups;
+    },
+    retrieveByKey: async ({ key, ...rest }) =>
+      await retrieveSingle({ ...rest, query: { key } }),
+    mountListeners: ({ store, onChange, onDelete, query: { parent }, client }) => [
+      store.groups.onSet((group) =>
+        onChange(group.key, (p) => (p == null ? null : group)),
+      ),
+      store.groups.onDelete(onDelete),
+      store.relationships.onSet(async (rel) => {
+        if (
+          parent == null ||
+          !ontology.matchRelationship(rel, { from: parent, type: "parent" })
+        )
+          return;
+        const group = await retrieveSingle({
+          query: { key: rel.to.key },
+          client,
+          store,
+        });
+        onChange(group.key, group);
       }),
-    );
-    return store.groups.get(rels.map((r) => r.to.key));
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        if (
+          parent == null ||
+          !ontology.matchRelationship(rel, { from: parent, type: "parent" })
+        )
+          return;
+        onDelete(rel.to.key);
+      }),
+    ],
   },
-  retrieve: async ({ client, params, store }) => {
-    const { parent } = params;
-    if (parent == null) return [];
-    const res = await client.ontology.retrieveChildren(parent, {
-      ...params,
-      types: ["group"],
-    });
-    const groups = res.map((r) => group.groupZ.parse(r.data));
-    store.groups.set(groups);
-    groups.forEach((g) => {
-      const rel = {
-        from: parent,
-        type: "parent",
-        to: group.ontologyID(g.key),
-      };
-      store.relationships.set(ontology.relationshipToString(rel), rel);
-    });
-    return groups;
-  },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ key, client, store }),
-  mountListeners: ({ store, onChange, onDelete, params: { parent }, client }) => [
-    store.groups.onSet((group) =>
-      onChange(group.key, (p) => (p == null ? null : group)),
-    ),
-    store.groups.onDelete(onDelete),
-    store.relationships.onSet(async (rel) => {
-      if (
-        parent == null ||
-        !ontology.matchRelationship(rel, { from: parent, type: "parent" })
-      )
-        return;
-      const group = await retrieveSingle({ key: rel.to.key, client, store });
-      onChange(group.key, group);
-    }),
-    store.relationships.onDelete(async (relKey) => {
-      const rel = ontology.relationshipZ.parse(relKey);
-      if (
-        parent == null ||
-        !ontology.matchRelationship(rel, { from: parent, type: "parent" })
-      )
-        return;
-      onDelete(rel.to.key);
-    }),
-  ],
-});
+);
 
-export interface DeleteValue {
+export interface DeleteParams {
   key: string;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, FluxSubStore>({
-  name: "Group",
-  update: async ({ client, value, store }) => {
-    await client.ontology.groups.delete(value.key);
-    store.groups.delete(value.key);
-    return value;
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store }) => {
+    await client.ontology.groups.delete(data.key);
+    store.groups.delete(data.key);
+    return data;
   },
 });
 
-export interface UseUpdateArgs {
-  parent: ontology.ID;
-}
+export interface RenameParams extends group.RenameArgs {}
 
-export interface UseRenameArgs {
-  key: string;
-  name: string;
-}
-
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
-  name: "Group",
-  update: async ({ client, value, store, rollbacks }) => {
-    const { key, name } = value;
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
     rollbacks.add(Flux.partialUpdate(store.groups, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, group.ontologyID(key), name));
-    await client.ontology.groups.rename(value);
-    return value;
+    await client.ontology.groups.rename(data);
+    return data;
   },
 });

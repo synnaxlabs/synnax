@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
+import type z from "zod";
 
 import { Flux } from "@/flux";
 import { type Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "labels";
+export const RESOURCE_NAME = "Labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -43,7 +45,7 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
     type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
   });
 
-interface UseLabelsOfQueryParams {
+interface LabelsOfQuery {
   id: ontology.ID;
 }
 
@@ -55,14 +57,14 @@ export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => 
 };
 
 export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
-  UseLabelsOfQueryParams,
+  LabelsOfQuery,
   label.Label[],
   FluxSubStore
 >({
   name: "Labels",
-  retrieve: async ({ client, params: { id } }) =>
+  retrieve: async ({ client, query: { id } }) =>
     await client.labels.retrieve({ for: id }),
-  mountListeners: ({ client, store, params: { id }, onChange }) => [
+  mountListeners: ({ client, store, query: { id }, onChange }) => [
     store.labels.onSet((label) => {
       onChange((prev) => {
         const filtered = prev.filter((l) => l.key !== label.key);
@@ -88,43 +90,42 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams extends label.MultiRetrieveArgs {}
+export interface ListQuery extends label.RetrieveMultipleParams {}
 
-export const useList = Flux.createList<
-  ListParams,
-  label.Key,
-  label.Label,
-  FluxSubStore
->({
-  name: "Labels",
-  retrieve: async ({ client, params }) => await client.labels.retrieve(params),
-  retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
-    const keysSet = keys ? new Set(keys) : undefined;
-    return [
-      store.labels.onSet(async (label) => {
-        if (keysSet != null && !keysSet.has(label.key)) return;
-        onChange(label.key, label, { mode: "prepend" });
-      }),
-      store.labels.onDelete(async (key) => onDelete(key)),
-    ];
+export const useList = Flux.createList<ListQuery, label.Key, label.Label, FluxSubStore>(
+  {
+    name: "Labels",
+    retrieve: async ({ client, query }) => await client.labels.retrieve(query),
+    retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
+    mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
+      const keysSet = keys ? new Set(keys) : undefined;
+      return [
+        store.labels.onSet(async (label) => {
+          if (keysSet != null && !keysSet.has(label.key)) return;
+          onChange(label.key, label, { mode: "prepend" });
+        }),
+        store.labels.onDelete(async (key) => onDelete(key)),
+      ];
+    },
   },
-});
+);
 
-interface FormParams {
+interface FormQuery {
   key?: label.Key;
 }
 
 export const formSchema = label.labelZ.partial({ key: true });
 
-export const useForm = Flux.createForm<FormParams, typeof formSchema, FluxSubStore>({
-  name: "Label",
-  initialValues: {
-    name: "",
-    color: "#000000",
-  },
+const INITIAL_VALUES: z.infer<typeof formSchema> = {
+  name: "",
+  color: "#000000",
+};
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
+  name: RESOURCE_NAME,
+  initialValues: INITIAL_VALUES,
   schema: formSchema,
-  retrieve: async ({ client, params: { key }, reset }) => {
+  retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
     reset(await client.labels.retrieve({ key }));
   },
@@ -132,7 +133,7 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, FluxSubSto
     const updated = await client.labels.create(value());
     reset(updated);
   },
-  mountListeners: ({ store, params: { key }, reset }) => [
+  mountListeners: ({ store, query: { key }, reset }) => [
     store.labels.onSet(async (label) => {
       if (key == null || label.key !== key) return;
       reset(label);
@@ -140,14 +141,13 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, FluxSubSto
   ],
 });
 
-export interface UseDeleteArgs {
-  key: label.Key;
-}
+export type DeleteParams = label.Key | label.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
-  name: "Label",
-  update: async ({ client, value }) => {
-    await client.labels.delete(value.key);
-    return value;
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data }) => {
+    await client.labels.delete(data);
+    return data;
   },
 });

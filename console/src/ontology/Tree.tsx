@@ -156,7 +156,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node<string>[]>([]);
-  const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
+  const resourceStore = Flux.useStore<Ontology.FluxStore>().resources;
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();

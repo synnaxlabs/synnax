@@ -59,7 +59,7 @@ export interface SelectSingleProps
       Select.SingleProps<device.Key, device.Device | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, device.Key, device.Device> {}
+    Flux.UseListParams<ListParams, device.Key, device.Device> {}
 
 export const SelectSingle = ({
   onChange,

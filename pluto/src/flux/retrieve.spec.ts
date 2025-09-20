@@ -100,9 +100,9 @@ describe("retrieve", () => {
           Store
         >({
           name: "Resource",
-          retrieve: async ({ client, params: { key } }) =>
+          retrieve: async ({ client, query: { key } }) =>
             await client.labels.retrieve({ key }),
-          mountListeners: ({ store, onChange, params: { key } }) =>
+          mountListeners: ({ store, onChange, query: { key } }) =>
             store.labels.onSet(onChange, key),
         });
 
@@ -141,7 +141,7 @@ describe("retrieve", () => {
           const [result, setResult] = useState<Flux.Result<number>>(
             Flux.pendingResult<number>("Resource", "retrieving", undefined),
           );
-          const handleChange: Flux.useRetrieveEffectArgs<
+          const handleChange: Flux.UseRetrieveEffectParams<
             { key: string },
             number
           >["onChange"] = (value) => {
@@ -153,7 +153,7 @@ describe("retrieve", () => {
             retrieve: async () => 12,
           });
           useRetrieveEffect({
-            params: { key: "test" },
+            query: { key: "test" },
             onChange: handleChange,
           });
           return result;

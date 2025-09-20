@@ -17,6 +17,11 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
+const BASE_UPDATE_PARAMS = {
+  resourceName: "Resource",
+  actionName: "update",
+};
+
 describe("update", () => {
   let controller: AbortController;
   beforeEach(() => {
@@ -28,7 +33,7 @@ describe("update", () => {
   describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
       const { useUpdate } = Flux.createUpdate<number>({
-        name: "Resource",
+        ...BASE_UPDATE_PARAMS,
         update: async () => 0,
       });
       const { result } = renderHook(useUpdate, { wrapper });
@@ -39,7 +44,10 @@ describe("update", () => {
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
@@ -50,7 +58,10 @@ describe("update", () => {
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -64,7 +75,10 @@ describe("update", () => {
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, {
         wrapper: createSynnaxWrapper({ client: null }),
       });
@@ -83,7 +97,10 @@ describe("update", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         return 0;
       };
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -99,7 +116,10 @@ describe("update", () => {
   describe("updateAsync", () => {
     it("should return true if the update function is successful", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(
         async () =>
@@ -112,7 +132,10 @@ describe("update", () => {
 
     it("should return false if an error is thrown", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(
         async () =>
@@ -125,7 +148,10 @@ describe("update", () => {
 
     it("should return false if the client is null", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, {
         wrapper: createSynnaxWrapper({ client: null }),
       });
@@ -141,7 +167,10 @@ describe("update", () => {
     it("should return false if the update function is aborted", async () => {
       const update = vi.fn();
       const controller = new AbortController();
-      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
       const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(async () => {
         controller.abort();

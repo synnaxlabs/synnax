@@ -14,6 +14,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "racks";
+const RESOURCE_NAME = "Rack";
 
 export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
@@ -54,103 +55,92 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
 };
 
-export interface ListParams {
-  term?: string;
-  offset?: number;
-  limit?: number;
+export interface RetrieveQuery {
+  key: rack.Key;
   includeStatus?: boolean;
 }
 
-const DEFAULT_PARAMS = {
-  includeStatus: true,
-};
+const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 const retrieveSingle = async ({
   client,
-  params,
+  query,
   store,
-}: Flux.RetrieveArgs<RetrieveParams, FluxSubStore>) => {
-  let rack = store.racks.get(params.key);
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+  let rack = store.racks.get(query.key);
   if (rack == null) {
-    rack = await client.hardware.racks.retrieve({
-      ...DEFAULT_PARAMS,
-      ...params,
-    });
+    rack = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
     store.racks.set(rack.key, rack);
   }
   return rack;
 };
 
-export const useList = Flux.createList<
-  ListParams,
-  rack.Key,
-  rack.Payload,
-  FluxSubStore
->({
-  name: "Racks",
-  retrieveCached: ({ store }) => store.racks.list(),
-  retrieve: async ({ client, params, store }) => {
-    const racks = await client.hardware.racks.retrieve({
-      ...DEFAULT_PARAMS,
-      ...params,
-    });
-    store.racks.set(racks);
-    return racks;
-  },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ client, params: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.racks.onSet((rack) => onChange(rack.key, rack)),
-    store.racks.onDelete(onDelete),
-  ],
-});
+export interface ListQuery extends rack.RetrieveMultipleParams {}
 
-export interface RetrieveParams {
-  key: rack.Key;
-  includeStatus?: boolean;
-}
+export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSubStore>(
+  {
+    name: RESOURCE_NAME,
+    retrieveCached: ({ store }) => store.racks.list(),
+    retrieve: async ({ client, query, store }) => {
+      const racks = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
+      store.racks.set(racks);
+      return racks;
+    },
+    retrieveByKey: async ({ client, key, store }) =>
+      await retrieveSingle({ client, query: { key }, store }),
+    mountListeners: ({ store, onChange, onDelete }) => [
+      store.racks.onSet((rack) => onChange(rack.key, rack)),
+      store.racks.onDelete(onDelete),
+    ],
+  },
+);
 
 export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
-  RetrieveParams,
+  RetrieveQuery,
   rack.Payload,
   FluxSubStore
 >({
-  name: "Rack",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, onChange, params: { key } }) => [
+  mountListeners: ({ store, onChange, query: { key } }) => [
     store.racks.onSet(onChange, key),
   ],
 });
 
-export type UseDeleteArgs = rack.Key | rack.Key[];
+export type UseDeleteParams = rack.Key | rack.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
-  name: "Rack",
-  update: async ({ client, value, store, rollbacks }) => {
-    const keys = array.toArray(value);
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  UseDeleteParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const keys = array.toArray(data);
     const ids = keys.map((key) => rack.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     rollbacks.add(store.racks.delete(keys));
     await client.hardware.racks.delete(keys);
-    return value;
+    return data;
   },
 });
 
-export interface UseRenameArgs {
-  key: rack.Key;
-  name: string;
-}
+export interface UseRenameParams extends Pick<rack.Rack, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
-  name: "Rack",
-  update: async ({ value, client, rollbacks, store }) => {
-    const { key, name } = value;
-    rollbacks.add(Flux.partialUpdate(store.racks, value.key, { name }));
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ data, client, rollbacks, store }) => {
+    const { key, name } = data;
+    rollbacks.add(Flux.partialUpdate(store.racks, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
-    const r = await retrieveSingle({ client, params: { key }, store });
+    const r = await retrieveSingle({ client, query: { key }, store });
     await client.hardware.racks.create({ ...r, name });
-    return value;
+    return data;
   },
 });

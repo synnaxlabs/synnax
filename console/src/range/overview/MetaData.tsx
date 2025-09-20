@@ -98,7 +98,7 @@ const MetaDataListItem = ({
       }: Flux.AfterSaveArgs<
         Flux.Params,
         typeof Ranger.kvPairFormSchema,
-        Ranger.FluxSubStore
+        Ranger.FluxStore
       >) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });

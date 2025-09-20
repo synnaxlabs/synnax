@@ -798,7 +798,10 @@ describe("queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
 
       await act(async () => {
-        await result.current.rename.updateAsync({ key: ch.key, name: "renamed_retrieve" });
+        await result.current.rename.updateAsync({
+          key: ch.key,
+          name: "renamed_retrieve",
+        });
       });
       await waitFor(() => {
         expect(result.current.retrieve.data?.name).toEqual("renamed_retrieve");
@@ -819,7 +822,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = renderHook(
-        () => Channel.useRetrieveMany({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -852,7 +855,11 @@ describe("queries", () => {
       await client.ranges.setAlias(range.key, ch2.key, "alias_2");
 
       const { result } = renderHook(
-        () => Channel.useRetrieveMany({ keys: [ch1.key, ch2.key], rangeKey: range.key }),
+        () =>
+          Channel.useRetrieveMultiple({
+            keys: [ch1.key, ch2.key],
+            rangeKey: range.key,
+          }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -875,7 +882,7 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => {
-          const retrieve = Channel.useRetrieveMany({ keys: [ch1.key, ch2.key] });
+          const retrieve = Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -884,7 +891,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        await result.current.rename.updateAsync({ key: ch1.key, name: "many_renamed_1" });
+        await result.current.rename.updateAsync({
+          key: ch1.key,
+          name: "many_renamed_1",
+        });
       });
       await waitFor(() => {
         const updated = result.current.retrieve.data?.find((c) => c.key === ch1.key);
@@ -1090,7 +1100,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const retrieve = Channel.useRetrieveMany({
+          const retrieve = Channel.useRetrieveMultiple({
             keys: [ch1.key, ch2.key],
             rangeKey: range.key,
           });

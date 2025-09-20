@@ -19,14 +19,14 @@ export const FLUX_STORE_KEY = "workspaces";
 export interface FluxStore
   extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
 
-interface FluxSubStore extends Flux.Store {
+interface FluxStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
+  FluxStore,
   typeof workspace.workspaceZ
 > = {
   channel: workspace.SET_CHANNEL_NAME,
@@ -37,7 +37,7 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
+  FluxStore,
   typeof workspace.keyZ
 > = {
   channel: workspace.DELETE_CHANNEL_NAME,
@@ -45,7 +45,7 @@ const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
   onChange: ({ store, changed }) => store.workspaces.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxStore> = {
   listeners: [SET_WORKSPACE_LISTENER, DELETE_WORKSPACE_LISTENER],
 };
 
@@ -53,9 +53,7 @@ export interface RetrieveParams {
   key: workspace.Key;
 }
 
-const retrieveSingle = async (
-  args: Flux.RetrieveArgs<RetrieveParams, FluxSubStore>,
-) => {
+const retrieveSingle = async (args: Flux.RetrieveArgs<RetrieveParams, FluxStore>) => {
   const cached = args.store.workspaces.get(args.params.key);
   if (cached != null) return cached;
   const workspace = await args.client.workspaces.retrieve(args.params.key);
@@ -66,7 +64,7 @@ const retrieveSingle = async (
 export const { useRetrieve } = Flux.createRetrieve<
   RetrieveParams,
   workspace.Workspace,
-  FluxSubStore
+  FluxStore
 >({
   name: "Workspace",
   retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
@@ -84,10 +82,10 @@ export const useList = Flux.createList<
   ListParams,
   workspace.Key,
   workspace.Workspace,
-  FluxSubStore
+  FluxStore
 >({
   name: "Workspace",
-  retrieve: async ({ client, params }) => await client.workspaces.retrieve(params),
+  retrieve: async ({ client, query }) => await client.workspaces.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.workspaces.retrieve(key),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.workspaces.onSet((workspace) => onChange(workspace.key, workspace)),
@@ -97,9 +95,9 @@ export const useList = Flux.createList<
 
 export type UseDeleteArgs = workspace.Key | workspace.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
   name: "Workspace",
-  update: async ({ client, value, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(value);
     const ids = keys.map((key) => workspace.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -116,9 +114,9 @@ export interface UseRenameArgs {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
   name: "Workspace",
-  update: async ({ client, value, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = value;
     await client.workspaces.rename(key, name);
     rollbacks.add(Flux.partialUpdate(store.workspaces, key, { name }));
@@ -132,7 +130,7 @@ export interface UseRetrieveGroupArgs {}
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
   ontology.ID | undefined,
-  FluxSubStore
+  FluxStore
 >({
   name: "Workspace Group",
   retrieve: async ({ client, store }) => {
@@ -161,12 +159,12 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
 export const useForm = Flux.createForm<
   Partial<RetrieveParams>,
   typeof formSchema,
-  FluxSubStore
+  FluxStore
 >({
   name: "Workspace",
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, store, params: { key }, reset }) => {
+  retrieve: async ({ client, store, query: { key }, reset }) => {
     if (key == null) return;
     const res = await retrieveSingle({ client, store, params: { key } });
     reset(res);
@@ -181,10 +179,10 @@ export interface UseSaveLayoutArgs extends workspace.SetLayoutArgs {}
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   UseSaveLayoutArgs,
-  FluxSubStore
+  FluxStore
 >({
   name: "Workspace",
-  update: async ({ client, value, store }) => {
+  update: async ({ client, data, store }) => {
     await client.workspaces.setLayout(value);
     store.workspaces.set(value.key, (p) => {
       if (p == null) return p;

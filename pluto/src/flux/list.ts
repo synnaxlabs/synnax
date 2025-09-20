@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   compare,
   type CrudeTimeSpan,
   type Destructor,
-  type MultiSeries,
   primitive,
   type record,
   TimeSpan,
@@ -20,7 +18,7 @@ import {
 import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -29,7 +27,11 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { type CreateRetrieveArgs, type MountListenersArgs } from "@/flux/retrieve";
+import {
+  type CreateRetrieveParams,
+  type RetrieveMountListenersParams,
+  type RetrieveParams,
+} from "@/flux/retrieve";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -56,7 +58,7 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 /**
  * Options for async list operations.
  */
-interface AsyncListOptions extends FetchOptions {
+interface AsyncListOptions extends core.FetchOptions {
   /**
    * How to modify the list when new data is retrieved. In append mode, new entries
    * will be added to the end of the list. In replace mode, the list will be replaced
@@ -68,23 +70,23 @@ interface AsyncListOptions extends FetchOptions {
 /**
  * Return type for the list hook, providing comprehensive list management utilities.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
 export type UseListReturn<
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
   /** Function to trigger a list retrieval operation (fire-and-forget) */
   retrieve: (
-    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
+    query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => void;
   /** Function to trigger a list retrieval operation and await the result */
   retrieveAsync: (
-    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
+    query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => Promise<void>;
   /** Array of keys for the items currently in the list */
@@ -98,73 +100,67 @@ export type UseListReturn<
 /**
  * Arguments for retrieving a single item by key.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template K The type of the key (must be a record key)
  */
-export interface RetrieveByKeyArgs<
-  RetrieveParams extends Params,
+export interface RetrieveByKeyParams<
+  Query extends core.Shape,
   K extends record.Key,
-  ScopedStore extends flux.Store,
-> {
+  Store extends flux.Store,
+> extends Omit<RetrieveParams<Query, Store>, "query"> {
   /** Parameters for the retrieve operation */
-  params: Partial<RetrieveParams>;
+  query: Partial<Query>;
   /** The key of the item to retrieve */
   key: K;
-  /** The Synnax client instance */
-  client: Client;
-  /** The store instance */
-  store: ScopedStore;
 }
 
-export interface RetrieveCachedArgs<
-  RetrieveParams extends Params,
-  ScopedStore extends flux.Store,
+export interface RetrieveCachedParams<
+  Query extends core.Shape,
+  Store extends flux.Store,
 > {
-  params: Partial<RetrieveParams>;
-  store: ScopedStore;
+  query: Partial<Query>;
+  store: Store;
 }
 
 /**
  * Configuration arguments for creating a list query.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-export interface CreateListArgs<
-  RetrieveParams extends Params,
+export interface CreateListParams<
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
-  ScopedStore extends flux.Store,
-> extends Omit<CreateRetrieveArgs<RetrieveParams, E[], ScopedStore>, "mountListeners"> {
+  Store extends flux.Store,
+> extends Omit<CreateRetrieveParams<Query, E[], Store>, "mountListeners"> {
   /** Function to sort the list */
   sort?: compare.Comparator<E>;
   /** Function to retrieve a single item by key for lazy loading */
-  retrieveByKey: (
-    args: RetrieveByKeyArgs<RetrieveParams, K, ScopedStore>,
-  ) => Promise<E | undefined>;
+  retrieveByKey: (args: RetrieveByKeyParams<Query, K, Store>) => Promise<E | undefined>;
   /** Function that allows  */
-  retrieveCached?: (args: RetrieveCachedArgs<RetrieveParams, ScopedStore>) => E[];
+  retrieveCached?: (args: RetrieveCachedParams<Query, Store>) => E[];
   /** Function to mount listeners for the list */
   mountListeners?: (
-    args: ListMountListenersArgs<RetrieveParams, K, E, ScopedStore>,
+    args: ListMountListenersParams<Query, K, E, Store>,
   ) => Destructor | Destructor[];
 }
 
 /**
  * Arguments for using a list hook.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-export interface UseListArgs<
-  RetrieveParams extends Params,
+export interface UseListParams<
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
   /** Initial parameters for the list query */
-  initialParams?: RetrieveParams;
+  initialParams?: Query;
   /** Optional filter function to apply to items */
   filter?: (item: E) => boolean;
   /** Optional function to sort the list */
@@ -178,16 +174,16 @@ export interface UseListArgs<
 /**
  * List hook function signature.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
 export interface UseList<
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (args?: UseListArgs<RetrieveParams, K, E>): UseListReturn<RetrieveParams, K, E>;
+  (args?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
 }
 
 type ListChangeMode = "prepend" | "append" | "replace";
@@ -197,47 +193,28 @@ interface ListenerOnChangeOptions {
 }
 
 /**
- * Extra arguments passed to list listener handlers.
- *
- * @template RetrieveParams The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
-export interface ListListenerExtraArgs<
-  RetrieveParams extends Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> {
-  changed: MultiSeries;
-  /** The current retrieve parameters */
-  params: RetrieveParams;
-  /** The Synnax client instance */
-  client: Client;
-  /** Function to update a specific item in the list */
-  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
-  /** Function to remove an item from the list */
-  onDelete: (key: K) => void;
-}
-
-/**
  * Configuration for a list listener that handles real-time updates.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
+ * @template Query The type of parameters for the retrieve operation
+ * @template Key The type of the key (must be a record key)
+ * @template Data The type of the entity (must be keyed by K)
  */
-export interface ListMountListenersArgs<
-  RetrieveParams extends Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-  ScopedStore extends flux.Store,
+export interface ListMountListenersParams<
+  Query extends core.Shape,
+  Key extends record.Key,
+  Data extends record.Keyed<Key>,
+  Store extends flux.Store,
 > extends Omit<
-    MountListenersArgs<ScopedStore, RetrieveParams, E[]>,
-    "onChange" | "params"
+    RetrieveMountListenersParams<Query, Data[], Store>,
+    "onChange" | "query"
   > {
-  params: Partial<RetrieveParams>;
-  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
-  onDelete: (key: K) => void;
+  query: Partial<Query>;
+  onChange: (
+    key: Key,
+    e: state.SetArg<Data | null>,
+    opts?: ListenerOnChangeOptions,
+  ) => void;
+  onDelete: (key: Key) => void;
 }
 
 /** Default filter function that accepts all items */
@@ -245,14 +222,14 @@ const defaultFilter = () => true;
 /** Default debounce time for retrieve operations */
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
-interface GetInitialDataArgs<
-  RetrieveParams extends Params,
+interface GetInitialDataParams<
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
 > {
-  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"];
-  paramsRef: RefObject<RetrieveParams | null>;
+  retrieveCached: CreateListParams<Query, K, E, ScopedStore>["retrieveCached"];
+  queryRef: RefObject<Query | null>;
   filterRef: RefObject<((item: E) => boolean) | undefined>;
   sortRef: RefObject<compare.Comparator<E> | undefined>;
   dataRef: RefObject<Map<K, E | null>>;
@@ -261,21 +238,21 @@ interface GetInitialDataArgs<
 }
 
 const getInitialData = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
 >({
   retrieveCached,
-  paramsRef,
+  queryRef: paramsRef,
   filterRef,
   sortRef,
   dataRef,
   store,
   useCachedList,
-}: GetInitialDataArgs<RetrieveParams, K, E, ScopedStore>) => {
+}: GetInitialDataParams<Query, K, E, ScopedStore>) => {
   if (retrieveCached == null || !useCachedList) return undefined;
-  let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
+  let cached = retrieveCached({ query: paramsRef.current ?? {}, store });
   if (filterRef.current != null) cached = cached.filter(filterRef.current);
   if (sortRef.current != null) cached = cached.sort(sortRef.current);
   if (cached.length === 0) return undefined;
@@ -319,8 +296,8 @@ const getInitialData = <
  *
  * const useUserList = createList<UserListParams, number, User>({
  *   name: "users",
- *   retrieve: async ({ params, client }) => {
- *     return await client.users.list(params);
+ *   retrieve: async ({ query, client }) => {
+ *     return await client.users.list(query);
  *   },
  *   retrieveByKey: async ({ key, client }) => {
  *     return await client.users.get(key);
@@ -357,9 +334,9 @@ const getInitialData = <
  */
 export const createList =
   <
-    P extends Params,
-    K extends record.Key,
-    E extends record.Keyed<K>,
+    Query extends core.Shape,
+    Key extends record.Key,
+    Data extends record.Keyed<Key>,
     ScopedStore extends flux.Store = {},
   >({
     name,
@@ -368,29 +345,29 @@ export const createList =
     retrieveByKey,
     retrieveCached,
     sort: defaultSort,
-  }: CreateListArgs<P, K, E, ScopedStore>): UseList<P, K, E> =>
-  (args: UseListArgs<P, K, E> = {}) => {
+  }: CreateListParams<Query, Key, Data, ScopedStore>): UseList<Query, Key, Data> =>
+  (params: UseListParams<Query, Key, Data> = {}) => {
     const {
       filter = defaultFilter,
       sort,
       initialParams,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
-    } = args;
+    } = params;
     const filterRef = useSyncedRef(filter);
     const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
-    const dataRef = useRef<Map<K, E | null>>(new Map());
-    const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
+    const dataRef = useRef<Map<Key, Data | null>>(new Map());
+    const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
     const store = useStore<ScopedStore>();
-    const paramsRef = useRef<P | null>(initialParams ?? null);
-    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(() =>
-      pendingResult<K[]>(
+    const queryRef = useRef<Query | null>(initialParams ?? null);
+    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
+      pendingResult<Key[]>(
         name,
         "retrieving",
         getInitialData({
           retrieveCached,
-          paramsRef,
+          queryRef,
           filterRef,
           sortRef,
           dataRef,
@@ -404,7 +381,7 @@ export const createList =
     const storeListenersMountedRef = useRef(false);
 
     const notifyListeners = useCallback(
-      (changed: K) =>
+      (changed: Key) =>
         listItemListeners.current.forEach((key, notify) => {
           if (key === changed) notify();
         }),
@@ -412,12 +389,12 @@ export const createList =
     );
 
     const updateSortedData = useCallback(
-      (keys: K[]) => {
+      (keys: Key[]) => {
         if (sortRef.current == null) return keys;
 
         const allItems = keys
           .map((key) => dataRef.current.get(key))
-          .filter((item): item is E => item != null);
+          .filter((item): item is Data => item != null);
 
         allItems.sort(sortRef.current);
         return allItems.map((item) => item.key);
@@ -433,7 +410,7 @@ export const createList =
         mountListeners?.({
           client,
           store,
-          params: paramsRef.current ?? {},
+          query: queryRef.current ?? {},
           onDelete: (k) => {
             dataRef.current.delete(k);
             setResult((p) => {
@@ -450,7 +427,7 @@ export const createList =
             dataRef.current.set(k, res);
             setResult((p) => {
               if (p.data == null) return p;
-              let newData: K[];
+              let newData: Key[];
               if (prev == null)
                 if (sortRef.current != null) newData = updateSortedData([...p.data, k]);
                 else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
@@ -471,14 +448,18 @@ export const createList =
     }, [mountListeners, storeListeners]);
 
     const retrieveAsync = useCallback(
-      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) => {
+      async (
+        paramsSetter: state.SetArg<Query, Query | {}>,
+        options: AsyncListOptions = {},
+      ) => {
         const { signal, mode = "replace" } = options;
 
-        const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
-        paramsRef.current = params;
+        const query = state.executeSetter(paramsSetter, queryRef.current ?? {});
+        queryRef.current = query;
 
         try {
-          if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
+          if (client == null)
+            return setResult(nullClientResult<Key[]>(name, "retrieve"));
           setResult((p) => pendingResult(name, "retrieving", p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
@@ -487,7 +468,7 @@ export const createList =
           else if (mode === "append" && !hasMoreRef.current)
             return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
-          let value = await retrieve({ client, params, store });
+          let value = await retrieve({ client, query, store });
           if (signal?.aborted) return;
           value = value.filter(filterRef.current);
           if (sortRef.current != null) value = value.sort(sortRef.current);
@@ -518,14 +499,14 @@ export const createList =
           });
         } catch (error) {
           if (signal?.aborted) return;
-          setResult(errorResult<K[]>(name, "retrieve", error));
+          setResult(errorResult<Key[]>(name, "retrieve", error));
         }
       },
       [client, name, store, filterRef, syncListeners],
     );
 
     const retrieveSingle = useCallback(
-      (key: K, options: FetchOptions = {}) => {
+      (key: Key, options: core.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           if (!storeListenersMountedRef.current) syncListeners();
@@ -534,7 +515,7 @@ export const createList =
             const item = await retrieveByKey({
               client,
               key,
-              params: paramsRef.current ?? {},
+              query: queryRef.current ?? {},
               store,
             });
             if (signal?.aborted || item == null) return;
@@ -547,7 +528,7 @@ export const createList =
           } catch (error) {
             if (signal?.aborted) return;
             dataRef.current.set(key, null);
-            setResult(errorResult<K[]>(name, "retrieve", error));
+            setResult(errorResult<Key[]>(name, "retrieve", error));
           }
         })();
       },
@@ -555,7 +536,7 @@ export const createList =
     );
 
     const getItem = useCallback(
-      ((key?: K | K[]) => {
+      ((key?: Key | Key[]) => {
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
         // Zero-value keys that are not null or undefined are common as
@@ -568,19 +549,19 @@ export const createList =
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
-      }) as GetItem<K, E>,
+      }) as GetItem<Key, Data>,
       [retrieveSingle],
     );
 
-    const subscribe = useCallback((callback: () => void, key?: K) => {
+    const subscribe = useCallback((callback: () => void, key?: Key) => {
       if (key == null) return () => {};
       listItemListeners.current.set(callback, key);
       return () => listItemListeners.current.delete(callback);
     }, []);
 
     const retrieveSync = useDebouncedCallback(
-      (params: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) =>
-        void retrieveAsync(params, options),
+      (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
+        void retrieveAsync(query, options),
       new TimeSpan(retrieveDebounce).milliseconds,
       [retrieveAsync],
     );
@@ -602,7 +583,7 @@ export const createList =
  * @template E The type of the entity (must be keyed by K)
  */
 export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
-  extends Pick<UseListReturn<Params, K, E>, "subscribe" | "getItem"> {
+  extends Pick<UseListReturn<core.Shape, K, E>, "subscribe" | "getItem"> {
   /** The key of the item to retrieve and subscribe to */
   key: K;
 }

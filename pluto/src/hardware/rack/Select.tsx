@@ -26,7 +26,7 @@ export interface SelectSingleProps
       Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
       "data" | "useListItem"
     >,
-    Flux.UseListArgs<ListParams, rack.Key, rack.Payload>,
+    Flux.UseListParams<ListParams, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
 

@@ -176,10 +176,10 @@ const singleRetrieveArgsZ = z.union([
     })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 
 const multiRetrieveArgsZ = retrieveReqZ;
-export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
@@ -315,17 +315,17 @@ export class Client {
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >(
-    args: SingleRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
+    args: RetrieveSingleParams & RetrieveSchemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>>;
-  async retrieve(args: SingleRetrieveArgs): Promise<Task>;
+  async retrieve(args: RetrieveSingleParams): Promise<Task>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >(
-    args: MultiRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
+    args: RetrieveMultipleParams & RetrieveSchemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>[]>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Task[]>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,

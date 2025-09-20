@@ -20,23 +20,20 @@ export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
 export const FLUX_STORE_KEY = "user";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  user.Key,
-  user.User
-> = {
-  listeners: [],
-};
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxStore, user.Key, user.User> =
+  {
+    listeners: [],
+  };
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
   name: "User",
-  update: async ({ client, value, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(value);
     const ids = keys.map((k) => user.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -51,7 +48,7 @@ export const retrieveSingle = async ({
   client,
   params,
   store,
-}: Flux.RetrieveArgs<{ key: string }, FluxSubStore>) => {
+}: Flux.RetrieveArgs<{ key: string }, FluxStore>) => {
   const { key } = params;
   const cached = store.users.get(key);
   if (cached != null) return cached;
@@ -65,9 +62,9 @@ export interface UseRenameArgs {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
   name: "User",
-  update: async ({ client, value, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = value;
     await client.users.changeUsername(key, name);
     const id = user.ontologyID(key);
@@ -85,7 +82,7 @@ export interface UseRetrieveGroupArgs {}
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
   ontology.ID | undefined,
-  FluxSubStore
+  FluxStore
 >({
   name: "User Group",
   retrieve: async ({ client, store }) => {
@@ -122,11 +119,11 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   password: "",
 };
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxStore>({
   name: "User",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params: { key }, reset, store }) => {
+  retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
     const user = await retrieveSingle({
       client,

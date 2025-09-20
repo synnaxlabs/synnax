@@ -21,7 +21,7 @@ const dropDataZ = z.object({
 });
 
 export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
-  const store = Flux.useStore<Schematic.Symbol.FluxSubStore>();
+  const store = Flux.useStore<Schematic.Symbol.FluxStore>();
   const theme = Theming.use();
 
   return useCallback(

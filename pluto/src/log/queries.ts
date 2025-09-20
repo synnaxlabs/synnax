@@ -14,27 +14,30 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, log.Key, log.Log> =
-  { listeners: [] };
+  {
+    listeners: [],
+  };
 
 export const FLUX_STORE_KEY = "logs";
+const RESOURCE_NAME = "Log";
 
 export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
 
 export type UseDeleteArgs = log.Params;
 
 interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [FLUX_STORE_KEY]: FluxStore;
 }
 
-export type UseRetrieveArgs = log.SingleRetrieveArgs;
+export type RetrieveQuery = log.RetrieveSingleParams;
 
 export const retrieveSingle = async ({
   store,
   client,
-  params: { key },
-}: Flux.RetrieveArgs<UseRetrieveArgs, FluxSubStore>) => {
+  query: { key },
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.logs.get(key);
   if (cached != null) return cached;
   const l = await client.workspaces.logs.retrieve({ key });
@@ -43,63 +46,63 @@ export const retrieveSingle = async ({
 };
 
 export const { useRetrieve } = Flux.createRetrieve<
-  UseRetrieveArgs,
+  RetrieveQuery,
   log.Log,
   FluxSubStore
 >({
-  name: "Log",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, params: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, onChange }) => [
     store.logs.onSet(onChange, key),
   ],
 });
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
-  name: "Log",
-  update: async ({ client, value, rollbacks, store }) => {
-    const keys = array.toArray(value);
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, rollbacks, store }) => {
+    const keys = array.toArray(data);
     const ids = keys.map((key) => log.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
-    await client.workspaces.logs.delete(value);
-    return value;
+    await client.workspaces.logs.delete(data);
+    return data;
   },
 });
 
-export interface UseCreateArgs extends log.New {
+export interface CreateParams extends log.New {
   workspace: workspace.Key;
 }
 
-export interface UseCreateResult extends log.Log {
+export interface CreateOutput extends log.Log {
   workspace: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
-  UseCreateArgs,
+  CreateParams,
   FluxSubStore,
-  UseCreateResult
+  CreateOutput
 >({
-  name: "Log",
-  update: async ({ client, value, store }) => {
-    const { workspace, ...rest } = value;
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ client, data, store }) => {
+    const { workspace, ...rest } = data;
     const l = await client.workspaces.logs.create(workspace, rest);
     store.logs.set(l.key, l);
     return { ...l, workspace };
   },
 });
 
-export interface UseRenameArgs {
-  key: log.Key;
-  name: string;
-}
+export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
-  name: "Log",
-  update: async ({ client, value, rollbacks, store }) => {
-    const { key, name } = value;
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, rollbacks, store }) => {
+    const { key, name } = data;
     rollbacks.add(Flux.partialUpdate(store.logs, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, log.ontologyID(key), name));
-    await client.workspaces.logs.rename(key, value.name);
-    return value;
+    await client.workspaces.logs.rename(key, data.name);
+    return data;
   },
 });

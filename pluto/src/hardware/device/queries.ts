@@ -17,6 +17,7 @@ import { type Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "devices";
+const RESOURCE_NAME = "Device";
 
 type ChangeVariant = "payload" | "status";
 
@@ -25,7 +26,7 @@ export interface FluxStore
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
-  [Task.FLUX_STORE_KEY]: Task.FluxStore;
+  [Task.FLUX_STORE_KEY]: Task.FluxSubStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -69,26 +70,28 @@ export const useSetSynchronizer = (onSet: (device: device.Device) => void): void
   useEffect(() => store.devices.onSet(onSet), [store]);
 };
 
+export interface RetrieveQuery extends device.RetrieveSingleParams {}
+
 const retrieveSingle = async <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
->(
-  client: Synnax,
-  store: FluxSubStore,
-  params: UseRetrieveArgs,
-): Promise<device.Device<Properties, Make, Model>> => {
-  const cached = store.devices.get(params.key);
+>({
+  client,
+  store,
+  query,
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): Promise<
+  device.Device<Properties, Make, Model>
+> => {
+  const cached = store.devices.get(query.key);
   if (cached != null) return cached as device.Device<Properties, Make, Model>;
   const device = await client.hardware.devices.retrieve<Properties, Make, Model>({
-    ...params,
+    ...query,
     includeStatus: true,
   });
   store.devices.set(device, "payload");
   return device;
 };
-
-export interface UseRetrieveArgs extends device.SingleRetrieveArgs {}
 
 export const createRetrieve = <
   Properties extends record.Unknown = record.Unknown,
@@ -96,14 +99,13 @@ export const createRetrieve = <
   Model extends string = string,
 >() =>
   Flux.createRetrieve<
-    UseRetrieveArgs,
+    RetrieveQuery,
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
     name: "Device",
-    retrieve: async ({ client, params, store }) =>
-      await retrieveSingle<Properties, Make, Model>(client, store, params),
-    mountListeners: ({ store, onChange, params: { key } }) => [
+    retrieve: retrieveSingle<Properties, Make, Model>,
+    mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
         (changed) => onChange(changed as device.Device<Properties, Make, Model>),
         key,
@@ -117,7 +119,7 @@ export const {
   useRetrieveEffect,
 } = createRetrieve();
 
-export interface ListParams extends device.MultiRetrieveArgs {}
+export interface ListParams extends device.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<
   ListParams,
@@ -126,7 +128,7 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: "Devices",
-  retrieveCached: ({ store, params }) =>
+  retrieveCached: ({ store, query: params }) =>
     store.devices.get((d) => {
       if (primitive.isNonZero(params.makes) && !params.makes.includes(d.make))
         return false;
@@ -145,16 +147,16 @@ export const useList = Flux.createList<
         return false;
       return true;
     }),
-  retrieve: async ({ client, params, store }) => {
+  retrieve: async ({ client, query, store }) => {
     const devices = await client.hardware.devices.retrieve({
       includeStatus: true,
-      ...params,
+      ...query,
     });
     devices.forEach((d) => store.devices.set(d, "payload"));
     return devices;
   },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle(client, store, { key }),
+  retrieveByKey: async ({ key, ...rest }) =>
+    await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.devices.onSet((changed) => onChange(changed.key, changed)),
     store.devices.onDelete(onDelete),
@@ -164,29 +166,31 @@ export const useList = Flux.createList<
 export type UseDeleteArgs = device.Key | device.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
-  name: "Device",
-  update: async ({ client, value, store, rollbacks }) => {
-    const keys = array.toArray(value);
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const keys = array.toArray(data);
     const ids = keys.map((key) => device.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     rollbacks.add(store.devices.delete(keys));
     await client.hardware.devices.delete(keys);
-    return value;
+    return data;
   },
 });
 
-export interface UseUpdateArgs extends device.New {}
+export interface CreateParams extends device.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
-  UseUpdateArgs,
+  CreateParams,
   FluxSubStore,
   device.Device
 >({
-  name: "Device",
-  update: async ({ value, client, rollbacks, store }) => {
-    const dev = await client.hardware.devices.create(value);
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ data, client, rollbacks, store }) => {
+    const dev = await client.hardware.devices.create(data);
     rollbacks.add(store.devices.set(dev, "payload"));
     return dev;
   },
@@ -216,25 +220,26 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   },
 });
 
-export interface UseRenameArgs {
-  key: device.Key;
-  name: string;
-}
+export interface UseRenameParams extends Pick<device.Device, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
-  name: "Device",
-  update: async ({ value, client, rollbacks, store }) => {
-    const { key, name } = value;
-    const dev = await retrieveSingle(client, store, { key });
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ data, client, rollbacks, store }) => {
+    const { key, name } = data;
+    const dev = await retrieveSingle({ client, store, query: { key } });
     rollbacks.add(store.devices.set(dev, "payload"));
     await client.hardware.devices.create({ ...dev, name });
-    return value;
+    return data;
   },
 });
 
 export const formSchema = device.deviceZ;
 
-const getInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
+const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   let rack = store.racks.get(() => true)[0];
   if (rack != null) return rack.key;
   rack = (
@@ -246,12 +251,14 @@ const getInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   return rack?.key ?? 0;
 };
 
+export interface FormQuery extends RetrieveQuery {}
+
 export const createForm = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 >() =>
-  Flux.createForm<UseRetrieveArgs, typeof formSchema, FluxSubStore>({
+  Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
     name: "Device",
     schema: formSchema,
     initialValues: {
@@ -264,25 +271,24 @@ export const createForm = <
       configured: true,
       properties: {},
     },
-    retrieve: async ({ params, client, reset, store, set }) => {
-      if (primitive.isZero(params.key)) {
-        set("rack", await getInitialRackKey(client, store));
+    retrieve: async ({ query, client, reset, store, set }) => {
+      if (primitive.isZero(query.key)) {
+        set("rack", await retrieveInitialRackKey(client, store));
         set("key", uuid.create());
         return;
       }
-      const device = await retrieveSingle<Properties, Make, Model>(
+      const device = await retrieveSingle<Properties, Make, Model>({
         client,
         store,
-        params,
-      );
+        query,
+      });
       reset(device);
     },
     update: async ({ value, client, store, rollbacks }) => {
       const result = await client.hardware.devices.create(value());
       rollbacks.add(store.devices.set(result, "payload"));
     },
-    mountListeners: ({ store, params, reset }) => {
-      const { key } = params;
+    mountListeners: ({ store, query: { key }, reset }) => {
       if (primitive.isZero(key)) return [];
       return store.devices.onSet((device, variant) => {
         if (variant === "payload") reset(device);

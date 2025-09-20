@@ -75,7 +75,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<ranger.Key, ranger.Payload | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
+    Flux.UseListParams<ListParams, ranger.Key, ranger.Payload> {}
 
 const ICON = <Icon.Range />;
 
@@ -118,7 +118,7 @@ export interface SelectSingleProps
       Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
+    Flux.UseListParams<ListParams, ranger.Key, ranger.Payload> {}
 
 const DIALOG_PROPS: Dialog.DialogProps = {
   style: { width: 800 },

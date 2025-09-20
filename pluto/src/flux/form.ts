@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-import { type FetchOptions, type Params } from "@/flux/core/params";
-import { type Store } from "@/flux/core/store";
-import { useStore } from "@/flux/external";
+import { type core } from "@/flux/core";
+import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   nullClientResult,
@@ -22,142 +20,131 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { type UpdateArgs as BaseUpdateArgs } from "@/flux/update";
+import {
+  type RetrieveMountListenersParams,
+  type RetrieveParams,
+} from "@/flux/retrieve";
+import { type UpdateParams as BaseUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
-import { type state } from "@/state";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateArgs<
-  Schema extends z.ZodType<state.State>,
-  ScopedStore extends Store = {},
+export interface FormUpdateParams<
+  Schema extends z.ZodType<core.Shape>,
+  ScopedStore extends core.Store = {},
 > extends Omit<BaseUpdateArgs<z.infer<Schema>, ScopedStore>, "value" | "onChange">,
     Form.UseReturn<Schema> {}
 
-export interface FormRetrieveArgs<
-  RetrieveParams extends Params,
-  Schema extends z.ZodType<state.State>,
-  ScopedStore extends Store = {},
-> extends Form.UseReturn<Schema> {
-  client: Client;
-  params: RetrieveParams;
-  store: ScopedStore;
-}
+export interface FormRetrieveParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store = {},
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
 /**
  * Configuration arguments for creating a form query.
  *
- * @template FormParams The type of parameters for the form query
- * @template DataSchema The Zod schema type for form validation
+ * @template Query The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
  */
-export interface CreateFormArgs<
-  FormParams extends Params,
-  DataSchema extends z.ZodType<state.State>,
-  FluxSubStore extends Store,
+export interface CreateFormParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
 > {
   name: string;
   /** Zod schema for form validation */
-  schema: DataSchema;
+  schema: Schema;
   /** Default values to use when creating new forms */
-  initialValues: z.infer<DataSchema>;
-  update: (args: FormUpdateArgs<DataSchema, FluxSubStore>) => Promise<void>;
-  retrieve: (
-    args: FormRetrieveArgs<FormParams, DataSchema, FluxSubStore>,
-  ) => Promise<void>;
+  initialValues: z.infer<Schema>;
+  update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
+  retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
   mountListeners?: (
-    args: FormMountListenersArgs<FluxSubStore, FormParams, DataSchema>,
+    args: FormMountListenersParams<Query, Schema, Store>,
   ) => Destructor | Destructor[];
 }
 
 /**
  * Return type for the form hook, providing form management utilities.
  *
- * @template DataSchema The Zod schema type for form validation
+ * @template Schema The Zod schema type for form validation
  */
-export type UseFormReturn<DataSchema extends z.ZodType<state.State>> = Omit<
-  Result<z.infer<DataSchema>>,
+export type UseFormReturn<Schema extends z.ZodType<core.Shape>> = Omit<
+  Result<z.infer<Schema>>,
   "data"
 > & {
   /** Form management utilities for binding inputs and validation */
-  form: Form.UseReturn<DataSchema>;
+  form: Form.UseReturn<Schema>;
   /** Function to save the current form values */
-  save: (opts?: FetchOptions) => void;
+  save: (opts?: core.FetchOptions) => void;
 };
 
 /**
  * Arguments passed to the afterSave callback.
  *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
+ * @template Query The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
  */
-export interface BeforeSaveArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-  SubStore extends Store,
-> extends Form.UseReturn<Z> {
-  client: Client;
-  /** The current form parameters */
-  params: FormParams;
-  store: SubStore;
-}
+export interface FormBeforeSaveParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
-interface FormMountListenersArgs<
-  ScopedStore extends Store,
-  FormParams extends Params,
-  Schema extends z.ZodType<state.State>,
-> extends Form.UseReturn<Schema> {
-  store: ScopedStore;
-  client: Client;
-  params: FormParams;
-}
+interface FormMountListenersParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Form.UseReturn<Schema>,
+    Omit<RetrieveMountListenersParams<Query, core.Shape, Store>, "onChange"> {}
 
 /**
  * Arguments passed to the afterSave callback.
  *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
+ * @template Query The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
  */
 export interface AfterSaveArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-  SubStore extends Store,
-> extends BeforeSaveArgs<FormParams, Z, SubStore> {}
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 export interface BeforeValidateArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-  SubStore extends Store,
-> extends BeforeSaveArgs<FormParams, Z, SubStore> {}
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 /**
  * Arguments for using a form hook.
  *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
+ * @template Query The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
  */
 export interface UseFormArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-  SubStore extends Store,
-> extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
   /** Initial values for the form fields */
-  initialValues?: z.infer<Z>;
+  initialValues?: z.infer<Schema>;
   /** Whether to automatically save form changes */
   autoSave?: boolean;
   /** Parameters for the form query */
-  params: FormParams;
+  params: Query;
   /** Function to run before the validation operation. If the function returns undefined,
    * the validation will be cancelled. */
-  beforeValidate?: (
-    args: BeforeValidateArgs<FormParams, Z, SubStore>,
-  ) => boolean | void;
+  beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
   /** Function to run before the save operation. If the function returns undefined,
    * the save will be cancelled. */
-  beforeSave?: (args: BeforeSaveArgs<FormParams, Z, SubStore>) => Promise<boolean>;
+  beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
   /** Callback function called after successful save */
-  afterSave?: (args: AfterSaveArgs<FormParams, Z, SubStore>) => void;
+  afterSave?: (args: AfterSaveArgs<Query, Schema, Store>) => void;
   /** The scope to use for the form operation */
   scope?: string;
 }
@@ -165,15 +152,15 @@ export interface UseFormArgs<
 /**
  * Form hook function signature.
  *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
+ * @template Query The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
  */
 export interface UseForm<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-  SubStore extends Store,
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
 > {
-  (args: UseFormArgs<FormParams, Z, SubStore>): UseFormReturn<Z>;
+  (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -191,7 +178,7 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
  * - Real-time synchronization with server state
  * - Error handling and user feedback
  *
- * @template FormParams The type of parameters for the form query
+ * @template Query The type of parameters for the form query
  * @template Schema The Zod schema type for form validation
  * @param config Configuration object with form schema, update function, and query settings
  * @returns A React hook for managing the form
@@ -227,9 +214,9 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
  */
 export const createForm =
   <
-    FormParams extends Params,
-    Schema extends z.ZodType<state.State>,
-    FluxSubStore extends Store = {},
+    Query extends core.Shape,
+    Schema extends z.ZodType<core.Shape>,
+    Store extends core.Store = {},
   >({
     name,
     schema,
@@ -237,13 +224,9 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
-  }: CreateFormArgs<FormParams, Schema, FluxSubStore>): UseForm<
-    FormParams,
-    Schema,
-    FluxSubStore
-  > =>
+  }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
   ({
-    params,
+    params: query,
     initialValues,
     autoSave = false,
     afterSave,
@@ -259,7 +242,7 @@ export const createForm =
     );
     const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
-    const store = useStore<FluxSubStore>(scope);
+    const store = useStore<Store>(scope);
     const listeners = useDestructors();
 
     const form = Form.use<Schema>({
@@ -278,14 +261,14 @@ export const createForm =
       [form],
     );
     const retrieveAsync = useCallback(
-      async (params: FormParams, options: FetchOptions = {}) => {
+      async (query: Query, options: core.FetchOptions = {}) => {
         const { signal } = options;
         try {
           if (client == null)
             return setResult(nullClientResult<undefined>(name, "retrieve"));
           setResult((p) => pendingResult(name, "retrieving", p.data));
           if (signal?.aborted) return;
-          const args = { client, params, store, ...form, set: noNotifySet };
+          const args = { client, query, store, ...form, set: noNotifySet };
           await retrieve(args);
           if (signal?.aborted) return;
           listeners.cleanup();
@@ -298,14 +281,14 @@ export const createForm =
       },
       [client, name, form, store, noNotifySet],
     );
-    const memoParams = useMemoDeepEqual(params);
+    const memoQuery = useMemoDeepEqual(query);
     useAsyncEffect(
-      async (signal) => await retrieveAsync(memoParams, { signal }),
-      [retrieveAsync, memoParams],
+      async (signal) => await retrieveAsync(memoQuery, { signal }),
+      [retrieveAsync, memoQuery],
     );
 
     const saveAsync = useCallback(
-      async (opts: FetchOptions = {}): Promise<boolean> => {
+      async (opts: core.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
         const rollbacks = new Set<Destructor>();
         try {
@@ -313,7 +296,7 @@ export const createForm =
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          const args = { client, params, store, rollbacks, ...form, set: noNotifySet };
+          const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
           if (beforeValidate?.(args) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(pendingResult(name, "updating", undefined));
@@ -337,10 +320,10 @@ export const createForm =
           return false;
         }
       },
-      [name, params, beforeSave, afterSave, beforeValidate],
+      [name, query, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
-      (opts?: FetchOptions) => void saveAsync(opts),
+      (opts?: core.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
 

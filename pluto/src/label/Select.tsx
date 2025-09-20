@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { type ListParams, useList } from "@/label/queries";
+import { type ListQuery, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -50,7 +50,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<label.Key, label.Label | undefined>,
       "data" | "multiple" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, label.Key, label.Label> {}
+    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
 
 const labelRenderTag = Component.renderProp(
   (props: Select.MultipleTagProps<label.Key>): ReactElement | null => {
@@ -112,7 +112,7 @@ export interface SelectSingleProps
       Select.SingleProps<label.Key, label.Label | undefined>,
       "data" | "useListItem" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, label.Key, label.Label> {}
+    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
 
 export const SelectSingle = ({
   onChange,

@@ -24,6 +24,9 @@ export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
+const RESOURCE_NAME = "Range";
+const KV_RESOURCE_NAME = "Key-Value Pair";
+
 export interface FluxSubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
@@ -33,7 +36,21 @@ export interface FluxSubStore extends Flux.Store {
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
-const cachedRetrieve = async (client: Synnax, store: FluxSubStore, key: ranger.Key) => {
+export interface RetrieveQuery
+  extends Pick<ranger.RetrieveRequest, "includeLabels" | "includeParent"> {
+  key: ranger.Key;
+}
+
+const BASE_QUERY: Partial<RetrieveQuery> = {
+  includeParent: true,
+  includeLabels: true,
+};
+
+const retrieveSingle = async ({
+  client,
+  store,
+  query: { key },
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.ranges.get(key);
   if (cached != null) {
     const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
@@ -45,28 +62,49 @@ const cachedRetrieve = async (client: Synnax, store: FluxSubStore, key: ranger.K
     }
     return client.ranges.sugarOne(next);
   }
-  const range = await client.ranges.retrieve({
-    keys: [key],
-    includeParent: true,
-    includeLabels: true,
-  });
+  const range = await client.ranges.retrieve({ ...BASE_QUERY, keys: [key] });
   const first = range[0];
   store.ranges.set(key, first);
   if (first.labels != null) store.labels.set(first.labels);
   return range[0];
 };
 
-const multiCachedRetrieve = async (
-  client: Synnax,
-  store: FluxSubStore,
-  params: ranger.RetrieveRequest,
-) => {
-  const ranges = await client.ranges.retrieve({
-    ...params,
-    includeParent: true,
-    includeLabels: true,
-  });
-  store.ranges.set(ranges);
+const retrieveMultiple = async ({
+  client,
+  store,
+  query: { keys },
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>) => {
+  const ranges: ranger.Range[] = [];
+  const uncachedKeys: ranger.Key[] = [];
+
+  // First, get all cached ranges
+  for (const key of keys) {
+    const cached = store.ranges.get(key);
+    if (cached != null) {
+      const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+      const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+      const next: ranger.Payload = { ...cached.payload, labels };
+      if (parent != null) {
+        const cachedParent = store.ranges.get(parent);
+        if (cachedParent != null) next.parent = cachedParent.payload;
+      }
+      ranges.push(client.ranges.sugarOne(next));
+    } else uncachedKeys.push(key);
+  }
+
+  // Retrieve uncached ranges if any
+  if (uncachedKeys.length > 0) {
+    const uncachedRanges = await client.ranges.retrieve({
+      ...BASE_QUERY,
+      keys: uncachedKeys,
+    });
+    for (const range of uncachedRanges) {
+      store.ranges.set(range.key, range);
+      if (range.labels != null) store.labels.set(range.labels);
+      ranges.push(range);
+    }
+  }
+
   return ranges;
 };
 
@@ -80,7 +118,7 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
-export interface ChildrenParams {
+export interface ListChildrenQuery {
   key: ranger.Key;
 }
 
@@ -132,25 +170,24 @@ const handleListParentRelationshipSet = async (
   }
 };
 
-export const useChildren = Flux.createList<
-  ChildrenParams,
+export const useListChildren = Flux.createList<
+  ListChildrenQuery,
   ranger.Key,
   ranger.Range,
   FluxSubStore
 >({
-  name: "Range",
-  retrieve: async ({ client, params: { key }, store }) => {
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key }, store }) => {
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });
     if (resources.length === 0) return [];
-    return await multiCachedRetrieve(client, store, {
-      keys: resources.map(({ id: { key } }) => key),
-    });
+    const query = { keys: resources.map(({ id: { key } }) => key) };
+    return await retrieveMultiple({ client, store, query });
   },
-  retrieveByKey: async ({ client, key, store }) =>
-    await cachedRetrieve(client, store, key),
-  mountListeners: ({ store, onChange, onDelete, client, params: { key } }) => [
+  retrieveByKey: async ({ key, ...rest }) =>
+    await retrieveSingle({ ...rest, query: { key } }),
+  mountListeners: ({ store, onChange, onDelete, client, query: { key } }) => [
     store.ranges.onSet((range) => {
       onChange(range.key, (prev) => {
         if (prev == null) return prev;
@@ -173,9 +210,8 @@ export const useChildren = Flux.createList<
       });
       if (isChild) {
         const range = await client.ranges.retrieve({
+          ...BASE_QUERY,
           keys: [rel.to.key],
-          includeParent: true,
-          includeLabels: true,
         });
         return onChange(rel.to.key, range[0]);
       }
@@ -207,13 +243,13 @@ export const {
   useRetrieveEffect: useRetrieveParentEffect,
 } = Flux.createRetrieve<{ id: ontology.ID }, ranger.Range | null, FluxSubStore>({
   name: "Range",
-  retrieve: async ({ client, params: { id } }) => {
+  retrieve: async ({ client, query: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
     return client.ranges.sugarOntologyResource(parent);
   },
-  mountListeners: ({ store, onChange, client, params: { id } }) => [
+  mountListeners: ({ store, onChange, client, query: { id } }) => [
     store.ranges.onSet((NextParent) => {
       onChange((prevParent) => {
         if (prevParent == null || prevParent.key !== NextParent.key) return prevParent;
@@ -232,7 +268,11 @@ export const {
       if (!isParent) return;
       const parentIsRange = rel.from.type === "range";
       if (!parentIsRange) return onChange(null);
-      const parent = await cachedRetrieve(client, store, rel.from.key);
+      const parent = await retrieveSingle({
+        client,
+        store,
+        query: { key: rel.from.key },
+      });
       onChange(client.ranges.sugarOne(parent.payload));
     }),
     store.relationships.onDelete(async (relKey) => {
@@ -258,19 +298,14 @@ export const {
   ],
 });
 
-export interface RetrieveParams {
-  key: ranger.Key;
-}
-
 export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveParams,
+  RetrieveQuery,
   ranger.Range,
   FluxSubStore
 >({
-  name: "Range",
-  retrieve: async ({ client, params: { key }, store }) =>
-    await cachedRetrieve(client, store, key),
-  mountListeners: ({ store, onChange, client, params: { key } }) => [
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, onChange, client, query: { key } }) => [
     store.ranges.onSet(async (range) => {
       if (range != null) return onChange(range);
     }, key),
@@ -306,51 +341,17 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   ],
 });
 
-export interface RetrieveMultipleParams {
+export interface RetrieveMultipleQuery {
   keys: ranger.Keys;
 }
 
 export const {
   useRetrieve: useRetrieveMultiple,
   useRetrieveObservable: useRetrieveObservableMultiple,
-} = Flux.createRetrieve<RetrieveMultipleParams, ranger.Range[], FluxSubStore>({
-  name: "Ranges",
-  retrieve: async ({ client, params: { keys }, store }) => {
-    const ranges: ranger.Range[] = [];
-    const uncachedKeys: ranger.Key[] = [];
-
-    // First, get all cached ranges
-    for (const key of keys) {
-      const cached = store.ranges.get(key);
-      if (cached != null) {
-        const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
-        const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
-        const next: ranger.Payload = { ...cached.payload, labels };
-        if (parent != null) {
-          const cachedParent = store.ranges.get(parent);
-          if (cachedParent != null) next.parent = cachedParent.payload;
-        }
-        ranges.push(client.ranges.sugarOne(next));
-      } else uncachedKeys.push(key);
-    }
-
-    // Retrieve uncached ranges if any
-    if (uncachedKeys.length > 0) {
-      const uncachedRanges = await client.ranges.retrieve({
-        keys: uncachedKeys,
-        includeParent: true,
-        includeLabels: true,
-      });
-      for (const range of uncachedRanges) {
-        store.ranges.set(range.key, range);
-        if (range.labels != null) store.labels.set(range.labels);
-        ranges.push(range);
-      }
-    }
-
-    return ranges;
-  },
-  mountListeners: ({ store, onChange, client, params: { keys } }) => {
+} = Flux.createRetrieve<RetrieveMultipleQuery, ranger.Range[], FluxSubStore>({
+  name: RESOURCE_NAME,
+  retrieve: retrieveMultiple,
+  mountListeners: ({ store, onChange, client, query: { keys } }) => {
     const keysSet = new Set(keys);
     return [
       store.ranges.onSet(async (range) => {
@@ -447,7 +448,7 @@ export const toFormValues = async (
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
+export interface FormQuery extends Optional<RetrieveQuery, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -456,17 +457,13 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   timeRange: { start: 0, end: 0 },
 };
 
-export const useForm = Flux.createForm<
-  UseFormQueryParams,
-  typeof formSchema,
-  FluxSubStore
->({
-  name: "Range",
+export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params: { key }, store, reset }) => {
+  retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;
-    reset(await toFormValues(await cachedRetrieve(client, store, key)));
+    reset(await toFormValues(await retrieveSingle({ client, store, query: { key } })));
   },
   update: async ({ client, value: getValue, reset, store }) => {
     const value = getValue();
@@ -486,7 +483,7 @@ export const useForm = Flux.createForm<
     }
     let parent: ranger.Range | null = null;
     if (primitive.isNonZero(parentKey))
-      parent = await cachedRetrieve(client, store, parentKey);
+      parent = await retrieveSingle({ client, store, query: { key: parentKey } });
     store.ranges.set(
       rng.key,
       client.ranges.sugarOne({
@@ -561,36 +558,23 @@ export interface ListParams
     "includeLabels" | "includeParent" | "searchTerm" | "offset" | "limit" | "keys"
   > {}
 
-const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
-  includeParent: true,
-  includeLabels: true,
-};
-
 export const useList = Flux.createList<
   ListParams,
   ranger.Key,
   ranger.Range,
   FluxSubStore
 >({
-  name: "Ranges",
-  retrieveCached: ({ store, params }) =>
+  name: RESOURCE_NAME,
+  retrieveCached: ({ store, query }) =>
     store.ranges.get((r) => {
-      if (primitive.isNonZero(params.keys)) return params.keys.includes(r.key);
+      if (primitive.isNonZero(query.keys)) return query.keys.includes(r.key);
       return true;
     }),
-  retrieve: async ({ client, params }) =>
-    await client.ranges.retrieve({
-      ...DEFAULT_LIST_PARAMS,
-      ...params,
-    }),
-  retrieveByKey: async ({ client, key, store }) => {
-    const cached = store.ranges.get(key);
-    if (cached != null) return cached;
-    const range = await client.ranges.retrieve(key);
-    store.ranges.set(key, range);
-    return range;
-  },
-  mountListeners: ({ store, onChange, onDelete, client, params: { keys } }) => {
+  retrieve: async ({ client, query }) =>
+    await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
+  retrieveByKey: async ({ key, ...rest }) =>
+    await retrieveSingle({ ...rest, query: { key } }),
+  mountListeners: ({ store, onChange, onDelete, client, query: { keys } }) => {
     const hasKeys = keys != null && keys.length > 0;
     const keysSet = new Set(keys);
     return [
@@ -616,10 +600,6 @@ export const useList = Flux.createList<
 export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
-
-export interface ListKVParams {
-  rangeKey: ranger.Key;
-}
 
 const deleteKVPairChannelValueZ = z
   .string()
@@ -647,14 +627,18 @@ export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_KV_LISTENER, DELETE_KV_LISTENER],
 };
 
+export interface ListKVQuery {
+  rangeKey: ranger.Key;
+}
+
 export const useListKV = Flux.createList<
-  ListKVParams,
+  ListKVQuery,
   string,
   ranger.KVPair,
   FluxSubStore
 >({
   name: "Range Meta Data",
-  retrieve: async ({ client, params: { rangeKey } }) => {
+  retrieve: async ({ client, query: { rangeKey } }) => {
     const kv = client.ranges.getKV(rangeKey);
     const pairs = await kv.list();
     return Object.entries(pairs).map(([key, value]) => ({
@@ -663,13 +647,13 @@ export const useListKV = Flux.createList<
       range: rangeKey,
     }));
   },
-  retrieveByKey: async ({ client, key, params: { rangeKey } }) => {
+  retrieveByKey: async ({ client, key, query: { rangeKey } }) => {
     if (rangeKey == null) return undefined;
     const kv = client.ranges.getKV(rangeKey);
     const value = await kv.get(key);
     return { key, value, range: rangeKey };
   },
-  mountListeners: ({ store, onChange, onDelete, params: { rangeKey } }) => [
+  mountListeners: ({ store, onChange, onDelete, query: { rangeKey } }) => [
     store.rangeKV.onSet((pair) => {
       if (pair.range !== rangeKey) return;
       onChange(pair.key, pair);
@@ -685,7 +669,7 @@ export const useListKV = Flux.createList<
 export const kvPairFormSchema = ranger.kvPairZ;
 
 export const useKVPairForm = Flux.createForm<
-  ListKVParams,
+  ListKVQuery,
   typeof kvPairFormSchema,
   FluxSubStore
 >({
@@ -704,35 +688,42 @@ export const useKVPairForm = Flux.createForm<
   },
 });
 
-export interface UseDeleteKVArgs extends ListKVParams {
+export interface DeleteKVParams extends ListKVQuery {
   key: string;
 }
 
-export const { useUpdate: useDeleteKV } = Flux.createUpdate<UseDeleteKVArgs>({
-  name: "Range Meta Data",
-  update: async ({ client, value }) => {
-    const { key, rangeKey } = value;
+export const { useUpdate: useDeleteKV } = Flux.createUpdate<
+  DeleteKVParams,
+  FluxSubStore
+>({
+  name: KV_RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data }) => {
+    const { key, rangeKey } = data;
     const kv = client.ranges.getKV(rangeKey);
     await kv.delete(key);
-    return value;
+    return data;
   },
 });
 
-export interface UseUpdateKVArgs extends ListKVParams, ranger.KVPair {}
+export interface SetKVParams extends ListKVQuery, ranger.KVPair {}
 
-export const { useUpdate: useUpdateKV } = Flux.createUpdate<UseUpdateKVArgs>({
-  name: "Range Meta Data",
-  update: async ({ client, value }) => {
-    const kv = client.ranges.getKV(value.range);
-    await kv.set(value.key, value.value);
-    return value;
+export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams, FluxSubStore>({
+  name: KV_RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data }) => {
+    const { range, key, value } = data;
+    const kv = client.ranges.getKV(range);
+    await kv.set(key, value);
+    return data;
   },
 });
 
 export const { useUpdate: useCreate } = Flux.createUpdate<ranger.New, FluxSubStore>({
-  name: "Range",
-  update: async ({ client, value, store }) => {
-    const rng = await client.ranges.create(value);
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ client, data, store }) => {
+    const rng = await client.ranges.create(data);
     store.ranges.set(rng.key, rng);
     return rng.payload;
   },
@@ -742,11 +733,12 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   ranger.Key | ranger.Keys,
   FluxSubStore
 >({
-  name: "Range",
-  update: async ({ client, value, store }) => {
-    await client.ranges.delete(value);
-    store.ranges.delete(value);
-    return value;
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store }) => {
+    await client.ranges.delete(data);
+    store.ranges.delete(data);
+    return data;
   },
 });
 
@@ -769,15 +761,13 @@ export const ALIAS_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_ALIAS_LISTENER, DELETE_ALIAS_LISTENER],
 };
 
-export interface UseRenameArgs {
-  key: ranger.Key;
-  name: string;
-}
+export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
-  name: "Range",
-  update: async ({ client, value, store, rollbacks }) => {
-    const { key, name } = value;
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
     rollbacks.add(
       store.ranges.set(key, (p) =>
         p == null ? undefined : client.ranges.sugarOne({ ...p, name }),
@@ -785,6 +775,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     );
     rollbacks.add(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
     await client.ranges.rename(key, name);
-    return value;
+    return data;
   },
 });

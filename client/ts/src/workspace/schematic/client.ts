@@ -52,8 +52,8 @@ const singleRetrieveArgsZ = z
 
 export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveReqZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 export type CopyArgs = z.input<typeof copyReqZ>;
 
 const retrieveResZ = z.object({ schematics: nullableArrayZ(remoteZ) });
@@ -113,10 +113,10 @@ export class Client {
     );
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Schematic>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Schematic[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
   async retrieve(
-    args: SingleRetrieveArgs | MultiRetrieveArgs,
+    args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(

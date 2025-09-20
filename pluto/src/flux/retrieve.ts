@@ -11,8 +11,7 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
-import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -30,38 +29,46 @@ import { Synnax } from "@/synnax";
 /**
  * Arguments passed to the `retrieve` function when executing a query.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation.
+ * @template Store The signature of the flux store for accessing cached items.
  */
-export interface RetrieveArgs<RetrieveParams, ScopedStore extends flux.Store> {
+export interface RetrieveParams<Query extends core.Shape, Store extends core.Store> {
   /** The Synnax client instance for making requests */
   client: Client;
   /** The parameters for the retrieve operation */
-  params: RetrieveParams;
+  query: Query;
   /** The store instance for storing data */
-  store: ScopedStore;
+  store: Store;
 }
 
-export interface MountListenersArgs<
-  ScopedStore extends flux.Store,
-  RetrieveParams,
-  Data extends state.State,
+/**
+ * Arguments passed to the `mountListeners` function.
+ *
+ * @template Query The type of query parameters for the retrieve operation.
+ * @template Data The type of data being retrieved.
+ * @template Store The signature of the flux store for accessing cached items.
+ */
+export interface RetrieveMountListenersParams<
+  Query extends core.Shape,
+  Data extends core.Shape,
+  Store extends core.Store,
 > {
-  store: ScopedStore;
+  store: Store;
   client: Client;
-  params: RetrieveParams;
+  query: Query;
   onChange: state.Setter<Data>;
 }
 
 /**
  * Configuration arguments for creating a retrieve query.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface CreateRetrieveArgs<
-  RetrieveParams,
-  Data extends state.State,
-  ScopedStore extends flux.Store,
+export interface CreateRetrieveParams<
+  Query extends core.Shape,
+  Data extends core.Shape,
+  Store extends core.Store,
 > {
   /**
    * The name of the resource being retrieved. This is used to make pretty messages for
@@ -70,7 +77,7 @@ export interface CreateRetrieveArgs<
    */
   name: string;
   /** Function executed when the query is evaluated or the query parameters change. */
-  retrieve: (args: RetrieveArgs<RetrieveParams, ScopedStore>) => Promise<Data>;
+  retrieve: (Params: RetrieveParams<Query, Store>) => Promise<Data>;
   /**
    * Listeners to mount to the query. These listeners will be re-mounted when
    * the query parameters change and/or the client disconnects/re-connects or clusters
@@ -80,12 +87,12 @@ export interface CreateRetrieveArgs<
    * changes, as the onChange function should be static.
    */
   mountListeners?: (
-    args: MountListenersArgs<ScopedStore, RetrieveParams, Data>,
+    Params: RetrieveMountListenersParams<Query, Data, Store>,
   ) => Destructor | Destructor[];
 }
 
-export interface BeforeRetrieveArgs<RetrieveParams extends Params> {
-  params: RetrieveParams;
+export interface BeforeRetrieveParams<Query extends core.Shape> {
+  query: Query;
 }
 
 /**
@@ -93,13 +100,13 @@ export interface BeforeRetrieveArgs<RetrieveParams extends Params> {
  *
  * @template V The type of data being retrieved
  */
-export interface UseObservableBaseRetrieveArgs<
-  RetrieveParams extends Params,
+export interface UseObservableBaseRetrieveParams<
+  Query extends core.Shape,
   Data extends state.State,
 > {
-  beforeRetrieve?: (args: BeforeRetrieveArgs<RetrieveParams>) => Data | boolean;
+  beforeRetrieve?: (Params: BeforeRetrieveParams<Query>) => Data | boolean;
   /** Callback function to handle state changes */
-  onChange: (result: state.SetArg<Result<Data>>, params: RetrieveParams) => void;
+  onChange: (result: state.SetArg<Result<Data>>, query: Query) => void;
   /** The scope to use for the retrieve operation */
   scope?: string;
 }
@@ -107,60 +114,60 @@ export interface UseObservableBaseRetrieveArgs<
 /**
  * Arguments for the observable retrieve hook.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  */
-export interface UseObservableRetrieveArgs<
-  RetrieveParams extends Params,
+export interface UseObservableRetrieveParams<
+  Query extends core.Shape,
   Data extends state.State,
-> extends Omit<UseObservableBaseRetrieveArgs<RetrieveParams, Data>, "onChange"> {
+> extends Omit<UseObservableBaseRetrieveParams<Query, Data>, "onChange"> {
   /** Callback function to handle state changes */
-  onChange: (result: Result<Data>, params: RetrieveParams) => void;
+  onChange: (result: Result<Data>, query: Query) => void;
 }
 
 /**
  * Return type for the observable retrieve hook.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of parameters for the retrieve operation
  */
-export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
+export interface UseObservableRetrieveReturn<Query extends core.Shape> {
   /** Function to trigger a retrieve operation (fire-and-forget) */
   retrieve: (
-    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-    options?: FetchOptions,
+    query: state.SetArg<Query, Partial<Query>>,
+    options?: core.FetchOptions,
   ) => void;
   /** Function to trigger a retrieve operation and await the result */
   retrieveAsync: (
-    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-    options?: FetchOptions,
+    query: state.SetArg<Query, Partial<Query>>,
+    options?: core.FetchOptions,
   ) => Promise<void>;
 }
 
 /**
  * Return type for the stateful retrieve hook, combining result state with retrieve functions.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
 export type UseStatefulRetrieveReturn<
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-> = Result<Data> & UseObservableRetrieveReturn<RetrieveParams>;
+> = Result<Data> & UseObservableRetrieveReturn<Query>;
 
 /**
  * Arguments for the direct retrieve hook.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface UseDirectRetrieveArgs<
-  RetrieveParams extends Params,
+export interface UseDirectRetrieveParams<
+  Query extends core.Shape,
   Data extends state.State,
 > extends Pick<
-    UseObservableBaseRetrieveArgs<RetrieveParams, Data>,
+    UseObservableBaseRetrieveParams<Query, Data>,
     "scope" | "beforeRetrieve"
   > {
   /** Parameters for the retrieve operation */
-  params: RetrieveParams;
+  query: Query;
 }
 
 /**
@@ -173,37 +180,37 @@ export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 /**
  * Arguments for the effect retrieve hook.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface useRetrieveEffectArgs<
-  RetrieveParams extends Params,
+export interface UseRetrieveEffectParams<
+  Query extends core.Shape,
   Data extends state.State,
 > {
   scope?: string;
-  onChange?: (result: Result<Data>, params: RetrieveParams) => void;
+  onChange?: (result: Result<Data>, query: Query) => void;
   /** Parameters for the retrieve operation */
-  params?: RetrieveParams;
+  query?: Query;
 }
 
 /**
  * Return type for the createRetrieve function.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
 export interface CreateRetrieveReturn<
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
 > {
   /**
    * Hook that automatically fetches data when parameters change and returns the result state.
    * Use this for most cases where you want React to handle the data fetching lifecycle automatically.
-   * Data is fetched when the component mounts and re-fetched whenever params change.
+   * Data is fetched when the component mounts and re-fetched whenever query change.
    */
   useRetrieve: (
-    args: RetrieveParams,
-    opts?: Pick<UseDirectRetrieveArgs<RetrieveParams, Data>, "beforeRetrieve">,
+    Params: Query,
+    opts?: Pick<UseDirectRetrieveParams<Query, Data>, "beforeRetrieve">,
   ) => UseDirectRetrieveReturn<Data>;
 
   /**
@@ -211,41 +218,41 @@ export interface CreateRetrieveReturn<
    * Use this when you need to trigger data fetching but handle the result state externally
    * (e.g., through the onChange callback). Returns void - no state is managed internally.
    */
-  useRetrieveEffect: (args: useRetrieveEffectArgs<RetrieveParams, Data>) => void;
+  useRetrieveEffect: (Params: UseRetrieveEffectParams<Query, Data>) => void;
 
   /**
    * Hook that provides manual control over when data is fetched, with internal state management.
    * Use this when you need to trigger data fetching based on user actions or specific events.
    * Returns both the current state (data, variant, error) and functions to manually trigger retrieval.
    */
-  useRetrieveStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
+  useRetrieveStateful: () => UseStatefulRetrieveReturn<Query, Data>;
 
   useRetrieveObservable: (
-    args: UseObservableRetrieveArgs<RetrieveParams, Data>,
-  ) => UseObservableRetrieveReturn<RetrieveParams>;
+    Params: UseObservableRetrieveParams<Query, Data>,
+  ) => UseObservableRetrieveReturn<Query>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
   pendingResult<Data>(name, "retrieving", undefined);
 
 const useStateful = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store,
+  ScopedStore extends core.Store,
 >(
-  args: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
-): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
-  const [state, setState] = useState<Result<Data>>(initialResult<Data>(args.name));
+  Params: CreateRetrieveParams<Query, Data, ScopedStore>,
+): UseStatefulRetrieveReturn<Query, Data> => {
+  const [state, setState] = useState<Result<Data>>(initialResult<Data>(Params.name));
   return {
     ...state,
-    ...useObservableBase({ ...args, onChange: setState }),
+    ...useObservableBase({ ...Params, onChange: setState }),
   };
 };
 
 const useObservableBase = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store,
+  ScopedStore extends core.Store,
 >({
   retrieve,
   mountListeners,
@@ -253,69 +260,67 @@ const useObservableBase = <
   onChange,
   scope,
   beforeRetrieve,
-}: UseObservableBaseRetrieveArgs<RetrieveParams, Data> &
-  CreateRetrieveArgs<
-    RetrieveParams,
+}: UseObservableBaseRetrieveParams<Query, Data> &
+  CreateRetrieveParams<
+    Query,
     Data,
     ScopedStore
-  >): UseObservableRetrieveReturn<RetrieveParams> => {
+  >): UseObservableRetrieveReturn<Query> => {
   const client = Synnax.use();
-  const paramsRef = useRef<RetrieveParams | null>(null);
+  const queryRef = useRef<Query | null>(null);
   const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
   const handleListenerChange = useCallback(
     (value: state.SetArg<Data>) => {
-      if (paramsRef.current == null) return;
+      if (queryRef.current == null) return;
       onChange((prev) => {
         if (prev.data === undefined) return prev;
         const next = state.executeSetter(value, prev.data);
         return successResult(name, "retrieved", next);
-      }, paramsRef.current);
+      }, queryRef.current);
     },
     [onChange, name],
   );
   const retrieveAsync = useCallback(
     async (
-      paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-      options: FetchOptions = {},
+      querySetter: state.SetArg<Query, Partial<Query>>,
+      options: core.FetchOptions = {},
     ) => {
       const { signal } = options;
-      const params = state.executeSetter<RetrieveParams, Partial<RetrieveParams>>(
-        paramsSetter,
-        paramsRef.current ?? {},
+      const query = state.executeSetter<Query, Partial<Query>>(
+        querySetter,
+        queryRef.current ?? {},
       );
-      paramsRef.current = params;
+      queryRef.current = query;
       try {
         if (beforeRetrieve != null) {
-          const result = beforeRetrieve({ params });
+          const result = beforeRetrieve({ query });
           if (result == false) return;
           if (result !== true) {
-            onChange(successResult(name, "retrieved", result), params);
+            onChange(successResult(name, "retrieved", result), query);
             return;
           }
         }
         if (client == null)
-          return onChange(nullClientResult<Data>(name, "retrieve"), params);
-        onChange((p) => pendingResult(name, "retrieving", p.data), params);
+          return onChange(nullClientResult<Data>(name, "retrieve"), query);
+        onChange((p) => pendingResult(name, "retrieving", p.data), query);
         if (signal?.aborted) return;
-        const args = { client, params, store };
-        const value = await retrieve(args);
+        const Params = { client, query, store };
+        const value = await retrieve(Params);
         if (signal?.aborted) return;
         listeners.cleanup();
-        listeners.set(mountListeners?.({ ...args, onChange: handleListenerChange }));
-        onChange(successResult<Data>(name, "retrieved", value), params);
+        listeners.set(mountListeners?.({ ...Params, onChange: handleListenerChange }));
+        onChange(successResult<Data>(name, "retrieved", value), query);
       } catch (error) {
         if (signal?.aborted) return;
-        onChange(errorResult<Data>(name, "retrieve", error), params);
+        onChange(errorResult<Data>(name, "retrieve", error), query);
       }
     },
     [client, name, beforeRetrieve],
   );
   const retrieveSync = useCallback(
-    (
-      params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-      options?: FetchOptions,
-    ) => void retrieveAsync(params, options),
+    (query: state.SetArg<Query, Partial<Query>>, options?: core.FetchOptions) =>
+      void retrieveAsync(query, options),
     [retrieveAsync],
   );
   return {
@@ -325,81 +330,77 @@ const useObservableBase = <
 };
 
 const useDirect = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store,
+  ScopedStore extends core.Store,
 >({
-  params,
-  ...restArgs
-}: UseDirectRetrieveArgs<RetrieveParams, Data> &
-  CreateRetrieveArgs<
-    RetrieveParams,
-    Data,
-    ScopedStore
-  >): UseDirectRetrieveReturn<Data> => {
-  const { retrieveAsync, retrieve: _, ...rest } = useStateful(restArgs);
-  const memoParams = useMemoDeepEqual(params);
+  query,
+  ...restParams
+}: UseDirectRetrieveParams<Query, Data> &
+  CreateRetrieveParams<Query, Data, ScopedStore>): UseDirectRetrieveReturn<Data> => {
+  const { retrieveAsync, retrieve: _, ...rest } = useStateful(restParams);
+  const memoquery = useMemoDeepEqual(query);
   useAsyncEffect(
-    async (signal) => await retrieveAsync(memoParams, { signal }),
-    [retrieveAsync, memoParams],
+    async (signal) => await retrieveAsync(memoquery, { signal }),
+    [retrieveAsync, memoquery],
   );
   return rest;
 };
 
 const useEffect = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store,
+  ScopedStore extends core.Store,
 >({
-  params,
+  query,
   onChange,
-  ...restArgs
-}: useRetrieveEffectArgs<RetrieveParams, Data> &
-  CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>): void => {
-  const resultRef = useRef<Result<Data>>(initialResult<Data>(restArgs.name));
-  const { retrieveAsync } = useObservableBase<RetrieveParams, Data, ScopedStore>({
-    ...restArgs,
+  ...restParams
+}: UseRetrieveEffectParams<Query, Data> &
+  CreateRetrieveParams<Query, Data, ScopedStore>): void => {
+  const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
+  const { retrieveAsync } = useObservableBase<Query, Data, ScopedStore>({
+    ...restParams,
     onChange: useCallback(
-      (setter, params: RetrieveParams) => {
+      (setter, query: Query) => {
         resultRef.current = state.executeSetter(setter, resultRef.current);
-        onChange?.(resultRef.current, params);
+        onChange?.(resultRef.current, query);
       },
       [onChange],
     ),
   });
-  const memoParams = useMemoDeepEqual(params);
+  const memoquery = useMemoDeepEqual(query);
   useAsyncEffect(
     async (signal) => {
-      if (memoParams == null) return;
-      await retrieveAsync(memoParams, { signal });
+      if (memoquery == null) return;
+      await retrieveAsync(memoquery, { signal });
     },
-    [retrieveAsync, memoParams],
+    [retrieveAsync, memoquery],
   );
 };
 
 export const useObservableRetrieve = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store,
+  ScopedStore extends core.Store,
 >({
   onChange,
-  ...restArgs
-}: UseObservableRetrieveArgs<RetrieveParams, Data> &
-  CreateRetrieveArgs<
-    RetrieveParams,
+  ...restParams
+}: UseObservableRetrieveParams<Query, Data> &
+  CreateRetrieveParams<
+    Query,
     Data,
     ScopedStore
-  >): UseObservableRetrieveReturn<RetrieveParams> => {
-  const resultRef = useRef<Result<Data>>(initialResult<Data>(restArgs.name));
+  >): UseObservableRetrieveReturn<Query> => {
+  const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
   const handleChange = useCallback(
-    (setter: state.SetArg<Result<Data>>, params: RetrieveParams) => {
+    (setter: state.SetArg<Result<Data>>, query: Query) => {
       resultRef.current = state.executeSetter(setter, resultRef.current);
-      onChange?.(resultRef.current, params);
+      onChange?.(resultRef.current, query);
     },
     [onChange],
   );
-  return useObservableBase<RetrieveParams, Data, ScopedStore>({
-    ...restArgs,
+  return useObservableBase<Query, Data, ScopedStore>({
+    ...restParams,
     onChange: handleChange,
   });
 };
@@ -414,14 +415,14 @@ export const useObservableRetrieve = <
  * - `useDirect`: Automatically fetches data when parameters change. Best for most use cases.
  * - `useEffect`: Triggers data fetching as a side effect without returning state. Use when handling results externally.
  *
- * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Query The type of query parameters for the retrieve operation
  * @template Data The type of data being retrieved
- * @param factoryArgs Configuration object containing the retrieve function and resource name
+ * @param params Configuration object containing the retrieve function and resource name
  * @returns Object containing hooks for different retrieve patterns
  *
  * @example
  * ```typescript
- * interface UserRetrieveParams extends Params {
+ * interface UserQuery extends core.Shape {
  *   userId: number;
  *   includeProfile?: boolean;
  * }
@@ -432,19 +433,19 @@ export const useObservableRetrieve = <
  *   email: string;
  * }
  *
- * const userRetrieve = createRetrieve<UserRetrieveParams, User>({
+ * const userRetrieve = createRetrieve<UserQuery, User>({
  *   name: "User",
- *   retrieve: async ({ params, client }) => {
- *     return await client.users.get(params.userId, {
- *       includeProfile: params.includeProfile
+ *   retrieve: async ({ query, client }) => {
+ *     return await client.users.get(query.userId, {
+ *       includeProfile: query.includeProfile
  *     });
  *   },
  *   listeners: [
  *     {
  *       channel: "user_updates",
- *       onChange: ({ changed, params, onChange }) => {
+ *       onChange: ({ changed, query, onChange }) => {
  *         const updatedUser = changed.get("user_updates");
- *         if (updatedUser.id === params.userId) {
+ *         if (updatedUser.id === query.userId) {
  *           onChange(updatedUser);
  *         }
  *       }
@@ -454,30 +455,30 @@ export const useObservableRetrieve = <
  *
  * // Automatic fetching - data loads when component mounts and when userId changes
  * const { data, variant, error } = userRetrieve.useDirect({
- *   params: { userId: 123, includeProfile: true }
+ *   query: { userId: 123, includeProfile: true }
  * });
  *
  * // Side effect only - trigger fetching but handle result elsewhere
  * userRetrieve.useEffect({
- *   params: { userId: 123 },
+ *   query: { userId: 123 },
  *   onChange: (result) => analyticsService.track('user_loaded', result)
  * });
  * ```
  */
 export const createRetrieve = <
-  RetrieveParams extends Params,
+  Query extends core.Shape,
   Data extends state.State,
-  ScopedStore extends flux.Store = {},
+  ScopedStore extends core.Store = {},
 >(
-  factoryArgs: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
-): CreateRetrieveReturn<RetrieveParams, Data> => ({
+  params: CreateRetrieveParams<Query, Data, ScopedStore>,
+): CreateRetrieveReturn<Query, Data> => ({
   useRetrieve: (
-    args: RetrieveParams,
-    opts?: Pick<UseDirectRetrieveArgs<RetrieveParams, Data>, "beforeRetrieve">,
-  ) => useDirect({ ...factoryArgs, params: args, ...opts }),
-  useRetrieveStateful: () => useStateful(factoryArgs),
-  useRetrieveEffect: (args: useRetrieveEffectArgs<RetrieveParams, Data>) =>
-    useEffect({ ...factoryArgs, ...args }),
-  useRetrieveObservable: (args: UseObservableRetrieveArgs<RetrieveParams, Data>) =>
-    useObservableRetrieve({ ...factoryArgs, ...args }),
+    query: Query,
+    opts?: Pick<UseDirectRetrieveParams<Query, Data>, "beforeRetrieve">,
+  ) => useDirect({ ...params, query, ...opts }),
+  useRetrieveStateful: () => useStateful(params),
+  useRetrieveEffect: (Params: UseRetrieveEffectParams<Query, Data>) =>
+    useEffect({ ...params, ...Params }),
+  useRetrieveObservable: (Params: UseObservableRetrieveParams<Query, Data>) =>
+    useObservableRetrieve({ ...params, ...Params }),
 });

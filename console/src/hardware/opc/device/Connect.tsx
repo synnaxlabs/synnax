@@ -75,7 +75,7 @@ const beforeValidate = ({
 }: Flux.BeforeValidateArgs<
   Device.UseRetrieveArgs,
   typeof Device.formSchema,
-  Device.FluxSubStore
+  Device.FluxStore
 >) => set("location", get("properties.connection.endpoint").value);
 
 const beforeSave = async ({
@@ -85,7 +85,7 @@ const beforeSave = async ({
 }: Flux.BeforeSaveArgs<
   Device.UseRetrieveArgs,
   typeof Device.formSchema,
-  Device.FluxSubStore
+  Device.FluxStore
 >) => {
   const scanTask = await Task.retrieveSingle({
     client,

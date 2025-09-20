@@ -43,8 +43,8 @@ const singleRetrieveArgsZ = z
 
 export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveReqZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ logs: nullableArrayZ(logZ) });
 
@@ -94,10 +94,10 @@ export class Client {
     );
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Log>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Log[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Log>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Log[]>;
   async retrieve(
-    args: SingleRetrieveArgs | MultiRetrieveArgs,
+    args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Log | Log[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
