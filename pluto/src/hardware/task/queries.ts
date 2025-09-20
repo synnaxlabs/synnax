@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type rack, type Synnax, task } from "@synnaxlabs/client";
+import { ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type Optional, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -399,14 +399,20 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   },
 });
 
-export type UseCommandArgs = task.NewCommand[];
+export type UseCommandArgs = task.NewCommand | task.NewCommand[];
+
+const START_STOP_COMMANDS = new Set(["stop", "start"]);
 
 export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
   status: task.Status<StatusData>,
   command: string,
-): boolean =>
-  (status.details.running && command === "stop") ||
-  (!status.details.running && command === "start");
+): boolean => {
+  if (!START_STOP_COMMANDS.has(command)) return true;
+  return (
+    (status.details.running && command === "stop") ||
+    (!status.details.running && command === "start")
+  );
+};
 
 export const { useUpdate: useCommand } = Flux.createUpdate<
   UseCommandArgs,
@@ -414,7 +420,8 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
   task.Status[]
 >({
   name: "Task",
-  update: async ({ value: commands, client, store }) => {
+  update: async ({ value, client, store }) => {
+    const commands = array.toArray(value);
     const keys = commands.map(({ task }) => task);
     const tasks = store.tasks.get(keys);
     if (tasks.length < keys.length) {

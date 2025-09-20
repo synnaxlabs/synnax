@@ -23,9 +23,6 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoDeepEqual } from "@/memo";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
 import { lineplot } from "@/lineplot/aether";
 import {
   coreAxisStateZ,
@@ -33,6 +30,9 @@ import {
   withinSizeThreshold,
 } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/LinePlot";
+import { useMemoDeepEqual } from "@/memo";
+import { Text } from "@/text";
+import { Theming } from "@/theming";
 
 export interface AxisProps
   extends PropsWithChildren,

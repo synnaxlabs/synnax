@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 // Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file

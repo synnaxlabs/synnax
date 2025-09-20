@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { useGridEntry } from "@/lineplot/LinePlot";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { useGridEntry } from "@/lineplot/LinePlot";
 
 export type TitleProps = Text.MaybeEditableProps;
 

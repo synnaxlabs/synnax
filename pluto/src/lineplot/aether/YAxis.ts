@@ -9,12 +9,8 @@
 
 import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
+import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "@/lineplot/aether/axis";
 import { line } from "@/vis/line/aether";
-import {
-  type AxisRenderProps,
-  CoreAxis,
-  coreAxisStateZ,
-} from "@/lineplot/aether/axis";
 import { rule } from "@/vis/rule/aether";
 
 export const yAxisStateZ = coreAxisStateZ.extend({

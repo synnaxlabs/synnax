@@ -11,8 +11,8 @@ import { type ReactElement, useEffect } from "react";
 
 import { type Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Line as Core } from "@/vis/line";
 import { useContext } from "@/lineplot/LinePlot";
+import { Line as Core } from "@/vis/line";
 
 export interface LineProps extends Core.LineProps, Aether.ComponentProps {
   legendGroup: string;

@@ -12,10 +12,10 @@ import { memo, type ReactElement, useMemo } from "react";
 
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { Text } from "@/text";
 import { Legend as Core } from "@/vis/legend";
 import { Entries, type EntryData } from "@/vis/legend/Entries";
-import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";

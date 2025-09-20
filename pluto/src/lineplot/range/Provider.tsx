@@ -15,9 +15,9 @@ import { type RenderProp } from "@/component/renderProp";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Menu } from "@/menu";
 import { useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { range } from "@/lineplot/range/aether";
+import { Menu } from "@/menu";
 
 export interface ProviderProps extends Aether.ComponentProps {
   menu?: RenderProp<range.SelectedState>;

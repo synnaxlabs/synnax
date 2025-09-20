@@ -5,7 +5,6 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Rack } from "@/hardware/rack";
-import { Ontology } from "@/ontology";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
