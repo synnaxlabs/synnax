@@ -24,11 +24,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   const {
-    selection: { resourceIDs },
+    selection: { ids },
   } = props;
-  if (resourceIDs.length !== 1) return null;
+  if (ids.length !== 1) return null;
   const handleEditConnection = () =>
-    placeLayout({ ...Device.CONNECT_LAYOUT, key: resourceIDs[0].key });
+    placeLayout({ ...Device.CONNECT_LAYOUT, key: ids[0].key });
   return (
     <Common.DeviceServices.ContextMenuItems
       {...props}

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Icon, Synnax } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -18,17 +16,8 @@ import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
 
 const Content = (): ReactElement => {
-  const client = Synnax.use();
-  const group = useQuery({
-    queryKey: [client?.key, "user-group"],
-    queryFn: async () => {
-      if (client == null) return null;
-      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-      return res.filter((r) => r.name === "Users")[0].id;
-    },
-  });
+  const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -39,7 +28,7 @@ const Content = (): ReactElement => {
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
-      <Ontology.Tree root={group.data} />
+      <Ontology.Tree root={groupID} />
     </Toolbar.Content>
   );
 };

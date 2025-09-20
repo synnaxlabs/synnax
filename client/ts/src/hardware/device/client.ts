@@ -70,7 +70,6 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
-  readonly type = "device";
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {

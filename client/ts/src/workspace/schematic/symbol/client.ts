@@ -128,7 +128,7 @@ export class Client {
     );
   }
 
-  async retrieveGroup(): Promise<group.Payload> {
+  async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
       RETRIEVE_GROUP_ENDPOINT,

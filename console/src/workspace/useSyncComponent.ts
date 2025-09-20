@@ -9,13 +9,11 @@
 
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { Flux, Synnax } from "@synnaxlabs/pluto";
+import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
 import { useDispatchEffect } from "@/hooks/useDispatchEffect";
-import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
@@ -26,29 +24,21 @@ export const useSyncComponent = <P>(
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
   const store = useStore<RootState>();
-  const syncLayout = useMutation<void, Error>({
-    retry: 3,
-    mutationFn: async () => {
+  const syncLayout = Flux.useAction({
+    resourceName: name,
+    opName: "Save",
+    action: useCallback(async () => {
       if (layoutKey == null || client == null) return;
       const ws = selectActiveKey(store.getState());
       if (ws == null) return;
       await save(ws, store, client);
-    },
-    onError: (e) => {
-      let message = `Failed to save layout ${name}`;
-      if (layoutKey != null) {
-        const data = Layout.select(store.getState(), layoutKey);
-        if (data != null) message = `Failed to save ${data.name}`;
-      }
-      handleError(e, message);
-    },
+    }, [layoutKey, client, store, save]),
   });
   const ws = useSelectActiveKey();
   useEffect(() => {
     if (ws == null) return;
-    syncLayout.mutate();
+    syncLayout.run();
   }, [ws]);
-  return useDispatchEffect<P>(syncLayout.mutate, 1000, dispatch);
+  return useDispatchEffect<P>(syncLayout.run, 1000, dispatch);
 };

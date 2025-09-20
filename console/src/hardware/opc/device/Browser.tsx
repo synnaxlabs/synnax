@@ -9,36 +9,28 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Component,
   Flex,
+  Flux,
   Haul,
   Header,
   Icon,
   List,
   Status,
-  Synnax,
   Text,
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
-import {
-  SCAN_COMMAND_TYPE,
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  type scanConfigZ,
-  type ScannedNode,
-  type scanStatusDataZ,
-  type scanTypeZ,
-} from "@/hardware/opc/task/types";
+import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
+
+import { useRetrieveScanTask } from "./useRetrieveScanTask";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -84,31 +76,17 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
 });
 
 export const Browser = ({ device }: BrowserProps) => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
   const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
   const opcNodesStore = List.useMapData<string, ScannedNode>();
-  const { data: scanTask } = useQuery({
-    queryKey: [client?.key],
-    queryFn: async () => {
-      if (client == null) return null;
-      const scanTasks = await client.hardware.tasks.retrieve<
-        typeof scanTypeZ,
-        typeof scanConfigZ,
-        typeof scanStatusDataZ
-      >({
-        types: [SCAN_TYPE],
-        rack: device.rack,
-        schemas: SCAN_SCHEMAS,
-      });
-      if (scanTasks.length === 0)
-        throw new UnexpectedError(`No scan task found for device ${device.name}`);
-      return scanTasks[0];
-    },
-  });
-  const [, setLoading] = useState<string>();
-  const expand = useMutation({
-    mutationFn: async ({
+  const scanTask = useRetrieveScanTask(device.rack);
+  const {
+    run: expand,
+    variant,
+    status: { key, ...status },
+  } = Flux.useAction({
+    resourceName: "OPC Node",
+    opName: "Retrieve",
+    action: async ({
       action,
       delay,
       clicked,
@@ -118,7 +96,6 @@ export const Browser = ({ device }: BrowserProps) => {
       const isRoot = clicked == null;
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
-      setLoading(clicked);
       const { details } = await scanTask.executeCommandSync(
         SCAN_COMMAND_TYPE,
         TimeSpan.seconds(10),
@@ -128,15 +105,11 @@ export const Browser = ({ device }: BrowserProps) => {
       if (!("channels" in details.data)) return;
       const channels = details.data.channels;
       const newNodes = channels.map(
-        (node): Tree.Node => ({
-          key: nodeKey(node.nodeId, nodeID),
-          children: [],
-        }),
+        (node): Tree.Node => ({ key: nodeKey(node.nodeId, nodeID), children: [] }),
       );
       opcNodesStore.setItem(
         channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, nodeID) })),
       );
-      setLoading(undefined);
       setInitialLoading(false);
       if (isRoot) setTreeNodes(newNodes);
       else
@@ -148,42 +121,36 @@ export const Browser = ({ device }: BrowserProps) => {
           }),
         ]);
     },
-    onError: (error) => handleError(error, "Error loading nodes"),
   });
-  const treeProps = Tree.use({
-    nodes: treeNodes,
-    onExpand: expand.mutate,
-  });
+  const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
     if (scanTask == null) return;
     setInitialLoading(true);
-    expand.mutate({ action: "expand", current: [], delay: 200 });
+    expand({ action: "expand", current: [], delay: 200 });
     clearExpanded();
   }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
-  const content = initialLoading ? (
-    <Flex.Box center>
-      <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
-    </Flex.Box>
-  ) : expand.isError ? (
-    <Status.Summary
-      center
-      variant="error"
-      message="Error loading nodes."
-      description={expand.error.message}
-    />
-  ) : (
-    <Tree.Tree
-      {...treeProps}
-      shape={shape}
-      getItem={opcNodesStore.getItem}
-      subscribe={opcNodesStore.subscribe}
-    >
-      {itemRenderProp}
-    </Tree.Tree>
-  );
+  let content: ReactElement;
+  if (initialLoading)
+    content = (
+      <Flex.Box center>
+        <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
+      </Flex.Box>
+    );
+  else if (variant === "error") content = <Status.Summary center {...status} />;
+  else
+    content = (
+      <Tree.Tree
+        {...treeProps}
+        shape={shape}
+        getItem={opcNodesStore.getItem}
+        subscribe={opcNodesStore.subscribe}
+      >
+        {itemRenderProp}
+      </Tree.Tree>
+    );
   return (
     <Flex.Box empty className={CSS.B("opc-browser")}>
       <Header.Header>

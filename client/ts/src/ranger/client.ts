@@ -295,6 +295,11 @@ export class Client {
     await aliaser.set({ [channel]: alias });
   }
 
+  async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    await aliaser.delete(channels);
+  }
+
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
       frameClient: this.frameClient,

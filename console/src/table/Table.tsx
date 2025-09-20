@@ -102,7 +102,7 @@ export const useSyncComponent = (
       const layout = Layout.selectRequired(storeState, layoutKey);
       const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.table.create(ws, {
+      await client.workspaces.tables.create(ws, {
         key: layoutKey,
         name: layout.name,
         data: setData,
@@ -454,7 +454,7 @@ export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | n
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.table.retrieve(layoutKey);
+      const { key, data } = await client.workspaces.tables.retrieve({ key: layoutKey });
       return { key, ...data } as State;
     },
     actionCreator: internalCreate,

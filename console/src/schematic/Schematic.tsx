@@ -102,12 +102,12 @@ const useSyncComponent = (
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
       if (data.snapshot) {
-        await client.workspaces.schematic.rename(layoutKey, layout.name);
+        await client.workspaces.schematics.rename(layoutKey, layout.name);
         return;
       }
       const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.schematic.create(ws, {
+      await client.workspaces.schematics.create(ws, {
         key: layoutKey,
         name: layout.name,
         data: setData,
@@ -444,7 +444,9 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
+      const { key, data } = await client.workspaces.schematics.retrieve({
+        key: layoutKey,
+      });
       return { key, ...data } as State;
     },
     actionCreator: internalCreate,

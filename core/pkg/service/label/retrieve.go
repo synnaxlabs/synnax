@@ -92,7 +92,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIds(ontology.ResourceIDs(labelResources))
+	keys, err := KeysFromOntologyIds(ontology.IDs(labelResources))
 	if err != nil {
 		return nil, err
 	}

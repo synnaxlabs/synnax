@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { type FetchOptions } from "@/flux/core/params";
@@ -20,6 +21,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
+import { useDebouncedCallback } from "@/hooks";
 import { type state } from "@/state";
 import { Synnax } from "@/synnax";
 
@@ -34,10 +36,10 @@ export interface UpdateArgs<Data extends state.State, ScopedStore extends Store 
   value: Data;
   /** The Synnax client instance for making requests */
   client: Client;
-  /** Function to update the form state with new data */
-  onChange: state.PureSetter<Data>;
   /** The store to update */
   store: ScopedStore;
+  /** Set of rollback functions to execute if the update fails */
+  rollbacks: Set<Destructor>;
 }
 
 /**
@@ -49,11 +51,12 @@ export interface UpdateArgs<Data extends state.State, ScopedStore extends Store 
 export interface CreateUpdateArgs<
   Data extends state.State,
   ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
 > {
   /** The name of the resource being updated (used for status messages) */
   name: string;
   /** Function that performs the actual update operation */
-  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<void>;
+  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<OutputData | false>;
 }
 
 /**
@@ -73,26 +76,42 @@ export interface UseObservableUpdateReturn<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
+ * @template OutputData The type of data returned by the update operation
  */
-export interface UseObservableUpdateArgs<Data extends state.State> {
+export interface UseObservableUpdateArgs<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> {
+  debounce?: number;
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<Data | undefined>>;
   /** The scope to use for the update operation */
   scope?: string;
   /** Function to run before the update operation. If the function returns undefined,
    * the update will be cancelled. */
-  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | boolean>;
+  beforeUpdate?: (
+    args: BeforeUpdateArgs<Data>,
+  ) => Promise<Data | boolean> | Data | boolean;
   /** Function to run after the update operation. */
-  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
+  afterSuccess?: (args: AfterSuccessArgs<OutputData>) => Promise<void> | void;
+  /** Function to run after the update operation fails. */
+  afterFailure?: (args: AfterFailureArgs<Data>) => Promise<void> | void;
 }
 
 export interface BeforeUpdateArgs<Data extends state.State> {
+  rollbacks: Set<Destructor>;
   client: Client;
   value: Data;
 }
 
-export interface AfterUpdateArgs<Data extends state.State> {
+export interface AfterSuccessArgs<Data extends state.State> {
   client: Client;
+  value: Data;
+}
+
+export interface AfterFailureArgs<Data extends state.State> {
+  client: Client;
+  status: status.Status;
   value: Data;
 }
 
@@ -101,8 +120,10 @@ export interface AfterUpdateArgs<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  */
-export interface UseDirectUpdateArgs<Data extends state.State>
-  extends Omit<UseObservableUpdateArgs<Data>, "onChange"> {}
+export interface UseDirectUpdateArgs<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> extends Omit<UseObservableUpdateArgs<Data, OutputData>, "onChange"> {}
 
 /**
  * Return type for the direct update hook, combining result state with update functions.
@@ -118,88 +139,116 @@ export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | unde
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface CreateUpdateReturn<Data extends state.State> {
+export interface CreateUpdateReturn<
+  Data extends state.State,
+  OutputData extends state.State = Data,
+> {
   /** Hook that provides update functions with external state management */
   useObservableUpdate: (
-    args: UseObservableUpdateArgs<Data>,
+    args: UseObservableUpdateArgs<Data, OutputData>,
   ) => UseObservableUpdateReturn<Data>;
   /** Hook that provides update functions with internal state management */
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) => UseDirectUpdateReturn<Data>;
+  useUpdate: (
+    args?: UseDirectUpdateArgs<Data, OutputData>,
+  ) => UseDirectUpdateReturn<Data>;
 }
 
 /**
  * Internal hook for observable updates with external state management.
  * @internal
  */
-const useObservable = <Data extends state.State, ScopedStore extends Store = {}>({
+const useObservable = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>({
   onChange,
   update,
   name,
+  debounce = 0,
   scope,
   beforeUpdate,
-  afterUpdate,
-}: UseObservableUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseObservableUpdateReturn<Data> => {
+  afterSuccess,
+  afterFailure,
+}: UseObservableUpdateArgs<Data, OutputData> &
+  CreateUpdateArgs<Data, ScopedStore, OutputData>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
   const store = useStore<ScopedStore>(scope);
-  const handleUpdate = useCallback(
+  const handleUpdate = useDebouncedCallback(
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
-      try {
-        if (client == null) {
-          onChange(nullClientResult(name, "update"));
-          return false;
+      const rollbacks = new Set<Destructor>();
+      const runRollbacks = () => {
+        try {
+          rollbacks.forEach((rollback) => rollback());
+        } catch (error) {
+          console.error(`failed to rollback changes to ${name}`, error);
         }
+      };
+      if (client == null) {
+        onChange(nullClientResult(name, "update"));
+        return false;
+      }
+      try {
         onChange((p) => pendingResult(name, "updating", p.data));
-        let updated = false;
         if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({ client, value });
-          if (updatedValue === false) return false;
+          const updatedValue = await beforeUpdate({ client, value, rollbacks });
+          if (updatedValue === false) {
+            runRollbacks();
+            return false;
+          }
           if (updatedValue !== true) value = updatedValue;
         }
-        await update({
+        const oValue = await update({
           client,
-          onChange: (value) => {
-            updated = true;
-            onChange(successResult(name, "updated", value));
-          },
           value,
           store,
+          rollbacks,
         });
-        if (signal?.aborted === true) return false;
-        if (!updated) onChange(successResult(name, "updated", value));
-        if (afterUpdate != null) await afterUpdate({ client, value });
+        if (signal?.aborted === true || oValue == false) {
+          runRollbacks();
+          return false;
+        }
+        onChange(successResult(name, "updated", value));
+        await afterSuccess?.({ client, value: oValue });
         return true;
       } catch (error) {
-        if (signal?.aborted !== true) onChange(errorResult(name, "update", error));
+        runRollbacks();
+        if (signal?.aborted !== true) {
+          const result = errorResult<Data | undefined>(name, "update", error);
+          onChange(result);
+          await afterFailure?.({ client, status: result.status, value });
+        }
         return false;
       }
     },
+    debounce,
     [name],
   );
   const handleSyncUpdate = useCallback(
     (value: Data, opts?: FetchOptions) => void handleUpdate(value, opts),
     [handleUpdate],
   );
-  return {
-    update: handleSyncUpdate,
-    updateAsync: handleUpdate,
-  };
+  return { update: handleSyncUpdate, updateAsync: handleUpdate };
 };
 
 /**
  * Internal hook for direct updates with internal state management.
  * @internal
  */
-const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
+const useDirect = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>({
   name,
   ...restArgs
-}: UseDirectUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
+}: UseDirectUpdateArgs<Data, OutputData> &
+  CreateUpdateArgs<Data, ScopedStore, OutputData>): UseDirectUpdateReturn<Data> => {
   const [result, setResult] = useState<Result<Data | undefined>>(
     successResult(name, "updated", undefined),
   );
-  const methods = useObservable<Data, ScopedStore>({
+  const methods = useObservable<Data, ScopedStore, OutputData>({
     ...restArgs,
     name,
     onChange: setResult,
@@ -255,11 +304,15 @@ const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
  * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
  * ```
  */
-export const createUpdate = <Data extends state.State, ScopedStore extends Store = {}>(
-  createArgs: CreateUpdateArgs<Data, ScopedStore>,
-): CreateUpdateReturn<Data> => ({
-  useObservableUpdate: (args: UseObservableUpdateArgs<Data>) =>
-    useObservable<Data, ScopedStore>({ ...args, ...createArgs }),
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) =>
-    useDirect<Data, ScopedStore>({ ...args, ...createArgs }),
+export const createUpdate = <
+  Data extends state.State,
+  ScopedStore extends Store = {},
+  OutputData extends state.State = Data,
+>(
+  createArgs: CreateUpdateArgs<Data, ScopedStore, OutputData>,
+): CreateUpdateReturn<Data, OutputData> => ({
+  useObservableUpdate: (args: UseObservableUpdateArgs<Data, OutputData>) =>
+    useObservable<Data, ScopedStore, OutputData>({ ...args, ...createArgs }),
+  useUpdate: (args?: UseDirectUpdateArgs<Data, OutputData>) =>
+    useDirect<Data, ScopedStore, OutputData>({ ...args, ...createArgs }),
 });

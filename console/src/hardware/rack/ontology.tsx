@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, rack } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -24,49 +23,42 @@ const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,
 });
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = ({
+  selection: { ids },
+  state: { getResource },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Rack" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
-    }) => {
-      const resources = resourceIDs.map((id) => getResource(id));
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      const prevNodes = Tree.deepCopy(nodes);
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ selection: { resourceIDs }, client }) =>
-      await client.hardware.racks.delete(resourceIDs.map((id) => Number(id.key))),
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete racks");
-    },
-  }).mutate;
+  const keys = useMemo(() => ids.map((id) => Number(id.key)), [ids]);
+  const beforeUpdate = useCallback(
+    async () => await confirm(getResource(ids)),
+    [confirm, getResource],
+  );
+  const { update } = Rack.useDelete({ beforeUpdate });
+  return useCallback(() => update(keys), [update, keys]);
 };
 
 const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const copy = useCopyToClipboard();
-  return ({ selection: { resourceIDs }, state: { getResource } }) => {
-    copy(resourceIDs[0].key, `key to ${getResource(resourceIDs[0]).name}`);
+  return ({ selection: { ids }, state: { getResource } }) => {
+    copy(ids[0].key, `key to ${getResource(ids[0]).name}`);
   };
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    const rack = await client.hardware.racks.retrieve({ key: Number(id.key) });
-    await client.hardware.racks.create({ ...rack, name });
-  },
+const useRename = (props: Ontology.TreeContextMenuProps) => {
+  const { update } = Rack.useRename({
+    beforeUpdate: async ({ value }) => {
+      const [name, renamed] = await Text.asyncEdit(
+        ontology.idToString(rack.ontologyID(value.key)),
+      );
+      if (!renamed) return false;
+      return { ...value, name };
+    },
+  });
+  const firstKey = Number(props.selection.ids[0].key);
+  return useCallback(() => update({ key: firstKey, name: "" }), [update, firstKey]);
 };
 
-const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
+const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
   const res = Rack.useRetrieve({ key: Number(id.key) });
   const status = res.data?.status;
@@ -78,9 +70,10 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
         id={itemKey}
         allowDoubleClick={false}
         value={resource.name}
-        onChange={(name) => onRename?.(name)}
         overflow="ellipsis"
-        style={{ width: 0, flexGrow: 1 }}
+        style={{ width: 0 }}
+        grow
+        onChange
       />
       <Rack.StatusIndicator status={status} />
     </Tree.Item>
@@ -92,18 +85,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection,
     state: { shape },
   } = props;
-  const { resourceIDs, rootID } = selection;
-  const handleDelete = useDelete();
+  const { ids, rootID } = selection;
+  const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
-  const rename = Modals.useRename();
+  const openRenameModal = Modals.useRename();
+  const rename = useRename(props);
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
-        rename,
-        rackKey: Number(resourceIDs[0].key),
+        rename: openRenameModal,
+        rackKey: Number(ids[0].key),
       });
       if (layout == null) return;
       placeLayout(layout);
@@ -111,20 +105,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const onSelect = {
     group: () => group(props),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    rename,
     createSequence,
     copy: () => copyKeyToClipboard(props),
-    delete: () => handleDelete(props),
+    delete: handleDelete,
   };
-  const isSingle = resourceIDs.length === 1;
+  const isSingle = ids.length === 1;
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem
-        resourceIDs={resourceIDs}
-        rootID={rootID}
-        shape={shape}
-        showBottomDivider
-      />
+      <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
       {isSingle && (
         <>
           <Menu.RenameItem />
@@ -153,8 +142,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => false,
   onSelect: () => {},
   haulItems: () => [],
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   Item,
 };

@@ -297,11 +297,11 @@ describe("Policy", () => {
 describe("privilege", async () => {
   test("new user", async () => {
     const username = id.create();
-    const user2 = await client.user.create({ username, password: "pwd1" });
+    const user2 = await client.users.create({ username, password: "pwd1" });
     expect(user2).toBeDefined();
     const client2 = createTestClient({ username: user2.username, password: "pwd1" });
     await expect(
-      client2.user.create({ username: id.create(), password: id.create() }),
+      client2.users.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.policy.create({
@@ -312,7 +312,7 @@ describe("privilege", async () => {
 
     const newUsername = id.create();
 
-    const newUser = await client2.user.create({
+    const newUser = await client2.users.create({
       username: newUsername,
       password: id.create(),
     });
@@ -323,7 +323,7 @@ describe("privilege", async () => {
     await client.access.policy.delete(policy.key);
 
     await expect(
-      client2.user.create({ username: id.create(), password: id.create() }),
+      client2.users.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
   });
 });

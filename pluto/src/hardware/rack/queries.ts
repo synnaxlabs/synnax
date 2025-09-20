@@ -7,19 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import { ontology, rack } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "racks";
 
 export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
   channel: rack.SET_CHANNEL_NAME,
   schema: rack.keyZ,
   onChange: async ({ store, changed, client }) => {
@@ -31,13 +35,13 @@ const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
   },
 };
 
-const DELETE_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+const DELETE_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
   channel: rack.DELETE_CHANNEL_NAME,
   schema: rack.keyZ,
   onChange: ({ store, changed }) => store.racks.delete(changed),
 };
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.statusZ> = {
   channel: rack.STATUS_CHANNEL_NAME,
   schema: rack.statusZ,
   onChange: ({ store, changed }) =>
@@ -46,7 +50,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> =
     ),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
 };
 
@@ -61,11 +65,11 @@ const DEFAULT_PARAMS = {
   includeStatus: true,
 };
 
-const retrieveFn = async ({
+const retrieveSingle = async ({
   client,
   params,
   store,
-}: Flux.RetrieveArgs<RetrieveParams, SubStore>) => {
+}: Flux.RetrieveArgs<RetrieveParams, FluxSubStore>) => {
   let rack = store.racks.get(params.key);
   if (rack == null) {
     rack = await client.hardware.racks.retrieve({
@@ -76,7 +80,13 @@ const retrieveFn = async ({
   }
   return rack;
 };
-export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
+
+export const useList = Flux.createList<
+  ListParams,
+  rack.Key,
+  rack.Payload,
+  FluxSubStore
+>({
   name: "Racks",
   retrieveCached: ({ store }) => store.racks.list(),
   retrieve: async ({ client, params, store }) => {
@@ -88,7 +98,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubSt
     return racks;
   },
   retrieveByKey: async ({ client, key, store }) =>
-    await retrieveFn({ client, params: { key }, store }),
+    await retrieveSingle({ client, params: { key }, store }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.racks.onSet((rack) => onChange(rack.key, rack)),
     store.racks.onDelete(onDelete),
@@ -103,11 +113,44 @@ export interface RetrieveParams {
 export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   RetrieveParams,
   rack.Payload,
-  SubStore
+  FluxSubStore
 >({
   name: "Rack",
-  retrieve: retrieveFn,
+  retrieve: retrieveSingle,
   mountListeners: ({ store, onChange, params: { key } }) => [
     store.racks.onSet(onChange, key),
   ],
+});
+
+export type UseDeleteArgs = rack.Key | rack.Key[];
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+  name: "Rack",
+  update: async ({ client, value, store, rollbacks }) => {
+    const keys = array.toArray(value);
+    const ids = keys.map((key) => rack.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
+    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.add(store.racks.delete(keys));
+    await client.hardware.racks.delete(keys);
+    return value;
+  },
+});
+
+export interface UseRenameArgs {
+  key: rack.Key;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Rack",
+  update: async ({ value, client, rollbacks, store }) => {
+    const { key, name } = value;
+    rollbacks.add(Flux.partialUpdate(store.racks, value.key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
+    const r = await retrieveSingle({ client, params: { key }, store });
+    await client.hardware.racks.create({ ...r, name });
+    return value;
+  },
 });

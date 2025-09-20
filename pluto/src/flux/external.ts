@@ -16,3 +16,4 @@ export * from "@/flux/Provider";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";
 export * from "@/flux/update";
+export * from "@/flux/useAsyncOperation";

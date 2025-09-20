@@ -10,56 +10,57 @@
 import { group, ontology, type Synnax } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
 
-export interface FluxStore extends Flux.UnaryStore<group.Key, group.Payload> {}
+export interface FluxStore extends Flux.UnaryStore<group.Key, group.Group> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_GROUP_LISTENER: Flux.ChannelListener<SubStore, typeof group.groupZ> = {
+const SET_GROUP_LISTENER: Flux.ChannelListener<FluxSubStore, typeof group.groupZ> = {
   channel: group.SET_CHANNEL_NAME,
   schema: group.groupZ,
   onChange: ({ store, changed }) => store.groups.set(changed.key, changed),
 };
 
-const DELETE_GROUP_LISTENER: Flux.ChannelListener<SubStore, typeof group.keyZ> = {
+const DELETE_GROUP_LISTENER: Flux.ChannelListener<FluxSubStore, typeof group.keyZ> = {
   channel: group.DELETE_CHANNEL_NAME,
   schema: group.keyZ,
   onChange: ({ store, changed }) => store.groups.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-export const singleRetrieve = async (
-  key: group.Key,
-  client: Synnax,
-  subStore: SubStore,
-) => {
-  const cached = subStore.groups.get(key);
+interface RetrieveSingleArgs {
+  key: group.Key;
+  client: Synnax;
+  store: FluxSubStore;
+}
+
+export const retrieveSingle = async ({ key, client, store }: RetrieveSingleArgs) => {
+  const cached = store.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));
-  subStore.groups.set(key, group.groupZ.parse(res.data));
+  store.groups.set(key, group.groupZ.parse(res.data));
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateValue extends group.Payload {
-  parent: ontology.ID;
-}
+export interface CreateValue extends group.CreateArgs {}
 
-export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, SubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, FluxSubStore>({
   name: "Group",
-  update: async ({ value, client, onChange, store }) => {
+  update: async ({ value, client, store }) => {
     const { parent } = value;
-    const res = await client.ontology.groups.create(parent, value.name, value.key);
+    const res = await client.ontology.groups.create(value);
     store.groups.set(res.key, res);
-    onChange({ ...res, parent });
+    return { ...res, parent };
   },
 });
 
@@ -70,7 +71,12 @@ export interface ListParams {
   limit?: number;
 }
 
-export const useList = Flux.createList<ListParams, group.Key, group.Payload, SubStore>({
+export const useList = Flux.createList<
+  ListParams,
+  group.Key,
+  group.Group,
+  FluxSubStore
+>({
   name: "Group",
   retrieveCached: ({ store, params }) => {
     if (params.parent == null) return [];
@@ -102,7 +108,7 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     return groups;
   },
   retrieveByKey: async ({ client, key, store }) =>
-    await singleRetrieve(key, client, store),
+    await retrieveSingle({ key, client, store }),
   mountListeners: ({ store, onChange, onDelete, params: { parent }, client }) => [
     store.groups.onSet((group) =>
       onChange(group.key, (p) => (p == null ? null : group)),
@@ -114,7 +120,7 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
         !ontology.matchRelationship(rel, { from: parent, type: "parent" })
       )
         return;
-      const group = await singleRetrieve(rel.to.key, client, store);
+      const group = await retrieveSingle({ key: rel.to.key, client, store });
       onChange(group.key, group);
     }),
     store.relationships.onDelete(async (relKey) => {
@@ -129,27 +135,35 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
   ],
 });
 
-export interface RenameValue {
-  key: string;
-  name: string;
-}
-
-export const { useUpdate: useRename } = Flux.createUpdate<RenameValue, SubStore>({
-  name: "Group",
-  update: async ({ client, value, store }) => {
-    await client.ontology.groups.rename(value.key, value.name);
-    store.groups.set(value.key, { ...value, name: value.name });
-  },
-});
-
 export interface DeleteValue {
   key: string;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, SubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, FluxSubStore>({
   name: "Group",
   update: async ({ client, value, store }) => {
     await client.ontology.groups.delete(value.key);
     store.groups.delete(value.key);
+    return value;
+  },
+});
+
+export interface UseUpdateArgs {
+  parent: ontology.ID;
+}
+
+export interface UseRenameArgs {
+  key: string;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: "Group",
+  update: async ({ client, value, store, rollbacks }) => {
+    const { key, name } = value;
+    rollbacks.add(Flux.partialUpdate(store.groups, key, { name }));
+    rollbacks.add(Ontology.renameFluxResource(store, group.ontologyID(key), name));
+    await client.ontology.groups.rename(value);
+    return value;
   },
 });

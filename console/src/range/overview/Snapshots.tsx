@@ -45,7 +45,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
-      const s = await client.workspaces.schematic.retrieve(key);
+      const s = await client.workspaces.schematics.retrieve({ key });
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
       );
@@ -95,7 +95,7 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildren({
+  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildList({
     initialParams: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });

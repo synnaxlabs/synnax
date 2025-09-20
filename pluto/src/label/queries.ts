@@ -10,28 +10,30 @@
 import { label, ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
+import { type Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
-interface SubStore extends Flux.Store {
-  labels: FluxStore;
+export interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
-const SET_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
+const SET_LABEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof label.labelZ> = {
   channel: label.SET_CHANNEL_NAME,
   schema: label.labelZ,
   onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
 };
 
-const DELETE_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.keyZ> = {
+const DELETE_LABEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof label.keyZ> = {
   channel: label.DELETE_CHANNEL_NAME,
   schema: label.keyZ,
   onChange: ({ store, changed }) => store.labels.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
 };
 
@@ -45,12 +47,7 @@ interface UseLabelsOfQueryParams {
   id: ontology.ID;
 }
 
-interface SubStore extends Flux.Store {
-  labels: FluxStore;
-  relationships: Flux.UnaryStore<string, ontology.Relationship>;
-}
-
-export const retrieveCachedLabelsOf = (store: SubStore, id: ontology.ID) => {
+export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => {
   const keys = store.relationships
     .get((rel) => matchRelationship(rel, id))
     .map((rel) => rel.to.key);
@@ -60,7 +57,7 @@ export const retrieveCachedLabelsOf = (store: SubStore, id: ontology.ID) => {
 export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   UseLabelsOfQueryParams,
   label.Label[],
-  SubStore
+  FluxSubStore
 >({
   name: "Labels",
   retrieve: async ({ client, params: { id } }) =>
@@ -93,7 +90,12 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
 
 export interface ListParams extends label.MultiRetrieveArgs {}
 
-export const useList = Flux.createList<ListParams, label.Key, label.Label, SubStore>({
+export const useList = Flux.createList<
+  ListParams,
+  label.Key,
+  label.Label,
+  FluxSubStore
+>({
   name: "Labels",
   retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
@@ -115,7 +117,7 @@ interface FormParams {
 
 export const formSchema = label.labelZ.partial({ key: true });
 
-export const useForm = Flux.createForm<FormParams, typeof formSchema, SubStore>({
+export const useForm = Flux.createForm<FormParams, typeof formSchema, FluxSubStore>({
   name: "Label",
   initialValues: {
     name: "",
@@ -144,5 +146,8 @@ export interface UseDeleteArgs {
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
-  update: async ({ client, value }) => await client.labels.delete(value.key),
+  update: async ({ client, value }) => {
+    await client.labels.delete(value.key);
+    return value;
+  },
 });
