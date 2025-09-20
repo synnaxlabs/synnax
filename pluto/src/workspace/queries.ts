@@ -177,7 +177,7 @@ export const useForm = Flux.createForm<
   },
 });
 
-interface UseSaveLayoutArgs extends workspace.SetLayoutArgs {}
+export interface UseSaveLayoutArgs extends workspace.SetLayoutArgs {}
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   UseSaveLayoutArgs,

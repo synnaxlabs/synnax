@@ -349,8 +349,8 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useDelete(), { wrapper });
-      act(() => {
-        result.current.update(ws.key);
+      await act(async () => {
+        await result.current.updateAsync(ws.key);
       });
       const { result: retrieveResult } = renderHook(
         () => Workspace.useRetrieve({ key: ws.key }),
@@ -362,6 +362,38 @@ describe("queries", () => {
           "Failed to retrieve Workspace",
         );
         expect(retrieveResult.current.status.description).toContain("not found");
+      });
+    });
+  });
+
+  describe("useSaveLayout", () => {
+    it("should correctly save a workspace layout", async () => {
+      const ws = await client.workspaces.create({
+        name: "testWorkspace",
+        layout: { config: { setting1: "value1" } },
+      });
+
+      const { result } = renderHook(
+        () => ({
+          saveLayout: Workspace.useSaveLayout(),
+          retrieve: Workspace.useRetrieve({ key: ws.key }),
+        }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.saveLayout.updateAsync({
+          key: ws.key,
+          layout: {
+            config: { setting1: "value2" },
+          },
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.layout).toEqual({
+          config: { setting1: "value2" },
+        });
       });
     });
   });
