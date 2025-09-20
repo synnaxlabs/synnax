@@ -176,3 +176,20 @@ export const useForm = Flux.createForm<
     set("key", res.key);
   },
 });
+
+interface UseSaveLayoutArgs extends workspace.SetLayoutArgs {}
+
+export const { useUpdate: useSaveLayout } = Flux.createUpdate<
+  UseSaveLayoutArgs,
+  FluxSubStore
+>({
+  name: "Workspace",
+  update: async ({ client, value, store }) => {
+    await client.workspaces.setLayout(value);
+    store.workspaces.set(value.key, (p) => {
+      if (p == null) return p;
+      return { ...p, layout: value.layout };
+    });
+    return value;
+  },
+});

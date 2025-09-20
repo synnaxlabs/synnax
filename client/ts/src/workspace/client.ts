@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -45,7 +45,10 @@ const retrieveReqZ = z.object({
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
+const setLayoutReqZ = z.object({
+  key: keyZ,
+  layout: record.unknownZ.transform((l) => JSON.stringify(l)),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
@@ -54,6 +57,8 @@ const emptyResZ = z.object({});
 
 export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
+
+export interface SetLayoutArgs extends z.input<typeof setLayoutReqZ> {}
 
 export class Client {
   readonly schematics: schematic.Client;
@@ -94,11 +99,11 @@ export class Client {
     );
   }
 
-  async setLayout(key: Key, layout: record.Unknown): Promise<void> {
+  async setLayout(args: SetLayoutArgs): Promise<void> {
     await sendRequired(
       this.client,
       SET_LAYOUT_ENDPOINT,
-      { key, layout: JSON.stringify(layout) },
+      args,
       setLayoutReqZ,
       emptyResZ,
     );

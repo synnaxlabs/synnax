@@ -43,7 +43,7 @@ describe("Workspace", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      await client.workspaces.setLayout(ws.key, { two: 2 });
+      await client.workspaces.setLayout({ key: ws.key, layout: { two: 2 } });
       const res = await client.workspaces.retrieve(ws.key);
       expect(res.layout.two).toEqual(2);
     });

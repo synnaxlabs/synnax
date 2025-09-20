@@ -21,6 +21,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
+import { useDebouncedCallback } from "@/hooks";
 import { type state } from "@/state";
 import { Synnax } from "@/synnax";
 
@@ -81,6 +82,7 @@ export interface UseObservableUpdateArgs<
   Data extends state.State,
   OutputData extends state.State = Data,
 > {
+  debounce?: number;
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<Data | undefined>>;
   /** The scope to use for the update operation */
@@ -163,6 +165,7 @@ const useObservable = <
   onChange,
   update,
   name,
+  debounce = 0,
   scope,
   beforeUpdate,
   afterSuccess,
@@ -171,7 +174,7 @@ const useObservable = <
   CreateUpdateArgs<Data, ScopedStore, OutputData>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
   const store = useStore<ScopedStore>(scope);
-  const handleUpdate = useCallback(
+  const handleUpdate = useDebouncedCallback(
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
       const rollbacks = new Set<Destructor>();
@@ -219,6 +222,7 @@ const useObservable = <
         return false;
       }
     },
+    debounce,
     [name],
   );
   const handleSyncUpdate = useCallback(
