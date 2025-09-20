@@ -281,11 +281,11 @@ export const createForm = <
         );
         reset(taskToFormValues(task.payload));
       },
-      update: async ({ client, params, store, ...form }) => {
+      update: async ({ client, store, ...form }) => {
         const value = form.value();
         const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
         const task = await rack.createTask({
-          key: params.key,
+          key: value.key,
           name: value.name,
           type: value.type,
           config: value.config,

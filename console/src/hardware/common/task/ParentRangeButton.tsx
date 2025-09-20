@@ -18,7 +18,7 @@ import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 export const ParentRangeButton = () => {
   const taskKey = useKey();
   const [parent, setParent] = useState<ranger.Payload | null>(null);
-  Ranger.retrieveParent.useEffect({
+  Ranger.useRetrieveParentEffect({
     params: taskKey != null ? { id: task.ontologyID(taskKey) } : undefined,
     onChange: useCallback(
       (p: Flux.Result<ranger.Range | null>) => setParent(p.data ?? null),

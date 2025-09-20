@@ -163,21 +163,31 @@ describe("queries", () => {
         virtual: true,
       });
 
-      const { result } = renderHook(() => Channel.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => {
+          const list = Channel.useList();
+          const rename = Channel.useRename();
+          return { list, rename };
+        },
+        { wrapper },
+      );
       act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
+        result.current.list.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current.list.variant).toEqual("success");
       });
-      expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
+      expect(result.current.list.getItem(testChannel.key)?.name).toEqual("original");
 
-      await client.channels.rename(testChannel.key, "updated");
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testChannel.key,
+          name: "updated",
+        });
+      });
 
       await waitFor(() => {
-        expect(result.current.getItem(testChannel.key)?.name).toEqual("updated");
+        expect(result.current.list.getItem(testChannel.key)?.name).toEqual("updated");
       });
     });
 
@@ -644,16 +654,25 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Channel.useForm({ params: { key: testChannel.key } }),
+        () => {
+          const form = Channel.useForm({ params: { key: testChannel.key } });
+          const rename = Channel.useRename();
+          return { form, rename };
+        },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().name).toEqual("externalUpdate");
+      await waitFor(() => expect(result.current.form.variant).toEqual("success"));
+      expect(result.current.form.form.value().name).toEqual("externalUpdate");
 
-      await client.channels.rename(testChannel.key, "externallyUpdated");
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testChannel.key,
+          name: "externallyUpdated",
+        });
+      });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("externallyUpdated");
+        expect(result.current.form.form.value().name).toEqual("externallyUpdated");
       });
     });
 
@@ -872,20 +891,31 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Channel.useCalculatedForm({ params: { key: testCalculated.key } }),
+        () => {
+          const form = Channel.useCalculatedForm({
+            params: { key: testCalculated.key },
+          });
+          const rename = Channel.useRename();
+          return { form, rename };
+        },
         { wrapper },
       );
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current.form.variant).toEqual("success");
       });
-      expect(result.current.form.value().name).toEqual("updateCalculated");
+      expect(result.current.form.form.value().name).toEqual("updateCalculated");
 
       await act(async () => {
-        await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
+        await result.current.rename.updateAsync({
+          key: testCalculated.key,
+          name: "externallyUpdatedCalculated",
+        });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("externallyUpdatedCalculated");
+        expect(result.current.form.form.value().name).toEqual(
+          "externallyUpdatedCalculated",
+        );
       });
     });
   });

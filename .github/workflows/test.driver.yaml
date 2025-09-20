@@ -14,20 +14,46 @@ on:
       - client/cpp/**
       - core/**
       - driver/**
+      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - go.work
       - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
-      - vendor/**
+      - scripts/check_clang_format.sh
+      - vendor/mbedtls/**
+      - vendor/open62541/**
       - x/cpp/**
       - x/go/**
   push:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.driver.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - core/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - vendor/mbedtls/**
+      - vendor/open62541/**
+      - x/cpp/**
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -40,7 +66,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
@@ -81,7 +107,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Dependencies
         run: |
@@ -106,7 +132,7 @@ jobs:
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: scripts/check-clang-format.sh driver
+        run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
         run:

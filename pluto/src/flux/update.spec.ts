@@ -27,14 +27,11 @@ describe("update", () => {
   });
   describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({
-            name: "Resource",
-            update: async () => {},
-          }).useDirect({ params: {} }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({
+        name: "Resource",
+        update: async () => {},
+      });
+      const { result } = renderHook(useUpdate, { wrapper });
       expect(result.current.variant).toEqual("success");
       expect(result.current.data).toEqual(undefined);
       expect(result.current.status.message).toEqual("Updated Resource");
@@ -42,14 +39,8 @@ describe("update", () => {
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({
-            name: "Resource",
-            update,
-          }).useDirect({ params: {} }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
@@ -59,13 +50,8 @@ describe("update", () => {
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       act(() => {
         result.current.update(12, { signal: controller.signal });
       });
@@ -78,13 +64,10 @@ describe("update", () => {
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper: createSynnaxWrapper({ client: null }) },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, {
+        wrapper: createSynnaxWrapper({ client: null }),
+      });
       act(() => {
         result.current.update(12, { signal: controller.signal });
       });
@@ -99,13 +82,8 @@ describe("update", () => {
       const update = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       };
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       act(() => {
         result.current.update(12, { signal: controller.signal });
       });
@@ -120,13 +98,8 @@ describe("update", () => {
   describe("updateAsync", () => {
     it("should return true if the update function is successful", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(
         async () =>
           await result.current.updateAsync(12, {
@@ -138,13 +111,8 @@ describe("update", () => {
 
     it("should return false if an error is thrown", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(
         async () =>
           await result.current.updateAsync(12, {
@@ -156,13 +124,10 @@ describe("update", () => {
 
     it("should return false if the client is null", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper: createSynnaxWrapper({ client: null }) },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, {
+        wrapper: createSynnaxWrapper({ client: null }),
+      });
       const updated = await act(
         async () =>
           await result.current.updateAsync(12, {
@@ -175,13 +140,8 @@ describe("update", () => {
     it("should return false if the update function is aborted", async () => {
       const update = vi.fn();
       const controller = new AbortController();
-      const { result } = renderHook(
-        () =>
-          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
-            params: {},
-          }),
-        { wrapper },
-      );
+      const { useUpdate } = Flux.createUpdate<number>({ name: "Resource", update });
+      const { result } = renderHook(useUpdate, { wrapper });
       const updated = await act(async () => {
         controller.abort();
         return await result.current.updateAsync(12, {

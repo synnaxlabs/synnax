@@ -266,8 +266,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     () => resourceIDs.map((r) => Number(r.key)),
     [resourceIDs],
   );
-  const channels = PChannel.retrieveMany.useDirect({
-    params: { rangeKey: activeRange?.key, keys: channelKeys },
+  const channels = PChannel.useRetrieveMany({
+    rangeKey: activeRange?.key,
+    keys: channelKeys,
   });
   const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
@@ -346,8 +347,9 @@ export const Item = ({
   ...rest
 }: Ontology.TreeItemProps) => {
   const activeRange = Range.useSelect();
-  const res = PChannel.retrieve.useDirect({
-    params: { key: Number(id.key), rangeKey: activeRange?.key },
+  const res = PChannel.useRetrieve({
+    key: Number(id.key),
+    rangeKey: activeRange?.key,
   }).data;
   let name = resource.name;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;

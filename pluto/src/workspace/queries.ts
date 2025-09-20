@@ -44,7 +44,7 @@ export interface RetrieveParams {
   key: workspace.Key;
 }
 
-export const retrieve = Flux.createRetrieve<
+export const { useRetrieve } = Flux.createRetrieve<
   RetrieveParams,
   workspace.Workspace,
   SubStore

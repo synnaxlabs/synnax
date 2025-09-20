@@ -515,7 +515,7 @@ export const CustomActuator = ({
   stateOverrides,
   ...rest
 }: CustomActuatorProps): ReactElement | null => {
-  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const spec = Symbol.useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
   useCustom({
     container: svgContainerRef.current,
@@ -571,7 +571,7 @@ export const CustomStatic = ({
   stateOverrides,
   ...rest
 }: CustomStaticProps): ReactElement | null => {
-  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const spec = Symbol.useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLDivElement>(null);
   useCustom({
     container: svgContainerRef.current,

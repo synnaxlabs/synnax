@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import functools
+import warnings
 from typing import Callable, overload
 from uuid import UUID
 
@@ -432,7 +433,7 @@ class Range(RangePayload):
         start = self.time_range.start
         self.__frame_client.write(start, to, series)
 
-    def create_sub_range(
+    def create_child_range(
         self,
         *,
         name: str,
@@ -447,6 +448,40 @@ class Range(RangePayload):
             key=key,
             parent=ID(type="range", key=str(self.key)),
         )
+
+    def create_sub_range(
+        self,
+        *,
+        name: str,
+        time_range: TimeRange,
+        color: str = "",
+        key: RangeKey = UUID(int=0),
+    ) -> Range:
+        """
+        This method is deprecated and will be removed in a future release.
+        Use create_child_range instead.
+        """
+        warnings.warn(
+            "create_sub_range() is deprecated and will be removed in a future version. "
+            "Use create_child_range() instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.create_child_range(
+            name=name,
+            time_range=time_range,
+            color=color,
+            key=key,
+        )
+
+    @property
+    def children(self) -> list[Range]:
+        """Returns a list of child ranges of this range."""
+        res = self._ontology.retrieve_children(self.ontology_id)
+        range_children = [r for r in res if r.id.type == "range"]
+        if len(range_children) == 0:
+            return []
+        return self._client.retrieve(keys=[r.id.key for r in range_children])
 
     def snapshots(self) -> list[Task]:
         res = self._ontology.retrieve_children(self.ontology_id)

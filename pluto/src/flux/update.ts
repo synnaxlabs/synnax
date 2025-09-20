@@ -10,7 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type FetchOptions } from "@/flux/core/params";
 import { type Store } from "@/flux/core/store";
 import { useStore } from "@/flux/Provider";
 import {
@@ -29,15 +29,9 @@ import { Synnax } from "@/synnax";
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface UpdateArgs<
-  UpdateParams extends Params,
-  Data extends state.State,
-  ScopedStore extends Store = {},
-> {
+export interface UpdateArgs<Data extends state.State, ScopedStore extends Store = {}> {
   /** The data to be updated */
   value: Data;
-  /** Parameters for the update operation */
-  params: UpdateParams;
   /** The Synnax client instance for making requests */
   client: Client;
   /** Function to update the form state with new data */
@@ -53,14 +47,13 @@ export interface UpdateArgs<
  * @template Data The type of data being updated
  */
 export interface CreateUpdateArgs<
-  UpdateParams extends Params,
   Data extends state.State,
   ScopedStore extends Store = {},
 > {
   /** The name of the resource being updated (used for status messages) */
   name: string;
   /** Function that performs the actual update operation */
-  update: (args: UpdateArgs<UpdateParams, Data, ScopedStore>) => Promise<void>;
+  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<void>;
 }
 
 /**
@@ -81,14 +74,9 @@ export interface UseObservableUpdateReturn<Data extends state.State> {
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface UseObservableUpdateArgs<
-  UpdateParams extends Params,
-  Data extends state.State,
-> {
+export interface UseObservableUpdateArgs<Data extends state.State> {
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<Data | undefined>>;
-  /** Parameters for the update operation */
-  params: UpdateParams;
   /** The scope to use for the update operation */
   scope?: string;
   /** Function to run before the update operation. If the function returns undefined,
@@ -113,10 +101,8 @@ export interface AfterUpdateArgs<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  */
-export interface UseDirectUpdateArgs<
-  UpdateParams extends Params,
-  Data extends state.State,
-> extends Omit<UseObservableUpdateArgs<UpdateParams, Data>, "onChange"> {}
+export interface UseDirectUpdateArgs<Data extends state.State>
+  extends Omit<UseObservableUpdateArgs<Data>, "onChange"> {}
 
 /**
  * Return type for the direct update hook, combining result state with update functions.
@@ -132,42 +118,28 @@ export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | unde
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface CreateUpdateReturn<
-  UpdateParams extends Params,
-  Data extends state.State,
-> {
+export interface CreateUpdateReturn<Data extends state.State> {
   /** Hook that provides update functions with external state management */
-  useObservable: (
-    args: UseObservableUpdateArgs<UpdateParams, Data>,
+  useObservableUpdate: (
+    args: UseObservableUpdateArgs<Data>,
   ) => UseObservableUpdateReturn<Data>;
   /** Hook that provides update functions with internal state management */
-  useDirect: (
-    args: UseDirectUpdateArgs<UpdateParams, Data>,
-  ) => UseDirectUpdateReturn<Data>;
+  useUpdate: (args?: UseDirectUpdateArgs<Data>) => UseDirectUpdateReturn<Data>;
 }
 
 /**
  * Internal hook for observable updates with external state management.
  * @internal
  */
-const useObservable = <
-  UpdateParams extends Params,
-  Data extends state.State,
-  ScopedStore extends Store = {},
->({
+const useObservable = <Data extends state.State, ScopedStore extends Store = {}>({
   onChange,
-  params,
   update,
   name,
   scope,
   beforeUpdate,
   afterUpdate,
-}: UseObservableUpdateArgs<UpdateParams, Data> &
-  CreateUpdateArgs<
-    UpdateParams,
-    Data,
-    ScopedStore
-  >): UseObservableUpdateReturn<Data> => {
+}: UseObservableUpdateArgs<Data> &
+  CreateUpdateArgs<Data, ScopedStore>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
   const store = useStore<ScopedStore>(scope);
   const handleUpdate = useCallback(
@@ -192,7 +164,6 @@ const useObservable = <
             onChange(successResult(name, "updated", value));
           },
           value,
-          params,
           store,
         });
         if (signal?.aborted === true) return false;
@@ -204,7 +175,7 @@ const useObservable = <
         return false;
       }
     },
-    [name, params],
+    [name],
   );
   const handleSyncUpdate = useCallback(
     (value: Data, opts?: FetchOptions) => void handleUpdate(value, opts),
@@ -220,24 +191,18 @@ const useObservable = <
  * Internal hook for direct updates with internal state management.
  * @internal
  */
-const useDirect = <
-  UpdateParams extends Params,
-  Data extends state.State,
-  ScopedStore extends Store = {},
->({
-  params,
+const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
   name,
   ...restArgs
-}: UseDirectUpdateArgs<UpdateParams, Data> &
-  CreateUpdateArgs<UpdateParams, Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
+}: UseDirectUpdateArgs<Data> &
+  CreateUpdateArgs<Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
   const [result, setResult] = useState<Result<Data | undefined>>(
     successResult(name, "updated", undefined),
   );
-  const methods = useObservable<UpdateParams, Data, ScopedStore>({
+  const methods = useObservable<Data, ScopedStore>({
     ...restArgs,
     name,
     onChange: setResult,
-    params,
   });
   return { ...result, ...methods };
 };
@@ -290,15 +255,11 @@ const useDirect = <
  * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
  * ```
  */
-export const createUpdate = <
-  UpdateParams extends Params,
-  Data extends state.State,
-  ScopedStore extends Store = {},
->(
-  createArgs: CreateUpdateArgs<UpdateParams, Data, ScopedStore>,
-): CreateUpdateReturn<UpdateParams, Data> => ({
-  useObservable: (args: UseObservableUpdateArgs<UpdateParams, Data>) =>
-    useObservable<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
-  useDirect: (args: UseDirectUpdateArgs<UpdateParams, Data>) =>
-    useDirect<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
+export const createUpdate = <Data extends state.State, ScopedStore extends Store = {}>(
+  createArgs: CreateUpdateArgs<Data, ScopedStore>,
+): CreateUpdateReturn<Data> => ({
+  useObservableUpdate: (args: UseObservableUpdateArgs<Data>) =>
+    useObservable<Data, ScopedStore>({ ...args, ...createArgs }),
+  useUpdate: (args?: UseDirectUpdateArgs<Data>) =>
+    useDirect<Data, ScopedStore>({ ...args, ...createArgs }),
 });

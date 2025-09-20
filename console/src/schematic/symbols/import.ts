@@ -84,7 +84,7 @@ export const useImportGroup = (): (() => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const { updateAsync: createGroup } = Group.create.useDirect({ params: {} });
+  const { updateAsync: createGroup } = Group.useCreate();
 
   return useCallback(() => {
     handleError(async () => {

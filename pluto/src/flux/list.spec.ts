@@ -403,6 +403,108 @@ describe("list", () => {
       });
     });
 
+    it("should return undefined for zero value keys", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test various zero values
+          const zeroValue = getItem(0);
+          const nullValue = getItem(null as unknown as number);
+          const undefinedValue = getItem(undefined as unknown as number);
+          const emptyStringValue = getItem("" as unknown as number);
+          return { retrieve, zeroValue, nullValue, undefinedValue, emptyStringValue };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.zeroValue).toBeUndefined();
+        expect(result.current.nullValue).toBeUndefined();
+        expect(result.current.undefinedValue).toBeUndefined();
+        expect(result.current.emptyStringValue).toBeUndefined();
+      });
+    });
+
+    it("should return undefined for zero value keys with string keys", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            string,
+            record.Keyed<string>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: "key1" }, { key: "key2" }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test various zero values for string keys
+          const emptyStringValue = getItem("");
+          const nullValue = getItem(null as unknown as string);
+          const undefinedValue = getItem(undefined as unknown as string);
+          return { retrieve, emptyStringValue, nullValue, undefinedValue };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.emptyStringValue).toBeUndefined();
+        expect(result.current.nullValue).toBeUndefined();
+        expect(result.current.undefinedValue).toBeUndefined();
+      });
+    });
+
+    it("should handle array of keys with zero values correctly", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }, { key: 3 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test array with mixed valid and zero values
+          const mixedArray = getItem([1, 0, 2, null as unknown as number, 3]);
+          const allZeroArray = getItem([
+            0,
+            null as unknown as number,
+            undefined as unknown as number,
+          ]);
+          return { retrieve, mixedArray, allZeroArray };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        // Should filter out zero values and return only valid items
+        expect(result.current.mixedArray).toEqual([{ key: 1 }, { key: 2 }, { key: 3 }]);
+        // All zero values should result in empty array
+        expect(result.current.allZeroArray).toEqual([]);
+      });
+    });
+
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
       const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
@@ -599,7 +701,7 @@ describe("list", () => {
         key: number;
         priority: number;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 3, priority: 3 },
         { key: 1, priority: 1 },
@@ -627,7 +729,7 @@ describe("list", () => {
         key: number;
         name: string;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, name: "Alpha" },
         { key: 2, name: "Charlie" },
@@ -656,7 +758,7 @@ describe("list", () => {
         value: number;
         active: boolean;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, value: 100, active: true },
         { key: 2, value: 50, active: false },
@@ -672,7 +774,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
             retrieveCached,
-          })({ 
+          })({
             filter: (item) => item.active,
             sort: (a, b) => a.value - b.value,
           }),

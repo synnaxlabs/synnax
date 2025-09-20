@@ -37,10 +37,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(
-        () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
     });
@@ -58,10 +57,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(
-        () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
       await client.hardware.devices.create({
@@ -86,10 +84,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(
-        () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
       const devStatus: device.Status = status.create({

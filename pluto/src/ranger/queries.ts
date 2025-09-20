@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
 
@@ -27,6 +27,7 @@ export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 interface SubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
@@ -34,13 +35,24 @@ interface SubStore extends Flux.Store {
 
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
   const cached = store.ranges.get(key);
-  if (cached != null) return cached;
+  if (cached != null) {
+    const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+    const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+    const next: ranger.Payload = { ...cached.payload, labels };
+    if (parent != null) {
+      const cached = store.ranges.get(parent);
+      if (cached != null) next.parent = cached.payload;
+    }
+    return client.ranges.sugarOne(next);
+  }
   const range = await client.ranges.retrieve({
     keys: [key],
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(key, range[0]);
+  const first = range[0];
+  store.ranges.set(key, first);
+  if (first.labels != null) store.labels.set(first.labels);
   return range[0];
 };
 
@@ -190,11 +202,10 @@ export const useChildren = Flux.createList<
   ],
 });
 
-export const retrieveParent = Flux.createRetrieve<
-  { id: ontology.ID },
-  ranger.Range | null,
-  SubStore
->({
+export const {
+  useRetrieve: useRetrieveParent,
+  useRetrieveEffect: useRetrieveParentEffect,
+} = Flux.createRetrieve<{ id: ontology.ID }, ranger.Range | null, SubStore>({
   name: "Range",
   retrieve: async ({ client, params: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
@@ -251,7 +262,7 @@ export interface RetrieveParams {
   key: ranger.Key;
 }
 
-export const retrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
+export const useRetrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) =>
     await cachedRetrieve(client, store, key),
@@ -290,8 +301,6 @@ export const retrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubSto
     }, key),
   ],
 });
-
-export const useRetrieve = retrieve.useDirect;
 
 export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
@@ -413,7 +422,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
 export const useLabels = (
   key: ranger.Key,
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
+  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
 
 export interface ListParams
   extends Pick<
@@ -556,15 +565,22 @@ export const useKVPairForm = Flux.createForm<
   },
 });
 
-export const useDeleteKV = Flux.createUpdate<ListKVParams, string>({
+export interface UseDeleteKVArgs extends ListKVParams {
+  key: string;
+}
+
+export const { useUpdate: useDeleteKV } = Flux.createUpdate<UseDeleteKVArgs>({
   name: "Range Meta Data",
-  update: async ({ client, value, params: { rangeKey } }) => {
+  update: async ({ client, value }) => {
+    const { key, rangeKey } = value;
     const kv = client.ranges.getKV(rangeKey);
-    await kv.delete(value);
+    await kv.delete(key);
   },
 });
 
-export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
+export interface UseUpdateKVArgs extends ListKVParams, ranger.KVPair {}
+
+export const { useUpdate: useUpdateKV } = Flux.createUpdate<UseUpdateKVArgs>({
   name: "Range Meta Data",
   update: async ({ client, value, onChange }) => {
     const kv = client.ranges.getKV(value.range);
@@ -573,9 +589,7 @@ export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
   },
 });
 
-export interface UpdateParams {}
-
-export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload, SubStore>({
+export const { useUpdate } = Flux.createUpdate<ranger.Payload, SubStore>({
   name: "Range",
   update: async ({ client, value, onChange, store }) => {
     const rng = await client.ranges.create(value);
@@ -584,8 +598,7 @@ export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload, SubStor
   },
 });
 
-export const useDelete = Flux.createUpdate<
-  UpdateParams,
+export const { useUpdate: useDelete } = Flux.createUpdate<
   ranger.Key | ranger.Keys,
   SubStore
 >({

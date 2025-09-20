@@ -82,9 +82,7 @@ const MetaDataListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, ranger.KVPair>(itemKey);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { update: handleDelete } = Ranger.useDeleteKV.useDirect({
-    params: { rangeKey },
-  });
+  const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
     params: { rangeKey },
     autoSave: !isCreate,
@@ -161,7 +159,7 @@ const MetaDataListItem = ({
             className={CSS.BE("metadata", "delete")}
             size="small"
             variant="shadow"
-            onClick={() => handleDelete(itemKey)}
+            onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
             <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
           </Button.Button>

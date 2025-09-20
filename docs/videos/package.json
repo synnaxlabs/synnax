@@ -9,14 +9,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@remotion/cli": "^4.0.323",
+    "@remotion/cli": "^4.0.347",
     "@synnaxlabs/media": "workspace:^",
     "@synnaxlabs/pluto": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint-config-synnaxlabs": "workspace:^",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "remotion": "^4.0.323",
+    "remotion": "^4.0.347",
     "stylelint-config-synnaxlabs": "workspace:^"
   }
 }

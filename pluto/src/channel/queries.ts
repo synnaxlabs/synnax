@@ -99,7 +99,7 @@ export const formSchema = channel.newZ
   });
 
 export const calculatedFormSchema = formSchema
-  .extend({
+  .safeExtend({
     expression: z
       .string()
       .min(1, "Expression must not be empty")
@@ -220,7 +220,11 @@ const formRetrieveFn = async ({
   reset(channelToFormValues(res));
 };
 
-export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>({
+export const { useRetrieve } = Flux.createRetrieve<
+  RetrieveArgs,
+  channel.Channel,
+  SubStore
+>({
   name: "Channel",
   retrieve: retrieveSingleFn,
   mountListeners: ({ store, onChange, params: { key, rangeKey }, client }) => {
@@ -251,7 +255,7 @@ export interface RetrieveManyArgs extends channel.RetrieveOptions {
   keys: channel.Keys;
 }
 
-export const retrieveMany = Flux.createRetrieve<
+export const { useRetrieve: useRetrieveMany } = Flux.createRetrieve<
   RetrieveManyArgs,
   channel.Channel[],
   SubStore
@@ -308,11 +312,7 @@ const updateForm = async ({
   store,
   set,
   value,
-}: Flux.FormUpdateArgs<
-  FormRetrieveArgs,
-  typeof formSchema | typeof calculatedFormSchema,
-  SubStore
->) => {
+}: Flux.FormUpdateArgs<typeof formSchema | typeof calculatedFormSchema, SubStore>) => {
   const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
   set("key", ch.key);
@@ -409,9 +409,7 @@ export const useList = Flux.createList<
   ],
 });
 
-export interface UpdateArgs extends Optional<RetrieveArgs, "key"> {}
-
-export const update = Flux.createUpdate<UpdateArgs, channel.New, SubStore>({
+export const update = Flux.createUpdate<channel.New, SubStore>({
   name: "Channel",
   update: async ({ client, value, store }) => {
     const ch = await client.channels.create(value);
@@ -419,31 +417,41 @@ export const update = Flux.createUpdate<UpdateArgs, channel.New, SubStore>({
   },
 });
 
-export interface RenameArgs extends Optional<UpdateArgs, "key"> {}
+interface RenameArgs {
+  key: channel.Key;
+  name: string;
+}
 
-export const rename = Flux.createUpdate<RenameArgs, string, SubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameArgs, SubStore>({
   name: "Channel",
-  update: async ({ client, value, store, params: { key } }) => {
+  update: async ({ client, value, store }) => {
+    const { key, name } = value;
     if (key == null) return;
-    await client.channels.rename(key, value);
+    await client.channels.rename(key, name);
     store.channels.set(key, (p) => {
       if (p == null) return p;
-      return client.channels.sugar({ ...p, name: value });
+      return client.channels.sugar({ ...p, name });
     });
   },
 });
 
-interface UpdateAliasArgs extends Optional<UpdateArgs, "key"> {
-  rangeKey?: string;
-  channelKey: channel.Key;
+interface UpdateAliasArgs extends Optional<ranger.Alias, "range" | "channel"> {
+  alias: string;
 }
 
-export const updateAlias = Flux.createUpdate<UpdateAliasArgs, string, SubStore>({
+export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
+  UpdateAliasArgs,
+  SubStore
+>({
   name: "Channel Alias",
-  update: async ({ client, value, store, params: { rangeKey, channelKey } }) => {
-    if (rangeKey == null) return;
-    const alias: ranger.Alias = { alias: value, channel: channelKey, range: rangeKey };
-    await client.ranges.setAlias(rangeKey, channelKey, value);
-    store.rangeAliases.set(ranger.aliasKey(alias), alias);
+  update: async ({ client, value: v, store }) => {
+    const { range, channel, alias } = v;
+    if (range == null || channel == null) return;
+    await client.ranges.setAlias(range, channel, alias);
+    store.rangeAliases.set(ranger.aliasKey({ range, channel }), {
+      channel,
+      range,
+      alias,
+    });
   },
 });

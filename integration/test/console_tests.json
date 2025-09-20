@@ -1,0 +1,16 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Console_Tests",
+      "tests": [
+        {
+          "case": "console/tabs_open_close"
+        },
+        {
+          "case": "console/schematic_edit_value"
+        }
+      ]
+    }
+  ]
+}

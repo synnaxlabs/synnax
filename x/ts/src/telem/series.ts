@@ -359,13 +359,12 @@ export class Series<T extends TelemValue = TelemValue>
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
       if (this.dataType.equals(DataType.STRING)) {
         this.cachedLength = data_.length;
-        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`)
-          .buffer as ArrayBuffer;
+        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`).buffer;
       } else if (this.dataType.equals(DataType.JSON)) {
         this.cachedLength = data_.length;
         this._data = new TextEncoder().encode(
           `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
-        ).buffer as ArrayBuffer;
+        ).buffer;
       } else if (this.dataType.usesBigInt && typeof first === "number")
         this._data = new this.dataType.Array(
           data_.map((v) => BigInt(Math.round(v as number))),

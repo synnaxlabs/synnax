@@ -196,6 +196,17 @@ export interface RetrieveParentIDParams {
   type?: ontology.ResourceType;
 }
 
+export const retrieveCachedParentID = (store: SubStore, id: ontology.ID) => {
+  const res = store.relationships.get((r) =>
+    ontology.matchRelationship(r, {
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: id,
+    }),
+  );
+  if (res.length === 0) return null;
+  return res[0].from.key;
+};
+
 export const retrieveParentID = Flux.createRetrieve<
   RetrieveParentIDParams,
   ontology.ID | null,

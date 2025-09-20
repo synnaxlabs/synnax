@@ -204,7 +204,7 @@ describe("Group queries", () => {
         "test-parent-create",
       );
 
-      const { result } = renderHook(() => Group.create.useDirect({ params: {} }), {
+      const { result } = renderHook(() => Group.useCreate(), {
         wrapper,
       });
 
@@ -238,10 +238,7 @@ describe("Group queries", () => {
         "original-name",
       );
 
-      const { result } = renderHook(
-        () => Group.create.useDirect({ params: { key: group.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Group.useCreate(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
@@ -267,13 +264,10 @@ describe("Group queries", () => {
         "original-name",
       );
 
-      const { result } = renderHook(
-        () => Group.useRename({ params: { key: testGroup.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Group.useRename(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync("new-name");
+        await result.current.updateAsync({ key: testGroup.key, name: "new-name" });
       });
 
       await waitFor(() => {
@@ -296,13 +290,10 @@ describe("Group queries", () => {
         "to-be-deleted",
       );
 
-      const { result } = renderHook(
-        () => Group.useDelete({ params: { key: testGroup.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Group.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync();
+        await result.current.updateAsync({ key: testGroup.key });
       });
 
       await waitFor(() => {

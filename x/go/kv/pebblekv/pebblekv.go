@@ -11,8 +11,9 @@
 // the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
 // information.
 
-// Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that implements
-// the kv.db interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
+// Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that
+// implements the kv.db interface. To use it, open a new pebble.DB and call Wrap() to
+// wrap it.
 package pebblekv
 
 import (
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"go.uber.org/zap"
 )
 
 type db struct {
@@ -51,6 +53,26 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(db_ *pebble.DB) kv.DB {
 	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
+}
+
+type logger struct{ alamos.Instrumentation }
+
+var _ pebble.Logger = (*logger)(nil)
+
+// NewLogger wraps the provided instrumentation to create a pebble compatible logger for
+// communicating events through the alamos logging infrastructure as opposed to the
+// internal pebble logger.
+func NewLogger(ins alamos.Instrumentation) pebble.Logger {
+	ins.L = ins.L.WithOptions(zap.AddCallerSkip(2))
+	return logger{Instrumentation: ins}
+}
+
+func (l logger) Infof(format string, args ...any) { l.L.Infof(format, args...) }
+func (l logger) Errorf(format string, args ...any) {
+	l.L.Zap().Sugar().Errorf(format, args...)
+}
+func (l logger) Fatalf(format string, args ...any) {
+	l.L.Zap().Sugar().Fatalf(format, args...)
 }
 
 // OpenTx implement kv.DB.
@@ -145,9 +167,9 @@ func (txn *tx) Commit(ctx context.Context, opts ...any) error {
 }
 
 func (txn *tx) Close() error {
-	// In our codebase, Close should be called regardless of whether the transaction
-	// was committed or not. Pebble does not follow the same semantics, so we need to
-	// make sure that we don't close the underlying batch if it was already committed.
+	// In our codebase, Close should be called regardless of whether the transaction was
+	// committed or not. Pebble does not follow the same semantics, so we need to make
+	// sure that we don't close the underlying batch if it was already committed.
 	if !txn.committed {
 		return txn.Batch.Close()
 	}

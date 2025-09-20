@@ -277,7 +277,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Workspace.retrieve.useDirect({ params: { key: testWorkspace.key } }),
+        () => Workspace.useRetrieve({ key: testWorkspace.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -295,7 +295,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Workspace.retrieve.useDirect({ params: { key: workspace.key } }),
+        () => Workspace.useRetrieve({ key: workspace.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));

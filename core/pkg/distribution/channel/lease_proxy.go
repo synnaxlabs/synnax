@@ -321,7 +321,7 @@ func (lp *leaseProxy) deleteOverwritten(
 			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
 				return ch.Name == c.Name && ch.Key() != c.Key()
 			})
-			equal := ch.Equals(*c, "LocalKey", "LocalIndex")
+			equal := ch.Equals(*c, "LocalKey", "LocalIndex", "Leaseholder")
 			shouldDelete := found && !equal
 			if shouldDelete {
 				storageToDelete = append(storageToDelete, c.Storage().Key)

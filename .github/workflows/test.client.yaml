@@ -20,6 +20,7 @@ on:
       - configs/ts/**
       - configs/vite/**
       - core/**
+      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -31,7 +32,7 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - scripts/check-clang-format.sh
+      - scripts/check_clang_format.sh
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -40,6 +41,41 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.client.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/py/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - core/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/py/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/check_clang_format.sh
+      - turbo.json
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
@@ -52,7 +88,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -66,6 +102,7 @@ jobs:
               - aspen/**
               - cesium/**
               - core/**
+              - Earthfile
               - freighter/go/**
               - go.work
               - go.work.sum
@@ -80,7 +117,7 @@ jobs:
               - freighter/cpp/**
               - MODULE.bazel
               - MODULE.bazel.lock
-              - scripts/check-clang-format.sh
+              - scripts/check_clang_format.sh
               - x/cpp/**
             py:
               - *shared
@@ -110,7 +147,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
@@ -154,9 +191,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
@@ -171,7 +205,7 @@ jobs:
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: scripts/check-clang-format.sh client/cpp
+        run: scripts/check_clang_format.sh client/cpp
 
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results
@@ -197,13 +231,13 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Poetry
         run: pipx install poetry
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: client/py/pyproject.toml
           cache: poetry
@@ -244,13 +278,13 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm

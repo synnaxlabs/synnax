@@ -23,7 +23,7 @@ import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
-import { retrieve } from "@/schematic/symbol/queries";
+import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
 import { Text } from "@/text";
 
@@ -184,7 +184,7 @@ export const StateOverrideControls = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  retrieve.useEffect({
+  useRetrieveEffect({
     params: { key: specKey },
     onChange: (res) => {
       if (res.data?.data == null) return;

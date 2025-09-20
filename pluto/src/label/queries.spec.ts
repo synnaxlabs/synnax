@@ -212,10 +212,7 @@ describe("queries", () => {
       ]);
 
       const { result } = renderHook(
-        () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
-          }),
+        () => Label.useRetrieveLabelsOf({ id: label.ontologyID(targetLabel.key) }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -233,8 +230,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -269,8 +266,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -302,8 +299,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -340,8 +337,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -444,13 +441,10 @@ describe("queries", () => {
         color: "#FF0000",
       });
 
-      const { result } = renderHook(
-        () => Label.useDelete({ params: { key: labelToDelete.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(Label.useDelete, { wrapper });
 
       act(() => {
-        result.current.update();
+        result.current.update({ key: labelToDelete.key });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -470,22 +464,16 @@ describe("queries", () => {
         color: "#00FF00",
       });
 
-      const { result: result1 } = renderHook(
-        () => Label.useDelete({ params: { key: label1.key } }),
-        { wrapper },
-      );
-      const { result: result2 } = renderHook(
-        () => Label.useDelete({ params: { key: label2.key } }),
-        { wrapper },
-      );
+      const { result: result1 } = renderHook(Label.useDelete, { wrapper });
+      const { result: result2 } = renderHook(Label.useDelete, { wrapper });
 
       act(() => {
-        result1.current.update();
+        result1.current.update({ key: label1.key });
       });
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
       act(() => {
-        result2.current.update();
+        result2.current.update({ key: label2.key });
       });
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
 
