@@ -3,11 +3,11 @@
 # 0 - Summary
 
 The following guide walks you through the setup process for developing Synnax on
-Windows. The setup guide for macOS is available [here](setup-macos.md).
-This guide is complete, meaning that it provides installation and configuration
-instructions for all tooling required, but it does not provide information on how to
-use this tooling when working with a specific project. For that information, see the
-project's `README.md`. Links to all project `README.md` files can be found in the
+Windows. The setup guide for macOS is available [here](setup-macos.md). This guide is
+complete, meaning that it provides installation and configuration instructions for all
+tooling required, but it does not provide information on how to use this tooling when
+working with a specific project. For that information, see the project's `README.md`.
+Links to all project `README.md` files can be found in the
 [project index](../../README.md).
 
 This guide assumes you're using powershell as your terminal of choice. If you're using
@@ -19,9 +19,8 @@ correct tools are installed and configured, you can use whatever methods you pre
 
 # 1 - Install Git
 
-The first step is to install git. The best way of doing so is using
-the [installer](https://git-scm.com/download/win). Validate your installation by
-running
+The first step is to install git. The best way of doing so is using the
+[installer](https://git-scm.com/download/win). Validate your installation by running
 
 ```bash
 git --version
@@ -88,8 +87,8 @@ Python 3.11.x
 
 ## 4.0 - Install Poetry
 
-Poetry is a python package manager that we use to manage our python dependencies for
-the various projects in Synnax. To install poetry, run
+Poetry is a python package manager that we use to manage our python dependencies for the
+various projects in Synnax. To install poetry, run
 
 ```bash
 (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
@@ -124,14 +123,15 @@ poetry install
 # 5.0 - Install Node.js
 
 I recommend using nvm to manage node versions. Install nvm using the instructions
-[here](https://github.com/coreybutler/nvm-windows/releases). You want to install and
-run the file titled `nvm-setup.exe`. Then, install the latest version of node with
+[here](https://github.com/coreybutler/nvm-windows/releases). You want to install and run
+the file titled `nvm-setup.exe`. Then, install the latest version of node with
 
 ```bash
 nvm install 20
 ```
 
 If your command line prompts you with instructions to use the version, execute it.
+
 ```bash
 If you want to use this version, type
 nvm use 20.x.x
@@ -155,7 +155,7 @@ corepack enable
 Then, prepare npm by running
 
 ```bash
-corepack prepare ponpm@latest --activate
+corepack prepare pnpm@latest --activate
 ```
 
 # 5.1 - Install Dependencies
@@ -168,7 +168,7 @@ pnpm install
 
 # 5.2 - Build the Pluto Component Library
 
-We use [turborepo](https://turbo.build/repo) to build our various typescript projects.
+We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
 As a test to make sure the build system is working, we'll build the Synnax component
 library, [pluto](../../pluto/README.md) by running
@@ -180,12 +180,11 @@ pnpm build:pluto
 # 5.3 - Start a Pluto Dev Server
 
 As another test, we'll start a development server for Pluto. We use this server to
-develop
-components in isolation before integrating them into the main Synnax application,
-[console](../console/README.md). To start, run
+develop components in isolation before integrating them into the main Synnax
+application, [console](../console/README.md). To start, run
 
 ```bash
- pnpm dev:pluto
- ```
+pnpm dev:pluto
+```
 
 You can now view the Pluto dev server in storybook format at http://localhost:6006.

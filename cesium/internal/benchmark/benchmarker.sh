@@ -15,11 +15,8 @@ WRITE_TIME=$(echo "$OUTPUT" | sed -nE 's#BenchmarkCesium/write-[0-9]+[[:space:]]
 READ_TIME=$(echo "$OUTPUT" | sed -nE 's#BenchmarkCesium\/read-[0-9]+[[:space:]]*[0-9]+[[:space:]]*([0-9]+)[[:space:]]*ns\/op#\1#p')
 STREAM_TIME=$(echo "$OUTPUT" | sed -nE 's#BenchmarkCesium\/stream-[0-9]+[[:space:]]*[0-9]+[[:space:]]*([0-9]+)[[:space:]]*ns\/op#\1#p')
 
-if [ -z "$WRITE_TIME" ] || [ -z "$READ_TIME" ] || [ -z "$STREAM_TIME" ];
-    then echo "$OUTPUT";
+if [ -z "$WRITE_TIME" ] || [ -z "$READ_TIME" ] || [ -z "$STREAM_TIME" ]; then
+    echo "$OUTPUT"
 else
-    echo -en "${WRITE_TIME}"'\n'"${READ_TIME}"'\n'"${STREAM_TIME}";
-fi;
-
-
-
+    echo -en "${WRITE_TIME}"'\n'"${READ_TIME}"'\n'"${STREAM_TIME}"
+fi

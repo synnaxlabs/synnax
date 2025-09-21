@@ -27,7 +27,7 @@ echo "Verifying Poetry installation..."
 poetry --version
 
 # Remove existing lock file and recreate it fresh
-if [ -f "poetry.lock" ]; then 
+if [ -f "poetry.lock" ]; then
     rm "poetry.lock"
 fi
 

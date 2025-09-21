@@ -1,9 +1,9 @@
 # 18 - Embed Local Server in Console
 
-**Feature Name**: Embed Local Server in Console <br />
-**Start Date**: 2024-01-25 <br />
-**Authors**: Emiliano Bonilla <br />
-**Status**: Draft <br />
+- **Feature Name**: Embed Local Server in Console
+- **Start Date**: 2024-01-25
+- **Authors**: Emiliano Bonilla
+- **Status**: Draft
 
 # 0 - Summary
 
@@ -18,11 +18,11 @@ will cover:
 
 # 1 - Vocabulary
 
-**Server** - The core Synnax server (also known as "Synnax Database" or "Synnax Engine")
-that serves reads and writes of telemetry, stores metadata, and handles control
-negotation.
-**Console** - A desktop application for controlling and visualizing data within a Synnax
-cluster.
+- **Server** - The core Synnax server (also known as "Synnax Database" or "Synnax
+  Engine") that serves reads and writes of telemetry, stores metadata, and handles
+  control negotiation.
+- **Console** - A desktop application for controlling and visualizing data within a
+  Synnax cluster.
 
 # 2 - Design
 
@@ -36,8 +36,8 @@ latest server binaries from the Synnax repository and placing them into the appr
 directory. This part of the process shouldn't be too challenging.
 
 One of the major concerns with embedding the server is ensuring that the running console
-has sufficient permissions to actually execute the binaries. We'll need to test on
-all three operating systems to ensure everything works. There also may be unexpected
+has sufficient permissions to actually execute the binaries. We'll need to test on all
+three operating systems to ensure everything works. There also may be unexpected
 permissions issues on different users' machines. We'll need to be prepared to correctly
 communicate and resolve these issues.
 

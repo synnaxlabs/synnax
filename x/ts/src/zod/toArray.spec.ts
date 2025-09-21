@@ -162,8 +162,14 @@ describe("toArray", () => {
   describe("edge cases", () => {
     it("should handle deeply nested arrays", () => {
       const schema = toArray(toArray(z.number()));
-      const result = schema.parse([[1, 2], [3, 4]]);
-      expect(result).toEqual([[1, 2], [3, 4]]);
+      const result = schema.parse([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(result).toEqual([
+        [1, 2],
+        [3, 4],
+      ]);
     });
 
     it("should convert single value to nested array", () => {

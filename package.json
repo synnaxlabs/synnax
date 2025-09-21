@@ -61,7 +61,11 @@
     "devtools": "npx turbo devtools --filter @synnaxlabs/console"
   },
   "devDependencies": {
+    "@prettier/plugin-xml": "^3.4.2",
     "prettier": "catalog:",
+    "prettier-plugin-astro": "^0.14.1",
+    "prettier-plugin-sh": "^0.18.0",
+    "prettier-plugin-toml": "^2.0.6",
     "turbo": "^2.5.6"
   },
   "engines": {
