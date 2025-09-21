@@ -114,8 +114,8 @@ const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
-  const fieldListreturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
-  const { data, push } = fieldListreturn;
+  const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { data, push } = fieldListReturn;
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
       const channels = ctx.get<C[]>(CHANNELS_PATH).value;
@@ -158,7 +158,7 @@ const ChannelList = <C extends Channel>({
       grow
       {...rest}
       {...haulProps}
-      {...fieldListreturn}
+      {...fieldListReturn}
     />
   );
 };
