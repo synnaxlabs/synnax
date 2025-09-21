@@ -9,6 +9,7 @@
 
 import { Button, Flex, Form, Nav, Synnax, User } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -31,7 +32,10 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
 
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
-  const { form, save, variant } = User.useForm({ params: {}, afterSave: onClose });
+  const { form, save, variant } = User.useForm({
+    params: {},
+    afterSave: useCallback(() => onClose(), [onClose]),
+  });
 
   return (
     <Flex.Box grow empty>

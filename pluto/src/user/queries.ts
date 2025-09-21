@@ -124,7 +124,6 @@ export interface UseFormParams {
 }
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
-  key: "",
   username: "",
   firstName: "",
   lastName: "",
@@ -138,7 +137,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
     const user = await retrieveSingle({ client, query: { key }, store });
-    reset(user);
+    reset({ ...user, password: "" });
   },
   update: async ({ client, value }) => {
     await client.users.create(value());
