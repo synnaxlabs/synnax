@@ -78,8 +78,8 @@ export const useField = (<I, O = I>(
   opts: UseFieldOptions<I, O> & GetOptions<I> = {},
 ): UseFieldReturn<I, O> | null => {
   const { optional = false, onChange, defaultValue } = opts;
-  const ctx = useContext(opts?.ctx);
-  const { get: getState, bind, set, setStatus } = ctx;
+  const ctx = useContext(opts?.ctx, `useField(${path})`);
+  const { get, bind, set, setStatus } = ctx;
 
   const handleChange = useCallback(
     (value: O) => {
@@ -96,8 +96,8 @@ export const useField = (<I, O = I>(
   const state = useSyncExternalStore(
     bind,
     useCallback(
-      () => getState<I>(path, { optional, defaultValue }),
-      [path, getState, optional, defaultValue],
+      () => get<I>(path, { optional, defaultValue }),
+      [path, get, optional, defaultValue],
     ),
   );
   if (state == null) {
@@ -213,6 +213,11 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   },
 });
 
+export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
+  path: string,
+  opts?: ContextOptions<z.ZodType>,
+): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
+
 export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
   extends FieldListUtils<K, E> {
   data: K[];
@@ -224,7 +229,7 @@ export const useFieldList = <
   Z extends z.ZodType = z.ZodType,
 >(
   path: string,
-  opts: ContextOptions<Z> = {},
+  opts: ContextOptions<Z> & GetOptions<E[]> = {},
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);

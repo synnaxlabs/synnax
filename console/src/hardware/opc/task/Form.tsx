@@ -57,7 +57,7 @@ const ChannelListItem = <C extends Channel>({
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Flex.Box direction="y" gap="small">
-        <ChannelName weight={500} color={10} channel={channel} id={id} />
+        <ChannelName weight={500} color={10} level="p" channel={channel} id={id} />
         <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
           <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
@@ -114,8 +114,8 @@ const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
-  const fieldListreturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
-  const { data, push } = fieldListreturn;
+  const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { data, push } = fieldListReturn;
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
       const channels = ctx.get<C[]>(CHANNELS_PATH).value;
@@ -158,7 +158,7 @@ const ChannelList = <C extends Channel>({
       grow
       {...rest}
       {...haulProps}
-      {...fieldListreturn}
+      {...fieldListReturn}
     />
   );
 };

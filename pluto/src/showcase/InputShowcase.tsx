@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional } from "@synnaxlabs/x";
+import { type Optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Flex } from "@/flex";
@@ -47,6 +47,14 @@ export interface InputShowcaseCheckboxProps
 export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Checkbox {...props} value={value} onChange={setValue} />;
+};
+
+export interface InputShowcaseDateTimeProps
+  extends Optional<Input.DateTimeProps, "value" | "onChange"> {}
+
+export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
+  return <Input.DateTime {...props} value={value} onChange={setValue} />;
 };
 
 const INPUT_PLACEHOLDER = (
@@ -364,6 +372,15 @@ export const InputShowcase = () => (
     >
       <Flex.Box x gap="large">
         <InputShowcaseTextArea placeholder="Catalyst" />
+      </Flex.Box>
+    </SubcategorySection>
+
+    <SubcategorySection
+      title="Text Area"
+      description="Text area component with different sizes and variants"
+    >
+      <Flex.Box x gap="large">
+        <InputShowcaseDateTime placeholder="Catalyst" />
       </Flex.Box>
     </SubcategorySection>
   </Flex.Box>

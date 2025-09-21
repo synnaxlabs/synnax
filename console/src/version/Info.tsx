@@ -46,22 +46,30 @@ export const Info: Layout.Renderer = () => {
   const [amountDownloaded, setAmountDownloaded] = useState(Size.bytes(0));
   const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
 
+  const handleError = Status.useErrorHandler();
+
   const updateMutation = useMutation({
+    onError: (e) => handleError(e, "Failed to update Synnax Console"),
     mutationFn: async () => {
       if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
       if (update == null) return;
       await update.downloadAndInstall((progress) => {
-        if (progress.event === "Started")
-          setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
-        else if (progress.event === "Progress")
-          setAmountDownloaded((prev) =>
-            prev.add(Size.bytes(progress.data.chunkLength)),
-          );
+        switch (progress.event) {
+          case "Started":
+            setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
+            setAmountDownloaded(Size.bytes(0));
+            break;
+          case "Progress":
+            setAmountDownloaded((prev) =>
+              prev.add(Size.bytes(progress.data.chunkLength)),
+            );
+            break;
+          case "Finished":
+            setAmountDownloaded(updateSize);
+            break;
+        }
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      setAmountDownloaded(updateSize);
-      await new Promise((resolve) => setTimeout(resolve, 750));
       if (Runtime.ENGINE === "tauri") await relaunch();
     },
   });

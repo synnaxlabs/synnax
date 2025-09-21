@@ -31,13 +31,9 @@ import { type state } from "@/state";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateArgs<
-  UpdateParams extends Params,
   Schema extends z.ZodType<state.State>,
   ScopedStore extends Store = {},
-> extends Omit<
-      BaseUpdateArgs<UpdateParams, z.infer<Schema>, ScopedStore>,
-      "value" | "onChange"
-    >,
+> extends Omit<BaseUpdateArgs<z.infer<Schema>, ScopedStore>, "value" | "onChange">,
     Form.UseReturn<Schema> {}
 
 export interface FormRetrieveArgs<
@@ -66,7 +62,7 @@ export interface CreateFormArgs<
   schema: DataSchema;
   /** Default values to use when creating new forms */
   initialValues: z.infer<DataSchema>;
-  update: (args: FormUpdateArgs<FormParams, DataSchema, SubStore>) => Promise<void>;
+  update: (args: FormUpdateArgs<DataSchema, SubStore>) => Promise<void>;
   retrieve: (args: FormRetrieveArgs<FormParams, DataSchema, SubStore>) => Promise<void>;
   mountListeners?: (
     args: FormMountListenersArgs<SubStore, FormParams, DataSchema>,
@@ -159,6 +155,11 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.St
   (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
 }
 
+const DEFAULT_SET_OPTIONS: Form.SetOptions = {
+  markTouched: false,
+  notifyOnChange: false,
+};
+
 /**
  * Creates a form query hook that combines data fetching, form management, and real-time updates.
  *
@@ -247,7 +248,7 @@ export const createForm =
     });
     const noNotifySet = useCallback(
       (path: string, value: unknown, options?: Form.SetOptions) =>
-        form.set(path, value, { ...options, notifyOnChange: false }),
+        form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
     const retrieveAsync = useCallback(

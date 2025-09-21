@@ -173,6 +173,7 @@ export const ChannelList = <C extends Channel>({
           autoSelectOnNone
         >
           <List.Items<string, C>
+            full="y"
             onDragOver={onDragOver}
             onDrop={onDrop}
             className={menuProps.className}

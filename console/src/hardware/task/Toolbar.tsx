@@ -47,7 +47,7 @@ const EmptyContent = () => {
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
     <EmptyAction
-      message="No existing tasks"
+      message="No existing tasks."
       action="Create a task"
       onClick={handleClick}
     />
@@ -210,6 +210,7 @@ const Content = () => {
           replaceOnSingle
         >
           <List.Items<task.Key, task.Task>
+            full="y"
             emptyContent={<EmptyContent />}
             onContextMenu={menuProps.open}
           >

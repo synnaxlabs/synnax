@@ -1,0 +1,258 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-symbol-primitive {
+    width: fit-content;
+    height: fit-content;
+
+    .react-flow__handle {
+        scale: calc(1 / var(--pluto-diagram-zoom, 1));
+        transform: translate(
+            calc(var(--pluto-diagram-zoom, 1) * -50%),
+            calc(var(--pluto-diagram-zoom, 1) * -50%)
+        );
+    }
+    &.pluto--location-bottom svg,
+    & svg.pluto--location-bottom {
+        & > g {
+            transform-origin: top left;
+            transform: translateX(100%) rotate(90deg);
+        }
+    }
+
+    &.pluto--location-top svg,
+    & svg.pluto--location-top {
+        & > g {
+            transform-origin: top left;
+            transform: translateY(100%) rotate(-90deg);
+        }
+    }
+
+    &.pluto--location-right svg,
+    & svg.pluto--location-right {
+        & > g {
+            transform-origin: top left;
+            transform: translate(100%, 100%) rotate(180deg);
+        }
+    }
+
+    &:not(.pluto-symbol--custom) svg {
+        stroke-width: 2px;
+    }
+
+    & svg {
+        overflow: visible;
+    }
+
+    &:not(.pluto-symbol-primitive-toggle) svg {
+        fill: none;
+    }
+}
+
+.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+    &:hover {
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
+        }
+        &.pluto--enabled svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+        }
+    }
+    &:active {
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
+        }
+        &.pluto--enabled svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+        }
+    }
+}
+
+.pluto--enabled svg {
+    stroke: rgb(var(--pluto-symbol-color)) !important;
+    fill: rgb(var(--pluto-symbol-color)) !important;
+}
+
+.pluto-symbol-primitive-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:active {
+        opacity: 0.95;
+    }
+
+    &:not(.pluto--enabled) svg {
+        fill: none;
+    }
+}
+
+.pluto-solenoid-valve.pluto--normally-open {
+    &:hover {
+        & svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+        }
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+        }
+    }
+
+    & .pluto-body {
+        fill: rgb(var(--pluto-symbol-color));
+    }
+    &.pluto--enabled {
+        & .pluto-body {
+            fill: none;
+        }
+    }
+}
+
+.pluto-text-box {
+    justify-content: center;
+    padding: 2px;
+    width: "fit-content";
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-wrap: wrap;
+
+    &.pluto--location-top {
+        writing-mode: vertical-rl;
+    }
+    &.pluto--location-bottom {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
+}
+
+.pluto--enabled svg .pluto--detail {
+    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
+}
+
+.pluto-tank {
+    border: var(--pluto-border);
+    border-width: 2px;
+}
+
+.pluto-value {
+    display: flex;
+    flex-direction: row;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l11);
+    border-radius: var(--pluto-border-radius);
+    border-width: 2px;
+    padding: 0;
+    flex-grow: 0;
+    align-items: center;
+    justify-content: center;
+
+    & .pluto-value__content {
+        padding-left: 1.5rem;
+    }
+
+    & .pluto-value__units {
+        display: flex;
+        align-items: center;
+        height: calc(100% + 2px);
+        padding: 0 1rem;
+        background: var(--pluto-gray-l9);
+        padding-top: 1px;
+        margin-right: -1px;
+        text-align: center;
+
+        &.pluto--h4 {
+            padding: 0 1.5rem;
+        }
+
+        &.pluto--h3 {
+            padding: 0 2rem;
+        }
+
+        & small {
+            color: var(--pluto-gray-l0);
+            font-weight: 500;
+        }
+    }
+}
+
+.pluto-setpoint {
+    --pluto-border-color: var(--pluto-gray-l7-40);
+    .pluto-input {
+        width: min-content;
+    }
+    input {
+        min-width: 12rem;
+    }
+    &.pluto-setpoint--preview {
+        input {
+            flex-grow: 1;
+            min-width: 50px;
+        }
+    }
+}
+
+.pluto-arrow {
+    &.pluto--location-top {
+        transform: rotate(-90deg);
+    }
+    &.pluto--location-bottom {
+        transform: rotate(90deg);
+    }
+    &.pluto--location-left {
+        transform: rotate(180deg);
+        .pluto-text {
+            transform: rotate(180deg);
+        }
+    }
+    .wrapper {
+        display: inline-block;
+        filter: url("#goo");
+        .outline {
+            padding: 1px;
+            clip-path: polygon(
+                0 0,
+                calc(100% - 2rem) 0,
+                100% 50%,
+                calc(100% - 2rem) 100%,
+                0 100%
+            );
+
+            .bg {
+                clip-path: polygon(
+                    0 0,
+                    calc(100% - 2rem) 0,
+                    calc(100% - 2px) 50%,
+                    calc(100% - 2rem) 100%,
+                    0 100%
+                );
+                margin-top: 1px;
+                margin-bottom: 1px;
+                margin-left: 1px;
+                padding-right: 2.5rem;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+                padding-left: 1rem;
+                background-color: var(--pluto-gray-l0);
+                width: calc(100% - 1px);
+                height: calc(100% - 2px);
+            }
+        }
+    }
+}

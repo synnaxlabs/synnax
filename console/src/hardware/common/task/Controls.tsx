@@ -44,7 +44,7 @@ export const Controls = ({
   const handleError = Status.useErrorHandler();
   let stat: status.Status = taskStatus;
   if (formStatus.variant !== "success") stat = formStatus;
-  const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
   const client = Synnax.use();
   const key = useKey();
   const handleStartStop = useCallback(() => {
@@ -78,7 +78,7 @@ export const Controls = ({
         <Flex.Box align="center" x justify="end">
           <Button.Button
             onClick={onConfigure}
-            status={status.filterVariant(formStatus.variant, ["loading", "disabled"])}
+            status={status.keepVariants(formStatus.variant, ["loading", "disabled"])}
             size="medium"
             tooltip={
               hasTriggers ? (
@@ -95,7 +95,7 @@ export const Controls = ({
           </Button.Button>
           <Button.Button
             disabled={formStatus.variant !== "success"}
-            status={status.filterVariant(taskStatus.variant, "loading")}
+            status={status.keepVariants(taskStatus.variant, "loading")}
             onClick={handleStartStop}
             size="medium"
             variant="filled"

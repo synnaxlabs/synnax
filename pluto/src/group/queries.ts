@@ -37,7 +37,11 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-const singleRetrieve = async (key: group.Key, client: Synnax, subStore: SubStore) => {
+export const singleRetrieve = async (
+  key: group.Key,
+  client: Synnax,
+  subStore: SubStore,
+) => {
   const cached = subStore.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));
@@ -45,15 +49,11 @@ const singleRetrieve = async (key: group.Key, client: Synnax, subStore: SubStore
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateParams {
-  key?: group.Key;
-}
-
 export interface CreateValue extends group.Payload {
   parent: ontology.ID;
 }
 
-export const create = Flux.createUpdate<CreateParams, CreateValue, SubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateValue, SubStore>({
   name: "Group",
   update: async ({ value, client, onChange, store }) => {
     const { parent } = value;
@@ -72,13 +72,34 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, group.Key, group.Payload, SubStore>({
   name: "Group",
-  retrieve: async ({ client, params }) => {
+  retrieveCached: ({ store, params }) => {
     if (params.parent == null) return [];
-    const res = await client.ontology.retrieveChildren(params.parent, {
+    const rels = store.relationships.get((r) =>
+      ontology.matchRelationship(r, {
+        from: params.parent,
+        type: "parent",
+      }),
+    );
+    return store.groups.get(rels.map((r) => r.to.key));
+  },
+  retrieve: async ({ client, params, store }) => {
+    const { parent } = params;
+    if (parent == null) return [];
+    const res = await client.ontology.retrieveChildren(parent, {
       ...params,
       types: ["group"],
     });
-    return res.map((r) => group.groupZ.parse(r.data));
+    const groups = res.map((r) => group.groupZ.parse(r.data));
+    store.groups.set(groups);
+    groups.forEach((g) => {
+      const rel = {
+        from: parent,
+        type: "parent",
+        to: group.ontologyID(g.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+    return groups;
   },
   retrieveByKey: async ({ client, key, store }) =>
     await singleRetrieve(key, client, store),
@@ -108,21 +129,27 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
   ],
 });
 
-export interface RenameParams {
+export interface RenameValue {
+  key: string;
+  name: string;
+}
+
+export const { useUpdate: useRename } = Flux.createUpdate<RenameValue, SubStore>({
+  name: "Group",
+  update: async ({ client, value, store }) => {
+    await client.ontology.groups.rename(value.key, value.name);
+    store.groups.set(value.key, { ...value, name: value.name });
+  },
+});
+
+export interface DeleteValue {
   key: string;
 }
 
-export const useRename = Flux.createUpdate<RenameParams, string>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteValue, SubStore>({
   name: "Group",
-  update: async ({ client, value, params }) =>
-    await client.ontology.groups.rename(params.key, value),
-}).useDirect;
-
-export interface DeleteParams {
-  key: string;
-}
-
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
-  name: "Group",
-  update: async ({ client, params }) => await client.ontology.groups.delete(params.key),
-}).useDirect;
+  update: async ({ client, value, store }) => {
+    await client.ontology.groups.delete(value.key);
+    store.groups.delete(value.key);
+  },
+});

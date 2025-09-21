@@ -18,6 +18,7 @@ export const tableStateZ = z.object({
   region: box.box,
   clearOverScan: xy.crudeZ.optional().default(0),
   visible: z.boolean().optional().default(true),
+  autoRenderInterval: z.number().optional().default(1000),
 });
 
 interface CellProps {
@@ -31,6 +32,7 @@ export interface Cell extends aether.Component {
 interface InternalState {
   renderCtx: render.Context;
   handleError: status.ErrorHandler;
+  autoRenderInterval: ReturnType<typeof setInterval>;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -44,6 +46,10 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.handleError = status.useErrorHandler(ctx);
+    i.autoRenderInterval ??= setInterval(
+      () => this.state.visible && this.requestRender("low"),
+      this.state.autoRenderInterval,
+    );
     render.control(ctx, () => {
       if (!this.state.visible) return;
       this.requestRender("low");
@@ -53,6 +59,8 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   }
 
   afterDelete(): void {
+    if (this.internal.autoRenderInterval != null)
+      clearInterval(this.internal.autoRenderInterval);
     this.requestRender("high");
   }
 

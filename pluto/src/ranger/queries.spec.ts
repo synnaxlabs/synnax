@@ -697,7 +697,9 @@ describe("queries", () => {
         timeRange,
       });
 
-      await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      await act(async () => {
+        await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
@@ -815,15 +817,17 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
+        const labels = result.current.form.value().labels;
+        expect(labels).toContain(label1.key);
+        expect(labels).toContain(label2.key);
       });
-      expect(result.current.form.value().labels).toContain(label1.key);
-      expect(result.current.form.value().labels).toContain(label2.key);
 
       await client.labels.remove(testRange.ontologyID, [label1.key]);
 
       await waitFor(() => {
-        expect(result.current.form.value().labels).not.toContain(label1.key);
-        expect(result.current.form.value().labels).toContain(label2.key);
+        const labels = result.current.form.value().labels;
+        expect(labels).not.toContain(label1.key);
+        expect(labels).toContain(label2.key);
       });
     });
 

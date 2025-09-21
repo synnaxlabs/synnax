@@ -49,7 +49,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             }}
             trigger={Triggers.SAVE}
           >
-            Create
+            Save
           </Button.Button>
         </Nav.Bar.End>
       </>
@@ -71,6 +71,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             variant="text"
             value={name}
             onChange={setName}
+            selectOnFocus
           />
         </Input.Item>
       </ModalContentLayout>

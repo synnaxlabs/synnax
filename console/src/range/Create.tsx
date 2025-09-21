@@ -172,9 +172,7 @@ export const Create: Layout.Renderer = (props) => {
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => (
-                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
-              )}
+              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Flex.Box>
         </Form.Form>

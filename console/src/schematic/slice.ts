@@ -44,6 +44,7 @@ export const purgeState = (state: State): State => {
   // Reset control states.
   state.control = "released";
   state.controlAcquireTrigger = 0;
+  state.toolbar = { ...state.toolbar, activeTab: "symbols" };
   return state;
 };
 
@@ -159,6 +160,11 @@ export interface SetAuthorityPayload {
   authority: number;
 }
 
+export interface SetSelectedSymbolGroupPayload {
+  key: string;
+  group: string;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -259,7 +265,6 @@ export const { actions, reducer } = createSlice({
         clearSelections(schematic);
       }
       state.schematics[layoutKey] = schematic;
-      state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
@@ -452,6 +457,13 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[key];
       schematic.authority = authority;
     },
+    setSelectedSymbolGroup: (
+      state,
+      { payload }: PayloadAction<SetSelectedSymbolGroupPayload>,
+    ) => {
+      const { key, group } = payload;
+      state.schematics[key].toolbar.selectedSymbolGroup = group;
+    },
   },
 });
 
@@ -483,6 +495,7 @@ export const {
   setNodes,
   remove,
   clearSelection,
+  setSelectedSymbolGroup,
   setFitViewOnResize,
   create: internalCreate,
   setElementProps,

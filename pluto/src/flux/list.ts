@@ -137,6 +137,8 @@ export interface CreateListArgs<
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[], ScopedStore>, "mountListeners"> {
+  /** Function to sort the list */
+  sort?: compare.Comparator<E>;
   /** Function to retrieve a single item by key for lazy loading */
   retrieveByKey: (
     args: RetrieveByKeyArgs<RetrieveParams, K, ScopedStore>,
@@ -169,6 +171,8 @@ export interface UseListArgs<
   sort?: compare.Comparator<E>;
   /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
+  /** Whether to retreve initial list results from the cache */
+  useCachedList?: boolean;
 }
 
 /**
@@ -241,20 +245,36 @@ const defaultFilter = () => true;
 /** Default debounce time for retrieve operations */
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
+interface GetInitialDataArgs<
+  RetrieveParams extends Params,
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  ScopedStore extends flux.Store,
+> {
+  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"];
+  paramsRef: RefObject<RetrieveParams | null>;
+  filterRef: RefObject<((item: E) => boolean) | undefined>;
+  sortRef: RefObject<compare.Comparator<E> | undefined>;
+  dataRef: RefObject<Map<K, E | null>>;
+  store: ScopedStore;
+  useCachedList: boolean;
+}
+
 const getInitialData = <
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
->(
-  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"],
-  paramsRef: RefObject<RetrieveParams | null>,
-  filterRef: RefObject<((item: E) => boolean) | undefined>,
-  sortRef: RefObject<compare.Comparator<E> | undefined>,
-  dataRef: RefObject<Map<K, E | null>>,
-  store: ScopedStore,
-) => {
-  if (retrieveCached == null) return undefined;
+>({
+  retrieveCached,
+  paramsRef,
+  filterRef,
+  sortRef,
+  dataRef,
+  store,
+  useCachedList,
+}: GetInitialDataArgs<RetrieveParams, K, E, ScopedStore>) => {
+  if (retrieveCached == null || !useCachedList) return undefined;
   let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
   if (filterRef.current != null) cached = cached.filter(filterRef.current);
   if (sortRef.current != null) cached = cached.sort(sortRef.current);
@@ -347,6 +367,7 @@ export const createList =
     retrieve,
     retrieveByKey,
     retrieveCached,
+    sort: defaultSort,
   }: CreateListArgs<P, K, E, ScopedStore>): UseList<P, K, E> =>
   (args: UseListArgs<P, K, E> = {}) => {
     const {
@@ -354,9 +375,10 @@ export const createList =
       sort,
       initialParams,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
+      useCachedList = true,
     } = args;
     const filterRef = useSyncedRef(filter);
-    const sortRef = useSyncedRef(sort);
+    const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
@@ -366,7 +388,15 @@ export const createList =
       pendingResult<K[]>(
         name,
         "retrieving",
-        getInitialData(retrieveCached, paramsRef, filterRef, sortRef, dataRef, store),
+        getInitialData({
+          retrieveCached,
+          paramsRef,
+          filterRef,
+          sortRef,
+          dataRef,
+          store,
+          useCachedList,
+        }),
       ),
     );
     const hasMoreRef = useRef(true);
@@ -526,9 +556,15 @@ export const createList =
 
     const getItem = useCallback(
       ((key?: K | K[]) => {
-        if (key == null) return undefined;
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
+        // Zero-value keys that are not null or undefined are common as
+        // initialized fields in various data structures ("", 0, etc.).
+        // A 'zero-value' is never valid as a key in Synnax, and a simple
+        // null check would result in excessive server refetches for
+        // keys we already know are invalid, so we do a full check
+        // for a zero-value instead.
+        if (primitive.isZero(key)) return undefined;
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
