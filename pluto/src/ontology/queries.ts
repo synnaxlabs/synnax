@@ -67,11 +67,6 @@ const RESOURCE_SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ontology.
   schema: ontology.idZ,
   onChange: async ({ store, changed, client }) => {
     const key = ontology.idToString(changed);
-    // Since resources are likely to change a lot, retrieving a resource
-    // regardless of whether it is in the cache can cause resource bloat.
-    // Instead, we only update the resource if it already exists in the cache.
-    // Newly created resources will still be propagated through relationships.
-    if (!store.resources.has(key)) return;
     store.resources.set(key, await client.ontology.retrieve(changed));
   },
 };

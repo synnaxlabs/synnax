@@ -33,7 +33,6 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -161,10 +160,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
 
-  const { retrieve: retrieveResource } = Ontology.useRetrieveObservableResource({
-    onChange: () => {},
-  });
-
   const retrieveChildren = Ontology.useRetrieveObservableChildren({
     onChange: ({ data: resources, variant }, { id }) => {
       if (variant == "success") {
@@ -274,8 +269,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
       const stringIDs = ontology.idToString(ids);
-      if (!resourceStore.has(stringIDs))
-        retrieveResource({ ids: ontology.parseIDs(ids) });
       const resources = resourceStore.get(stringIDs);
       if (isSingle)
         // if (resources[0] == null)
@@ -284,6 +277,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
       return resources;
     }) as GetResource,
+    [resourceStore],
+  );
+
+  const subscribe = useCallback(
+    (callback: () => void, key: string) => resourceStore.onSet(callback, key),
     [resourceStore],
   );
 
@@ -507,7 +505,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={deep.copy(shape)}
-        subscribe={resourceStore.onSet}
+        subscribe={subscribe}
         getItem={getResource}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
