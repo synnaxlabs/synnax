@@ -43,7 +43,7 @@ const useDelete = ({
     if (!ok) return false;
     removeLayout(...keys);
     dispatch(LinePlot.remove({ keys }));
-    return false;
+    return true;
   }, [confirm, dispatch, keys, removeLayout]);
   const { update } = Core.useDelete({ beforeUpdate });
   return useCallback(() => update(keys), [update, keys]);

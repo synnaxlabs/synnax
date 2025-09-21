@@ -35,6 +35,7 @@ import { Schematic } from "@/schematic";
 const useDelete = ({
   state: { getResource },
   selection: { ids },
+  removeLayout,
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Schematic" });
   const keys = useMemo(() => ids.map((id) => id.key), [ids]);
@@ -42,6 +43,7 @@ const useDelete = ({
   const beforeUpdate = useCallback(async () => {
     const ok = await confirm(getResource(ids));
     if (!ok) return false;
+    removeLayout(...keys);
     dispatch(Schematic.remove({ keys }));
     return true;
   }, [confirm, ids, getResource, dispatch]);

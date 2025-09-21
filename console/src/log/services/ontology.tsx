@@ -33,6 +33,7 @@ import { useConfirmDelete } from "@/ontology/hooks";
 const useDelete = ({
   state: { getResource },
   selection: { ids },
+  removeLayout,
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Log" });
   const keys = useMemo(() => ids.map((id) => id.key), [ids]);
@@ -40,6 +41,7 @@ const useDelete = ({
   const beforeUpdate = useCallback(async () => {
     const ok = await confirm(getResource(ids));
     if (!ok) return false;
+    removeLayout(...keys);
     dispatch(Log.remove({ keys }));
     return true;
   }, [dispatch, keys]);

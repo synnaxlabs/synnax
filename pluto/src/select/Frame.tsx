@@ -10,6 +10,7 @@
 import { array, type record } from "@synnaxlabs/x";
 import {
   createContext,
+  type FC,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -60,10 +61,13 @@ interface ContextValue<K extends record.Key = record.Key>
   getState: () => SelectionState<K>;
 }
 
+interface MultipleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseMultipleProps<K>> {}
+
 const MultipleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseMultipleProps<K> & PropsWithChildren): ReactElement => {
+}: MultipleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useMultiple(rest);
   return (
@@ -73,10 +77,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   );
 };
 
+interface SingleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseSingleProps<K>> {}
+
 const SingleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseSingleProps<K> & PropsWithChildren): ReactElement => {
+}: SingleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useSingle(rest);
   return (
@@ -221,17 +228,14 @@ export const Frame = <
   getItem,
   subscribe,
   itemHeight,
-  value,
-  onChange,
   multiple,
   onFetchMore,
   virtual = false,
   ...rest
 }: FrameProps<K, E>): ReactElement => {
-  let child: ReactElement;
-  if (multiple === true)
-    child = <MultipleProvider value={value} onChange={onChange} {...rest} />;
-  else child = <SingleProvider value={value} onChange={onChange} {...rest} />;
+  const Provider = (multiple ? MultipleProvider : SingleProvider) as FC<
+    MultipleProviderProps<K> | SingleProviderProps<K>
+  >;
   return (
     <List.Frame<K, E>
       data={data}
@@ -241,7 +245,8 @@ export const Frame = <
       itemHeight={itemHeight}
       virtual={virtual}
     >
-      {child}
+      <Provider {...rest} />
     </List.Frame>
   );
 };
+Frame.displayName = "Select.Frame";

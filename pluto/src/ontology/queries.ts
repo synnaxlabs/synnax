@@ -46,8 +46,9 @@ const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
 > = {
   channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
   schema: ontology.relationshipZ,
-  onChange: ({ store, changed }) =>
-    store.relationships.delete(ontology.relationshipToString(changed)),
+  onChange: ({ store, changed }) => {
+    store.relationships.delete(ontology.relationshipToString(changed));
+  },
 };
 
 export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
@@ -120,7 +121,7 @@ export const useRelationshipDeleteSynchronizer = (
       store.relationships.onDelete((changed) =>
         onDelete(ontology.relationshipZ.parse(changed)),
       ),
-    [store.relationships],
+    [store.relationships, onDelete],
   );
 };
 

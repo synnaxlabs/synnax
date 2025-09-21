@@ -12,6 +12,7 @@ import {
   array,
   type Destructor,
   type IsExactlyUndefined,
+  kv,
   type observe,
   type record,
 } from "@synnaxlabs/x";
@@ -59,14 +60,13 @@ export class ScopedUnaryStore<
     key: Key,
     value: state.SetArg<Value | undefined>,
     variant: SetExtra,
-  ): (() => void) | undefined {
+  ): Destructor | undefined {
     const prev = this.entries.get(key);
     const next = state.executeSetter(value, prev);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     this.entries.set(key, next);
     this.notifySet(scope, key, next, variant);
 
-    // Return rollback function
     return () => {
       if (prev === undefined) {
         this.entries.delete(key);
@@ -92,19 +92,19 @@ export class ScopedUnaryStore<
     value?: state.SetArg<Value | undefined> | SetExtra,
     extra?: SetExtra,
   ): () => void {
-    const rollbacks: Array<(() => void) | undefined> = [];
+    const rollbacks: Destructor[] = [];
 
     // Case 1: Array of values with keys
     if (Array.isArray(key))
       key.forEach((val) => {
         const rollback = this.setOne(scope, val.key, val, value as SetExtra);
-        if (rollback) rollbacks.push(rollback);
+        if (rollback != null) rollbacks.push(rollback);
       });
     // Case 2: Single value with key property
     else if (typeof key === "object" && "key" in key) {
       const val = key;
       const rollback = this.setOne(scope, val.key, val, value as SetExtra);
-      if (rollback) rollbacks.push(rollback);
+      if (rollback != null) rollbacks.push(rollback);
     }
     // Case 3: Key with separate value
     else {
@@ -114,14 +114,10 @@ export class ScopedUnaryStore<
         value as state.SetArg<Value | undefined>,
         extra as SetExtra,
       );
-      if (rollback) rollbacks.push(rollback);
+      if (rollback != null) rollbacks.push(rollback);
     }
 
-    // Return combined rollback function
-    return () => {
-      // Execute rollbacks in reverse order
-      for (let i = rollbacks.length - 1; i >= 0; i--) rollbacks[i]?.();
-    };
+    return () => rollbacks.reverse().forEach((r) => r());
   }
 
   get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
@@ -154,7 +150,7 @@ export class ScopedUnaryStore<
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
     variant?: SetExtra,
   ): () => void {
-    const toDelete: Array<{ key: Key; value: Value }> = [];
+    const toDelete: Array<{ key: Key; value?: Value }> = [];
 
     if (typeof key === "function")
       this.entries.forEach((value, k) => {
@@ -163,7 +159,7 @@ export class ScopedUnaryStore<
     else
       array.toArray(key).forEach((k) => {
         const value = this.entries.get(k);
-        if (value !== undefined) toDelete.push({ key: k, value });
+        toDelete.push({ key: k, value });
       });
 
     toDelete.forEach(({ key: k }) => {
@@ -173,6 +169,7 @@ export class ScopedUnaryStore<
 
     return () =>
       toDelete.forEach(({ key: k, value }) => {
+        if (value == null) return;
         this.entries.set(k, value);
         this.notifySet(scope, k, value, variant as SetExtra);
       });
@@ -218,7 +215,7 @@ export class ScopedUnaryStore<
       const matchesScope = listenerKey.scope !== scope;
       if (matchesKey && matchesScope)
         this.handleError(
-          async () => callback(value, variant),
+          async () => await callback(value, variant),
           "Failed to notify set listener",
         );
     });
@@ -229,7 +226,10 @@ export class ScopedUnaryStore<
       const matchesKey = listenerKey.key == null || listenerKey.key === key;
       const matchesScope = listenerKey.scope !== scope;
       if (matchesKey && matchesScope)
-        this.handleError(async () => callback(key), "Failed to notify delete listener");
+        this.handleError(
+          async () => await callback(key),
+          "Failed to notify delete listener",
+        );
     });
   }
 

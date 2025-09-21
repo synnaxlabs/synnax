@@ -16,13 +16,8 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import {
-  flatten,
-  getNodeShape,
-  type Node,
-  type NodeShape,
-  type Shape,
-} from "@/tree/core";
+import { Provider } from "@/tree/Context";
+import { flatten, getNodeShape, type Node, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
@@ -134,8 +129,7 @@ export const use = <K extends record.Key = string>({
 };
 
 export interface ItemRenderProps<K extends record.Key = string>
-  extends List.ItemRenderProps<K>,
-    NodeShape {}
+  extends List.ItemRenderProps<K> {}
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<
@@ -166,27 +160,29 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   virtual = false,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
-  const { keys, nodes } = shape;
+  const { keys } = shape;
   return (
-    <Select.Frame
-      multiple
-      value={selected}
-      replaceOnSingle
-      data={keys}
-      onChange={onSelect}
-      getItem={getItem}
-      subscribe={subscribe}
-      itemHeight={27}
-      virtual={virtual}
-    >
-      <List.Items<K, E>
-        full="y"
-        className={CSS(CSS.B("tree"), className, showRules && CSS.M("show-rules"))}
-        {...rest}
-        displayItems={Infinity}
+    <Provider shape={shape}>
+      <Select.Frame
+        multiple
+        value={selected}
+        replaceOnSingle
+        data={keys}
+        onChange={onSelect}
+        getItem={getItem}
+        subscribe={subscribe}
+        itemHeight={27}
+        virtual={virtual}
       >
-        {({ index, ...rest }) => children({ index, ...nodes[index], ...rest })}
-      </List.Items>
-    </Select.Frame>
+        <List.Items<K, E>
+          full="y"
+          className={CSS(CSS.B("tree"), className, showRules && CSS.M("show-rules"))}
+          {...rest}
+          displayItems={Infinity}
+        >
+          {children}
+        </List.Items>
+      </Select.Frame>
+    </Provider>
   );
 };

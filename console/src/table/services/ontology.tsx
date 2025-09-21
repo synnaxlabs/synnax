@@ -28,12 +28,12 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
 const useDelete = ({
   state: { getResource },
   selection: { ids },
+  removeLayout,
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Table" });
   const keys = useMemo(() => ids.map((id) => id.key), [ids]);
@@ -41,7 +41,8 @@ const useDelete = ({
   const beforeUpdate = useCallback(async () => {
     const ok = await confirm(getResource(ids));
     if (!ok) return false;
-    dispatch(Schematic.remove({ keys }));
+    removeLayout(...keys);
+    dispatch(Table.remove({ keys }));
     return true;
   }, [confirm, ids]);
   const { update } = Core.useDelete({ beforeUpdate });

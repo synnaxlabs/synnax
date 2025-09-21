@@ -26,7 +26,7 @@ import {
   useRequiredContext,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, deep, type observe } from "@synnaxlabs/x";
+import { array, type observe } from "@synnaxlabs/x";
 import {
   createContext,
   type DragEvent,
@@ -227,11 +227,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [setNodes],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
-  const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-    const keys = [ontology.idToString(rel.to)];
-    setNodes((prevNodes) => [...Core.removeNode({ keys, tree: prevNodes })]);
-  }, []);
+  const handleRelationshipDelete = useCallback(
+    (rel: ontology.Relationship) => {
+      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
+      setNodes((prevNodes) => [
+        ...Core.removeNode({ keys: ontology.idToString(rel.to), tree: prevNodes }),
+      ]);
+    },
+    [setNodes],
+  );
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
   const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
@@ -504,7 +508,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       <Core.Tree<string, ontology.Resource>
         {...treeProps}
         showRules
-        shape={deep.copy(shape)}
+        shape={shape}
         subscribe={subscribe}
         getItem={getResource}
         emptyContent={emptyContent}
