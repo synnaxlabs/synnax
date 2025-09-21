@@ -96,12 +96,12 @@ const useDelete = ({
 
 const useRename = (props: Ontology.TreeContextMenuProps) => {
   const { update } = Device.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
       const [name, renamed] = await Text.asyncEdit(
-        ontology.idToString(device.ontologyID(value.key)),
+        ontology.idToString(device.ontologyID(data.key)),
       );
       if (!renamed) return false;
-      return { ...value, name };
+      return { ...data, name };
     },
   });
   const firstId = props.selection.ids[0];

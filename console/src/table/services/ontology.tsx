@@ -56,13 +56,13 @@ const useRename = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const dispatch = useDispatch();
   const beforeUpdate = useCallback(
-    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
-      const { name: oldName } = value;
+    async ({ data, rollbacks }: Flux.BeforeUpdateParams<Core.UseRenameArgs>) => {
+      const { name: oldName } = data;
       const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
       if (!renamed) return false;
       dispatch(Layout.rename({ key: firstID.key, name }));
       rollbacks.add(() => dispatch(Layout.rename({ key: firstID.key, name: oldName })));
-      return { ...value, name };
+      return { ...data, name };
     },
     [dispatch, firstID],
   );

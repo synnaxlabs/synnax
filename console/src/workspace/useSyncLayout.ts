@@ -18,7 +18,7 @@ import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActiveKey } from "@/workspace/selectors";
 
 const SYNC_LAYOUT_DEBOUNCE = TimeSpan.milliseconds(250).milliseconds;
-const DUMMY_LAYOUT: Workspace.UseSaveLayoutArgs = { key: "", layout: {} };
+const DUMMY_LAYOUT: Workspace.SaveLayoutParams = { key: "", layout: {} };
 
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();

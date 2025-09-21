@@ -34,7 +34,7 @@ import { Synnax } from "@/synnax";
 export interface FormUpdateParams<
   Schema extends z.ZodType<core.Shape>,
   ScopedStore extends core.Store = {},
-> extends Omit<BaseUpdateArgs<z.infer<Schema>, ScopedStore>, "value" | "onChange">,
+> extends Omit<BaseUpdateArgs<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
     Form.UseReturn<Schema> {}
 
 export interface FormRetrieveParams<
@@ -108,7 +108,7 @@ interface FormMountListenersParams<
  * @template Query The type of parameters for the form query
  * @template Schema The Zod schema type for form validation
  */
-export interface AfterSaveArgs<
+export interface AfterSaveParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store,
@@ -144,7 +144,7 @@ export interface UseFormArgs<
    * the save will be cancelled. */
   beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
   /** Callback function called after successful save */
-  afterSave?: (args: AfterSaveArgs<Query, Schema, Store>) => void;
+  afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
   /** The scope to use for the form operation */
   scope?: string;
 }

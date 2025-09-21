@@ -25,8 +25,8 @@ const useRename = ({
   },
 }: Ontology.TreeContextMenuProps) => {
   const { update } = Group.useRename({
-    beforeUpdate: async ({ value }) => {
-      const { key } = value;
+    beforeUpdate: async ({ data }) => {
+      const { key } = data;
       const [name, renamed] = await Text.asyncEdit(
         ontology.idToString(group.ontologyID(key)),
       );
@@ -102,14 +102,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-interface UseUngroupArgs extends Ontology.TreeContextMenuProps {
+interface UngroupParams extends Ontology.TreeContextMenuProps {
   prevNodes?: Tree.Node<string>[];
 }
 
 const useUngroupSelection = () =>
-  Flux.createUpdate<UseUngroupArgs>({
-    name: "Group",
-    update: async ({ client, value: args }) => {
+  Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
+    name: Group.RESOURCE_NAME,
+    verbs: {
+      present: "ungroup",
+      past: "ungrouped",
+      participle: "ungrouping",
+    },
+    update: async ({ client, data: args }) => {
       const { selection, prevNodes } = args;
       if (selection.parentID == null || prevNodes == null) return args;
       const resourceIDStrings = new Set(
@@ -129,7 +134,7 @@ const useUngroupSelection = () =>
       return args;
     },
   }).useUpdate({
-    beforeUpdate: async ({ value: args }: Flux.BeforeUpdateArgs<UseUngroupArgs>) => {
+    beforeUpdate: async ({ data: args }: Flux.BeforeUpdateParams<UngroupParams>) => {
       const {
         selection,
         state: { shape, nodes, setNodes },
@@ -165,12 +170,12 @@ const useUngroupSelection = () =>
     },
     afterFailure: async ({
       status,
-      value: {
+      data: {
         addStatus,
         prevNodes,
         state: { setNodes },
       },
-    }: Flux.AfterFailureArgs<UseUngroupArgs>) => {
+    }: Flux.AfterFailureParams<UngroupParams>) => {
       addStatus(status);
       if (prevNodes != null) setNodes(prevNodes);
     },
@@ -179,7 +184,7 @@ const useUngroupSelection = () =>
 const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
-      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Group.CreateValue>) => {
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
         const {
           state: { nodes: tree, setNodes, expand, setResource },
         } = props;
@@ -188,7 +193,7 @@ const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
         const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
         const node: Tree.Node<string> = { key: newIDString, children: [] };
         setResource(res);
-        const destination = ontology.idToString(value.parent);
+        const destination = ontology.idToString(data.parent);
         expand(destination);
         setNodes([...Tree.setNode({ tree, destination, additions: node })]);
         rollbacks.add(() =>
@@ -196,12 +201,12 @@ const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
         );
         const [name, renamed] = await Text.asyncEdit(newIDString);
         if (!renamed || name === "") return false;
-        return { ...value, key: newID.key, name };
+        return { ...data, key: newID.key, name };
       },
       [props],
     ),
     afterFailure: useCallback(
-      async ({ status }: Flux.AfterFailureArgs<Group.CreateValue>) => {
+      async ({ status }: Flux.AfterFailureParams<Group.CreateParams>) => {
         const { addStatus } = props;
         addStatus(status);
       },

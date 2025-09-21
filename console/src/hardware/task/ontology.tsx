@@ -65,11 +65,10 @@ export const useRename = ({
 }: Ontology.TreeContextMenuProps) => {
   const store = useStore<RootState>();
   const { update } = Core.useRename({
-    beforeUpdate: async ({ value, rollbacks }) => {
-      const { key, name: oldName } = value;
-      const [name, renamed] = await Text.asyncEdit(
-        ontology.idToString(task.ontologyID(key)),
-      );
+    beforeUpdate: async ({ data, rollbacks }) => {
+      const { key, name: oldName } = data;
+      const id = ontology.idToString(task.ontologyID(key));
+      const [name, renamed] = await Text.asyncEdit(id);
       if (!renamed) return false;
       const layout = Layout.selectByFilter(
         store.getState(),
@@ -79,7 +78,7 @@ export const useRename = ({
         store.dispatch(Layout.rename({ key: layout.key, name }));
         rollbacks.add(() => Layout.rename({ key: layout.key, name: oldName }));
       }
-      return { ...value, name };
+      return { ...data, name };
     },
   });
   const firstID = ids[0];

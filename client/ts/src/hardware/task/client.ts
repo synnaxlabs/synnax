@@ -158,6 +158,7 @@ const retrieveReqZ = z.object({
   names: z.string().array().optional(),
   types: z.string().array().optional(),
   includeStatus: z.boolean().optional(),
+  searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });

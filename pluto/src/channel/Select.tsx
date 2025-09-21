@@ -55,12 +55,12 @@ export const SelectMultiple = ({
   onChange,
   value,
   emptyContent,
-  initialParams,
+  initialQuery,
   filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialParams,
+    initialQuery,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
@@ -97,12 +97,12 @@ export const SelectSingle = ({
   value,
   allowNone,
   emptyContent,
-  initialParams,
+  initialQuery,
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialParams,
+    initialQuery,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

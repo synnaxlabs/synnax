@@ -73,7 +73,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
           <Channel.SelectMultiple
             value={channels}
             onChange={setChannels}
-            initialParams={{ virtual: false }}
+            initialQuery={{ virtual: false }}
             triggerProps={{ placeholder: "Select Channels to Download" }}
             full="x"
           />

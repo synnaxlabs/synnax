@@ -43,7 +43,7 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const { getItem, subscribe, data, retrieve, status } = Ranger.useChildren();
+  const { getItem, subscribe, data, retrieve, status } = Ranger.useListChildren();
   const placeLayout = Layout.usePlacer();
   if (status.variant === "error") return null;
   return (

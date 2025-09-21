@@ -293,7 +293,7 @@ describe("queries", () => {
         await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { searchTerm: "cached" } }),
+          () => Channel.useList({ initialQuery: { searchTerm: "cached" } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -316,7 +316,7 @@ describe("queries", () => {
         await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { internal: true } }),
+          () => Channel.useList({ initialQuery: { internal: true } }),
           { wrapper },
         );
         expect(secondResult.current.data).not.toContain(normalCh.key);
@@ -351,7 +351,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { calculated: true } }),
+          () => Channel.useList({ initialQuery: { calculated: true } }),
           {
             wrapper,
           },
@@ -383,7 +383,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { dataTypes: [DataType.FLOAT32] } }),
+          () => Channel.useList({ initialQuery: { dataTypes: [DataType.FLOAT32] } }),
           { wrapper },
         );
         expect(secondResult.current.data).toContain(float32Ch.key);
@@ -414,7 +414,7 @@ describe("queries", () => {
         const { result: secondResult } = renderHook(
           () =>
             Channel.useList({
-              initialParams: { notDataTypes: [DataType.FLOAT32] },
+              initialQuery: { notDataTypes: [DataType.FLOAT32] },
             }),
           { wrapper },
         );
@@ -445,7 +445,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { isIndex: true } }),
+          () => Channel.useList({ initialQuery: { isIndex: true } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -481,7 +481,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialParams: { virtual: true } }),
+          () => Channel.useList({ initialQuery: { virtual: true } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -524,7 +524,7 @@ describe("queries", () => {
         const { result: secondResult } = renderHook(
           () =>
             Channel.useList({
-              initialParams: {
+              initialQuery: {
                 virtual: true,
                 dataTypes: [DataType.FLOAT32],
                 internal: false,

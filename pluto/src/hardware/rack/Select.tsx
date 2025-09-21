@@ -14,10 +14,9 @@ import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
 import { Rack } from "@/hardware/rack";
-import { useList } from "@/hardware/rack/queries";
+import { type ListQuery, useList } from "@/hardware/rack/queries";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { type ListParams } from "@/ranger/queries";
 import { Select } from "@/select";
 import { Text } from "@/text";
 
@@ -26,7 +25,7 @@ export interface SelectSingleProps
       Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
       "data" | "useListItem"
     >,
-    Flux.UseListParams<ListParams, rack.Key, rack.Payload>,
+    Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
 
@@ -49,11 +48,11 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
-  initialParams,
+  initialQuery,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialParams: { includeStatus: true, ...initialParams },
+    initialQuery: { includeStatus: true, ...initialQuery },
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

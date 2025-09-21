@@ -73,3 +73,9 @@ export const SNAPSHOT_VERBS: Verbs = {
   past: "snapshotted",
   participle: "snapshotting",
 };
+
+export const COPY_VERBS: Verbs = {
+  present: "copy",
+  past: "copied",
+  participle: "copying",
+};

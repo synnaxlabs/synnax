@@ -234,7 +234,7 @@ export const useFieldList = <
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);
   return useMemo(
-    () => ({ data.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) }),
+    () => ({ data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) }),
     [value, ctx, path],
   );
 };

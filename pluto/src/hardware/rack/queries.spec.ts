@@ -66,7 +66,7 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ term: "special" });
+        result.current.retrieve({ searchTerm: "special" });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);

@@ -185,11 +185,12 @@ const RemoteSymbolListContextMenu = (
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
+      const { name } = data;
       if (item == null) return false;
       const newName = await renameModal(
         {
-          initialValue: value.name,
+          initialValue: name,
           allowEmpty: false,
           label: "Symbol Name",
         },
@@ -199,7 +200,7 @@ const RemoteSymbolListContextMenu = (
         },
       );
       if (newName == null) return false;
-      return value;
+      return data;
     },
   });
   const del = Schematic.Symbol.useDelete({
@@ -216,7 +217,7 @@ const RemoteSymbolListContextMenu = (
     );
   };
   const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update({ key: firstKey }),
+    delete: () => del.update(firstKey),
     rename: () => {
       if (item == null) return;
       rename.update(item);
@@ -277,7 +278,7 @@ const RemoteListEmptyContent = ({
 
 const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
-    initialParams: { parent: group.ontologyID(groupKey) },
+    initialQuery: { parent: group.ontologyID(groupKey) },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
@@ -453,17 +454,18 @@ const GroupListContextMenu = ({
   const exportGroup = useExportGroup();
   const deleteSymbolGroup = useDeleteSymbolGroup();
   const rename = Group.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
+      const { name } = data;
       if (item == null) return false;
       const newName = await renameModal(
-        { initialValue: value.name, allowEmpty: false, label: "Group Name" },
+        { initialValue: name, allowEmpty: false, label: "Group Name" },
         {
           name: "Schematic.Symbols.Rename Group",
           icon: "Group",
         },
       );
       if (newName == null) return false;
-      return value;
+      return data;
     },
   });
 
@@ -510,7 +512,7 @@ const GroupList = ({
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Symbol.GROUPS,
   });
-  const remoteData = Group.useList({ initialParams: { parent: symbolGroupID } });
+  const remoteData = Group.useList({ initialQuery: { parent: symbolGroupID } });
   useEffect(
     () => remoteData.retrieve({ parent: symbolGroupID }),
     [remoteData, symbolGroupID],
@@ -558,7 +560,7 @@ const SearchSymbolList = ({
   onSelect,
 }: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList({
-    initialParams: { searchTerm },
+    initialQuery: { searchTerm },
   });
   const staticData = List.useStaticData<string, Schematic.Symbol.Spec>({
     data: ALL_STATIC_SYMBOLS,

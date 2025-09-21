@@ -217,35 +217,33 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   },
 });
 
-export interface RenameParams {
-  key: string;
-  name: string;
-}
+export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
-  verbs: "rename",
-  update: async ({ client, data, store }) => {
-    await client.workspaces.schematics.symbols.rename(value.key, value.name);
-    store.schematicSymbols.set(value.key, (p) => {
-      if (p == null) return p;
-      return { ...p, name: value.name };
-    });
-    return value;
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
+    await client.workspaces.schematics.symbols.rename(key, name);
+    rollbacks.add(
+      store.schematicSymbols.set(
+        key,
+        Flux.skipNull((p) => ({ ...p, name })),
+      ),
+    );
+    return data;
   },
 });
 
-export interface DeleteArgs {
-  key: string;
-}
+export type DeleteParams = schematic.symbol.Key | schematic.symbol.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
-  verbs: "delete",
-  update: async ({ client, data, store }) => {
-    await client.workspaces.schematics.symbols.delete(value.key);
-    store.schematicSymbols.delete(value.key);
-    return value;
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    rollbacks.add(store.schematicSymbols.delete(data));
+    await client.workspaces.schematics.symbols.delete(data);
+    return data;
   },
 });
 
@@ -255,6 +253,9 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   FluxSubStore
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client }) =>
-    await client.workspaces.schematics.symbols.retrieveGroup(),
+  retrieve: async ({ client, store }) => {
+    const g = await client.workspaces.schematics.symbols.retrieveGroup();
+    store.groups.set(g.key, g);
+    return g;
+  },
 });

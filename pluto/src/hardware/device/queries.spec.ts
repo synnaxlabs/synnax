@@ -472,7 +472,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Device.useList({ initialParams: { makes: [targetMake] } }),
+          () => Device.useList({ initialQuery: { makes: [targetMake] } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -514,7 +514,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Device.useList({ initialParams: { models: [targetModel] } }),
+          () => Device.useList({ initialQuery: { models: [targetModel] } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -558,7 +558,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Device.useList({ initialParams: { racks: [rack1.key] } }),
+          () => Device.useList({ initialQuery: { racks: [rack1.key] } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -600,7 +600,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Device.useList({ initialParams: { locations: [targetLocation] } }),
+          () => Device.useList({ initialQuery: { locations: [targetLocation] } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -642,7 +642,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Device.useList({ initialParams: { names: [targetName] } }),
+          () => Device.useList({ initialQuery: { names: [targetName] } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -696,7 +696,7 @@ describe("queries", () => {
         const { result: secondResult } = renderHook(
           () =>
             Device.useList({
-              initialParams: {
+              initialQuery: {
                 makes: [targetMake],
                 models: [targetModel],
                 racks: [rack1.key],

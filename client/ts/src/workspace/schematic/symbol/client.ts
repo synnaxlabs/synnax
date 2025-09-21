@@ -116,8 +116,6 @@ export class Client {
     return isSingle ? res.symbols[0] : res.symbols;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,

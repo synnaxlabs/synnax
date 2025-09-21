@@ -71,7 +71,7 @@ describe("Symbol queries", () => {
 
       const { result } = renderHook(
         () =>
-          Symbol.useList({ initialParams: { parent: group.ontologyID(parent.key) } }),
+          Symbol.useList({ initialQuery: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -142,7 +142,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialParams: {
+            initialQuery: {
               parent: group.ontologyID(parent.key),
               searchTerm: "valve",
             },
@@ -191,7 +191,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useList({
-            initialParams: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -393,7 +393,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(Symbol.useDelete, { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({ key: symbol.key });
+        await result.current.updateAsync(symbol.key);
       });
 
       await waitFor(() => {

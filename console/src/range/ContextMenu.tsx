@@ -153,8 +153,8 @@ export const useDelete = () => {
   });
   const { update } = Ranger.useDelete({
     beforeUpdate: useCallback(
-      async ({ value }: Flux.BeforeUpdateArgs<ranger.Key | ranger.Key[]>) => {
-        const keys = array.toArray(value);
+      async ({ data }: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
+        const keys = array.toArray(data);
         const rng = ranges.filter((r) => keys.includes(r.key));
         if (!(await confirm(rng))) return false;
         handleRemove(keys);

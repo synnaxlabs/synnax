@@ -57,10 +57,10 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
 
 export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
-  [Label.FLUX_STORE_KEY]: Label.FluxSubStore;
+  [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
-  [Device.FLUX_STORE_KEY]: Device.FluxSubStore;
-  [Task.FLUX_STORE_KEY]: Task.FluxSubStore;
+  [Device.FLUX_STORE_KEY]: Device.FluxStore;
+  [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;

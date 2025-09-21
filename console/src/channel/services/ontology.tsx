@@ -129,10 +129,10 @@ export const useSetAlias = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const activeRange = Range.useSelectActiveKey();
   const { update } = PChannel.useUpdateAlias({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
       const [alias, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
       if (!renamed) return false;
-      return { ...value, alias };
+      return { ...data, alias };
     },
   });
   return useCallback(
@@ -150,10 +150,10 @@ export const useRename = ({
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const { update } = PChannel.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
       const [name, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
       if (!renamed) return false;
-      return { ...value, name };
+      return { ...data, name };
     },
   });
   return useCallback(
@@ -204,7 +204,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useRetrieveMany({
+  const channels = PChannel.useRetrieveMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });

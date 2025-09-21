@@ -13,23 +13,22 @@ import { array } from "@synnaxlabs/x";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
-export type UseDeleteArgs = schematic.Params;
+export const FLUX_STORE_KEY = "schematics";
+const RESOURCE_NAME = "Schematic";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxStore,
+  FluxSubStore,
   schematic.Key,
   schematic.Schematic
 > = { listeners: [] };
 
-export const FLUX_STORE_KEY = "schematics";
-
 export interface FluxStore
   extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
 
-interface FluxStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [FLUX_STORE_KEY]: FluxStore;
 }
 
 export type UseRetrieveArgs = schematic.RetrieveSingleParams;
@@ -37,8 +36,8 @@ export type UseRetrieveArgs = schematic.RetrieveSingleParams;
 export const retrieveSingle = async ({
   store,
   client,
-  params: { key },
-}: Flux.RetrieveArgs<UseRetrieveArgs, FluxStore>) => {
+  query: { key },
+}: Flux.RetrieveParams<UseRetrieveArgs, FluxSubStore>) => {
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
   const s = await client.workspaces.schematics.retrieve({ key });
@@ -49,24 +48,27 @@ export const retrieveSingle = async ({
 export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   schematic.Schematic,
-  FluxStore
+  FluxSubStore
 >({
-  name: "Schematic",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, params: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, onChange }) => [
     store.schematics.onSet(onChange, key),
   ],
 });
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
-  name: "Schematic",
+export type UseDeleteArgs = schematic.Params;
+
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const keys = array.toArray(value);
+    const keys = array.toArray(data);
     const ids = keys.map((k) => schematic.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
-    await client.workspaces.schematics.delete(value);
-    return value;
+    await client.workspaces.schematics.delete(data);
+    return data;
   },
 });
 
@@ -74,11 +76,16 @@ export interface UseCopyArgs extends schematic.CopyArgs {}
 
 export const { useUpdate: useCopy } = Flux.createUpdate<
   UseCopyArgs,
-  FluxStore,
+  FluxSubStore,
   schematic.Schematic
 >({
-  name: "Schematic",
-  update: async ({ client, data }) => await client.workspaces.schematics.copy(value),
+  name: RESOURCE_NAME,
+  verbs: Flux.COPY_VERBS,
+  update: async ({ client, data, store }) => {
+    const copy = await client.workspaces.schematics.copy(data);
+    store.schematics.set(copy);
+    return copy;
+  },
 });
 
 export interface UseCreateArgs extends schematic.New {
@@ -91,12 +98,13 @@ export interface UseCreateResult extends schematic.Schematic {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
-  FluxStore,
+  FluxSubStore,
   UseCreateResult
 >({
-  name: "Schematic",
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
-    const { workspace, ...rest } = value;
+    const { workspace, ...rest } = data;
     const s = await client.workspaces.schematics.create(workspace, rest);
     store.schematics.set(s.key, s);
     return { ...s, workspace };
@@ -105,15 +113,19 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 
 export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> {}
 
-export interface UseSnapshotArgs {
+export interface SnapshotParams {
   schematics: SnapshotPair | SnapshotPair[];
   parentID: ontology.ID;
 }
 
-export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArgs>({
-  name: "Schematic",
+export const { useUpdate: useSnapshot } = Flux.createUpdate<
+  SnapshotParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.SNAPSHOT_VERBS,
   update: async ({ client, data }) => {
-    const { schematics, parentID } = value;
+    const { schematics, parentID } = data;
     const ids = await Promise.all(
       array.toArray(schematics).map(async (s) => {
         const newSchematic = await client.workspaces.schematics.copy({
@@ -125,22 +137,20 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<UseSnapshotArg
       }),
     );
     await client.ontology.addChildren(parentID, ...ids);
-    return value;
+    return data;
   },
 });
 
-export interface UseRenameArgs {
-  key: schematic.Key;
-  name: string;
-}
+export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
-  name: "Schematic",
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const { key, name } = value;
+    const { key, name } = data;
     await client.workspaces.schematics.rename(key, name);
     rollbacks.add(Flux.partialUpdate(store.schematics, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
-    return value;
+    return data;
   },
 });

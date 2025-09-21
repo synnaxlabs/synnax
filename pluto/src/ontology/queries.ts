@@ -271,7 +271,7 @@ export const retrieveParentID = Flux.createRetrieve<
   ],
 });
 
-export interface UseMoveChildrenParams {
+export interface MoveChildrenParams {
   source: ontology.ID;
   destination: ontology.ID;
   ids: ontology.ID[];
@@ -284,7 +284,7 @@ const MOVE_VERBS: Flux.Verbs = {
 };
 
 export const { useUpdate: useMoveChildren } = Flux.createUpdate<
-  UseMoveChildrenParams,
+  MoveChildrenParams,
   FluxSubStore
 >({
   name: RESOURCE_RESOURCE_NAME,

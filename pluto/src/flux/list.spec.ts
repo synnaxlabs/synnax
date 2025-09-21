@@ -621,7 +621,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             retrieveCached,
-          })({ initialParams: { searchTerm: "test" } }),
+          })({ initialQuery: { searchTerm: "test" } }),
         { wrapper },
       );
 
@@ -941,7 +941,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
             mountListeners,
-          })({ initialParams: { filter: "active" } }),
+          })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
 

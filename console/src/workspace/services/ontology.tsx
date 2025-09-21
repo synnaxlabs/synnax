@@ -94,8 +94,8 @@ const useCreateSchematic = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PSchematic.useCreate({
-    afterSuccess: async ({ value }) => {
-      const { workspace, ...schematic } = value;
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...schematic } = data;
       await maybeChangeWorkspace(workspace);
       const { key, name, snapshot } = schematic;
       placeLayout(Schematic.create({ ...schematic.data, key, name, snapshot }));
@@ -120,8 +120,8 @@ const useCreateLinePlot = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PLinePlot.useCreate({
-    afterSuccess: async ({ value }) => {
-      const { workspace, ...linePlot } = value;
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
       placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
     },
@@ -144,8 +144,8 @@ const useCreateLog = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PLog.useCreate({
-    afterSuccess: async ({ value }) => {
-      const { workspace, ...log } = value;
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...log } = data;
       await maybeChangeWorkspace(workspace);
       placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
     },
@@ -168,8 +168,8 @@ const useCreateTable = ({
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
   const workspaceID = ids[0];
   const { update } = PTable.useCreate({
-    afterSuccess: async ({ value }) => {
-      const { workspace, ...table } = value;
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...table } = data;
       await maybeChangeWorkspace(workspace);
       placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
     },
@@ -193,13 +193,13 @@ const useRename = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const dispatch = useDispatch();
   const beforeUpdate = useCallback(
-    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
-      const { name: oldName } = value;
+    async ({ data, rollbacks }: Flux.BeforeUpdateParams<Core.RenameParams>) => {
+      const { name: oldName } = data;
       const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
       if (!renamed) return false;
       dispatch(rename({ key: firstID.key, name }));
       rollbacks.add(() => dispatch(rename({ key: firstID.key, name: oldName })));
-      return { ...value, name };
+      return { ...data, name };
     },
     [dispatch, firstID],
   );
@@ -335,7 +335,6 @@ const handleSelect: Ontology.HandleSelect = ({
       handleError(e, `Failed to select ${names}`);
     });
 };
-
 
 const VALID_CHILDREN: ontology.ResourceType[] = [
   "schematic",

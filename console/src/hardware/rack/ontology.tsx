@@ -46,12 +46,11 @@ const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => voi
 
 const useRename = (props: Ontology.TreeContextMenuProps) => {
   const { update } = Rack.useRename({
-    beforeUpdate: async ({ value }) => {
-      const [name, renamed] = await Text.asyncEdit(
-        ontology.idToString(rack.ontologyID(value.key)),
-      );
+    beforeUpdate: async ({ data }) => {
+      const id = ontology.idToString(rack.ontologyID(data.key));
+      const [name, renamed] = await Text.asyncEdit(id);
       if (!renamed) return false;
-      return { ...value, name };
+      return { ...data, name };
     },
   });
   const firstKey = Number(props.selection.ids[0].key);

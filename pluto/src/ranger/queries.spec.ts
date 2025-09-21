@@ -169,7 +169,7 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialParams: { keys } }), {
+      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
         wrapper,
       });
       act(() => {

@@ -136,8 +136,8 @@ const useRename = ({
   const dispatch = useDispatch();
   const { update } = Ranger.useRename({
     beforeUpdate: useCallback(
-      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Ranger.UseRenameArgs>) => {
-        const { name: oldName } = value;
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
+        const { name: oldName } = data;
         const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
         if (!renamed) return false;
         dispatch(Layout.rename({ key: firstID.key, name }));
@@ -146,7 +146,7 @@ const useRename = ({
           dispatch(Layout.rename({ key: firstID.key, name: oldName }));
           dispatch(rename({ key: firstID.key, name: oldName }));
         });
-        return { ...value, name };
+        return { ...data, name };
       },
       [firstID],
     ),

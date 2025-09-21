@@ -18,7 +18,7 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useSelect();
   const buildMessage = useCallback(
-    ({ tasks }: Task.UseSnapshotArgs) =>
+    ({ tasks }: Task.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
         array.toArray(tasks).map((s) => s.name),
         "schematic",
@@ -27,17 +27,17 @@ export const useRangeSnapshot = () => {
   );
   const { update } = Task.useCreateSnapshot({
     afterSuccess: useCallback(
-      ({ value }: Flux.AfterSuccessArgs<Task.UseSnapshotArgs>) =>
+      ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(value)}`,
+          message: `Successfully snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
-    afterFailure: ({ status, value }: Flux.AfterFailureArgs<Task.UseSnapshotArgs>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(value)}` }),
+    afterFailure: ({ status, data }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
+      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
   });
-  return ({ tasks }: Omit<Task.UseSnapshotArgs, "parentID">) => {
+  return ({ tasks }: Omit<Task.SnapshotParams, "parentID">) => {
     if (rng == null)
       return addStatus({
         variant: "error",

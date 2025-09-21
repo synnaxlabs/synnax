@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Text, Tree } from "@synnaxlabs/pluto";
+import { Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -19,20 +19,21 @@ export interface CreateFromSelection {
   (props: Ontology.TreeContextMenuProps): void;
 }
 
-interface CreateArgs extends Ontology.TreeContextMenuProps {
+interface CreateParams extends Ontology.TreeContextMenuProps {
   group: group.Group;
   prevNodes?: Tree.Node<string>[];
 }
 
 export const useCreateFromSelection = () => {
-  const { update } = Flux.createUpdate<CreateArgs>({
-    name: "Group",
-    update: async ({ client, value }) => {
+  const { update } = Flux.createUpdate<CreateParams, Group.FluxSubStore>({
+    name: Group.RESOURCE_NAME,
+    verbs: Flux.CREATE_VERBS,
+    update: async ({ client, data }) => {
       const {
         selection: { parentID, ids },
         state: { shape },
         group: { name, key },
-      } = value;
+      } = data;
       const resourcesToGroup = getResourcesToGroup(ids, shape);
       await client.ontology.groups.create({ parent: parentID, name, key });
       await client.ontology.moveChildren(
@@ -40,15 +41,15 @@ export const useCreateFromSelection = () => {
         group.ontologyID(key),
         ...resourcesToGroup,
       );
-      return value;
+      return data;
     },
   }).useUpdate({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
       const {
         selection,
         state: { nodes, setNodes, setSelection, shape, setResource },
         group: { key },
-      } = value;
+      } = data;
       if (selection.parentID == null) return false;
       const newID = group.ontologyID(key);
       const newIDString = ontology.idToString(newID);
@@ -73,11 +74,11 @@ export const useCreateFromSelection = () => {
       setSelection([ontology.idToString(newID)]);
       const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
       if (!renamed) return false;
-      return { ...value, prevNodes, group: { ...value.group, name: groupName } };
+      return { ...data, prevNodes, group: { ...data.group, name: groupName } };
     },
     afterFailure: async ({
       status,
-      value: {
+      data: {
         prevNodes,
         addStatus,
         state: { setNodes },

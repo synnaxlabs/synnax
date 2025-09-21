@@ -73,24 +73,24 @@ const beforeValidate = ({
   get,
   set,
 }: Flux.BeforeValidateArgs<
-  Device.UseRetrieveArgs,
+  Device.RetrieveQuery,
   typeof Device.formSchema,
-  Device.FluxStore
+  Device.FluxSubStore
 >) => set("location", get("properties.connection.endpoint").value);
 
 const beforeSave = async ({
   client,
   get,
   store,
-}: Flux.BeforeSaveArgs<
-  Device.UseRetrieveArgs,
+}: Flux.FormBeforeSaveParams<
+  Device.RetrieveQuery,
   typeof Device.formSchema,
-  Device.FluxStore
+  Device.FluxSubStore
 >) => {
   const scanTask = await Task.retrieveSingle({
     client,
     store,
-    params: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
     schemas: SCAN_SCHEMAS,
   });
   const state = await scanTask.executeCommandSync(

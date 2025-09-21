@@ -67,24 +67,24 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useSelect();
   const buildMessage = useCallback(
-    ({ schematics }: Core.UseSnapshotArgs) =>
+    ({ schematics }: Core.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
         array.toArray(schematics).map((s) => s.name),
         "schematic",
       )} to ${rng?.name ?? "active range"}`,
     [rng],
   );
-  const { update } = Core.useCreateSnapshot({
+  const { update } = Core.useSnapshot({
     afterSuccess: useCallback(
-      ({ value }: Flux.AfterSuccessArgs<Core.UseSnapshotArgs>) =>
+      ({ data }: Flux.AfterSuccessParams<Core.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(value)}`,
+          message: `Successfully snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
-    afterFailure: ({ status, value }: Flux.AfterFailureArgs<Core.UseSnapshotArgs>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(value)}` }),
+    afterFailure: ({ status, data }: Flux.AfterFailureParams<Core.SnapshotParams>) =>
+      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
   });
   return ({
     selection: { ids },
@@ -112,13 +112,13 @@ const useRename = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const dispatch = useDispatch();
   const beforeUpdate = useCallback(
-    async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Core.UseRenameArgs>) => {
-      const { name: oldName } = value;
+    async ({ data, rollbacks }: Flux.BeforeUpdateParams<Core.RenameParams>) => {
+      const { name: oldName } = data;
       const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
       if (!renamed) return false;
       dispatch(Layout.rename({ key: firstID.key, name }));
       rollbacks.add(() => dispatch(Layout.rename({ key: firstID.key, name: oldName })));
-      return { ...value, name };
+      return { ...data, name };
     },
     [dispatch, firstID],
   );

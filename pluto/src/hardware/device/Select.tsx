@@ -67,14 +67,14 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
-  initialParams,
+  initialQuery,
   disabled,
   icon = <Icon.Device />,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialParams,
+    initialQuery,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

@@ -17,7 +17,7 @@ import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { type ListParams, useList } from "@/ranger/queries";
+import { type ListQuery, useList } from "@/ranger/queries";
 import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
@@ -75,7 +75,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<ranger.Key, ranger.Payload | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, ranger.Key, ranger.Payload> {}
+    Flux.UseListParams<ListQuery, ranger.Key, ranger.Payload> {}
 
 const ICON = <Icon.Range />;
 
@@ -84,12 +84,12 @@ export const SelectMultiple = ({
   value,
   emptyContent,
   filter,
-  initialParams,
+  initialQuery,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialParams,
+    initialQuery,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
@@ -118,7 +118,7 @@ export interface SelectSingleProps
       Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, ranger.Key, ranger.Payload> {}
+    Flux.UseListParams<ListQuery, ranger.Key, ranger.Payload> {}
 
 const DIALOG_PROPS: Dialog.DialogProps = {
   style: { width: 800 },
@@ -130,12 +130,12 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
-  initialParams,
+  initialQuery,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, subscribe, getItem, status } = useList({
     filter,
-    initialParams,
+    initialQuery,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

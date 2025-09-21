@@ -160,7 +160,7 @@ export interface UseListParams<
   E extends record.Keyed<K>,
 > {
   /** Initial parameters for the list query */
-  initialParams?: Query;
+  initialQuery?: Query;
   /** Optional filter function to apply to items */
   filter?: (item: E) => boolean;
   /** Optional function to sort the list */
@@ -350,7 +350,7 @@ export const createList =
     const {
       filter = defaultFilter,
       sort,
-      initialParams,
+      initialQuery = null,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
     } = params;
@@ -360,7 +360,7 @@ export const createList =
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
     const store = useStore<ScopedStore>();
-    const queryRef = useRef<Query | null>(initialParams ?? null);
+    const queryRef = useRef<Query | null>(initialQuery);
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
       pendingResult<Key[]>(
         name,

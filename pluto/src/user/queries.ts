@@ -12,6 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
 
 export type UseDeleteArgs = user.Key | user.Key[];
@@ -19,61 +20,72 @@ export type UseDeleteArgs = user.Key | user.Key[];
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
 export const FLUX_STORE_KEY = "user";
+const RESOURCE_NAME = "User";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxStore, user.Key, user.User> =
-  {
-    listeners: [],
-  };
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+  FluxSubStore,
+  user.Key,
+  user.User
+> = {
+  listeners: [],
+};
 
-export interface FluxStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [FLUX_STORE_KEY]: FluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
-  name: "User",
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const keys = array.toArray(value);
+    const keys = array.toArray(data);
     const ids = keys.map((k) => user.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(ontology.idToString(ids)));
     await client.users.delete(keys);
-    return value;
+    return data;
   },
 });
 
+export interface RetrieveQuery {
+  key: user.Key;
+}
+
 export const retrieveSingle = async ({
   client,
-  params,
+  query,
   store,
-}: Flux.RetrieveArgs<{ key: string }, FluxStore>) => {
-  const { key } = params;
+}: RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+  const { key } = query;
   const cached = store.users.get(key);
   if (cached != null) return cached;
-  const user = await client.users.retrieve(params);
+  const user = await client.users.retrieve(query);
   store.users.set(user.key, user);
   return user;
 };
 
-export interface UseRenameArgs {
-  key: user.Key;
-  name: string;
-}
+export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
-  name: "User",
+export const { useUpdate: useRename } = Flux.createUpdate<
+  ChangeUsernameParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const { key, name } = value;
-    await client.users.changeUsername(key, name);
+    const { key, username } = data;
+    await client.users.changeUsername(key, username);
     const id = user.ontologyID(key);
     rollbacks.add(
-      store.resources.set(ontology.idToString(id), (r) =>
-        r == null ? undefined : { ...r, name },
+      store.resources.set(
+        ontology.idToString(id),
+        Flux.skipNull((r) => ({ ...r, username })),
       ),
     );
-    return value;
+    return data;
   },
 });
 
@@ -82,7 +94,7 @@ export interface UseRetrieveGroupArgs {}
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
   ontology.ID | undefined,
-  FluxStore
+  FluxSubStore
 >({
   name: "User Group",
   retrieve: async ({ client, store }) => {
@@ -119,17 +131,13 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   password: "",
 };
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxStore>({
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
   name: "User",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
-    const user = await retrieveSingle({
-      client,
-      params: { key },
-      store,
-    });
+    const user = await retrieveSingle({ client, query: { key }, store });
     reset(user);
   },
   update: async ({ client, value }) => {

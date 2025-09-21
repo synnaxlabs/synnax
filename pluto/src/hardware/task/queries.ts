@@ -151,7 +151,7 @@ export const createRetrieve = <
     task.Task<Type, Config, StatusData> | null,
     FluxSubStore
   >({
-    name: "Task",
+    name: RESOURCE_NAME,
     retrieve: async (args) =>
       await retrieveSingle<Type, Config, StatusData>({ ...args, schemas }),
     mountListeners: ({ store, query, onChange }) => {
@@ -170,14 +170,13 @@ export const { useRetrieve } = createRetrieve();
 export interface ListQuery extends task.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
-  name: "Task",
+  name: RESOURCE_NAME,
   retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, query, store }) => {
     const tasks = await client.hardware.tasks.retrieve({ ...BASE_QUERY, ...query });
     store.tasks.set(tasks, "payload");
     return tasks;
   },
-
   retrieveByKey: async ({ key, ...args }) =>
     await retrieveSingle({ ...args, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
@@ -217,7 +216,7 @@ export type FormSchema<
   status?: z.infer<ReturnType<typeof task.statusZ<StatusData>>>;
 }>;
 
-export interface CreateFormParmas<
+export interface CreateFormParams<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
@@ -261,12 +260,12 @@ export const createForm = <
 >({
   schemas,
   initialValues,
-}: CreateFormParmas<Type, Config, StatusData>) => {
+}: CreateFormParams<Type, Config, StatusData>) => {
   const schema = createFormSchema<Type, Config, StatusData>(schemas);
   const actualInitialValues = taskToFormValues<Type, Config, StatusData>(initialValues);
   return Flux.createForm<FormQuery, FormSchema<Type, Config, StatusData>, FluxSubStore>(
     {
-      name: "Task",
+      name: RESOURCE_NAME,
       schema,
       initialValues: actualInitialValues,
       retrieve: async (args): Promise<void> => {
@@ -292,11 +291,10 @@ export const createForm = <
         });
         store.tasks.set(
           task.key,
-          (p) => {
-            if (p == null) return p;
+          Flux.skipNull((p) => {
             task.status = p.status;
             return task;
-          },
+          }),
           "payload",
         );
         const updatedValues = taskToFormValues<Type, Config, StatusData>(
@@ -323,12 +321,9 @@ export const createForm = <
   );
 };
 
-export type UseDeleteParams = task.Key | task.Key[];
+export type DeleteParams = task.Key | task.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  UseDeleteParams,
-  FluxSubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
@@ -345,13 +340,13 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 
 export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
-export interface UseSnapshotParams {
+export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
   parentID: ontology.ID;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
-  UseSnapshotParams,
+  SnapshotParams,
   FluxSubStore
 >({
   name: RESOURCE_NAME,

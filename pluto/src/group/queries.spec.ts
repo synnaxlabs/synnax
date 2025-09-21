@@ -49,8 +49,7 @@ describe("Group queries", () => {
       });
 
       const { result } = renderHook(
-        () =>
-          Group.useList({ initialParams: { parent: group.ontologyID(parent.key) } }),
+        () => Group.useList({ initialQuery: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -74,7 +73,7 @@ describe("Group queries", () => {
     });
 
     it("should return an empty list when parent is not provided", async () => {
-      const { result } = renderHook(() => Group.useList({ initialParams: {} }), {
+      const { result } = renderHook(() => Group.useList({ initialQuery: {} }), {
         wrapper,
       });
 
@@ -110,7 +109,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: {
+            initialQuery: {
               parent: group.ontologyID(parent.key),
               searchTerm: "apple",
             },
@@ -154,7 +153,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: {
+            initialQuery: {
               parent: group.ontologyID(parent.key),
               limit: 2,
               offset: 1,
@@ -199,7 +198,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -355,7 +354,7 @@ describe("Group queries", () => {
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -372,7 +371,7 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -401,7 +400,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
@@ -441,7 +440,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent2.key) },
+            initialQuery: { parent: group.ontologyID(parent2.key) },
           }),
         { wrapper },
       );
@@ -490,7 +489,7 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialParams: { parent: group.ontologyID(parent1.key) },
+            initialQuery: { parent: group.ontologyID(parent1.key) },
           }),
         { wrapper },
       );

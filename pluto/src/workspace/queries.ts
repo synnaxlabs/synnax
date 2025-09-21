@@ -15,18 +15,19 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "workspaces";
+const RESOURCE_NAME = "Workspace";
 
 export interface FluxStore
   extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
 
-interface FluxStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
 const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
-  FluxStore,
+  FluxSubStore,
   typeof workspace.workspaceZ
 > = {
   channel: workspace.SET_CHANNEL_NAME,
@@ -37,7 +38,7 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
-  FluxStore,
+  FluxSubStore,
   typeof workspace.keyZ
 > = {
   channel: workspace.DELETE_CHANNEL_NAME,
@@ -45,31 +46,35 @@ const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
   onChange: ({ store, changed }) => store.workspaces.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_WORKSPACE_LISTENER, DELETE_WORKSPACE_LISTENER],
 };
 
-export interface RetrieveParams {
+export interface RetrieveQuery {
   key: workspace.Key;
 }
 
-const retrieveSingle = async (args: Flux.RetrieveArgs<RetrieveParams, FluxStore>) => {
-  const cached = args.store.workspaces.get(args.params.key);
+const retrieveSingle = async ({
+  client,
+  query: { key },
+  store,
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+  const cached = store.workspaces.get(key);
   if (cached != null) return cached;
-  const workspace = await args.client.workspaces.retrieve(args.params.key);
-  args.store.workspaces.set(workspace.key, workspace);
+  const workspace = await client.workspaces.retrieve(key);
+  store.workspaces.set(workspace.key, workspace);
   return workspace;
 };
 
 export const { useRetrieve } = Flux.createRetrieve<
-  RetrieveParams,
+  RetrieveQuery,
   workspace.Workspace,
-  FluxStore
+  FluxSubStore
 >({
   name: "Workspace",
-  retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
-  mountListeners: ({ store, params, onChange }) => [
-    store.workspaces.onSet(onChange, params.key),
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.workspaces.onSet(onChange, key),
   ],
 });
 
@@ -82,55 +87,59 @@ export const useList = Flux.createList<
   ListParams,
   workspace.Key,
   workspace.Workspace,
-  FluxStore
+  FluxSubStore
 >({
-  name: "Workspace",
-  retrieve: async ({ client, query }) => await client.workspaces.retrieve(params),
-  retrieveByKey: async ({ client, key }) => await client.workspaces.retrieve(key),
+  name: RESOURCE_NAME,
+  retrieveCached: ({ store }) => store.workspaces.list(),
+  retrieve: async ({ client, query }) => await client.workspaces.retrieve(query),
+  retrieveByKey: async ({ key, ...rest }) =>
+    await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.workspaces.onSet((workspace) => onChange(workspace.key, workspace)),
     store.workspaces.onDelete(onDelete),
   ],
 });
 
-export type UseDeleteArgs = workspace.Key | workspace.Key[];
+export type DeleteParams = workspace.Key | workspace.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
-  name: "Workspace",
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const keys = array.toArray(value);
+    const keys = array.toArray(data);
     const ids = keys.map((key) => workspace.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
     rollbacks.add(store.resources.delete(keys));
     rollbacks.add(store.workspaces.delete(keys));
     await client.workspaces.delete(keys);
-    return value;
+    return data;
   },
 });
 
-export interface UseRenameArgs {
+export interface RenameParams {
   key: workspace.Key;
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
-  name: "Workspace",
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const { key, name } = value;
+    const { key, name } = data;
     await client.workspaces.rename(key, name);
     rollbacks.add(Flux.partialUpdate(store.workspaces, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, workspace.ontologyID(key), name));
-    return value;
+    return data;
   },
 });
 
-export interface UseRetrieveGroupArgs {}
+export interface RetrieveGroupQuery {}
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupArgs,
+  RetrieveGroupQuery,
   ontology.ID | undefined,
-  FluxStore
+  FluxSubStore
 >({
   name: "Workspace Group",
   retrieve: async ({ client, store }) => {
@@ -157,16 +166,16 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
 };
 
 export const useForm = Flux.createForm<
-  Partial<RetrieveParams>,
+  Partial<RetrieveQuery>,
   typeof formSchema,
-  FluxStore
+  FluxSubStore
 >({
-  name: "Workspace",
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, store, query: { key }, reset }) => {
     if (key == null) return;
-    const res = await retrieveSingle({ client, store, params: { key } });
+    const res = await retrieveSingle({ client, store, query: { key } });
     reset(res);
   },
   update: async ({ client, value, set }) => {
@@ -175,19 +184,29 @@ export const useForm = Flux.createForm<
   },
 });
 
-export interface UseSaveLayoutArgs extends workspace.SetLayoutArgs {}
+export interface SaveLayoutParams extends workspace.SetLayoutArgs {}
+
+const SAVE_LAYOUT_VERBS: Flux.Verbs = {
+  present: "save layout",
+  participle: "saving layout",
+  past: "saved layout",
+};
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<
-  UseSaveLayoutArgs,
-  FluxStore
+  SaveLayoutParams,
+  FluxSubStore
 >({
-  name: "Workspace",
-  update: async ({ client, data, store }) => {
-    await client.workspaces.setLayout(value);
-    store.workspaces.set(value.key, (p) => {
-      if (p == null) return p;
-      return { ...p, layout: value.layout };
-    });
-    return value;
+  name: RESOURCE_NAME,
+  verbs: SAVE_LAYOUT_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, layout } = data;
+    rollbacks.add(
+      store.workspaces.set(
+        key,
+        Flux.skipNull((p) => ({ ...p, layout })),
+      ),
+    );
+    await client.workspaces.setLayout(data);
+    return data;
   },
 });

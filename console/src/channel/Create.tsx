@@ -118,7 +118,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
-                initialParams={{ isIndex: true }}
+                initialQuery={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
                 allowNone={false}
                 zIndex={100}

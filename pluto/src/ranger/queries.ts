@@ -25,7 +25,7 @@ export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
 const RESOURCE_NAME = "Range";
-const KV_RESOURCE_NAME = "Key-Value Pair";
+const KV_RESOURCE_NAME = "Meta-Data";
 
 export interface FluxSubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
@@ -238,11 +238,15 @@ export const useListChildren = Flux.createList<
   ],
 });
 
+export interface RetrieveParentQuery {
+  id: ontology.ID;
+}
+
 export const {
   useRetrieve: useRetrieveParent,
   useRetrieveEffect: useRetrieveParentEffect,
-} = Flux.createRetrieve<{ id: ontology.ID }, ranger.Range | null, FluxSubStore>({
-  name: "Range",
+} = Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null, FluxSubStore>({
+  name: RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
     const parent = res.find(({ id: { type } }) => type === "range");
@@ -306,9 +310,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, onChange, client, query: { key } }) => [
-    store.ranges.onSet(async (range) => {
-      if (range != null) return onChange(range);
-    }, key),
+    store.ranges.onSet(onChange, key),
     store.relationships.onSet(async (relationship) => {
       const isLabelChange = Label.matchRelationship(
         relationship,
@@ -552,14 +554,10 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
 
-export interface ListParams
-  extends Pick<
-    ranger.RetrieveRequest,
-    "includeLabels" | "includeParent" | "searchTerm" | "offset" | "limit" | "keys"
-  > {}
+export interface ListQuery extends Omit<ranger.RetrieveRequest, "names"> {}
 
 export const useList = Flux.createList<
-  ListParams,
+  ListQuery,
   ranger.Key,
   ranger.Range,
   FluxSubStore
@@ -627,17 +625,17 @@ export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_KV_LISTENER, DELETE_KV_LISTENER],
 };
 
-export interface ListKVQuery {
+export interface ListMetaDataQuery {
   rangeKey: ranger.Key;
 }
 
-export const useListKV = Flux.createList<
-  ListKVQuery,
+export const useListMetaData = Flux.createList<
+  ListMetaDataQuery,
   string,
   ranger.KVPair,
   FluxSubStore
 >({
-  name: "Range Meta Data",
+  name: KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) => {
     const kv = client.ranges.getKV(rangeKey);
     const pairs = await kv.list();
@@ -668,27 +666,33 @@ export const useListKV = Flux.createList<
 
 export const kvPairFormSchema = ranger.kvPairZ;
 
+export interface KVFormQuery extends ListMetaDataQuery {}
+
+const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
+  key: "",
+  value: "",
+  range: "",
+};
+
 export const useKVPairForm = Flux.createForm<
-  ListKVQuery,
+  KVFormQuery,
   typeof kvPairFormSchema,
   FluxSubStore
 >({
-  name: "Range Meta Data",
+  name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
   retrieve: async () => undefined,
-  update: async ({ client, value: getValue }) => {
-    const { key, value, range } = getValue();
+  initialValues: ZERO_KV_PAIR_FORM_VALUES,
+  update: async ({ client, value: getPair, store }) => {
+    const pair = getPair();
+    const { key, value, range } = getPair();
     const kv = client.ranges.getKV(range);
+    store.rangeKV.set(key, pair);
     await kv.set(key, value);
-  },
-  initialValues: {
-    key: "",
-    value: "",
-    range: "",
   },
 });
 
-export interface DeleteKVParams extends ListKVQuery {
+export interface DeleteKVParams extends ListMetaDataQuery {
   key: string;
 }
 
@@ -698,15 +702,16 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<
 >({
   name: KV_RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, store }) => {
     const { key, rangeKey } = data;
     const kv = client.ranges.getKV(rangeKey);
     await kv.delete(key);
+    store.rangeKV.delete(key);
     return data;
   },
 });
 
-export interface SetKVParams extends ListKVQuery, ranger.KVPair {}
+export interface SetKVParams extends ListMetaDataQuery, ranger.KVPair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams, FluxSubStore>({
   name: KV_RESOURCE_NAME,
@@ -729,10 +734,9 @@ export const { useUpdate: useCreate } = Flux.createUpdate<ranger.New, FluxSubSto
   },
 });
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  ranger.Key | ranger.Keys,
-  FluxSubStore
->({
+export type DeleteParams = ranger.Key | ranger.Keys;
+
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store }) => {
@@ -769,8 +773,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, store, rollbacks }) => {
     const { key, name } = data;
     rollbacks.add(
-      store.ranges.set(key, (p) =>
-        p == null ? undefined : client.ranges.sugarOne({ ...p, name }),
+      store.ranges.set(
+        key,
+        Flux.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
     rollbacks.add(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));

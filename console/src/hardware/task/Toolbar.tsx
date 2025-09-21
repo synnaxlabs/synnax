@@ -69,8 +69,8 @@ const Content = () => {
 
   const { update: rename } = Task.useRename({
     beforeUpdate: useCallback(
-      async ({ value, rollbacks }: Flux.BeforeUpdateArgs<Task.UseRenameArgs>) => {
-        const { key, name } = value;
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
+        const { key, name } = data;
         const tsk = getItem(key);
         if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
         const oldName = tsk.name;
@@ -85,7 +85,7 @@ const Content = () => {
         }
         dispatch(Layout.rename({ key, name }));
         rollbacks.add(() => dispatch(Layout.rename({ key, name: oldName })));
-        return value;
+        return data;
       },
       [],
     ),
@@ -93,7 +93,7 @@ const Content = () => {
 
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: useCallback(
-      async ({ value: keys }: Flux.BeforeUpdateArgs<Task.UseDeleteArgs>) => {
+      async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
         setSelected([]);
         if (keys.length === 0) return false;
         const names = strings.naturalLanguageJoin(
@@ -116,7 +116,7 @@ const Content = () => {
   });
 
   const handleCommandStatus = useCallback(
-    ({ value: statuses }: { value: task.Status[] }) =>
+    ({ data: statuses }: Flux.AfterSuccessParams<task.Status[]>) =>
       statuses.forEach((status) => addStatus(status)),
     [addStatus],
   );
@@ -124,7 +124,7 @@ const Content = () => {
   const { update: runCommand } = Task.useCommand({
     afterSuccess: handleCommandStatus,
     afterFailure: useCallback(
-      ({ status }: Flux.AfterFailureArgs<Task.UseCommandArgs>) => addStatus(status),
+      ({ status }: Flux.AfterFailureParams<Task.CommandParams>) => addStatus(status),
       [addStatus],
     ),
   });

@@ -17,9 +17,12 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
-const BASE_UPDATE_PARAMS = {
-  resourceName: "Resource",
-  actionName: "update",
+const BASE_UPDATE_PARAMS: Pick<
+  Flux.CreateUpdateParams<number, {}>,
+  "name" | "verbs"
+> = {
+  name: "Resource",
+  verbs: Flux.UPDATE_VERBS,
 };
 
 describe("update", () => {
@@ -32,7 +35,7 @@ describe("update", () => {
   });
   describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update: async () => 0,
       });
@@ -44,7 +47,7 @@ describe("update", () => {
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -58,7 +61,7 @@ describe("update", () => {
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -75,7 +78,7 @@ describe("update", () => {
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -97,7 +100,7 @@ describe("update", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         return 0;
       };
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -116,7 +119,7 @@ describe("update", () => {
   describe("updateAsync", () => {
     it("should return true if the update function is successful", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -132,7 +135,7 @@ describe("update", () => {
 
     it("should return false if an error is thrown", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -148,7 +151,7 @@ describe("update", () => {
 
     it("should return false if the client is null", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -167,7 +170,7 @@ describe("update", () => {
     it("should return false if the update function is aborted", async () => {
       const update = vi.fn();
       const controller = new AbortController();
-      const { useUpdate } = Flux.createUpdate<number>({
+      const { useUpdate } = Flux.createUpdate<number, {}>({
         ...BASE_UPDATE_PARAMS,
         update,
       });

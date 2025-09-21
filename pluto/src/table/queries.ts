@@ -14,21 +14,20 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxStore,
+  FluxSubStore,
   table.Key,
   table.Table
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "tables";
+const RESOURCE_NAME = "Table";
 
 export interface FluxStore extends Flux.UnaryStore<table.Key, table.Table> {}
 
-export type UseDeleteArgs = table.Params;
-
-interface FluxStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [FLUX_STORE_KEY]: FluxStore;
 }
 
 export type UseRetrieveArgs = table.RetrieveSingleParams;
@@ -36,8 +35,8 @@ export type UseRetrieveArgs = table.RetrieveSingleParams;
 export const retrieveSingle = async ({
   store,
   client,
-  params: { key },
-}: Flux.RetrieveArgs<UseRetrieveArgs, FluxStore>) => {
+  query: { key },
+}: Flux.RetrieveParams<UseRetrieveArgs, FluxSubStore>) => {
   const cached = store.tables.get(key);
   if (cached != null) return cached;
   const t = await client.workspaces.tables.retrieve({ key });
@@ -48,43 +47,47 @@ export const retrieveSingle = async ({
 export const { useRetrieve } = Flux.createRetrieve<
   UseRetrieveArgs,
   table.Table,
-  FluxStore
+  FluxSubStore
 >({
-  name: "Table",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, params: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, onChange }) => [
     store.tables.onSet(onChange, key),
   ],
 });
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxStore>({
-  name: "Table",
+export type DeleteParams = table.Params;
+
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const keys = array.toArray(value);
+    const keys = array.toArray(data);
     const ids = keys.map((k) => table.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.add(store.relationships.delete(relFilter));
-    await client.workspaces.tables.delete(value);
-    return value;
+    await client.workspaces.tables.delete(data);
+    return data;
   },
 });
 
-export interface UseCreateArgs extends table.New {
+export interface CreateParams extends table.New {
   workspace: workspace.Key;
 }
 
-export interface UseCreateResult extends table.Table {
+export interface CreateOutput extends table.Table {
   workspace: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
-  UseCreateArgs,
-  FluxStore,
-  UseCreateResult
+  CreateParams,
+  FluxSubStore,
+  CreateOutput
 >({
-  name: "Table",
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
-    const { workspace, ...rest } = value;
+    const { workspace, ...rest } = data;
     const t = await client.workspaces.tables.create(workspace, rest);
     store.tables.set(t.key, t);
     return { ...t, workspace };
@@ -96,13 +99,14 @@ export interface UseRenameArgs {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxStore>({
-  name: "Table",
+export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
-    const { key, name } = value;
-    await client.workspaces.tables.rename(key, value.name);
+    const { key, name } = data;
+    await client.workspaces.tables.rename(key, name);
     rollbacks.add(Flux.partialUpdate(store.tables, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, table.ontologyID(key), name));
-    return value;
+    return data;
   },
 });
