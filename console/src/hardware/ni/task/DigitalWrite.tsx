@@ -58,12 +58,8 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
 
-const NameComponent = ({ cmdChannel, itemKey, stateChannel }: NameComponentProps) => (
-  <Common.Task.WriteChannelNames
-    cmdChannel={cmdChannel}
-    stateChannel={stateChannel}
-    itemKey={itemKey}
-  />
+const NameComponent = (props: NameComponentProps) => (
+  <Common.Task.WriteChannelNames {...props} />
 );
 
 const name = Component.renderProp(NameComponent);
