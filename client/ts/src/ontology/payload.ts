@@ -58,11 +58,12 @@ export type ID = z.infer<typeof idZ>;
 export const ROOT_ID: ID = { type: BUILTIN_TYPE, key: "root" };
 
 export interface IDToString {
-  (id: ID): string;
-  (ids: ID[]): string[];
+  (id: ID | string): string;
+  (ids: (ID | string)[]): string[];
 }
 
-export const idToString = ((id: ID | ID[]) => {
+export const idToString = ((id: ID | string | (ID | string)[]) => {
+  if (typeof id === "string") return id;
   if (Array.isArray(id)) return id.map((id) => idToString(id));
   return `${id.type}:${id.key}`;
 }) as IDToString;
@@ -70,7 +71,7 @@ export const idToString = ((id: ID | ID[]) => {
 export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
 
 export const parseIDs = (
-  ids: ID | ID[] | string | string[] | Resource | Resource[],
+  ids: ID | string | Resource | (ID | string | Resource)[],
 ): ID[] => {
   const arr = array.toArray(ids);
   if (arr.length === 0) return [];

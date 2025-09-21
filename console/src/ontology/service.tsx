@@ -22,8 +22,8 @@ import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
 export interface GetResource {
-  (id: ontology.ID): ontology.Resource;
-  (ids: ontology.ID[]): ontology.Resource[];
+  (id: ontology.ID | string): ontology.Resource;
+  (ids: (ontology.ID | string)[]): ontology.Resource[];
 }
 
 export interface TreeState {

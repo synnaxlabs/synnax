@@ -334,3 +334,21 @@ export const { useRetrieveObservable: useRetrieveObservableChildren } =
       return children;
     },
   });
+
+interface RetrieveResourceQuery {
+  ids: ontology.ID[];
+}
+
+export const {
+  useRetrieve: useRetrieveResource,
+  useRetrieveObservable: useRetrieveObservableResource,
+} = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[], FluxSubStore>({
+  name: RESOURCE_RESOURCE_NAME,
+  retrieve: async ({ client, query: { ids }, store }) => {
+    const cached = store.resources.get(ontology.idToString(ids));
+    if (cached.length === ids.length) return cached;
+    const resource = await client.ontology.retrieve(ids);
+    store.resources.set(resource);
+    return resource;
+  },
+});

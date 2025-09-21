@@ -138,7 +138,8 @@ export class ScopedUnaryStore<
     return Array.from(this.entries.values());
   }
 
-  has(key: Key): boolean {
+  has(key: Key | Key[]): boolean {
+    if (Array.isArray(key)) return key.every((k) => this.entries.has(k));
     return this.entries.has(key);
   }
 
@@ -242,7 +243,7 @@ export class ScopedUnaryStore<
       get: ((key: Key | Key[] | ((value: Value) => boolean)) =>
         this.get(key)) as UnaryStore<Key, Value>["get"],
       list: () => this.list(),
-      has: (key: Key) => this.has(key),
+      has: (key: Key | Key[]) => this.has(key),
       delete: (
         key: Key | Key[] | ((value: Value, key: Key) => boolean),
         variant?: SetExtra,
@@ -324,7 +325,7 @@ export type UnaryStore<
   get(key: Key): Value | undefined;
   get(keys: Key[] | ((value: Value) => boolean)): Value[];
   list(): Value[];
-  has(key: Key): boolean;
+  has(key: Key | Key[]): boolean;
   onSet(callback: SetHandler<Value, SetExtra>, key?: Key): Destructor;
   onDelete(callback: DeleteHandler<Key>, key?: Key): Destructor;
 } & (IsExactlyUndefined<SetExtra> extends true

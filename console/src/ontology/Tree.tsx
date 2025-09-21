@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
 // Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -34,6 +33,7 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -161,6 +161,33 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
 
+  const { retrieve: retrieveResource } = Ontology.useRetrieveObservableResource({
+    onChange: () => {},
+  });
+
+  const retrieveChildren = Ontology.useRetrieveObservableChildren({
+    onChange: ({ data: resources, variant }, { id }) => {
+      if (variant == "success") {
+        const converted = resources.map((r) => ({
+          key: ontology.idToString(r.id),
+          children: services[r.id.type].hasChildren ? [] : undefined,
+        }));
+        const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
+        setNodes((prevNodes) => [
+          ...Core.updateNodeChildren({
+            tree: prevNodes,
+            parent: ontology.idToString(id),
+            updater: (prevNodes) => [
+              ...prevNodes.filter(({ key }) => !ids.has(key)),
+              ...converted,
+            ],
+          }),
+        ]);
+      }
+      setLoading(false);
+    },
+  });
+
   const useLoading = useCallback(
     (key: string) =>
       useSyncExternalStore<boolean>(
@@ -181,6 +208,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
+  // useEffect(() => {
+  //   retrieveChildren.retrieve({ id: root });
+  // }, [root, retrieveChildren.retrieve]);
+
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
@@ -197,11 +228,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (resource: ontology.Resource) => {
-      const prev = resourceStore.get(ontology.idToString(resource.id));
-      if (prev?.name !== resource.name) setNodes((prevNodes) => [...prevNodes]);
-    },
-    [client, handleError, resourceStore.set],
+    () => setNodes((prevNodes) => [...prevNodes]),
+    [setNodes],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
@@ -234,29 +262,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   }, []);
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: ({ data: resources, variant }, { id }) => {
-      if (variant == "success") {
-        const converted = resources.map((r) => ({
-          key: ontology.idToString(r.id),
-          children: services[r.id.type].hasChildren ? [] : undefined,
-        }));
-        const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
-        setNodes((prevNodes) => [
-          ...Core.updateNodeChildren({
-            tree: prevNodes,
-            parent: ontology.idToString(id),
-            updater: (prevNodes) => [
-              ...prevNodes.filter(({ key }) => !ids.has(key)),
-              ...converted,
-            ],
-          }),
-        ]);
-      }
-      setLoading(false);
-    },
-  });
-
   const handleExpand = useCallback(({ action, clicked }: Core.HandleExpandProps) => {
     if (action !== "expand") return;
     const clickedID = ontology.idZ.parse(clicked);
@@ -265,18 +270,26 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   }, []);
 
   const getResource = useCallback(
-    ((id: ontology.ID | ontology.ID[]) => {
+    ((id: ontology.ID | ontology.ID[] | string | string[]) => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
-      const resources = resourceStore.get(ids.map((id) => ontology.idToString(id)));
-      if (isSingle) {
-        if (resources[0] == null)
-          throw new Error(`Resource ${ontology.idToString(id)} not found`);
+      const stringIDs = ontology.idToString(ids);
+      if (!resourceStore.has(stringIDs))
+        retrieveResource({ ids: ontology.parseIDs(ids) });
+      const resources = resourceStore.get(stringIDs);
+      if (isSingle)
+        // if (resources[0] == null)
+        //   throw new Error(`Resource ${ontology.idToString(id)} not found`);
         return resources[0];
-      }
+
       return resources;
     }) as GetResource,
-    [resourceStore.get],
+    [resourceStore],
+  );
+
+  const setResource = useCallback(
+    (resource: ontology.Resource | ontology.Resource[]) => resourceStore.set(resource),
+    [resourceStore],
   );
 
   const sort = useCallback(
@@ -311,11 +324,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       expand,
       contract,
       setLoading,
-      setResource: resourceStore.set,
+      setResource,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, resourceStore.set, nodesRef, setNodes],
+    [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
   );
 
   const getBaseProps = useCallback(
@@ -473,16 +486,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const M = services[firstID.type].TreeContextMenu;
       return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
     },
-    [
-      client,
-      setNodes,
-      services,
-      placeLayout,
-      removeLayout,
-      resourceStore.get,
-      nodesRef,
-      setSelected,
-    ],
+    [client, setNodes, services, placeLayout, removeLayout, nodesRef, setSelected],
   );
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(
@@ -504,7 +508,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         showRules
         shape={deep.copy(shape)}
         subscribe={resourceStore.onSet}
-        getItem={resourceStore.get}
+        getItem={getResource}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
       >
