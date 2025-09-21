@@ -231,7 +231,7 @@ const retrieveInitialFormValues = async ({
   reset(channelToFormValues(res));
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
+export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   RetrieveQuery,
   channel.Channel,
   FluxSubStore
