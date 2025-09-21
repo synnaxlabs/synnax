@@ -90,7 +90,7 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
   "scrollToIndex"
 > => {
   const { scrollToIndex } = useUtilContext();
-  return { scrollToIndex };
+  return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
 
 export const useItem = <
@@ -118,16 +118,19 @@ export const useData = <
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
   const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
   const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
-  return {
-    data,
-    getItems,
-    getTotalSize,
-    ref,
-    getItem,
-    scrollToIndex,
-    subscribe,
-    itemHeight,
-  };
+  return useMemo(
+    () => ({
+      data,
+      getItems,
+      getTotalSize,
+      ref,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+    }),
+    [data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe, itemHeight],
+  );
 };
 
 const useFetchMoreRefCallback = (

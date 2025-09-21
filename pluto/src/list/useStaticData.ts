@@ -79,5 +79,5 @@ export const useStaticData = <
     const keys = processedData.map((d) => d.key);
     return { getItem, data: keys };
   }, [filteredData, params, getItem, fuse, sort]);
-  return { ...res, retrieve: setParams };
+  return useMemo(() => ({ ...res, retrieve: setParams }), [res, setParams]);
 };
