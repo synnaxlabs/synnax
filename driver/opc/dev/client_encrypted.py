@@ -13,7 +13,6 @@ import socket
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, "..")
 from asyncua import Client, ua
 from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
