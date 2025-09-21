@@ -24,6 +24,7 @@ import { useAsyncEffect } from "@/hooks";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
+import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 /**
@@ -52,10 +53,7 @@ export interface RetrieveMountListenersParams<
   Query extends core.Shape,
   Data extends core.Shape,
   Store extends core.Store,
-> {
-  store: Store;
-  client: Client;
-  query: Query;
+> extends RetrieveParams<Query, Store> {
   onChange: state.Setter<Data>;
 }
 
@@ -270,6 +268,7 @@ const useObservableBase = <
   const queryRef = useRef<Query | null>(null);
   const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
+  const addStatus = useAdder();
   const handleListenerChange = useCallback(
     (value: state.SetArg<Data>) => {
       if (queryRef.current == null) return;
@@ -313,7 +312,9 @@ const useObservableBase = <
         onChange(successResult<Data>(name, "retrieved", value), query);
       } catch (error) {
         if (signal?.aborted) return;
-        onChange(errorResult<Data>(name, "retrieve", error), query);
+        const res = errorResult<Data>(name, "retrieve", error);
+        addStatus(res.status);
+        onChange(res, query);
       }
     },
     [client, name, beforeRetrieve],

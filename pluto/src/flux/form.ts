@@ -29,6 +29,7 @@ import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
+import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
@@ -244,6 +245,7 @@ export const createForm =
     const client = Synnax.use();
     const store = useStore<Store>(scope);
     const listeners = useDestructors();
+    const addStatus = useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -276,7 +278,9 @@ export const createForm =
           setResult(successResult<undefined>(name, "retrieved", undefined));
         } catch (error) {
           if (signal?.aborted) return;
-          setResult(errorResult<undefined>(name, "retrieve", error));
+          const res = errorResult<undefined>(name, "retrieve", error);
+          addStatus(res.status);
+          setResult(res);
         }
       },
       [client, name, form, store, noNotifySet],
@@ -315,8 +319,10 @@ export const createForm =
           } catch (rollbackError) {
             console.error("Error rolling back changes:", rollbackError);
           }
-          if (signal?.aborted !== true)
-            setResult(errorResult<undefined>(name, "update", error));
+          if (signal?.aborted === true) return false;
+          const res = errorResult<undefined>(name, "update", error);
+          addStatus(res.status);
+          setResult(res);
           return false;
         }
       },

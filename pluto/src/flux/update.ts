@@ -22,6 +22,7 @@ import {
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
 import { type state } from "@/state";
+import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 /**
@@ -177,6 +178,7 @@ const useObservable = <
   CreateUpdateParams<Input, Store, Output>): UseObservableUpdateReturn<Input> => {
   const client = Synnax.use();
   const store = useStore<Store>(scope);
+  const addStatus = useAdder();
   const handleUpdate = useDebouncedCallback(
     async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
@@ -202,24 +204,20 @@ const useObservable = <
           }
           if (updatedValue !== true) data = updatedValue;
         }
-        const oValue = await update({
-          client,
-          data,
-          store,
-          rollbacks,
-        });
-        if (signal?.aborted === true || oValue == false) {
+        const output = await update({ client, data, store, rollbacks });
+        if (signal?.aborted === true || output == false) {
           runRollbacks();
           return false;
         }
         onChange(successResult(name, past, data));
-        await afterSuccess?.({ client, data: oValue });
+        await afterSuccess?.({ client, data: output });
         return true;
       } catch (error) {
         runRollbacks();
         if (signal?.aborted !== true) {
           const result = errorResult<Input | undefined>(name, present, error);
           onChange(result);
+          addStatus(result.status);
           await afterFailure?.({ client, status: result.status, data });
         }
         return false;

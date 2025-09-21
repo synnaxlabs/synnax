@@ -626,7 +626,7 @@ describe("list", () => {
       );
 
       expect(retrieveCached).toHaveBeenCalledWith({
-        params: { searchTerm: "test" },
+        query: { searchTerm: "test" },
         store: expect.any(Object),
       });
     });
@@ -951,7 +951,7 @@ describe("list", () => {
 
       await waitFor(() => {
         const firstCall = mountListeners.mock.calls[0];
-        expect(firstCall[0].params).toEqual({ filter: "active" });
+        expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
 

@@ -13,6 +13,7 @@ import { DisconnectedError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
+  type Flux,
   Haul,
   Icon,
   List as CoreList,
@@ -25,7 +26,7 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -98,27 +99,30 @@ const List = (): ReactElement => {
   );
 };
 
-export const useRename = (key: string) => {
-  const dispatch = useDispatch();
+export const useRename = () => {
   const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  return (name: string) => {
-    const rng = select(store.getState(), key);
-    dispatch(rename({ key, name }));
-    if (rng != null && !rng.persisted) return;
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      await client.ranges.rename(key, name);
-    }, `Failed to rename range to ${name}`);
-  };
+  return Ranger.useRename({
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
+        const { key, name } = data;
+        const rng = select(store.getState(), key);
+        if (rng == null) return data;
+        const oldName = rng.name;
+        if (!rng.persisted) return false;
+        store.dispatch(rename({ key, name }));
+        rollbacks.add(() => store.dispatch(rename({ key, name: oldName })));
+        return data;
+      },
+      [store],
+    ),
+  });
 };
 
 const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
-  const onRename = useRename(itemKey);
+  const onRename = useRename();
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
 
@@ -135,7 +139,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       <Text.MaybeEditable
         id={`text-${key}`}
         value={name}
-        onChange={onRename}
+        onChange={(name) => onRename.update({ key, name })}
         allowDoubleClick={false}
       />
       <Ranger.TimeRangeChip level="small" timeRange={timeRange} />

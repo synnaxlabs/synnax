@@ -112,7 +112,7 @@ describe("queries", () => {
           config: {},
         });
 
-      const { result } = renderHook(() => Task.useList(), {
+      const { result } = renderHook(() => Task.useList({ useCachedList: false }), {
         wrapper,
       });
       act(() => {
@@ -888,7 +888,7 @@ describe("queries", () => {
 
       expect(beforeSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: { key: testTask.key },
+          query: { key: testTask.key },
         }),
       );
     });
@@ -942,7 +942,7 @@ describe("queries", () => {
 
       expect(afterSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: { key: testTask.key },
+          query: { key: testTask.key },
         }),
       );
     });
