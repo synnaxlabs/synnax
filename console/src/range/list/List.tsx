@@ -59,6 +59,7 @@ export const List = ({
     <Select.Frame<ranger.Key, ranger.Range>
       multiple
       data={data}
+      virtual
       getItem={getItem}
       subscribe={subscribe}
       onChange={setSelected}
