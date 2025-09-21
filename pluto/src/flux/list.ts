@@ -171,7 +171,7 @@ export interface UseListArgs<
   sort?: compare.Comparator<E>;
   /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
-  /** Whether to retreve initial list results from the cache */
+  /** Whether to retrieve initial list results from the cache */
   useCachedList?: boolean;
 }
 
