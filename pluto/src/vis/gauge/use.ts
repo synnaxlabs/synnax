@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { text } from "@/text/core";
 import { gauge } from "@/vis/gauge/aether";
 
@@ -37,7 +37,7 @@ export const use = ({
   units,
   max,
 }: UseProps): void => {
-  const memoProps = useMemoDeepEqualProps({
+  const memoProps = useMemoDeepEqual({
     box,
     telem,
     color,
