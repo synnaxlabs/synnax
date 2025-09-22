@@ -27,8 +27,8 @@ import {
 } from "@/hardware/device/make";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createDelete";
-import { createUseRename } from "@/ontology/createRename";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 
 const handleConfigure = ({
   selection: { ids },

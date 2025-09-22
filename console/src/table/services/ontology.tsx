@@ -18,8 +18,8 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createDelete";
-import { createUseRename } from "@/ontology/createRename";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 import { Table } from "@/table";
 
 const useDelete = createUseDelete({

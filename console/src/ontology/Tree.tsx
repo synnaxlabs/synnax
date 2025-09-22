@@ -203,10 +203,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  // useEffect(() => {
-  //   retrieveChildren.retrieve({ id: root });
-  // }, [root, retrieveChildren.retrieve]);
-
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;

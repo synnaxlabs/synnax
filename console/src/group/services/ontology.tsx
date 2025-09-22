@@ -18,7 +18,7 @@ import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
-import { createUseRename } from "@/ontology/createRename";
+import { createUseRename } from "@/ontology/createUseRename";
 
 const useRename = createUseRename({
   query: Group.useRename,

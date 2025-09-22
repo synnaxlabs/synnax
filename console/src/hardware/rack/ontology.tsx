@@ -17,8 +17,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createDelete";
-import { createUseRename } from "@/ontology/createRename";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 
 const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,

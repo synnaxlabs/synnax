@@ -13,7 +13,7 @@ import { useCallback } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createDelete";
+import { createUseDelete } from "@/ontology/createUseDelete";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
