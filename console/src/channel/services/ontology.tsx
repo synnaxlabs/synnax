@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
+  type Flux,
   type Haul,
   Icon,
   Menu as PMenu,
@@ -29,6 +30,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -119,48 +121,48 @@ export const useDelete = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const confirm = useConfirmDelete({ type: "Channel" });
   const { update } = PChannel.useDelete({
-    beforeUpdate: async () => await confirm(getResource(ids)),
+    beforeUpdate: useCallback(
+      async () => await confirm(getResource(ids)),
+      [confirm, getResource, ids],
+    ),
   });
   return useCallback(() => update(ids.map(({ key }) => Number(key))), [update, ids]);
 };
 
+const beforeSetAlias = async ({
+  data,
+}: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
+  if (data.channel == null) return false;
+  const [alias, renamed] = await Text.asyncEdit(
+    ontology.idToString(channel.ontologyID(data.channel)),
+  );
+  if (!renamed) return false;
+  return { ...data, alias };
+};
+
 export const useSetAlias = ({
-  selection: { ids },
+  selection: {
+    ids: [firstID],
+  },
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const activeRange = Range.useSelectActiveKey();
-  const { update } = PChannel.useUpdateAlias({
-    beforeUpdate: async ({ data }) => {
-      const [alias, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
-      if (!renamed) return false;
-      return { ...data, alias };
-    },
-  });
+  const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
   return useCallback(
     () =>
       update({
         range: activeRange ?? undefined,
-        channel: Number(ids[0].key),
+        channel: Number(firstID.key),
         alias: "",
       }),
-    [update, activeRange, ids],
+    [update, activeRange, firstID],
   );
 };
 
-export const useRename = ({
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const { update } = PChannel.useRename({
-    beforeUpdate: async ({ data }) => {
-      const [name, renamed] = await Text.asyncEdit(ontology.idToString(ids[0]));
-      if (!renamed) return false;
-      return { ...data, name };
-    },
-  });
-  return useCallback(
-    () => update({ key: Number(ids[0].key), name: "" }),
-    [update, ids],
-  );
-};
+export const useRename = createUseRename({
+  query: PChannel.useRename,
+  ontologyID: channel.ontologyID,
+  convertKey: Number,
+});
 
 export const useDeleteAlias = ({
   selection: { ids },

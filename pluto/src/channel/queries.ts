@@ -435,10 +435,7 @@ export const useList = Flux.createList<
   ],
 });
 
-interface RenameParams {
-  key: channel.Key;
-  name: string;
-}
+export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
@@ -459,7 +456,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 const ALIAS_RESOURCE_NAME = "channel alias";
 
-interface UpdateAliasParams extends Optional<ranger.Alias, "range" | "channel"> {
+export interface UpdateAliasParams extends Optional<ranger.Alias, "range" | "channel"> {
   alias: string;
 }
 

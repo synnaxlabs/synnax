@@ -136,6 +136,20 @@ export type UseDirectUpdateReturn<Input extends core.Shape> = Result<
 > &
   UseObservableUpdateReturn<Input>;
 
+export interface UseObservableUpdate<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+> {
+  (args: UseObservableUpdateParams<Input, Output>): UseObservableUpdateReturn<Input>;
+}
+
+export interface UseUpdate<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+> {
+  (args?: UseDirectUpdateParams<Input, Output>): UseDirectUpdateReturn<Input>;
+}
+
 /**
  * Return type for the createUpdate function.
  *
@@ -147,13 +161,9 @@ export interface CreateUpdateReturn<
   Output extends core.Shape = Input,
 > {
   /** Hook that provides update functions with external state management */
-  useObservableUpdate: (
-    args: UseObservableUpdateParams<Input, Output>,
-  ) => UseObservableUpdateReturn<Input>;
+  useObservableUpdate: UseObservableUpdate<Input, Output>;
   /** Hook that provides update functions with internal state management */
-  useUpdate: (
-    args?: UseDirectUpdateParams<Input, Output>,
-  ) => UseDirectUpdateReturn<Input>;
+  useUpdate: UseUpdate<Input, Output>;
 }
 
 /**

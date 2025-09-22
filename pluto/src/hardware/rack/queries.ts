@@ -127,12 +127,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export interface UseRenameParams extends Pick<rack.Rack, "key" | "name"> {}
+export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<
-  UseRenameParams,
-  FluxSubStore
->({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: async ({ data, client, rollbacks, store }) => {

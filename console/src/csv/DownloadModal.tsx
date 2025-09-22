@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Button, Channel, Flex, Icon, Nav, Progress, Text } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Channel,
+  Flex,
+  Icon,
+  Nav,
+  Progress,
+  type Select,
+  Text,
+} from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange } from "@synnaxlabs/x";
 import { useState } from "react";
 
@@ -22,6 +31,12 @@ export interface DownloadModalArgs extends Modals.BaseArgs<void> {
 }
 
 export const DOWNLOAD_MODAL_LAYOUT_TYPE = "downloadCSV";
+const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
+  virtual: false,
+};
+const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
+  placeholder: "Select Channels to Download",
+};
 
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
 
@@ -73,8 +88,8 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
           <Channel.SelectMultiple
             value={channels}
             onChange={setChannels}
-            initialQuery={{ virtual: false }}
-            triggerProps={{ placeholder: "Select Channels to Download" }}
+            initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+            triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
             full="x"
           />
         </Flex.Box>

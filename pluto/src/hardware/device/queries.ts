@@ -220,12 +220,9 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   },
 });
 
-export interface UseRenameParams extends Pick<device.Device, "key" | "name"> {}
+export interface RenameParams extends Pick<device.Device, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<
-  UseRenameParams,
-  FluxSubStore
->({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: async ({ data, client, rollbacks, store }) => {

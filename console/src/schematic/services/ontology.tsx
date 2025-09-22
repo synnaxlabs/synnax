@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
   type Flux,
   Icon,
@@ -28,6 +28,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -106,30 +107,17 @@ export const useRangeSnapshot = () => {
   };
 };
 
-const useRename = ({
-  selection: {
-    ids: [firstID],
+const useRename = createUseRename({
+  query: Core.useRename,
+  ontologyID: schematic.ontologyID,
+  convertKey: String,
+  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
+    const { key, name } = data;
+    store.dispatch(Layout.rename({ key, name }));
+    rollbacks.add(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    return { ...data, name };
   },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const dispatch = useDispatch();
-  const beforeUpdate = useCallback(
-    async ({ data, rollbacks }: Flux.BeforeUpdateParams<Core.RenameParams>) => {
-      const { name: oldName } = data;
-      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
-      if (!renamed) return false;
-      dispatch(Layout.rename({ key: firstID.key, name }));
-      rollbacks.add(() => dispatch(Layout.rename({ key: firstID.key, name: oldName })));
-      return { ...data, name };
-    },
-    [dispatch, firstID],
-  );
-  const { update } = Core.useRename({ beforeUpdate });
-  return useCallback(
-    () => update({ key: firstID.key, name: getResource(firstID).name }),
-    [update, firstID, getResource],
-  );
-};
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {

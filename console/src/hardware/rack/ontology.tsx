@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, rack } from "@synnaxlabs/client";
+import { rack } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -18,6 +18,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 
 const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,
@@ -44,18 +45,11 @@ const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => voi
   };
 };
 
-const useRename = (props: Ontology.TreeContextMenuProps) => {
-  const { update } = Rack.useRename({
-    beforeUpdate: async ({ data }) => {
-      const id = ontology.idToString(rack.ontologyID(data.key));
-      const [name, renamed] = await Text.asyncEdit(id);
-      if (!renamed) return false;
-      return { ...data, name };
-    },
-  });
-  const firstKey = Number(props.selection.ids[0].key);
-  return useCallback(() => update({ key: firstKey, name: "" }), [update, firstKey]);
-};
+const useRename = createUseRename({
+  query: Rack.useRename,
+  ontologyID: rack.ontologyID,
+  convertKey: Number,
+});
 
 const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;

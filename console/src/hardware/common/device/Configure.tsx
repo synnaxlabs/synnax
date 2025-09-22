@@ -22,7 +22,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { deep, type record, status, strings } from "@synnaxlabs/x";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -79,7 +79,7 @@ const Internal = <
     },
   });
   const { update, variant } = Core.useCreate({
-    beforeUpdate: async () => {
+    beforeUpdate: useCallback(async () => {
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -92,7 +92,7 @@ const Internal = <
       }
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
-    },
+    }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
     afterSuccess: onClose,
   });
 

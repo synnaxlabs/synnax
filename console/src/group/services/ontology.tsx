@@ -18,24 +18,13 @@ import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 
-const useRename = ({
-  selection: {
-    ids: [firstID],
-  },
-}: Ontology.TreeContextMenuProps) => {
-  const { update } = Group.useRename({
-    beforeUpdate: async ({ data }) => {
-      const { key } = data;
-      const [name, renamed] = await Text.asyncEdit(
-        ontology.idToString(group.ontologyID(key)),
-      );
-      if (!renamed) return false;
-      return { key, name };
-    },
-  });
-  return useCallback(() => update({ key: firstID.key, name: "" }), [firstID]);
-};
+const useRename = createUseRename({
+  query: Group.useRename,
+  ontologyID: group.ontologyID,
+  convertKey: String,
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
@@ -106,88 +95,93 @@ interface UngroupParams extends Ontology.TreeContextMenuProps {
   prevNodes?: Tree.Node<string>[];
 }
 
-const useUngroupSelection = () =>
-  Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
-    name: Group.RESOURCE_NAME,
-    verbs: {
-      present: "ungroup",
-      past: "ungrouped",
-      participle: "ungrouping",
-    },
-    update: async ({ client, data: args }) => {
-      const { selection, prevNodes } = args;
-      if (selection.parentID == null || prevNodes == null) return args;
-      const resourceIDStrings = new Set(
-        selection.ids.map((id) => ontology.idToString(id)),
+const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
+  name: Group.RESOURCE_NAME,
+  verbs: {
+    present: "ungroup",
+    past: "ungrouped",
+    participle: "ungrouping",
+  },
+  update: async ({ client, data: args }) => {
+    const { selection, prevNodes } = args;
+    if (selection.parentID == null || prevNodes == null) return args;
+    const resourceIDStrings = new Set(
+      selection.ids.map((id) => ontology.idToString(id)),
+    );
+    for (const id of selection.ids) {
+      const children =
+        Tree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
+        [];
+      const parentID = selection.parentID;
+      const childKeys = ontology.parseIDs(
+        children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
       );
-      for (const id of selection.ids) {
-        const children =
-          Tree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
-          [];
-        const parentID = selection.parentID;
-        const childKeys = ontology.parseIDs(
-          children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
-        );
-        await client.ontology.moveChildren(id, parentID, ...childKeys);
-      }
-      await client.ontology.groups.delete(selection.ids.map((id) => id.key));
-      return args;
-    },
-  }).useUpdate({
-    beforeUpdate: async ({ data: args }: Flux.BeforeUpdateParams<UngroupParams>) => {
-      const {
-        selection,
-        state: { shape, nodes, setNodes },
-      } = args;
-      if (selection.parentID == null) return false;
-      // Sort the groups by depth that way deeper nested groups are ungrouped first.
-      selection.ids.sort(
-        (a, b) =>
-          Tree.getDepth(ontology.idToString(a), shape) -
-          Tree.getDepth(ontology.idToString(b), shape),
-      );
-      const prevNodes = Tree.deepCopy(nodes);
-      const nextNodes = [
-        ...selection.ids.reduce(
-          (acc, id) => {
-            const key = ontology.idToString(id);
-            const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
-            acc = Tree.moveNode({
-              tree: acc,
-              destination: ontology.idsEqual(selection.parentID, selection.rootID)
-                ? null
-                : ontology.idToString(selection.parentID),
-              keys: children.map((c) => c.key),
-            });
-            acc = Tree.removeNode({ tree: acc, keys: key });
-            return [...acc];
-          },
-          [...nodes],
-        ),
-      ];
-      setNodes(nextNodes);
-      return { ...args, prevNodes };
-    },
-    afterFailure: async ({
-      status,
-      data: {
-        addStatus,
-        prevNodes,
-        state: { setNodes },
+      await client.ontology.moveChildren(id, parentID, ...childKeys);
+    }
+    await client.ontology.groups.delete(selection.ids.map((id) => id.key));
+    return args;
+  },
+});
+
+const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) => {
+  const {
+    selection,
+    state: { shape, nodes, setNodes },
+  } = data;
+  if (selection.parentID == null) return false;
+  // Sort the groups by depth that way deeper nested groups are ungrouped first.
+  selection.ids.sort(
+    (a, b) =>
+      Tree.getDepth(ontology.idToString(a), shape) -
+      Tree.getDepth(ontology.idToString(b), shape),
+  );
+  const prevNodes = Tree.deepCopy(nodes);
+  const nextNodes = [
+    ...selection.ids.reduce(
+      (acc, id) => {
+        const key = ontology.idToString(id);
+        const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
+        acc = Tree.moveNode({
+          tree: acc,
+          destination: ontology.idsEqual(selection.parentID, selection.rootID)
+            ? null
+            : ontology.idToString(selection.parentID),
+          keys: children.map((c) => c.key),
+        });
+        acc = Tree.removeNode({ tree: acc, keys: key });
+        return [...acc];
       },
-    }: Flux.AfterFailureParams<UngroupParams>) => {
-      addStatus(status);
-      if (prevNodes != null) setNodes(prevNodes);
-    },
+      [...nodes],
+    ),
+  ];
+  setNodes(nextNodes);
+  return { ...data, prevNodes };
+};
+
+const afterUngroupFailure = async ({
+  data: {
+    prevNodes,
+    state: { setNodes },
+  },
+}: Flux.AfterFailureParams<UngroupParams>) => {
+  if (prevNodes != null) setNodes(prevNodes);
+};
+
+const useUngroupSelection = () =>
+  baseUngroup.useUpdate({
+    beforeUpdate: beforeUngroup,
+    afterFailure: afterUngroupFailure,
   });
 
-const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
+const useCreateEmpty = ({
+  selection: {
+    ids: [firstID],
+  },
+  state: { nodes: tree, setNodes, setResource, expand },
+}: Ontology.TreeContextMenuProps) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-        const {
-          state: { nodes: tree, setNodes, expand, setResource },
-        } = props;
         const newID = group.ontologyID(uuid.create());
         const newIDString = ontology.idToString(newID);
         const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
@@ -203,22 +197,12 @@ const useCreateEmpty = (props: Ontology.TreeContextMenuProps) => {
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },
-      [props],
-    ),
-    afterFailure: useCallback(
-      async ({ status }: Flux.AfterFailureParams<Group.CreateParams>) => {
-        const { addStatus } = props;
-        addStatus(status);
-      },
-      [props],
+      [tree, setNodes, setResource, expand],
     ),
   });
-  const {
-    selection: { ids },
-  } = props;
   return useCallback(
-    () => update({ key: uuid.create(), name: "", parent: ids[0] }),
-    [ids],
+    () => update({ key: uuid.create(), name: "", parent: firstID }),
+    [firstID],
   );
 };
 

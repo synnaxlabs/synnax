@@ -9,7 +9,6 @@
 
 import "@/range/Toolbar.css";
 
-import { DisconnectedError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -20,8 +19,6 @@ import {
   Menu as PMenu,
   Ranger,
   Select,
-  Status,
-  Synnax,
   Tag,
   Text,
   Tooltip,

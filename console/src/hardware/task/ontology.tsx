@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Task as Core, Text } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -23,8 +23,8 @@ import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 import { Range } from "@/range";
-import { type RootState } from "@/store";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -59,32 +59,23 @@ const useDelete = ({
   return useCallback(() => update(keys), [update, keys]);
 };
 
-export const useRename = ({
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps) => {
-  const store = useStore<RootState>();
-  const { update } = Core.useRename({
-    beforeUpdate: async ({ data, rollbacks }) => {
-      const { key, name: oldName } = data;
-      const id = ontology.idToString(task.ontologyID(key));
-      const [name, renamed] = await Text.asyncEdit(id);
-      if (!renamed) return false;
-      const layout = Layout.selectByFilter(
-        store.getState(),
-        (l) => (l.args as FormLayoutArgs)?.taskKey === key,
-      );
-      if (layout != null) {
-        store.dispatch(Layout.rename({ key: layout.key, name }));
-        rollbacks.add(() => Layout.rename({ key: layout.key, name: oldName }));
-      }
-      return { ...data, name };
-    },
-  });
-  const firstID = ids[0];
-  const oldName = getResource(firstID).name;
-  return useCallback(() => update({ key: firstID.key, name: oldName }), [update]);
-};
+export const useRename = createUseRename({
+  query: Core.useRename,
+  ontologyID: task.ontologyID,
+  convertKey: String,
+  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
+    const { key, name } = data;
+    const layout = Layout.selectByFilter(
+      store.getState(),
+      (l) => (l.args as FormLayoutArgs)?.taskKey === key,
+    );
+    if (layout != null) {
+      store.dispatch(Layout.rename({ key: layout.key, name }));
+      rollbacks.add(() => Layout.rename({ key: layout.key, name: oldName }));
+    }
+    return { ...data, name };
+  },
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {

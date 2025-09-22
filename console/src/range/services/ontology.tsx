@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, ranger } from "@synnaxlabs/client";
 import {
-  type Flux,
   type Haul,
   Icon,
   List,
@@ -30,6 +29,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseRename } from "@/ontology/createRename";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { type TreeContextMenuProps } from "@/ontology/service";
 import {
@@ -127,35 +127,29 @@ const useDelete = ({
   return useCallback(() => update(keys), [keys]);
 };
 
-const useRename = ({
-  selection: {
-    ids: [firstID],
+const useRename = createUseRename({
+  query: Ranger.useRename,
+  ontologyID: ranger.ontologyID,
+  convertKey: String,
+  beforeUpdate: async ({
+    data,
+    rollbacks,
+    selection: {
+      ids: [firstID],
+    },
+    store,
+    oldName,
+  }) => {
+    const { name } = data;
+    store.dispatch(Layout.rename({ key: firstID.key, name }));
+    store.dispatch(rename({ key: firstID.key, name }));
+    rollbacks.add(() => {
+      store.dispatch(Layout.rename({ key: firstID.key, name: oldName }));
+      store.dispatch(rename({ key: firstID.key, name: oldName }));
+    });
+    return { ...data, name };
   },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps) => {
-  const dispatch = useDispatch();
-  const { update } = Ranger.useRename({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
-        const { name: oldName } = data;
-        const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
-        if (!renamed) return false;
-        dispatch(Layout.rename({ key: firstID.key, name }));
-        dispatch(rename({ key: firstID.key, name }));
-        rollbacks.add(() => {
-          dispatch(Layout.rename({ key: firstID.key, name: oldName }));
-          dispatch(rename({ key: firstID.key, name: oldName }));
-        });
-        return { ...data, name };
-      },
-      [firstID],
-    ),
-  });
-  return useCallback(
-    () => update({ key: firstID.key, name: getResource(firstID).name }),
-    [firstID],
-  );
-};
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
