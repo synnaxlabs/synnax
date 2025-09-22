@@ -460,7 +460,7 @@ describe("TimeStamp", () => {
     });
   });
 
-  describe("fString", () => {
+  describe("toString with formats", () => {
     const ts = new TimeStamp([2022, 12, 15], "UTC")
       .add(TimeSpan.hours(12))
       .add(TimeSpan.minutes(20))
@@ -479,7 +479,7 @@ describe("TimeStamp", () => {
 
     FORMAT_TESTS.forEach(([format, expected]) => {
       test(`should format timestamp as ${format}`, () => {
-        expect(ts.fString(format, "UTC")).toEqual(expected);
+        expect(ts.toString(format, "UTC")).toEqual(expected);
       });
     });
   });
@@ -922,6 +922,136 @@ describe("TimeSpan", () => {
   test("toString", () => {
     TO_STRING_TESTS.forEach(([ts, expected]) => {
       expect(ts.toString()).toEqual(expected);
+    });
+  });
+
+  describe("toString with semantic format", () => {
+    const TESTS: [TimeSpan, string][] = [
+      // Sub-second durations
+      [TimeSpan.ZERO, "0s"],
+      [TimeSpan.nanoseconds(50), "< 1s"],
+      [TimeSpan.microseconds(50), "< 1s"],
+      [TimeSpan.milliseconds(50), "< 1s"],
+      [TimeSpan.milliseconds(999), "< 1s"],
+
+      // Seconds
+      [TimeSpan.seconds(1), "1s"],
+      [TimeSpan.seconds(30), "30s"],
+      [TimeSpan.seconds(59), "59s"],
+
+      // Minutes with seconds (< 5 minutes)
+      [TimeSpan.seconds(60), "1m"],
+      [TimeSpan.seconds(90), "1m 30s"],
+      [TimeSpan.seconds(119), "1m 59s"],
+      [TimeSpan.seconds(120), "2m"],
+      [TimeSpan.seconds(150), "2m 30s"],
+      [TimeSpan.seconds(240), "4m"],
+      [TimeSpan.seconds(270), "4m 30s"],
+
+      // Minutes without seconds (>= 5 minutes)
+      [TimeSpan.seconds(300), "5m"],
+      [TimeSpan.seconds(330), "5m"],  // seconds dropped
+      [TimeSpan.minutes(30), "30m"],
+      [TimeSpan.minutes(59), "59m"],
+
+      // Hours with minutes (< 3 hours)
+      [TimeSpan.minutes(60), "1h"],
+      [TimeSpan.minutes(90), "1h 30m"],
+      [TimeSpan.minutes(119), "1h 59m"],
+      [TimeSpan.minutes(120), "2h"],
+      [TimeSpan.minutes(150), "2h 30m"],
+      [TimeSpan.minutes(179), "2h 59m"],
+
+      // Hours without minutes (>= 3 hours)
+      [TimeSpan.minutes(180), "3h"],
+      [TimeSpan.minutes(195), "3h"],  // minutes dropped
+      [TimeSpan.hours(12), "12h"],
+      [TimeSpan.hours(23), "23h"],
+
+      // Days with hours (< 2 days)
+      [TimeSpan.hours(24), "1d"],
+      [TimeSpan.hours(25), "1d 1h"],
+      [TimeSpan.hours(36), "1d 12h"],
+      [TimeSpan.hours(47), "1d 23h"],
+
+      // Days without hours (>= 2 days)
+      [TimeSpan.hours(48), "2d"],
+      [TimeSpan.hours(50), "2d"],  // hours dropped
+      [TimeSpan.days(3), "3d"],
+      [TimeSpan.days(6), "6d"],
+
+      // Weeks with days (< 2 weeks)
+      [TimeSpan.days(7), "1w"],
+      [TimeSpan.days(8), "1w 1d"],
+      [TimeSpan.days(10), "1w 3d"],
+      [TimeSpan.days(13), "1w 6d"],
+
+      // Weeks without days (>= 2 weeks)
+      [TimeSpan.days(14), "2w"],
+      [TimeSpan.days(15), "2w"],  // days dropped
+      [TimeSpan.days(21), "3w"],
+      [TimeSpan.days(28), "4w"],
+
+      // Months with days (< 3 months)
+      [TimeSpan.days(30), "1mo"],
+      [TimeSpan.days(35), "1mo 5d"],
+      [TimeSpan.days(45), "1mo 15d"],
+      [TimeSpan.days(60), "2mo"],
+      [TimeSpan.days(75), "2mo 15d"],
+
+      // Months without days (>= 3 months)
+      [TimeSpan.days(90), "3mo"],
+      [TimeSpan.days(95), "3mo"],  // days dropped
+      [TimeSpan.days(180), "6mo"],
+      [TimeSpan.days(330), "11mo"],
+
+      // Years with months (< 2 years)
+      [TimeSpan.days(365), "1y"],
+      [TimeSpan.days(395), "1y 1mo"],
+      [TimeSpan.days(500), "1y 4mo"],
+      [TimeSpan.days(700), "1y 11mo"],
+
+      // Years without months (>= 2 years)
+      [TimeSpan.days(730), "2y"],
+      [TimeSpan.days(750), "2y"],  // months dropped
+      [TimeSpan.days(1095), "3y"],
+      [TimeSpan.days(3650), "10y"],
+
+      // Complex durations
+      [TimeSpan.seconds(3661), "1h 1m"],
+      [TimeSpan.minutes(1441), "1d"],  // 24h 1m, but minutes are dropped at day level
+      [TimeSpan.minutes(1500), "1d 1h"],  // 25h exactly
+      [TimeSpan.hours(169), "1w 1h"],
+
+      // Negative durations
+      [TimeSpan.seconds(-30), "-30s"],
+      [TimeSpan.minutes(-90), "-1h 30m"],
+      [TimeSpan.hours(-25), "-1d 1h"],
+      [TimeSpan.days(-8), "-1w 1d"],
+      [TimeSpan.days(-400), "-1y 1mo"],
+    ];
+
+    TESTS.forEach(([ts, expected]) => {
+      test(`${ts.valueOf()} => ${expected}`, () => {
+        expect(ts.toString("semantic")).toEqual(expected);
+      });
+    });
+  });
+
+  describe("toString with format", () => {
+    test("toString with semantic format", () => {
+      const ts = TimeSpan.hours(25);
+      expect(ts.toString("semantic")).toEqual("1d 1h");
+    });
+
+    test("toString with default format", () => {
+      const ts = TimeSpan.hours(25);
+      expect(ts.toString()).toEqual("1d 1h");
+    });
+
+    test("toString with full format", () => {
+      const ts = TimeSpan.hours(25).add(TimeSpan.minutes(30)).add(TimeSpan.seconds(15));
+      expect(ts.toString("full")).toEqual("1d 1h 30m 15s");
     });
   });
 

@@ -16,6 +16,7 @@ import {
   Menu as PMenu,
   Ranger,
   Select,
+  Telem,
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
@@ -313,10 +314,9 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         <Icon.Range />
         {resource?.name}
       </Text.Text>
-      <Ranger.TimeRangeChip
-        level="small"
-        timeRange={resource?.data?.timeRange as CrudeTimeRange}
-      />
+      <Telem.Text.TimeRange level="small">
+        {resource?.data?.timeRange as CrudeTimeRange}
+      </Telem.Text.TimeRange>
     </Select.ListItem>
   );
 };

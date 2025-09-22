@@ -15,6 +15,7 @@ import {
   Ranger,
   Select,
   Tag,
+  Telem,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
@@ -41,7 +42,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
           {new TimeSpan(range.span).toString()}
         </Text.Text>
       ) : (
-        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
+        <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
       )}
     </Select.ListItem>
   );
