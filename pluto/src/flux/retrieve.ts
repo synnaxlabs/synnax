@@ -54,7 +54,7 @@ export interface RetrieveMountListenersParams<
   Data extends core.Shape,
   Store extends core.Store,
 > extends RetrieveParams<Query, Store> {
-  onChange: state.Setter<Data>;
+  onChange: state.Setter<Data | undefined>;
 }
 
 /**
@@ -270,11 +270,11 @@ const useObservableBase = <
   const listeners = useDestructors();
   const addStatus = useAdder();
   const handleListenerChange = useCallback(
-    (value: state.SetArg<Data>) => {
+    (value: state.SetArg<Data | undefined>) => {
       if (queryRef.current == null) return;
       onChange((prev) => {
-        if (prev.data === undefined) return prev;
         const next = state.executeSetter(value, prev.data);
+        if (next == null) return prev;
         return successResult(name, "retrieved", next);
       }, queryRef.current);
     },

@@ -399,10 +399,3 @@ export const partialUpdate = <Key extends record.Key, Value extends Record<any, 
   key: Key,
   value: Partial<Value>,
 ): Destructor => store.set(key, (p) => (p == null ? undefined : { ...p, ...value }));
-
-export const skipNull =
-  <Value extends state.State>(
-    f: state.SetFunc<Value>,
-  ): state.SetFunc<Value | undefined> =>
-  (v) =>
-    v == null ? undefined : f(v);

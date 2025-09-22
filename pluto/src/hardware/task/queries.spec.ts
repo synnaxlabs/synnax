@@ -516,19 +516,21 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const firstSnapshotName = `${originalName1} (Snapshot)`;
-      const secondSnapshotName = `${originalName2} (Snapshot)`;
-      const snapshots = await client.hardware.tasks.retrieve({
-        names: [firstSnapshotName, secondSnapshotName],
+      await waitFor(async () => {
+        const firstSnapshotName = `${originalName1} (Snapshot)`;
+        const secondSnapshotName = `${originalName2} (Snapshot)`;
+        const snapshots = await client.hardware.tasks.retrieve({
+          names: [firstSnapshotName, secondSnapshotName],
+        });
+        const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
+        const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
+        expect(snapshot1).toBeDefined();
+        expect(snapshot2).toBeDefined();
+        expect(snapshot1?.snapshot).toBe(true);
+        expect(snapshot2?.snapshot).toBe(true);
+        expect(snapshot1?.config).toEqual({ id: 1 });
+        expect(snapshot2?.config).toEqual({ id: 2 });
       });
-      const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
-      const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
-      expect(snapshot1).toBeDefined();
-      expect(snapshot2).toBeDefined();
-      expect(snapshot1?.snapshot).toBe(true);
-      expect(snapshot2?.snapshot).toBe(true);
-      expect(snapshot1?.config).toEqual({ id: 1 });
-      expect(snapshot2?.config).toEqual({ id: 2 });
     });
 
     it("should add snapshots to parent ontology group", async () => {

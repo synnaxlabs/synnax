@@ -16,6 +16,7 @@ import { Flux } from "@/flux";
 import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "Channel";
@@ -252,10 +253,15 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
     const onSetAlias = store.rangeAliases.onSet((alias) => {
       if (alias == null) return;
-      onChange((p) => client.channels.sugar({ ...p, alias: alias.alias }));
+      onChange(
+        state.skipNull((p) => client.channels.sugar({ ...p, alias: alias.alias })),
+      );
     }, aliasKey);
     const onDeleteAlias = store.rangeAliases.onDelete(
-      () => onChange((p) => client.channels.sugar({ ...p, alias: undefined })),
+      () =>
+        onChange(
+          state.skipNull((p) => client.channels.sugar({ ...p, alias: undefined })),
+        ),
       aliasKey,
     );
     return [ch, onSetAlias, onDeleteAlias];
@@ -291,26 +297,32 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
 
         if (alias != null) channel.alias = alias.alias;
       }
-      onChange((p) => p.map((ch) => (ch.key === channel.key ? channel : ch)));
+      onChange(
+        state.skipNull((p) => p.map((ch) => (ch.key === channel.key ? channel : ch))),
+      );
     });
     if (rangeKey == null) return ch;
     const onSetAlias = store.rangeAliases.onSet((alias) => {
       if (alias == null) return;
-      onChange((p) =>
-        p.map((ch) =>
-          ch.key === alias.channel
-            ? client.channels.sugar({ ...ch, alias: alias.alias })
-            : ch,
+      onChange(
+        state.skipNull((p) =>
+          p.map((ch) =>
+            ch.key === alias.channel
+              ? client.channels.sugar({ ...ch, alias: alias.alias })
+              : ch,
+          ),
         ),
       );
     });
     const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
       const decoded = ranger.decodeDeleteAliasChange(aliasKey);
-      onChange((p) =>
-        p.map((ch) =>
-          ch.key === decoded.channel
-            ? client.channels.sugar({ ...ch, alias: undefined })
-            : ch,
+      onChange(
+        state.skipNull((p) =>
+          p.map((ch) =>
+            ch.key === decoded.channel
+              ? client.channels.sugar({ ...ch, alias: undefined })
+              : ch,
+          ),
         ),
       );
     });
@@ -436,7 +448,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.add(
       store.channels.set(
         key,
-        Flux.skipNull((p) => client.channels.sugar({ ...p, name })),
+        state.skipNull((p) => client.channels.sugar({ ...p, name })),
       ),
     );
     rollbacks.add(Ontology.renameFluxResource(store, channel.ontologyID(key), name));

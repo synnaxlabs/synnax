@@ -16,7 +16,7 @@ import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { type state } from "@/state";
+import { state } from "@/state";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.KVPair> {}
 export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias> {}
@@ -358,11 +358,13 @@ export const {
     return [
       store.ranges.onSet(async (range) => {
         if (!keysSet.has(range.key)) return;
-        onChange((prev) => prev.map((r) => (r.key === range.key ? range : r)));
+        onChange(
+          state.skipNull((prev) => prev.map((r) => (r.key === range.key ? range : r))),
+        );
       }),
       store.ranges.onDelete(async (key) => {
         if (!keysSet.has(key)) return;
-        onChange((prev) => prev.filter((r) => r.key !== key));
+        onChange(state.skipNull((prev) => prev.filter((r) => r.key !== key)));
       }),
       store.relationships.onSet(async (relationship) => {
         for (const key of keys) {
@@ -373,17 +375,19 @@ export const {
           if (isLabelChange) {
             const label = await client.labels.retrieve({ key: relationship.to.key });
             store.labels.set(relationship.to.key, label);
-            onChange((prev) =>
-              prev.map((r) => {
-                if (r.key !== key) return r;
-                return client.ranges.sugarOne({
-                  ...r,
-                  labels: [
-                    ...(r.labels ?? []).filter((l) => l.key !== label.key),
-                    label,
-                  ],
-                });
-              }),
+            onChange(
+              state.skipNull((prev) =>
+                prev.map((r) => {
+                  if (r.key !== key) return r;
+                  return client.ranges.sugarOne({
+                    ...r,
+                    labels: [
+                      ...(r.labels ?? []).filter((l) => l.key !== label.key),
+                      label,
+                    ],
+                  });
+                }),
+              ),
             );
           }
           const isParentChange = ontology.matchRelationship(relationship, {
@@ -393,11 +397,13 @@ export const {
           if (isParentChange) {
             const parent = await client.ranges.retrieve(relationship.from.key);
             store.ranges.set(relationship.from.key, parent);
-            onChange((prev) =>
-              prev.map((r) => {
-                if (r.key !== key) return r;
-                return client.ranges.sugarOne({ ...r, parent });
-              }),
+            onChange(
+              state.skipNull((prev) =>
+                prev.map((r) => {
+                  if (r.key !== key) return r;
+                  return client.ranges.sugarOne({ ...r, parent });
+                }),
+              ),
             );
           }
         }
@@ -407,14 +413,16 @@ export const {
         for (const key of keys) {
           const isLabelChange = Label.matchRelationship(rel, ranger.ontologyID(key));
           if (isLabelChange)
-            onChange((prev) =>
-              prev.map((r) => {
-                if (r.key !== key) return r;
-                return client.ranges.sugarOne({
-                  ...r,
-                  labels: r.labels?.filter((l) => l.key !== rel.to.key),
-                });
-              }),
+            onChange(
+              state.skipNull((prev) =>
+                prev.map((r) => {
+                  if (r.key !== key) return r;
+                  return client.ranges.sugarOne({
+                    ...r,
+                    labels: r.labels?.filter((l) => l.key !== rel.to.key),
+                  });
+                }),
+              ),
             );
 
           const isParentChange = ontology.matchRelationship(rel, {
@@ -422,11 +430,13 @@ export const {
             to: ranger.ontologyID(key),
           });
           if (isParentChange)
-            onChange((prev) =>
-              prev.map((r) => {
-                if (r.key !== key) return r;
-                return client.ranges.sugarOne({ ...r, parent: null });
-              }),
+            onChange(
+              state.skipNull((prev) =>
+                prev.map((r) => {
+                  if (r.key !== key) return r;
+                  return client.ranges.sugarOne({ ...r, parent: null });
+                }),
+              ),
             );
         }
       }),
@@ -775,7 +785,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.add(
       store.ranges.set(
         key,
-        Flux.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
+        state.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
     rollbacks.add(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));

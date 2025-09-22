@@ -13,6 +13,7 @@ import type z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "workspaces";
 const RESOURCE_NAME = "Workspace";
@@ -199,7 +200,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     rollbacks.add(
       store.workspaces.set(
         key,
-        Flux.skipNull((p) => ({ ...p, layout })),
+        state.skipNull((p) => ({ ...p, layout })),
       ),
     );
     await client.workspaces.setLayout(data);

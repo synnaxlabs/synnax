@@ -11,6 +11,7 @@ import { type group, ontology, schematic } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 import { type Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "schematicSymbols";
 
@@ -228,7 +229,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.add(
       store.schematicSymbols.set(
         key,
-        Flux.skipNull((p) => ({ ...p, name })),
+        state.skipNull((p) => ({ ...p, name })),
       ),
     );
     return data;

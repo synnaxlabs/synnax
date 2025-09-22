@@ -14,6 +14,7 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export type UseDeleteArgs = user.Key | user.Key[];
 
@@ -82,7 +83,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<
     rollbacks.add(
       store.resources.set(
         ontology.idToString(id),
-        Flux.skipNull((r) => ({ ...r, username })),
+        state.skipNull((r) => ({ ...r, username })),
       ),
     );
     return data;

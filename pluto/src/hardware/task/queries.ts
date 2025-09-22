@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "tasks";
 export const RESOURCE_NAME = "Task";
@@ -291,7 +292,7 @@ export const createForm = <
         });
         store.tasks.set(
           task.key,
-          Flux.skipNull((p) => {
+          state.skipNull((p) => {
             task.status = p.status;
             return task;
           }),
@@ -382,7 +383,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     rollbacks.add(
       store.tasks.set(
         key,
-        Flux.skipNull((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
+        state.skipNull((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
         "payload",
       ),
     );
