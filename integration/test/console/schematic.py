@@ -329,7 +329,6 @@ class SetpointNode(SchematicSymbol):
         return properties
 
 
-
 class Schematic(Console):
     """
     Parent class for schematic tests
@@ -407,7 +406,9 @@ class Schematic(Console):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_node_handle(self, node: SchematicSymbol, handle: str) -> Tuple[float, float]:
+    def find_node_handle(
+        self, node: SchematicSymbol, handle: str
+    ) -> Tuple[float, float]:
         """Calculate the coordinates of a node's connection handle."""
         node_box = node.node.bounding_box()
         if not node_box:

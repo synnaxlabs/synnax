@@ -142,7 +142,7 @@ class Console(TestCase):
         channel_name: str,
         virtual: bool = False,
         is_index: bool = False,
-        data_type: str = "Timestamp",
+        data_type: sy.CrudeDataType = sy.DataType.TIMESTAMP,
         index: str = "",
     ) -> bool:
 
@@ -171,7 +171,8 @@ class Console(TestCase):
             )
             is_index_toggle.click()
         else:
-            self._select_from_dropdown("Data Type", data_type)
+            data_type_str = str(sy.DataType(data_type))
+            self._select_from_dropdown("Data Type", data_type_str)
             self._select_from_dropdown("Index", index)
 
         self.page.get_by_role("button", name="Create").click()
@@ -197,7 +198,7 @@ class Console(TestCase):
         item_found = False
         item_selector = self.page.locator(".pluto-list__item").all()
         for item in item_selector:
-            if item.is_visible() and input_text in item.inner_text().strip():
+            if item.is_visible() and input_text in item.inner_text().strip().lower():
                 item.click()
                 item_found = True
                 break

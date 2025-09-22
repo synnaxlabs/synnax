@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from test.console.schematic import Schematic
+
+import synnax as sy
 
 
 class Schematic_Set_Output(Schematic):
@@ -27,7 +28,7 @@ class Schematic_Set_Output(Schematic):
         )
         self.create_a_channel(
             CHANNEL_NAME,
-            data_type="Float64",
+            data_type=sy.DataType.FLOAT64,
             is_index=False,
             index=INDEX_NAME,
         )
