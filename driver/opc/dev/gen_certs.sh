@@ -10,8 +10,8 @@
 # included in the file licenses/APL.txt.
 
 # Directory to store generated certificates and keys
-CERT_DIR="/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates"
-mkdir -p $CERT_DIR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CERT_DIR="$SCRIPT_DIR/certificates"
 
 # Common Name (CN) for certificates
 SERVER_CN="Open62541Server@localhost"
@@ -49,7 +49,7 @@ echo
 echo "To use the generated files, use the following command line arguments:"
 echo
 echo "Server:"
-echo "bazel run //driver/opc:server $CERT_DIR/server_cert.der $CERT_DIR/server_key.der $CERT_DIR/client_cert.der"
+echo "bazel run //driver/opc/dev:server $CERT_DIR/server_cert.der $CERT_DIR/server_key.der $CERT_DIR/client_cert.der"
 echo
 echo "Client:"
-echo "bazel run //driver/opc:client opc.tcp://localhost:4840 $CERT_DIR/client_cert.der $CERT_DIR/client_key.der $CERT_DIR/server_cert.der"
+echo "bazel run //driver/opc/dev:client opc.tcp://localhost:4840 $CERT_DIR/client_cert.der $CERT_DIR/client_key.der $CERT_DIR/server_cert.der"
