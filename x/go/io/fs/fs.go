@@ -38,12 +38,12 @@ type File interface {
 
 type FileInfo = fs.FileInfo
 
-const defaultPerm = 0o755
+const defaultPerm = OwnerAll | GroupReadExecute | OthersReadExecute
 
 type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed
 	// in out of the flags in os, e.g. os.O_CREATE|os.O_WRONLY.
-	Open(string, int) (File, error)
+	Open(name string, flag int) (File, error)
 	// Sub returns a new FS rooted at the given directory.
 	Sub(string) (FS, error)
 	// List returns a list of files in the directory SORTED by file name.
