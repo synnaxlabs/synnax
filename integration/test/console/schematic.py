@@ -40,7 +40,7 @@ class SchematicNode(ABC):
             edit_off_icon.click()
 
     def _click_node(self) -> Any:
-        self.node.locator("div").first.click(force=True)
+        self.node.click()
         time.sleep(0.1)
 
     def set_label(self, label: str) -> None:
