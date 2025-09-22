@@ -230,9 +230,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleRelationshipDelete = useCallback(
     (rel: ontology.Relationship) => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-      setNodes((prevNodes) => [
-        ...Core.removeNode({ keys: ontology.idToString(rel.to), tree: prevNodes }),
-      ]);
+      setNodes((prevNodes) => {
+        console.log("remove node", prevNodes);
+        const nextNodes = [
+          ...Core.removeNode({
+            keys: ontology.idToString(rel.to),
+            tree: Core.deepCopy(prevNodes),
+          }),
+        ];
+        console.log("nextNodes", nextNodes);
+        return nextNodes;
+      });
     },
     [setNodes],
   );
@@ -243,9 +251,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
+      console.log("set prevNodes", prevNodes);
       const nextNodes = [
         ...Core.setNode({
-          tree: prevNodes,
+          tree: Core.deepCopy(prevNodes),
           destination,
           additions: [
             {
@@ -253,9 +262,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
-          throwOnMissing: false,
+          throwOnMissing: true,
         }),
       ];
+      console.log("set nextNodes", nextNodes);
       return nextNodes;
     });
   }, []);
@@ -376,12 +386,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       contract(...keys);
       const ids = keys.map((key) => ontology.idZ.parse(key));
-      const next = Core.moveNode({
-        tree: nodesSnapshot,
-        destination: ontology.idToString(destination),
-        keys,
-      });
-      setNodes([...next]);
+      // const next = Core.moveNode({
+      //   tree: nodesSnapshot,
+      //   destination: ontology.idToString(destination),
+      //   keys,
+      // });
+      // setNodes([...next]);
       moveChildren.update({ source: sourceID, destination, ids });
       return moved;
     },

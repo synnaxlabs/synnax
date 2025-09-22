@@ -79,3 +79,9 @@ export const COPY_VERBS: Verbs = {
   past: "copied",
   participle: "copying",
 };
+
+export const SAVE_VERBS: Verbs = {
+  present: "save",
+  past: "saved",
+  participle: "saving",
+};

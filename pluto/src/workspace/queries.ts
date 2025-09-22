@@ -186,18 +186,14 @@ export const useForm = Flux.createForm<
 
 export interface SaveLayoutParams extends workspace.SetLayoutArgs {}
 
-const SAVE_LAYOUT_VERBS: Flux.Verbs = {
-  present: "save layout",
-  participle: "saving layout",
-  past: "saved layout",
-};
+const LAYOUT_RESOURCE_NAME = "workspace layout";
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   SaveLayoutParams,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
-  verbs: SAVE_LAYOUT_VERBS,
+  name: LAYOUT_RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, layout } = data;
     rollbacks.add(
