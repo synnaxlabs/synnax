@@ -9,7 +9,7 @@
 
 import re
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
 from test.console.console import Console
 from typing import Any, Dict, Optional, Tuple
 
@@ -52,14 +52,23 @@ class SchematicNode(ABC):
         label_input.fill(label)
         self.label = label
 
+    @abstractmethod
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if channel_name is not None:
-            self.set_channel("Needs Override", channel_name)
-        return {}
+        """
+        Edit node properties. Must be implemented by all child classes.
+
+        Args:
+            channel_name: Optional channel name to set
+            properties: Optional dictionary of properties to set
+
+        Returns:
+            Dictionary of applied properties
+        """
+        pass
 
     def set_channel(self, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
@@ -163,73 +172,65 @@ class ValueNode(SchematicNode):
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """Edit ValueNode properties including channel and telemetry settings."""
+        properties = properties or {}
 
-        # Always enforce label = channel_name for easy identification when
-        # setting the channel. The label can still be updated independently.
-        # This prevents confusion when updating a node from channel_name
-        # old_channel -> new_channel and accidentally keeping the old label.
+        # Always enforce label = channel_name for easy identification
         if channel_name is not None:
             self.set_label(channel_name)
 
-        properties = properties or {}
-        notation = properties.get("notation")
-        precision = properties.get("precision")
-        averaging_window = properties.get("averaging_window")
-        stale_color = properties.get("stale_color")
-        stale_timeout = properties.get("stale_timeout")
-
+        # Navigate to Properties > Telemetry tab
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
+
         if channel_name is not None:
             self.set_channel("Input Channel", channel_name)
 
-        if notation is not None:
+        if properties.get("notation") is not None:
             notation_button = (
                 self.page.locator("text=Notation").locator("..").locator("button").first
             )
             notation_button.click()
-            self.page.get_by_text(notation).click()
+            self.page.get_by_text(properties["notation"]).click()
 
-        if precision is not None:
+        if properties.get("precision") is not None:
             precision_input = (
                 self.page.locator("text=Precision").locator("..").locator("input")
             )
-            precision_input.fill(str(precision))
+            precision_input.fill(str(properties["precision"]))
             precision_input.press("Enter")
 
-        if averaging_window is not None:
+        if properties.get("averaging_window") is not None:
             averaging_window_input = (
                 self.page.locator("text=Averaging Window")
                 .locator("..")
                 .locator("input")
             )
-            averaging_window_input.fill(str(averaging_window))
+            averaging_window_input.fill(str(properties["averaging_window"]))
             averaging_window_input.press("Enter")
 
-        if stale_color is not None:
-            if not re.match(r"^#[0-9A-Fa-f]{6}$", properties["stale_color"]):
-                raise ValueError(
-                    "stale_color must be a valid hex color (e.g., #FF5733)"
-                )
+        if properties.get("stale_color") is not None:
+            stale_color = properties["stale_color"]
+            if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
+                raise ValueError("stale_color must be a valid hex color (e.g., #FF5733)")
+
             color_button = (
                 self.page.locator("text=Color").locator("..").locator("button")
             )
             color_button.click()
             hex_input = self.page.locator("text=Hex").locator("..").locator("input")
-            hex_input.fill(
-                stale_color.replace("#", "")
-            )  # Remove # since it might be auto-added
+            hex_input.fill(stale_color.replace("#", ""))
             hex_input.press("Enter")
             self.page.keyboard.press("Escape")
 
-        if stale_timeout is not None:
+        if properties.get("stale_timeout") is not None:
             stale_timeout_input = (
                 self.page.locator("text=Stale Timeout").locator("..").locator("input")
             )
-            stale_timeout_input.fill(str(stale_timeout))
+            stale_timeout_input.fill(str(properties["stale_timeout"]))
             stale_timeout_input.press("Enter")
 
-        return {}
+        return properties
 
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the node"""
@@ -312,14 +313,18 @@ class SetpointNode(SchematicNode):
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if channel_name is None:
-            return {}
-        self.set_label(channel_name)
-        self.page.get_by_text("Properties").click()
-        self.page.get_by_text("Control").last.click()
-        self.set_channel("Command Channel", channel_name)
-        # No properties for setpoint node
-        return {}
+        """Edit SetpointNode properties including channel settings."""
+        properties = properties or {}
+
+        if channel_name is not None:
+            self.set_label(channel_name)
+
+            # Navigate to Properties > Control tab
+            self.page.get_by_text("Properties").click()
+            self.page.get_by_text("Control").last.click()
+            self.set_channel("Command Channel", channel_name)
+
+        return properties
 
     def set_control_authority(self, authority: int) -> None:
 
