@@ -97,7 +97,7 @@ check_if_rebuild_needed() {
     local sha=$1
 
     if ! git cat-file -e "${sha}" 2>/dev/null; then
-        git fetch --quiet --unshallow 2>/dev/null || git fetch --quiet --depth=100 2>/dev/null || true
+        git fetch --quiet --unshallow 2>/dev/null || git fetch --quiet --depth=25 2>/dev/null || true
     fi
 
     if ! git cat-file -e "${sha}" 2>/dev/null; then
