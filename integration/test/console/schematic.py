@@ -212,7 +212,9 @@ class ValueNode(SchematicNode):
         if properties.get("stale_color") is not None:
             stale_color = properties["stale_color"]
             if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
-                raise ValueError("stale_color must be a valid hex color (e.g., #FF5733)")
+                raise ValueError(
+                    "stale_color must be a valid hex color (e.g., #FF5733)"
+                )
 
             color_button = (
                 self.page.locator("text=Color").locator("..").locator("button")
