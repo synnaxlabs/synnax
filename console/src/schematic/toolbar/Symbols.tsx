@@ -515,7 +515,7 @@ const GroupList = ({
   const remoteData = Group.useList({ initialQuery: { parent: symbolGroupID } });
   useEffect(
     () => remoteData.retrieve({ parent: symbolGroupID }),
-    [remoteData, symbolGroupID],
+    [remoteData.retrieve, symbolGroupID],
   );
   const data = List.useCombinedData({ first: staticData, second: remoteData });
   const menuProps = Menu.useContextMenu();
