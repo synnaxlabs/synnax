@@ -18,8 +18,12 @@ import { type DigitalChannel } from "@/hardware/ni/task/types";
 
 interface ListItemProps<C extends DigitalChannel>
   extends Omit<Common.Task.ChannelListItemProps, "name"> {
-  name: Component.RenderProp<C>;
+  name: Component.RenderProp<DigitalNameComponentProps<C>>;
 }
+
+export type DigitalNameComponentProps<C extends DigitalChannel> = Omit<C, "key"> & {
+  itemKey: string;
+};
 
 const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
   const path = `config.channels.${rest.itemKey}`;
@@ -62,7 +66,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
-        {name(channel)}
+        {name({ ...channel, itemKey: rest.itemKey })}
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>

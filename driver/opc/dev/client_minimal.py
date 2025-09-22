@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
-import synnax as sy
 
+import synnax as sy
 from asyncua import Client
 
 url = "opc.tcp://localhost:4842/freeopcua/server/"
