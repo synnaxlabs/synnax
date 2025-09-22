@@ -33,11 +33,13 @@ class Schematic_Set_Output(Schematic):
             index=INDEX_NAME,
         )
 
-        setpoint_node = self.add_to_schematic("Setpoint", CHANNEL_NAME)
+        setpoint_node = self.create_setpoint(CHANNEL_NAME)
         setpoint_node.move(-200, 0)
 
-        value_node = self.add_to_schematic("Value", CHANNEL_NAME)
+        value_node = self.create_value(CHANNEL_NAME)
         value_node.move(200, 0)
+
+        self.connect_symbols(setpoint_node, "right", value_node, "left")
 
         set_p_value = 47.23
         self._log_message(f"Verifying setpoint value: {set_p_value}")

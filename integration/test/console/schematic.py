@@ -17,21 +17,25 @@ from playwright.sync_api import Locator, Page
 
 
 class SchematicSymbol(ABC):
-    """Base class for all schematic nodes"""
+    """Base class for all schematic symbols"""
 
     page: Page
-    node: Locator
-    node_id: str
+    symbol: Locator
+    symbol_id: str
     channel_name: str
     label: str
 
-    def __init__(self, page: Page, node_id: str, channel_name: str):
-        self.page = page
-        self.node_id = node_id
+    def __init__(self, page: Page, symbol_id: str, channel_name: str):
+
+        if channel_name.strip() == "":
+            raise ValueError("Channel name cannot be empty")
+
         self.channel_name = channel_name
+        self.page = page
+        self.symbol_id = symbol_id
         self.label = channel_name
 
-        self.node = self.page.get_by_test_id(self.node_id)
+        self.symbol = self.page.get_by_test_id(self.symbol_id)
         self.set_label(channel_name)
 
     def _disable_edit_mode(self) -> None:
@@ -39,12 +43,12 @@ class SchematicSymbol(ABC):
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def _click_node(self) -> None:
-        self.node.click()
+    def _click_symbol(self) -> None:
+        self.symbol.click()
         time.sleep(0.1)
 
     def set_label(self, label: str) -> None:
-        self._click_node()
+        self._click_symbol()
         self.page.get_by_text("Style").click()
         label_input = (
             self.page.locator("text=Label").locator("..").locator("input").first
@@ -59,7 +63,7 @@ class SchematicSymbol(ABC):
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Edit node properties. Must be implemented by all child classes.
+        Edit symbol properties. Must be implemented by all child classes.
 
         Args:
             channel_name: Optional channel name to set
@@ -103,10 +107,12 @@ class SchematicSymbol(ABC):
         return {}
 
     def move(self, delta_x: int, delta_y: int) -> None:
-        """Move the node by the specified number of pixels using drag"""
-        box = self.node.bounding_box()
+        """Move the symbol by the specified number of pixels using drag"""
+        box = self.symbol.bounding_box()
         if not box:
-            raise RuntimeError(f"Could not get bounding box for node {self.node_id}")
+            raise RuntimeError(
+                f"Could not get bounding box for symbol {self.symbol_id}"
+            )
 
         # Calculate target position
         start_x = box["x"] + box["width"] / 2
@@ -121,10 +127,10 @@ class SchematicSymbol(ABC):
         self.page.mouse.up()
 
         # Verify the move
-        new_box = self.node.bounding_box()
+        new_box = self.symbol.bounding_box()
         if not new_box:
             raise RuntimeError(
-                f"Could not get new bounding box for node {self.node_id}"
+                f"Could not get new bounding box for symbol {self.symbol_id}"
             )
 
         final_x = new_box["x"] + new_box["width"] / 2
@@ -136,7 +142,7 @@ class SchematicSymbol(ABC):
             or abs(final_y - target_y) > grid_tolerance
         ):
             raise RuntimeError(
-                f"Node {self.node_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
+                f"Symbol {self.symbol_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
             )
 
     def set_value(self, value: Any = None) -> None:
@@ -145,17 +151,17 @@ class SchematicSymbol(ABC):
             raise ValueError(f"{self.label}: Set Value cannot be None")
 
         self._disable_edit_mode()
-        self._click_node()
+        self._click_symbol()
 
         # Fill the input and set the value
-        value_input = self.node.locator("input[type='number'], input").first
+        value_input = self.symbol.locator("input[type='number'], input").first
         value_input.fill(str(value))
-        set_button = self.node.locator("button").filter(has_text="Set")
+        set_button = self.symbol.locator("button").filter(has_text="Set")
         set_button.click()
 
 
-class ValueNode(SchematicSymbol):
-    """Schematic value/telemetry node"""
+class Value(SchematicSymbol):
+    """Schematic value/telemetry symbol"""
 
     channel_name: str
     notation: str
@@ -164,16 +170,18 @@ class ValueNode(SchematicSymbol):
     stale_color: str
     stale_timeout: int
 
-    def __init__(self, page: Page, node_id: str, channel_name: str):
-        super().__init__(page, node_id, channel_name)
+    def __init__(self, page: Page, symbol_id: str, channel_name: str):
+        super().__init__(page, symbol_id, channel_name)
 
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Edit ValueNode properties including channel and telemetry settings."""
+        """Edit Value symbol properties including channel and telemetry settings."""
         properties = properties or {}
+
+        self._click_symbol()
 
         # Always enforce label = channel_name for easy identification
         if channel_name is not None:
@@ -235,8 +243,8 @@ class ValueNode(SchematicSymbol):
         return properties
 
     def get_properties(self) -> Dict[str, Any]:
-        """Get the current properties of the node"""
-        self._click_node()
+        """Get the current properties of the symbol"""
+        self._click_symbol()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
 
@@ -304,19 +312,21 @@ class ValueNode(SchematicSymbol):
         return props
 
 
-class SetpointNode(SchematicSymbol):
-    """Schematic setpoint/control node"""
+class Setpoint(SchematicSymbol):
+    """Schematic setpoint/control symbol"""
 
-    def __init__(self, page: Page, node_id: str, channel_name: str):
-        super().__init__(page, node_id, channel_name)
+    def __init__(self, page: Page, symbol_id: str, channel_name: str):
+        super().__init__(page, symbol_id, channel_name)
 
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Edit SetpointNode properties including channel settings."""
+        """Edit Setpoint properties including channel settings."""
         properties = properties or {}
+
+        self._click_symbol()
 
         if channel_name is not None:
             self.set_label(channel_name)
@@ -339,66 +349,64 @@ class Schematic(Console):
         self.create_page("Schematic")
         self.page.locator(".react-flow__pane").dblclick()
 
-    def create_node(
-        self, node_type: str, node_id: str, channel_name: str
-    ) -> SchematicSymbol:
-        """Factory method to create node objects"""
-        if node_type.lower() == "value":
-            return ValueNode(self.page, node_id, channel_name)
-        elif node_type.lower() == "setpoint":
-            return SetpointNode(self.page, node_id, channel_name)
-        else:
-            raise ValueError(f"Unknown node type: {node_type}")
+    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
+        """Common logic for adding a symbol to the schematic and returning its ID"""
 
-    def add_to_schematic(
-        self, node_type: str, channel_name: str, properties: Dict[str, Any] = {}
-    ) -> SchematicSymbol:
-        """
-        Add a node to the schematic and return the configured node object
-        """
-        if channel_name.strip() == "":
-            raise ValueError("Channel name cannot be empty")
-
-        # Count existing nodes before adding
-        nodes_count = len(self.page.locator("[data-testid^='rf__node-']").all())
+        # Count existing symbols before adding
+        symbols_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         self.click_on_pane()
-        self.page.wait_for_selector(f"text={node_type}", timeout=3000)
-        self.page.get_by_text(node_type, exact=True).first.click()
+        self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
+        self.page.get_by_text(symbol_type, exact=True).first.click()
 
-        # Wait for new node to appear
+        # Wait for new symbol to appear
         self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {nodes_count}"
+            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {symbols_count}"
         )
 
-        # Get all nodes and find the new one
-        all_nodes = self.page.locator("[data-testid^='rf__node-']").all()
-        node_id = (
-            all_nodes[-1].get_attribute("data-testid") or "unknown"
-        )  # Last one should be the newest
+        # Get all symbols and find the new one
+        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
+        symbol_id = (
+            all_symbols[-1].get_attribute("data-testid") or "unknown"
+        )  # Last one should be the newest symbol
 
-        node = self.create_node(node_type, node_id, channel_name)
-        node.edit_properties(channel_name, properties)
+        return symbol_id
 
-        self._log_message(f"Added node {node_type} with channel {channel_name}")
+    def create_setpoint(self, channel_name: str) -> Setpoint:
+        """Create a setpoint symbol on the schematic"""
 
-        return node
+        setpoint_id = self._add_symbol_to_schematic("Setpoint")
+        setpoint = Setpoint(self.page, setpoint_id, channel_name)
+        setpoint.edit_properties(channel_name, {})
 
-    def connect_nodes(
+        self._log_message(f"Added setpoint with channel {channel_name}")
+        return setpoint
+
+    def create_value(self, channel_name: str, properties: Dict[str, Any] = {}) -> Value:
+        """Create a value symbol on the schematic"""
+
+        value_id = self._add_symbol_to_schematic("Value")
+        value = Value(self.page, value_id, channel_name)
+        value.edit_properties(channel_name, properties)
+
+        self._log_message(f"Added value with channel {channel_name}")
+        return value
+
+    def connect_symbols(
         self,
-        source_node: SchematicSymbol,
+        source_symbol: SchematicSymbol,
         source_handle: str,
-        target_node: SchematicSymbol,
+        target_symbol: SchematicSymbol,
         target_handle: str,
     ) -> None:
         """
-        Connect two nodes by dragging from source handle to target handle.
+        Connect two symbols by dragging from source handle to target handle.
         """
-        source_x, source_y = self.find_node_handle(source_node, source_handle)
-        target_x, target_y = self.find_node_handle(target_node, target_handle)
+        source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
+        target_x, target_y = self.find_symbol_handle(target_symbol, target_handle)
 
         self._log_message(
-            f"Connecting {source_node.label}:{source_handle} to {target_node.label}:{target_handle}"
+            f"Connecting {source_symbol.label}:{source_handle} to {target_symbol.label}:{target_handle}"
         )
 
         self.page.mouse.move(source_x, source_y)
@@ -406,15 +414,20 @@ class Schematic(Console):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_node_handle(
-        self, node: SchematicSymbol, handle: str
+    def find_symbol_handle(
+        self, symbol: SchematicSymbol, handle: str
     ) -> Tuple[float, float]:
-        """Calculate the coordinates of a node's connection handle."""
-        node_box = node.node.bounding_box()
-        if not node_box:
-            raise RuntimeError(f"Could not get bounding box for node {node.label}")
+        """Calculate the coordinates of a symbol's connection handle."""
+        symbol_box = symbol.symbol.bounding_box()
+        if not symbol_box:
+            raise RuntimeError(f"Could not get bounding box for symbol {symbol.label}")
 
-        x, y, w, h = node_box["x"], node_box["y"], node_box["width"], node_box["height"]
+        x, y, w, h = (
+            symbol_box["x"],
+            symbol_box["y"],
+            symbol_box["width"],
+            symbol_box["height"],
+        )
 
         handle_positions = {
             "left": (x, y + h / 2),
@@ -433,9 +446,9 @@ class Schematic(Console):
     def click_on_pane(self) -> None:
 
         # Going to change how this is done. Purpose is to click off of
-        # the node and onto schematic pane to reset the focus.
+        # the symbol and onto schematic pane to reset the focus.
         #
-        # MIGHT to move this into the node functionality
+        # MIGHT to move this into the symbol functionality
         self.page.wait_for_selector(".react-flow__pane", timeout=5000)
         self.page.locator(".react-flow__pane").dblclick()
         pane = self.page.locator(".react-flow__pane")

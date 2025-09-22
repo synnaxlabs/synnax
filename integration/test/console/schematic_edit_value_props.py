@@ -19,7 +19,7 @@ class Schematic_Edit_Value_Props(Schematic):
     def run(self) -> None:
 
         self._log_message("Checking default properties of schematic value")
-        node = self.add_to_schematic("Value", f"{self.name}_uptime")
+        node = self.create_value(f"{self.name}_uptime")
         default_props = node.get_properties()
 
         expected_default_props = {
@@ -60,9 +60,7 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
-        non_default_node = self.add_to_schematic(
-            "Value", f"{self.name}_state", non_default_props
-        )
+        non_default_node = self.create_value(f"{self.name}_state", non_default_props)
         non_default_props = non_default_node.get_properties()
         assert (
             non_default_props == non_default_props
