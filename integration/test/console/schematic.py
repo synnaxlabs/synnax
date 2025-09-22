@@ -60,14 +60,14 @@ class SchematicSymbol(ABC):
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Edit symbol properties. Must be implemented by all child classes.
 
         Args:
             channel_name: Optional channel name to set
-            properties: Optional dictionary of properties to set
+            **kwargs: Additional properties specific to each symbol type
 
         Returns:
             Dictionary of applied properties
@@ -176,10 +176,15 @@ class Value(SchematicSymbol):
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        *,
+        notation: Optional[str] = None,
+        precision: Optional[int] = None,
+        averaging_window: Optional[int] = None,
+        stale_color: Optional[str] = None,
+        stale_timeout: Optional[int] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Edit Value symbol properties including channel and telemetry settings."""
-        properties = properties or {}
 
         self._click_symbol()
 
@@ -194,31 +199,30 @@ class Value(SchematicSymbol):
         if channel_name is not None:
             self.set_channel("Input Channel", channel_name)
 
-        if properties.get("notation") is not None:
+        if notation is not None:
             notation_button = (
                 self.page.locator("text=Notation").locator("..").locator("button").first
             )
             notation_button.click()
-            self.page.get_by_text(properties["notation"]).click()
+            self.page.get_by_text(notation).click()
 
-        if properties.get("precision") is not None:
+        if precision is not None:
             precision_input = (
                 self.page.locator("text=Precision").locator("..").locator("input")
             )
-            precision_input.fill(str(properties["precision"]))
+            precision_input.fill(str(precision))
             precision_input.press("Enter")
 
-        if properties.get("averaging_window") is not None:
+        if averaging_window is not None:
             averaging_window_input = (
                 self.page.locator("text=Averaging Window")
                 .locator("..")
                 .locator("input")
             )
-            averaging_window_input.fill(str(properties["averaging_window"]))
+            averaging_window_input.fill(str(averaging_window))
             averaging_window_input.press("Enter")
 
-        if properties.get("stale_color") is not None:
-            stale_color = properties["stale_color"]
+        if stale_color is not None:
             if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
                 raise ValueError(
                     "stale_color must be a valid hex color (e.g., #FF5733)"
@@ -233,14 +237,28 @@ class Value(SchematicSymbol):
             hex_input.press("Enter")
             self.page.keyboard.press("Escape")
 
-        if properties.get("stale_timeout") is not None:
+        if stale_timeout is not None:
             stale_timeout_input = (
                 self.page.locator("text=Stale Timeout").locator("..").locator("input")
             )
-            stale_timeout_input.fill(str(properties["stale_timeout"]))
+            stale_timeout_input.fill(str(stale_timeout))
             stale_timeout_input.press("Enter")
 
-        return properties
+        applied_properties: Dict[str, Any] = {}
+        if channel_name is not None:
+            applied_properties["channel"] = channel_name
+        if notation is not None:
+            applied_properties["notation"] = notation
+        if precision is not None:
+            applied_properties["precision"] = precision
+        if averaging_window is not None:
+            applied_properties["averaging_window"] = averaging_window
+        if stale_color is not None:
+            applied_properties["stale_color"] = stale_color
+        if stale_timeout is not None:
+            applied_properties["stale_timeout"] = stale_timeout
+
+        return applied_properties
 
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the symbol"""
@@ -248,8 +266,7 @@ class Value(SchematicSymbol):
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
 
-        # Extract properties - adjust selectors based on actual UI structure
-        props = {
+        props: Dict[str, Any] = {
             "channel": "",
             "notation": "",
             "precision": -1,
@@ -321,13 +338,13 @@ class Setpoint(SchematicSymbol):
     def edit_properties(
         self,
         channel_name: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
-        properties = properties or {}
 
         self._click_symbol()
 
+        applied_properties: Dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -335,8 +352,9 @@ class Setpoint(SchematicSymbol):
             self.page.get_by_text("Properties").click()
             self.page.get_by_text("Control").last.click()
             self.set_channel("Command Channel", channel_name)
+            applied_properties["channel"] = channel_name
 
-        return properties
+        return applied_properties
 
 
 class Schematic(Console):
@@ -377,17 +395,33 @@ class Schematic(Console):
 
         setpoint_id = self._add_symbol_to_schematic("Setpoint")
         setpoint = Setpoint(self.page, setpoint_id, channel_name)
-        setpoint.edit_properties(channel_name, {})
+        setpoint.edit_properties(channel_name=channel_name)
 
         self._log_message(f"Added setpoint with channel {channel_name}")
         return setpoint
 
-    def create_value(self, channel_name: str, properties: Dict[str, Any] = {}) -> Value:
+    def create_value(
+        self,
+        channel_name: str,
+        notation: Optional[str] = None,
+        precision: Optional[int] = None,
+        averaging_window: Optional[int] = None,
+        stale_color: Optional[str] = None,
+        stale_timeout: Optional[int] = None,
+    ) -> Value:
         """Create a value symbol on the schematic"""
 
         value_id = self._add_symbol_to_schematic("Value")
         value = Value(self.page, value_id, channel_name)
-        value.edit_properties(channel_name, properties)
+
+        value.edit_properties(
+            channel_name=channel_name,
+            notation=notation,
+            precision=precision,
+            averaging_window=averaging_window,
+            stale_color=stale_color,
+            stale_timeout=stale_timeout,
+        )
 
         self._log_message(f"Added value with channel {channel_name}")
         return value

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from test.console.schematic import Schematic
 
 
@@ -44,7 +43,12 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_timeout": 10,
         }
         node.edit_properties(
-            channel_name=f"{self.name}_time", properties=expected_edited_props
+            channel_name=f"{self.name}_time",
+            notation="scientific",
+            precision=4,
+            averaging_window=4,
+            stale_color="#FF0000",
+            stale_timeout=10,
         )
         edited_props = node.get_properties()
         assert (
@@ -60,7 +64,14 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
-        non_default_node = self.create_value(f"{self.name}_state", non_default_props)
+        non_default_node = self.create_value(
+            f"{self.name}_state",
+            notation="engineering",
+            precision=7,
+            averaging_window=3,
+            stale_color="#00FF00",
+            stale_timeout=15,
+        )
         non_default_props = non_default_node.get_properties()
         assert (
             non_default_props == non_default_props
