@@ -210,4 +210,4 @@ class BenchLatencyReport(TestCase):
         self._log_message(
             f"Saved benchmark plot to: {os.path.abspath('test/results/bench_latency_load.png')}"
         )
-        plt.close(fig)  # Close the figure to free memory
+        plt.close(fig)
