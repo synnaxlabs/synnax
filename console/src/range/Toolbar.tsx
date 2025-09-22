@@ -22,6 +22,7 @@ import {
   Status,
   Synnax,
   Tag,
+  Telem,
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
@@ -142,7 +143,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
           allowDoubleClick={false}
         />
       </Flex.Box>
-      <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
+      <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
         <Flex.Box
           x

@@ -13,9 +13,10 @@ import {
   Icon,
   Input,
   List,
-  Ranger,
   Select,
   Tag,
+  Telem,
+  Ranger,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
@@ -62,7 +63,7 @@ const StaticListItem = Component.renderProp(
           parent={parent}
           timeRange={range.timeRange}
         />
-        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
+        <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
       </Select.ListItem>
     );
   },

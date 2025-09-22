@@ -14,5 +14,4 @@ export * from "@/ranger/Select";
 export * from "@/ranger/SelectStage";
 export * from "@/ranger/stage";
 export * from "@/ranger/StageIcon";
-export * from "@/ranger/TimeRangeChip";
 export * from "@/ranger/types";
