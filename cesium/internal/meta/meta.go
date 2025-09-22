@@ -21,6 +21,7 @@ import (
 )
 
 const metaFile = "meta.json"
+const metaTempFile = "meta.json.tmp"
 
 // ErrIgnoreChannel lets callers know that this channel is no longer valid and should be
 // ignored when opening a DB.
@@ -67,8 +68,7 @@ func Open(
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, error) {
-	var ch core.Channel
+func Read(ctx context.Context, fs xfs.FS, codec binary.Decoder) (core.Channel, error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return core.Channel{}, err
@@ -79,8 +79,11 @@ func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, err
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
+	var ch core.Channel
 	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
-		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
+		err = errors.Wrapf(
+			err, "error decoding meta in folder for channel %s", s.Name(),
+		)
 		return core.Channel{}, err
 	}
 	return ch, nil
@@ -89,19 +92,24 @@ func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, err
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
-func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel) error {
+func Create(ctx context.Context, fs xfs.FS, codec binary.Encoder, ch core.Channel) error {
 	if err := ch.Validate(); err != nil {
 		return err
 	}
-	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	tempMetaF, err := fs.Open(
+		metaTempFile,
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+	)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Combine(err, metaF.Close()) }()
-	b, err := codec.Encode(ctx, ch)
-	if err != nil {
+	defer func() {
+		err = errors.Combine(err, tempMetaF.Close())
+		err = errors.Combine(err, fs.Remove(metaTempFile))
+	}()
+	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
 		return err
 	}
-	_, err = metaF.Write(b)
+	err = fs.Rename(metaTempFile, metaFile)
 	return err
 }
