@@ -11,6 +11,7 @@ package fs_test
 
 import (
 	"os"
+	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,6 +36,16 @@ var _ = Describe("FS", func() {
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
 			})
 			AfterAll(func() { Expect(xfs.Default.Remove("testData")).To(Succeed()) })
+			Describe("Stat", func() {
+				It("Should return the correct file info", func() {
+					file := MustSucceed(fs.Open("test_file.txt", os.O_CREATE|os.O_RDWR))
+					Expect(file.Write([]byte("tacocat"))).To(Equal(7))
+					stats := MustSucceed(file.Stat())
+					Expect(stats.Size()).To(Equal(int64(7)))
+					Expect(file.Close()).To(Succeed())
+					Expect(fs.Remove("test_file.txt")).To(Succeed())
+				})
+			})
 			Describe("Open", func() {
 				Describe("Create test CREATE flag", func() {
 					It("Should create a file", func() {
@@ -117,12 +128,13 @@ var _ = Describe("FS", func() {
 					})
 				})
 				Describe("Reader/Writer without permission", func() {
-					It("Should read but not write to file in MemFS", func() {
+					It("Should read but not write to file", func() {
 						f := MustSucceed(fs.Open("test_file.txt", os.O_CREATE))
 						Expect(f.Close()).To(Succeed())
 
 						file := MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
-						Expect(file.Write([]byte("tacocat"))).Error().To(HaveOccurred())
+						Expect(file.Write([]byte("tacocat"))).Error().
+							To(MatchError(syscall.EBADF))
 						Expect(file.Close()).To(Succeed())
 
 						file = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
