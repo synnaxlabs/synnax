@@ -110,7 +110,7 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<
       Select.SingleProps<label.Key, label.Label | undefined>,
-      "data" | "useListItem" | "resourceName" | "subscribe" | "children"
+      "data" | "resourceName" | "subscribe" | "children"
     >,
     Flux.UseListArgs<ListParams, label.Key, label.Label> {}
 
