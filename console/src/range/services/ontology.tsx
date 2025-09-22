@@ -14,7 +14,6 @@ import {
   Icon,
   List,
   Menu as PMenu,
-  Ranger,
   Select,
   Telem,
   Text,

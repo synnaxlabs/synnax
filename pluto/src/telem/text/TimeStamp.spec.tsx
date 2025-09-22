@@ -11,7 +11,7 @@ import { TimeSpan, TimeStamp as XTimeStamp } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { TimeStamp } from "@/telem/text/TimeStamp";
+import { Telem } from "@/telem";
 
 describe("TimeStamp", () => {
   it("should render timestamp with default format", () => {
@@ -20,9 +20,9 @@ describe("TimeStamp", () => {
       .add(TimeSpan.minutes(30))
       .add(TimeSpan.seconds(45));
     const c = render(
-      <TimeStamp suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC">
         {ts}
-      </TimeStamp>,
+      </Telem.Text.TimeStamp>,
     );
     expect(c.getByText("Jan 1 12:30:45")).toBeTruthy();
   });
@@ -32,18 +32,18 @@ describe("TimeStamp", () => {
       "UTC",
     );
     const c = render(
-      <TimeStamp format="time" suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp format="time" suppliedTZ="UTC" displayTZ="UTC">
         {ts}
-      </TimeStamp>,
+      </Telem.Text.TimeStamp>,
     );
     expect(c.getByText("12:30:45")).toBeTruthy();
   });
   it("should handle timezone conversion", () => {
     const ts = XTimeStamp.ZERO;
     const c = render(
-      <TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
+      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
         {ts}
-      </TimeStamp>,
+      </Telem.Text.TimeStamp>,
     );
     expect(c.getByText("00:00:00")).toBeTruthy();
   });
@@ -53,18 +53,18 @@ describe("TimeStamp", () => {
       .add(TimeSpan.seconds(45))
       .valueOf();
     const c = render(
-      <TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
+      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
         {ts}
-      </TimeStamp>,
+      </Telem.Text.TimeStamp>,
     );
     expect(c.getByText("12:30:45")).toBeTruthy();
   });
   it("should pass through text props", () => {
     const ts = new XTimeStamp([2024, 1, 1], "UTC");
     const c = render(
-      <TimeStamp level="h1" color={5} suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp level="h1" color={5} suppliedTZ="UTC" displayTZ="UTC">
         {ts}
-      </TimeStamp>,
+      </Telem.Text.TimeStamp>,
     );
     expect(c.container.querySelector("h1")).toBeTruthy();
   });

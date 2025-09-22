@@ -11,40 +11,40 @@ import { TimeSpan as XTimeSpan } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { TimeSpan } from "@/telem/text/TimeSpan";
+import { Telem } from "@/telem";
 
 describe("TimeSpan", () => {
   it("should render timespan with default format", () => {
     const span = XTimeSpan.seconds(90);
-    const c = render(<TimeSpan>{span}</TimeSpan>);
+    const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1m 30s")).toBeTruthy();
   });
   it("should render timespan with hours", () => {
     const span = XTimeSpan.hours(2.5);
-    const c = render(<TimeSpan>{span}</TimeSpan>);
+    const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("2h 30m")).toBeTruthy();
   });
   it("should render timespan with days", () => {
     const span = XTimeSpan.days(1.5);
-    const c = render(<TimeSpan>{span}</TimeSpan>);
+    const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1d 12h")).toBeTruthy();
   });
   it("should render zero timespan", () => {
     const span = XTimeSpan.ZERO;
-    const c = render(<TimeSpan>{span}</TimeSpan>);
+    const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.container.textContent).toBe("");
   });
   it("should accept number timespan in microseconds", () => {
     const span = XTimeSpan.seconds(90).valueOf();
-    const c = render(<TimeSpan>{span}</TimeSpan>);
+    const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1m 30s")).toBeTruthy();
   });
   it("should pass through text props", () => {
     const span = XTimeSpan.seconds(60);
     const c = render(
-      <TimeSpan level="h2" color={3}>
+      <Telem.Text.TimeSpan level="h2" color={3}>
         {span}
-      </TimeSpan>,
+      </Telem.Text.TimeSpan>,
     );
     expect(c.container.querySelector("h2")).toBeTruthy();
   });
