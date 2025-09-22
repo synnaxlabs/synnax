@@ -258,7 +258,6 @@ assets
 src/**.js
 
 # ||| Build Binary |||
-
 freighter/integration/integration
 integration/integration
 core/synnax

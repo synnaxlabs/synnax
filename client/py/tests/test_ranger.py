@@ -237,6 +237,44 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 rng.set_alias("not_found", "test")
 
+    @pytest.mark.ranger
+    class TestRangeChildren:
+        def test_children_empty(self, client: sy.Synnax):
+            """Should return empty list when range has no children"""
+            rng = client.ranges.create(
+                name="parent1",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            children = rng.children
+            assert isinstance(children, list)
+            assert len(children) == 0
+
+        def test_children_with_child_ranges(self, client: sy.Synnax):
+            """Should return list of child ranges"""
+            parent_rng = client.ranges.create(
+                name="parent2",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+
+            child1 = parent_rng.create_child_range(
+                name="child1",
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            child2 = parent_rng.create_child_range(
+                name="child2",
+                time_range=sy.TimeStamp.now().span_range(3 * sy.TimeSpan.SECOND),
+            )
+
+            children = parent_rng.children
+            assert isinstance(children, list)
+            assert len(children) == 2
+
+            for child in children:
+                assert isinstance(child, sy.Range)
+
+            child_names = {child.name for child in children}
+            assert child_names == {"child1", "child2"}
+
 
 @pytest.mark.ranger
 class TestRangeData:

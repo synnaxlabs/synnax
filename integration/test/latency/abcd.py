@@ -52,7 +52,7 @@ class LatencyABCD(TestCase):
         Setup the test case.
         """
         self._log_message("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=45)
+        self.configure(loop_rate=0.01, manual_timeout=20)
 
         self.mode = self.name[-1]  # A, B, C, D
 
