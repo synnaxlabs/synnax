@@ -9,6 +9,7 @@
 
 import random
 import re
+import synnax as sy
 import time
 from test.framework.test_case import TestCase
 from typing import Optional, cast
@@ -143,7 +144,14 @@ class Console(TestCase):
         is_index: bool = False,
         data_type: str = "Timestamp",
         index: str = "",
-    ) -> None:
+    ) -> bool:
+
+        try:
+            self.client.channels.retrieve(channel_name)
+            self._log_message(f"Channel \"{channel_name}\" already exists")
+            return False
+        except sy.NotFoundError:
+            self._log_message(f"Creating channel: {channel_name}")
 
         if is_index == False and index == "":
             raise ValueError("Index must be provided if is_index is False")
@@ -168,6 +176,8 @@ class Console(TestCase):
 
         self.page.get_by_role("button", name="Create").click()
         self._log_message(f"Created channel {channel_name}")
+
+        return True
 
     def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
 

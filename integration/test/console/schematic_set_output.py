@@ -19,10 +19,17 @@ class Schematic_Set_Output(Schematic):
     def run(self) -> None:
 
         CHANNEL_NAME = "command_channel"
+        INDEX_NAME = "index_channel"
 
-        self.create_a_channel("index_channel", is_index=True)
         self.create_a_channel(
-            CHANNEL_NAME, is_index=False, data_type="Float64", index="index_channel"
+            INDEX_NAME, 
+            is_index=True,
+        )
+        self.create_a_channel(
+            CHANNEL_NAME,
+            data_type="Float64", 
+            is_index=False,
+            index=INDEX_NAME,
         )
 
         setpoint_node = self.add_to_schematic("Setpoint", CHANNEL_NAME)
@@ -32,22 +39,19 @@ class Schematic_Set_Output(Schematic):
         value_node.move(200, 0)
 
         set_p_value = 47.23333333
+        self._log_message(f"Verifying setpoint value: {set_p_value}")
         setpoint_node.set_value(set_p_value)
-        time.sleep(1)
         actual_value = self.get_value(CHANNEL_NAME)
 
-        self._log_message(f"Verifying setpoint value: {set_p_value}")
         assert (
             actual_value == set_p_value
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
 
-        time.sleep(1)
         set_p_value = 1.0101
+        self._log_message(f"Verifying setpoint value: {set_p_value}")
         setpoint_node.set_value(set_p_value)
-        time.sleep(1)
         actual_value = self.get_value(CHANNEL_NAME)
 
-        self._log_message(f"Verifying setpoint value: {set_p_value}")
         assert (
             actual_value == set_p_value
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
