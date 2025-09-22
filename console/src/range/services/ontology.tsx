@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger } from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import {
   type Haul,
   Icon,
@@ -18,8 +18,8 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
+import { array, type CrudeTimeRange, strings } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -29,9 +29,8 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
-import { useConfirmDelete } from "@/ontology/hooks";
-import { type TreeContextMenuProps } from "@/ontology/service";
 import {
   addChildRangeMenuItem,
   addToActivePlotMenuItem,
@@ -104,28 +103,17 @@ const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     });
 };
 
-const useDelete = ({
-  selection: { ids },
-  state: { getResource },
-  store,
-  removeLayout,
-}: TreeContextMenuProps): (() => void) => {
-  const keys = useMemo(() => ids.map(({ key }) => key), [ids]);
-  const confirm = useConfirmDelete({
-    type: "Range",
-    description: "Deleting this range will also delete all child ranges.",
-  });
-  const { update } = Ranger.useDelete({
-    beforeUpdate: useCallback(async () => {
-      const resources = getResource(ids);
-      if (!(await confirm(resources))) return false;
-      store.dispatch(remove({ keys }));
-      removeLayout(...ontology.idToString(ids));
-      return true;
-    }, [ids, getResource, store, removeLayout, keys]),
-  });
-  return useCallback(() => update(keys), [keys]);
-};
+const useDelete = createUseDelete({
+  type: "Range",
+  description: "Deleting this range will also delete all child ranges.",
+  query: Ranger.useDelete,
+  convertKey: String,
+  beforeUpdate: async ({ data, removeLayout, store }) => {
+    removeLayout(...data);
+    store.dispatch(remove({ keys: array.toArray(data) }));
+    return data;
+  },
+});
 
 const useRename = createUseRename({
   query: Ranger.useRename,

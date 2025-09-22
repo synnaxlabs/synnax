@@ -18,8 +18,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -28,29 +27,21 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
-import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
-const useDelete = ({
-  state: { getResource },
-  selection: { ids },
-  removeLayout,
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = useConfirmDelete({ type: "Schematic" });
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const dispatch = useDispatch();
-  const beforeUpdate = useCallback(async () => {
-    const ok = await confirm(getResource(ids));
-    if (!ok) return false;
-    removeLayout(...keys);
-    dispatch(Schematic.remove({ keys }));
-    return true;
-  }, [confirm, ids, getResource, dispatch]);
-  const { update } = Core.useDelete({ beforeUpdate });
-  return useCallback(() => update(keys), [update, keys]);
-};
+const useDelete = createUseDelete({
+  type: "Schematic",
+  query: Core.useDelete,
+  convertKey: String,
+  beforeUpdate: async ({ data, removeLayout, store }) => {
+    removeLayout(...data);
+    store.dispatch(Schematic.remove({ keys: array.toArray(data) }));
+    return data;
+  },
+});
 
 const useCopy = ({
   selection: { ids },

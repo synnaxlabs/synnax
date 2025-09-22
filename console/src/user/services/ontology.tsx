@@ -9,10 +9,11 @@
 
 import { ontology, type user } from "@synnaxlabs/client";
 import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
@@ -26,19 +27,11 @@ const editPermissions = ({
   placeLayout(layout);
 };
 
-const useDelete = ({
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = Ontology.useConfirmDelete({ type: "User" });
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const beforeUpdate = useCallback(
-    async () => await confirm(getResource(ids)),
-    [confirm, getResource, ids],
-  );
-  const { update } = User.useDelete({ beforeUpdate });
-  return useCallback(() => update(keys), [update, keys]);
-};
+const useDelete = createUseDelete({
+  type: "User",
+  query: User.useDelete,
+  convertKey: String,
+});
 
 const useRename = ({
   selection: {

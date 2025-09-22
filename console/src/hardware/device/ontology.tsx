@@ -12,7 +12,6 @@ import "@/hardware/device/ontology.css";
 import { device, type ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -28,6 +27,7 @@ import {
 } from "@/hardware/device/make";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
 
 const handleConfigure = ({
@@ -81,19 +81,11 @@ const useHandleChangeIdentifier = () => {
   };
 };
 
-const useDelete = ({
-  state: { getResource },
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = Ontology.useConfirmDelete({ type: "Device" });
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const beforeUpdate = useCallback(
-    async () => await confirm(getResource(ids)),
-    [confirm, getResource, ids],
-  );
-  const { update } = Device.useDelete({ beforeUpdate });
-  return useCallback(() => update(keys), [update, keys]);
-};
+const useDelete = createUseDelete({
+  type: "Device",
+  query: Device.useDelete,
+  convertKey: String,
+});
 
 const useRename = createUseRename({
   query: Device.useRename,

@@ -18,8 +18,8 @@ import {
   Table as PTable,
   Workspace as Core,
 } from "@synnaxlabs/pluto";
-import { deep, type record, strings } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { array, deep, type record, strings } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -34,8 +34,8 @@ import { Link } from "@/link";
 import { Log } from "@/log";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
-import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
 import { type RootState } from "@/store";
@@ -45,27 +45,19 @@ import { useExport } from "@/workspace/export";
 import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
-const useDelete = ({
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = useConfirmDelete({ type: "Workspace" });
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const store = useStore<RootState>();
-  const dispatch = useDispatch();
-  const beforeUpdate = useCallback(async () => await confirm(getResource(ids)), [ids]);
-  const afterSuccess = useCallback(() => {
+const useDelete = createUseDelete({
+  type: "Workspace",
+  query: Core.useDelete,
+  convertKey: String,
+  afterSuccess: ({ data, store }) => {
     const s = store.getState();
     const activeKey = selectActiveKey(s);
-    const active = ids.find((id) => id.key === activeKey);
-    if (active != null) {
-      dispatch(setActive(null));
-      dispatch(Layout.clearWorkspace());
-    }
-  }, [ids, dispatch, store]);
-  const { update } = Core.useDelete({ beforeUpdate, afterSuccess });
-  return useCallback(() => update(keys), [keys]);
-};
+    const active = array.toArray(data).find((k) => k === activeKey);
+    if (active == null) return;
+    store.dispatch(setActive(null));
+    store.dispatch(Layout.clearWorkspace());
+  },
+});
 
 const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();

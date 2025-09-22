@@ -9,7 +9,6 @@
 
 import { rack } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -17,26 +16,13 @@ import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
 
 const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,
 });
-
-const useDelete = ({
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = Ontology.useConfirmDelete({ type: "Rack" });
-  const keys = useMemo(() => ids.map((id) => Number(id.key)), [ids]);
-  const beforeUpdate = useCallback(
-    async () => await confirm(getResource(ids)),
-    [confirm, getResource],
-  );
-  const { update } = Rack.useDelete({ beforeUpdate });
-  return useCallback(() => update(keys), [update, keys]);
-};
 
 const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const copy = useCopyToClipboard();
@@ -72,6 +58,12 @@ const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
     </Tree.Item>
   );
 };
+
+const useDelete = createUseDelete({
+  type: "Rack",
+  query: Rack.useDelete,
+  convertKey: Number,
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {

@@ -9,9 +9,7 @@
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Table as Core } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -20,28 +18,20 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
-import { useConfirmDelete } from "@/ontology/hooks";
 import { Table } from "@/table";
 
-const useDelete = ({
-  state: { getResource },
-  selection: { ids },
-  removeLayout,
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = useConfirmDelete({ type: "Table" });
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const dispatch = useDispatch();
-  const beforeUpdate = useCallback(async () => {
-    const ok = await confirm(getResource(ids));
-    if (!ok) return false;
-    removeLayout(...keys);
-    dispatch(Table.remove({ keys }));
-    return true;
-  }, [confirm, ids]);
-  const { update } = Core.useDelete({ beforeUpdate });
-  return useCallback(() => update(keys), [update, keys]);
-};
+const useDelete = createUseDelete({
+  type: "Table",
+  query: Core.useDelete,
+  convertKey: String,
+  beforeUpdate: async ({ data, removeLayout, store }) => {
+    removeLayout(...data);
+    store.dispatch(Table.remove({ keys: array.toArray(data) }));
+    return data;
+  },
+});
 
 const useRename = createUseRename({
   query: Core.useRename,

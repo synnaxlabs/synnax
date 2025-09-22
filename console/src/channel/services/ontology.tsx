@@ -30,8 +30,8 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { createUseDelete } from "@/ontology/createDelete";
 import { createUseRename } from "@/ontology/createRename";
-import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -115,19 +115,11 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = ({
-  state: { getResource },
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const confirm = useConfirmDelete({ type: "Channel" });
-  const { update } = PChannel.useDelete({
-    beforeUpdate: useCallback(
-      async () => await confirm(getResource(ids)),
-      [confirm, getResource, ids],
-    ),
-  });
-  return useCallback(() => update(ids.map(({ key }) => Number(key))), [update, ids]);
-};
+export const useDelete = createUseDelete({
+  type: "Channel",
+  query: PChannel.useDelete,
+  convertKey: Number,
+});
 
 const beforeSetAlias = async ({
   data,
