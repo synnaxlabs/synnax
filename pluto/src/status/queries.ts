@@ -28,10 +28,7 @@ interface SubStore extends Flux.Store {
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.statusZ> = {
   channel: status.SET_CHANNEL_NAME,
   schema: status.statusZ,
-  onChange: ({ store, changed }) => {
-    console.log("C", changed);
-    store.statuses.set(changed.key, changed);
-  },
+  onChange: ({ store, changed }) => store.statuses.set(changed.key, changed),
 };
 
 const DELETE_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.keyZ> = {

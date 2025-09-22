@@ -68,11 +68,12 @@ export const Item = (props: ItemProps): ReactElement | null => {
           <Text.Text level="p" status={variant}>
             <Status.Indicator variant={variant} />
             {name}
-            <Icon.Caret.Right />
-            {message}
           </Text.Text>
         </Flex.Box>
         <Flex.Box x align="center">
+          <Text.Text level="small" status={variant}>
+            {message}
+          </Text.Text>
           <Text.DateTime level="p" color="gray" format="dateTime">
             {time}
           </Text.DateTime>

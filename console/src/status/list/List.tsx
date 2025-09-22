@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 
 import { Item } from "@/status/list/Item";
+import { CreateButton } from "@/status/Select";
 
 export interface ListProps
   extends Pick<
@@ -74,6 +75,7 @@ export const List = ({
             placeholder="Search"
             onChange={handleSearch}
           />
+          <CreateButton />
         </Flex.Box>
       )}
       <PList.Items<status.Key>>
