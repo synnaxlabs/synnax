@@ -67,5 +67,3 @@ class Schematic_Edit_Value_Props(Schematic):
         assert (
             non_default_props == non_default_props
         ), f"Props mismatch!\nActual: {non_default_props}\nExpected: {non_default_props}"
-
-        self._log_message("Remove the time.sleep() before merge!!")
