@@ -63,7 +63,7 @@ export interface IDToString {
 }
 
 export const idToString = ((id: ID | string | (ID | string)[]) => {
-  if (typeof id === "string") return id;
+  if (typeof id === "string") id = stringIDZ.parse(id);
   if (Array.isArray(id)) return id.map((id) => idToString(id));
   return `${id.type}:${id.key}`;
 }) as IDToString;

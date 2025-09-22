@@ -483,5 +483,27 @@ describe("Ontology", () => {
       ]);
       expect(result).toEqual(["group:one", "channel:two"]);
     });
+
+    it("should pass through string IDs", () => {
+      const result = ontology.idToString("group:one");
+      expect(result).toEqual("group:one");
+    });
+
+    it("should validate string IDs that get passed", () => {
+      expect(() => {
+        ontology.idToString("dog");
+      }).toThrow();
+    });
+
+    it("should pass through an array of string IDs", () => {
+      const result = ontology.idToString(["group:one", "channel:two"]);
+      expect(result).toEqual(["group:one", "channel:two"]);
+    });
+
+    it("should validate an array of string IDs that get passed", () => {
+      expect(() => {
+        ontology.idToString(["group:one", "channel:two", "dog"]);
+      }).toThrow();
+    });
   });
 });
