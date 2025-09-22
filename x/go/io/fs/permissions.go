@@ -11,7 +11,6 @@ package fs
 
 import "os"
 
-//goland:noinspection ALL
 const (
 	OS_NO          os.FileMode = 0
 	OS_READ        os.FileMode = 0o4
@@ -27,23 +26,11 @@ const (
 	OS_USER_RW  = OS_USER_R | OS_USER_W
 	OS_USER_RWX = OS_USER_RW | OS_USER_X
 
-	OS_GROUP_R   = OS_READ << OS_GROUP_SHIFT
-	OS_GROUP_W   = OS_WRITE << OS_GROUP_SHIFT
-	OS_GROUP_X   = OS_EX << OS_GROUP_SHIFT
-	OS_GROUP_RW  = OS_GROUP_R | OS_GROUP_W
-	OS_GROUP_RWX = OS_GROUP_RW | OS_GROUP_X
-
 	OS_OTH_R   = OS_READ << OS_OTH_SHIFT
 	OS_OTH_W   = OS_WRITE << OS_OTH_SHIFT
 	OS_OTH_X   = OS_EX << OS_OTH_SHIFT
 	OS_OTH_RW  = OS_OTH_R | OS_OTH_W
 	OS_OTH_RWX = OS_OTH_RW | OS_OTH_X
-
-	OS_ALL_R   = OS_USER_R | OS_GROUP_R | OS_OTH_R
-	OS_ALL_W   = OS_USER_W | OS_GROUP_W | OS_OTH_W
-	OS_ALL_X   = OS_USER_X | OS_GROUP_X | OS_OTH_X
-	OS_ALL_RW  = OS_ALL_R | OS_ALL_W
-	OS_ALL_RWX = OS_ALL_RW | OS_ALL_X
 )
 
 // CheckSufficientPermissions checks if the given actual file mode grants at least the
