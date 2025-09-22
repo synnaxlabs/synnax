@@ -64,7 +64,9 @@ async def main():
 
     for i in range(5):
         # add 30 float variables t OPC
-        my_float = await myobj.add_variable(idx, f"my_float_{i}", i, ua.VariantType.Float)
+        my_float = await myobj.add_variable(
+            idx, f"my_float_{i}", i, ua.VariantType.Float
+        )
         await my_float.set_writable()
 
     i = 0
@@ -82,7 +84,9 @@ async def main():
                 for j in range(ARRAY_SIZE)
             ]
             for i, arr in enumerate(arrays):
-                await arr.set_value([v + i for v in values], varianttype=ua.VariantType.Float)
+                await arr.set_value(
+                    [v + i for v in values], varianttype=ua.VariantType.Float
+                )
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start
