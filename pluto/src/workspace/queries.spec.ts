@@ -380,6 +380,13 @@ describe("queries", () => {
         }),
         { wrapper },
       );
+      await waitFor(() => {
+        expect(result.current.retrieve.variant).toEqual("success");
+        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.layout).toEqual({
+          config: { setting1: "value1" },
+        });
+      });
       await act(async () => {
         await result.current.saveLayout.updateAsync({
           key: ws.key,
@@ -390,6 +397,7 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
+        expect(result.current.saveLayout.variant).toEqual("success");
         expect(result.current.retrieve.data?.key).toEqual(ws.key);
         expect(result.current.retrieve.data?.layout).toEqual({
           config: { setting1: "value2" },

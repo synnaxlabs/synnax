@@ -280,10 +280,10 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
   let name = resource.name;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
-  const I = PChannel.resolveIcon(data);
+  const DataTypeIcon = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <I style={{ color: "var(--pluto-gray-l10" }} />
+      <DataTypeIcon color={10} />
       <Text.MaybeEditable
         id={ontology.idToString(id)}
         allowDoubleClick={false}
@@ -294,11 +294,7 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
         disabled={!allowRename(resource)}
         onChange
       />
-      {data.virtual && (
-        <Icon.Virtual
-          style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}
-        />
-      )}
+      {data.virtual && <Icon.Virtual color={8} />}
     </Tree.Item>
   );
 };

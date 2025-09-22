@@ -110,10 +110,10 @@ export interface AfterSuccessParams<Output extends core.Shape> {
   data: Output;
 }
 
-export interface AfterFailureParams<Output extends core.Shape> {
+export interface AfterFailureParams<Data extends core.Shape> {
   client: Client;
   status: status.Status;
-  data: Output;
+  data: Data;
 }
 
 /**

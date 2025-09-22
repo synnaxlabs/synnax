@@ -65,7 +65,26 @@ const retrieveSingle = async ({
   const range = await client.ranges.retrieve({ ...BASE_QUERY, keys: [key] });
   const first = range[0];
   store.ranges.set(key, first);
-  if (first.labels != null) store.labels.set(first.labels);
+  if (first.labels != null) {
+    store.labels.set(first.labels);
+    first.labels.forEach((l) => {
+      const rel: ontology.Relationship = {
+        from: ranger.ontologyID(key),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(l.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+  }
+  if (first.parent != null) {
+    const rel: ontology.Relationship = {
+      from: ranger.ontologyID(first.parent.key),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: ranger.ontologyID(key),
+    };
+    store.relationships.set(ontology.relationshipToString(rel), rel);
+  }
+
   return range[0];
 };
 
@@ -475,7 +494,9 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;
-    reset(await toFormValues(await retrieveSingle({ client, store, query: { key } })));
+    const r = await retrieveSingle({ client, store, query: { key } });
+    console.log(r);
+    reset(await toFormValues(r));
   },
   update: async ({ client, value: getValue, reset, store }) => {
     const value = getValue();
