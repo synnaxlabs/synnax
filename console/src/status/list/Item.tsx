@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/status/list/Item.css";
+
 import { type status } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
-  Icon,
   Input,
   List,
   Menu,
   Select,
   Status,
   stopPropagation,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { ContextMenu } from "@/status/list/ContextMenu";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
@@ -46,6 +49,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   return (
     <List.Item<status.Key>
       {...props}
+      className={CSS(CSS.BE("status", "list-item"))}
       justify="between"
       selected={selected}
       rounded={!selected}
@@ -74,9 +78,9 @@ export const Item = (props: ItemProps): ReactElement | null => {
           <Text.Text level="small" status={variant}>
             {message}
           </Text.Text>
-          <Text.DateTime level="p" color="gray" format="dateTime">
+          <Telem.Text.TimeStamp level="p" color="gray" format="dateTime">
             {time}
-          </Text.DateTime>
+          </Telem.Text.TimeStamp>
         </Flex.Box>
       </Form.Form>
     </List.Item>

@@ -20,6 +20,7 @@ import {
   Select,
   stopPropagation,
   Tag,
+  Telem,
 } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { useMemo } from "react";
@@ -134,7 +135,7 @@ export const Item = ({
               ))}
           </Tag.Tags>
           {showTimeRange && (
-            <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
+            <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
           {showFavorite && <FavoriteButton range={item} ghost />}
         </Flex.Box>
