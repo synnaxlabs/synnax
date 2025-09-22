@@ -194,13 +194,13 @@ class Console(TestCase):
         self.page.wait_for_timeout(300)
 
         # Iterate through dropdown items
-        channel_found = False
+        item_found = False
         item_selector = self.page.locator(".pluto-list__item").all()
         for item in item_selector:
             if item.is_visible() and input_text in item.inner_text().strip():
                 item.click()
-                channel_found = True
+                item_found = True
                 break
 
-        if not channel_found:
+        if not item_found:
             raise RuntimeError(f"Could not find channel '{input_text}' in dropdown")

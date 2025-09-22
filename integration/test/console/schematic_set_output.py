@@ -38,7 +38,7 @@ class Schematic_Set_Output(Schematic):
         value_node = self.add_to_schematic("Value", CHANNEL_NAME)
         value_node.move(200, 0)
 
-        set_p_value = 47.23333333
+        set_p_value = 47.23
         self._log_message(f"Verifying setpoint value: {set_p_value}")
         setpoint_node.set_value(set_p_value)
         actual_value = self.get_value(CHANNEL_NAME)

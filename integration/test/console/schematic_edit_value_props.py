@@ -53,7 +53,7 @@ class Schematic_Edit_Value_Props(Schematic):
 
         self._log_message("Checking new node with non-default properties")
         non_default_props = {
-            "channel": f"{self.name}_time",
+            "channel": f"{self.name}_state",
             "notation": "engineering",
             "precision": 7,
             "averaging_window": 3,
@@ -61,7 +61,7 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_timeout": 15,
         }
         non_default_node = self.add_to_schematic(
-            "Value", f"{self.name}_uptime", non_default_props
+            "Value", f"{self.name}_state", non_default_props
         )
         non_default_props = non_default_node.get_properties()
         assert (

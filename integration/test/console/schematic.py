@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Tuple
 from playwright.sync_api import Locator, Page
 
 
-class SchematicNode(ABC):
+class SchematicSymbol(ABC):
     """Base class for all schematic nodes"""
 
     page: Page
@@ -39,7 +39,7 @@ class SchematicNode(ABC):
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def _click_node(self) -> Any:
+    def _click_node(self) -> None:
         self.node.click()
         time.sleep(0.1)
 
@@ -81,9 +81,9 @@ class SchematicNode(ABC):
             # Click on the selector and fille channel_name
             channel_button.click()
             search_input = self.page.locator("input[placeholder*='Search']")
-            search_input.press("Control+a")
-            search_input.type(channel_name)
-            self.page.wait_for_timeout(300)
+            search_input.click()
+            search_input.fill(channel_name)
+            self.page.wait_for_timeout(500)
 
             # Iterate through dropdown items
             channel_found = False
@@ -154,7 +154,7 @@ class SchematicNode(ABC):
         set_button.click()
 
 
-class ValueNode(SchematicNode):
+class ValueNode(SchematicSymbol):
     """Schematic value/telemetry node"""
 
     channel_name: str
@@ -304,7 +304,7 @@ class ValueNode(SchematicNode):
         return props
 
 
-class SetpointNode(SchematicNode):
+class SetpointNode(SchematicSymbol):
     """Schematic setpoint/control node"""
 
     def __init__(self, page: Page, node_id: str, channel_name: str):
@@ -328,20 +328,6 @@ class SetpointNode(SchematicNode):
 
         return properties
 
-    def set_control_authority(self, authority: int) -> None:
-
-        if not (1 <= authority <= 255):
-            raise ValueError("Control authority must be between 1 and 255")
-
-        self._click_node()
-        # Not to be confused with the "Properties>Control"
-        self.page.get_by_text("Control").first.click()
-
-        control_authority_input = (
-            self.page.locator("text=Control Authority").locator("..").locator("input")
-        )
-        control_authority_input.fill(str(authority))
-        control_authority_input.press("Enter")
 
 
 class Schematic(Console):
@@ -356,7 +342,7 @@ class Schematic(Console):
 
     def create_node(
         self, node_type: str, node_id: str, channel_name: str
-    ) -> SchematicNode:
+    ) -> SchematicSymbol:
         """Factory method to create node objects"""
         if node_type.lower() == "value":
             return ValueNode(self.page, node_id, channel_name)
@@ -367,7 +353,7 @@ class Schematic(Console):
 
     def add_to_schematic(
         self, node_type: str, channel_name: str, properties: Dict[str, Any] = {}
-    ) -> SchematicNode:
+    ) -> SchematicSymbol:
         """
         Add a node to the schematic and return the configured node object
         """
@@ -401,9 +387,9 @@ class Schematic(Console):
 
     def connect_nodes(
         self,
-        source_node: SchematicNode,
+        source_node: SchematicSymbol,
         source_handle: str,
-        target_node: SchematicNode,
+        target_node: SchematicSymbol,
         target_handle: str,
     ) -> None:
         """
@@ -421,7 +407,7 @@ class Schematic(Console):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_node_handle(self, node: SchematicNode, handle: str) -> Tuple[float, float]:
+    def find_node_handle(self, node: SchematicSymbol, handle: str) -> Tuple[float, float]:
         """Calculate the coordinates of a node's connection handle."""
         node_box = node.node.bounding_box()
         if not node_box:
