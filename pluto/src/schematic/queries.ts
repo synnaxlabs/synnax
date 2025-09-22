@@ -31,13 +31,13 @@ interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export type UseRetrieveArgs = schematic.RetrieveSingleParams;
+export type RetrieveParams = schematic.RetrieveSingleParams;
 
 export const retrieveSingle = async ({
   store,
   client,
   query: { key },
-}: Flux.RetrieveParams<UseRetrieveArgs, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveParams, FluxSubStore>) => {
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
   const s = await client.workspaces.schematics.retrieve({ key });
@@ -46,7 +46,7 @@ export const retrieveSingle = async ({
 };
 
 export const { useRetrieve } = Flux.createRetrieve<
-  UseRetrieveArgs,
+  RetrieveParams,
   schematic.Schematic,
   FluxSubStore
 >({
@@ -57,9 +57,9 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export type UseDeleteArgs = schematic.Params;
+export type DeleteParams = schematic.Params;
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
@@ -72,10 +72,10 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface UseCopyArgs extends schematic.CopyArgs {}
+export interface CopyParams extends schematic.CopyArgs {}
 
 export const { useUpdate: useCopy } = Flux.createUpdate<
-  UseCopyArgs,
+  CopyParams,
   FluxSubStore,
   schematic.Schematic
 >({

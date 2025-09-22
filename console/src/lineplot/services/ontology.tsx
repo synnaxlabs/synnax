@@ -24,6 +24,7 @@ import { createUseRename } from "@/ontology/createRename";
 
 const useDelete = createUseDelete({
   type: "Line Plot",
+  icon: "LinePlot",
   query: Core.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {

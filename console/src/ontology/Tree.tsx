@@ -231,14 +231,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (rel: ontology.Relationship) => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
       setNodes((prevNodes) => {
-        console.log("remove node", prevNodes);
         const nextNodes = [
           ...Core.removeNode({
+            parent: ontology.idToString(rel.from),
             keys: ontology.idToString(rel.to),
             tree: Core.deepCopy(prevNodes),
           }),
         ];
-        console.log("nextNodes", nextNodes);
         return nextNodes;
       });
     },
@@ -251,7 +250,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
-      console.log("set prevNodes", prevNodes);
       const nextNodes = [
         ...Core.setNode({
           tree: Core.deepCopy(prevNodes),
@@ -262,10 +260,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
-          throwOnMissing: true,
+          throwOnMissing: false,
         }),
       ];
-      console.log("set nextNodes", nextNodes);
       return nextNodes;
     });
   }, []);
@@ -372,6 +369,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const destination = ontology.idZ.parse(key);
       const svc = services[destination.type];
       if (!svc.canDrop({ source, items })) return [];
+
       const minDepth = Math.min(
         ...dropped.map(({ data }) => (data?.depth ?? 0) as number),
       );
@@ -386,12 +384,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       contract(...keys);
       const ids = keys.map((key) => ontology.idZ.parse(key));
-      // const next = Core.moveNode({
-      //   tree: nodesSnapshot,
-      //   destination: ontology.idToString(destination),
-      //   keys,
-      // });
-      // setNodes([...next]);
       moveChildren.update({ source: sourceID, destination, ids });
       return moved;
     },
@@ -405,19 +397,23 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const selectedResources = getResource(ontology.parseIDs(selectedRef.current));
       if (selectedRef.current.includes(itemKey)) {
         const selectedHaulItems = selectedResources.flatMap((res) => {
-          const haulItems = services[res.id.type].haulItems(res);
+          const svcItems = services[res.id.type].haulItems(res);
           const depth = Core.getDepth(itemKey, shapeRef.current);
-          return [
+          const baseItems: Haul.Item[] = [
             {
               type: Core.HAUL_TYPE,
               key: ontology.idToString(res.id),
               data: { depth },
             },
-            ...(haulItems?.map((item) => ({
-              ...item,
-              data: { ...item.data, depth },
-            })) ?? []),
           ];
+          if (svcItems != null)
+            baseItems.push(
+              ...svcItems.map((i) => ({
+                ...i,
+                data: { ...i.data, depth },
+              })),
+            );
+          return baseItems;
         });
         return startDrag(selectedHaulItems);
       }

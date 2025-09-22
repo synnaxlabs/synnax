@@ -6,6 +6,7 @@ import { Ontology } from "@/ontology";
 
 export interface CreateUseDeleteArgs<K extends record.Key> {
   type: string;
+  icon?: string;
   description?: string;
   query: Flux.UseUpdate<K | K[]>;
   convertKey: (key: string) => K;
@@ -20,6 +21,7 @@ export interface CreateUseDeleteArgs<K extends record.Key> {
 export const createUseDelete =
   <K extends record.Key>({
     type,
+    icon,
     description,
     query,
     convertKey,
@@ -31,7 +33,7 @@ export const createUseDelete =
       selection: { ids },
       state: { getResource },
     } = props;
-    const confirm = Ontology.useConfirmDelete({ type, description });
+    const confirm = Ontology.useConfirmDelete({ type, description, icon });
     const { update } = query({
       beforeUpdate: useCallback(
         async (params: Flux.BeforeUpdateParams<K | K[]>) => {

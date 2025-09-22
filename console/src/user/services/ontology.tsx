@@ -41,13 +41,14 @@ const useRename = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const beforeUpdate = useCallback(
     async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
-      const [name, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      const [username, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
       if (!renamed) return false;
-      return { ...data, name };
+      return { ...data, username };
     },
     [firstID],
   );
-  const { update } = User.useRename({ beforeUpdate });
+  const { update, status } = User.useRename({ beforeUpdate });
+  console.log(status);
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],

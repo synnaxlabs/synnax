@@ -96,13 +96,23 @@ export const moveNode = <K extends record.Key = string>({
 export interface RemoveNodeProps<K extends record.Key = string> {
   tree: Node<K>[];
   keys: K | K[];
+  parent?: K;
 }
 
 export const removeNode = <K extends record.Key = string>({
   tree,
   keys,
+  parent,
 }: RemoveNodeProps<K>): Node<K>[] => {
   keys = array.toArray(keys);
+  if (parent != null) {
+    const parentNode = findNode({ tree, key: parent });
+    if (parentNode == null) return tree;
+    parentNode.children = parentNode.children?.filter(
+      (child) => !keys.includes(child.key),
+    );
+    return tree;
+  }
   keys.forEach((key) => {
     const index = tree.findIndex((node) => node.key === key);
     if (index !== -1) tree.splice(index, 1);

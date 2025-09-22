@@ -43,12 +43,22 @@ const useDelete = createUseDelete({
   },
 });
 
-const useCopy = ({
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps): (() => void) => {
+const useCopy = (props: Ontology.TreeContextMenuProps): (() => void) => {
+  const {
+    selection: { ids },
+    state: { getResource },
+  } = props;
+  const rename = Core.useRename();
   const copy = Core.useCopy({
-    afterSuccess: async () => Text.edit(ontology.idToString(ids[0])),
+    afterSuccess: useCallback(
+      async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
+        const id = schematic.ontologyID(data.key);
+        const [name, renamed] = await Text.asyncEdit(ontology.idToString(id));
+        if (!renamed) return;
+        await rename.updateAsync({ key: data.key, name });
+      },
+      [rename],
+    ),
   });
   return () =>
     ids.map((id) => {
