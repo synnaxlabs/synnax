@@ -287,11 +287,10 @@ func (f *memNode) ModTime() time.Time {
 }
 
 func (f *memNode) Mode() os.FileMode {
-	// TODO: constant
 	if f.isDir {
-		return os.ModeDir | 0755
+		return os.ModeDir | defaultPerm
 	}
-	return 0755
+	return defaultPerm
 }
 
 func (f *memNode) Name() string { return f.name }
