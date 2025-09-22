@@ -225,17 +225,6 @@ jobs:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
-      - name: Determine Executable Name
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-          else
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Move Driver to Assets
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: bash
@@ -267,7 +256,7 @@ jobs:
       - name: Build Console Web Assets
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Server
