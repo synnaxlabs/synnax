@@ -9,11 +9,11 @@
 
 import random
 import re
-import synnax as sy
 import time
 from test.framework.test_case import TestCase
 from typing import Optional, cast
 
+import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 
@@ -148,7 +148,7 @@ class Console(TestCase):
 
         try:
             self.client.channels.retrieve(channel_name)
-            self._log_message(f"Channel \"{channel_name}\" already exists")
+            self._log_message(f'Channel "{channel_name}" already exists')
             return False
         except sy.NotFoundError:
             self._log_message(f"Creating channel: {channel_name}")

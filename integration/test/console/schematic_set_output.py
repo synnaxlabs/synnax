@@ -22,12 +22,12 @@ class Schematic_Set_Output(Schematic):
         INDEX_NAME = "index_channel"
 
         self.create_a_channel(
-            INDEX_NAME, 
+            INDEX_NAME,
             is_index=True,
         )
         self.create_a_channel(
             CHANNEL_NAME,
-            data_type="Float64", 
+            data_type="Float64",
             is_index=False,
             index=INDEX_NAME,
         )

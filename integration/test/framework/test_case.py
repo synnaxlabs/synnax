@@ -517,8 +517,10 @@ class TestCase(ABC):
             if len(frame) > 0:
                 return float(frame[-1])
 
-        except:
             return None
+
+        except:
+            raise RuntimeError(f'Could not get value for channel "{channel_name}"')
 
     @overload
     def get_state(
