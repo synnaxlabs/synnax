@@ -20,25 +20,25 @@ const (
 	groupShift  = 3
 	othersShift = 0
 
-	OwnerRead      os.FileMode = read << ownerShift
-	OwnerWrite     os.FileMode = write << ownerShift
-	OwnerExecute   os.FileMode = execute << ownerShift
-	OwnerReadWrite os.FileMode = OwnerRead | OwnerWrite
-	OwnerAll       os.FileMode = OwnerReadWrite | OwnerExecute
+	OwnerRead             os.FileMode = read << ownerShift
+	OwnerWrite            os.FileMode = write << ownerShift
+	OwnerExecute          os.FileMode = execute << ownerShift
+	OwnerReadWrite        os.FileMode = OwnerRead | OwnerWrite
+	OwnerReadWriteExecute os.FileMode = OwnerReadWrite | OwnerExecute
 
-	GroupRead        os.FileMode = read << groupShift
-	GroupWrite       os.FileMode = write << groupShift
-	GroupExecute     os.FileMode = execute << groupShift
-	GroupReadWrite   os.FileMode = GroupRead | GroupWrite
-	GroupReadExecute os.FileMode = GroupRead | GroupExecute
-	GroupAll         os.FileMode = GroupReadWrite | GroupExecute
+	GroupRead             os.FileMode = read << groupShift
+	GroupWrite            os.FileMode = write << groupShift
+	GroupExecute          os.FileMode = execute << groupShift
+	GroupReadWrite        os.FileMode = GroupRead | GroupWrite
+	GroupReadExecute      os.FileMode = GroupRead | GroupExecute
+	GroupReadWriteExecute os.FileMode = GroupReadWrite | GroupExecute
 
-	OthersRead        os.FileMode = read << othersShift
-	OthersWrite       os.FileMode = write << othersShift
-	OthersExecute     os.FileMode = execute << othersShift
-	OthersReadWrite   os.FileMode = OthersRead | OthersWrite
-	OthersReadExecute os.FileMode = OthersRead | OthersExecute
-	OthersAll         os.FileMode = OthersReadWrite | OthersExecute
+	OthersRead             os.FileMode = read << othersShift
+	OthersWrite            os.FileMode = write << othersShift
+	OthersExecute          os.FileMode = execute << othersShift
+	OthersReadWrite        os.FileMode = OthersRead | OthersWrite
+	OthersReadExecute      os.FileMode = OthersRead | OthersExecute
+	OthersReadWriteExecute os.FileMode = OthersReadWrite | OthersExecute
 )
 
 // HasSufficientPermissions checks if the given actual file mode grants at least the
