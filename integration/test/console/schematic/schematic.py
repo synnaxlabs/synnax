@@ -7,23 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.console import Console
 from typing import Optional, Tuple
 
+from ..console_page import ConsolePage
 from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
 from .value import Value
 
 
-class Schematic(Console):
+class Schematic(ConsolePage):
     """
     Parent class for schematic tests
     """
 
-    def setup(self) -> None:
-        super().setup()
-        self.create_page("Schematic")
-        self.page.locator(".react-flow__pane").dblclick()
 
     def _add_symbol_to_schematic(self, symbol_type: str) -> str:
         """

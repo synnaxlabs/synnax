@@ -8,22 +8,29 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from test.console.schematic import Schematic
+import uuid
+from test.console.console_case import ConsoleCase
 
 import synnax as sy
 
 
-class Create_Channel_Types(Schematic):
+class Create_Channel_Types(ConsoleCase):
     """
     Add a value component and edit its properties
     """
+
+    def setup(self) -> None:
+        super().setup()
+        self.console.console_pages.create("Schematic")
+        self.page.locator(".react-flow__pane").dblclick()
 
     def run(self) -> None:
         """
         Test the "create a channel" modal for all data types
         """
 
-        INDEX_NAME = "index_channel"
+        unique_id = str(uuid.uuid4())[:8]  # First 8 chars of UUID
+        INDEX_NAME = f"{self.name}_{unique_id}_index_channel"
 
         data_types = [
             sy.DataType.FLOAT64,
@@ -40,8 +47,8 @@ class Create_Channel_Types(Schematic):
         ]
 
         # First, create an index channel
-        self.create_a_channel(
-            INDEX_NAME,
+        self.console.channels.create(
+            name=INDEX_NAME,
             is_index=True,
         )
         index_ch = self.client.channels.retrieve(INDEX_NAME)
@@ -49,9 +56,9 @@ class Create_Channel_Types(Schematic):
 
         # Then, create a channel for each data type
         for data_type in data_types:
-            ch_name = f"{str(data_type)}_ch"
-            self.create_a_channel(
-                ch_name,
+            ch_name = f"{self.name}_{unique_id}_{str(data_type)}_ch"
+            self.console.channels.create(
+                name=ch_name,
                 data_type=data_type,
                 is_index=False,
                 index=INDEX_NAME,

@@ -9,30 +9,26 @@
 
 import os
 import time
-from test.console.console import Console
 from typing import Any, Dict, List, Optional, Union, cast
 
-from playwright.sync_api import FloatRect
+from playwright.sync_api import FloatRect, Page
+
+from ..console_page import ConsolePage
 
 
-class Plot(Console):
+class Plot(ConsolePage):
     """
     Parent class for Plot tests
     """
 
-    DATA: Dict[str, Any] = {
-        "Y1": [],
-        "Y2": [],
-        "Ranges": [],
-        "X1": None,
-    }
-
-    def setup(self) -> None:
-        super().setup()
-        self.create_page("Line Plot", f"{self.name}")
-        # When the page is created, the bottom console drawer is hidden.
-        # double click the plot to open the console drawer.
-        self.page.locator(".pluto-line-plot").dblclick()
+    def __init__(self, page: Page):
+        super().__init__(page)
+        self.DATA: Dict[str, Any] = {
+            "Y1": [],
+            "Y2": [],
+            "Ranges": [],
+            "X1": None,
+        }
 
     def add_Y(self, axis: str, channel_ids: Union[str, List[str]]) -> None:
         if axis != "Y1" and axis != "Y2":

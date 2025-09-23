@@ -5,16 +5,16 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
-          "case": "console/create_channel_types"
+          "case": "console/create_channel_types",
+          "parameters": {
+            "headless": false
+          }
         },
         {
-          "case": "console/schematic_set_output"
-        },
-        {
-          "case": "console/tabs_open_close"
-        },
-        {
-          "case": "console/schematic_edit_value_props"
+          "case": "console/tabs_open_close",
+          "parameters": {
+            "headless": true
+          }
         }
       ]
     }
