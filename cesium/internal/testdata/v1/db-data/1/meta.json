@@ -1,1 +1,9 @@
-{"key":1,"IsIndex":true,"data_type":"timestamp","rate":0,"index":1,"Virtual":false,"Concurrency":0}
+{
+  "key": 1,
+  "IsIndex": true,
+  "data_type": "timestamp",
+  "rate": 0,
+  "index": 1,
+  "Virtual": false,
+  "Concurrency": 0
+}
