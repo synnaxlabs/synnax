@@ -15,7 +15,7 @@ from playwright.sync_api import Page
 from .console_page import ConsolePage
 
 if TYPE_CHECKING:
-    from ..console import Console
+    from .console import Console
 
 
 class Channels(ConsolePage):

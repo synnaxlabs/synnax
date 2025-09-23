@@ -12,13 +12,12 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from playwright.sync_api import Page
 
 from ..console_page import ConsolePage
-from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
 
 if TYPE_CHECKING:
-    from ..console import Console
+    from test.console.console import Console
 
 
 class Schematic(ConsolePage):

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional, cast
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 if TYPE_CHECKING:
-    from ..console import Console
+    from .console import Console
 
 
 class ConsolePage:
