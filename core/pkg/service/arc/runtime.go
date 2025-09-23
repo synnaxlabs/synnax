@@ -111,12 +111,11 @@ func (s *Service) handleChange(
 		if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 			ctx,
 			&status.Status{
-				Name:        fmt.Sprintf("%s Status", a.Name),
-				Key:         a.Key.String(),
-				Message:     "Deployment Successful",
-				Variant:     xstatus.ErrorVariant,
-				Description: err.Error(),
-				Time:        telem.Now(),
+				Name:    fmt.Sprintf("%s Status", a.Name),
+				Key:     a.Key.String(),
+				Message: "Deployment Successful",
+				Variant: xstatus.SuccessVariant,
+				Time:    telem.Now(),
 				Details: map[string]interface{}{
 					"running": false,
 				},
