@@ -67,8 +67,12 @@ const configureStoreInternal = async <
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
   await runtime.configure();
-
-  const store: EnhancedStore<S, A | Action> = base<S, A, M, E>({
+  // This needs to remain as a `let` definition, because we need to be
+  // able to return the dynamically assigned store instance within the
+  // receivePreloadedStateAndListen.
+  let store: EnhancedStore<S, A | Action> | undefined;
+  // eslint-disable-next-line prefer-const
+  store = base<S, A, M, E>({
     ...opts,
     preloadedState: await receivePreloadedStateAndListen(
       debug,

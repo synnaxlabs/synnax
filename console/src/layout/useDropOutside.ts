@@ -61,11 +61,9 @@ const useDropOutsideMacOS = ({
         if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
         const win = await Window.getByLabel(winLabel);
         if (win == null) return;
-        const sf = await win.scaleFactor();
-        const rawCursor = xy.construct(x, y);
-        const cursor = xy.scale(rawCursor, sf);
+        const cursor = xy.construct(x, y);
         if (windowsContain(cursor)) return;
-        const dropped = onDrop(dragging.current, rawCursor);
+        const dropped = onDrop(dragging.current, cursor);
         drop({ target, dropped });
       }, "Failed to drop outside");
     });
