@@ -81,6 +81,7 @@ const StageRenderer = ({
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
   const key = props?.key ?? "";
+  const type = props?.type ?? "";
   const handleChange = useCallback(
     (props: object) => {
       if (key == null) return;
@@ -88,18 +89,18 @@ const StageRenderer = ({
         setElementProps({
           layoutKey,
           key: symbolKey,
-          props: { key, ...props },
+          props: { key, type, ...props },
         }),
       );
     },
-    [symbolKey, layoutKey, key, dispatch],
+    [symbolKey, layoutKey, key, type, dispatch],
   );
 
   if (props == null) return null;
 
-  const C = Core.Stage.REGISTRY[key];
+  const C = Core.Stage.REGISTRY[type];
 
-  if (C == null) throw new Error(`Symbol ${key} not found`);
+  if (C == null) throw new Error(`Symbol ${type} not found`);
 
   // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;

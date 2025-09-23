@@ -39,7 +39,7 @@ export const graphZ = z.object({
   edges: edgeZ.array(),
 });
 
-export const textZ = z.object({ contents: z.string() });
+export const textZ = z.object({ raw: z.string() });
 
 export interface IR extends z.infer<typeof irZ> {}
 export interface Graph extends z.infer<typeof graphZ> {}
