@@ -209,17 +209,19 @@ const useObservable = <
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, data, rollbacks });
           if (updatedValue === false) {
+            onChange(successResult(name, past, data));
             runRollbacks();
             return false;
           }
           if (updatedValue !== true) data = updatedValue;
         }
         const output = await update({ client, data, store, rollbacks });
-        if (signal?.aborted === true || output == false) {
+        if (signal?.aborted === true) {
           runRollbacks();
           return false;
         }
         onChange(successResult(name, past, data));
+        if (output === false) return false;
         await afterSuccess?.({ client, data: output });
         return true;
       } catch (error) {
@@ -234,7 +236,7 @@ const useObservable = <
       }
     },
     debounce,
-    [name],
+    [name, onChange, beforeUpdate, afterSuccess, afterFailure],
   );
   const handleSyncUpdate = useCallback(
     (data: Input, opts?: core.FetchOptions) => void handleUpdate(data, opts),

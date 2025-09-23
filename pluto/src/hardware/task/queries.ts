@@ -18,6 +18,7 @@ import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "tasks";
 export const RESOURCE_NAME = "Task";
+export const PLURAL_RESOURCE_NAME = "Tasks";
 
 export interface FluxStore
   extends Flux.UnaryStore<task.Key, task.Task, ChangeVariant> {}
@@ -171,7 +172,7 @@ export const { useRetrieve } = createRetrieve();
 export interface ListQuery extends task.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, query, store }) => {
     const tasks = await client.hardware.tasks.retrieve({ ...BASE_QUERY, ...query });
@@ -420,7 +421,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
   FluxSubStore,
   task.Status[]
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   verbs: COMMAND_VERBS,
   update: async ({ data, client, store }) => {
     const commands = array.toArray(data);

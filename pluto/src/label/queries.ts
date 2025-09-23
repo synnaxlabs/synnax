@@ -16,6 +16,7 @@ import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "labels";
 export const RESOURCE_NAME = "Label";
+export const PLURAL_RESOURCE_NAME = "Labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -62,7 +63,7 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   label.Label[],
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
     await client.labels.retrieve({ for: id }),
   mountListeners: ({ client, store, query: { id }, onChange }) => [
@@ -97,7 +98,7 @@ export interface ListQuery extends label.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<ListQuery, label.Key, label.Label, FluxSubStore>(
   {
-    name: RESOURCE_NAME,
+    name: PLURAL_RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.labels.retrieve(query),
     retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
     mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {

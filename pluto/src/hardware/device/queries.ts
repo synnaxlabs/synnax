@@ -18,6 +18,7 @@ import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "devices";
 const RESOURCE_NAME = "Device";
+const PLURAL_RESOURCE_NAME = "Devices";
 
 type ChangeVariant = "payload" | "status";
 
@@ -127,7 +128,7 @@ export const useList = Flux.createList<
   device.Device,
   FluxSubStore
 >({
-  name: "Devices",
+  name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store, query: params }) =>
     store.devices.get((d) => {
       if (primitive.isNonZero(params.makes) && !params.makes.includes(d.make))
@@ -256,7 +257,7 @@ export const createForm = <
   Model extends string = string,
 >() =>
   Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
-    name: "Device",
+    name: RESOURCE_NAME,
     schema: formSchema,
     initialValues: {
       key: "",

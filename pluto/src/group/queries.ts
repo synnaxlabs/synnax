@@ -14,6 +14,7 @@ import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
 export const RESOURCE_NAME = "Group";
+export const PLURAL_RESOURCE_NAME = "Groups";
 
 export interface FluxStore extends Flux.UnaryStore<group.Key, group.Group> {}
 
@@ -77,7 +78,7 @@ export interface ListQuery {
 
 export const useList = Flux.createList<ListQuery, group.Key, group.Group, FluxSubStore>(
   {
-    name: RESOURCE_NAME,
+    name: PLURAL_RESOURCE_NAME,
     retrieveCached: ({ store, query: { parent } }) => {
       if (parent == null) return [];
       const rels = store.relationships.get((r) =>

@@ -93,7 +93,7 @@ const Internal = <
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
     }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
-    afterSuccess: onClose,
+    afterSuccess: useCallback(() => onClose(), [onClose]),
   });
 
   return (

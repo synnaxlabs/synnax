@@ -15,6 +15,7 @@ import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "racks";
 const RESOURCE_NAME = "Rack";
+const PLURAL_RESOURCE_NAME = "Racks";
 
 export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
@@ -79,7 +80,7 @@ export interface ListQuery extends rack.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSubStore>(
   {
-    name: RESOURCE_NAME,
+    name: PLURAL_RESOURCE_NAME,
     retrieveCached: ({ store }) => store.racks.list(),
     retrieve: async ({ client, query, store }) => {
       const racks = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });

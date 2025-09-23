@@ -20,6 +20,7 @@ import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "Channel";
+const PLURAL_RESOURCE_NAME = "Channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
@@ -277,7 +278,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   channel.Channel[],
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieve: retrieveMultiple,
   mountListeners: ({ store, onChange, query: { keys, rangeKey }, client }) => {
     const keysSet = new Set(keys);
@@ -397,7 +398,7 @@ export const useList = Flux.createList<
   channel.Channel,
   FluxSubStore
 >({
-  name: "Channels",
+  name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ query: params, store }) => {
     if (params.searchTerm != null && params.searchTerm.length > 0) return [];
     return store.channels.get((ch) => {

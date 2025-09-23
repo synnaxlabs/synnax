@@ -24,6 +24,7 @@ import {
   Task,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
@@ -63,10 +64,11 @@ const INITIAL_VALUES: device.Device<Properties, Make> = {
   key: "",
   name: "OPC UA Server",
   make: "opc",
-  model: "opc",
+  model: "OPC UA Server",
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,
+  configured: true,
 };
 
 const beforeValidate = ({
@@ -113,7 +115,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     initialValues: INITIAL_VALUES,
     beforeValidate,
     beforeSave,
-    afterSave: onClose,
+    afterSave: useCallback(() => onClose(), [onClose]),
   });
 
   const hasSecurity =

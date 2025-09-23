@@ -17,6 +17,7 @@ import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "workspaces";
 const RESOURCE_NAME = "Workspace";
+const PLURAL_RESOURCE_NAME = "Workspaces";
 
 export interface FluxStore
   extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
@@ -90,7 +91,7 @@ export const useList = Flux.createList<
   workspace.Workspace,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.workspaces.list(),
   retrieve: async ({ client, query }) => await client.workspaces.retrieve(query),
   retrieveByKey: async ({ key, ...rest }) =>

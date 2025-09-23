@@ -25,7 +25,11 @@ export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
 const RESOURCE_NAME = "Range";
-const KV_RESOURCE_NAME = "Meta-Data";
+const PLURAL_RESOURCE_NAME = "Ranges";
+const KV_RESOURCE_NAME = "Meta-Data Item";
+const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
+const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
+const PARENT_RESOURCE_NAME = "Parent Range";
 
 export interface FluxSubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
@@ -195,7 +199,7 @@ export const useListChildren = Flux.createList<
   ranger.Range,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_CHILDREN_RESOURCE_NAME,
   retrieve: async ({ client, query: { key }, store }) => {
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
@@ -265,7 +269,7 @@ export const {
   useRetrieve: useRetrieveParent,
   useRetrieveEffect: useRetrieveParentEffect,
 } = Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null, FluxSubStore>({
-  name: RESOURCE_NAME,
+  name: PARENT_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
     const parent = res.find(({ id: { type } }) => type === "range");
@@ -370,7 +374,7 @@ export const {
   useRetrieve: useRetrieveMultiple,
   useRetrieveObservable: useRetrieveObservableMultiple,
 } = Flux.createRetrieve<RetrieveMultipleQuery, ranger.Range[], FluxSubStore>({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieve: retrieveMultiple,
   mountListeners: ({ store, onChange, client, query: { keys } }) => {
     const keysSet = new Set(keys);
@@ -589,7 +593,7 @@ export const useList = Flux.createList<
   ranger.Range,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store, query }) =>
     store.ranges.get((r) => {
       if (primitive.isNonZero(query.keys)) return query.keys.includes(r.key);
@@ -662,7 +666,7 @@ export const useListMetaData = Flux.createList<
   ranger.KVPair,
   FluxSubStore
 >({
-  name: KV_RESOURCE_NAME,
+  name: PLURAL_KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) => {
     const kv = client.ranges.getKV(rangeKey);
     const pairs = await kv.list();

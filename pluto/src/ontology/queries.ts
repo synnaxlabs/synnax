@@ -15,7 +15,8 @@ import { Flux } from "@/flux";
 import { type List } from "@/list";
 
 const RESOURCE_RESOURCE_NAME = "Resource";
-const CHILDREN_RESOURCE_NAME = "Children";
+const PLURAL_RESOURCE_RESOURCE_NAME = "Resources";
+const PLURAL_CHILDREN_RESOURCE_NAME = "Children";
 
 export interface RelationshipFluxStore
   extends Flux.UnaryStore<string, ontology.Relationship> {}
@@ -178,7 +179,10 @@ export const createDependentsListHook = (
     ],
   });
 
-export const useListChildren = createDependentsListHook("to", CHILDREN_RESOURCE_NAME);
+export const useListChildren = createDependentsListHook(
+  "to",
+  PLURAL_CHILDREN_RESOURCE_NAME,
+);
 
 export interface ListQuery extends ontology.RetrieveRequest {}
 
@@ -188,7 +192,7 @@ export const useResourceList = Flux.createList<
   ontology.Resource,
   FluxSubStore
 >({
-  name: RESOURCE_RESOURCE_NAME,
+  name: PLURAL_RESOURCE_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.resources.list(),
   retrieve: async ({ client, query, store }) => {
     const res = await client.ontology.retrieve(query);
@@ -283,7 +287,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
   MoveChildrenParams,
   FluxSubStore
 >({
-  name: RESOURCE_RESOURCE_NAME,
+  name: PLURAL_CHILDREN_RESOURCE_NAME,
   verbs: MOVE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { source, destination, ids } = data;
