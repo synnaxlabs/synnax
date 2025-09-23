@@ -96,7 +96,7 @@ export const moveNode = <K extends record.Key = string>({
 export interface RemoveNodeProps<K extends record.Key = string> {
   tree: Node<K>[];
   keys: K | K[];
-  parent?: K;
+  parent?: K | null;
 }
 
 export const removeNode = <K extends record.Key = string>({
@@ -105,7 +105,8 @@ export const removeNode = <K extends record.Key = string>({
   parent,
 }: RemoveNodeProps<K>): Node<K>[] => {
   keys = array.toArray(keys);
-  if (parent != null) {
+  if (parent !== undefined) {
+    if (parent === null) return tree.filter((node) => !keys.includes(node.key));
     const parentNode = findNode({ tree, key: parent });
     if (parentNode == null) return tree;
     parentNode.children = parentNode.children?.filter(

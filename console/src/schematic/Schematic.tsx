@@ -95,24 +95,27 @@ const useSyncComponent = (
   Workspace.useSyncComponent<SyncPayload>(
     "Schematic",
     layoutKey,
-    async (ws, store, client) => {
-      const storeState = store.getState();
-      if (!selectHasPermission(storeState)) return;
-      const data = selectOptional(storeState, layoutKey);
-      if (data == null) return;
-      const layout = Layout.selectRequired(storeState, layoutKey);
-      if (data.snapshot) {
-        await client.workspaces.schematics.rename(layoutKey, layout.name);
-        return;
-      }
-      const setData = { ...data, key: undefined };
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.schematics.create(ws, {
-        key: layoutKey,
-        name: layout.name,
-        data: setData,
-      });
-    },
+    useCallback(
+      async (ws, store, client) => {
+        const storeState = store.getState();
+        if (!selectHasPermission(storeState)) return;
+        const data = selectOptional(storeState, layoutKey);
+        if (data == null) return;
+        const layout = Layout.selectRequired(storeState, layoutKey);
+        if (data.snapshot) {
+          await client.workspaces.schematics.rename(layoutKey, layout.name);
+          return;
+        }
+        const setData = { ...data, key: undefined };
+        if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+        await client.workspaces.schematics.create(ws, {
+          key: layoutKey,
+          name: layout.name,
+          data: setData,
+        });
+      },
+      [layoutKey],
+    ),
     dispatch,
   );
 

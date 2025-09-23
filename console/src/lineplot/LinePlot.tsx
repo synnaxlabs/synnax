@@ -102,18 +102,21 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
   Workspace.useSyncComponent<SyncPayload>(
     "Line Plot",
     layoutKey,
-    async (ws, store, client) => {
-      const s = store.getState();
-      const data = select(s, layoutKey);
-      if (data == null) return;
-      const la = Layout.selectRequired(s, layoutKey);
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.lineplots.create(ws, {
-        key: layoutKey,
-        name: la.name,
-        data,
-      });
-    },
+    useCallback(
+      async (ws, store, client) => {
+        const s = store.getState();
+        const data = select(s, layoutKey);
+        if (data == null) return;
+        const la = Layout.selectRequired(s, layoutKey);
+        if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+        await client.workspaces.lineplots.create(ws, {
+          key: layoutKey,
+          name: la.name,
+          data,
+        });
+      },
+      [layoutKey],
+    ),
   );
 
 const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {

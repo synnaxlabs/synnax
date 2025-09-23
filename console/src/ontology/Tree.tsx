@@ -227,9 +227,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (rel: ontology.Relationship) => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
       setNodes((prevNodes) => {
+        const parent = ontology.idsEqual(rel.from, root)
+          ? null
+          : ontology.idToString(rel.from);
         const nextNodes = [
           ...Core.removeNode({
-            parent: ontology.idToString(rel.from),
+            parent,
             keys: ontology.idToString(rel.to),
             tree: Core.deepCopy(prevNodes),
           }),
@@ -237,7 +240,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return nextNodes;
       });
     },
-    [setNodes],
+    [setNodes, parent],
   );
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
   const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
