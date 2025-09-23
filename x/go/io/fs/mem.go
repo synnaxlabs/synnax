@@ -30,7 +30,7 @@ import (
 const sep = "/"
 
 // NewMem returns a new memory-backed FS implementation.
-func NewMem() *MemFS { return &MemFS{root: newRootMemNode(), perm: defaultPerm} }
+func NewMem() *MemFS { return &MemFS{root: newRootMemNode()} }
 
 // MemFS implements FS.
 type MemFS struct {
@@ -48,7 +48,6 @@ type MemFS struct {
 	// files. In tests meant to exercise this behavior, this flag can be set to error if
 	// removing an open file.
 	windowsSemantics bool
-	perm             int
 }
 
 var _ FS = &MemFS{}
@@ -286,11 +285,13 @@ func (f *memNode) ModTime() time.Time {
 	return f.mu.modTime
 }
 
+const standardPerm = OwnerAll | GroupReadExecute | OthersReadExecute
+
 func (f *memNode) Mode() os.FileMode {
 	if f.isDir {
-		return os.ModeDir | defaultPerm
+		return os.ModeDir | standardPerm
 	}
-	return defaultPerm
+	return standardPerm
 }
 
 func (f *memNode) Name() string { return f.name }
