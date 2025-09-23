@@ -14,6 +14,7 @@ from playwright.sync_api import Page
 from ..console_page import ConsolePage
 from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
+from .symbol import Symbol
 from .value import Value
 
 if TYPE_CHECKING:
@@ -97,9 +98,9 @@ class Schematic(ConsolePage):
 
     def connect_symbols(
         self,
-        source_symbol: SchematicSymbol,
+        source_symbol: Symbol,
         source_handle: str,
-        target_symbol: SchematicSymbol,
+        target_symbol: Symbol,
         target_handle: str,
     ) -> None:
         """Connect two symbols by dragging from source handle to target handle."""
@@ -111,9 +112,7 @@ class Schematic(ConsolePage):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(
-        self, symbol: SchematicSymbol, handle: str
-    ) -> Tuple[float, float]:
+    def find_symbol_handle(self, symbol: Symbol, handle: str) -> Tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.symbol.bounding_box()
         if not symbol_box:

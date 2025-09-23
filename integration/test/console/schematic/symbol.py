@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 from playwright.sync_api import Locator, Page
 
 
-class SchematicSymbol(ABC):
+class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
@@ -80,7 +80,7 @@ class SchematicSymbol(ABC):
                 .locator("button")
                 .first
             )
-            # Click on the selector and fille channel_name
+            # Click on the selector and fill channel_name
             channel_button.click()
             search_input = self.page.locator("input[placeholder*='Search']")
             search_input.click()
@@ -100,9 +100,6 @@ class SchematicSymbol(ABC):
                 raise RuntimeError(
                     f"Could not find channel '{channel_name}' in dropdown"
                 )
-
-    def get_properties(self) -> Dict[str, Any]:
-        return {}
 
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""

@@ -11,10 +11,10 @@ from typing import Any, Dict, Optional
 
 from playwright.sync_api import Page
 
-from .schematic_symbol import SchematicSymbol
+from .symbol import Symbol
 
 
-class Setpoint(SchematicSymbol):
+class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
     def __init__(self, page: Page, symbol_id: str, channel_name: str):

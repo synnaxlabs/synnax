@@ -12,10 +12,10 @@ from typing import Any, Dict, Optional
 
 from playwright.sync_api import Page
 
-from .schematic_symbol import SchematicSymbol
+from .symbol import Symbol
 
 
-class Value(SchematicSymbol):
+class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
     channel_name: str
