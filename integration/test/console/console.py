@@ -16,6 +16,8 @@ from .channels import Channels
 from .console_page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
+from .log import Log
+from .table import Table
 
 
 class Console:
@@ -24,17 +26,18 @@ class Console:
     Parallel to synnax client structure.
     """
 
-    ConsolePages: list[ConsolePage]
-    Channels: Channels
+    console_pages: list[ConsolePage]
+    channels: Channels
 
     def __init__(self, page: Page):
 
         # Playwright
         self.page = page
         self.channels = Channels(page, self)
-        self.console_pages = ConsolePage(page, self)
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
+        self.log = Log(page, self)
+        self.table = Table(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""

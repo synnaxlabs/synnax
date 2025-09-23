@@ -10,7 +10,7 @@
 from test.console.console_case import ConsoleCase
 import time
 
-class Tabs_Open_Close(ConsoleCase):
+class Snap_Pages_To_Grid(ConsoleCase):
     """
     Open all pages in the "New Component" window and close them
     """
@@ -28,9 +28,7 @@ class Tabs_Open_Close(ConsoleCase):
 
 
 
-        console.log.move("left")
-        console.schematic.move("bottom-right")
-        console.plot.move("left")
-        console.table.move("bottom-left")
+        console.schematic.move("top")
+        console.table.move("right")
 
-        time.sleep(10)
+        time.sleep(5)

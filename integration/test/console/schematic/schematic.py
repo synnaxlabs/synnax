@@ -28,7 +28,6 @@ class Schematic(ConsolePage):
         self.page_type = "Schematic"
         self.pluto_label = ".react-flow__pane"
 
-
     def _add_symbol(self, symbol_type: str) -> str:
         """Add a symbol to the schematic and return its ID."""
         self._dblclick_canvas()
