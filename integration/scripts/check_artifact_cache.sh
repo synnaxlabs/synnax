@@ -96,15 +96,15 @@ find_cached_run() {
 check_if_rebuild_needed() {
     local sha=$1
 
-    if ! git cat-file -e "${sha}" 2>/dev/null; then
-        git fetch --quiet --unshallow 2>/dev/null || git fetch --quiet --depth=25 2>/dev/null || true
+    if ! git cat-file -e "${sha}" 2> /dev/null; then
+        git fetch --quiet --unshallow 2> /dev/null || git fetch --quiet --depth=25 2> /dev/null || true
     fi
 
-    if ! git cat-file -e "${sha}" 2>/dev/null; then
+    if ! git cat-file -e "${sha}" 2> /dev/null; then
         return 0
     fi
 
-    local changed_files=$(git diff --name-only "${sha}" HEAD 2>/dev/null)
+    local changed_files=$(git diff --name-only "${sha}" HEAD 2> /dev/null)
     if [ $? -ne 0 ] || [ -z "${changed_files}" ]; then
         return 1
     fi

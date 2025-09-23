@@ -225,7 +225,7 @@ describe("useStaticData", () => {
   describe("sorting functionality", () => {
     it("should sort data using the provided comparator", () => {
       const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
-      
+
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
       );
@@ -235,7 +235,7 @@ describe("useStaticData", () => {
 
     it("should sort by value in descending order", () => {
       const sortByValueDesc = (a: TestItem, b: TestItem) => b.value - a.value;
-      
+
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByValueDesc }),
       );
@@ -245,7 +245,7 @@ describe("useStaticData", () => {
 
     it("should maintain sorting when searching", () => {
       const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
-      
+
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
       );
@@ -260,7 +260,7 @@ describe("useStaticData", () => {
     it("should combine filter and sort", () => {
       const filter = (item: TestItem) => item.category === "fruit";
       const sortByValue = (a: TestItem, b: TestItem) => a.value - b.value;
-      
+
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, filter, sort: sortByValue }),
       );
