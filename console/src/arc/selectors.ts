@@ -220,9 +220,3 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
-
-export const selectNode = (state: StoreState, key: string): Node | undefined =>
-  selectOptional(state, key)?.graph.nodes[key];
-
-export const useSelectNode = (key: string): Node | undefined =>
-  useMemoSelect((state: StoreState) => selectNode(state, key), [key]);
