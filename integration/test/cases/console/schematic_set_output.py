@@ -7,17 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.schematic import Schematic
+from test.console.console_case import ConsoleCase
 
 import synnax as sy
 
 
-class Schematic_Set_Output(Schematic):
+class Schematic_Set_Output(ConsoleCase):
     """
     Add a value component and edit its properties
     """
 
     def run(self) -> None:
+        console = self.console
+        console.schematic.new()
 
         CHANNEL_NAME = "command_channel"
         INDEX_NAME = "index_channel"
@@ -33,17 +35,17 @@ class Schematic_Set_Output(Schematic):
             index=INDEX_NAME,
         )
 
-        setpoint_node = self.create_setpoint(CHANNEL_NAME)
-        setpoint_node.move(-200, 0)
+        setpoint_symbol = console.schematic.create_setpoint(CHANNEL_NAME)
+        setpoint_symbol.move(-200, 0)
 
-        value_node = self.create_value(CHANNEL_NAME)
-        value_node.move(200, 0)
+        value_symbol = console.schematic.create_value(CHANNEL_NAME)
+        value_symbol.move(200, 0)
 
-        self.connect_symbols(setpoint_node, "right", value_node, "left")
+        console.schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
 
         set_p_value = 47.23
         self._log_message(f"Verifying setpoint value: {set_p_value}")
-        setpoint_node.set_value(set_p_value)
+        setpoint_symbol.set_value(set_p_value)
         actual_value = self.get_value(CHANNEL_NAME)
 
         assert (
@@ -52,7 +54,7 @@ class Schematic_Set_Output(Schematic):
 
         set_p_value = 1.0101
         self._log_message(f"Verifying setpoint value: {set_p_value}")
-        setpoint_node.set_value(set_p_value)
+        setpoint_symbol.set_value(set_p_value)
         actual_value = self.get_value(CHANNEL_NAME)
 
         assert (

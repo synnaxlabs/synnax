@@ -706,7 +706,9 @@ class TestCase(ABC):
         """Get writer thread status."""
         return "Running" if self.writer_thread.is_alive() else "Stopped"
 
-    def fail(self) -> None:
+    def fail(self, message: Optional[str] = None) -> None:
+        if message is not None:
+            self._log_message(message)
         self.STATUS = STATUS.FAILED
 
     def execute(self) -> None:

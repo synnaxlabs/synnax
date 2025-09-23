@@ -120,7 +120,7 @@ class ConsoleCase(TestCase):
         if is_index == False and index == "":
             raise ValueError("Index must be provided if is_index is False")
 
-        self.command_palette("Create a Channel")
+        self.console.command_palette("Create a Channel")
 
         name_input = self.page.locator("text=Name").locator("..").locator("input").first
         name_input.fill(channel_name)
@@ -136,10 +136,10 @@ class ConsoleCase(TestCase):
             is_index_toggle.click()
         else:
             data_type_str = str(sy.DataType(data_type))
-            self._select_from_dropdown("Data Type", data_type_str)
-            self._select_from_dropdown("Index", index)
+            self.console._select_from_dropdown("Data Type", data_type_str)
+            self.console._select_from_dropdown("Index", index)
 
-        self.page.get_by_role("button", name="Create").click()
+        self.page.get_by_role("button", name="Create", exact=True).click()
         self._log_message(f"Created channel {channel_name}")
 
         return True

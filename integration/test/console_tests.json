@@ -5,9 +5,21 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
+          "case": "console/schematic_set_output",
+          "parameters": {
+            "headless": true
+          }
+        },
+        {
+          "case": "console/schematic_edit_value_props",
+          "parameters": {
+            "headless": true
+          }
+        },
+        {
           "case": "console/create_channel_types",
           "parameters": {
-            "headless": false
+            "headless": true
           }
         },
         {

@@ -7,19 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.schematic import Schematic
+from test.console.console_case import ConsoleCase
 
 
-class Schematic_Edit_Value_Props(Schematic):
+class Schematic_Edit_Value_Props(ConsoleCase):
     """
     Add a value component and edit its properties
     """
 
     def run(self) -> None:
+        console = self.console
+        console.schematic.new()
+
 
         self._log_message("Checking default properties of schematic value")
-        node = self.create_value(f"{self.name}_uptime")
-        default_props = node.get_properties()
+        value = console.schematic.create_value(f"{self.name}_uptime")
+        default_props = value.get_properties()
 
         expected_default_props = {
             "channel": f"{self.name}_uptime",
@@ -42,7 +45,7 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#FF0000",
             "stale_timeout": 10,
         }
-        node.edit_properties(
+        value.edit_properties(
             channel_name=f"{self.name}_time",
             notation="scientific",
             precision=4,
@@ -50,7 +53,7 @@ class Schematic_Edit_Value_Props(Schematic):
             stale_color="#FF0000",
             stale_timeout=10,
         )
-        edited_props = node.get_properties()
+        edited_props = value.get_properties()
         assert (
             edited_props == expected_edited_props
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
@@ -64,7 +67,7 @@ class Schematic_Edit_Value_Props(Schematic):
             "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
-        non_default_node = self.create_value(
+        non_default_value = console.schematic.create_value(
             f"{self.name}_state",
             notation="engineering",
             precision=7,
@@ -72,7 +75,7 @@ class Schematic_Edit_Value_Props(Schematic):
             stale_color="#00FF00",
             stale_timeout=15,
         )
-        non_default_props = non_default_node.get_properties()
+        actual_non_default_props = non_default_value.get_properties()
         assert (
-            non_default_props == non_default_props
-        ), f"Props mismatch!\nActual: {non_default_props}\nExpected: {non_default_props}"
+            actual_non_default_props == non_default_props
+        ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"

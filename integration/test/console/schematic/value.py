@@ -40,9 +40,9 @@ class Value(SchematicSymbol):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Edit Value symbol properties including channel and telemetry settings."""
-
+        print("Editing value properties")
         self._click_symbol()
-
+        print("Symbol clicked")
         # Always enforce label = channel_name for easy identification
         if channel_name is not None:
             self.set_label(channel_name)

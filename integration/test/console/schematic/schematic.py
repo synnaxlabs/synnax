@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Optional, Tuple, TYPE_CHECKING
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Locator
 
 from ..console_page import ConsolePage
 from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
 from .value import Value
+import time
 
 if TYPE_CHECKING:
     from ..console import Console
@@ -23,9 +24,13 @@ class Schematic(ConsolePage):
     """
     Parent class for schematic tests
     """
+    locator: Locator
+    id: str
 
     def __init__(self, page: Page, console: "Console"):
         super().__init__(page, console)
+        self.locator = None
+        self.id = None
 
 
     def _add_symbol_to_schematic(self, symbol_type: str) -> str:
@@ -36,8 +41,9 @@ class Schematic(ConsolePage):
         """
 
         # Go to "Symbols" tab
+        self._dblclick_canvas()
+        self.page.wait_for_selector("text=Symbols", timeout=10000)
         self.page.get_by_text("Symbols", exact=True).click()
-
         # Count existing symbols before adding
         symbols_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
@@ -65,7 +71,7 @@ class Schematic(ConsolePage):
         setpoint = Setpoint(self.page, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
 
-        self._log_message(f"Added setpoint with channel {channel_name}")
+        #self._log_message(f"Added setpoint with channel {channel_name}")
         return setpoint
 
     def create_value(
@@ -78,7 +84,6 @@ class Schematic(ConsolePage):
         stale_timeout: Optional[int] = None,
     ) -> Value:
         """Create a value symbol on the schematic"""
-
         value_id = self._add_symbol_to_schematic("Value")
         value = Value(self.page, value_id, channel_name)
 
@@ -91,7 +96,7 @@ class Schematic(ConsolePage):
             stale_timeout=stale_timeout,
         )
 
-        self._log_message(f"Added value with channel {channel_name}")
+        #self._log_message(f"Added value with channel {channel_name}")
         return value
 
     def connect_symbols(
@@ -107,9 +112,9 @@ class Schematic(ConsolePage):
         source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
         target_x, target_y = self.find_symbol_handle(target_symbol, target_handle)
 
-        self._log_message(
-            f"Connecting {source_symbol.label}:{source_handle} to {target_symbol.label}:{target_handle}"
-        )
+        #self._log_message(
+        #    f"Connecting {source_symbol.label}:{source_handle} to {target_symbol.label}:{target_handle}"
+        #)
 
         self.page.mouse.move(source_x, source_y)
         self.page.mouse.down()
@@ -144,3 +149,27 @@ class Schematic(ConsolePage):
             )
 
         return handle_positions[handle]
+
+    def _dblclick_canvas(self) -> None:
+        """ 
+        Double clicks on canvas. 
+        Might move to ConsolePage.
+        """
+        canvas = self.page.locator(".react-flow__pane") # Not specifically this
+        if canvas.count() > 0:
+            canvas.dblclick()
+            time.sleep(0.1)
+
+    def _click_canvas(self) -> None:
+        """ 
+        Double clicks on canvas. 
+        Might move to ConsolePage.
+        """
+        canvas = self.page.locator(".react-flow__pane") # Not specifically this
+        if canvas.count() > 0:
+            canvas.click()
+            time.sleep(0.1)
+
+    def new(self) -> str:
+        self.locator, self.id = self.console.create_page("Schematic")
+        self._dblclick_canvas()

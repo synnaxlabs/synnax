@@ -16,7 +16,9 @@ class Tabs_Open_Close(ConsoleCase):
     """
 
     def run(self) -> None:
-
+        """
+        Open and close pages in 2 ways
+        """
         console = self.console
 
         self._log_message("(1/2) Creating pages by command palette")
@@ -72,18 +74,17 @@ class Tabs_Open_Close(ConsoleCase):
         if self.page.get_by_text("New Component").count() > 0:
             self._log_message("All pages closed - 'New Component' screen visible")
         else:
-            self._log_message(
+            self.fail(
                 "FAILED: Pages still be open - 'New Component' screen not visible"
             )
-            self.fail()
 
     # KEEP THIS HERE
     def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
-
         """
         This differs from create_page in that it uses the manual
         New Page (+) button instead of the command palette.
         """
+
         self.page.locator(".pluto-icon--add").first.click()  # (+)
         self.page.get_by_role("button", name=page_name).first.click()
         # Apply inputs

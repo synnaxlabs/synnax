@@ -23,8 +23,8 @@ class ConsolePage:
         self.page = page
         self.console = console
 
-    def create(self, page_type: str, page_name: Optional[str] = None) -> None:
-        """Create a new page via command palette"""
+    def create(self, page_type: str, page_name: Optional[str] = None) -> str:
+        """Create a new page via command palette and return the page ID"""
         # Handle "a" vs "an" article for proper command matching
         vowels = ["A", "E", "I", "O", "U"]
         # Special case for "NI" (en-eye)
@@ -38,6 +38,21 @@ class ConsolePage:
         # Execute command
         self.console.command_palette(page_command)
 
+        # Wait for page to be created - use a simple timeout approach
+        self.page.wait_for_timeout(1000)  # Give time for page creation
+
+        # Try to find the newly created page/tab by page_type text
+        try:
+            # Look for the page type text which should appear after creation
+            page_tab = self.page.locator("div").filter(
+                has_text=re.compile(f"^{re.escape(page_type)}$")
+            ).first
+            page_id = page_tab.inner_text().strip()
+        except Exception:
+            # Fallback: generate a simple ID
+            import time
+            page_id = f"{page_type}_{int(time.time() * 1000) % 10000}"
+
         # If page name provided, rename the page
         if page_name is not None:
             tab = self.page.locator("div").filter(
@@ -46,6 +61,9 @@ class ConsolePage:
             tab.dblclick()
             self.page.get_by_text(page_type).first.fill(page_name)
             self.page.keyboard.press("Enter")  # Confirm the change
+            page_id = page_name  # Update page_id to the custom name
+
+        return page_id or f"{page_type}_{existing_tabs + 1}"
 
     def close(self, page_name: str) -> None:
         """

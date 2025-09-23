@@ -10,7 +10,7 @@
 import re
 from typing import Optional
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Locator
 
 from .channels import Channels
 from .console_page import ConsolePage
@@ -76,7 +76,7 @@ class Console:
         if not item_found:
             raise RuntimeError(f"Could not find item '{input_text}' in dropdown")
 
-    def create_page(self, page_type: str, page_name: Optional[str] = None) -> None:
+    def create_page(self, page_type: str, page_name: Optional[str] = None) -> tuple[Locator, str]:
         """Create a new page via command palette"""
         # Handle "a" vs "an" article for proper command matching
         vowels = ["A", "E", "I", "O", "U"]
@@ -87,17 +87,28 @@ class Console:
             else "a"
         )
         page_command = f"Create {article} {page_type}"
+
         self.command_palette(page_command)
 
-        if page_name is None:
-            return None
+        # Wait for page to be created - use a simple timeout approach
+        self.page.wait_for_timeout(1000)  # Give time for page creation
 
-        tab = self.page.locator("div").filter(
+        # Try to find the newly created page/tab by page_type text
+        # Look for the page type text which should appear after creation
+        page_tab = self.page.locator("div").filter(
             has_text=re.compile(f"^{re.escape(page_type)}$")
-        )
-        tab.dblclick()
-        self.page.get_by_text(page_type).first.fill(page_name)
-        self.page.keyboard.press("Enter")  # Confirm the change
+        ).first
+        page_id = page_tab.inner_text().strip()
+
+
+        # If page name provided, rename the page
+        if page_name is not None:
+            page_tab.dblclick()
+            self.page.get_by_text(page_type).first.fill(page_name)
+            self.page.keyboard.press("Enter")  # Confirm the change
+            page_id = page_name  # Update page_id to the custom name
+
+        return page_tab, page_id
 
     def close_page(self, page_name: str) -> None:
         """

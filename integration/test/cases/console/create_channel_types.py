@@ -23,7 +23,9 @@ class Create_Channel_Types(ConsoleCase):
         """
         Test the "create a channel" modal for all data types
         """
-
+        console = self.console
+        client = self.client
+    
         unique_id = str(uuid.uuid4())[:8]  # First 8 chars of UUID
         INDEX_NAME = f"{self.name}_{unique_id}_index_channel"
 
@@ -42,7 +44,7 @@ class Create_Channel_Types(ConsoleCase):
         ]
 
         # First, create an index channel
-        self.console.channels.create(
+        console.channels.create(
             name=INDEX_NAME,
             is_index=True,
         )
@@ -52,12 +54,12 @@ class Create_Channel_Types(ConsoleCase):
         # Then, create a channel for each data type
         for data_type in data_types:
             ch_name = f"{self.name}_{unique_id}_{str(data_type)}_ch"
-            self.console.channels.create(
+            console.channels.create(
                 name=ch_name,
                 data_type=data_type,
                 is_index=False,
                 index=INDEX_NAME,
             )
             time.sleep(0.2)
-            ch = self.client.channels.retrieve(ch_name)
+            ch = client.channels.retrieve(ch_name)
             assert data_type == ch.data_type
