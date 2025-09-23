@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import time
 from test.console.schematic import Schematic
 
 import synnax as sy
@@ -55,5 +56,6 @@ class Create_Channel_Types(Schematic):
                 is_index=False,
                 index=INDEX_NAME,
             )
+            time.sleep(0.2)
             ch = self.client.channels.retrieve(ch_name)
             assert data_type == ch.data_type
