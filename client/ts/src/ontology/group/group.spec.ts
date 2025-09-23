@@ -29,7 +29,7 @@ describe("Group", () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const newName = `group-${Math.random()}`;
-      await client.ontology.groups.rename({ key: g.key, name: newName });
+      await client.ontology.groups.rename(g.key, newName);
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(newName);
     });

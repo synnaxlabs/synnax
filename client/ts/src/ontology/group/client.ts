@@ -27,8 +27,6 @@ const createReqZ = z.object({
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-export interface RenameArgs extends z.input<typeof renameReqZ> {}
-
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
 const CREATE_ENDPOINT = "/ontology/create-group";
@@ -55,8 +53,8 @@ export class Client {
     return res.group;
   }
 
-  async rename(args: RenameArgs): Promise<void> {
-    await sendRequired(this.client, RENAME_ENDPOINT, args, renameReqZ, z.object({}));
+  async rename(key: Key, name: string): Promise<void> {
+    await sendRequired(this.client, RENAME_ENDPOINT, { key, name }, renameReqZ, z.object({}));
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

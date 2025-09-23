@@ -204,7 +204,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
         state.skipNull((p) => ({ ...p, layout })),
       ),
     );
-    await client.workspaces.setLayout(data);
+    await client.workspaces.setLayout(key, layout);
     return data;
   },
 });

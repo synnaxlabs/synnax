@@ -152,7 +152,8 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-export interface RenameParams extends group.RenameArgs {}
+export interface RenameParams extends Pick<group.Group, "key" | "name"> {
+}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
@@ -161,7 +162,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     rollbacks.add(Flux.partialUpdate(store.groups, key, { name }));
     rollbacks.add(Ontology.renameFluxResource(store, group.ontologyID(key), name));
-    await client.ontology.groups.rename(data);
+    await client.ontology.groups.rename(key, name);
     return data;
   },
 });

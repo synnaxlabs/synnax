@@ -172,7 +172,7 @@ describe("queries", () => {
       ).toEqual(1);
 
       const newLayout = { type: "schematic", version: 2, nodes: [] };
-      await client.workspaces.setLayout({ key: testWorkspace.key, layout: newLayout });
+      await client.workspaces.setLayout(testWorkspace.key, newLayout);
 
       await waitFor(() => {
         const updatedWorkspace = result.current.getItem(testWorkspace.key);
@@ -250,10 +250,7 @@ describe("queries", () => {
       // Perform rapid layout updates
       await act(async () => {
         for (let i = 1; i <= 3; i++)
-          await client.workspaces.setLayout({
-            key: testWorkspace.key,
-            layout: { counter: i },
-          });
+          await client.workspaces.setLayout(testWorkspace.key, { counter: i });
       });
 
       await waitFor(() => {
@@ -321,7 +318,7 @@ describe("queries", () => {
         }),
         { wrapper },
       );
-      act(() => result.current.rename.update({ key: ws.key, name: "newName" }));
+      act(() => {result.current.rename.update({key: ws.key, name: "newName"})});
       await waitFor(() =>
         expect(result.current.retrieve.data?.name).toEqual("newName"),
       );

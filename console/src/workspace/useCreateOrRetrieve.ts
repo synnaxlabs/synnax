@@ -28,17 +28,17 @@ export const useCreateOrRetrieve = () => {
     if (prevClient != null)
       handleError(
         async () =>
-          await prevClient.workspaces.setLayout({
-            key: activeWS.key,
-            layout: purgedLayout,
-          }),
+          await prevClient.workspaces.setLayout(
+            activeWS.key,
+            purgedLayout,
+          ),
         `Failed to save workspace ${activeWS.name}`,
       );
     handleError(async () => {
       try {
         await client.workspaces.retrieve(activeWS.key);
         dispatch(replace(activeWS));
-        await client.workspaces.setLayout({ key: activeWS.key, layout: purgedLayout });
+        await client.workspaces.setLayout(activeWS.key, purgedLayout);
       } catch (e) {
         if (!NotFoundError.matches(e)) throw e;
         await client.workspaces.create({ ...activeWS, layout: purgedLayout });

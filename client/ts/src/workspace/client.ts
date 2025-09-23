@@ -99,11 +99,11 @@ export class Client {
     );
   }
 
-  async setLayout(args: SetLayoutArgs): Promise<void> {
+  async setLayout(key: Key, layout: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
       SET_LAYOUT_ENDPOINT,
-      args,
+      { key, layout },
       setLayoutReqZ,
       emptyResZ,
     );

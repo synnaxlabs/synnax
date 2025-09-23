@@ -137,7 +137,7 @@ export class Client {
     return isSingle ? created[0] : created;
   }
 
-  async delete(keys: string | string[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
