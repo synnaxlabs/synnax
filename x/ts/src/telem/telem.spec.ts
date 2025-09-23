@@ -950,7 +950,7 @@ describe("TimeSpan", () => {
 
       // Minutes without seconds (>= 5 minutes)
       [TimeSpan.seconds(300), "5m"],
-      [TimeSpan.seconds(330), "5m"],  // seconds dropped
+      [TimeSpan.seconds(330), "5m"], // seconds dropped
       [TimeSpan.minutes(30), "30m"],
       [TimeSpan.minutes(59), "59m"],
 
@@ -964,7 +964,7 @@ describe("TimeSpan", () => {
 
       // Hours without minutes (>= 3 hours)
       [TimeSpan.minutes(180), "3h"],
-      [TimeSpan.minutes(195), "3h"],  // minutes dropped
+      [TimeSpan.minutes(195), "3h"], // minutes dropped
       [TimeSpan.hours(12), "12h"],
       [TimeSpan.hours(23), "23h"],
 
@@ -976,7 +976,7 @@ describe("TimeSpan", () => {
 
       // Days without hours (>= 2 days)
       [TimeSpan.hours(48), "2d"],
-      [TimeSpan.hours(50), "2d"],  // hours dropped
+      [TimeSpan.hours(50), "2d"], // hours dropped
       [TimeSpan.days(3), "3d"],
       [TimeSpan.days(6), "6d"],
 
@@ -988,7 +988,7 @@ describe("TimeSpan", () => {
 
       // Weeks without days (>= 2 weeks)
       [TimeSpan.days(14), "2w"],
-      [TimeSpan.days(15), "2w"],  // days dropped
+      [TimeSpan.days(15), "2w"], // days dropped
       [TimeSpan.days(21), "3w"],
       [TimeSpan.days(28), "4w"],
 
@@ -1001,11 +1001,12 @@ describe("TimeSpan", () => {
 
       // Months without days (>= 3 months)
       [TimeSpan.days(90), "3mo"],
-      [TimeSpan.days(95), "3mo"],  // days dropped
+      [TimeSpan.days(95), "3mo"], // days dropped
       [TimeSpan.days(180), "6mo"],
       [TimeSpan.days(330), "11mo"],
 
       // Years with months (< 2 years)
+      [TimeSpan.days(364), "12mo"],
       [TimeSpan.days(365), "1y"],
       [TimeSpan.days(395), "1y 1mo"],
       [TimeSpan.days(500), "1y 4mo"],
@@ -1013,14 +1014,14 @@ describe("TimeSpan", () => {
 
       // Years without months (>= 2 years)
       [TimeSpan.days(730), "2y"],
-      [TimeSpan.days(750), "2y"],  // months dropped
+      [TimeSpan.days(750), "2y"], // months dropped
       [TimeSpan.days(1095), "3y"],
       [TimeSpan.days(3650), "10y"],
 
       // Complex durations
       [TimeSpan.seconds(3661), "1h 1m"],
-      [TimeSpan.minutes(1441), "1d"],  // 24h 1m, but minutes are dropped at day level
-      [TimeSpan.minutes(1500), "1d 1h"],  // 25h exactly
+      [TimeSpan.minutes(1441), "1d"], // 24h 1m, but minutes are dropped at day level
+      [TimeSpan.minutes(1500), "1d 1h"], // 25h exactly
       [TimeSpan.hours(169), "1w 1h"],
 
       // Negative durations
