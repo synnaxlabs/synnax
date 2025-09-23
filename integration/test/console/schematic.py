@@ -44,7 +44,7 @@ class SchematicSymbol(ABC):
             edit_off_icon.click()
 
     def _click_symbol(self) -> None:
-        self.symbol.click()
+        self.symbol.click(force=True)
         time.sleep(0.1)
 
     def set_label(self, label: str) -> None:
@@ -368,12 +368,19 @@ class Schematic(Console):
         self.page.locator(".react-flow__pane").dblclick()
 
     def _add_symbol_to_schematic(self, symbol_type: str) -> str:
-        """Common logic for adding a symbol to the schematic and returning its ID"""
+        """
+        Common logic for adding a symbol to the schematic and returning its ID
+
+        SY-2965: Will become schematic.add_symbol()
+        """
+
+        # Go to "Symbols" tab
+        self.page.get_by_text("Symbols", exact=True).click()
 
         # Count existing symbols before adding
         symbols_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
-        self.click_on_pane()
+        # Select symbol
         self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
         self.page.get_by_text(symbol_type, exact=True).first.click()
 
@@ -476,19 +483,3 @@ class Schematic(Console):
             )
 
         return handle_positions[handle]
-
-    def click_on_pane(self) -> None:
-
-        # Going to change how this is done. Purpose is to click off of
-        # the symbol and onto schematic pane to reset the focus.
-        #
-        # MIGHT to move this into the symbol functionality
-        self.page.wait_for_selector(".react-flow__pane", timeout=5000)
-        self.page.locator(".react-flow__pane").dblclick()
-        pane = self.page.locator(".react-flow__pane")
-        box = pane.bounding_box()
-        if box:
-            # Click in the center of the pane
-            x = box["x"] + box["width"] * 0.95
-            y = box["y"] + box["height"] * 0.95
-            self.page.mouse.dblclick(x, y)

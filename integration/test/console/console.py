@@ -20,6 +20,9 @@ from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 class Console(TestCase):
     """
     Console TestCase implementation using Playwright
+
+    SY-2965: Break out child classes to be independent console panel handlers
+    as opposed to individual console tests
     """
 
     browser: Browser
