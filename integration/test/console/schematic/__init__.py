@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from .schematic import Schematic
-from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
+from .symbol import Symbol
 from .value import Value
 
-__all__ = ["Schematic", "SchematicSymbol", "Value", "Setpoint"]
+__all__ = ["Schematic", "Symbol", "Value", "Setpoint"]

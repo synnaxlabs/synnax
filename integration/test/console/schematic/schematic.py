@@ -10,8 +10,8 @@
 from test.console.console import Console
 from typing import Optional, Tuple
 
-from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
+from .symbol import Symbol
 from .value import Value
 
 
@@ -93,9 +93,9 @@ class Schematic(Console):
 
     def connect_symbols(
         self,
-        source_symbol: SchematicSymbol,
+        source_symbol: Symbol,
         source_handle: str,
-        target_symbol: SchematicSymbol,
+        target_symbol: Symbol,
         target_handle: str,
     ) -> None:
         """
@@ -113,9 +113,7 @@ class Schematic(Console):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(
-        self, symbol: SchematicSymbol, handle: str
-    ) -> Tuple[float, float]:
+    def find_symbol_handle(self, symbol: Symbol, handle: str) -> Tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.symbol.bounding_box()
         if not symbol_box:
