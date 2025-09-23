@@ -239,7 +239,7 @@ export const createForm =
     scope: argsScope,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
-      pendingResult(name, "retrieving", undefined),
+      pendingResult(`retrieving ${name}`, undefined),
     );
     const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
@@ -267,18 +267,18 @@ export const createForm =
         const { signal } = options;
         try {
           if (client == null)
-            return setResult(nullClientResult<undefined>(name, "retrieve"));
-          setResult((p) => pendingResult(name, "retrieving", p.data));
+            return setResult(nullClientResult<undefined>(`retrieve ${name}`));
+          setResult((p) => pendingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
           const args = { client, query, store, ...form, set: noNotifySet };
           await retrieve(args);
           if (signal?.aborted) return;
           listeners.cleanup();
           listeners.set(mountListeners?.(args));
-          setResult(successResult<undefined>(name, "retrieved", undefined));
+          setResult(successResult<undefined>(`retrieved ${name}`, undefined));
         } catch (error) {
           if (signal?.aborted) return;
-          const res = errorResult<undefined>(name, "retrieve", error);
+          const res = errorResult<undefined>(`retrieve ${name}`, error);
           addStatus(res.status);
           setResult(res);
         }
@@ -297,20 +297,20 @@ export const createForm =
         const rollbacks = new Set<Destructor>();
         try {
           if (client == null) {
-            setResult(nullClientResult<undefined>(name, "update"));
+            setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
           const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
           if (beforeValidate?.(args) === false) return false;
           if (!(await form.validateAsync())) return false;
-          setResult(pendingResult(name, "updating", undefined));
+          setResult(pendingResult(`updating ${name}`, undefined));
           if ((await beforeSave?.(args)) === false) {
-            setResult(successResult(name, "updated", undefined));
+            setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
           if (signal?.aborted === true) return false;
           await update(args);
-          setResult(successResult(name, "updated", undefined));
+          setResult(successResult(`updated ${name}`, undefined));
           if (afterSave != null) afterSave(args);
           return true;
         } catch (error) {
@@ -320,7 +320,7 @@ export const createForm =
             console.error("Error rolling back changes:", rollbackError);
           }
           if (signal?.aborted === true) return false;
-          const res = errorResult<undefined>(name, "update", error);
+          const res = errorResult<undefined>(`update ${name}`, error);
           addStatus(res.status);
           setResult(res);
           return false;

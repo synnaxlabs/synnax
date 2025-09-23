@@ -30,13 +30,13 @@ interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export type UseRetrieveArgs = table.RetrieveSingleParams;
+export type RetrieveQuery = table.RetrieveSingleParams;
 
 export const retrieveSingle = async ({
   store,
   client,
   query: { key },
-}: Flux.RetrieveParams<UseRetrieveArgs, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.tables.get(key);
   if (cached != null) return cached;
   const t = await client.workspaces.tables.retrieve({ key });
@@ -44,8 +44,8 @@ export const retrieveSingle = async ({
   return t;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
-  UseRetrieveArgs,
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
+  RetrieveQuery,
   table.Table,
   FluxSubStore
 >({

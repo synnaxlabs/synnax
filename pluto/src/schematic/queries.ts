@@ -31,13 +31,13 @@ interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export type RetrieveParams = schematic.RetrieveSingleParams;
+export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 export const retrieveSingle = async ({
   store,
   client,
   query: { key },
-}: Flux.RetrieveParams<RetrieveParams, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
   const s = await client.workspaces.schematics.retrieve({ key });
@@ -45,8 +45,8 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
-  RetrieveParams,
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
+  RetrieveQuery,
   schematic.Schematic,
   FluxSubStore
 >({

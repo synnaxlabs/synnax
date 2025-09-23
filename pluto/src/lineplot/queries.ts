@@ -46,7 +46,7 @@ export const retrieveSingle = async ({
   return plot;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   RetrieveQuery,
   lineplot.LinePlot,
   FluxSubStore

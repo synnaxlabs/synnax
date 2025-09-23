@@ -192,6 +192,7 @@ const useObservable = <
   const handleUpdate = useDebouncedCallback(
     async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
+
       const rollbacks = new Set<Destructor>();
       const runRollbacks = () => {
         try {
@@ -200,38 +201,43 @@ const useObservable = <
           console.error(`failed to rollback changes to ${name}`, error);
         }
       };
+
       if (client == null) {
-        onChange(nullClientResult(name, present));
+        onChange(nullClientResult(`${present} ${name}`));
         return false;
       }
+
       try {
-        onChange((p) => pendingResult(name, participle, p.data));
+        onChange((p) => pendingResult(`${participle} ${name}`, p.data));
+
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, data, rollbacks });
+          if (signal?.aborted === true) return false;
           if (updatedValue === false) {
-            onChange(successResult(name, past, data));
+            onChange(successResult(`${past} ${name}`, data));
             runRollbacks();
             return false;
           }
           if (updatedValue !== true) data = updatedValue;
         }
+
         const output = await update({ client, data, store, rollbacks });
-        if (signal?.aborted === true) {
-          runRollbacks();
-          return false;
-        }
-        onChange(successResult(name, past, data));
+        if (signal?.aborted === true) return false;
+        onChange(successResult(`${past} ${name}`, data));
+
         if (output === false) return false;
         await afterSuccess?.({ client, data: output });
         return true;
       } catch (error) {
         runRollbacks();
-        if (signal?.aborted !== true) {
-          const result = errorResult<Input | undefined>(name, present, error);
-          onChange(result);
-          addStatus(result.status);
-          await afterFailure?.({ client, status: result.status, data });
-        }
+        if (signal?.aborted === true) return false;
+
+        const result = errorResult<Input | undefined>(`${present} ${name}`, error);
+        const {status} = result;
+        onChange(result);
+        addStatus(status);
+        await afterFailure?.({ client, status, data });
+
         return false;
       }
     },
@@ -260,7 +266,7 @@ const useDirect = <
 }: UseDirectUpdateParams<Input, Output> &
   CreateUpdateParams<Input, ScopedStore, Output>): UseDirectUpdateReturn<Input> => {
   const [result, setResult] = useState<Result<Input | undefined>>(
-    successResult(name, verbs.past, undefined),
+    successResult(`${verbs.past} ${name}`, undefined),
   );
   const methods = useObservable<Input, ScopedStore, Output>({
     ...restParams,

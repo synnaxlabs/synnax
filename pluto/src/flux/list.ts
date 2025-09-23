@@ -363,8 +363,7 @@ export const createList =
     const queryRef = useRef<Query | null>(initialQuery);
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
       pendingResult<Key[]>(
-        name,
-        "retrieving",
+        `retrieving ${name}`,
         getInitialData({
           retrieveCached,
           queryRef,
@@ -459,14 +458,14 @@ export const createList =
 
         try {
           if (client == null)
-            return setResult(nullClientResult<Key[]>(name, "retrieve"));
-          setResult((p) => pendingResult(name, "retrieving", p.data));
+            return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
+          setResult((p) => pendingResult(`retrieving ${name}`, p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
           // of the query, so we start from the top again.
           if (mode === "replace") hasMoreRef.current = true;
           else if (mode === "append" && !hasMoreRef.current)
-            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+            return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
 
           let value = await retrieve({ client, query, store });
           if (signal?.aborted) return;
@@ -484,22 +483,22 @@ export const createList =
             resultRef.current.data != null &&
             compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
           )
-            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+            return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
 
           value.forEach((v) => dataRef.current.set(v.key, v));
 
           return setResult((prev) => {
             if (mode === "replace" || prev.data == null)
-              return successResult(name, "retrieved", keys);
+              return successResult(`retrieved ${name}`, keys);
             const keysSet = new Set(keys);
-            return successResult(name, "retrieved", [
+            return successResult(`retrieved ${name}`, [
               ...prev.data.filter((k) => !keysSet.has(k)),
               ...keys,
             ]);
           });
         } catch (error) {
           if (signal?.aborted) return;
-          setResult(errorResult<Key[]>(name, "retrieve", error));
+          setResult(errorResult<Key[]>(`retrieve ${name}`, error));
         }
       },
       [client, name, store, filterRef, syncListeners],
@@ -528,7 +527,7 @@ export const createList =
           } catch (error) {
             if (signal?.aborted) return;
             dataRef.current.set(key, null);
-            setResult(errorResult<Key[]>(name, "retrieve", error));
+            setResult(errorResult<Key[]>(`retrieve ${name}`, error));
           }
         })();
       },

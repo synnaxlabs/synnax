@@ -68,14 +68,13 @@ export type Result<Data extends state.State> =
  * ```
  */
 export const pendingResult = <Data extends state.State>(
-  name: string,
   op: string,
   data: Data | undefined,
 ): Result<Data> => ({
   variant: "loading",
   status: status.create<undefined, "loading">({
     variant: "loading",
-    message: `${caseconv.capitalize(op)} ${name}`,
+    message: `${caseconv.capitalize(op)}`,
   }),
   data,
 });
@@ -96,14 +95,13 @@ export const pendingResult = <Data extends state.State>(
  * ```
  */
 export const successResult = <Data extends state.State>(
-  name: string,
   op: string,
   data: Data,
 ): Result<Data> => ({
   variant: "success",
   status: status.create<undefined, "success">({
     variant: "success",
-    message: `${caseconv.capitalize(op)} ${name}`,
+    message: `Successfully ${caseconv.capitalize(op)}`,
   }),
   data,
 });
@@ -124,12 +122,11 @@ export const successResult = <Data extends state.State>(
  * ```
  */
 export const errorResult = <Data extends state.State>(
-  name: string,
   op: string,
   error: unknown,
 ): Result<Data> => ({
   variant: "error",
-  status: status.fromException(error, `Failed to ${op} ${name}`),
+  status: status.fromException(error, `Failed to ${op}`),
   data: undefined,
 });
 
@@ -138,7 +135,7 @@ export const errorResult = <Data extends state.State>(
  *
  * @template Data The type of data being retrieved
  * @param name The name of the resource being retrieved
- * @param opName The operation that cannot be performed
+ * @param op The operation that cannot be performed
  * @returns A Result object in error state with a DisconnectedError
  *
  * @example
@@ -148,14 +145,13 @@ export const errorResult = <Data extends state.State>(
  * ```
  */
 export const nullClientResult = <Data extends state.State>(
-  name: string,
-  opName: string,
+  op: string,
 ): Result<Data> => ({
   variant: "disabled",
   status: status.create<undefined, "disabled">({
     variant: "disabled",
-    message: `Failed to ${opName} ${name}`,
-    description: `Cannot ${opName} ${name} because no cluster is connected.`,
+    message: `Failed to ${op}`,
+    description: `Cannot ${op} because no cluster is connected.`,
   }),
   data: undefined,
 });

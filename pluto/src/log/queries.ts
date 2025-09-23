@@ -45,7 +45,7 @@ export const retrieveSingle = async ({
   return l;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   RetrieveQuery,
   log.Log,
   FluxSubStore

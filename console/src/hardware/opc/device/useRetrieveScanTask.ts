@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
-import { Task } from "@synnaxlabs/pluto";
+import { type Synnax } from "@synnaxlabs/client";
+import { type Device, Task } from "@synnaxlabs/pluto";
 
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  type scanConfigZ,
-  type scanStatusDataZ,
-  type scanTypeZ,
-} from "@/hardware/opc/task/types";
+import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/opc/task/types";
 
-const { useRetrieve } = Task.createRetrieve<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
->(SCAN_SCHEMAS);
-
-export const useRetrieveScanTask = (rack: rack.Key) =>
-  useRetrieve({ type: SCAN_TYPE, rack }).data;
+export const retrieveScanTask = async (
+  client: Synnax,
+  store: Device.FluxSubStore,
+  rack: number,
+) =>
+  await Task.retrieveSingle({
+    client,
+    store,
+    query: { type: SCAN_TYPE, rack },
+    schemas: SCAN_SCHEMAS,
+  });

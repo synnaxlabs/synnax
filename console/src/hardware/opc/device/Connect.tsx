@@ -47,6 +47,8 @@ import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
+import { retrieveScanTask } from "./useRetrieveScanTask";
+
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
 export const CONNECT_LAYOUT: Layout.BaseState = {
@@ -89,17 +91,12 @@ const beforeSave = async ({
   typeof Device.formSchema,
   Device.FluxSubStore
 >) => {
-  const scanTask = await Task.retrieveSingle({
-    client,
-    store,
-    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
-    schemas: SCAN_SCHEMAS,
+  const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TimeSpan.seconds(10),
+    args: { connection: get("properties.connection").value },
   });
-  const state = await scanTask.executeCommandSync(
-    TEST_CONNECTION_COMMAND_TYPE,
-    TimeSpan.seconds(10),
-    { connection: get("properties.connection").value },
-  );
   if (state.variant === "error") throw new Error(state.message);
   return true;
 };

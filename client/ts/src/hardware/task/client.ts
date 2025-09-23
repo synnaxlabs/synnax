@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { caseconv, id, strings } from "@synnaxlabs/x";
+import { caseconv, id, type record, strings } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
@@ -43,6 +43,15 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
   if (parents.length === 0) return null;
   return parents[0];
 };
+
+export interface ExecuteCommandArgs {
+  type: string;
+  args?: record.Unknown;
+}
+
+export interface ExecuteCommandSyncArgs extends ExecuteCommandArgs {
+  timeout?: CrudeTimeSpan;
+}
 
 export class Task<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -124,15 +133,18 @@ export class Task<
     return ontologyID(this.key);
   }
 
-  async executeCommand(type: string, args?: {}): Promise<string> {
+  async executeCommand({
+    type,
+    args = {},
+  }: ExecuteCommandArgs): Promise<string> {
     return await executeCommand(this.frameClient, this.key, type, args);
   }
 
-  async executeCommandSync(
-    type: string,
-    timeout: CrudeTimeSpan,
-    args?: {},
-  ): Promise<Status<StatusData>> {
+  async executeCommandSync({
+    type,
+    timeout = TimeSpan.seconds(10),
+    args =  {},
+  }: ExecuteCommandSyncArgs): Promise<Status<StatusData>> {
     return await executeCommandSync<StatusData>(
       this.frameClient,
       this.key,

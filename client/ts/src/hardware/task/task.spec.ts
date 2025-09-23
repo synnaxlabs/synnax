@@ -305,7 +305,7 @@ describe("Task", async () => {
         config: {},
         type: "ni",
       });
-      await expect(t.executeCommandSync("test", 0)).rejects.toThrow("timed out");
+      await expect(t.executeCommandSync({type: "test", timeout: 0})).rejects.toThrow("timed out");
     });
   });
 });

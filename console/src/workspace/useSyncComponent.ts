@@ -9,7 +9,7 @@
 
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, Synnax } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
@@ -17,28 +17,45 @@ import { useDispatchEffect } from "@/hooks/useDispatchEffect";
 import { type RootState } from "@/store";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
-export const useSyncComponent = <P>(
+interface UpdateParams {
+  store: Store<RootState>;
+  layoutKey: string;
+}
+
+export interface SaveArgs {
+  key: string;
+  workspace: string;
+  store: Store<RootState>;
+  client: Client;
+}
+
+export const createSyncComponent = (
   name: string,
-  layoutKey: string,
-  save: (workspace: string, store: Store<RootState>, client: Client) => Promise<void>,
-  dispatch?: Dispatch<PayloadAction<P>>,
-): Dispatch<PayloadAction<P>> => {
-  const client = Synnax.use();
-  const store = useStore<RootState>();
-  const syncLayout = Flux.useAction({
-    resourceName: name,
-    opName: "Save",
-    action: useCallback(async () => {
-      if (layoutKey == null || client == null) return;
+  save: (args: SaveArgs) => Promise<void>,
+) => {
+  const { useUpdate } = Flux.createUpdate<UpdateParams, {}>({
+    name,
+    verbs: Flux.SAVE_VERBS,
+    update: async ({ client, data }) => {
+      const { store, layoutKey } = data;
+      if (layoutKey == null || client == null) return false;
       const ws = selectActiveKey(store.getState());
-      if (ws == null) return;
-      await save(ws, store, client);
-    }, [layoutKey, client, store, save]),
+      if (ws == null) return false;
+      await save({ key: layoutKey, workspace: ws, store, client });
+      return data;
+    },
   });
-  const ws = useSelectActiveKey();
-  useEffect(() => {
-    if (ws == null) return;
-    syncLayout.run();
-  }, [ws]);
-  return useDispatchEffect<P>(syncLayout.run, 1000, dispatch);
+  return <P>(
+    layoutKey: string,
+    dispatch?: Dispatch<PayloadAction<P>>,
+  ): Dispatch<PayloadAction<P>> => {
+    const { update } = useUpdate();
+    const store = useStore<RootState>();
+    const run = useCallback(() => {
+      update({ layoutKey, store });
+    }, [layoutKey, store]);
+    const ws = useSelectActiveKey();
+    useEffect(() => run(), [ws, run]);
+    return useDispatchEffect(run, 100, dispatch);
+  };
 };

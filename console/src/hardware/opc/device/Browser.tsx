@@ -12,6 +12,7 @@ import "@/hardware/opc/device/Browser.css";
 import {
   Button,
   Component,
+  type Device as PDevice,
   Flex,
   Flux,
   Haul,
@@ -23,14 +24,14 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { type Optional } from "@synnaxlabs/x";
+import { type Optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
 
-import { useRetrieveScanTask } from "./useRetrieveScanTask";
+import { retrieveScanTask } from "./useRetrieveScanTask";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -75,71 +76,96 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
+interface RetrieveNodesQuery {
+  clicked: { id: string; key: string | undefined };
+  device: Device;
+}
+
+const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
+  RetrieveNodesQuery,
+  ScannedNode[],
+  PDevice.FluxSubStore
+>({
+  name: "OPC Node",
+  retrieve: async ({
+    client,
+    store,
+    query: {
+      device: {
+        rack,
+        properties: { connection },
+      },
+      clicked: { id },
+    },
+  }) => {
+    const scanTask = await retrieveScanTask(client, store, rack);
+    const { details } = await scanTask.executeCommandSync({
+      type: SCAN_COMMAND_TYPE,
+      timeout: TimeSpan.seconds(10),
+      args: { connection, node_id: id },
+    });
+    if (details?.data == null || !("channels" in details.data)) return [];
+    return details.data.channels;
+  },
+});
+
 export const Browser = ({ device }: BrowserProps) => {
   const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
   const opcNodesStore = List.useMapData<string, ScannedNode>();
-  const scanTask = useRetrieveScanTask(device.rack);
-  const {
-    run: expand,
-    variant,
-    status: { key, ...status },
-  } = Flux.useAction({
-    resourceName: "OPC Node",
-    opName: "Retrieve",
-    action: async ({
-      action,
-      delay,
-      clicked,
-    }: Optional<Tree.HandleExpandProps, "clicked"> & { delay?: number }) => {
-      if (scanTask?.key == null || action === "contract") return;
-      if (delay != null) await new Promise((resolve) => setTimeout(resolve, delay));
-      const isRoot = clicked == null;
-      const nodeID = isRoot ? "" : parseNodeID(clicked);
-      const { connection } = device.properties;
-      const { details } = await scanTask.executeCommandSync(
-        SCAN_COMMAND_TYPE,
-        TimeSpan.seconds(10),
-        { connection, node_id: nodeID },
-      );
-      if (details?.data == null) return;
-      if (!("channels" in details.data)) return;
-      const channels = details.data.channels;
+  const [status, setStatus] = useState<status.Status | null>(null);
+  const { retrieve: retrieveNodes } = useRetrieveNodes({
+    onChange: (result, { clicked: { id, key } }) => {
+      setStatus(result.status);
+      if (result.variant !== "success") return;
+      const isRoot = id === "";
+      const { data: channels } = result;
       const newNodes = channels.map(
-        (node): Tree.Node => ({ key: nodeKey(node.nodeId, nodeID), children: [] }),
+        (node): Tree.Node => ({ key: nodeKey(node.nodeId, id), children: [] }),
       );
       opcNodesStore.setItem(
-        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, nodeID) })),
+        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
       );
       setInitialLoading(false);
       if (isRoot) setTreeNodes(newNodes);
       else
         setTreeNodes([
           ...Tree.setNode({
-            tree: [...treeNodes],
-            destination: clicked,
+            tree: treeNodes,
+            destination: key ?? null,
             additions: newNodes,
           }),
         ]);
     },
   });
+
+  const expand = useCallback(
+    ({ clicked, action }: Optional<Tree.HandleExpandProps, "clicked">) => {
+      if (action === "contract") return;
+      retrieveNodes({
+        clicked: { key: clicked, id: clicked == null ? "" : parseNodeID(clicked) },
+        device,
+      });
+    },
+    [retrieveNodes, device],
+  );
+
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
-    if (scanTask == null) return;
     setInitialLoading(true);
-    expand({ action: "expand", current: [], delay: 200 });
+    expand({ action: "expand", current: [] });
     clearExpanded();
-  }, [scanTask, clearExpanded]);
+  }, [clearExpanded]);
   useEffect(refresh, [refresh]);
   let content: ReactElement;
   if (initialLoading)
     content = (
       <Flex.Box center>
-        <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
+        <Icon.Loading style={{ fontSize: "5rem" }} color={7} />
       </Flex.Box>
     );
-  else if (variant === "error") content = <Status.Summary center {...status} />;
+  else if (status?.variant === "error") content = <Status.Summary center {...status} />;
   else
     content = (
       <Tree.Tree
@@ -160,7 +186,7 @@ export const Browser = ({ device }: BrowserProps) => {
         <Header.Actions>
           <Button.Button
             onClick={refresh}
-            disabled={scanTask == null || initialLoading}
+            disabled={initialLoading}
             sharp
             contrast={2}
             variant="text"
