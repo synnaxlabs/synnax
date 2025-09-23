@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import synnax as sy
 from playwright.sync_api import Page
 
-from ..console_page import ConsolePage
+from .console_page import ConsolePage
 
 if TYPE_CHECKING:
     from ..console import Console

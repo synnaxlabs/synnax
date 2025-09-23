@@ -29,5 +29,6 @@ class Snap_Pages_To_Grid(ConsoleCase):
 
         console.schematic.move("top")
         console.table.move("right")
+        console.log.move("bottom-left")
 
         console.screenshot()
