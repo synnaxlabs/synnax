@@ -470,9 +470,7 @@ export const formSchema = z.object({
   timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
-export const toFormValues = async (
-  range: ranger.Range,
-): Promise<z.infer<typeof formSchema>> => ({
+export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
   parent: range.parent?.key,
@@ -494,9 +492,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;
-    const r = await retrieveSingle({ client, store, query: { key } });
-    console.log(r);
-    reset(await toFormValues(r));
+    reset(toFormValues(await retrieveSingle({ client, store, query: { key } })));
   },
   update: async ({ client, value: getValue, reset, store }) => {
     const value = getValue();
@@ -535,7 +531,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   },
   mountListeners: ({ store, reset, get, set }) => [
     store.ranges.onSet(async (range) => {
-      const values = await toFormValues(range);
+      const values = toFormValues(range);
       const prevKey = get<string>("key", { optional: true })?.value;
       if (prevKey == null || prevKey !== range.key) return;
       const prevParent = get<string>("parent", { optional: true })?.value;
