@@ -7,18 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
+from playwright.sync_api import Page
 
 from ..console_page import ConsolePage
 from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
 from .value import Value
 
+if TYPE_CHECKING:
+    from ..console import Console
+
 
 class Schematic(ConsolePage):
     """
     Parent class for schematic tests
     """
+
+    def __init__(self, page: Page, console: "Console"):
+        super().__init__(page, console)
 
 
     def _add_symbol_to_schematic(self, symbol_type: str) -> str:

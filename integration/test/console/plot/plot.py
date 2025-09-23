@@ -9,11 +9,14 @@
 
 import os
 import time
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast, TYPE_CHECKING
 
 from playwright.sync_api import FloatRect, Page
 
 from ..console_page import ConsolePage
+
+if TYPE_CHECKING:
+    from ..console import Console
 
 
 class Plot(ConsolePage):
@@ -21,8 +24,8 @@ class Plot(ConsolePage):
     Parent class for Plot tests
     """
 
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, page: Page, console: "Console"):
+        super().__init__(page, console)
         self.DATA: Dict[str, Any] = {
             "Y1": [],
             "Y2": [],

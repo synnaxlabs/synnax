@@ -71,7 +71,6 @@ class ConsoleCase(TestCase):
 
         # Initialize Console interface
         self.console = Console(self.page)
-        print(self.console)
 
         # Toggle theme
         time.sleep(0.5)
@@ -105,6 +104,11 @@ class ConsoleCase(TestCase):
         data_type: sy.CrudeDataType = sy.DataType.TIMESTAMP,
         index: str = "",
     ) -> bool:
+
+        """
+        Will be deprecated.
+        Keeping around to remind me to check if exists in channels.py
+        """
 
         try:
             self.client.channels.retrieve(channel_name)

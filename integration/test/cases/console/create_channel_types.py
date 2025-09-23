@@ -19,11 +19,6 @@ class Create_Channel_Types(ConsoleCase):
     Add a value component and edit its properties
     """
 
-    def setup(self) -> None:
-        super().setup()
-        self.console.console_pages.create("Schematic")
-        self.page.locator(".react-flow__pane").dblclick()
-
     def run(self) -> None:
         """
         Test the "create a channel" modal for all data types

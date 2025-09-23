@@ -18,7 +18,6 @@ class Tabs_Open_Close(ConsoleCase):
     def run(self) -> None:
 
         console = self.console
-        print(console)
 
         self._log_message("(1/2) Creating pages by command palette")
         page_names = [

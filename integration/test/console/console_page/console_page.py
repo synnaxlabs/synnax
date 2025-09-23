@@ -8,16 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from playwright.sync_api import Page
+
+if TYPE_CHECKING:
+    from ..console import Console
 
 
 class ConsolePage:
     """Console pages management interface"""
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, console: "Console"):
         self.page = page
+        self.console = console
 
     def create(self, page_type: str, page_name: Optional[str] = None) -> None:
         """Create a new page via command palette"""
@@ -32,9 +36,7 @@ class ConsolePage:
         page_command = f"Create {article} {page_type}"
 
         # Execute command
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        self.page.wait_for_selector(f"text={page_command}", timeout=5000)
-        self.page.get_by_text(page_command).click()
+        self.console.command_palette(page_command)
 
         # If page name provided, rename the page
         if page_name is not None:

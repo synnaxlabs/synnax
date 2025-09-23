@@ -31,10 +31,10 @@ class Console:
 
         # Playwright
         self.page = page
-        self.channels = Channels(page)
-        self.console_pages = ConsolePage(page)
-        self.schematic = Schematic(page)
-        self.plot = Plot(page)
+        self.channels = Channels(page, self)
+        self.console_pages = ConsolePage(page, self)
+        self.schematic = Schematic(page, self)
+        self.plot = Plot(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
