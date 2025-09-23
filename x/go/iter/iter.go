@@ -138,3 +138,14 @@ func MapToSlice[I, O any](ctx context.Context, n Nexter[I], f func(I) O) []O {
 	}
 	return values
 }
+
+func MapToSliceWithFilter[I, O any](ctx context.Context, n Nexter[I], f func(I) (O, bool)) []O {
+	var values []O
+	for v, ok := n.Next(ctx); ok; v, ok = n.Next(ctx) {
+		val, ok := f(v)
+		if ok {
+			values = append(values, val)
+		}
+	}
+	return values
+}

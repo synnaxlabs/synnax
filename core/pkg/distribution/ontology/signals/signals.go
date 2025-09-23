@@ -34,18 +34,25 @@ func Publish(
 	resourceObserver := observe.Translator[iter.Nexter[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
 		Translate: func(nexter iter.Nexter[ontology.Change]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch ontology.Change) change.Change[[]byte, struct{}] {
+			return iter.MapToSliceWithFilter(ctx, nexter, func(ch ontology.Change) (change.Change[[]byte, struct{}], bool) {
+				if ch.Variant == change.Set {
+					v, err := signals.MarshalJSON(ch.Value)
+					if err != nil {
+						return change.Change[[]byte, struct{}]{}, false
+					}
+					return change.Change[[]byte, struct{}]{Key: v, Variant: ch.Variant}, true
+				}
 				return change.Change[[]byte, struct{}]{
 					Key:     EncodeID(ch.Key),
 					Variant: ch.Variant,
-				}
+				}, true
 			})
 		},
 	}
 	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
 		Name:          "ontology_resource",
 		Observable:    resourceObserver,
-		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT, Internal: true},
+		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.JSONT, Internal: true},
 		DeleteChannel: channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT, Internal: true},
 	})
 	if err != nil {

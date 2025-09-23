@@ -85,7 +85,7 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 
 var jsonEcd = binary.JSONCodec{}
 
-func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
+func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	b, err := jsonEcd.Encode(context.TODO(), e)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 		DeleteDataType: telem.UUIDT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
-		MarshalSet:     marshalJSON[uuid.UUID, E],
+		MarshalSet:     MarshalJSON[uuid.UUID, E],
 	}
 }
 
@@ -130,7 +130,7 @@ func GorpPublisherConfigString[E gorp.Entry[string]](db *gorp.DB) GorpPublisherC
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k string) ([]byte, error) { return append([]byte(k), '\n'), nil },
-		MarshalSet:     marshalJSON[string, E],
+		MarshalSet:     MarshalJSON[string, E],
 	}
 }
 

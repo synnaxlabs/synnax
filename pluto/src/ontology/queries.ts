@@ -64,12 +64,16 @@ export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
-const RESOURCE_SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ontology.idZ> = {
+const RESOURCE_SET_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof ontology.resourceZ
+> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-  schema: ontology.idZ,
-  onChange: async ({ store, changed, client }) => {
-    const key = ontology.idToString(changed);
-    store.resources.set(key, await client.ontology.retrieve(changed));
+  schema: ontology.resourceZ,
+  onChange: async ({ store, changed }) => {
+    store.resources.set(changed.key, (p) =>
+      p == null ? changed : { ...p, ...changed },
+    );
   },
 };
 
