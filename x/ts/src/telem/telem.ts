@@ -161,7 +161,6 @@ export class TimeStamp
     ).valueOf();
   }
 
-
   private toISOString(tzInfo: TZInfo = "UTC"): string {
     if (tzInfo === "UTC") return this.date().toISOString();
     return this.sub(TimeStamp.utcOffset).date().toISOString();
@@ -191,7 +190,7 @@ export class TimeStamp
    * the other timestamp.
    * @param other - The other timestamp.
    */
-  static since(other: TimeStamp): TimeSpan {
+  static since(other: CrudeTimeStamp): TimeSpan {
     return new TimeStamp().span(other);
   }
 

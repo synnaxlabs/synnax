@@ -62,9 +62,12 @@ func (w Writer) Create(
 	return w.status.SetWithParent(ctx, &status.Status{
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),
-		Variant: xstatus.InfoVariant,
-		Message: "Arc created successfully",
+		Variant: xstatus.LoadingVariant,
+		Message: "Deploying",
 		Time:    telem.Now(),
+		Details: map[string]interface{}{
+			"running": false,
+		},
 	}, otgID)
 }
 

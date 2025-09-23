@@ -13,6 +13,7 @@ import { type status } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
+  Icon,
   Input,
   List,
   Menu,
@@ -69,19 +70,27 @@ export const Item = (props: ItemProps): ReactElement | null => {
             onClick={stopPropagation}
             ghost={!selected}
           />
-          <Text.Text level="p" status={variant}>
+          <Text.Text level="p" weight={450} status={variant}>
             <Status.Indicator variant={variant} />
             {name}
+            <Icon.Caret.Right />
+            <Text.Text el="span" status={variant}>
+              {message}
+            </Text.Text>
           </Text.Text>
         </Flex.Box>
-        <Flex.Box x align="center">
-          <Text.Text level="small" status={variant}>
-            {message}
-          </Text.Text>
-          <Telem.Text.TimeStamp level="p" color="gray" format="dateTime">
+        <Text.Text x>
+          <Telem.Text.TimeSpanSince
+            el="span"
+            level="p"
+            color="gray"
+            format="semantic"
+            variant="code"
+          >
             {time}
-          </Telem.Text.TimeStamp>
-        </Flex.Box>
+          </Telem.Text.TimeSpanSince>
+          <Icon.Time color={8} />
+        </Text.Text>
       </Form.Form>
     </List.Item>
   );
