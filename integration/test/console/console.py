@@ -59,22 +59,34 @@ class Console:
             .first
         )
         channel_button.click()
-        search_input = self.page.locator("input[placeholder*='Search']")
-        search_input.press("Control+a")
-        search_input.type(input_text)
-        self.page.wait_for_timeout(300)
+        self._select_from_dropdown_item(input_text, "input[placeholder*='Search']")
 
-        # Iterate through dropdown items
+    def _select_from_dropdown_item(self, text: str, search_selector: str) -> None:
+        """Select an item from an open dropdown or dialog with search."""
+        search_input = self.page.locator(search_selector)
+        if search_input.count() > 0:
+            search_input.fill(text)
+            self.page.wait_for_timeout(300)
+
+        # Try exact text match first (for dialogs like channel selector)
+
+        exact_element = self.page.get_by_text(text, exact=True)
+        if exact_element.count() > 0:
+            exact_element.wait_for(state="visible", timeout=3000)
+            exact_element.scroll_into_view_if_needed()
+            exact_element.click()
+            return
+
         item_found = False
         item_selector = self.page.locator(".pluto-list__item").all()
         for item in item_selector:
-            if item.is_visible() and input_text in item.inner_text().strip().lower():
+            if item.is_visible() and text in item.inner_text().strip().lower():
                 item.click()
                 item_found = True
                 break
 
         if not item_found:
-            raise RuntimeError(f"Could not find item '{input_text}' in dropdown")
+            raise RuntimeError(f"Could not find item '{text}' in dropdown")
 
     def create_page(self, page_type: str, page_name: Optional[str] = None) -> tuple[Locator, str]:
         """Create a new page via command palette"""

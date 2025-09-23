@@ -60,6 +60,7 @@ class Create_Channel_Types(ConsoleCase):
                 is_index=False,
                 index=INDEX_NAME,
             )
+            self._log_message(f"Created channel: {ch_name}")
             time.sleep(0.2)
             ch = client.channels.retrieve(ch_name)
             assert data_type == ch.data_type

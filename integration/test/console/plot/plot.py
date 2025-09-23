@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import os
-import time
 from typing import Any, Dict, List, Optional, Union, cast, TYPE_CHECKING
 
 from playwright.sync_api import FloatRect, Page
@@ -20,13 +19,14 @@ if TYPE_CHECKING:
 
 
 class Plot(ConsolePage):
-    """
-    Parent class for Plot tests
-    """
+    """Plot page management interface"""
 
-    def __init__(self, page: Page, console: "Console"):
+    def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
-        self.DATA: Dict[str, Any] = {
+        self.page_type = "Line Plot"
+        self.pluto_label = ".pluto-line-plot"
+
+        self.data: Dict[str, Any] = {
             "Y1": [],
             "Y2": [],
             "Ranges": [],
@@ -34,109 +34,107 @@ class Plot(ConsolePage):
         }
 
     def add_Y(self, axis: str, channel_ids: Union[str, List[str]]) -> None:
-        if axis != "Y1" and axis != "Y2":
-            raise ValueError(f"Invalid axis: {axis}")
-
-        # Close any open dialogs first
-        self.page.keyboard.press("Escape")
-        time.sleep(0.2)
+        if axis not in ("Y1", "Y2"):
+            raise ValueError(f"Invalid axis: {axis}. Must be 'Y1' or 'Y2'")
 
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
         selector.click(timeout=5000)
 
         self.page.get_by_text("Retrieving Channels").wait_for(state="hidden")
+        channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
 
-        # Handle both string and list inputs
-        channels = channel_ids if isinstance(channel_ids, list) else [channel_ids]
+        # Add each channel
         for channel in channels:
-            # Clear search box first to ensure all channels are visible
-            search_box = self.page.locator("input[placeholder*='Search']")
-            if search_box.count() > 0:
-                search_box.clear()
-                search_box.fill(channel)
-                time.sleep(0.1)
+            self.console._select_from_dropdown_item(channel, "input[placeholder*='Search']")
+            self.data[axis].append(channel)
 
-            channel_element = self.page.get_by_text(channel, exact=True)
-            # Wait for the specific channel to be visible and scroll into view
-            channel_element.wait_for(state="visible", timeout=5000)
-            channel_element.scroll_into_view_if_needed()
-            channel_element.click()
-            self.DATA[axis].append(channel)
+        self.console.ESCAPE
 
-        # Clear search box after selection
-        search_box = self.page.locator("input[placeholder*='Search']")
-        if search_box.count() > 0:
-            search_box.clear()
-
-        self.page.keyboard.press("Escape")
-
-    def add_ranges(self, ranges: list[str]) -> None:
-        Range_Options = ["30s", "1m", "5m", "15m", "30m"]
-
+    def add_ranges(self, ranges: List[str]) -> None:
+        """Add time ranges to the plot."""
+        valid_ranges = {"30s", "1m", "5m", "15m", "30m"}
         self.page.get_by_text("Select Ranges").click()
-        for range in ranges:
-            if range in Range_Options and range not in self.DATA["Ranges"]:
-                self.page.get_by_text(range, exact=True).click()
-                self.DATA["Ranges"].append(range)
-        self.ESCAPE
+
+        for range_value in ranges:
+            if range_value in valid_ranges and range_value not in self.data["Ranges"]:
+                self.page.get_by_text(range_value, exact=True).click()
+                self.data["Ranges"].append(range_value)
+
+        self.console.ESCAPE
 
     def save_screenshot(self, path: Optional[str] = None) -> None:
-        """
-        Save a screenshot of the plot area including axes with margin
-        """
+        """Save a screenshot of the plot area with margin."""
         if path is None:
             os.makedirs("test/results", exist_ok=True)
-            path = f"test/results/{self.name}.png"
+            path = f"test/results/{self.id}.png"
 
         plot_locator = self.page.locator(".pluto-line-plot")
-
-        # Get the bounding box and add margin
         box = plot_locator.bounding_box()
-        if box:
-            margin = 10
-            clip_area = {
-                "x": max(0, box["x"] - margin),
-                "y": max(0, box["y"] - margin),
-                "width": box["width"] + 2 * margin,
-                "height": box["height"] + 2 * margin,
-            }
 
-            self.page.screenshot(
-                path=path,
-                clip=cast(FloatRect, clip_area),
-                animations="disabled",
-                omit_background=False,
-                type="png",
-                scale="device",
-            )
+        if box:
+            self._save_with_clip(path, box)
         else:
-            # Fallback to element screenshot if bounding box fails
-            plot_locator.screenshot(
-                path=path,
-                animations="disabled",
-                omit_background=False,
-                type="png",
-                scale="device",
-            )
+            self._save_element_screenshot(path, plot_locator)
+
+    def _save_with_clip(self, path: str, box: Dict[str, float]) -> None:
+        """Save screenshot with custom clipping area."""
+        margin = 10
+        clip_area = {
+            "x": max(0, box["x"] - margin),
+            "y": max(0, box["y"] - margin),
+            "width": box["width"] + 2 * margin,
+            "height": box["height"] + 2 * margin,
+        }
+
+        self.page.screenshot(
+            path=path,
+            clip=cast(FloatRect, clip_area),
+            animations="disabled",
+            omit_background=False,
+            type="png",
+            scale="device",
+        )
+
+    def _save_element_screenshot(self, path: str, locator: Any) -> None:
+        """Save element screenshot as fallback."""
+        locator.screenshot(
+            path=path,
+            animations="disabled",
+            omit_background=False,
+            type="png",
+            scale="device",
+        )
 
     def set_X1_axis(self, config: Dict[str, Any]) -> None:
+        """Set X1 axis configuration."""
         self.set_axis("X1", config)
 
     def set_Y1_axis(self, config: Dict[str, Any]) -> None:
+        """Set Y1 axis configuration."""
         self.set_axis("Y1", config)
 
     def set_Y2_axis(self, config: Dict[str, Any]) -> None:
+        """Set Y2 axis configuration."""
         self.set_axis("Y2", config)
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
+        """Set axis configuration with the given parameters."""
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
-        # Try direct ID selector first, then fallback to others
+        self._select_axis_tab(axis)
+
+        for key, value in config.items():
+            self._set_axis_property(key, value)
+
+        self.console.ENTER
+
+    def _select_axis_tab(self, axis: str) -> None:
+        """Select the axis tab in the configuration panel."""
         selectors = [
-            f"#{axis.lower()}",  # Lowercase ID (most reliable)
-            f"#{axis}",  # Uppercase ID
-            f".pluto-tabs-selector__btn:has-text('{axis}')",  # Class + text fallback
+            f"#{axis.lower()}",
+            f"#{axis}",
+            f".pluto-tabs-selector__btn:has-text('{axis}')",
         ]
 
         for selector in selectors:
@@ -144,67 +142,56 @@ class Plot(ConsolePage):
                 locator = self.page.locator(selector)
                 if locator.count() > 0:
                     locator.click(timeout=5000)
-                    break
-            except:
+                    return
+            except Exception:
                 continue
-        else:
-            raise Exception(f"Could not find axis tab: {axis}")
 
-        for key, value in config.items():
+        raise RuntimeError(f"Could not find axis tab: {axis}")
+
+    def _set_axis_property(self, key: str, value: Any) -> None:
+        """Set a single axis property."""
+        try:
+            if key in {"Lower Bound", "Upper Bound", "Tick Spacing", "Label"}:
+                self._set_input_field(key, value)
+            elif key == "Label Direction":
+                self._set_label_direction(value)
+            elif key == "Label Size":
+                self._set_label_size(value)
+            else:
+                self.page.locator(key).fill(str(value), timeout=5000)
+        except Exception as e:
+            raise ValueError(f'Failed to set axis property "{key}" to "{value}": {e}')
+
+    def _set_input_field(self, key: str, value: Any) -> None:
+        """Set an input field value."""
+        selectors = [
+            f"label:has-text('{key}') + div input",
+            f"label:has-text('{key}') input",
+            f"input[aria-label*='{key}']",
+            f"input[placeholder*='{key}']",
+        ]
+
+        for selector in selectors:
             try:
-                if key in ["Lower Bound", "Upper Bound", "Tick Spacing", "Label"]:
-                    # Try multiple selectors for text input fields
-                    input_selectors = [
-                        f"label:has-text('{key}') + div input",
-                        f"label:has-text('{key}') input",
-                        f"input[aria-label*='{key}']",
-                        f"input[placeholder*='{key}']",
-                    ]
+                input_field = self.page.locator(selector)
+                if input_field.count() > 0:
+                    input_field.clear(timeout=5000)
+                    input_field.fill(str(value), timeout=5000)
+                    return
+            except Exception:
+                continue
 
-                    input_found = False
-                    for selector in input_selectors:
-                        try:
-                            input_field = self.page.locator(selector)
-                            if input_field.count() > 0:
-                                input_field.clear(timeout=5000)
-                                input_field.fill(str(value), timeout=5000)
-                                input_found = True
-                                break
-                        except:
-                            continue
+        raise RuntimeError(f"Could not find input field for {key}")
 
-                    if not input_found:
-                        print(f"WARNING: Could not find input field for {key}")
-                elif key == "Label Direction":
-                    # For button groups, click the appropriate button
-                    if str(value).lower() == "up":
-                        self.page.locator(
-                            "label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-up'])"
-                        ).click(timeout=5000)
-                    else:  # right/left/horizontal
-                        self.page.locator(
-                            "label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-right'])"
-                        ).click(timeout=5000)
-                elif key == "Label Size":
-                    # For size buttons, click the appropriate size
-                    size_mapping = {
-                        "xs": "XS",
-                        "s": "S",
-                        "m": "M",
-                        "l": "L",
-                        "xl": "XL",
-                    }
-                    button_text = size_mapping.get(
-                        str(value).lower(), str(value).upper()
-                    )
-                    self.page.locator(
-                        f"label:has-text('Label Size') + div button:has-text('{button_text}')"
-                    ).click(timeout=5000)
-                else:
-                    # Fallback for unknown keys
-                    self.page.locator(key).fill(str(value), timeout=5000)
-            except Exception as e:
-                raise ValueError(
-                    f'Warning: Failed to set axis property "{key}" to "{value}": {e}'
-                )
-        self.ENTER
+    def _set_label_direction(self, value: Any) -> None:
+        """Set label direction button."""
+        direction = "arrow-up" if str(value).lower() == "up" else "arrow-right"
+        selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{direction}'])"
+        self.page.locator(selector).click(timeout=5000)
+
+    def _set_label_size(self, value: Any) -> None:
+        """Set label size button."""
+        size_mapping = {"xs": "XS", "s": "S", "m": "M", "l": "L", "xl": "XL"}
+        button_text = size_mapping.get(str(value).lower(), str(value).upper())
+        selector = f"label:has-text('Label Size') + div button:has-text('{button_text}')"
+        self.page.locator(selector).click(timeout=5000)

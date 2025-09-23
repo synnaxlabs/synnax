@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from test.console.console_case import ConsoleCase
 
-from test.console.plot import Plot
 
-
-class Plot_Abcd(Plot):
+class Plot_Abcd(ConsoleCase):
     """
     Simple plot test
 
@@ -28,20 +27,21 @@ class Plot_Abcd(Plot):
         )
 
     def run(self) -> None:
-
+        console = self.console
+        console.plot.new()
         self.wait_for_tlm_init()
 
-        self.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
-        self.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])
-        self.add_ranges(["30s"])
-        self.set_Y1_axis(
+        console.plot.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
+        console.plot.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])
+        console.plot.add_ranges(["30s"])
+        console.plot.set_Y1_axis(
             {
                 "Lower Bound": -0.005,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
             }
         )
-        self.set_Y2_axis(
+        console.plot.set_Y2_axis(
             {
                 "Tick Spacing": 100,
             }
@@ -49,16 +49,16 @@ class Plot_Abcd(Plot):
         self.wait_for_tlm_stale()
 
         # Reset after auto adjust
-        self.set_Y1_axis(
+        console.plot.set_Y1_axis(
             {
                 "Lower Bound": -0.05,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
             }
         )
-        self.set_Y2_axis(
+        console.plot.set_Y2_axis(
             {
                 "Tick Spacing": 100,
             }
         )
-        self.save_screenshot()
+        console.plot.save_screenshot()
