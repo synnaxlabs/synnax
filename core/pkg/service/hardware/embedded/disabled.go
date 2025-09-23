@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 //go:build !driver
-// +build !driver
 
 package embedded
 
@@ -27,6 +26,4 @@ func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	return &Driver{}, nil
 }
 
-func (d *Driver) Close() error {
-	return nil
-}
+func (d *Driver) Close() error { return nil }

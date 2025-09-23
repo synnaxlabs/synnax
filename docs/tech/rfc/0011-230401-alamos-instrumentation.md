@@ -1,32 +1,32 @@
 # 11 - Alamos Instrumentation
 
-**Feature Name**: Alamos Instrumentation <br />
-**Start Date**: 2023-04-01 <br />
-**Authors**: Emiliano Bonilla <br />
-**Status**: Complete <br />
+- **Feature Name**: Alamos Instrumentation
+- **Start Date**: 2023-04-01
+- **Authors**: Emiliano Bonilla
+- **Status**: Complete
 
 # 0 - Summary
 
-As we move towards the Beta release of Synnax, the core architectural components
-will begin to solidify, and, for the more stable areas of the codebase, we will shift
-focus from building functional to stable and performant software. To improve these
-qualities, we'll need to profile the execution state of the cluster from various
-perspectives. This includes improving the logging infrastructure, and updating the
-`alamos` metrics package to include tracing. Instrumentation also enables our users to
-monitor their own Synnax deployments, an essential feature for operations-critical
-software. In this RFC I propose a high-level plan for implementing distributed
-instrumentation across all of Synnax's components.
+As we move towards the Beta release of Synnax, the core architectural components will
+begin to solidify, and, for the more stable areas of the codebase, we will shift focus
+from building functional to stable and performant software. To improve these qualities,
+we'll need to profile the execution state of the cluster from various perspectives. This
+includes improving the logging infrastructure, and updating the `alamos` metrics package
+to include tracing. Instrumentation also enables our users to monitor their own Synnax
+deployments, an essential feature for operations-critical software. In this RFC I
+propose a high-level plan for implementing distributed instrumentation across all of
+Synnax's components.
 
 # 1 - Vocabulary
 
-**Alamos** - The Synnax instrumentation library, and the core package for implementing
-this RFC. <br />
-**Instrumentation** - The process of collecting and reporting data about the execution
-state of a Synnax cluster. This includes traces, metrics, and logs. <br />
-**Trace** - A record of the execution of a request through the Synnax cluster. <br />
-**Metric** - A measurement of a specific aspect of the execution of a request. <br />
-**Log** - A record of a specific event that occurred during the execution of a
-request. <br />
+- **Alamos** - The Synnax instrumentation library, and the core package for implementing
+  this RFC.
+- **Instrumentation** - The process of collecting and reporting data about the execution
+  state of a Synnax cluster. This includes traces, metrics, and logs.
+- **Trace** - A record of the execution of a request through the Synnax cluster.
+- **Metric** - A measurement of a specific aspect of the execution of a request.
+- **Log** - A record of a specific event that occurred during the execution of a
+  request.
 
 # 2 - Motivation
 
@@ -54,12 +54,11 @@ ontology traversal would.
 
 It's important to understand the execution of the cluster from both the vertical and
 horizontal perspectives. For the sake of brevity, I've chosen to contract these
-directions
-into `X` and `Y`.
+directions into `X` and `Y`.
 
 It's relevant to note that approaching a design problem from this perspective is not
-new. The design of the Signal package
-in [RFC 0004](https://github.com/synnaxlabs/synnax/blob/main/docs/rfc/0004-220623-signal-gr.md)
+new. The design of the Signal package in
+[RFC 0004](https://github.com/synnaxlabs/synnax/blob/main/docs/rfc/0004-220623-signal-gr.md)
 also discusses issues between application and request-scoped goroutine management,
 especially in regard to error handling.
 
@@ -95,8 +94,8 @@ a layer above, and should not expose shallow interfaces to layers above.
 
 Alamos must handle three types of instrumentation: logs, metrics, and traces. These are
 widely referred to as the three pillars of observability. I'm omitting an argument for
-why these types exist and why each is important; this should be obvious to you, and,
-if it isn't, there is extensive literature on the subject.
+why these types exist and why each is important; this should be obvious to you, and, if
+it isn't, there is extensive literature on the subject.
 
 Instead, I'm focused on describing the specific requirements for each. These are not
 organized by pillar, but rather by type of requirement. For example, all three pillars
@@ -127,15 +126,14 @@ execution crosses node boundaries. Supporting distributed tracing is essential.
 
 Collecting telemetry is only useful if we can correlate it with metadata about the
 cluster's configuration. If we don't know critical information about the cluster, such
-as the version of the software, we place ourselves at a significant disadvantage when
-it comes to debugging issues and improving performance.
+as the version of the software, we place ourselves at a significant disadvantage when it
+comes to debugging issues and improving performance.
 
 ### 4.2.1 - Y Metadata - Tracing
 
 Y metadata is bound to a specific request, and should be viewable at the level of an
 individual trace or an aggregated view of all traces. This includes protocols, user
-id's,
-etc.
+id's, etc.
 
 ### 4.2.2 - X Metadata
 
@@ -145,14 +143,14 @@ the protocols supported, storage directories, maximum cache sizes etc.
 ## 4.3 - Filtering
 
 As with any instrumentation system, we should be able to filter the data we collect
-depending on the environment we're running in. In a development environment, we focus
-on collecting data for debugging and correctness purposes. In a benchmarking
-environment, we collect critical performance metrics and traces.
+depending on the environment we're running in. In a development environment, we focus on
+collecting data for debugging and correctness purposes. In a benchmarking environment,
+we collect critical performance metrics and traces.
 
 ### 4.3.0 - Log Levels
 
-The Alamos log levels mirror those
-of [zap](https://pkg.go.dev/go.uber.org/zap#pkg-constants).
+The Alamos log levels mirror those of
+[zap](https://pkg.go.dev/go.uber.org/zap#pkg-constants).
 
 <table>
 <tr>
@@ -220,25 +218,25 @@ Instead, they should be filtered based on the environment they're collected in.
 ## 4.6 - Development
 
 Instrumentation is as critical in development as it is in production. Along with the
-debugger, traces and logs are the primary means of understanding the correctness of
-our algorithms. We need to find a way to provide our developers with a means of
-collecting and viewing instrumentation data in a development environment. Ideally this
-does not involve a cloud hosted server, as aggregating data from all developers would
-cost a lot of money and be difficult to navigate. Instead, our developers should be able
-to run a self-hosted tracing tool to maintain control over their environment.
+debugger, traces and logs are the primary means of understanding the correctness of our
+algorithms. We need to find a way to provide our developers with a means of collecting
+and viewing instrumentation data in a development environment. Ideally this does not
+involve a cloud hosted server, as aggregating data from all developers would cost a lot
+of money and be difficult to navigate. Instead, our developers should be able to run a
+self-hosted tracing tool to maintain control over their environment.
 
 ## 4.7 - Production
 
 Instrumentation in production allows us to view and collect telemetry from the
-deployments of our users. Ideally we'd have a cloud hosted solution that enables us
-to detect and debug issues in near-real time.
+deployments of our users. Ideally we'd have a cloud hosted solution that enables us to
+detect and debug issues in near-real time.
 
 ### 4.7.0 - Privacy and Security
 
 Synnax is designed to operate in scenarios are operations critical and closely
-controlled by regulations such as ITAR or EAR. We're also holding confidential data
-and personally identifiable information (PII). When collecting telemetry, we **must**
-ensure that no sensitive or controlled data is collected or transmitted to our servers.
+controlled by regulations such as ITAR or EAR. We're also holding confidential data and
+personally identifiable information (PII). When collecting telemetry, we **must** ensure
+that no sensitive or controlled data is collected or transmitted to our servers.
 
 Telemetry must also be completely opt-in. This has been a hot-topic of debate in the
 software world recently, and it's essential for any open source project to specifically
@@ -253,7 +251,7 @@ tooling. It serves as an aggregation of several other types, and is aimed for us
 'bag of tools' for injecting instrumentation into a given service.
 
 ```go
-package irrelivant
+package irrelevant
 
 type Instrumentation struct {
     T *Tracer
@@ -263,8 +261,7 @@ type Instrumentation struct {
 ```
 
 The type's fields are intentionally terse and it's methods are kept unique in order to
-avoid potential conflicts when embedding
-it into a struct.
+avoid potential conflicts when embedding it into a struct.
 
 ## 5.1 - Propagation in the X Direction - Embedded Dependency Injection
 
@@ -274,7 +271,7 @@ service to access the instrumentation tools as if they were part of the configur
 itself.
 
 ```go
-package irrelivant
+package irrelevant
 
 import "github.com/synnaxlabs/alamos"
 
@@ -295,7 +292,7 @@ possible. Part of this effort involves allowing for zero-value instrumentation t
 valid as no-op instrumentation i.e. the following code is valid:
 
 ```go
-package irrelivant
+package irrelevant
 
 ins := alamos.Instrumentation{}
 
@@ -308,12 +305,12 @@ cfg.L.Debug("Hello World")
 Perhaps the most challenging part of designing this system is finding a sustainable away
 to pass instrumentation between services and layers.
 
-The previous version of `alamos` was only focused on instrumenting a layer xly, and,
-as a result, metrics and loggers were dependency injected into a particular service.
-For example, the storage engine has the following section of its config (pseudo-code):
+The previous version of `alamos` was only focused on instrumenting a layer xly, and, as
+a result, metrics and loggers were dependency injected into a particular service. For
+example, the storage engine has the following section of its config (pseudo-code):
 
 ```go
-package irrelivant
+package irrelevant
 
 import "github.com/synnaxlabs/alamos"
 
@@ -329,7 +326,7 @@ this pattern doesn't allow for tracing the path of a request through the system.
 say we wanted to add tracing to the `Set` operation on the current key-value interface:
 
 ```go
-package irrelivant
+package irrelevant
 
 type Writer interface {
     Set(key []byte, value []byte) error
@@ -340,7 +337,7 @@ The most naive way to instrument this interface is to simply pass the entire
 instrumentation struct to the function.
 
 ```go
-package irrelivant
+package irrelevant
 
 type Writer interface {
     Set(key []byte, value []byte, instrumentation *Instrumentation) error
@@ -352,24 +349,24 @@ to take an instrumentation parameter increases interface footprint dramatically,
 chains the service to a specific instrumentation implementation. Remember, we're trying
 to keep the instrumentation footprint small. The alternative is to use contexts.
 
-Contexts in go are used for two purposes: cancellation and request-scoped data.
-The former is used in virtually every area of the Synnax code base. The latter is
-controversial within the go community. On the one hand, it's useful to implicitly
-attach dynamic data to a request. On the other hand, implicit code makes it difficult
-to reason about execution. A prime example is passing a database transaction through
-a context. This reduces interface footprint, but also makes it difficult to understand
-which parts of the code base are using the transaction and which are not. As a result,
-we've generally avoided using `context.WithValue` in the Synnax codebase. It's a pattern
-for more difficult to abuse if it's not available.
+Contexts in go are used for two purposes: cancellation and request-scoped data. The
+former is used in virtually every area of the Synnax code base. The latter is
+controversial within the go community. On the one hand, it's useful to implicitly attach
+dynamic data to a request. On the other hand, implicit code makes it difficult to reason
+about execution. A prime example is passing a database transaction through a context.
+This reduces interface footprint, but also makes it difficult to understand which parts
+of the code base are using the transaction and which are not. As a result, we've
+generally avoided using `context.WithValue` in the Synnax codebase. It's a pattern for
+more difficult to abuse if it's not available.
 
 Tracing poses a particularly powerful use case for context propagation. Tracing is
-required by almost every area of the codebase. The more an implicit pattern is used
-the more explicit it becomes. This reduces the consequences of passing instrumentation
+required by almost every area of the codebase. The more an implicit pattern is used the
+more explicit it becomes. This reduces the consequences of passing instrumentation
 through a context, as it's usage will remain clear to the reader. We can modify our
 key-value interface to look like this:
 
 ```go
-package irrelivant
+package irrelevant
 
 type Writer interface {
     Set(ctx context.Context, key []byte, value []byte) error
@@ -380,7 +377,7 @@ Inside the implementation we can pull the instrumentation from the context and u
 for whatever purpose we need.
 
 ```go
-package irrelivant
+package irrelevant
 
 type writerConfig struct {
     alamos.Instrumentation
@@ -406,7 +403,7 @@ instrumentation stored in the service configuration to extend those traces. Our
 implementation now looks like this:
 
 ```go
-package irrelivant
+package irrelevant
 
 type writerConfig struct {
     alamos.Instrumentation
@@ -425,10 +422,10 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 
 This pattern allows us to develop an integrated view of X and Y instrumentation. We can
 bind traces to both request verticals and layer bound-services. The most notable method
-for doing is adding the instrumentation key to the name of the span. So, instead
-of `Set` our span would be named `writer.Set`. This allows us to evaluate the
-performance of a specific service over time, giving valuable insight into where our
-performance improvement efforts should be focused.
+for doing is adding the instrumentation key to the name of the span. So, instead of
+`Set` our span would be named `writer.Set`. This allows us to evaluate the performance
+of a specific service over time, giving valuable insight into where our performance
+improvement efforts should be focused.
 
 ## 5.3 - Application Critical Metrics
 
@@ -440,11 +437,11 @@ use a more explicit method such as the one used by CockroachDB's
 [pebble](https://pkg.go.dev/github.com/cockroachdb/pebble#Metrics), which involves
 explicitly declaring an interface or struct that a service exposes publicly.
 
-As stated previously, Alamos is intended to maintain a minimal footprint, and
-is designed to fill the traditional 'observability' role of simply collecting
-information without affecting the application's behavior. Using it to enable operational
-decisions is a slippery slope. I'm worried about gradually extending its footprint to
-the point where we indefinitely build application-wide dependencies on it.
+As stated previously, Alamos is intended to maintain a minimal footprint, and is
+designed to fill the traditional 'observability' role of simply collecting information
+without affecting the application's behavior. Using it to enable operational decisions
+is a slippery slope. I'm worried about gradually extending its footprint to the point
+where we indefinitely build application-wide dependencies on it.
 
 The alternative is to use a more explicit method of exposing metrics. For example, we
 eventually need to collect information on latency between nodes. Piggybacking on top of
@@ -458,14 +455,14 @@ and implement infrastructure for exposing metrics.
 
 Alamos would not be out of the picture entirely. It would still be considered a consumer
 of these explicit metrics, and would be responsible for exporting them to uptrace. This
-decision plays well with many of the other architectural choices we've made, such as
-the ontology.
+decision plays well with many of the other architectural choices we've made, such as the
+ontology.
 
 ## 5.4 - Distribution
 
 Propagating metrics across services and client/server boundaries is easier than I
 originally assumed. We only need to attach a trace id to the metadata of each OTN
-message. At a high level, this involves attaching a `Propage` and `Depropagate` method
+message. At a high level, this involves attaching a `Propagate` and `Depropagate` method
 to the`alamos.Tracer` type, as follows:
 
 ```go
@@ -478,8 +475,8 @@ type Tracer interface {
 }
 ```
 
-`Carrier` is a simple string key-value setter and getter that a transport must
-implement in order to propagate headers. This is trivial.
+`Carrier` is a simple string key-value setter and getter that a transport must implement
+in order to propagate headers. This is trivial.
 
 # 6 - Future Work
 

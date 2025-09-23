@@ -28,11 +28,11 @@ else
 fi
 
 echo "Checking for existing synnax processes..."
-if pgrep -f "synnax" >/dev/null 2>&1; then
+if pgrep -f "synnax" > /dev/null 2>&1; then
     echo "Found synnax processes, killing them..."
-    pkill -f "synnax" 2>/dev/null || true
+    pkill -f "synnax" 2> /dev/null || true
     sleep 2
-    pkill -9 -f "synnax" 2>/dev/null || true
+    pkill -9 -f "synnax" 2> /dev/null || true
     echo "Synnax processes killed"
 else
     echo "No synnax processes found"
