@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Optional, Tuple
-
 from test.console.console import Console
+from typing import Optional, Tuple
 
 from .schematic_symbol import SchematicSymbol
 from .setpoint import Setpoint
