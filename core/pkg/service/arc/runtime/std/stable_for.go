@@ -11,7 +11,6 @@ package std
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 
@@ -41,7 +40,7 @@ type stableFor struct {
 	base
 	duration    telem.TimeSpan
 	value       uint64
-	lastSent    uint64
+	lastSent    *uint64
 	lastChanged telem.TimeStamp
 	now         func() telem.TimeStamp
 }
@@ -51,10 +50,10 @@ func (s *stableFor) Next(ctx context.Context, val value.Value) {
 		s.value = val.Value
 		s.lastChanged = s.now()
 	}
-	if s.now()-s.lastChanged >= telem.TimeStamp(s.duration) && s.lastSent != s.value {
-		s.lastSent = s.value
+	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration && (s.lastSent == nil || *s.lastSent != s.value) {
+		v := s.value
+		s.lastSent = &v
 		val.Param = "output"
-		fmt.Println("OUTPUT")
 		s.outputHandler(ctx, val)
 	}
 }

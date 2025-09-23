@@ -62,8 +62,6 @@ func (n *operator) Next(ctx context.Context, val value.Value) {
 			Param:   "output",
 			Type:    ir.U8{},
 		}.PutUint8(result))
-		n.a = nil
-		n.b = nil
 	}
 }
 

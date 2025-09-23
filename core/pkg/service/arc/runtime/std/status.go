@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
@@ -58,6 +59,7 @@ func (s *setStatus) Next(ctx context.Context, _ value.Value) {
 	stat.Name = "OX Alarm"
 	stat.Variant = s.variant
 	stat.Message = s.message
+	stat.Time = telem.Now()
 	if err := s.cfg.Status.NewWriter(nil).Set(ctx, &stat); err != nil {
 		s.cfg.L.Error("error setting status", zap.Error(err))
 	}
