@@ -9,12 +9,13 @@
 
 import random
 import time
+from test.console.console import Console
 from test.framework.test_case import TestCase
 from typing import cast
 
 import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
-from test.console.console import Console
+
 
 class ConsoleCase(TestCase):
     """
@@ -79,7 +80,6 @@ class ConsoleCase(TestCase):
     def teardown(self) -> None:
         self.browser.close()
 
-
     def determine_browser(self) -> BrowserType:
         """
         Provide random coverage for all browsers.
@@ -95,7 +95,6 @@ class ConsoleCase(TestCase):
         browser_attr = getattr(self.playwright, selected)
         return cast(BrowserType, browser_attr)
 
-
     def create_a_channel(
         self,
         channel_name: str,
@@ -104,7 +103,6 @@ class ConsoleCase(TestCase):
         data_type: sy.CrudeDataType = sy.DataType.TIMESTAMP,
         index: str = "",
     ) -> bool:
-
         """
         Will be deprecated.
         Keeping around to remind me to check if exists in channels.py
@@ -143,4 +141,3 @@ class ConsoleCase(TestCase):
         self._log_message(f"Created channel {channel_name}")
 
         return True
-

@@ -40,3 +40,17 @@ class Setpoint(SchematicSymbol):
             applied_properties["channel"] = channel_name
 
         return applied_properties
+
+    def set_value(self, value: Any = None) -> None:
+
+        if value is None:
+            raise ValueError(f"{self.label}: Set Value cannot be None")
+
+        self._disable_edit_mode()
+        self._click_symbol()
+
+        # Fill the input and set the value
+        value_input = self.symbol.locator("input[type='number'], input").first
+        value_input.fill(str(value))
+        set_button = self.symbol.locator("button").filter(has_text="Set")
+        set_button.click()

@@ -25,7 +25,7 @@ class Create_Channel_Types(ConsoleCase):
         """
         console = self.console
         client = self.client
-    
+
         unique_id = str(uuid.uuid4())[:8]  # First 8 chars of UUID
         INDEX_NAME = f"{self.name}_{unique_id}_index_channel"
 

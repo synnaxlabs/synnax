@@ -6,10 +6,7 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/plot_abcd",
-          "parameters": {
-            "headless": false
-          }
+          "case": "console/plot_abcd"
         },
         {
           "case": "latency/abcd",
@@ -26,6 +23,18 @@
         {
           "case": "latency/abcd",
           "name": "async_d"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Bench_Latency",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "latency/bench_latency_response"
+        },
+        {
+          "case": "latency/bench_latency_report"
         }
       ]
     }

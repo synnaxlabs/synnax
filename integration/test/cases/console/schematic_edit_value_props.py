@@ -19,7 +19,6 @@ class Schematic_Edit_Value_Props(ConsoleCase):
         console = self.console
         console.schematic.new()
 
-
         self._log_message("Checking default properties of schematic value")
         value = console.schematic.create_value(f"{self.name}_uptime")
         default_props = value.get_properties()

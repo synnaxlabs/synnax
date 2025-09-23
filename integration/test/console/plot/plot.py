@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, List, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from playwright.sync_api import Page
 
@@ -44,7 +44,9 @@ class Plot(ConsolePage):
 
         # Add each channel
         for channel in channels:
-            self.console._select_from_dropdown_item(channel, "input[placeholder*='Search']")
+            self.console._select_from_dropdown_item(
+                channel, "input[placeholder*='Search']"
+            )
             self.data[axis].append(channel)
 
         self.console.ESCAPE
@@ -60,7 +62,6 @@ class Plot(ConsolePage):
                 self.data["Ranges"].append(range_value)
 
         self.console.ESCAPE
-
 
     def set_X1_axis(self, config: Dict[str, Any]) -> None:
         """Set X1 axis configuration."""
@@ -150,5 +151,7 @@ class Plot(ConsolePage):
         """Set label size button."""
         size_mapping = {"xs": "XS", "s": "S", "m": "M", "l": "L", "xl": "XL"}
         button_text = size_mapping.get(str(value).lower(), str(value).upper())
-        selector = f"label:has-text('Label Size') + div button:has-text('{button_text}')"
+        selector = (
+            f"label:has-text('Label Size') + div button:has-text('{button_text}')"
+        )
         self.page.locator(selector).click(timeout=5000)

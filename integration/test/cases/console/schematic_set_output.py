@@ -41,7 +41,9 @@ class Schematic_Set_Output(ConsoleCase):
         value_symbol = console.schematic.create_value(CHANNEL_NAME)
         value_symbol.move(200, 0)
 
-        console.schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
+        console.schematic.connect_symbols(
+            setpoint_symbol, "right", value_symbol, "left"
+        )
 
         set_p_value = 47.23
         self._log_message(f"Verifying setpoint value: {set_p_value}")

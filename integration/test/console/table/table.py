@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from playwright.sync_api import Page
 
@@ -32,7 +32,7 @@ class Table(ConsolePage):
         pass
 
     def get_row_count(self) -> int:
-        pass
-    
+        return 0
+
     def edit_cell(self, row: int, column: str, value: Any) -> None:
         pass

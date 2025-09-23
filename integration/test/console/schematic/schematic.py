@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from playwright.sync_api import Page
 
@@ -119,7 +119,12 @@ class Schematic(ConsolePage):
         if not symbol_box:
             raise RuntimeError(f"Could not get bounding box for symbol {symbol.label}")
 
-        x, y, w, h = symbol_box["x"], symbol_box["y"], symbol_box["width"], symbol_box["height"]
+        x, y, w, h = (
+            symbol_box["x"],
+            symbol_box["y"],
+            symbol_box["width"],
+            symbol_box["height"],
+        )
 
         handle_positions = {
             "left": (x, y + h / 2),
@@ -130,6 +135,8 @@ class Schematic(ConsolePage):
 
         if handle not in handle_positions:
             valid_handles = ", ".join(handle_positions.keys())
-            raise ValueError(f"Invalid handle: {handle}. Must be one of: {valid_handles}")
+            raise ValueError(
+                f"Invalid handle: {handle}. Must be one of: {valid_handles}"
+            )
 
         return handle_positions[handle]

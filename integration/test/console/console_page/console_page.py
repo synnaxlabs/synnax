@@ -10,9 +10,9 @@
 import os
 import re
 import time
-from typing import Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, cast
 
-from playwright.sync_api import Page, Locator, FloatRect
+from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 if TYPE_CHECKING:
     from ..console import Console
@@ -75,6 +75,8 @@ class ConsolePage:
             raise RuntimeError("No pane locator available for screenshot")
 
         box = self.pane_locator.bounding_box()
+        if not box:
+            raise RuntimeError("Could not get pane bounding box for screenshot")
         margin = 10
 
         clip_area = {
@@ -96,11 +98,19 @@ class ConsolePage:
     def move(self, direction: str) -> None:
         """Move the page tab to create a split pane in the specified direction."""
         valid_directions = {
-            "left", "right", "top", "bottom",
-            "top-left", "top-right", "bottom-left", "bottom-right"
+            "left",
+            "right",
+            "top",
+            "bottom",
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
         }
         if direction not in valid_directions:
-            raise ValueError(f"Invalid direction: {direction}. Must be one of: {', '.join(sorted(valid_directions))}")
+            raise ValueError(
+                f"Invalid direction: {direction}. Must be one of: {', '.join(sorted(valid_directions))}"
+            )
 
         if not self.tab_locator:
             raise RuntimeError("No tab locator available for moving")
@@ -112,11 +122,15 @@ class ConsolePage:
 
         # Calculate drop position based on viewport and direction
         viewport_size = self.page.viewport_size
+        if not viewport_size:
+            raise RuntimeError("Could not get viewport size")
         drop_x, drop_y = self._calculate_drop_position(direction, viewport_size)
 
         self._drag_tab_to_position(tab_box, drop_x, drop_y)
 
-    def _calculate_drop_position(self, direction: str, viewport_size: dict) -> tuple[float, float]:
+    def _calculate_drop_position(
+        self, direction: str, viewport_size: ViewportSize
+    ) -> tuple[float, float]:
         """Calculate the drop position based on direction and viewport."""
         width, height = viewport_size["width"], viewport_size["height"]
 
@@ -127,12 +141,19 @@ class ConsolePage:
             "left": (margin_lr, height // 2),
             "right": (width - margin_lr, height // 2),
             "top": (width // 2, margin_tb),
-            "bottom": (width // 2, height - margin_tb)
+            "bottom": (width // 2, height - margin_tb),
+            # Corner positions
+            "top-left": (margin_lr, margin_tb),
+            "top-right": (width - margin_lr, margin_tb),
+            "bottom-left": (margin_lr, height - margin_tb),
+            "bottom-right": (width - margin_lr, height - margin_tb),
         }
 
         return positions[direction]
 
-    def _drag_tab_to_position(self, tab_box: dict, drop_x: float, drop_y: float) -> None:
+    def _drag_tab_to_position(
+        self, tab_box: FloatRect, drop_x: float, drop_y: float
+    ) -> None:
         """Perform the actual drag and drop operation."""
         # Start position (center of tab)
         start_x = tab_box["x"] + tab_box["width"] / 2

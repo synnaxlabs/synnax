@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.console_case import ConsoleCase
 import time
+from test.console.console_case import ConsoleCase
+
 
 class Snap_Pages_To_Grid(ConsoleCase):
     """
@@ -17,7 +18,7 @@ class Snap_Pages_To_Grid(ConsoleCase):
 
     def run(self) -> None:
         """
-        Open and close pages in 2 ways
+        Snap pages and take a screenshot
         """
         console = self.console
 
@@ -26,9 +27,7 @@ class Snap_Pages_To_Grid(ConsoleCase):
         console.table.new()
         console.log.new()
 
-
-
         console.schematic.move("top")
         console.table.move("right")
 
-        time.sleep(5)
+        console.screenshot()
