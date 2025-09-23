@@ -68,15 +68,6 @@ class Console:
             search_input.fill(text)
             self.page.wait_for_timeout(300)
 
-        # Try exact text match first (for dialogs like channel selector)
-
-        exact_element = self.page.get_by_text(text, exact=True)
-        if exact_element.count() > 0:
-            exact_element.wait_for(state="visible", timeout=3000)
-            exact_element.scroll_into_view_if_needed()
-            exact_element.click()
-            return
-
         item_found = False
         item_selector = self.page.locator(".pluto-list__item").all()
         for item in item_selector:
