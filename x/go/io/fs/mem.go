@@ -285,7 +285,7 @@ func (f *memNode) ModTime() time.Time {
 	return f.mu.modTime
 }
 
-const standardPerm = OwnerAll | GroupReadExecute | OthersReadExecute
+const standardPerm = OwnerReadWriteExecute | GroupReadExecute | OthersReadExecute
 
 func (f *memNode) Mode() os.FileMode {
 	if f.isDir {
