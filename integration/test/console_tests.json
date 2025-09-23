@@ -5,8 +5,7 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
-          "case": "console/snap_pages_to_grid",
-          "parameters": { "headless": false }
+          "case": "console/snap_pages_to_grid"
         },
         {
           "case": "console/schematic_set_output"

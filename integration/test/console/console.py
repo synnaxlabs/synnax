@@ -13,7 +13,7 @@ from typing import Optional
 
 from playwright.sync_api import Locator, Page
 
-from .channels import Channels
+from .channels import ChannelClient
 from .console_page import ConsolePage
 from .log import Log
 from .plot import Plot
@@ -28,13 +28,13 @@ class Console:
     """
 
     console_pages: list[ConsolePage]
-    channels: Channels
+    channels: ChannelClient
 
     def __init__(self, page: Page):
 
         # Playwright
         self.page = page
-        self.channels = Channels(page, self)
+        self.channels = ChannelClient(page, self)
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)

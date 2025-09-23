@@ -23,11 +23,11 @@ class Create_Channel_Types(ConsoleCase):
         """
         Test the "create a channel" modal for all data types
         """
+        self._log_message("Running Create_Channel_Types")
         console = self.console
         client = self.client
 
-        unique_id = str(uuid.uuid4())[:8]  # First 8 chars of UUID
-        INDEX_NAME = f"{self.name}_{unique_id}_index_channel"
+        INDEX_NAME = "index_channel"
 
         data_types = [
             sy.DataType.FLOAT64,
@@ -44,23 +44,30 @@ class Create_Channel_Types(ConsoleCase):
         ]
 
         # First, create an index channel
-        console.channels.create(
+        if console.channels.create(
             name=INDEX_NAME,
             is_index=True,
-        )
+        ):
+            self._log_message(f"Created index channel: {INDEX_NAME}")
+        else:
+            self._log_message(f"Index channel already exists: {INDEX_NAME}")
+
         index_ch = self.client.channels.retrieve(INDEX_NAME)
         assert index_ch.data_type == sy.DataType.TIMESTAMP
-
+        self._log_message(f"Created index channel: {INDEX_NAME}")
         # Then, create a channel for each data type
         for data_type in data_types:
-            ch_name = f"{self.name}_{unique_id}_{str(data_type)}_ch"
-            console.channels.create(
+            ch_name = f"{str(data_type)}_ch"
+            if console.channels.create(
                 name=ch_name,
                 data_type=data_type,
                 is_index=False,
                 index=INDEX_NAME,
-            )
-            self._log_message(f"Created channel: {ch_name}")
-            time.sleep(0.2)
+            ):
+                self._log_message(f"Created channel: {ch_name}")
+            else:
+                self._log_message(f"Channel already exists: {ch_name}")
+
+            time.sleep(1)
             ch = client.channels.retrieve(ch_name)
             assert data_type == ch.data_type

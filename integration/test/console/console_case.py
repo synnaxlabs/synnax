@@ -20,8 +20,6 @@ from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
-
-    SY-2965: Break this out to Console & ConsoleCase
     """
 
     browser: Browser
@@ -94,50 +92,3 @@ class ConsoleCase(TestCase):
         self._log_message(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)
         return cast(BrowserType, browser_attr)
-
-    def create_a_channel(
-        self,
-        channel_name: str,
-        virtual: bool = False,
-        is_index: bool = False,
-        data_type: sy.CrudeDataType = sy.DataType.TIMESTAMP,
-        index: str = "",
-    ) -> bool:
-        """
-        Will be deprecated.
-        Keeping around to remind me to check if exists in channels.py
-        """
-
-        try:
-            self.client.channels.retrieve(channel_name)
-            self._log_message(f'Channel "{channel_name}" already exists')
-            return False
-        except sy.NotFoundError:
-            self._log_message(f"Creating channel: {channel_name}")
-
-        if is_index == False and index == "":
-            raise ValueError("Index must be provided if is_index is False")
-
-        self.console.command_palette("Create a Channel")
-
-        name_input = self.page.locator("text=Name").locator("..").locator("input").first
-        name_input.fill(channel_name)
-        if virtual:
-            self.page.get_by_text("Virtual").click()
-        if is_index:
-            is_index_toggle = (
-                self.page.locator("text=Is Index")
-                .locator("..")
-                .locator("input[type='checkbox']")
-                .first
-            )
-            is_index_toggle.click()
-        else:
-            data_type_str = str(sy.DataType(data_type))
-            self.console._select_from_dropdown("Data Type", data_type_str)
-            self.console._select_from_dropdown("Index", index)
-
-        self.page.get_by_role("button", name="Create", exact=True).click()
-        self._log_message(f"Created channel {channel_name}")
-
-        return True
