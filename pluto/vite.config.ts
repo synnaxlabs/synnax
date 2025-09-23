@@ -68,5 +68,6 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["src/mock/setuptests.ts"],
+    fileParallelism: false,
   },
 });
