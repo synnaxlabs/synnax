@@ -10,9 +10,9 @@
 import os
 import re
 import time
-from typing import Any, Dict, List, Optional, Union, cast, TYPE_CHECKING
+from typing import Dict, Optional, cast, TYPE_CHECKING
 
-from playwright.sync_api import Page, Locator
+from playwright.sync_api import Page, Locator, FloatRect
 
 if TYPE_CHECKING:
     from ..console import Console
@@ -65,22 +65,18 @@ class ConsolePage:
         self._dblclick_canvas()
         return self.id or ""
 
-    def save_screenshot_NEEDS_WORK(self, path: Optional[str] = None) -> None:
+    def screenshot(self, path: Optional[str] = None) -> None:
         """Save a screenshot of the pane area with margin."""
         if path is None:
             os.makedirs("test/results", exist_ok=True)
             path = f"test/results/{self.id}.png"
 
+        if not self.pane_locator:
+            raise RuntimeError("No pane locator available for screenshot")
+
         box = self.pane_locator.bounding_box()
-
-        if box:
-            self._save_with_clip_NEEDS_WORK(path, box)
-        else:
-            self._save_element_screenshot(path, self.pane_locator)
-
-    def _save_with_clip_NEEDS_WORK(self, path: str, box: Dict[str, float]) -> None:
-        """Save screenshot with custom clipping area."""
         margin = 10
+
         clip_area = {
             "x": max(0, box["x"] - margin),
             "y": max(0, box["y"] - margin),
@@ -91,15 +87,6 @@ class ConsolePage:
         self.page.screenshot(
             path=path,
             clip=cast(FloatRect, clip_area),
-            animations="disabled",
-            omit_background=False,
-            type="png",
-            scale="device",
-        )
-    def _save_element_screenshot_NEEDS_WORK(self, path: str, locator: Any) -> None:
-        """Save element screenshot as fallback."""
-        locator.screenshot(
-            path=path,
             animations="disabled",
             omit_background=False,
             type="png",

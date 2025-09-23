@@ -79,3 +79,5 @@ class Schematic_Edit_Value_Props(ConsoleCase):
         assert (
             actual_non_default_props == non_default_props
         ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
+
+        console.schematic.screenshot()

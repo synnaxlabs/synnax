@@ -103,7 +103,6 @@ class Console:
         ).first
         page_id = page_tab.inner_text().strip()
 
-
         # If page name provided, rename the page
         if page_name is not None:
             page_tab.dblclick()
@@ -125,15 +124,3 @@ class Console:
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
-
-    def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
-        """
-        This differs from console.create_page in that it uses the manual
-        New Page (+) button instead of the command palette.
-        """
-        self.page.locator(".pluto-icon--add").first.click()  # (+)
-        self.page.get_by_role("button", name=page_name).first.click()
-        # Apply inputs
-        for i in inputs_items:
-            self.page.get_by_role("textbox", name="Name").fill(i)
-            self.page.get_by_role("textbox", name="Name").press("ControlOrMeta+Enter")

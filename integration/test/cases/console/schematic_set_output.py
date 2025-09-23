@@ -60,3 +60,5 @@ class Schematic_Set_Output(ConsoleCase):
         assert (
             actual_value == set_p_value
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
+
+        console.schematic.screenshot()

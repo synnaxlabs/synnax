@@ -60,9 +60,9 @@ class Tabs_Open_Close(ConsoleCase):
             "OPC UA Write Task",
         ]
 
-        console.open_page("Control", ["Control Sequence"])
+        self.open_page("Control", ["Control Sequence"])
         for p in pages:
-            console.open_page(p)
+            self.open_page(p)
 
         console.close_page("Control Sequence")
         for p in pages:
@@ -78,11 +78,10 @@ class Tabs_Open_Close(ConsoleCase):
                 "FAILED: Pages still be open - 'New Component' screen not visible"
             )
 
-    # KEEP THIS HERE
     def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
         """
-        This differs from create_page in that it uses the manual
-        New Page (+) button instead of the command palette.
+        This differs from console.create_page in that it uses the 
+        manual New Page (+) button instead of the command palette.
         """
 
         self.page.locator(".pluto-icon--add").first.click()  # (+)

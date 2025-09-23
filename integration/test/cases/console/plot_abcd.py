@@ -61,4 +61,4 @@ class Plot_Abcd(ConsoleCase):
                 "Tick Spacing": 100,
             }
         )
-        console.plot.save_screenshot()
+        console.plot.screenshot()

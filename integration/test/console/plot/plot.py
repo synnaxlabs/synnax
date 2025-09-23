@@ -7,10 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-from typing import Any, Dict, List, Optional, Union, cast, TYPE_CHECKING
+from typing import Any, Dict, List, Union, TYPE_CHECKING
 
-from playwright.sync_api import FloatRect, Page
+from playwright.sync_api import Page
 
 from ..console_page import ConsolePage
 
@@ -62,48 +61,6 @@ class Plot(ConsolePage):
 
         self.console.ESCAPE
 
-    def save_screenshot(self, path: Optional[str] = None) -> None:
-        """Save a screenshot of the plot area with margin."""
-        if path is None:
-            os.makedirs("test/results", exist_ok=True)
-            path = f"test/results/{self.id}.png"
-
-        plot_locator = self.page.locator(".pluto-line-plot")
-        box = plot_locator.bounding_box()
-
-        if box:
-            self._save_with_clip(path, box)
-        else:
-            self._save_element_screenshot(path, plot_locator)
-
-    def _save_with_clip(self, path: str, box: Dict[str, float]) -> None:
-        """Save screenshot with custom clipping area."""
-        margin = 10
-        clip_area = {
-            "x": max(0, box["x"] - margin),
-            "y": max(0, box["y"] - margin),
-            "width": box["width"] + 2 * margin,
-            "height": box["height"] + 2 * margin,
-        }
-
-        self.page.screenshot(
-            path=path,
-            clip=cast(FloatRect, clip_area),
-            animations="disabled",
-            omit_background=False,
-            type="png",
-            scale="device",
-        )
-
-    def _save_element_screenshot(self, path: str, locator: Any) -> None:
-        """Save element screenshot as fallback."""
-        locator.screenshot(
-            path=path,
-            animations="disabled",
-            omit_background=False,
-            type="png",
-            scale="device",
-        )
 
     def set_X1_axis(self, config: Dict[str, Any]) -> None:
         """Set X1 axis configuration."""
