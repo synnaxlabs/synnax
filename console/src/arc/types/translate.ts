@@ -15,7 +15,7 @@ import { type GraphState } from "@/arc/types";
 export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
   nodes: module.nodes.map((n) => ({
     key: n.key,
-    position: (n.config.position as xy.XY) ?? xy.ZERO,
+    position: n.position,
     selected: false,
     zIndex: 1,
   })),
@@ -31,7 +31,7 @@ export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
     selected: false,
   })),
   props: Object.fromEntries(
-    module.nodes.map((n) => [n.key, { key: n.key, ...n.config }]),
+    module.nodes.map((n) => [n.key, { key: n.type, ...n.config }]),
   ),
   viewport: {
     position: xy.ZERO,

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers } from "@synnaxlabs/pluto";
 import { type xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
+
+import { Triggers } from "@/triggers";
 
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 

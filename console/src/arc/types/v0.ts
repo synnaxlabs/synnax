@@ -17,13 +17,11 @@ export const TYPE = "arc";
 export type Type = typeof TYPE;
 
 export type NodeProps = object & {
-  type: string;
   key: string;
 };
 
 export const nodePropsZ = z.looseObject({
   key: z.string(),
-  type: z.string(),
 });
 
 const graphStateZ = z.object({

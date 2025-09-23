@@ -11,6 +11,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
+import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
@@ -66,6 +67,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
+  [Arc.FLUX_STORE_KEY]: Arc.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
@@ -81,6 +83,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
   [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
+  [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({

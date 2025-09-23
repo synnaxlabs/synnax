@@ -18,6 +18,15 @@ export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
 export const FLUX_STORE_KEY = "arcs";
 
+export interface FluxSubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
+}
+
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc.Arc> =
+  {
+    listeners: [],
+  };
+
 export interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
@@ -85,7 +94,7 @@ export const formSchema = arc.newZ.extend({
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   graph: { nodes: [], edges: [] },
-  text: { contents: "" },
+  text: { raw: "" },
 };
 
 export const useForm = Flux.createForm<

@@ -81,7 +81,6 @@ const StageRenderer = ({
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
   const key = props?.key ?? "";
-  const type = props?.type ?? "";
   const handleChange = useCallback(
     (props: object) => {
       if (key == null) return;
@@ -89,18 +88,18 @@ const StageRenderer = ({
         setElementProps({
           layoutKey,
           key: symbolKey,
-          props: { key, type, ...props },
+          props: { key, ...props },
         }),
       );
     },
-    [symbolKey, layoutKey, key, type, dispatch],
+    [symbolKey, layoutKey, key, key, dispatch],
   );
 
   if (props == null) return null;
 
-  const C = Core.Stage.REGISTRY[type];
+  const C = Core.Stage.REGISTRY[key];
 
-  if (C == null) throw new Error(`Symbol ${type} not found`);
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
   // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;
@@ -366,7 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 key: arc.key,
                 name,
                 graph: translateGraphToServer(arc.graph),
-                text: { contents: "" },
+                text: { raw: "" },
               });
             }}
           >
