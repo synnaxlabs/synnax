@@ -125,7 +125,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			t1 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
 			t2 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
-			Expect(t2 - t1).To(Equal(uint32(1)))
+			Expect(t2 - t1).To(BeEquivalentTo(1))
 		})
 
 		It("Should return sequential keys even when racing", func() {
@@ -150,7 +150,7 @@ var _ = Describe("Rack", Ordered, func() {
 				if i == 0 {
 					continue
 				}
-				Expect(keys[i] - keys[i-1]).To(Equal(uint32(1)))
+				Expect(keys[i] - keys[i-1]).To(BeEquivalentTo(1))
 			}
 
 		})
