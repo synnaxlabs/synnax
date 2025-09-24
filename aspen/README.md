@@ -14,12 +14,12 @@
 
 Aspen is a go-embedded, eventually consistent, heavily read optimized, distributed
 key-value store. It uses a distributed counter and two gossip models (SI, SIR) to
-establish cluster topology and propagate writes. Aspen has no opinion on which
-key-value engine to use, and can be configured to use any store that implements
-the `KV` interface.
+establish cluster topology and propagate writes. Aspen has no opinion on which key-value
+engine to use, and can be configured to use any store that implements the `KV`
+interface.
 
-By default, Aspen uses CockroachDB's [pebble](https://github.com/cockroachdb/pebble)
-as its key-value store and [gRPC](https://grpc.io/) for communication between nodes.
+By default, Aspen uses CockroachDB's [pebble](https://github.com/cockroachdb/pebble) as
+its key-value store and [gRPC](https://grpc.io/) for communication between nodes.
 
 Aspen implements an observable which can be used to subscribe to changes in the
 database. This is useful for building applications that need to react to new or modified
@@ -34,15 +34,16 @@ synchronizing changes when it rejoins the cluster.
 - Aspen is in active development and is not yet ready for production use. The key-value
   API is stable, but the cluster API will likely change.
 
-- Aspen maintains an entire copy of the key-value store on each node in the cluster. This
-  results in excellent read performance, but also means total storage requirements scale
-  linearly with cluster size.
+- Aspen maintains an entire copy of the key-value store on each node in the cluster.
+  This results in excellent read performance, but also means total storage requirements
+  scale linearly with cluster size.
 
-- Aspen is eventually consistent, meaning that reads may be stale for some period of time.
+- Aspen is eventually consistent, meaning that reads may be stale for some period of
+  time.
 
-- The gossip protocol lacks three essential features: failure detection, failure recovery,
-  and efficient propagation guarantees. These are features that are currently in active
-  development.
+- The gossip protocol lacks three essential features: failure detection, failure
+  recovery, and efficient propagation guarantees. These are features that are currently
+  in active development.
 
 - While multi-node writes batched writes are supported, they are not yet transactional.
   Single node batch writes are transactional (if the underlying key-value store supports

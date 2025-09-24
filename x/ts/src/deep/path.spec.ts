@@ -124,7 +124,10 @@ describe("path utilities", () => {
         { key: "item1", value: 1 },
         { key: "item2", value: 2 },
       ];
-      expect(deep.defaultGetter(arr as any, "item2")).toEqual({ key: "item2", value: 2 });
+      expect(deep.defaultGetter(arr as any, "item2")).toEqual({
+        key: "item2",
+        value: 2,
+      });
     });
 
     it("should return undefined for non-existent key", () => {

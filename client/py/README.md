@@ -7,8 +7,8 @@
 # Synnax Python Client and CLI
 
 This directory contains the source code for the Synnax Python client library. For
-practical guides on using it to communicate with a cluster, see the [Synnax
-documentation](https://docs.synnaxlabs.com/).
+practical guides on using it to communicate with a cluster, see the
+[Synnax documentation](https://docs.synnaxlabs.com/).
 
 For code examples, see the [examples directory](examples/).
 

@@ -16,6 +16,9 @@ import { type bounds } from "@/spatial";
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";
 
+const SIMPLE_DAYS_IN_YEAR = 365;
+const SIMPLE_DAYS_IN_MONTH = 30;
+
 /** Different string formats for time stamps. */
 export type TimeStampStringFormat =
   | "ISO"
@@ -27,6 +30,9 @@ export type TimeStampStringFormat =
   | "preciseDate"
   | "shortDate"
   | "dateTime";
+
+/** Different string formats for time spans. */
+export type TimeSpanStringFormat = "full" | "semantic";
 
 const dateComponentsZ = z.union([
   z.tuple([z.int()]),
@@ -154,34 +160,6 @@ export class TimeStamp
       BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
       tzInfo,
     ).valueOf();
-  }
-
-  /**
-   * Formats the TimeStamp as a string in the specified format.
-   *
-   * @param format - The format to use for the string representation.
-   * @param tzInfo - The timezone to use when creating the string representation.
-   * @returns A string representation of the TimeStamp in the specified format.
-   */
-  fString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
-    switch (format) {
-      case "ISODate":
-        return this.toISOString(tzInfo).slice(0, 10);
-      case "ISOTime":
-        return this.toISOString(tzInfo).slice(11, 23);
-      case "time":
-        return this.timeString(false, tzInfo);
-      case "preciseTime":
-        return this.timeString(true, tzInfo);
-      case "date":
-        return this.dateString();
-      case "preciseDate":
-        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
-      case "dateTime":
-        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
-      default:
-        return this.toISOString(tzInfo);
-    }
   }
 
   private toISOString(tzInfo: TZInfo = "UTC"): string {
@@ -522,9 +500,32 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the time stamp formatted as an ISO string. */
-  toString(): string {
-    return this.date().toISOString();
+  /**
+   * Returns a string representation of the TimeStamp.
+   *
+   * @param format - Optional format for the string representation. Defaults to "ISO".
+   * @param tzInfo - Optional timezone info. Defaults to "UTC".
+   * @returns A string representation of the TimeStamp.
+   */
+  toString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
+    switch (format) {
+      case "ISODate":
+        return this.toISOString(tzInfo).slice(0, 10);
+      case "ISOTime":
+        return this.toISOString(tzInfo).slice(11, 23);
+      case "time":
+        return this.timeString(false, tzInfo);
+      case "preciseTime":
+        return this.timeString(true, tzInfo);
+      case "date":
+        return this.dateString();
+      case "preciseDate":
+        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
+      case "dateTime":
+        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
+      default:
+        return this.toISOString(tzInfo);
+    }
   }
 
   /**
@@ -805,9 +806,15 @@ export class TimeSpan
   /**
    * Returns a string representation of the TimeSpan.
    *
+   * @param format - Optional format for the string representation. Defaults to "full".
+   *   - "full": Shows all non-zero units with full precision (e.g., "2d 3h 45m 12s 500ms")
+   *   - "semantic": Shows 1-2 most significant units (e.g., "2d 3h")
    * @returns A string representation of the TimeSpan.
    */
-  toString(): string {
+  toString(format: TimeSpanStringFormat = "full"): string {
+    if (format === "semantic") return this.toSemanticString();
+
+    // Default "full" format
     const totalDays = this.truncate(TimeSpan.DAY);
     const totalHours = this.truncate(TimeSpan.HOUR);
     const totalMinutes = this.truncate(TimeSpan.MINUTE);
@@ -832,6 +839,107 @@ export class TimeSpan
     if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
     if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
     return str.trim();
+  }
+
+  private toSemanticString(): string {
+    const absValue = this.valueOf() < 0n ? -this.valueOf() : this.valueOf();
+    const span = new TimeSpan(absValue);
+    const isNegative = this.valueOf() < 0n;
+
+    if (span.valueOf() === 0n) return "0s";
+
+    if (span.lessThan(TimeSpan.SECOND)) return "< 1s";
+
+    const totalDays = span.days;
+    const totalHours = span.hours;
+    const totalMinutes = span.minutes;
+    const totalSeconds = span.seconds;
+
+    const years = Math.floor(totalDays / SIMPLE_DAYS_IN_YEAR);
+    const months = Math.floor(totalDays / SIMPLE_DAYS_IN_MONTH);
+    const weeks = Math.floor(totalDays / 7);
+    const days = Math.floor(totalDays);
+    const hours = Math.floor(totalHours);
+    const minutes = Math.floor(totalMinutes);
+    const seconds = Math.floor(totalSeconds);
+
+    const prefix = isNegative ? "-" : "";
+
+    if (years >= 1) {
+      let result = `${years}y`;
+      if (years < 2) {
+        const remainingMonths = Math.floor(
+          (totalDays % SIMPLE_DAYS_IN_YEAR) / SIMPLE_DAYS_IN_MONTH,
+        );
+        if (remainingMonths > 0) result += ` ${remainingMonths}mo`;
+      }
+      return prefix + result;
+    }
+
+    // For durations less than 1 month (30 days), prefer weeks if it's exactly divisible
+    if (weeks >= 1 && totalDays < SIMPLE_DAYS_IN_MONTH && totalDays % 7 === 0) {
+      let result = `${weeks}w`;
+      const remainingDays = Math.floor(totalDays % 7);
+      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
+
+      if (weeks < 2)
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
+          // Only hours remaining after full weeks (e.g., "1w 1h")
+          result += ` ${remainingHoursAfterWeeks}h`;
+
+      return prefix + result;
+    }
+
+    if (months >= 1) {
+      let result = `${months}mo`;
+      if (months < 3) {
+        const remainingDays = Math.floor(totalDays % SIMPLE_DAYS_IN_MONTH);
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+      }
+      return prefix + result;
+    }
+
+    if (weeks >= 1) {
+      let result = `${weeks}w`;
+      const remainingDays = Math.floor(totalDays % 7);
+      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
+
+      if (weeks < 2)
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
+          // Only hours remaining after full weeks (e.g., "1w 1h")
+          result += ` ${remainingHoursAfterWeeks}h`;
+
+      return prefix + result;
+    }
+
+    if (days >= 1) {
+      let result = `${days}d`;
+      const remainingHours = Math.floor(totalHours - days * 24);
+      if (days < 2 && remainingHours > 0) result += ` ${remainingHours}h`;
+      return prefix + result;
+    }
+
+    if (hours >= 1) {
+      let result = `${hours}h`;
+      if (hours < 3) {
+        const remainingMinutes = Math.floor(totalMinutes - hours * 60);
+        if (remainingMinutes > 0) result += ` ${remainingMinutes}m`;
+      }
+      return prefix + result;
+    }
+
+    if (minutes >= 1) {
+      let result = `${minutes}m`;
+      if (minutes < 5) {
+        const remainingSeconds = Math.floor(totalSeconds - minutes * 60);
+        if (remainingSeconds > 0) result += ` ${remainingSeconds}s`;
+      }
+      return prefix + result;
+    }
+
+    return `${prefix}${seconds}s`;
   }
 
   /**
@@ -1406,7 +1514,7 @@ export class TimeRange implements primitive.Stringer {
    * @returns A pretty string representation of the TimeRange.
    */
   toPrettyString(): string {
-    return `${this.start.fString("preciseDate")} - ${this.span.toString()}`;
+    return `${this.start.toString("preciseDate")} - ${this.span.toString()}`;
   }
 
   /**
