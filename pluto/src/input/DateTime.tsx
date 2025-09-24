@@ -26,6 +26,7 @@ import { type Control } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Select } from "@/select";
+import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -59,7 +60,7 @@ export const DateTime = ({
     nextTS = applyTimezoneOffset(nextTS);
     let ok = false;
     try {
-      const str = nextTS.fString("ISO", "local");
+      const str = nextTS.toString("ISO", "local");
       ok = str.slice(0, -1) === nextStr;
     } catch (e) {
       console.error(e);
@@ -81,7 +82,7 @@ export const DateTime = ({
   };
 
   const tsValue = new TimeStamp(value, "UTC");
-  const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
+  const parsedValue = tsValue.toString("ISO", "local").slice(0, -1);
 
   const [visible, setVisible] = useState(false);
 
@@ -131,9 +132,9 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
           <Flex.Box x className={CSS.B("header")}>
-            <Text.DateTime level="h3" format="preciseDate">
+            <TelemText.TimeStamp level="h3" format="preciseDate">
               {value}
-            </Text.DateTime>
+            </TelemText.TimeStamp>
           </Flex.Box>
           <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
             <Icon.Close />
@@ -200,7 +201,7 @@ const AISelector = ({
         const nextTS = applyTimezoneOffset(new TimeStamp(d.start, "UTC"));
         return {
           key: d.start,
-          name: nextTS.fString("preciseDate", "local"),
+          name: nextTS.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(nextTS);
             close();
@@ -221,7 +222,7 @@ const AISelector = ({
         const next = applyTimezoneOffset(pValue.add(span));
         return {
           key: next.valueOf().toString(),
-          name: next.fString("preciseDate", "local"),
+          name: next.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(next);
             close();
