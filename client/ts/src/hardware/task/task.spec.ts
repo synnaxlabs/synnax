@@ -289,7 +289,11 @@ describe("Task", async () => {
         type: "ni",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      const key = await client.hardware.tasks.executeCommand(t.key, type, args);
+      const key = await client.hardware.tasks.executeCommand({
+        task: t.key,
+        type,
+        args,
+      });
       await expect
         .poll<Promise<task.Command>>(async () => {
           const fr = await streamer.read();
@@ -305,7 +309,9 @@ describe("Task", async () => {
         config: {},
         type: "ni",
       });
-      await expect(t.executeCommandSync({type: "test", timeout: 0})).rejects.toThrow("timed out");
+      await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
+        "timed out",
+      );
     });
   });
 });

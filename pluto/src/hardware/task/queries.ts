@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type Optional, TimeSpan } from "@synnaxlabs/x";
+import { array, type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -419,7 +419,7 @@ const COMMAND_VERBS: Flux.Verbs = {
 export const { useUpdate: useCommand } = Flux.createUpdate<
   CommandParams,
   FluxSubStore,
-  task.Status[]
+  task.Status<z.ZodUnknown>[]
 >({
   name: PLURAL_RESOURCE_NAME,
   verbs: COMMAND_VERBS,
@@ -440,9 +440,9 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
       const t = store.tasks.get(task);
       return t?.status == null || shouldExecuteCommand(t.status, type);
     });
-    return await client.hardware.tasks.executeCommandSync(
-      filteredCommands,
-      TimeSpan.seconds(10),
-    );
+    return await client.hardware.tasks.executeCommandSync<z.ZodUnknown>({
+      commands: filteredCommands,
+      statusDataZ: z.unknown(),
+    });
   },
 });

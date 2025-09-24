@@ -101,7 +101,7 @@ export const successResult = <Data extends state.State>(
   variant: "success",
   status: status.create<undefined, "success">({
     variant: "success",
-    message: `Successfully ${caseconv.capitalize(op)}`,
+    message: `Successfully ${op}`,
   }),
   data,
 });

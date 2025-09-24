@@ -56,10 +56,10 @@ describe("result", () => {
         value: 42,
       };
 
-      const result = successResult<TestState>("fetch user", testData);
+      const result = successResult<TestState>("fetched user", testData);
 
       expect(result.variant).toBe("success");
-      expect(result.status.message).toBe("Fetch user");
+      expect(result.status.message).toBe("Successfully fetched user");
       expect(result.data).toEqual(testData);
     });
 
@@ -85,9 +85,9 @@ describe("result", () => {
         value: 0,
       };
 
-      const result = successResult<TestState>("update item", testData);
+      const result = successResult<TestState>("updated item", testData);
 
-      expect(result.status.message).toBe("Update item");
+      expect(result.status.message).toBe("Successfully updated item");
     });
   });
 

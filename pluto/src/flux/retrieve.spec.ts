@@ -43,7 +43,9 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.status.message).toEqual("Retrieved Resource");
+          expect(result.current.status.message).toEqual(
+            "Successfully retrieved Resource",
+          );
         });
       });
 
