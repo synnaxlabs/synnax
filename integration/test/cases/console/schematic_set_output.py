@@ -24,11 +24,11 @@ class Schematic_Set_Output(ConsoleCase):
         CHANNEL_NAME = "command_channel"
         INDEX_NAME = "index_channel"
 
-        self.create_a_channel(
+        console.channels.create(
             INDEX_NAME,
             is_index=True,
         )
-        self.create_a_channel(
+        console.channels.create(
             CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,

@@ -10,9 +10,12 @@
 from typing import TYPE_CHECKING, overload
 
 import synnax as sy
+import time
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
+    ChannelNames,
+    normalize_channel_params,
 )
 from synnax.telem import (
     CrudeDataType,
@@ -69,7 +72,7 @@ class ChannelClient:
 
     def create(
         self,
-        channels: sy.Channel | list[sy.Channel] | None = None,
+        channels: sy.Channel | list[sy.Channel] | ChannelName | None = None,
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
         name: ChannelName = "",
@@ -106,23 +109,37 @@ class ChannelClient:
             _is_index = channels.is_index
             _index = channels.index
             _virtual = channels.virtual
+        elif isinstance(channels, str):
+            # Create from channel name string
+            _name = channels
+            _data_type = data_type
+            _is_index = is_index
+            _index = index
+            _virtual = virtual
         else:
-            # Overload 3: Create from list of Channel objects
+            # Overload 3: Create from list of Channel objects or strings
             # For simplicity, create the first channel in the list
             if len(channels) > 0:
                 first_channel = channels[0]
-                _name = first_channel.name
-                _data_type = first_channel.data_type
-                _is_index = first_channel.is_index
-                _index = first_channel.index
-                _virtual = first_channel.virtual
+                if isinstance(first_channel, str):
+                    _name = first_channel
+                    _data_type = data_type
+                    _is_index = is_index
+                    _index = index
+                    _virtual = virtual
+                else:
+                    _name = first_channel.name
+                    _data_type = first_channel.data_type
+                    _is_index = first_channel.is_index
+                    _index = first_channel.index
+                    _virtual = first_channel.virtual
             else:
                 # No channels to create
                 return True
 
         if self.existing_channel(_name):
             return False
-    
+        self.hide_resources()
         # Open command palette and create channel
         self.console.command_palette("Create a Channel")
 
@@ -156,18 +173,149 @@ class ChannelClient:
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
-    
+        time.sleep(0.1)
         return True
 
     def existing_channel(self, name: ChannelName) -> bool:
         """Checks if a channel with the given name exists"""
+        channels = self.list_all()
+        if name in channels:
+            return True
+        else:
+            return False
+
+    @overload
+    def rename(self, name: ChannelName, new_name: ChannelName) -> bool:
+        """Renames a single channel.
+
+        :param name: The name of the channel to rename.
+        :param new_name: The new name for the channel.
+        :returns: True if successful, False otherwise.
+        """
+        ...
+
+    @overload
+    def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
+        """Renames multiple channels.
+
+        :param names: The names of the channels to rename.
+        :param new_names: The new names for the channels.
+        :returns: True if successful, False otherwise.
+        """
+        ...
+
+    def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
+        """Renames one or more channels via console UI.
+
+        :param names: The name(s) of the channel(s) to rename.
+        :param new_names: The new name(s) for the channel(s).
+        :returns: True if successful, False otherwise.
+        """
+        try:
+            # Normalize inputs to lists
+            normalized_names = normalize_channel_params(names)
+            normalized_new_names = normalize_channel_params(new_names)
+
+            # Ensure we have the same number of names and new names
+            if len(normalized_names.channels) != len(normalized_new_names.channels):
+                return False
+
+            # Rename each channel via console UI
+            for old_name, new_name in zip(normalized_names.channels, normalized_new_names.channels):
+                self._rename_single_channel(str(old_name), str(new_name))
+
+            return True
+        except Exception:
+            return False
+
+    def _rename_single_channel(self, old_name: str, new_name: str) -> None:
+        """Renames a single channel via console UI."""
         self.show_channels()
-        exists = False
+
+        if not self.existing_channel(old_name):
+            raise ValueError(f"Channel {old_name} does not exist")
+        if self.existing_channel(new_name):
+            raise ValueError(f"Channel {new_name} already exists")
+
+        # Find the channel in the list and right-click it
+        for item in self.channels_list.all():
+            if item.is_visible():
+                text = item.inner_text().strip()
+                if text == old_name:
+                    # Right click option
+                    item.click(button="right")
+                    rename_option = self.page.get_by_text("Rename", exact=True).first
+                    rename_option.click()
+                    # Double click to edit the name directly
+                    item.dblclick()
+                    self.page.keyboard.type(new_name)
+                    self.page.keyboard.press("Enter")
+                    time.sleep(0.1)
+                    break
+
+    @overload
+    def delete(self, name: ChannelName) -> None:
+        """Deletes a single channel.
+
+        :param name: The name of the channel to delete.
+        :returns: None.
+        """
+        ...
+
+    @overload
+    def delete(self, names: ChannelNames) -> None:
+        """Deletes multiple channels.
+
+        :param names: The names of the channels to delete.
+        :returns: None.
+        """
+        ...
+
+    def delete(self, names: ChannelNames) -> None:
+        """Deletes one or more channels via console UI.
+
+        :param names: The name(s) of the channel(s) to delete.
+        :returns: None.
+        """
+        # Normalize inputs to lists
+        normalized_names = normalize_channel_params(names)
+
+        # Ensure we have the same number of names and new names
+        if len(normalized_names.channels) != len(normalized_names.channels):
+            raise ValueError("Number of names and new names must be equal")
+
+        # Delete each channel via console UI
+        for name in normalized_names.channels:
+            self._delete_single_channel(str(name))
+
+    def _delete_single_channel(self, name: str) -> None:
+        """Deletes a single channel via console UI."""
+        self.show_channels()
+
+        if not self.existing_channel(name):
+            raise ValueError(f"Channel {name} does not exist")  
+
+        # Find the channel in the list and right-click it
         for item in self.channels_list.all():
             if item.is_visible():
                 text = item.inner_text().strip()
                 if text == name:
-                    exists = True
+
+                    # Right click option
+                    item.click(button="right")
+                    delete_option = self.page.locator("text=Delete").first
+                    delete_option.click()
+
+                    # Delete Modal button
+                    self.page.get_by_role("button", name="Delete", exact=True).click()
+                    time.sleep(0.1)
                     break
-        self.hide_resources()
-        return exists
+
+    def list_all(self) -> list[ChannelName]:
+        """Lists all channels via console UI."""
+        self.show_channels()
+        channels = list[ChannelName]()
+        for item in self.channels_list.all():
+            if item.is_visible():
+                channels.append(item.inner_text().strip())
+        return channels

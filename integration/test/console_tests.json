@@ -5,6 +5,12 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
+          "case": "console/channel_lifecycle",
+          "parameters": {
+            "headless": false
+          }
+        },
+        {
           "case": "console/snap_pages_to_grid"
         },
         {
@@ -12,9 +18,6 @@
         },
         {
           "case": "console/schematic_edit_value_props"
-        },
-        {
-          "case": "console/create_channel_types"
         },
         {
           "case": "console/tabs_open_close"
