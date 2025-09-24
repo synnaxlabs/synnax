@@ -21,7 +21,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
-import { type state } from "@/state";
+import { state } from "@/state";
 import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
@@ -31,7 +31,11 @@ import { Synnax } from "@/synnax";
  * @template UpdateParams The type of parameters for the update operation
  * @template Input The type of data being updated
  */
-export interface UpdateParams<Input extends core.Shape, Store extends core.Store> {
+export interface UpdateParams<
+  Input extends core.Shape,
+  Store extends core.Store,
+  StatusData = undefined,
+> {
   /** The data to be updated */
   data: Input;
   /** The Synnax client instance for making requests */
@@ -40,6 +44,8 @@ export interface UpdateParams<Input extends core.Shape, Store extends core.Store
   store: Store;
   /** Set of rollback functions to execute if the update fails */
   rollbacks: Set<Destructor>;
+  /** Set the status of the update */
+  setStatus: (setter: state.SetArg<status.Status<StatusData>>) => void;
 }
 
 /**
@@ -48,17 +54,20 @@ export interface UpdateParams<Input extends core.Shape, Store extends core.Store
  * @template UpdateParams The type of parameters for the update operation
  * @template Input The type of data being updated
  */
-export interface CreateUpdateParams<
+export type CreateUpdateParams<
   Input extends core.Shape,
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
-> {
+  StatusData = undefined,
+> = {
   /** The name of the resource being updated (used for status messages) */
   name: string;
   verbs: core.Verbs;
   /** Function that performs the actual update operation */
-  update: (params: UpdateParams<Input, ScopedStore>) => Promise<Output | false>;
-}
+  update: (
+    params: UpdateParams<Input, ScopedStore, StatusData>,
+  ) => Promise<Output | false>;
+} & (StatusData extends undefined ? {} : { statusData: StatusData });
 
 /**
  * Return type for the observable update hook.
@@ -82,10 +91,11 @@ export interface UseObservableUpdateReturn<Input extends core.Shape> {
 export interface UseObservableUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
+  StatusData = undefined,
 > {
   debounce?: number;
   /** Callback function to handle state changes */
-  onChange: state.Setter<Result<Input | undefined>>;
+  onChange: state.Setter<Result<Input | undefined, StatusData>>;
   /** The scope to use for the update operation */
   scope?: string;
   /** Function to run before the update operation. If the function returns undefined,
@@ -97,6 +107,7 @@ export interface UseObservableUpdateParams<
   afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
   /** Function to run after the update operation fails. */
   afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
+  statusData: StatusData;
 }
 
 export interface BeforeUpdateParams<Data extends core.Shape> {
@@ -112,7 +123,7 @@ export interface AfterSuccessParams<Output extends core.Shape> {
 
 export interface AfterFailureParams<Data extends core.Shape> {
   client: Client;
-  status: status.Status;
+  status: status.Status<status.ExceptionDetails, "error">;
   data: Data;
 }
 
@@ -124,30 +135,37 @@ export interface AfterFailureParams<Data extends core.Shape> {
 export interface UseDirectUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-> extends Omit<UseObservableUpdateParams<Input, Output>, "onChange"> {}
+  StatusData = undefined,
+> extends Omit<UseObservableUpdateParams<Input, Output, StatusData>, "onChange"> {}
 
 /**
  * Return type for the direct update hook, combining result state with update functions.
  *
  * @template Input The type of data being updated
  */
-export type UseDirectUpdateReturn<Input extends core.Shape> = Result<
-  Input | undefined
-> &
-  UseObservableUpdateReturn<Input>;
+export type UseDirectUpdateReturn<
+  Input extends core.Shape,
+  StatusData = undefined,
+> = Result<Input | undefined, StatusData> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
+  StatusData = undefined,
 > {
-  (args: UseObservableUpdateParams<Input, Output>): UseObservableUpdateReturn<Input>;
+  (
+    args: UseObservableUpdateParams<Input, Output, StatusData>,
+  ): UseObservableUpdateReturn<Input>;
 }
 
 export interface UseUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
+  StatusData = undefined,
 > {
-  (args?: UseDirectUpdateParams<Input, Output>): UseDirectUpdateReturn<Input>;
+  (
+    args?: UseDirectUpdateParams<Input, Output, StatusData>,
+  ): UseDirectUpdateReturn<Input, StatusData>;
 }
 
 /**
@@ -159,11 +177,12 @@ export interface UseUpdate<
 export interface CreateUpdateReturn<
   Input extends core.Shape,
   Output extends core.Shape = Input,
+  StatusData = undefined,
 > {
   /** Hook that provides update functions with external state management */
-  useObservableUpdate: UseObservableUpdate<Input, Output>;
+  useObservableUpdate: UseObservableUpdate<Input, Output, StatusData>;
   /** Hook that provides update functions with internal state management */
-  useUpdate: UseUpdate<Input, Output>;
+  useUpdate: UseUpdate<Input, Output, StatusData>;
 }
 
 /**
@@ -174,6 +193,7 @@ const useObservable = <
   Input extends core.Shape,
   Store extends core.Store,
   Output extends core.Shape = Input,
+  StatusData = undefined,
 >({
   onChange,
   update,
@@ -184,8 +204,14 @@ const useObservable = <
   beforeUpdate,
   afterSuccess,
   afterFailure,
-}: UseObservableUpdateParams<Input, Output> &
-  CreateUpdateParams<Input, Store, Output>): UseObservableUpdateReturn<Input> => {
+  statusData,
+}: UseObservableUpdateParams<Input, Output, StatusData> &
+  CreateUpdateParams<
+    Input,
+    Store,
+    Output,
+    StatusData
+  >): UseObservableUpdateReturn<Input> => {
   const client = Synnax.use();
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
@@ -221,7 +247,17 @@ const useObservable = <
           if (updatedValue !== true) data = updatedValue;
         }
 
-        const output = await update({ client, data, store, rollbacks });
+        const setStatus = (setter: state.SetArg<status.Status>) =>
+          onChange((p) => {
+            const nextStatus = state.executeSetter(setter, p.status);
+            return {
+              ...p,
+              status: nextStatus,
+              variant: nextStatus.variant,
+            } as Result<Input>;
+          });
+
+        const output = await update({ client, data, store, rollbacks, setStatus });
         if (signal?.aborted === true) return false;
         onChange(successResult(`${past} ${name}`, data));
 
@@ -233,7 +269,7 @@ const useObservable = <
         if (signal?.aborted === true) return false;
 
         const result = errorResult<Input | undefined>(`${present} ${name}`, error);
-        const {status} = result;
+        const { status } = result;
         onChange(result);
         addStatus(status);
         await afterFailure?.({ client, status, data });

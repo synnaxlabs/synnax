@@ -38,7 +38,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { createLoadRemote, useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {

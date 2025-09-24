@@ -20,6 +20,7 @@ import {
   Ranger,
   Select,
   Tag,
+  Telem,
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
@@ -139,7 +140,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
         onChange={(name) => onRename.update({ key, name })}
         allowDoubleClick={false}
       />
-      <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
+      <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
         <Flex.Box
           x

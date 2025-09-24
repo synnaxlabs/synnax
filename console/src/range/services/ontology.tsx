@@ -16,6 +16,7 @@ import {
   Ranger,
   Select,
   Status,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { array, type CrudeTimeRange, strings } from "@synnaxlabs/x";
@@ -228,10 +229,9 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         <Icon.Range />
         {resource?.name}
       </Text.Text>
-      <Ranger.TimeRangeChip
-        level="small"
-        timeRange={resource?.data?.timeRange as CrudeTimeRange}
-      />
+      <Telem.Text.TimeRange level="small">
+        {resource?.data?.timeRange as CrudeTimeRange}
+      </Telem.Text.TimeRange>
     </Select.ListItem>
   );
 };

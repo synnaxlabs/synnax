@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type Destructor,type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
@@ -24,19 +24,20 @@ import {
   type RetrieveMountListenersParams,
   type RetrieveParams,
 } from "@/flux/retrieve";
-import { type UpdateParams as BaseUpdateArgs } from "@/flux/update";
+import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
+import { state } from "@/state";
 import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
   Schema extends z.ZodType<core.Shape>,
   ScopedStore extends core.Store = {},
-> extends Omit<BaseUpdateArgs<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
-    Form.UseReturn<Schema> {}
+> extends Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+    Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 export interface FormRetrieveParams<
   Query extends core.Shape,
@@ -309,7 +310,13 @@ export const createForm =
             return false;
           }
           if (signal?.aborted === true) return false;
-          await update(args);
+          const setStatus = (setter: state.SetArg<status.Status>) =>
+            setResult((p) => {
+              const nextStatus = state.executeSetter(setter, p.status);
+              return { ...p, status: nextStatus, variant: nextStatus.variant} as Result<undefined>;
+            });
+
+          await update({ ...args, setStatus });
           setResult(successResult(`updated ${name}`, undefined));
           if (afterSave != null) afterSave(args);
           return true;

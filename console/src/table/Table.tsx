@@ -27,7 +27,7 @@ import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
-import { createLoadRemote, useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote, } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import {

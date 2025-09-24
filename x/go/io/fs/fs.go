@@ -11,7 +11,7 @@ package fs
 
 import (
 	"io"
-	"os"
+	"io/fs"
 	"path"
 )
 
@@ -27,35 +27,37 @@ type File interface {
 	// bytes and the file is then truncated to 5 bytes, the file offset will still be at
 	// 10 bytes, rendering the next read to EOF and write to leave null bytes between.
 	// This is the default behavior of the os.File implementation, and the memFS
-	// implementation has been adapted to match this behaviour.
+	// implementation has been adapted to match this behavior.
 	//
 	// In addition, the Windows implementation of FS allows a file without write
 	// permissions to be truncated whereas Unix and our memFS implementation do not.
-	Truncate(size int64) error
-	Stat() (os.FileInfo, error)
+	Truncate(int64) error
+	Stat() (FileInfo, error)
 	Sync() error
 }
 
-const defaultPerm = 0o755
+type FileInfo = fs.FileInfo
+
+const defaultPerm = OwnerReadWriteExecute | GroupReadExecute | OthersReadExecute
 
 type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed
 	// in out of the flags in os, e.g. os.O_CREATE|os.O_WRONLY.
 	Open(name string, flag int) (File, error)
 	// Sub returns a new FS rooted at the given directory.
-	Sub(name string) (FS, error)
+	Sub(string) (FS, error)
 	// List returns a list of files in the directory SORTED by file name.
-	List(name string) ([]os.FileInfo, error)
+	List(string) ([]FileInfo, error)
 	// Exists returns true if the file exists, false otherwise.
-	Exists(name string) (bool, error)
+	Exists(string) (bool, error)
 	// Remove removes a file or directory recursively. It returns nil if the name does
 	// not exist.
-	Remove(name string) error
+	Remove(string) error
 	// Rename renames a file or directory. It returns an error if the target does not
 	// exist.
-	Rename(name string, newPath string) error
+	Rename(oldPath string, newPath string) error
 	// Stat returns a FileInfo interface.
-	Stat(name string) (os.FileInfo, error)
+	Stat(string) (FileInfo, error)
 }
 
 type subFS struct {
@@ -67,26 +69,22 @@ func (s *subFS) Open(name string, flag int) (File, error) {
 	return s.FS.Open(path.Join(s.dir, name), flag)
 }
 
-func (s *subFS) Sub(name string) (FS, error) {
-	return s.FS.Sub(path.Join(s.dir, name))
-}
+func (s *subFS) Sub(name string) (FS, error) { return s.FS.Sub(path.Join(s.dir, name)) }
 
 func (s *subFS) Exists(name string) (bool, error) {
 	return s.FS.Exists(path.Join(s.dir, name))
 }
 
-func (s *subFS) List(name string) ([]os.FileInfo, error) {
+func (s *subFS) List(name string) ([]FileInfo, error) {
 	return s.FS.List(path.Join(s.dir, name))
 }
 
-func (s *subFS) Remove(name string) error {
-	return s.FS.Remove(path.Join(s.dir, name))
-}
+func (s *subFS) Remove(name string) error { return s.FS.Remove(path.Join(s.dir, name)) }
 
 func (s *subFS) Rename(oldName string, newName string) error {
 	return s.FS.Rename(path.Join(s.dir, oldName), path.Join(s.dir, newName))
 }
 
-func (s *subFS) Stat(name string) (os.FileInfo, error) {
+func (s *subFS) Stat(name string) (FileInfo, error) {
 	return s.FS.Stat(path.Join(s.dir, name))
 }

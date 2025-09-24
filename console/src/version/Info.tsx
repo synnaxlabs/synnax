@@ -11,7 +11,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size, status } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check } from "@tauri-apps/plugin-updater";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { type Layout } from "@/layout";
@@ -30,7 +30,10 @@ export const INFO_LAYOUT: Layout.BaseState = {
   excludeFromWorkspace: true,
 };
 
-const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve({
+const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
+  {},
+  Update | null
+>({
   name: "Version",
   retrieve: async () => {
     if (Runtime.ENGINE !== "tauri") return null;
@@ -39,98 +42,99 @@ const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve({
   },
 });
 
+const { useUpdate } = Flux.createUpdate<Update, {}>({
+  resourceName: "Console",
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ data: update, setStatus }) => {
+    await update.downloadAndInstall((prog) => {
+      switch (prog.event) {
+        case "Started":
+          setStatus((p) => ({
+            ...p,
+            details: {
+              total: Size.bytes(prog.data.contentLength ?? 0),
+              progress: Size.bytes(0),
+            },
+          }));
+          break;
+        case "Progress":
+          setStatus((p) => ({
+            ...p,
+            details: {
+              ...p.details,
+              progress: p.details.progress.add(prog.data.chunkLength),
+            },
+          }));
+          break;
+        case "Finished":
+          setStatus((p) => ({ ...p, details: { ...p.details, progress: updateSize } }));
+          break;
+      }
+      return update;
+    });
+    if (Runtime.ENGINE === "tauri") await relaunch();
+  },
+});
+
 export const Info: Layout.Renderer = () => {
   const version = useSelectVersion();
-  const updateQuery = useRetrieveUpdateAvailable();
+  const availableQuery = useRetrieveUpdateAvailable({});
+  const updateQuery = useUpdate();
+  const totalSize = updateQuery.status.details?.total as Size;
+  const amountDownloaded = updateQuery.status.details?.progress as Size;
 
-  const [updateSize, setUpdateSize] = useState<Size>(Size.bytes(1));
-  const [amountDownloaded, setAmountDownloaded] = useState(Size.bytes(0));
-  const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
-
-  const {
-    run,
-    variant,
-    status: { key, ...stat },
-  } = Flux.useAction({
-    resourceName: "Console",
-    opName: "Update",
-    action: async () => {
-      if (updateQuery.variant !== "success") return;
-      const update = updateQuery.data;
-      if (update == null) return;
-      await update.downloadAndInstall((progress) => {
-        switch (progress.event) {
-          case "Started":
-            setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
-            setAmountDownloaded(Size.bytes(0));
-            break;
-          case "Progress":
-            setAmountDownloaded((prev) =>
-              prev.add(Size.bytes(progress.data.chunkLength)),
-            );
-            break;
-          case "Finished":
-            setAmountDownloaded(updateSize);
-            break;
-        }
-      });
-      if (Runtime.ENGINE === "tauri") await relaunch();
-    },
-  });
+  const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
 
   let updateContent = (
     <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
     </Status.Summary>
   );
-  if (updateQuery.variant === "success")
-    if (variant === "loading")
-      if (progressPercent === 100)
-        updateContent = (
-          <Status.Summary level="h4" variant="loading" gap="medium">
-            Update downloaded. Restarting
+  if (availableQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" {...availableQuery.status} />;
+  else if (updateQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" {...updateQuery.status} />;
+  else if (updateQuery.variant === "loading")
+    if (progressPercent === 100)
+      updateContent = (
+        <Status.Summary level="h4" variant="loading" gap="medium">
+          Update downloaded. Restarting
+        </Status.Summary>
+      );
+    else
+      updateContent = (
+        <Flex.Box y gap="medium">
+          <Status.Summary variant="loading" level="h4" gap="medium">
+            Downloading update
           </Status.Summary>
-        );
-      else
-        updateContent = (
-          <Flex.Box y gap="medium">
-            <Status.Summary variant="loading" level="h4" gap="medium">
-              Downloading update
-            </Status.Summary>
-            <Flex.Box x gap="medium" align="center" justify="center">
-              <Progress.Progress value={progressPercent} />
-              <Text.Text color={10} overflow="ellipsis">
-                {Math.ceil(amountDownloaded.megabytes)} /{" "}
-                {Math.ceil(updateSize.megabytes)} MB
-              </Text.Text>
-            </Flex.Box>
+          <Flex.Box x gap="medium" align="center" justify="center">
+            <Progress.Progress value={progressPercent} />
+            <Text.Text color={10} overflow="ellipsis">
+              {Math.ceil(amountDownloaded.megabytes)} / {Math.ceil(totalSize.megabytes)}{" "}
+              MB
+            </Text.Text>
           </Flex.Box>
-        );
-    else if (variant == "success")
-      if (updateQuery.data != null) {
-        const version = updateQuery.data.version;
-        updateContent = (
-          <>
-            <Status.Summary level="h4" variant="success">
-              Version {version} available
-            </Status.Summary>
-            <Button.Button
-              variant="filled"
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => run()}
-            >
-              Update & Restart
-            </Button.Button>
-          </>
-        );
-      } else
-        updateContent = (
+        </Flex.Box>
+      );
+  else if (availableQuery.variant == "success")
+    if (availableQuery.data != null) {
+      const update = availableQuery.data;
+      updateContent = (
+        <>
           <Status.Summary level="h4" variant="success">
-            Up to date
+            Version {update.version} available
           </Status.Summary>
-        );
-    else if (variant == "error")
-      updateContent = <Status.Summary level="h4" {...stat} />;
+          <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
+            Update & Restart
+          </Button.Button>
+        </>
+      );
+    } else
+      updateContent = (
+        <Status.Summary level="h4" variant="success">
+          Up to date
+        </Status.Summary>
+      );
 
   return (
     <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>

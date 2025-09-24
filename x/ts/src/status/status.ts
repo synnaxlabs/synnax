@@ -49,18 +49,22 @@ export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
     details: details ?? z.unknown().optional(),
   });
 
-export type Status<D = undefined, V extends Variant = Variant> = {
+type Base<V extends Variant> = {
   key: string;
   variant: V;
   message: string;
   description?: string;
   time: TimeStamp;
-} & (D extends undefined ? {} : { details: D });
+};
 
-export type Crude<D = undefined, V extends Variant = Variant> = Optional<
-  Status<D, V>,
-  "time" | "key"
->;
+export type Status<D = never, V extends Variant = Variant> = Base<V> &
+  ([D] extends [never] ? {} : { details: D });
+
+export type Crude<D = never, V extends Variant = Variant> = Optional<
+  Base<V>,
+  "key" | "time"
+> &
+  ([D] extends [never] ? {} : { details: D });
 
 export interface ExceptionDetails {
   stack: string;
@@ -81,14 +85,14 @@ export const fromException = (
   });
 };
 
-export const create = <D = undefined, V extends Variant = Variant>(
+export const create = <D = never, V extends Variant = Variant>(
   spec: Crude<D, V>,
 ): Status<D, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     ...spec,
-  }) as unknown as Status<D, V>;
+  }) as Status<D, V>;
 
 export const keepVariants = (
   variant?: Variant,

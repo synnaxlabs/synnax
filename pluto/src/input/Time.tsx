@@ -66,7 +66,7 @@ export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeRetur
     [onChange, tzInfo],
   );
 
-  const inputValue = ts.fString("time", tzInfo);
+  const inputValue = ts.toString("time", tzInfo);
 
   return { inputValue, ts, handleChange };
 };

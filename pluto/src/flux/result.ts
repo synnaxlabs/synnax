@@ -30,7 +30,7 @@ import { type state } from "@/state";
  * };
  * ```
  */
-export type Result<Data extends state.State> =
+export type Result<Data extends state.State, StatusData = never> =
   | {
       variant: "error";
       status: status.Status<status.ExceptionDetails, "error">;
@@ -38,17 +38,17 @@ export type Result<Data extends state.State> =
     }
   | {
       variant: "success";
-      status: status.Status<undefined, "success">;
+      status: status.Status<StatusData, "success">;
       data: Data;
     }
   | {
       variant: "loading";
-      status: status.Status<undefined, "loading">;
+      status: status.Status<StatusData, "loading">;
       data: Data | undefined;
     }
   | {
       variant: "disabled";
-      status: status.Status<undefined, "disabled">;
+      status: status.Status<StatusData, "disabled">;
       data: Data | undefined;
     };
 
@@ -144,14 +144,16 @@ export const errorResult = <Data extends state.State>(
  * // Returns error result with message: "Cannot retrieve users because no cluster is connected."
  * ```
  */
-export const nullClientResult = <Data extends state.State>(
+export const nullClientResult = <Data extends state.State, StatusData = never>(
   op: string,
+  statusData: StatusData,
 ): Result<Data> => ({
   variant: "disabled",
-  status: status.create<undefined, "disabled">({
+  status: status.create<StatusData, "disabled">({
     variant: "disabled",
     message: `Failed to ${op}`,
     description: `Cannot ${op} because no cluster is connected.`,
+    details: statusData,
   }),
   data: undefined,
 });
