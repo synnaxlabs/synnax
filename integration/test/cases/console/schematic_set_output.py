@@ -22,7 +22,7 @@ class Schematic_Set_Output(ConsoleCase):
         console.schematic.new()
 
         CHANNEL_NAME = "command_channel"
-        INDEX_NAME = "index_channel"
+        INDEX_NAME = "idx_channel"
 
         console.channels.create(
             INDEX_NAME,

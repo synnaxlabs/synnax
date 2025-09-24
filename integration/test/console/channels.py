@@ -139,7 +139,7 @@ class ChannelClient:
 
         if self.existing_channel(_name):
             return False
-        self.hide_resources()
+
         # Open command palette and create channel
         self.console.command_palette("Create a Channel")
 
@@ -230,14 +230,13 @@ class ChannelClient:
 
     def _rename_single_channel(self, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        self.show_channels()
-
         if not self.existing_channel(old_name):
             raise ValueError(f"Channel {old_name} does not exist")
         if self.existing_channel(new_name):
             raise ValueError(f"Channel {new_name} already exists")
 
         # Find the channel in the list and right-click it
+        self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
                 text = item.inner_text().strip()
@@ -252,6 +251,7 @@ class ChannelClient:
                     self.page.keyboard.press("Enter")
                     time.sleep(0.1)
                     break
+        self.hide_resources()
 
     @overload
     def delete(self, name: ChannelName) -> None:
@@ -290,12 +290,11 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        self.show_channels()
-
         if not self.existing_channel(name):
             raise ValueError(f"Channel {name} does not exist")  
 
         # Find the channel in the list and right-click it
+        self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
                 text = item.inner_text().strip()
@@ -318,4 +317,5 @@ class ChannelClient:
         for item in self.channels_list.all():
             if item.is_visible():
                 channels.append(item.inner_text().strip())
+        self.hide_resources()
         return channels
