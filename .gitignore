@@ -240,7 +240,6 @@ core/pkg/service/hardware/embedded/assets/**
 .eslintcache
 
 # |||| EDITOR ||||
-.vscode/
 !.vscode/extensions.json
 *.suo
 *.ntvs*
