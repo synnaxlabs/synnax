@@ -31,10 +31,10 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "latency/bench_latency_response"
+          "case": "latency/bench_response"
         },
         {
-          "case": "latency/bench_latency_report"
+          "case": "latency/bench_report"
         }
       ]
     }

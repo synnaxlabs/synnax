@@ -381,7 +381,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         switch (key) {
           case "iso":
             await navigator.clipboard.writeText(
-              `${tr.start.fString("ISO")} - ${tr.end.fString("ISO")}`,
+              `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
             );
             break;
           case "python":

@@ -7,30 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/ranger/TimeRangeChip.css";
-
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { TimeSpan as TimeSpanText } from "@/telem/text/TimeSpan";
+import {
+  TimeStamp as TimeStampText,
+  type TimeStampProps as TimeStampTextProps,
+} from "@/telem/text/TimeStamp";
 import { Text } from "@/text";
 
-export interface TimeRangeChipProps
-  extends Flex.BoxProps<"div">,
-    Pick<Text.TextProps, "level" | "color"> {
-  timeRange: CrudeTimeRange;
+export interface TimeRange extends Omit<TimeStampTextProps, "children" | "format"> {
   showSpan?: boolean;
+  children: CrudeTimeRange;
 }
 
-export const TimeRangeChip = ({
-  timeRange,
+export const TimeRange = ({
+  children: timeRange,
   level = "p",
   color = 9,
   showSpan = false,
+  suppliedTZ,
+  displayTZ,
   ...rest
-}: TimeRangeChipProps): ReactElement => {
+}: TimeRange): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
   const startFormat = startTS.isToday ? "time" : "dateTime";
   const endTS = new TimeStamp(timeRange.end);
@@ -45,16 +46,17 @@ export const TimeRangeChip = ({
           Today
         </Text.Text>
       )}
-      <Text.DateTime
+      <TimeStampText
         el="span"
         level={level}
-        displayTZ="local"
+        displayTZ={displayTZ}
+        suppliedTZ={suppliedTZ}
         format={startFormat}
         color={color}
         weight={450}
       >
         {startTS}
-      </Text.DateTime>
+      </TimeStampText>
     </Text.Text>
   );
 
@@ -65,35 +67,28 @@ export const TimeRangeChip = ({
           Now
         </Text.Text>
       ) : (
-        <Text.DateTime
+        <TimeStampText
           level={level}
           el="span"
-          displayTZ="local"
+          displayTZ={displayTZ}
+          suppliedTZ={suppliedTZ}
           format={endFormat}
           color={color}
           weight={450}
         >
           {endTS}
-        </Text.DateTime>
+        </TimeStampText>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} color={color} weight={450} el="span">
-          ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
-        </Text.Text>
+        <TimeSpanText level={level} el="span" color={color} weight={450}>
+          {startTS.span(endTS).truncate(TimeSpan.MILLISECOND)}
+        </TimeSpanText>
       )}
     </>
   );
 
   return (
-    <Text.Text
-      x
-      gap="small"
-      className={CSS(CSS.B("time-range-chip"))}
-      align="center"
-      level={level}
-      color={color}
-      {...rest}
-    >
+    <Text.Text x gap="small" align="center" level={level} color={color} {...rest}>
       {startTime}
       <Icon.Arrow.Right color={9} />
       {endTime}

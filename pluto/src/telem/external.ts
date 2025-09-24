@@ -9,3 +9,4 @@
 
 export * from "@/telem/Provider";
 export * from "@/telem/SelectDataType";
+export * from "@/telem/text";
