@@ -52,7 +52,7 @@ class Pages_Open_Close(ConsoleCase):
             ("OPC UA Write Task", "OPC Write"),
         ]
 
-        self._log_message("(1/6) Create pages (Default names\n\n")
+        self._log_message("(1/6) Create pages (Default names)")
         for p in pages:
             console.create_page(p)
         for p in pages:

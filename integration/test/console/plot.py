@@ -81,13 +81,10 @@ class Plot(ConsolePage):
         ]
 
         for selector in selectors:
-            try:
-                locator = self.page.locator(selector)
-                if locator.count() > 0:
-                    locator.click(timeout=5000)
-                    return
-            except Exception:
-                continue
+            locator = self.page.locator(selector)
+            if locator.count() > 0:
+                locator.click(timeout=5000)
+                return
 
         raise RuntimeError(f"Could not find axis tab: {axis}")
 
@@ -126,17 +123,17 @@ class Plot(ConsolePage):
 
         raise RuntimeError(f"Could not find input field for {key}")
 
-    def _set_label_direction(self, value: Any) -> None:
+    def _set_label_direction(self, direction: Literal["horizontal", "vertical"]) -> None:
         """Set label direction button."""
-        direction = "arrow-up" if str(value).lower() == "up" else "arrow-right"
+
+        direction = "arrow-up" if direction == "vertical" else "arrow-right"
         selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{direction}'])"
         self.page.locator(selector).click(timeout=5000)
 
-    def _set_label_size(self, value: Any) -> None:
+    def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
         """Set label size button."""
-        size_mapping = {"xs": "XS", "s": "S", "m": "M", "l": "L", "xl": "XL"}
-        button_text = size_mapping.get(str(value).lower(), str(value).upper())
+
         selector = (
-            f"label:has-text('Label Size') + div button:has-text('{button_text}')"
+            f"label:has-text('Label Size') + div button:has-text('{size}')"
         )
         self.page.locator(selector).click(timeout=5000)

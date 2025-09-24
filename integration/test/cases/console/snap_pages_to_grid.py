@@ -21,14 +21,12 @@ class Snap_Pages_To_Grid(ConsoleCase):
         Snap pages and take a screenshot
         """
         console = self.console
-
         console.schematic.new()
         console.plot.new()
-        console.table.new()
-        console.log.new()
+        console.log.new("sy_node_1_control")
 
-        console.schematic.move("top")
-        console.table.move("right")
-        console.log.move("bottom-left")
+        console.log.move("top")
+        console.plot.move("right")
+        console.schematic.move("bottom")
 
         console.screenshot()

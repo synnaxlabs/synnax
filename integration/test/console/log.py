@@ -10,6 +10,9 @@
 from typing import TYPE_CHECKING, List, Optional
 
 from playwright.sync_api import Page
+from synnax.channel.payload import (
+    ChannelName,
+)
 
 from .page import ConsolePage
 
@@ -20,14 +23,18 @@ if TYPE_CHECKING:
 class Log(ConsolePage):
     """Log page management interface"""
 
+    channel_name: Optional[ChannelName]
+
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
         self.page_type = "Log"
         self.pluto_label = ".pluto-log"
 
-    def clear(self) -> None:
-        """Clear all log entries."""
-        pass
+    def new(self, channel_name: Optional[ChannelName] = None) -> None:
+        super().new()
+        if channel_name is not None:
+            self.set_channel(channel_name)
 
-    def get_entries(self, level: Optional[str] = None) -> List[str]:
-        return []
+    def set_channel(self, channel_name: str) -> None:
+        self.console.click_btn("Channel")
+        self.console.select_from_dropdown(channel_name, "Select a Channel")

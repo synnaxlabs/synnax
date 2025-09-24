@@ -20,7 +20,6 @@ from .page import ConsolePage
 from .log import Log
 from .plot import Plot
 from .schematic import Schematic
-from .table import Table
 
 # Define literal types for page creation
 PageType = Literal[
@@ -57,7 +56,6 @@ class Console:
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)
-        self.table = Table(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
