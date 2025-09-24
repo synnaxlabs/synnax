@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, status, TimeStamp } from "@synnaxlabs/client";
+import { label, type ontology, status, TimeStamp } from "@synnaxlabs/client";
+import { primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -109,7 +110,9 @@ export const useSetSynchronizer = (onSet: (status: status.Status) => void): void
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };
 
-export const formSchema = status.statusZ;
+export const formSchema = status.statusZ.safeExtend({
+  labels: label.keyZ.array().optional(),
+});
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   key: "",
@@ -119,6 +122,7 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
   description: "",
   details: undefined,
+  labels: [],
 };
 
 export const useForm = createForm<
@@ -130,20 +134,31 @@ export const useForm = createForm<
   schema: formSchema,
   initialValues: INITIAL_VALUES,
   retrieve: async ({ reset, ...args }) => {
-    const { params } = args;
-    if (!("key" in params) || params.key == null) return;
-    const res = await cachedSingleRetrieve({
+    const { params, client } = args;
+    if (!("key" in params) || primitive.isZero(params.key)) return;
+    const stat = await cachedSingleRetrieve({
       ...args,
       params: params as UseRetrieveArgs,
     });
-    reset(res);
+    const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
+    reset({
+      ...stat,
+      labels: labels.map((l) => l.key),
+    });
   },
   update: async ({ client, value }) => {
     const v = value();
-    console.log(v);
+    if (primitive.isZero(v.key)) v.key = uuid.create();
     await client.statuses.set(v);
   },
-  mountListeners: ({ store, params: { key }, reset }) => [
-    store.statuses.onSet(reset, key),
+  mountListeners: ({ store, params: { key }, set }) => [
+    store.statuses.onSet((v) => {
+      set("key", v.key);
+      set("message", v.message);
+      set("time", v.time);
+      set("name", v.name);
+      set("description", v.description);
+      set("details", v.details);
+    }, key),
   ],
 });

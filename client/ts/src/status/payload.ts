@@ -10,6 +10,8 @@
 import { status as xStatus } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type ontology } from "@/ontology";
+
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
@@ -24,3 +26,5 @@ export interface Status extends z.infer<typeof statusZ> {
 
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";
+
+export const ontologyID = (key: Key): ontology.ID => ({ type: "status", key });

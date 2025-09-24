@@ -73,7 +73,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           <Text.Text level="p" weight={450} status={variant}>
             <Status.Indicator variant={variant} />
             {name}
-            <Icon.Caret.Right />
+            {message.length > 0 && <Icon.Caret.Right />}
             <Text.Text el="span" status={variant}>
               {message}
             </Text.Text>

@@ -33,23 +33,21 @@ export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
 ): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
-export const Create = ({
-  layoutKey,
-  onClose,
-}: Layout.RendererProps): ReactElement => {
+export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const { form, save, variant } = Status.useForm({
     params: { key: args?.key },
     autoSave: false,
     initialValues: {
       ...args,
-      key: uuid.create(),
+      key: "",
       message: "",
       time: TimeStamp.now(),
       name: "",
       description: "",
       details: undefined,
       variant: "success",
+      labels: [],
     },
     afterSave: () => onClose(),
   });
