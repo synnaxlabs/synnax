@@ -63,19 +63,30 @@ class Console:
             .first
         )
         channel_button.click()
-        self._select_from_dropdown_item(input_text, "input[placeholder*='Search']")
+        self._select_from_dropdown_item(input_text, channel_button)
 
-    def _select_from_dropdown_item(self, text: str, search_selector: str) -> None:
-        """Select an item from an open dropdown or dialog with search."""
-        search_input = self.page.locator(search_selector)
-        if search_input.count() > 0:
-            search_input.fill(text)
-            self.page.wait_for_timeout(300)
+    def _select_from_dropdown_item(self, text: str, dropdown_button_or_selector) -> None:
+        """Select an item from an open dropdown."""
+        self.page.wait_for_timeout(300)
+
+        if isinstance(dropdown_button_or_selector, str):
+            # Handle searchable dropdowns (string selector)
+            search_input = self.page.locator(dropdown_button_or_selector)
+            if search_input.count() > 0:
+                search_input.fill(text)
+                self.page.wait_for_timeout(300)
+                dropdown_container = search_input.locator("..").locator("..")
+                item_selector = dropdown_container.locator(".pluto-list__item").all()
+        else:
+            # Handle simple dropdowns (Locator) - try container first, fallback to global
+            dropdown_container = dropdown_button_or_selector.locator("..")
+            item_selector = dropdown_container.locator(".pluto-list__item").all()
+            if len(item_selector) == 0:
+                item_selector = self.page.locator(".pluto-list__item").all()
 
         item_found = False
-        item_selector = self.page.locator(".pluto-list__item").all()
         for item in item_selector:
-            if item.is_visible() and text in item.inner_text().strip().lower():
+            if item.is_visible() and text.lower() in item.inner_text().strip().lower():
                 item.click()
                 item_found = True
                 break
