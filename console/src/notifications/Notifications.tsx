@@ -20,8 +20,11 @@ export interface Sugared extends Status.NotificationSpec {
   content?: ReactElement;
 }
 
-export interface Adapter<D = undefined> {
-  (status: Status.NotificationSpec<D>, silence: (key: string) => void): null | Sugared;
+export interface Adapter<Details = never> {
+  (
+    status: Status.NotificationSpec<Details>,
+    silence: (key: string) => void,
+  ): null | Sugared;
 }
 
 interface NotificationsProps {
