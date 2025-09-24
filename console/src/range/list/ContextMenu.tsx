@@ -29,8 +29,10 @@ import {
   createChildRangeMenuItem,
   deleteMenuItem,
   fromClientRange,
+  viewDetailsMenuItem,
 } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 
@@ -67,6 +69,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
+    details: () => {
+      placeLayout({...OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });
+    },
     rename: () => {
       handleError(async () => {
         const renamed = await rename(
@@ -101,6 +106,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {isSingle && (
         <>
+        {viewDetailsMenuItem}
           <Menu.RenameItem />
           {createChildRangeMenuItem}
           <Divider.Divider x />
@@ -109,13 +115,13 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {someAreNotFavorites && (
         <PMenu.Item itemKey="favorite">
           <Icon.StarFilled />
-          Add to favorites
+          Add to Favorites
         </PMenu.Item>
       )}
       {someAreFavorites && (
         <PMenu.Item itemKey="unfavorite">
           <Icon.StarOutlined />
-          Remove from favorites
+          Remove from Favorites
         </PMenu.Item>
       )}
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
