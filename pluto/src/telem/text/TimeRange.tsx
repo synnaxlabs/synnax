@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/ranger/TimeRangeChip.css";
 
 import { type CrudeTimeRange, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -28,14 +27,14 @@ const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string]
   const tr = new TimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
   const startFormat = tr.start.isToday ? "time" : "dateTime";
-  let startTime = new TimeStamp(tr.start).fString(startFormat, "local");
+  let startTime = new TimeStamp(tr.start).toString(startFormat, "local");
   if (tr.start.isToday) startTime = `Today ${startTime}`;
   if (tr.end.equals(TimeStamp.MAX)) {
     if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
     return `Starts ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
-  const endTime = new TimeStamp(tr.end).fString(endFormat, "local");
+  const endTime = new TimeStamp(tr.end).toString(endFormat, "local");
   return [startTime, endTime];
 };
 

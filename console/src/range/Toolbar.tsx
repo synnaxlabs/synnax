@@ -22,6 +22,7 @@ import {
   Status,
   Synnax,
   Tag,
+  Telem,
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";

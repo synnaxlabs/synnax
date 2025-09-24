@@ -9,17 +9,17 @@
 
 import {
   type CrudeTimeStamp,
-  TimeStamp,
+  TimeStamp as XTimeStamp,
   type TimeStampStringFormat,
   type TZInfo,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Generic } from "@/generic";
-import { Text, type TextProps } from "@/text/Text";
+import { Text } from "@/text";
 
-export type DateTimeProps<E extends Generic.ElementType = "p"> = Omit<
-  TextProps<E>,
+export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<
+  Text.TextProps<E>,
   "children"
 > & {
   children: CrudeTimeStamp;
@@ -28,14 +28,14 @@ export type DateTimeProps<E extends Generic.ElementType = "p"> = Omit<
   displayTZ?: TZInfo;
 };
 
-export const DateTime = <E extends Generic.ElementType = "p">({
+export const TimeStamp = <E extends Generic.ElementType = "p">({
   format = "dateTime",
   suppliedTZ = "UTC",
   displayTZ = "local",
   children,
   ...rest
-}: DateTimeProps<E>): ReactElement => (
-  <Text<E> {...(rest as TextProps<E>)}>
-    {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
-  </Text>
+}: TimeStampProps<E>): ReactElement => (
+  <Text.Text<E> {...(rest as Text.TextProps<E>)}>
+    {new XTimeStamp(children, suppliedTZ).toString(format, displayTZ)}
+  </Text.Text>
 );

@@ -18,6 +18,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/Aggregator";
 import { Indicator } from "@/status/Indicator";
+import { Telem } from "@/telem";
 import { Text } from "@/text";
 
 interface ActionProps {
@@ -60,13 +61,13 @@ export const Notification = ({
         <Flex.Box x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
           <Text.Text level="small">{`x${count}`}</Text.Text>
-          <Text.DateTime
+          <Telem.Text.TimeStamp
             className={CSS(CSS.BE("notification", "time"))}
             level="small"
             format="time"
           >
             {time}
-          </Text.DateTime>
+          </Telem.Text.TimeStamp>
         </Flex.Box>
         <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}

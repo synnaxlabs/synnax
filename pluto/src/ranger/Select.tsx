@@ -19,10 +19,10 @@ import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListParams, useList } from "@/ranger/queries";
-import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select as Core } from "@/select";
 import { Tag } from "@/tag";
+import { Telem } from "@/telem";
 
 export interface SelectProps
   extends Omit<

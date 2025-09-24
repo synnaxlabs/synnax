@@ -1,1 +1,9 @@
-{"key":6,"IsIndex":false,"data_type":"float64","rate":0,"index":4,"Virtual":false,"Concurrency":0}
+{
+  "key": 6,
+  "IsIndex": false,
+  "data_type": "float64",
+  "rate": 0,
+  "index": 4,
+  "Virtual": false,
+  "Concurrency": 0
+}

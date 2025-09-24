@@ -6,8 +6,7 @@
 
 ## QA Template
 
-- [ ] I have verified that any changes to the `rc.md` template in this diff have been
-      manually added to this pull request.
+- [ ] <!-- prettier-ignore --> I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
 ## Version Conflicts
 
@@ -58,10 +57,7 @@ I have verified that code examples for each of the following services run correc
 
 ### Broken Links
 
-- [ ] I have used a broken link checker like
-      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or
-      [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the
-      live website.
+- [ ] <!-- prettier-ignore --> I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -96,9 +92,7 @@ I can successfully:
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create a channel with an erroneous expression, plot it and make
-        sure the server and console remain stable and the error is logged to the server
-        and the console.
+  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the server and console remain stable and the error is logged to the server and the console.
   - [ ] Plot a calculated channel that uses channels with hyphenated names.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
@@ -183,8 +177,7 @@ I can successfully:
   - [ ] Edit an existing label's name.
   - [ ] Change the color of an existing label.
   - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range
-        toolbar.
+  - [ ] <!-- prettier-ignore --> Change a label's color and ensure the change synchronizes with the range toolbar.
 
 ### Layout
 
@@ -301,8 +294,7 @@ I can successfully:
   - [ ] Cannot switch to edit mode on a schematic.
 - **As a user without admin permissions:**
   - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] Cannot delete users, open the permissions dialog, or change a username from the
-        resources toolbar.
+  - [ ] <!-- prettier-ignore --> Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
 
 ### Racks
 
@@ -613,8 +605,7 @@ I can successfully:
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar
   - Workspace Selector
-- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
-      it in the release candidate.
+- [ ] <!-- prettier-ignore --> Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
 
@@ -644,15 +635,13 @@ I can successfully:
   - [ ] Delete a control sequence.
 - **Sequence Editing**
   - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] Edit a control sequence and see auto-complete suggestions for the following
-        built-in functions:
+  - [ ] <!-- prettier-ignore --> Edit a control sequence and see auto-complete suggestions for the following built-in functions:
     - [ ] `elapsed_time_within`
     - [ ] `elapsed_time`
     - [ ] `iteration`
     - [ ] `set`
     - [ ] `set_authority`
-  - [ ] Accept channel auto-complete suggestions and see the correct channel populated
-        in the `read_from` or `write_to` fields.
+  - [ ] <!-- prettier-ignore --> Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
   - [ ] Manually configure the `read_from` and `write_to` fields.
   - [ ] Set the sequence control rate.
   - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
@@ -674,8 +663,7 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
   - [ ] Run a read task with thermocouples, digital, and analog channels.
-  - [ ] Disconnect a device while reading, reconnect it, and read data after
-        reconfiguration.
+  - [ ] <!-- prettier-ignore --> Disconnect a device while reading, reconnect it, and read data after reconfiguration.
   - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
@@ -693,8 +681,7 @@ I can successfully:
   - **Configure response time based on the specified state rate:**
     - [ ] 1 Hz (should have a visible delay)
     - [ ] 20 Hz (should be nearly immediate)
-- [ ] Configure simultaneous write and read tasks and stop or delete either without
-      affecting the other.
+- [ ] <!-- prettier-ignore --> Configure simultaneous write and read tasks and stop or delete either without affecting the other.
 
 ### NI
 
@@ -707,8 +694,7 @@ I can successfully:
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
 - [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
-- [ ] Receive feedback when trying to create an NI task on a machine lacking the
-      necessary libraries.
+- [ ] <!-- prettier-ignore --> Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
@@ -733,8 +719,7 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after
-        configuration.
+  - [ ] <!-- prettier-ignore --> Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [ ] Ensure no lag between sensor input and server data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
@@ -791,8 +776,7 @@ I can successfully:
     - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] Maintain driver operation during device disconnection or channel removal while a
-        task is running.
+  - [ ] <!-- prettier-ignore --> Maintain driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.

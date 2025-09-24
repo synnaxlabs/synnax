@@ -13,9 +13,9 @@ import {
   Icon,
   Input,
   List,
-  Ranger,
   Select,
   Tag,
+  Telem,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";

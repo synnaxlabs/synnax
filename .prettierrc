@@ -5,5 +5,11 @@
       "files": ["synnax.code-workspace", ".prettierrc"],
       "options": { "parser": "json", "tabWidth": 2 }
     }
+  ],
+  "plugins": [
+    "@prettier/plugin-xml",
+    "prettier-plugin-astro",
+    "prettier-plugin-sh",
+    "prettier-plugin-toml"
   ]
 }

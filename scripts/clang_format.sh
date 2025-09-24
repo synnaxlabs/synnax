@@ -14,16 +14,16 @@ clang-format --version
 
 # Check for correct usage
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <path>"
-  exit 1
+    echo "Usage: $0 <path>"
+    exit 1
 fi
 
 path="$1"
 
 # Check if the provided path exists and is a directory
 if [ ! -d "$path" ]; then
-  echo "Error: Path '$path' does not exist or is not a directory."
-  exit 1
+    echo "Error: Path '$path' does not exist or is not a directory."
+    exit 1
 fi
 
 # Find all .cpp, .hpp, .h, and .cc files in the directory
@@ -31,14 +31,14 @@ files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" | grep -v "vendo
 
 # Exit successfully if no files were found
 if [ -z "$files" ]; then
-  echo "No C++ files found in $path."
-  exit 0
+    echo "No C++ files found in $path."
+    exit 0
 fi
 
 # Check if clang-format is installed
 if ! command -v clang-format &> /dev/null; then
-  echo "Error: clang-format is not installed."
-  exit 1
+    echo "Error: clang-format is not installed."
+    exit 1
 fi
 
 # Use the root .clang-format-ignore file
@@ -69,8 +69,6 @@ while IFS= read -r file; do
         files_to_format+=("$file")
     fi
 done <<< "$files"
-
-
 
 # Format all files and report
 formatted_count=0
