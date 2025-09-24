@@ -33,6 +33,7 @@ export const Explorer: Layout.Renderer = () => {
       getItem={getItem}
       subscribe={subscribe}
       retrieve={retrieve}
+      enableAddButton
       enableSearch
       enableFilters
     />

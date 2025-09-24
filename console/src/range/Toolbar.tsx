@@ -169,10 +169,10 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+          <Toolbar.Action tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
             <Icon.Add />
           </Toolbar.Action>
-          <Toolbar.Action onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
+          <Toolbar.Action tooltip="Open Range Explorer" onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
             <Icon.Explore />
           </Toolbar.Action>
         </Toolbar.Actions>

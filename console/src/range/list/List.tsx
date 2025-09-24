@@ -9,6 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import {
+  Button,
   Flex,
   type Flux,
   Icon,
@@ -17,8 +18,10 @@ import {
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/range/Create";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
@@ -30,6 +33,7 @@ export interface ListProps
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
   enableFilters?: boolean;
+  enableAddButton?: boolean;
   initialRequest?: ranger.RetrieveRequest;
 }
 
@@ -40,6 +44,7 @@ export const List = ({
   retrieve,
   enableSearch = false,
   enableFilters = false,
+  enableAddButton = false,
   showParent = true,
   showLabels = true,
   showTimeRange = true,
@@ -94,16 +99,18 @@ export const List = ({
           />
         </Flex.Box>
       )}
-      {enableFilters && (
+      {(enableFilters || enableAddButton) && (
         <Flex.Box
           x
           bordered
           style={{ padding: "1rem 2rem", borderTop: "none" }}
           background={1}
           justify="between"
-        >
+        >{enableFilters && <>
           <SelectFilters request={request} onRequestChange={handleRequestChange} />
-          <Filters request={request} onRequestChange={handleRequestChange} />
+          <Filters request={request} onRequestChange={handleRequestChange} /></>
+        }
+        {enableAddButton && <AddButton />}
         </Flex.Box>
       )}
       <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>
@@ -121,3 +128,12 @@ export const List = ({
     </Select.Frame>
   );
 };
+
+const AddButton = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  return (
+    <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
+      <Icon.Add />
+    </Button.Button>
+  )
+}
