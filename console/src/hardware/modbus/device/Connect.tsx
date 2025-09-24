@@ -27,7 +27,8 @@ import { Common } from "@/hardware/common";
 import {
   type ConnectionConfig,
   connectionConfigZ,
-  MAKE,
+  type Make,
+  type Model,
   type Properties,
   ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES,
@@ -118,11 +119,11 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       });
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
 
-      await client.hardware.devices.create<Properties>({
+      await client.hardware.devices.create<Properties, Make, Model>({
         key,
         name: methods.get<string>("name").value,
-        model: MAKE,
-        make: MAKE,
+        model: "modbus",
+        make: "modbus",
         rack: rack.key,
         location: `${methods.get<string>("connection.host").value}:${methods.get<number>("connection.port").value}`,
         properties: {
@@ -143,11 +144,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       <Flex.Box className={CSS.B("content")} grow size="small">
         <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
-            inputProps={{
-              level: "h2",
-              placeholder: "Modbus Server",
-              variant: "text",
-            }}
+            inputProps={{ level: "h2", placeholder: "Modbus Server", variant: "text" }}
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
