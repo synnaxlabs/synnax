@@ -55,9 +55,14 @@ class Console:
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
 
-    def select_from_dropdown_item(self, text: str, selector: Locator) -> None:
+    def select_from_dropdown(self, text: str, placeholder: Optional[str] = None) -> None:
         """Select an item from an open dropdown."""
         self.page.wait_for_timeout(300)
+
+        if placeholder is not None:
+            search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
+            if search_input.count() > 0:
+                search_input.fill(text)
 
         item_selector = self.page.locator(".pluto-list__item:not(.pluto-tree__item)").all()
         for item in item_selector:

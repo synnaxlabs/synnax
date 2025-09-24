@@ -134,8 +134,8 @@ class ChannelClient:
                 .first
             )
             d_type_selector.click()
-            self.console.select_from_dropdown_item(data_type_str, self.page)
-            
+            self.console.select_from_dropdown(data_type_str, 'Search Data Types')
+
             # Set index - index should be the channel name
             index_selector = (
                 self.page.locator("text=Index")
@@ -144,7 +144,7 @@ class ChannelClient:
                 .first
             )
             index_selector.click()
-            self.console.select_from_dropdown_item(index, self.page)
+            self.console.select_from_dropdown(index, 'Search Channels')
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
