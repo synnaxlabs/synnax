@@ -21,6 +21,7 @@ class Schematic_Set_Output(ConsoleCase):
         console = self.console
         console.schematic.new()
 
+        self._log_message("Creating channels")
         CHANNEL_NAME = "command_channel"
         INDEX_NAME = "idx_channel"
 
@@ -35,6 +36,7 @@ class Schematic_Set_Output(ConsoleCase):
             index=INDEX_NAME,
         )
 
+        self._log_message("Creating schematic symbols")
         setpoint_symbol = console.schematic.create_setpoint(CHANNEL_NAME)
         setpoint_symbol.move(-200, 0)
 

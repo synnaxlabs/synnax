@@ -8,14 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import TYPE_CHECKING, Any, Dict, Optional
-
-from playwright.sync_api import Page
+from typing import Any, Dict, Optional
 
 from .symbol import Symbol
-
-if TYPE_CHECKING:
-    from ..console import Console
 
 
 class Value(Symbol):

@@ -11,7 +11,6 @@ import os
 import re
 from typing import Optional
 
-from numpy.random import f
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
@@ -65,18 +64,12 @@ class Console:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
             if search_input.count() > 0:
                 search_input.fill(text)
-
-        item_selector = self.page.locator(
-            ".pluto-list__item:not(.pluto-tree__item)"
-        ).all()
-        for item in item_selector:
-            if item.is_visible():
-                item_text = item.inner_text().strip()
-                if text.lower() in item_text.lower():
-                    item.click()
-                    return
-
-        raise RuntimeError(f"Could not find item '{text}' in dropdown")
+        try:
+            target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
+            self.page.wait_for_selector(target_item, timeout=1000)
+            self.page.locator(target_item).first.click()
+        except Exception:
+            raise RuntimeError(f"Could not find item '{text}' in dropdown")
 
     def create_page(
         self, page_type: str, page_name: Optional[str] = None
