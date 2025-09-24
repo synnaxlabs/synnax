@@ -44,8 +44,9 @@ class Plot(ConsolePage):
         search_input = self.page.locator("input[placeholder*='Search']")
         for channel in channels:
             search_input.fill(channel)
+            print("Channel: ", channel)
             self.console.select_from_dropdown_item(
-                channel, search_input,
+                channel, search_input.locator("..").locator(".."),
             )
             self.data[axis].append(channel)
 

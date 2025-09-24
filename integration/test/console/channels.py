@@ -134,8 +134,8 @@ class ChannelClient:
                 .first
             )
             d_type_selector.click()
-            self.console.select_from_dropdown_item(data_type_str, d_type_selector)
-
+            self.console.select_from_dropdown_item(data_type_str, self.page)
+            
             # Set index - index should be the channel name
             index_selector = (
                 self.page.locator("text=Index")
@@ -144,7 +144,7 @@ class ChannelClient:
                 .first
             )
             index_selector.click()
-            self.console.select_from_dropdown_item(index, index_selector)
+            self.console.select_from_dropdown_item(index, self.page)
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
@@ -252,5 +252,4 @@ class ChannelClient:
         for item in self.channels_list.all():
             if item.is_visible():
                 channels.append(item.inner_text().strip())
-        self.hide_resources()
         return channels
