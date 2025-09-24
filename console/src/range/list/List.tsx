@@ -48,13 +48,17 @@ export const List = ({
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
-    retrieve(setter);
+  const handleRequestChange = (
+    setter: state.SetArg<ranger.RetrieveRequest>,
+    opts?: Flux.AsyncListOptions,
+  ) => {
+    retrieve(setter, opts);
     setRequest(setter);
   };
   const handleSearch = (term: string) =>
     handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
-  const handleFetchMore = () => handleRequestChange(PList.page);
+  const handleFetchMore = () =>
+    handleRequestChange((r) => PList.page(r, 25), { mode: "append" });
   return (
     <Select.Frame<ranger.Key, ranger.Range>
       multiple
@@ -65,6 +69,7 @@ export const List = ({
       onChange={setSelected}
       value={selected}
       onFetchMore={handleFetchMore}
+      itemHeight={45}
     >
       {enableSearch && (
         <Flex.Box
@@ -101,7 +106,7 @@ export const List = ({
           <Filters request={request} onRequestChange={handleRequestChange} />
         </Flex.Box>
       )}
-      <PList.Items<string>>
+      <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>
         {({ key, ...rest }) => (
           <Item
             key={key}

@@ -39,7 +39,7 @@ const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => 
 );
 
 export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <Dialog.Frame location={location.BOTTOM_CENTER}>
+  <Dialog.Frame location={location.BOTTOM_LEFT}>
     <Dialog.Trigger hideCaret>
       <Icon.Filter />
       <Text.Text>Filter</Text.Text>

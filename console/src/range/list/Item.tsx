@@ -23,7 +23,7 @@ import {
   Telem,
 } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -38,7 +38,7 @@ export interface ItemProps extends List.ItemProps<ranger.Key> {
   showFavorite?: boolean;
 }
 
-export const Item = ({
+const Base = ({
   showParent = true,
   showLabels = true,
   showTimeRange = true,
@@ -109,7 +109,6 @@ export const Item = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
-                  location="bottom"
                   onClick={stopPropagation}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
@@ -142,3 +141,5 @@ export const Item = ({
     </List.Item>
   );
 };
+
+export const Item = memo(Base);

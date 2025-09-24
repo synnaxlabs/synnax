@@ -18,5 +18,5 @@
 }
 
 .console-range__list-item {
-    padding-left: 1rem;
+    padding-left: round(0.666rem, 1px);
 }
