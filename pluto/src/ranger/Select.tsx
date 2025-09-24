@@ -18,10 +18,10 @@ import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams, useList } from "@/ranger/queries";
-import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
+import { Telem } from "@/telem";
 
 interface ListItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -51,7 +51,7 @@ export const ListItem = memo(
           )}
         </Breadcrumb.Breadcrumb>
         <Flex.Box x>
-          <TimeRangeChip level="small" timeRange={timeRange} />
+          <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           {showLabels && (
             <Tag.Tags variant="text">
               {labels?.map((l) => (

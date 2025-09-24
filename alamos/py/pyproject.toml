@@ -10,7 +10,6 @@ dependencies = [
     "uptrace>=1.35.0,<2",
 ]
 
-
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 isort = "^6.0.1"
@@ -19,10 +18,8 @@ poetry = "^2.2.0"
 pytest = "^8.4.2"
 vermin = "^1.6.0"
 
-
 [tool.isort]
 profile = "black"
-
 
 [tool.mypy]
 mypy_path = "stubs"
@@ -33,7 +30,6 @@ strict = true
 init_forbid_extra = true
 init_types = true
 warn_required_dynamic_aliases = true
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

@@ -121,8 +121,8 @@ describe("Partial", () => {
     type PartialTest = deep.Partial<Test>;
     const obj: PartialTest = {
       nested: {
-        req: true
-      }
+        req: true,
+      },
     };
 
     expect(obj).toEqual({ nested: { req: true } });
@@ -178,17 +178,17 @@ describe("Partial", () => {
     const obj: PartialComplex = {
       content: {
         body: {
-          paragraphs: [{ text: "test" }]
-        }
-      }
+          paragraphs: [{ text: "test" }],
+        },
+      },
     };
 
     expect(obj).toEqual({
       content: {
         body: {
-          paragraphs: [{ text: "test" }]
-        }
-      }
+          paragraphs: [{ text: "test" }],
+        },
+      },
     });
   });
 });

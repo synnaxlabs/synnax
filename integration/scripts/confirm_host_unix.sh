@@ -18,7 +18,7 @@ echo "Hostname: $(hostname)"
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
     echo "CPU cores: $(sysctl -n hw.ncpu)"
-    echo "Physical memory: $(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 ))GB"
+    echo "Physical memory: $(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024))GB"
     echo "macOS version: $(sw_vers -productVersion)"
 else
     # Linux

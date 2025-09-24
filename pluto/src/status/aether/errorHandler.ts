@@ -1,7 +1,7 @@
 import { type errors, status } from "@synnaxlabs/x";
 
 export interface Adder {
-  <D = undefined>(spec: status.Crude<D>): void;
+  <Details = never>(spec: status.Crude<Details>): void;
 }
 
 export interface ErrorHandler {

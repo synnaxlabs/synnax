@@ -15,7 +15,7 @@ from time import time as now
 import synnax as sy
 
 
-class BenchLatencyResponse(TestCase):
+class BenchResponse(TestCase):
 
     def setup(self) -> None:
 

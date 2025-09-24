@@ -591,8 +591,8 @@ class TestConductor:
     def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Dynamically load a test class from its case identifier."""
         try:
-            # Parse the case string as a file path (e.g., "testcases/latency/bench_latency_response")
-            case_path = test_def.case
+            # Parse the case string as a file path (e.g., "cases/latency/bench_latency_response")
+            case_path = f"cases/{test_def.case}"
 
             # Extract the module name from the path (last part before .py)
             module_name = case_path.split("/")[-1]
@@ -944,7 +944,7 @@ class TestConductor:
             display_name = (
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(result)
             )
-            self.log_message(f"{status_symbol} {display_name}")
+            self.log_message(f"{status_symbol} {display_name}", False)
             if result.error_message:
                 self.log_message(f"ERROR: {result.error_message}")
 

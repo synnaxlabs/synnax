@@ -7,17 +7,18 @@ Synnax uses **Python 3.11 or greater**, although we highly recommend always usin
 
 ## Monorepo Organization
 
-Synnax is organized as a monorepo. Our Python bases software consists of the following packageso
+Synnax is organized as a monorepo. Our Python bases software consists of the following
+packages:
 
-- `alamos` - path `alamos/py` - A library for instrumenting python code with
-  logs, traces, and metrics.
-- `synnax-freighter` - path `freighter/py` - A transport adapter protocol
-  for communicating with the Synnax server.
-- `synnax` - path `client/py` - The client library for communicating with
-  a Synnax cluster.
+- `alamos` - path `alamos/py` - A library for instrumenting python code with logs,
+  traces, and metrics.
+- `synnax-freighter` - path `freighter/py` - A transport adapter protocol for
+  communicating with the Synnax server.
+- `synnax` - path `client/py` - The client library for communicating with a Synnax
+  cluster.
 
-Each of these packages are developed built, and published independently.
-The current dependency hierarchy for these packages is as follows:
+Each of these packages are developed built, and published independently. The current
+dependency hierarchy for these packages is as follows:
 
 <p align="middle">
     <img src="./img/python/deps.png" width="300px">
@@ -33,15 +34,16 @@ us:
 - Create virtual environments.
 - Publish packages to PyPI.
 
-While poetry can be considered a replacement for `pipenv`, it's not a replacement for `venv`.
-Poetry relies on the operating system level Python version to create virtual environments.
+While poetry can be considered a replacement for `pipenv`, it's not a replacement for
+`venv`. Poetry relies on the operating system level Python version to create virtual
+environments.
 
 ## The Development Process
 
 ### 0 - Prerequisites
 
-Once you've set up your development environment (see [setup macos](../setup-macos.md) and
-[setup windows](../setup-windows.md)), have an issue you're ready to work, and have
+Once you've set up your development environment (see [setup macos](../setup-macos.md)
+and [setup windows](../setup-windows.md)), have an issue you're ready to work, and have
 checked out a [branch](../git.md), you're ready to start developing.
 
 ### 1 - Installing Dependencies
@@ -67,8 +69,8 @@ This will let you run test cases (and in `client/py` the CLI).
 
 ### 3 - You're Ready to Go
 
-You're ready to start developing with Python in Synnax. Note that certain libraries
-have specific development instructions. These instructions can be found in the `README.md`
+You're ready to start developing with Python in Synnax. Note that certain libraries have
+specific development instructions. These instructions can be found in the `README.md`
 files in each library's directory.
 
 ## BEFORE YOU SUBMIT A PULL REQUEST
