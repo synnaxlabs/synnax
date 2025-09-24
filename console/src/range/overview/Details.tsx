@@ -55,11 +55,7 @@ const ParentRangeButton = ({
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placeLayout({
-            ...OVERVIEW_LAYOUT,
-            key: parent.key,
-            name: parent.name,
-          })
+          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
         <Icon />
@@ -156,7 +152,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
-
           <Flex.Box x style={{ height: "fit-content" }} gap="small">
             <Button.Button
               tooltip={`Copy Python code to retrieve ${name}`}

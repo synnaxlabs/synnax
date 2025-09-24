@@ -7,23 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeRange, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type CrudeTimeRange,
+  TimeRange as XTimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
-export interface TimeRangeChipProps
-  extends Flex.BoxProps<"div">,
+export interface TimeRangeProps
+  extends Omit<Flex.BoxProps<"div">, "children">,
     Pick<Text.TextProps, "level" | "color"> {
-  timeRange: CrudeTimeRange;
-  variant?: "text" | "outlined";
+  children: CrudeTimeRange;
 }
 
 const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string] => {
-  const tr = new TimeRange(timeRange).makeValid();
+  const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
   const startFormat = tr.start.isToday ? "time" : "dateTime";
   let startTime = new TimeStamp(tr.start).toString(startFormat, "local");
@@ -37,23 +40,16 @@ const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string]
   return [startTime, endTime];
 };
 
-export const TimeRangeChip = ({
-  timeRange,
+export const TimeRange = ({
+  children,
   level = "p",
   color = 9,
-  variant = "text",
   ...rest
-}: TimeRangeChipProps): ReactElement | null => {
-  const formattedTime = formatTime(timeRange);
+}: TimeRangeProps): ReactElement | null => {
+  const formattedTime = formatTime(children);
   if (formattedTime == null) return null;
   return (
-    <Flex.Box
-      x
-      gap="small"
-      className={CSS(CSS.B("time-range-chip"), CSS.M(variant))}
-      align="center"
-      {...rest}
-    >
+    <Flex.Box x gap="small" align="center" {...rest}>
       <Text.Text level={level} color={color} weight={450} gap="tiny">
         {typeof formattedTime === "string" ? (
           formattedTime

@@ -109,7 +109,7 @@ const ListItem = ({
             ))}
           </>
         )}
-        <TimeRangeChip level="small" timeRange={timeRange} />
+        <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
     </Core.ListItem>
   );

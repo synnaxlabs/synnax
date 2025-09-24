@@ -18,11 +18,7 @@ describe("TimeRange", () => {
     const start = TimeSpan.hours(10);
     const end = TimeSpan.hours(14);
     const range = new XTimeRange(start, end);
-    const c = render(
-      <Telem.Text.TimeRange suppliedTZ="UTC" displayTZ="UTC">
-        {range}
-      </Telem.Text.TimeRange>,
-    );
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.getByText("Jan 1 10:00:00")).toBeTruthy();
     expect(c.getByText("14:00:00")).toBeTruthy();
   });
@@ -42,16 +38,14 @@ describe("TimeRange", () => {
     const start = TimeSpan.hours(10);
     const end = TimeSpan.hours(14).add(TimeSpan.minutes(30));
     const range = new XTimeRange(start, end);
-    const c = render(<Telem.Text.TimeRange showSpan>{range}</Telem.Text.TimeRange>);
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).toContain("4h 30m");
   });
   it("should not show span when showSpan is false", () => {
     const start = TimeSpan.hours(10);
     const end = TimeSpan.hours(14).add(TimeSpan.minutes(30));
     const range = new XTimeRange(start, end);
-    const c = render(
-      <Telem.Text.TimeRange showSpan={false}>{range}</Telem.Text.TimeRange>,
-    );
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).not.toContain("4h 30m");
   });
   it("should show date for multi-day ranges", () => {
@@ -76,7 +70,7 @@ describe("TimeRange", () => {
   it("should handle zero span ranges", () => {
     const ts = TimeSpan.hours(10);
     const range = new XTimeRange(ts, ts);
-    const c = render(<Telem.Text.TimeRange showSpan>{range}</Telem.Text.TimeRange>);
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).toBeTruthy();
   });
 });

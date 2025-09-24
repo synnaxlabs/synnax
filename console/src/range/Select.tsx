@@ -13,6 +13,7 @@ import {
   Icon,
   Input,
   List,
+  Ranger,
   Select,
   Tag,
   Telem,
@@ -62,7 +63,7 @@ const StaticListItem = Component.renderProp(
           parent={parent}
           timeRange={range.timeRange}
         />
-        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
+        <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
       </Select.ListItem>
     );
   },
@@ -72,7 +73,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
   if (range == null) return null;
-  const { variant } = range;
+  const { variant, } = range;
   if (variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
 });
