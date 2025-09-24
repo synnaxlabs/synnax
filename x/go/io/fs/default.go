@@ -14,9 +14,7 @@ import (
 	"path"
 )
 
-type defaultFS struct {
-	perm os.FileMode
-}
+type defaultFS struct{ perm os.FileMode }
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
@@ -36,10 +34,13 @@ func (d *defaultFS) Sub(name string) (FS, error) {
 // Exists implements FS.
 func (d *defaultFS) Exists(name string) (bool, error) {
 	_, err := os.Stat(name)
-	if os.IsNotExist(err) {
-		return false, nil
+	if err == nil {
+		return true, nil
 	}
-	return true, err
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return false, err
 }
 
 // List implements FS.
@@ -50,8 +51,7 @@ func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = os.Stat(path.Join(dirName, e.Name()))
-		if err != nil {
+		if infos[i], err = os.Stat(path.Join(dirName, e.Name())); err != nil {
 			return nil, err
 		}
 	}
@@ -59,9 +59,7 @@ func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 }
 
 // Remove implements FS.
-func (d *defaultFS) Remove(name string) error {
-	return os.RemoveAll(name)
-}
+func (d *defaultFS) Remove(name string) error { return os.RemoveAll(name) }
 
 // Rename implements FS.
 func (d *defaultFS) Rename(name string, newName string) error {
@@ -69,6 +67,4 @@ func (d *defaultFS) Rename(name string, newName string) error {
 }
 
 // Stat implements FS.
-func (d *defaultFS) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
-}
+func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }

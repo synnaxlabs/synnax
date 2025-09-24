@@ -14,7 +14,6 @@ sy = "synnax.cli.synnax:synnax"
 Homepage = "https://synnaxlabs.com"
 Repository = "https://github.com/synnaxlabs/synnax"
 
-
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
 click = "^8.2.1"
@@ -28,7 +27,6 @@ rich = "^14.1.0"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
-
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 isort = "^6.0.1"
@@ -39,21 +37,17 @@ pytest-asyncio = "^1.2.0"
 scipy = "^1.16.2"
 vermin = "^1.6.0"
 
-
 [tool.isort]
 profile = "black"
-
 
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
 
-
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_types = true
 warn_required_dynamic_aliases = true
-
 
 [tool.pytest.ini_options]
 markers = [
@@ -87,7 +81,6 @@ markers = [
     "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
 ]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

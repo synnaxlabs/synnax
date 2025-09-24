@@ -5,6 +5,6 @@ server. The clients can be used to connect to a server and read, write, and stre
 The client libraries can be used to build analysis tools, device, GUIs, and much more.
 The following languages are currently implemented:
 
--   [C++](./cpp/)
--   [Python](./py/README.md)
--   [TypeScript](./ts/README.md)
+- [C++](./cpp/)
+- [Python](./py/README.md)
+- [TypeScript](./ts/README.md)

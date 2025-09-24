@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build !race
-// +build !race
-
-package invariants
-
-// RaceEnabled is true if we were built with the "race" build tag.
-const RaceEnabled = false
+export * as Text from "@/telem/text/external";
