@@ -1,0 +1,6 @@
+vendor
+pnpm-lock.yaml
+pnpm-workspace.yaml
+*.mod
+*.rs
+*.lock

@@ -25,9 +25,9 @@ echo "Waiting for server startup..."
 sleep 5
 
 # Verify Synnax is running
-if pgrep -f "synnax" >/dev/null; then
+if pgrep -f "synnax" > /dev/null; then
     echo "Synnax is running"
-    
+
     # Verify port 9090 is listening
     portReady=false
     for i in {1..5}; do
@@ -39,7 +39,7 @@ if pgrep -f "synnax" >/dev/null; then
         echo "Waiting for port 9090... (attempt $i/5)"
         sleep 3
     done
-    
+
     if [ "$portReady" = false ]; then
         echo "ERROR: Port 9090 never became available"
         exit 1

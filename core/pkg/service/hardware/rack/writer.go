@@ -11,7 +11,6 @@ package rack
 
 import (
 	"context"
-	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -29,9 +28,8 @@ type Writer struct {
 	// group is the base group that racks will be created under.
 	group group.Group
 	// newKey returns a new key for a rack.
-	newKey func() (Key, error)
-	// keyMu
-	keyMu *sync.Mutex
+	newKey     func() (Key, error)
+	newTaskKey func(context.Context, Key) (uint32, error)
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -67,13 +65,7 @@ func (w Writer) DeleteGuard(ctx context.Context, key Key, filter func(Rack) erro
 	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(filter).Exec(ctx, w.tx)
 }
 
-// NextTaskKey returns a new, unique key for the task on the provided rack.
-func (w Writer) NextTaskKey(ctx context.Context, key Key) (next uint32, err error) {
-	w.keyMu.Lock()
-	defer w.keyMu.Unlock()
-	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(key).Change(func(r Rack) Rack {
-		r.TaskCounter += 1
-		next = r.TaskCounter
-		return r
-	}).Exec(ctx, w.tx)
+// NewTaskKey returns a new, unique key for the task on the provided rack.
+func (w Writer) NewTaskKey(ctx context.Context, key Key) (next uint32, err error) {
+	return w.newTaskKey(ctx, key)
 }

@@ -77,10 +77,12 @@ export const useAsyncErrorHandler = (): AsyncErrorHandler => {
   return useMemo(() => status.createAsyncErrorHandler(add), [add]);
 };
 
-export type NotificationSpec<D = undefined> = xstatus.Status<D> & { count: number };
+export type NotificationSpec<Details = never> = xstatus.Status<Details> & {
+  count: number;
+};
 
-export interface UseNotificationsReturn<D = undefined> {
-  statuses: NotificationSpec<D>[];
+export interface UseNotificationsReturn<Details = never> {
+  statuses: NotificationSpec<Details>[];
   silence: (key: string) => void;
 }
 

@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build (!invariants && !tracing) || race
-// +build !invariants,!tracing race
-
-package invariants
-
-// SetFinalizer is a wrapper around runtime.SetFinalizer that is a no-op under
-// race builds or if neither the invariants or tracing build tags are
-// specified.
-func SetFinalizer(obj, finalizer any) {
-}
+export * from "@/telem/text/TimeRange";
+export * from "@/telem/text/TimeSpan";
+export * from "@/telem/text/TimeStamp";

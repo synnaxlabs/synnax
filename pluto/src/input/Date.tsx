@@ -68,7 +68,7 @@ export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
   // The props value is in UTC, but we want the user
   // to view AND enter in local. This subtracts the
   // UTC offset from the timestamp.
-  const inputValue = ts.fString("ISODate", "local");
+  const inputValue = ts.toString("ISODate", "local");
 
   return { value: inputValue, onChange: handleChange };
 };

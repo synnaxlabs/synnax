@@ -19,6 +19,6 @@ In the third shell, run the nominal sequence:
 python nominal_sequence.py
 ```
 
-We recommend using the [Synnax
-Console](https://docs.synnaxlabs.com/reference/console/get-started) to visualize the
-data in these examples.
+We recommend using the
+[Synnax Console](https://docs.synnaxlabs.com/reference/console/get-started) to visualize
+the data in these examples.

@@ -11,8 +11,8 @@
 
 # Check for correct usage
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <path>"
-  exit 1
+    echo "Usage: $0 <path>"
+    exit 1
 fi
 
 path="$1"

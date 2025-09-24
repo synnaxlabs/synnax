@@ -130,8 +130,8 @@ export const themeZ = z
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.infer<typeof themeZ>;
 
-const fontFamily = "'Inter Variable', sans-serif";
-const codeFontFamily = "'Geist Mono', monospace";
+const fontFamily = '"Inter Variable", sans-serif';
+const codeFontFamily = '"Geist Mono", monospace';
 const baseSize: number = 6;
 
 // Error
