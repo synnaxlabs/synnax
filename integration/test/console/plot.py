@@ -36,16 +36,16 @@ class Plot(ConsolePage):
         if axis not in ("Y1", "Y2"):
             raise ValueError(f"Invalid axis: {axis}. Must be 'Y1' or 'Y2'")
 
+        channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
+
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
         selector.click(timeout=5000)
 
-        self.page.get_by_text("Retrieving Channels").wait_for(state="hidden")
-        channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
-
-        # Add each channel
+        search_input = self.page.locator("input[placeholder*='Search']")
         for channel in channels:
+            search_input.fill(channel)
             self.console.select_from_dropdown_item(
-                channel, "input[placeholder*='Search']"
+                channel, search_input,
             )
             self.data[axis].append(channel)
 

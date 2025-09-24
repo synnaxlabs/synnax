@@ -104,7 +104,13 @@ class ChannelClient:
 
         # Set virtual if needed
         if virtual:
-            self.page.get_by_text("Virtual").click()
+            is_virtual_toggle = (
+                self.page.locator("text=Virtual")
+                .locator("..")
+                .locator("input[type='checkbox']")
+                .first
+            )
+            is_virtual_toggle.click()
 
         # Configure as index or regular channel
         if is_index:
@@ -121,10 +127,24 @@ class ChannelClient:
 
             # Set data type
             data_type_str = str(DataType(data_type))
-            self.console.select_from_dropdown("Data Type", data_type_str)
+            d_type_selector = (
+                self.page.locator("text=Data Type")
+                .locator("..")
+                .locator("button")
+                .first
+            )
+            d_type_selector.click()
+            self.console.select_from_dropdown_item(data_type_str, d_type_selector)
 
             # Set index - index should be the channel name
-            self.console.select_from_dropdown("Index", index)
+            index_selector = (
+                self.page.locator("text=Index")
+                .locator("..")
+                .locator("button")
+                .first
+            )
+            index_selector.click()
+            self.console.select_from_dropdown_item(index, index_selector)
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
