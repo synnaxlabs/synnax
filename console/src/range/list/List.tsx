@@ -106,11 +106,14 @@ export const List = ({
           style={{ padding: "1rem 2rem", borderTop: "none" }}
           background={1}
           justify="between"
-        >{enableFilters && <>
-          <SelectFilters request={request} onRequestChange={handleRequestChange} />
-          <Filters request={request} onRequestChange={handleRequestChange} /></>
-        }
-        {enableAddButton && <AddButton />}
+        >
+          {enableFilters && (
+            <>
+              <SelectFilters request={request} onRequestChange={handleRequestChange} />
+              <Filters request={request} onRequestChange={handleRequestChange} />
+            </>
+          )}
+          {enableAddButton && <AddButton />}
         </Flex.Box>
       )}
       <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>
@@ -135,5 +138,5 @@ const AddButton = (): ReactElement => {
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
       <Icon.Add />
     </Button.Button>
-  )
-}
+  );
+};
