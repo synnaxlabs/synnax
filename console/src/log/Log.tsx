@@ -14,7 +14,7 @@ import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
-import { createLoadRemote, } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";

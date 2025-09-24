@@ -30,7 +30,6 @@ describe("table queries", () => {
         wrapper,
       });
       await waitFor(() => {
-
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.data?.key).toEqual(table.key);
@@ -109,10 +108,9 @@ describe("table queries", () => {
         });
       });
 
-      const { result: retrieveResult } = renderHook(
-        () => Table.useRetrieve({ key }),
-        { wrapper },
-      );
+      const { result: retrieveResult } = renderHook(() => Table.useRetrieve({ key }), {
+        wrapper,
+      });
       await waitFor(() => expect(retrieveResult.current.variant).toEqual("success"));
       expect(retrieveResult.current.data?.name).toEqual("stored_table");
     });

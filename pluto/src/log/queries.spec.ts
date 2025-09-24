@@ -30,7 +30,6 @@ describe("log queries", () => {
         wrapper,
       });
       await waitFor(() => {
-
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.data?.key).toEqual(log.key);
@@ -47,16 +46,14 @@ describe("log queries", () => {
         data: {},
       });
 
-      const { result: result1 } = renderHook(
-        () => Log.useRetrieve({ key: log.key }),
-        { wrapper },
-      );
+      const { result: result1 } = renderHook(() => Log.useRetrieve({ key: log.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
-      const { result: result2 } = renderHook(
-        () => Log.useRetrieve({ key: log.key }),
-        { wrapper },
-      );
+      const { result: result2 } = renderHook(() => Log.useRetrieve({ key: log.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
       expect(result2.current.data).toEqual(result1.current.data);
     });
@@ -109,10 +106,9 @@ describe("log queries", () => {
         });
       });
 
-      const { result: retrieveResult } = renderHook(
-        () => Log.useRetrieve({ key }),
-        { wrapper },
-      );
+      const { result: retrieveResult } = renderHook(() => Log.useRetrieve({ key }), {
+        wrapper,
+      });
       await waitFor(() => expect(retrieveResult.current.variant).toEqual("success"));
       expect(retrieveResult.current.data?.name).toEqual("stored_log");
     });
@@ -201,9 +197,9 @@ describe("log queries", () => {
         await result.current.updateAsync(log.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(
-        client.workspaces.logs.retrieve({ key: log.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.workspaces.logs.retrieve({ key: log.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should delete multiple logs", async () => {
@@ -228,12 +224,12 @@ describe("log queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(
-        client.workspaces.logs.retrieve({ key: log1.key }),
-      ).rejects.toThrow(NotFoundError);
-      await expect(
-        client.workspaces.logs.retrieve({ key: log2.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.workspaces.logs.retrieve({ key: log1.key })).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(client.workspaces.logs.retrieve({ key: log2.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

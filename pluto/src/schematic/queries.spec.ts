@@ -26,9 +26,12 @@ describe("schematic queries", () => {
         data: {},
       });
 
-      const { result } = renderHook(() => Schematic.useRetrieve({ key: schematic.key }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Schematic.useRetrieve({ key: schematic.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
@@ -147,7 +150,9 @@ describe("schematic queries", () => {
         });
       });
 
-      const retrieved = await client.workspaces.schematics.retrieve({ key: schematic.key });
+      const retrieved = await client.workspaces.schematics.retrieve({
+        key: schematic.key,
+      });
       expect(retrieved.name).toEqual("renamed_schematic");
     });
 

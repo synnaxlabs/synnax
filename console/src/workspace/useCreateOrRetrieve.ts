@@ -27,11 +27,7 @@ export const useCreateOrRetrieve = () => {
     const purgedLayout = purgeExcludedLayouts(layout);
     if (prevClient != null)
       handleError(
-        async () =>
-          await prevClient.workspaces.setLayout(
-            activeWS.key,
-            purgedLayout,
-          ),
+        async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
         `Failed to save workspace ${activeWS.name}`,
       );
     handleError(async () => {

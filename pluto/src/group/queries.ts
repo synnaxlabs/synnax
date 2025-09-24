@@ -152,8 +152,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-export interface RenameParams extends Pick<group.Group, "key" | "name"> {
-}
+export interface RenameParams extends Pick<group.Group, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,

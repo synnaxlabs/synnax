@@ -21,7 +21,6 @@ import {
   Nav,
   Rack,
   Status,
-  Task,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -38,11 +37,7 @@ import {
   type SecurityPolicy,
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  TEST_CONNECTION_COMMAND_TYPE,
-} from "@/hardware/opc/task/types";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";

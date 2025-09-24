@@ -30,7 +30,6 @@ describe("lineplot queries", () => {
         wrapper,
       });
       await waitFor(() => {
-
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.data?.key).toEqual(plot.key);

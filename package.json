@@ -15,6 +15,7 @@
     "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin",
     "build:x": "npx turbo build --filter @synnaxlabs/x",
     "check-format": "prettier -c .",
+    "format": "prettier -w .",
     "check-types": "npx turbo check-types",
     "check-types:console": "npx turbo check-types --filter @synnaxlabs/console",
     "check-types:pluto": "npx turbo check-types --filter @synnaxlabs/pluto",

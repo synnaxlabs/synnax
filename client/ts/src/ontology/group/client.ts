@@ -54,7 +54,13 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(this.client, RENAME_ENDPOINT, { key, name }, renameReqZ, z.object({}));
+    await sendRequired(
+      this.client,
+      RENAME_ENDPOINT,
+      { key, name },
+      renameReqZ,
+      z.object({}),
+    );
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

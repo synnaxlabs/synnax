@@ -318,7 +318,9 @@ describe("queries", () => {
         }),
         { wrapper },
       );
-      act(() => {result.current.rename.update({key: ws.key, name: "newName"})});
+      act(() => {
+        result.current.rename.update({ key: ws.key, name: "newName" });
+      });
       await waitFor(() =>
         expect(result.current.retrieve.data?.name).toEqual("newName"),
       );
