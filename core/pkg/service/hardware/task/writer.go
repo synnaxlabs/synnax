@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -79,14 +78,15 @@ func (w Writer) Copy(
 	}
 	newKey := NewKey(key.Rack(), localKey)
 	var res Task
-	err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
+	if err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
 		t.Key = newKey
-		fmt.Println(t.Name, newKey)
 		t.Name = name
 		t.Snapshot = snapshot
 		res = t
 		return t
-	}).Exec(ctx, w.tx)
+	}).Exec(ctx, w.tx); err != nil {
+		return res, err
+	}
 	if err := w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
