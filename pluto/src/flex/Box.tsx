@@ -203,12 +203,12 @@ export const Box = <E extends Generic.ElementType = "div">({
   square = false,
   ...rest
 }: BoxProps<E>): ReactElement => {
-  const parsedDirecton = parseDirection(crudeDirection, x, y, pack);
+  const parsedDirection = parseDirection(crudeDirection, x, y, pack);
   const classNames = [
     className,
     CSS.B("flex"),
-    parsedDirecton != null && CSS.M("direction", parsedDirecton.toString()),
-    shouldReverse(crudeDirection, reverse) && CSS.M("reverse"),
+    parsedDirection != null && CSS.M("direction", parsedDirection),
+    shouldReverse(parsedDirection, reverse) && CSS.M("reverse"),
     parseFull(full),
     pack && CSS.M("pack"),
     justify != null && CSS.M("justify", justify),

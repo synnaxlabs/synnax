@@ -70,7 +70,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     details: () => {
-      placeLayout({...OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });
+      placeLayout({ ...OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });
     },
     rename: () => {
       handleError(async () => {
@@ -106,7 +106,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {isSingle && (
         <>
-        {viewDetailsMenuItem}
+          {viewDetailsMenuItem}
           <Menu.RenameItem />
           {createChildRangeMenuItem}
           <Divider.Divider x />
@@ -131,8 +131,12 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           <Divider.Divider x />
         </>
       )}
-      <Link.CopyMenuItem />
-      <Divider.Divider direction="x" />
+      {isSingle && (
+        <>
+          <Link.CopyMenuItem />
+          <Divider.Divider x />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
