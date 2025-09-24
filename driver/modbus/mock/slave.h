@@ -19,16 +19,16 @@
 
 /// platform-specific headers
 #ifdef _WIN32
+#include <io.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <io.h>
 #pragma comment(lib, "ws2_32.lib")
 #else
-#include <sys/select.h>
-#include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 /// external

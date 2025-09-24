@@ -32,8 +32,7 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register_value(
         return value;
     };
     try {
-        if (dt == telem::UINT16_T)
-            return {swap_bytes_if_needed(data[0]), xerrors::NIL};
+        if (dt == telem::UINT16_T) return {swap_bytes_if_needed(data[0]), xerrors::NIL};
         if (dt == telem::INT16_T) {
             const uint16_t raw = swap_bytes_if_needed(data[0]);
             return {static_cast<int16_t>(raw), xerrors::NIL};

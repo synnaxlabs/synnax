@@ -72,7 +72,8 @@ struct Device {
     ) const {
         if (input_type == Coil)
             return parse_error(modbus_read_bits(ctx, addr, static_cast<int>(nb), dest));
-        return parse_error(modbus_read_input_bits(ctx, addr, static_cast<int>(nb), dest)
+        return parse_error(
+            modbus_read_input_bits(ctx, addr, static_cast<int>(nb), dest)
         );
     }
 
@@ -110,7 +111,8 @@ struct Device {
     /// @param src the source buffer to write from.
     xerrors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) const {
-        return parse_error(modbus_write_registers(ctx, addr, static_cast<int>(nb), src)
+        return parse_error(
+            modbus_write_registers(ctx, addr, static_cast<int>(nb), src)
         );
     }
 };

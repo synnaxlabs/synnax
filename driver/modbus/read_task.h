@@ -114,6 +114,7 @@ class BitReader final : public BaseReader<channel::InputDiscrete> {
     device::BitType bit_type;
     /// @brief the buffer to read into.
     std::vector<uint8_t> buffer;
+
 public:
     explicit BitReader(
         const device::BitType bit_type,
