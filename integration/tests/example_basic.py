@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from test.framework.test_case import SynnaxConnection, TestCase
+from framework.test_case import SynnaxConnection, TestCase
 
 import synnax as sy
 

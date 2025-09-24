@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from test.framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from test.framework.utils import is_ci, validate_and_sanitize_name
+from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
+from framework.utils import is_ci, validate_and_sanitize_name
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import synnax as sy
@@ -308,7 +308,7 @@ class TestConductor:
 
         # Determine which files to load
         if sequence is None:
-            test_files = glob.glob("test/*_tests.json")
+            test_files = glob.glob("tests/*_tests.json")
             if not test_files:
                 raise FileNotFoundError(
                     "No *_tests.json files found for auto-discovery"
@@ -591,14 +591,14 @@ class TestConductor:
     def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Dynamically load a test class from its case identifier."""
         try:
-            # Parse the case string as a file path (e.g., "cases/latency/bench_latency_response")
-            case_path = f"cases/{test_def.case}"
+            # Parse the case string as a file path (e.g., "console/pages_open_close")
+            case_path = f"tests/{test_def.case}"
 
             # Extract the module name from the path (last part before .py)
             module_name = case_path.split("/")[-1]
 
             # Convert module_name to PascalCase class name with underscores
-            # "bench_latency_response" -> "Bench_Latency_Response"
+            # "pages_open_close" -> "Pages_Open_Close"
             class_name = "_".join(word.capitalize() for word in module_name.split("_"))
 
             # Try different possible file paths
@@ -608,7 +608,7 @@ class TestConductor:
             # Construct possible paths
             possible_paths = [
                 os.path.join(script_dir, "..", f"{case_path}.py"),
-                os.path.join(current_dir, "test", f"{case_path}.py"),
+                os.path.join(current_dir, f"{case_path}.py"),
             ]
 
             # Find the first path that exists

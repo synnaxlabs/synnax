@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.case import ConsoleCase
+from console.case import ConsoleCase
 
 
 class Plot_Abcd(ConsoleCase):

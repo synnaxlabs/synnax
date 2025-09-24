@@ -15,8 +15,8 @@ from re import S
 import matplotlib
 
 matplotlib.use("Agg")  # Use non-interactive backend
-from test.framework.test_case import TestCase
-from test.framework.utils import get_machine_info, get_memory_info, get_synnax_version
+from framework.test_case import TestCase
+from framework.utils import get_machine_info, get_memory_info, get_synnax_version
 
 import matplotlib.pyplot as plt
 import numpy as np

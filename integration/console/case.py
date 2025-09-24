@@ -9,8 +9,8 @@
 
 import random
 import time
-from test.console.console import Console
-from test.framework.test_case import TestCase
+from console.console import Console
+from framework.test_case import TestCase
 from typing import cast
 
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright

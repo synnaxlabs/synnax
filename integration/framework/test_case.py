@@ -23,7 +23,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from selectors import SelectorKey
-from test.framework.utils import (
+from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_ci,

@@ -9,7 +9,7 @@
 
 import time
 from re import S
-from test.framework.test_case import TestCase
+from framework.test_case import TestCase
 from time import time as now
 
 import synnax as sy
