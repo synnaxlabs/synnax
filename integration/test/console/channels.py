@@ -121,10 +121,10 @@ class ChannelClient:
 
             # Set data type
             data_type_str = str(DataType(data_type))
-            self.console._select_from_dropdown("Data Type", data_type_str)
+            self.console.select_from_dropdown("Data Type", data_type_str)
 
             # Set index - index should be the channel name
-            self.console._select_from_dropdown("Index", index)
+            self.console.select_from_dropdown("Index", index)
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()

@@ -44,7 +44,7 @@ class Plot(ConsolePage):
 
         # Add each channel
         for channel in channels:
-            self.console._select_from_dropdown_item(
+            self.console.select_from_dropdown_item(
                 channel, "input[placeholder*='Search']"
             )
             self.data[axis].append(channel)

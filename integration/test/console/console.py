@@ -54,7 +54,7 @@ class Console:
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
 
-    def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
+    def select_from_dropdown(self, input_field: str, input_text: str) -> None:
         """Helper method for dropdown selection"""
         channel_button = (
             self.page.locator(f"text={input_field}")
@@ -63,9 +63,9 @@ class Console:
             .first
         )
         channel_button.click()
-        self._select_from_dropdown_item(input_text, channel_button)
+        self.select_from_dropdown_item(input_text, channel_button)
 
-    def _select_from_dropdown_item(self, text: str, dropdown_button_or_selector) -> None:
+    def select_from_dropdown_item(self, text: str, dropdown_button_or_selector) -> None:
         """Select an item from an open dropdown."""
         self.page.wait_for_timeout(300)
 
