@@ -208,7 +208,7 @@ export const Box = <E extends Generic.ElementType = "div">({
     className,
     CSS.B("flex"),
     parsedDirection != null && CSS.M("direction", parsedDirection),
-    shouldReverse(parsedDirection, reverse) && CSS.M("reverse"),
+    shouldReverse(crudeDirection, reverse) && CSS.M("reverse"),
     parseFull(full),
     pack && CSS.M("pack"),
     justify != null && CSS.M("justify", justify),
