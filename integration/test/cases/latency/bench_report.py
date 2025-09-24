@@ -23,7 +23,7 @@ import numpy as np
 import synnax as sy
 
 
-class BenchLatencyReport(TestCase):
+class BenchReport(TestCase):
 
     def setup(self) -> None:
 

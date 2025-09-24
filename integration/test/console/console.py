@@ -13,6 +13,7 @@ import time
 from test.framework.test_case import TestCase
 from typing import Optional, cast
 
+import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 
@@ -135,3 +136,72 @@ class Console(TestCase):
     @property
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
+
+    def create_a_channel(
+        self,
+        channel_name: str,
+        virtual: bool = False,
+        is_index: bool = False,
+        data_type: sy.CrudeDataType = sy.DataType.TIMESTAMP,
+        index: str = "",
+    ) -> bool:
+
+        try:
+            self.client.channels.retrieve(channel_name)
+            self._log_message(f'Channel "{channel_name}" already exists')
+            return False
+        except sy.NotFoundError:
+            self._log_message(f"Creating channel: {channel_name}")
+
+        if is_index == False and index == "":
+            raise ValueError("Index must be provided if is_index is False")
+
+        self.command_palette("Create a Channel")
+
+        name_input = self.page.locator("text=Name").locator("..").locator("input").first
+        name_input.fill(channel_name)
+        if virtual:
+            self.page.get_by_text("Virtual").click()
+        if is_index:
+            is_index_toggle = (
+                self.page.locator("text=Is Index")
+                .locator("..")
+                .locator("input[type='checkbox']")
+                .first
+            )
+            is_index_toggle.click()
+        else:
+            data_type_str = str(sy.DataType(data_type))
+            self._select_from_dropdown("Data Type", data_type_str)
+            self._select_from_dropdown("Index", index)
+
+        self.page.get_by_role("button", name="Create").click()
+        self._log_message(f"Created channel {channel_name}")
+
+        return True
+
+    def _select_from_dropdown(self, input_field: str, input_text: str) -> None:
+
+        channel_button = (
+            self.page.locator(f"text={input_field}")
+            .locator("..")
+            .locator("button")
+            .first
+        )
+        channel_button.click()
+        search_input = self.page.locator("input[placeholder*='Search']")
+        search_input.press("Control+a")
+        search_input.type(input_text)
+        self.page.wait_for_timeout(300)
+
+        # Iterate through dropdown items
+        item_found = False
+        item_selector = self.page.locator(".pluto-list__item").all()
+        for item in item_selector:
+            if item.is_visible() and input_text in item.inner_text().strip().lower():
+                item.click()
+                item_found = True
+                break
+
+        if not item_found:
+            raise RuntimeError(f"Could not find channel '{input_text}' in dropdown")

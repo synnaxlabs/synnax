@@ -38,17 +38,17 @@ export type Result<Data extends state.State> =
     }
   | {
       variant: "success";
-      status: status.Status<undefined, "success">;
+      status: status.Status<never, "success">;
       data: Data;
     }
   | {
       variant: "loading";
-      status: status.Status<undefined, "loading">;
+      status: status.Status<never, "loading">;
       data: Data | undefined;
     }
   | {
       variant: "disabled";
-      status: status.Status<undefined, "disabled">;
+      status: status.Status<never, "disabled">;
       data: Data | undefined;
     };
 
@@ -73,7 +73,7 @@ export const pendingResult = <Data extends state.State>(
   data: Data | undefined,
 ): Result<Data> => ({
   variant: "loading",
-  status: status.create<undefined, "loading">({
+  status: status.create<never, "loading">({
     variant: "loading",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
@@ -101,7 +101,7 @@ export const successResult = <Data extends state.State>(
   data: Data,
 ): Result<Data> => ({
   variant: "success",
-  status: status.create<undefined, "success">({
+  status: status.create<never, "success">({
     variant: "success",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
@@ -152,7 +152,7 @@ export const nullClientResult = <Data extends state.State>(
   opName: string,
 ): Result<Data> => ({
   variant: "disabled",
-  status: status.create<undefined, "disabled">({
+  status: status.create<never, "disabled">({
     variant: "disabled",
     message: `Failed to ${opName} ${name}`,
     description: `Cannot ${opName} ${name} because no cluster is connected.`,
