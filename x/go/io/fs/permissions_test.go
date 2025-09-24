@@ -25,20 +25,20 @@ var _ = Describe("Permissions", func() {
 			},
 			Entry(
 				"0o755 0o700",
-				fs.OwnerAll|fs.GroupReadExecute|fs.OthersReadExecute,
-				fs.OwnerAll,
+				fs.OwnerReadWriteExecute|fs.GroupReadExecute|fs.OthersReadExecute,
+				fs.OwnerReadWriteExecute,
 				true,
 			),
 			Entry(
 				"0o600 0o700",
 				fs.OwnerReadWrite,
-				fs.OwnerAll,
+				fs.OwnerReadWriteExecute,
 				false,
 			),
 			Entry(
 				"0o650 0o750",
 				fs.OwnerReadWrite|fs.OthersReadExecute,
-				fs.OwnerAll|fs.OthersReadExecute,
+				fs.OwnerReadWriteExecute|fs.OthersReadExecute,
 				false,
 			),
 		)
