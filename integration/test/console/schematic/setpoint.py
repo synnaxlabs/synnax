@@ -41,7 +41,7 @@ class Setpoint(Symbol):
 
         return applied_properties
 
-    def set_value(self, value: float = None) -> None:
+    def set_value(self, value: float | None = None) -> None:
 
         if value is None:
             raise ValueError(f"{self.label}: Set Value cannot be None")
