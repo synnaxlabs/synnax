@@ -133,3 +133,43 @@ class Console:
         self.page.screenshot(
             path=path, full_page=True, animations="disabled", type="png"
         )
+
+    def click_btn(self, button_label: str) -> None:
+        """Click a button by label."""
+        button = (
+            self.page.locator(f"text={button_label}")
+            .locator("..")
+            .locator("button")
+            .first
+        )
+        button.click()
+    
+    def click_checkbox(self, checkbox_label: str) -> None:
+        """Click a checkbox by label."""
+        checkbox = (
+            self.page.locator(f"text={checkbox_label}")
+            .locator("..")
+            .locator("input[type='checkbox']")
+            .first
+        )
+        checkbox.click()
+
+    def fill_input_field(self, input_label: str, value: str) -> None:
+        """Fill an input field by label."""
+        input_field = (
+            self.page.locator(f"text={input_label}")
+            .locator("..")
+            .locator("input")
+            .first
+        )
+        input_field.fill(value)
+
+    def get_input_field(self, input_label: str) -> str:
+        """Get the value of an input field by label."""
+        input_field = (
+            self.page.locator(f"text={input_label}")
+            .locator("..")
+            .locator("input")
+            .first
+        )
+        return input_field.input_value()

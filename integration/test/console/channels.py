@@ -93,62 +93,38 @@ class ChannelClient:
             data_type = DataType.TIMESTAMP
 
         if self.existing_channel(name):
+            self.hide_resources()
             return False
 
         # Open command palette and create channel
         self.console.command_palette("Create a Channel")
 
         # Fill channel name
-        name_field = self.page.locator("text=Name").locator("..").locator("input")
-        name_field.fill(name)
+        self.console.fill_input_field("Name", name)
 
         # Set virtual if needed
         if virtual:
-            is_virtual_toggle = (
-                self.page.locator("text=Virtual")
-                .locator("..")
-                .locator("input[type='checkbox']")
-                .first
-            )
-            is_virtual_toggle.click()
+            self.console.click_checkbox("Virtual")
 
         # Configure as index or regular channel
         if is_index:
-            is_index_toggle = (
-                self.page.locator("text=Is Index")
-                .locator("..")
-                .locator("input[type='checkbox']")
-                .first
-            )
-            is_index_toggle.click()
+            self.console.click_checkbox("Is Index")
         else:
             if index == 0:
                 raise ValueError("Index must be provided if is_index is False")
 
             # Set data type
             data_type_str = str(DataType(data_type))
-            d_type_selector = (
-                self.page.locator("text=Data Type")
-                .locator("..")
-                .locator("button")
-                .first
-            )
-            d_type_selector.click()
+            self.console.click_btn("Data Type")
             self.console.select_from_dropdown(data_type_str, 'Search Data Types')
 
             # Set index - index should be the channel name
-            index_selector = (
-                self.page.locator("text=Index")
-                .locator("..")
-                .locator("button")
-                .first
-            )
-            index_selector.click()
+            self.console.click_btn("Index")
             self.console.select_from_dropdown(index, 'Search Channels')
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
-        time.sleep(0.1)
+        self.hide_resources()
         return True
 
     def existing_channel(self, name: ChannelName) -> bool:
@@ -202,8 +178,8 @@ class ChannelClient:
                     item.dblclick()
                     self.page.keyboard.type(new_name)
                     self.page.keyboard.press("Enter")
-                    time.sleep(0.1)
                     break
+        self.hide_resources()
 
     def delete(self, names: ChannelNames) -> None:
         """Deletes one or more channels via console UI.
@@ -239,9 +215,8 @@ class ChannelClient:
                     delete_option = self.page.locator("text=Delete").first
                     delete_option.click()
 
-                    # Delete Modal button
+                    # Delete button in Modal
                     self.page.get_by_role("button", name="Delete", exact=True).click()
-                    time.sleep(0.1)
                     break
         self.hide_resources()
 

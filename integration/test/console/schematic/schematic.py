@@ -67,7 +67,7 @@ class Schematic(ConsolePage):
     def create_setpoint(self, channel_name: str) -> Setpoint:
         """Create a setpoint symbol on the schematic."""
         setpoint_id = self._add_symbol("Setpoint")
-        setpoint = Setpoint(self.page, setpoint_id, channel_name)
+        setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
         return setpoint
 
@@ -82,7 +82,7 @@ class Schematic(ConsolePage):
     ) -> Value:
         """Create a value symbol on the schematic."""
         value_id = self._add_symbol("Value")
-        value = Value(self.page, value_id, channel_name)
+        value = Value(self.page, self.console, value_id, channel_name)
 
         value.edit_properties(
             channel_name=channel_name,

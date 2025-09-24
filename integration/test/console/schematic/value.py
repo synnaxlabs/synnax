@@ -8,11 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from playwright.sync_api import Page
 
 from .symbol import Symbol
+
+if TYPE_CHECKING:
+    from ..console import Console
 
 
 class Value(Symbol):
@@ -24,9 +27,6 @@ class Value(Symbol):
     averaging_window: int
     stale_color: str
     stale_timeout: int
-
-    def __init__(self, page: Page, symbol_id: str, channel_name: str):
-        super().__init__(page, symbol_id, channel_name)
 
     def edit_properties(
         self,
@@ -53,27 +53,16 @@ class Value(Symbol):
             self.set_channel("Input Channel", channel_name)
 
         if notation is not None:
-            notation_button = (
-                self.page.locator("text=Notation").locator("..").locator("button").first
-            )
-            notation_button.click()
+            self.console.click_btn("Notation")
             self.page.get_by_text(notation).click()
 
         if precision is not None:
-            precision_input = (
-                self.page.locator("text=Precision").locator("..").locator("input")
-            )
-            precision_input.fill(str(precision))
-            precision_input.press("Enter")
+            self.console.fill_input_field("Precision", str(precision))
+            self.page.keyboard.press("Enter")
 
         if averaging_window is not None:
-            averaging_window_input = (
-                self.page.locator("text=Averaging Window")
-                .locator("..")
-                .locator("input")
-            )
-            averaging_window_input.fill(str(averaging_window))
-            averaging_window_input.press("Enter")
+            self.console.fill_input_field("Averaging Window", str(averaging_window))
+            self.page.keyboard.press("Enter")
 
         if stale_color is not None:
             if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
@@ -81,21 +70,14 @@ class Value(Symbol):
                     "stale_color must be a valid hex color (e.g., #FF5733)"
                 )
 
-            color_button = (
-                self.page.locator("text=Color").locator("..").locator("button")
-            )
-            color_button.click()
-            hex_input = self.page.locator("text=Hex").locator("..").locator("input")
-            hex_input.fill(stale_color.replace("#", ""))
-            hex_input.press("Enter")
+            self.console.click_btn("Color")
+            self.console.fill_input_field("Hex", stale_color.replace("#", ""))
+            self.page.keyboard.press("Enter")
             self.page.keyboard.press("Escape")
 
         if stale_timeout is not None:
-            stale_timeout_input = (
-                self.page.locator("text=Stale Timeout").locator("..").locator("input")
-            )
-            stale_timeout_input.fill(str(stale_timeout))
-            stale_timeout_input.press("Enter")
+            self.console.fill_input_field("Stale Timeout", str(stale_timeout))
+            self.page.keyboard.press("Enter")
 
         applied_properties: Dict[str, Any] = {}
         if channel_name is not None:
@@ -136,22 +118,13 @@ class Value(Symbol):
             props["channel"] = channel_display.inner_text().strip()
 
         # Precision
-        precision_input = (
-            self.page.locator("text=Precision").locator("..").locator("input")
-        )
-        props["precision"] = int(precision_input.input_value())
+        props["precision"] = int(self.console.get_input_field("Precision"))
 
         # Averaging Window
-        avg_input = (
-            self.page.locator("text=Averaging Window").locator("..").locator("input")
-        )
-        props["averaging_window"] = int(avg_input.input_value())
+        props["averaging_window"] = int(self.console.get_input_field("Averaging Window"))
 
         # Staleness Timeout
-        timeout_input = (
-            self.page.locator("text=Stale Timeout").locator("..").locator("input")
-        )
-        props["stale_timeout"] = int(timeout_input.input_value())
+        props["stale_timeout"] = int(self.console.get_input_field("Stale Timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
@@ -167,15 +140,12 @@ class Value(Symbol):
                 continue
 
         # Staleness Color - get hex value from color picker
-        color_button = self.page.locator("text=Color").locator("..").locator("button")
-        color_button.click()
-        hex_input = self.page.locator("text=Hex").locator("..").locator("input")
-        if hex_input.count() > 0:
-            hex_value = hex_input.input_value()
-            if hex_value:
-                props["stale_color"] = (
-                    f"#{hex_value}" if not hex_value.startswith("#") else hex_value
-                )
+        self.console.click_btn("Color")
+        hex_value = self.console.get_input_field("Hex")
+        if hex_value:
+            props["stale_color"] = (
+                f"#{hex_value}" if not hex_value.startswith("#") else hex_value
+            )
         # Close color picker
         self.page.keyboard.press("Escape")
 

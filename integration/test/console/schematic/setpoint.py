@@ -7,18 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from playwright.sync_api import Page
 
 from .symbol import Symbol
 
+if TYPE_CHECKING:
+    from ..console import Console
+
 
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
-
-    def __init__(self, page: Page, symbol_id: str, channel_name: str):
-        super().__init__(page, symbol_id, channel_name)
 
     def edit_properties(
         self,
