@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
@@ -68,8 +67,8 @@ class ChannelClient:
 
     def create(
         self,
-        name: ChannelName | None = None,
         *,
+        name: ChannelName,
         data_type: CrudeDataType = DataType.UNKNOWN,
         is_index: bool = False,
         index: ChannelKey = 0,
@@ -86,8 +85,6 @@ class ChannelClient:
         channels do not store any data, and are used for streaming purposes only.
         :returns: True if the channel was created successfully.
         """
-        if name is None:
-            return False
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP

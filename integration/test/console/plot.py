@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union, Literal
 
 from playwright.sync_api import Page
 
-from .console_page import ConsolePage
+from .page import ConsolePage
 
 if TYPE_CHECKING:
     from .console import Console
@@ -32,9 +32,7 @@ class Plot(ConsolePage):
             "X1": None,
         }
 
-    def add_Y(self, axis: str, channel_ids: Union[str, List[str]]) -> None:
-        if axis not in ("Y1", "Y2"):
-            raise ValueError(f"Invalid axis: {axis}. Must be 'Y1' or 'Y2'")
+    def add_Y(self, axis: Literal["Y1", "Y2"], channel_ids: Union[str, List[str]]) -> None:
 
         channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
 
@@ -49,31 +47,20 @@ class Plot(ConsolePage):
 
         self.console.ESCAPE
 
-    def add_ranges(self, ranges: List[str]) -> None:
+    def add_ranges(
+        self, ranges: List[Literal["30s", "1m", "5m", "15m", "30m"]]
+    ) -> None:
         """Add time ranges to the plot."""
-        valid_ranges = {"30s", "1m", "5m", "15m", "30m"}
         self.page.get_by_text("Select Ranges").click()
 
         for range_value in ranges:
-            if range_value in valid_ranges and range_value not in self.data["Ranges"]:
+            if range_value not in self.data["Ranges"]:
                 self.page.get_by_text(range_value, exact=True).click()
                 self.data["Ranges"].append(range_value)
 
         self.console.ESCAPE
 
-    def set_X1_axis(self, config: Dict[str, Any]) -> None:
-        """Set X1 axis configuration."""
-        self.set_axis("X1", config)
-
-    def set_Y1_axis(self, config: Dict[str, Any]) -> None:
-        """Set Y1 axis configuration."""
-        self.set_axis("Y1", config)
-
-    def set_Y2_axis(self, config: Dict[str, Any]) -> None:
-        """Set Y2 axis configuration."""
-        self.set_axis("Y2", config)
-
-    def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
+    def set_axis(self, axis: Literal["X1", "Y1", "Y2"], config: Dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from playwright.sync_api import Page
 
-from ..console_page import ConsolePage
+from ..page import ConsolePage
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value

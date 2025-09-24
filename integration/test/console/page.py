@@ -10,7 +10,7 @@
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional, cast, Literal
 
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
@@ -95,9 +95,9 @@ class ConsolePage:
             scale="device",
         )
 
-    def move(self, direction: str) -> None:
-        """Move the page tab to create a split pane in the specified direction."""
-        valid_directions = {
+    def move(
+        self,
+        direction: Literal[
             "left",
             "right",
             "top",
@@ -106,11 +106,9 @@ class ConsolePage:
             "top-right",
             "bottom-left",
             "bottom-right",
-        }
-        if direction not in valid_directions:
-            raise ValueError(
-                f"Invalid direction: {direction}. Must be one of: {', '.join(sorted(valid_directions))}"
-            )
+        ],
+    ) -> None:
+        """Move the page tab to create a split pane in the specified direction."""
 
         if not self.tab_locator:
             raise RuntimeError("No tab locator available for moving")

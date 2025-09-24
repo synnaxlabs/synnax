@@ -9,12 +9,12 @@
 
 import time
 import uuid
-from test.console.console_case import ConsoleCase
+from test.console.case import ConsoleCase
 
 import synnax as sy
 
 
-class Console_Channel_Lifecycle(ConsoleCase):
+class Channel_Lifecycle(ConsoleCase):
     """
     Test the lifecycle of channels
     """

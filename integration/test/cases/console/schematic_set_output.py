@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.console_case import ConsoleCase
+from test.console.case import ConsoleCase
 
 import synnax as sy
 
@@ -26,11 +26,11 @@ class Schematic_Set_Output(ConsoleCase):
         INDEX_NAME = "idx_channel"
 
         console.channels.create(
-            INDEX_NAME,
+            name = INDEX_NAME,
             is_index=True,
         )
         console.channels.create(
-            CHANNEL_NAME,
+            name = CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,
             index=INDEX_NAME,

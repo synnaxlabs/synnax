@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from playwright.sync_api import Page
 
-from .console_page import ConsolePage
+from .page import ConsolePage
 
 if TYPE_CHECKING:
     from .console import Console

@@ -13,7 +13,6 @@ from test.console.console import Console
 from test.framework.test_case import TestCase
 from typing import cast
 
-import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 
@@ -83,7 +82,6 @@ class ConsoleCase(TestCase):
         Provide random coverage for all browsers.
         """
 
-        browsers = ["chromium", "firefox", "webkit"]
         # SY-2928
         # Firefox failing in CI only
         # Webkit failing on Win in CI

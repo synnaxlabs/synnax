@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.console_case import ConsoleCase
+from test.console.case import ConsoleCase
 
 
 class Plot_Abcd(ConsoleCase):
@@ -34,29 +34,33 @@ class Plot_Abcd(ConsoleCase):
         console.plot.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
         console.plot.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])
         console.plot.add_ranges(["30s"])
-        console.plot.set_Y1_axis(
+        console.plot.set_axis(
+            "Y1",
             {
                 "Lower Bound": -0.005,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
             }
         )
-        console.plot.set_Y2_axis(
+        console.plot.set_axis(
+            "Y2",
             {
                 "Tick Spacing": 100,
             }
         )
         self.wait_for_tlm_stale()
-
+        
         # Reset after auto adjust
-        console.plot.set_Y1_axis(
+        console.plot.set_axis(
+            "Y1",
             {
                 "Lower Bound": -0.05,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
             }
         )
-        console.plot.set_Y2_axis(
+        console.plot.set_axis(
+            "Y2",
             {
                 "Tick Spacing": 100,
             }

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from test.console.console_case import ConsoleCase
+from test.console.case import ConsoleCase
 
 
 class Snap_Pages_To_Grid(ConsoleCase):

@@ -9,16 +9,35 @@
 
 import os
 import re
-from typing import Optional
+import time
+import random
+from typing import Optional, Literal
 
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
-from .console_page import ConsolePage
+from .page import ConsolePage
 from .log import Log
 from .plot import Plot
 from .schematic import Schematic
 from .table import Table
+
+# Define literal types for page creation
+PageType = Literal[
+    "Control Sequence",
+    "Line Plot",
+    "Schematic",
+    "Log",
+    "Table",
+    "NI Analog Read Task",
+    "NI Analog Write Task",
+    "NI Digital Read Task",
+    "NI Digital Write Task",
+    "LabJack Read Task",
+    "LabJack Write Task",
+    "OPC UA Read Task",
+    "OPC UA Write Task",
+]
 
 
 class Console:
@@ -54,6 +73,11 @@ class Console:
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
 
+
+    @property
+    def MODAL_OPEN(self) -> bool:
+        return self.page.locator("div.pluto-dialog__dialog.pluto--modal.pluto--visible").count() > 0
+
     def select_from_dropdown(
         self, text: str, placeholder: Optional[str] = None
     ) -> None:
@@ -71,10 +95,34 @@ class Console:
         except Exception:
             raise RuntimeError(f"Could not find item '{text}' in dropdown")
 
-    def create_page(
-        self, page_type: str, page_name: Optional[str] = None
+    def create_page(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
+        """
+        Public method for creating a new page in one of two ways:
+        - By the New Page (+) button
+        - By the command palette
+        """
+
+        if random.random() < 0.5:
+            page_tab, page_id = self._create_page_by_new_page_button(page_type, page_name)
+        else:
+            page_tab, page_id = self._create_page_by_command_palette(page_type, page_name)
+    
+        return page_tab, page_id
+
+    def _create_page_by_new_page_button(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
+        """ Create a new page via the New Page (+) button. """
+
+        self.page.locator(".pluto-icon--add").first.click()  # (+)
+        self.page.get_by_role("button", name=page_type).first.click()
+        page_tab, page_id = self._handle_new_page(page_type, page_name)
+
+        return page_tab, page_id
+
+    def _create_page_by_command_palette(
+        self, page_type: PageType, page_name: Optional[str] = None
     ) -> tuple[Locator, str]:
         """Create a new page via command palette"""
+
         # Handle "a" vs "an" article for proper command matching
         vowels = ["A", "E", "I", "O", "U"]
         # Special case for "NI" (en-eye)
@@ -86,12 +134,18 @@ class Console:
         page_command = f"Create {article} {page_type}"
 
         self.command_palette(page_command)
+        self.page.wait_for_timeout(100)
+        page_tab, page_id = self._handle_new_page(page_type, page_name)
 
-        # Wait for page to be created - use a simple timeout approach
-        self.page.wait_for_timeout(1000)  # Give time for page creation
+        return page_tab, page_id
 
-        # Try to find the newly created page/tab by page_type text
-        # Look for the page type text which should appear after creation
+    def _handle_new_page(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
+        """Handle the new page creation"""
+        if self.MODAL_OPEN:
+            page_name = page_name or page_type
+            self.page.get_by_role("textbox", name="Name").fill(page_name)
+            self.page.get_by_role("textbox", name="Name").press("ControlOrMeta+Enter")
+
         page_tab = (
             self.page.locator("div")
             .filter(has_text=re.compile(f"^{re.escape(page_type)}$"))
@@ -115,7 +169,7 @@ class Console:
         """
         tab = self.page.locator("div").filter(
             has_text=re.compile(f"^{re.escape(page_name)}$")
-        )
+        ).first
         tab.get_by_label("pluto-tabs__close").click()
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
