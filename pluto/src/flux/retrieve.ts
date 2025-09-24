@@ -15,8 +15,8 @@ import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -253,7 +253,7 @@ export interface CreateRetrieveReturn<
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
-  pendingResult<Data>(`Retrieving ${name}`, undefined);
+  loadingResult<Data>(`Retrieving ${name}`, undefined);
 
 const useStateful = <
   Query extends core.Shape,
@@ -324,7 +324,7 @@ const useObservableBase = <
         }
         if (client == null)
           return onChange(nullClientResult<Data>(`retrieve ${name}`), query);
-        onChange((p) => pendingResult(`retrieving ${name}`, p.data), query);
+        onChange((p) => loadingResult(`retrieving ${name}`, p.data), query);
         if (signal?.aborted) return;
         const Params = { client, query, store };
         const value = await retrieve(Params);
@@ -334,7 +334,7 @@ const useObservableBase = <
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
-        const res = errorResult<Data>(`retrieve ${name}`, error);
+        const res = errorResult(`retrieve ${name}`, error);
         addStatus(res.status);
         onChange(res, query);
       }

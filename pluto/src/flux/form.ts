@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor,type status } from "@synnaxlabs/x";
+import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
@@ -15,9 +15,10 @@ import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
   type Result,
+  type Status,
   successResult,
 } from "@/flux/result";
 import {
@@ -240,7 +241,7 @@ export const createForm =
     scope: argsScope,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
-      pendingResult(`retrieving ${name}`, undefined),
+      loadingResult(`retrieving ${name}`),
     );
     const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
@@ -269,17 +270,23 @@ export const createForm =
         try {
           if (client == null)
             return setResult(nullClientResult<undefined>(`retrieve ${name}`));
-          setResult((p) => pendingResult(`retrieving ${name}`, p.data));
+          setResult((p) => loadingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
           const args = { client, query, store, ...form, set: noNotifySet };
           await retrieve(args);
           if (signal?.aborted) return;
           listeners.cleanup();
           listeners.set(mountListeners?.(args));
-          setResult(successResult<undefined>(`retrieved ${name}`, undefined));
+          setResult(
+            successResult<undefined, undefined>(
+              `retrieved ${name}`,
+              undefined,
+              undefined,
+            ),
+          );
         } catch (error) {
           if (signal?.aborted) return;
-          const res = errorResult<undefined>(`retrieve ${name}`, error);
+          const res = errorResult(`retrieve ${name}`, error);
           addStatus(res.status);
           setResult(res);
         }
@@ -304,16 +311,20 @@ export const createForm =
           const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
           if (beforeValidate?.(args) === false) return false;
           if (!(await form.validateAsync())) return false;
-          setResult(pendingResult(`updating ${name}`, undefined));
+          setResult(loadingResult(`updating ${name}`, undefined));
           if ((await beforeSave?.(args)) === false) {
             setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
           if (signal?.aborted === true) return false;
-          const setStatus = (setter: state.SetArg<status.Status>) =>
+          const setStatus = (setter: state.SetArg<Status<never>>) =>
             setResult((p) => {
               const nextStatus = state.executeSetter(setter, p.status);
-              return { ...p, status: nextStatus, variant: nextStatus.variant} as Result<undefined>;
+              return {
+                ...p,
+                status: nextStatus,
+                variant: nextStatus.variant,
+              } as Result<undefined>;
             });
 
           await update({ ...args, setStatus });
@@ -327,7 +338,7 @@ export const createForm =
             console.error("Error rolling back changes:", rollbackError);
           }
           if (signal?.aborted === true) return false;
-          const res = errorResult<undefined>(`update ${name}`, error);
+          const res = errorResult(`update ${name}`, error);
           addStatus(res.status);
           setResult(res);
           return false;

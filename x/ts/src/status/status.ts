@@ -25,21 +25,26 @@ export const variantZ = z.enum([
 // Represents one of the possible variants of a status message.
 export type Variant = z.infer<typeof variantZ>;
 
-type StatusZodObject<D extends z.ZodType> = z.ZodObject<{
-  key: z.ZodString;
-  variant: typeof variantZ;
-  message: z.ZodString;
-  description: z.ZodOptional<z.ZodString>;
-  time: typeof TimeStamp.z;
-  details: D;
-}>;
+type StatusZodObject<DetailsSchema extends z.ZodType> = z.ZodObject<
+  {
+    key: z.ZodString;
+    variant: typeof variantZ;
+    message: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    time: typeof TimeStamp.z;
+  } & ([DetailsSchema] extends [z.ZodNever] ? {} : { details: DetailsSchema })
+>;
 
 interface StatusZFunction {
-  (): StatusZodObject<z.ZodOptional<z.ZodUnknown>>;
-  <D extends z.ZodType>(details: D): StatusZodObject<D>;
+  (): StatusZodObject<z.ZodNever>;
+  <DetailsSchema extends z.ZodType>(
+    details: DetailsSchema,
+  ): StatusZodObject<DetailsSchema>;
 }
 
-export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
+export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
+  details?: DetailsSchema,
+) =>
   z.object({
     key: z.string(),
     variant: variantZ,
@@ -57,14 +62,14 @@ type Base<V extends Variant> = {
   time: TimeStamp;
 };
 
-export type Status<D = never, V extends Variant = Variant> = Base<V> &
-  ([D] extends [never] ? {} : { details: D });
+export type Status<Details = never, V extends Variant = Variant> = Base<V> &
+  ([Details] extends [never] ? {} : { details: Details });
 
-export type Crude<D = never, V extends Variant = Variant> = Optional<
+export type Crude<Details = never, V extends Variant = Variant> = Optional<
   Base<V>,
   "key" | "time"
 > &
-  ([D] extends [never] ? {} : { details: D });
+  ([Details] extends [never] ? {} : { details: Details });
 
 export interface ExceptionDetails {
   stack: string;
@@ -85,14 +90,14 @@ export const fromException = (
   });
 };
 
-export const create = <D = never, V extends Variant = Variant>(
-  spec: Crude<D, V>,
-): Status<D, V> =>
+export const create = <Details = never, V extends Variant = Variant>(
+  spec: Crude<Details, V>,
+): Status<Details, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     ...spec,
-  }) as Status<D, V>;
+  }) as Status<Details, V>;
 
 export const keepVariants = (
   variant?: Variant,

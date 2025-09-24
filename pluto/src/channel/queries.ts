@@ -505,7 +505,8 @@ export interface DeleteAliasParams {
 
 export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
   DeleteAliasParams,
-  FluxSubStore
+  FluxSubStore,
+  DeleteAliasParams
 >({
   name: ALIAS_RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,

@@ -141,7 +141,7 @@ describe("retrieve", () => {
       const { result } = renderHook(
         () => {
           const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.pendingResult<number>("retrieving Resource", undefined),
+            Flux.loadingResult<number>("retrieving Resource", undefined),
           );
           const handleChange: Flux.UseRetrieveEffectParams<
             { key: string },

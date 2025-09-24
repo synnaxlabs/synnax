@@ -22,8 +22,8 @@ import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -362,7 +362,7 @@ export const createList =
     const store = useStore<ScopedStore>();
     const queryRef = useRef<Query | null>(initialQuery);
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
-      pendingResult<Key[]>(
+      loadingResult<Key[]>(
         `retrieving ${name}`,
         getInitialData({
           retrieveCached,
@@ -459,7 +459,7 @@ export const createList =
         try {
           if (client == null)
             return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
-          setResult((p) => pendingResult(`retrieving ${name}`, p.data));
+          setResult((p) => loadingResult(`retrieving ${name}`, p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
           // of the query, so we start from the top again.
@@ -498,7 +498,7 @@ export const createList =
           });
         } catch (error) {
           if (signal?.aborted) return;
-          setResult(errorResult<Key[]>(`retrieve ${name}`, error));
+          setResult(errorResult(`retrieve ${name}`, error));
         }
       },
       [client, name, store, filterRef, syncListeners],
@@ -527,7 +527,7 @@ export const createList =
           } catch (error) {
             if (signal?.aborted) return;
             dataRef.current.set(key, null);
-            setResult(errorResult<Key[]>(`retrieve ${name}`, error));
+            setResult(errorResult(`retrieve ${name}`, error));
           }
         })();
       },

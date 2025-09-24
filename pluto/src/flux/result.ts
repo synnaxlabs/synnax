@@ -11,6 +11,23 @@ import { caseconv, status } from "@synnaxlabs/x";
 
 import { type state } from "@/state";
 
+export type StatusDataContainer<StatusData = never> = [StatusData] extends [never]
+  ? {}
+  : { statusData: StatusData };
+
+export const parseStatusData = <StatusData = never>(
+  container: StatusDataContainer<StatusData>,
+): StatusData => {
+  if ("statusData" in container) return container.statusData;
+  return undefined as StatusData;
+};
+
+export type Status<StatusData = never> =
+  | status.Status<StatusData, "success">
+  | status.Status<StatusData, "loading">
+  | status.Status<StatusData, "disabled">
+  | status.Status<status.ExceptionDetails, "error">;
+
 /**
  * The result of a query operation that can be in one of three states:
  * - `loading` - Data is currently being fetched from the server
@@ -30,27 +47,35 @@ import { type state } from "@/state";
  * };
  * ```
  */
+export type ErrorResult = {
+  variant: "error";
+  status: status.Status<status.ExceptionDetails, "error">;
+  data: undefined;
+};
+
+export type SuccessResult<Data extends state.State, StatusData = never> = {
+  variant: "success";
+  status: status.Status<StatusData, "success">;
+  data: Data;
+};
+
+export type LoadingResult<Data extends state.State, StatusData = never> = {
+  variant: "loading";
+  status: status.Status<StatusData, "loading">;
+  data: Data | undefined;
+};
+
+export type DisabledResult<Data extends state.State, StatusData = never> = {
+  variant: "disabled";
+  status: status.Status<StatusData, "disabled">;
+  data: Data | undefined;
+};
+
 export type Result<Data extends state.State, StatusData = never> =
-  | {
-      variant: "error";
-      status: status.Status<status.ExceptionDetails, "error">;
-      data: undefined;
-    }
-  | {
-      variant: "success";
-      status: status.Status<StatusData, "success">;
-      data: Data;
-    }
-  | {
-      variant: "loading";
-      status: status.Status<StatusData, "loading">;
-      data: Data | undefined;
-    }
-  | {
-      variant: "disabled";
-      status: status.Status<StatusData, "disabled">;
-      data: Data | undefined;
-    };
+  | ErrorResult
+  | SuccessResult<Data, StatusData>
+  | LoadingResult<Data, StatusData>
+  | DisabledResult<Data, StatusData>;
 
 /**
  * Factory function to create a loading result state.
@@ -67,17 +92,32 @@ export type Result<Data extends state.State, StatusData = never> =
  * // Returns: { variant: "loading", data: null, error: null, message: "Retrieving users" }
  * ```
  */
-export const pendingResult = <Data extends state.State>(
+
+interface LoadingResultCreator {
+  <Data extends state.State>(
+    op: string,
+    data?: Data | undefined,
+  ): LoadingResult<Data, never>;
+  <Data extends state.State, StatusData = never>(
+    op: string,
+    data: Data | undefined,
+    statusData: StatusData,
+  ): LoadingResult<Data, StatusData>;
+}
+
+export const loadingResult = (<Data extends state.State, StatusData = never>(
   op: string,
-  data: Data | undefined,
-): Result<Data> => ({
+  data: Data | undefined = undefined,
+  statusData?: StatusData,
+): LoadingResult<Data, StatusData> => ({
   variant: "loading",
-  status: status.create<undefined, "loading">({
+  status: status.create<StatusData, "loading">({
     variant: "loading",
     message: `${caseconv.capitalize(op)}`,
+    details: statusData as StatusData,
   }),
   data,
-});
+})) as LoadingResultCreator;
 
 /**
  * Factory function to create a success result state.
@@ -94,17 +134,29 @@ export const pendingResult = <Data extends state.State>(
  * // Returns: { variant: "success", data: userList, error: null, message: "Retrieved users" }
  * ```
  */
-export const successResult = <Data extends state.State>(
+
+export interface SuccessResultCreator {
+  <Data extends state.State>(op: string, data: Data): SuccessResult<Data, never>;
+  <Data extends state.State, StatusData = never>(
+    op: string,
+    data: Data,
+    statusData: StatusData,
+  ): SuccessResult<Data, StatusData>;
+}
+
+export const successResult = (<Data extends state.State, StatusData = never>(
   op: string,
   data: Data,
-): Result<Data> => ({
+  statusData: StatusData,
+): SuccessResult<Data, StatusData> => ({
   variant: "success",
-  status: status.create<undefined, "success">({
+  status: status.create<StatusData, "success">({
     variant: "success",
     message: `Successfully ${op}`,
+    details: statusData,
   }),
   data,
-});
+})) as SuccessResultCreator;
 
 /**
  * Factory function to create an error result state.
@@ -121,39 +173,30 @@ export const successResult = <Data extends state.State>(
  * // Returns: { variant: "error", data: null, error: Error, message: "Failed to retrieve users" }
  * ```
  */
-export const errorResult = <Data extends state.State>(
-  op: string,
-  error: unknown,
-): Result<Data> => ({
+export const errorResult = (op: string, error: unknown): ErrorResult => ({
   variant: "error",
   status: status.fromException(error, `Failed to ${op}`),
   data: undefined,
 });
 
-/**
- * Factory function to create an error result for operations that require a connected client.
- *
- * @template Data The type of data being retrieved
- * @param name The name of the resource being retrieved
- * @param op The operation that cannot be performed
- * @returns A Result object in error state with a DisconnectedError
- *
- * @example
- * ```typescript
- * const result = nullClientResult<User[]>("users", "retrieve");
- * // Returns error result with message: "Cannot retrieve users because no cluster is connected."
- * ```
- */
-export const nullClientResult = <Data extends state.State, StatusData = never>(
+interface NullClientResultCreator {
+  <Data extends state.State>(op: string): DisabledResult<Data, never>;
+  <Data extends state.State, StatusData = never>(
+    op: string,
+    statusData: StatusData,
+  ): DisabledResult<Data, StatusData>;
+}
+
+export const nullClientResult = (<Data extends state.State, StatusData = never>(
   op: string,
-  statusData: StatusData,
-): Result<Data> => ({
+  statusData?: StatusData,
+): DisabledResult<Data, StatusData> => ({
   variant: "disabled",
   status: status.create<StatusData, "disabled">({
     variant: "disabled",
     message: `Failed to ${op}`,
     description: `Cannot ${op} because no cluster is connected.`,
-    details: statusData,
+    details: statusData as StatusData,
   }),
   data: undefined,
-});
+})) as NullClientResultCreator;

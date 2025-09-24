@@ -9,10 +9,9 @@
 
 import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
-import { Size, status } from "@synnaxlabs/x";
+import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";
@@ -42,15 +41,25 @@ const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   },
 });
 
-const { useUpdate } = Flux.createUpdate<Update, {}>({
-  resourceName: "Console",
+interface StatusDetails {
+  total: Size;
+  progress: Size;
+}
+
+const { useUpdate } = Flux.createUpdate<Update, {}, Update, StatusDetails>({
+  name: "Console",
   verbs: Flux.UPDATE_VERBS,
+  statusData: {
+    total: Size.bytes(0),
+    progress: Size.bytes(0),
+  },
   update: async ({ data: update, setStatus }) => {
     await update.downloadAndInstall((prog) => {
       switch (prog.event) {
         case "Started":
           setStatus((p) => ({
             ...p,
+            variant: "loading",
             details: {
               total: Size.bytes(prog.data.contentLength ?? 0),
               progress: Size.bytes(0),
@@ -58,21 +67,32 @@ const { useUpdate } = Flux.createUpdate<Update, {}>({
           }));
           break;
         case "Progress":
-          setStatus((p) => ({
-            ...p,
-            details: {
-              ...p.details,
-              progress: p.details.progress.add(prog.data.chunkLength),
-            },
-          }));
+          setStatus((p) => {
+            if (p.variant === "error") return p;
+            return {
+              ...p,
+              variant: "loading",
+              details: {
+                total: p.details.total,
+                progress: p.details.progress.add(prog.data.chunkLength),
+              },
+            };
+          });
           break;
         case "Finished":
-          setStatus((p) => ({ ...p, details: { ...p.details, progress: updateSize } }));
+          setStatus((p) => {
+            if (p.variant === "error") return p;
+            return {
+              ...p,
+              variant: "success",
+              details: { ...p.details, progress: p.details.total },
+            };
+          });
           break;
       }
-      return update;
     });
     if (Runtime.ENGINE === "tauri") await relaunch();
+    return update;
   },
 });
 
@@ -80,8 +100,12 @@ export const Info: Layout.Renderer = () => {
   const version = useSelectVersion();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
-  const totalSize = updateQuery.status.details?.total as Size;
-  const amountDownloaded = updateQuery.status.details?.progress as Size;
+  let totalSize: Size = Size.bytes(0);
+  let amountDownloaded: Size = Size.bytes(0);
+  if (updateQuery.status.variant !== "error") {
+    totalSize = updateQuery.status.details.total;
+    amountDownloaded = updateQuery.status.details.progress;
+  }
 
   const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
 

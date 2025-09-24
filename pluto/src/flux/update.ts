@@ -15,9 +15,12 @@ import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
+  parseStatusData,
   type Result,
+  type Status,
+  type StatusDataContainer,
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
@@ -34,7 +37,7 @@ import { Synnax } from "@/synnax";
 export interface UpdateParams<
   Input extends core.Shape,
   Store extends core.Store,
-  StatusData = undefined,
+  StatusData = never,
 > {
   /** The data to be updated */
   data: Input;
@@ -45,7 +48,7 @@ export interface UpdateParams<
   /** Set of rollback functions to execute if the update fails */
   rollbacks: Set<Destructor>;
   /** Set the status of the update */
-  setStatus: (setter: state.SetArg<status.Status<StatusData>>) => void;
+  setStatus: (setter: state.SetArg<Status<StatusData>>) => void;
 }
 
 /**
@@ -58,7 +61,7 @@ export type CreateUpdateParams<
   Input extends core.Shape,
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > = {
   /** The name of the resource being updated (used for status messages) */
   name: string;
@@ -67,7 +70,7 @@ export type CreateUpdateParams<
   update: (
     params: UpdateParams<Input, ScopedStore, StatusData>,
   ) => Promise<Output | false>;
-} & (StatusData extends undefined ? {} : { statusData: StatusData });
+} & StatusDataContainer<StatusData>;
 
 /**
  * Return type for the observable update hook.
@@ -91,7 +94,7 @@ export interface UseObservableUpdateReturn<Input extends core.Shape> {
 export interface UseObservableUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > {
   debounce?: number;
   /** Callback function to handle state changes */
@@ -107,7 +110,6 @@ export interface UseObservableUpdateParams<
   afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
   /** Function to run after the update operation fails. */
   afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
-  statusData: StatusData;
 }
 
 export interface BeforeUpdateParams<Data extends core.Shape> {
@@ -135,7 +137,7 @@ export interface AfterFailureParams<Data extends core.Shape> {
 export interface UseDirectUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > extends Omit<UseObservableUpdateParams<Input, Output, StatusData>, "onChange"> {}
 
 /**
@@ -145,13 +147,13 @@ export interface UseDirectUpdateParams<
  */
 export type UseDirectUpdateReturn<
   Input extends core.Shape,
-  StatusData = undefined,
+  StatusData = never,
 > = Result<Input | undefined, StatusData> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > {
   (
     args: UseObservableUpdateParams<Input, Output, StatusData>,
@@ -161,7 +163,7 @@ export interface UseObservableUpdate<
 export interface UseUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > {
   (
     args?: UseDirectUpdateParams<Input, Output, StatusData>,
@@ -177,7 +179,7 @@ export interface UseUpdate<
 export interface CreateUpdateReturn<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusData = undefined,
+  StatusData = never,
 > {
   /** Hook that provides update functions with external state management */
   useObservableUpdate: UseObservableUpdate<Input, Output, StatusData>;
@@ -193,25 +195,23 @@ const useObservable = <
   Input extends core.Shape,
   Store extends core.Store,
   Output extends core.Shape = Input,
-  StatusData = undefined,
->({
-  onChange,
-  update,
-  name,
-  verbs: { present, past, participle },
-  debounce = 0,
-  scope,
-  beforeUpdate,
-  afterSuccess,
-  afterFailure,
-  statusData,
-}: UseObservableUpdateParams<Input, Output, StatusData> &
-  CreateUpdateParams<
-    Input,
-    Store,
-    Output,
-    StatusData
-  >): UseObservableUpdateReturn<Input> => {
+  StatusData = never,
+>(
+  params: UseObservableUpdateParams<Input, Output, StatusData> &
+    CreateUpdateParams<Input, Store, Output, StatusData>,
+): UseObservableUpdateReturn<Input> => {
+  const {
+    onChange,
+    update,
+    name,
+    verbs: { present, past, participle },
+    debounce = 0,
+    scope,
+    beforeUpdate,
+    afterSuccess,
+    afterFailure,
+  } = params;
+  const statusData = parseStatusData<StatusData>(params);
   const client = Synnax.use();
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
@@ -229,12 +229,12 @@ const useObservable = <
       };
 
       if (client == null) {
-        onChange(nullClientResult(`${present} ${name}`));
+        onChange(nullClientResult(`${present} ${name}`, statusData));
         return false;
       }
 
       try {
-        onChange((p) => pendingResult(`${participle} ${name}`, p.data));
+        onChange((p) => loadingResult(`${participle} ${name}`, p.data, statusData));
 
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, data, rollbacks });
@@ -247,20 +247,19 @@ const useObservable = <
           if (updatedValue !== true) data = updatedValue;
         }
 
-        const setStatus = (setter: state.SetArg<status.Status>) =>
+        const setStatus = (setter: state.SetArg<Status<StatusData>>) =>
           onChange((p) => {
             const nextStatus = state.executeSetter(setter, p.status);
             return {
               ...p,
               status: nextStatus,
               variant: nextStatus.variant,
-            } as Result<Input>;
+            } as Result<Input, StatusData>;
           });
 
         const output = await update({ client, data, store, rollbacks, setStatus });
         if (signal?.aborted === true) return false;
-        onChange(successResult(`${past} ${name}`, data));
-
+        onChange(successResult(`${past} ${name}`, data, statusData));
         if (output === false) return false;
         await afterSuccess?.({ client, data: output });
         return true;
@@ -268,7 +267,7 @@ const useObservable = <
         runRollbacks();
         if (signal?.aborted === true) return false;
 
-        const result = errorResult<Input | undefined>(`${present} ${name}`, error);
+        const result = errorResult(`${present} ${name}`, error);
         const { status } = result;
         onChange(result);
         addStatus(status);
@@ -293,19 +292,21 @@ const useObservable = <
  */
 const useDirect = <
   Input extends core.Shape,
-  ScopedStore extends core.Store = {},
+  Store extends core.Store = {},
   Output extends core.Shape = Input,
->({
-  name,
-  verbs,
-  ...restParams
-}: UseDirectUpdateParams<Input, Output> &
-  CreateUpdateParams<Input, ScopedStore, Output>): UseDirectUpdateReturn<Input> => {
-  const [result, setResult] = useState<Result<Input | undefined>>(
-    successResult(`${verbs.past} ${name}`, undefined),
+  StatusData = never,
+>(
+  params: UseDirectUpdateParams<Input, Output, StatusData> &
+    CreateUpdateParams<Input, Store, Output, StatusData>,
+): UseDirectUpdateReturn<Input, StatusData> => {
+  const { name, verbs, ...restParams } = params;
+  const statusData = parseStatusData<StatusData>(params);
+  const [result, setResult] = useState<Result<Input | undefined, StatusData>>(
+    successResult(`${verbs.past} ${name}`, undefined, statusData),
   );
-  const methods = useObservable<Input, ScopedStore, Output>({
+  const methods = useObservable<Input, Store, Output, StatusData>({
     ...restParams,
+    statusData,
     verbs,
     name,
     onChange: setResult,
@@ -365,11 +366,18 @@ export const createUpdate = <
   Input extends core.Shape,
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
+  StatusData = never,
 >(
-  createParams: CreateUpdateParams<Input, ScopedStore, Output>,
-): CreateUpdateReturn<Input, Output> => ({
-  useObservableUpdate: (params: UseObservableUpdateParams<Input, Output>) =>
-    useObservable<Input, ScopedStore, Output>({ ...params, ...createParams }),
-  useUpdate: (params?: UseDirectUpdateParams<Input, Output>) =>
-    useDirect<Input, ScopedStore, Output>({ ...params, ...createParams }),
+  createParams: CreateUpdateParams<Input, ScopedStore, Output, StatusData>,
+): CreateUpdateReturn<Input, Output, StatusData> => ({
+  useObservableUpdate: (params: UseObservableUpdateParams<Input, Output, StatusData>) =>
+    useObservable<Input, ScopedStore, Output, StatusData>({
+      ...params,
+      ...createParams,
+    }),
+  useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusData> = {}) =>
+    useDirect<Input, ScopedStore, Output, StatusData>({
+      ...params,
+      ...createParams,
+    }),
 });

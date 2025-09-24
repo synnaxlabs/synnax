@@ -11,8 +11,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
   successResult,
 } from "@/flux/result";
 
@@ -25,7 +25,7 @@ interface TestState {
 describe("result", () => {
   describe("pendingResult", () => {
     it("should create a loading result with correct structure", () => {
-      const result = pendingResult<TestState>("fetch user", undefined);
+      const result = loadingResult<TestState>("fetch user", undefined);
 
       expect(result.variant).toBe("loading");
       expect(result.status.message).toBe("Fetch user");
@@ -33,13 +33,13 @@ describe("result", () => {
     });
 
     it("should capitalize the operation name", () => {
-      const result = pendingResult<TestState>("create channel", undefined);
+      const result = loadingResult<TestState>("create channel", undefined);
 
       expect(result.status.message).toBe("Create channel");
     });
 
     it("should handle complex operation names", () => {
-      const result = pendingResult<TestState>(
+      const result = loadingResult<TestState>(
         "establish database connection",
         undefined,
       );
@@ -95,7 +95,7 @@ describe("result", () => {
     it("should create an error result with correct structure", () => {
       const testError = new Error("Test error");
 
-      const result = errorResult<TestState>("fetch user", testError);
+      const result = errorResult("fetch user", testError);
 
       expect(result.variant).toBe("error");
       expect(result.status.message).toBe("Failed to fetch user");
@@ -104,7 +104,7 @@ describe("result", () => {
 
     it("should include exception details when error is an Error object", () => {
       const error = new Error("Database connection timeout");
-      const result = errorResult<TestState>("establish connection", error);
+      const result = errorResult("establish connection", error);
       expect(result.variant).toBe("error");
       expect(result.status.description).toBe("Database connection timeout");
     });
