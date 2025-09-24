@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from playwright.sync_api import Page
 
@@ -121,7 +121,9 @@ class Value(Symbol):
         props["precision"] = int(self.console.get_input_field("Precision"))
 
         # Averaging Window
-        props["averaging_window"] = int(self.console.get_input_field("Averaging Window"))
+        props["averaging_window"] = int(
+            self.console.get_input_field("Averaging Window")
+        )
 
         # Staleness Timeout
         props["stale_timeout"] = int(self.console.get_input_field("Stale Timeout"))

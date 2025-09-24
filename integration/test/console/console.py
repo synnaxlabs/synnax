@@ -55,7 +55,9 @@ class Console:
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
 
-    def select_from_dropdown(self, text: str, placeholder: Optional[str] = None) -> None:
+    def select_from_dropdown(
+        self, text: str, placeholder: Optional[str] = None
+    ) -> None:
         """Select an item from an open dropdown."""
         self.page.wait_for_timeout(300)
 
@@ -64,7 +66,9 @@ class Console:
             if search_input.count() > 0:
                 search_input.fill(text)
 
-        item_selector = self.page.locator(".pluto-list__item:not(.pluto-tree__item)").all()
+        item_selector = self.page.locator(
+            ".pluto-list__item:not(.pluto-tree__item)"
+        ).all()
         for item in item_selector:
             if item.is_visible():
                 item_text = item.inner_text().strip()
@@ -143,7 +147,7 @@ class Console:
             .first
         )
         button.click()
-    
+
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
         checkbox = (

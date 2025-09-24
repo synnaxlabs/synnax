@@ -9,10 +9,9 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from playwright.sync_api import Locator, Page
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..console import Console
@@ -28,7 +27,9 @@ class Symbol(ABC):
     channel_name: str
     label: str
 
-    def __init__(self, page: Page, console: "Console", symbol_id: str, channel_name: str):
+    def __init__(
+        self, page: Page, console: "Console", symbol_id: str, channel_name: str
+    ):
 
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
@@ -78,7 +79,7 @@ class Symbol(ABC):
     def set_channel(self, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
             self.console.click_btn(input_field)
-            self.console.select_from_dropdown(channel_name, 'Search')
+            self.console.select_from_dropdown(channel_name, "Search")
 
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
