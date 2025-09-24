@@ -12,6 +12,7 @@ import {
   TimeRange as XTimeRange,
   TimeSpan,
   TimeStamp,
+  type TZInfo,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -23,20 +24,24 @@ export interface TimeRangeProps
   extends Omit<Flex.BoxProps<"div">, "children">,
     Pick<Text.TextProps, "level" | "color"> {
   children: CrudeTimeRange;
+  displayTZ?: TZInfo;
 }
 
-const formatTime = (timeRange: CrudeTimeRange): null | string | [string, string] => {
+const formatTime = (
+  timeRange: CrudeTimeRange,
+  displayTZ: TZInfo,
+): null | string | [string, string] => {
   const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
   const startFormat = tr.start.isToday ? "time" : "dateTime";
-  let startTime = new TimeStamp(tr.start).toString(startFormat, "local");
+  let startTime = new TimeStamp(tr.start).toString(startFormat, displayTZ);
   if (tr.start.isToday) startTime = `Today ${startTime}`;
   if (tr.end.equals(TimeStamp.MAX)) {
     if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
     return `Starts ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
-  const endTime = new TimeStamp(tr.end).toString(endFormat, "local");
+  const endTime = new TimeStamp(tr.end).toString(endFormat, displayTZ);
   return [startTime, endTime];
 };
 
@@ -44,9 +49,10 @@ export const TimeRange = ({
   children,
   level = "p",
   color = 9,
+  displayTZ = "local",
   ...rest
 }: TimeRangeProps): ReactElement | null => {
-  const formattedTime = formatTime(children);
+  const formattedTime = formatTime(children, displayTZ);
   if (formattedTime == null) return null;
   return (
     <Flex.Box x gap="small" align="center" {...rest}>
