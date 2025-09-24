@@ -27,28 +27,12 @@ import { state } from "@/state";
 import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
-/**
- * Arguments passed to the `retrieve` function when executing a query.
- *
- * @template Query The type of query parameters for the retrieve operation.
- * @template Store The signature of the flux store for accessing cached items.
- */
 export interface RetrieveParams<Query extends core.Shape, Store extends core.Store> {
-  /** The Synnax client instance for making requests */
   client: Client;
-  /** The parameters for the retrieve operation */
   query: Query;
-  /** The store instance for storing data */
   store: Store;
 }
 
-/**
- * Arguments passed to the `mountListeners` function.
- *
- * @template Query The type of query parameters for the retrieve operation.
- * @template Data The type of data being retrieved.
- * @template Store The signature of the flux store for accessing cached items.
- */
 export interface RetrieveMountListenersParams<
   Query extends core.Shape,
   Data extends core.Shape,
@@ -57,33 +41,13 @@ export interface RetrieveMountListenersParams<
   onChange: state.Setter<Data | undefined>;
 }
 
-/**
- * Configuration arguments for creating a retrieve query.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
 export interface CreateRetrieveParams<
   Query extends core.Shape,
   Data extends core.Shape,
   Store extends core.Store,
 > {
-  /**
-   * The name of the resource being retrieved. This is used to make pretty messages for
-   * the various query states. This name should be in a human readable format and
-   * capitalized as a proper noun.
-   */
   name: string;
-  /** Function executed when the query is evaluated or the query parameters change. */
   retrieve: (Params: RetrieveParams<Query, Store>) => Promise<Data>;
-  /**
-   * Listeners to mount to the query. These listeners will be re-mounted when
-   * the query parameters change and/or the client disconnects/re-connects or clusters
-   * are switched.
-   *
-   * These listeners will NOT be remounted when the identity of the onChange function
-   * changes, as the onChange function should be static.
-   */
   mountListeners?: (
     Params: RetrieveMountListenersParams<Query, Data, Store>,
   ) => Destructor | Destructor[];
@@ -93,70 +57,38 @@ export interface BeforeRetrieveParams<Query extends core.Shape> {
   query: Query;
 }
 
-/**
- * Arguments for the observable retrieve hook.
- *
- * @template V The type of data being retrieved
- */
 export interface UseObservableBaseRetrieveParams<
   Query extends core.Shape,
   Data extends state.State,
 > {
   beforeRetrieve?: (Params: BeforeRetrieveParams<Query>) => Data | boolean;
-  /** Callback function to handle state changes */
   onChange: (result: state.SetArg<Result<Data>>, query: Query) => void;
-  /** The scope to use for the retrieve operation */
   scope?: string;
 }
 
-/**
- * Arguments for the observable retrieve hook.
- *
- * @template Query The type of parameters for the retrieve operation
- */
 export interface UseRetrieveObservableParams<
   Query extends core.Shape,
   Data extends state.State,
 > extends Omit<UseObservableBaseRetrieveParams<Query, Data>, "onChange"> {
-  /** Callback function to handle state changes */
   onChange: (result: Result<Data>, query: Query) => void;
 }
 
-/**
- * Return type for the observable retrieve hook.
- *
- * @template Query The type of parameters for the retrieve operation
- */
 export interface UseRetrieveObservableReturn<Query extends core.Shape> {
-  /** Function to trigger a retrieve operation (fire-and-forget) */
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: core.FetchOptions,
   ) => void;
-  /** Function to trigger a retrieve operation and await the result */
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: core.FetchOptions,
   ) => Promise<void>;
 }
 
-/**
- * Return type for the stateful retrieve hook, combining result state with retrieve functions.
- *
- * @template Query The type of query parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
 export type UseRetrieveStatefulReturn<
   Query extends core.Shape,
   Data extends state.State,
 > = Result<Data> & UseRetrieveObservableReturn<Query>;
 
-/**
- * Arguments for the direct retrieve hook.
- *
- * @template Query The type of query parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
 export interface UseDirectRetrieveParams<
   Query extends core.Shape,
   Data extends state.State,
@@ -164,30 +96,17 @@ export interface UseDirectRetrieveParams<
     UseObservableBaseRetrieveParams<Query, Data>,
     "scope" | "beforeRetrieve"
   > {
-  /** Parameters for the retrieve operation */
   query: Query;
 }
 
-/**
- * Return type for the direct retrieve hook.
- *
- * @template Data The type of data being retrieved
- */
 export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 
-/**
- * Arguments for the effect retrieve hook.
- *
- * @template Query The type of query parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
 export interface UseRetrieveEffectParams<
   Query extends core.Shape,
   Data extends state.State,
 > {
   scope?: string;
   onChange?: (result: Result<Data>, query: Query) => void;
-  /** Parameters for the retrieve operation */
   query?: Query;
 }
 
@@ -218,37 +137,13 @@ export interface UseRetrieveObservable<
   ): UseRetrieveObservableReturn<Query>;
 }
 
-/**
- * Return type for the createRetrieve function.
- *
- * @template Query The type of query parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
 export interface CreateRetrieveReturn<
   Query extends core.Shape,
   Data extends state.State,
 > {
-  /**
-   * Hook that automatically fetches data when parameters change and returns the result state.
-   * Use this for most cases where you want React to handle the data fetching lifecycle automatically.
-   * Data is fetched when the component mounts and re-fetched whenever query change.
-   */
   useRetrieve: UseRetrieve<Query, Data>;
-
-  /**
-   * Hook that triggers data fetching as a side effect when parameters change but returns nothing.
-   * Use this when you need to trigger data fetching but handle the result state externally
-   * (e.g., through the onChange callback). Returns void - no state is managed internally.
-   */
   useRetrieveEffect: UseRetrieveEffect<Query, Data>;
-
-  /**
-   * Hook that provides manual control over when data is fetched, with internal state management.
-   * Use this when you need to trigger data fetching based on user actions or specific events.
-   * Returns both the current state (data, variant, error) and functions to manually trigger retrieval.
-   */
   useRetrieveStateful: UseRetrieveStateful<Query, Data>;
-
   useRetrieveObservable: UseRetrieveObservable<Query, Data>;
 }
 
@@ -428,66 +323,6 @@ export const useObservableRetrieve = <
   });
 };
 
-/**
- * Creates a retrieve query system that provides hooks for fetching data with different control patterns.
- *
- * This function creates a set of React hooks that handle data retrieval with
- * proper loading states, error handling, caching, and real-time updates. It provides
- * two hook variants for different use cases:
- *
- * - `useDirect`: Automatically fetches data when parameters change. Best for most use cases.
- * - `useEffect`: Triggers data fetching as a side effect without returning state. Use when handling results externally.
- *
- * @template Query The type of query parameters for the retrieve operation
- * @template Data The type of data being retrieved
- * @param createParams Configuration object containing the retrieve function and resource name
- * @returns Object containing hooks for different retrieve patterns
- *
- * @example
- * ```typescript
- * interface UserQuery extends core.Shape {
- *   userId: number;
- *   includeProfile?: boolean;
- * }
- *
- * interface User {
- *   id: number;
- *   name: string;
- *   email: string;
- * }
- *
- * const userRetrieve = createRetrieve<UserQuery, User>({
- *   name: "User",
- *   retrieve: async ({ query, client }) => {
- *     return await client.users.get(query.userId, {
- *       includeProfile: query.includeProfile
- *     });
- *   },
- *   listeners: [
- *     {
- *       channel: "user_updates",
- *       onChange: ({ changed, query, onChange }) => {
- *         const updatedUser = changed.get("user_updates");
- *         if (updatedUser.id === query.userId) {
- *           onChange(updatedUser);
- *         }
- *       }
- *     }
- *   ]
- * });
- *
- * // Automatic fetching - data loads when component mounts and when userId changes
- * const { data, variant, error } = userRetrieve.useDirect({
- *   query: { userId: 123, includeProfile: true }
- * });
- *
- * // Side effect only - trigger fetching but handle result elsewhere
- * userRetrieve.useEffect({
- *   query: { userId: 123 },
- *   onChange: (result) => analyticsService.track('user_loaded', result)
- * });
- * ```
- */
 export const createRetrieve = <
   Query extends core.Shape,
   Data extends state.State,

@@ -47,21 +47,13 @@ export interface FormRetrieveParams<
 > extends Form.UseReturn<Schema>,
     RetrieveParams<Query, Store> {}
 
-/**
- * Configuration arguments for creating a form query.
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- */
 export interface CreateFormParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store,
 > {
   name: string;
-  /** Zod schema for form validation */
   schema: Schema;
-  /** Default values to use when creating new forms */
   initialValues: z.infer<Schema>;
   update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
   retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
@@ -70,27 +62,14 @@ export interface CreateFormParams<
   ) => Destructor | Destructor[];
 }
 
-/**
- * Return type for the form hook, providing form management utilities.
- *
- * @template Schema The Zod schema type for form validation
- */
 export type UseFormReturn<Schema extends z.ZodType<core.Shape>> = Omit<
   Result<z.infer<Schema>>,
   "data"
 > & {
-  /** Form management utilities for binding inputs and validation */
   form: Form.UseReturn<Schema>;
-  /** Function to save the current form values */
   save: (opts?: core.FetchOptions) => void;
 };
 
-/**
- * Arguments passed to the afterSave callback.
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- */
 export interface FormBeforeSaveParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
@@ -105,12 +84,6 @@ interface FormMountListenersParams<
 > extends Form.UseReturn<Schema>,
     Omit<RetrieveMountListenersParams<Query, core.Shape, Store>, "onChange"> {}
 
-/**
- * Arguments passed to the afterSave callback.
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- */
 export interface AfterSaveParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
@@ -123,41 +96,20 @@ export interface BeforeValidateArgs<
   Store extends core.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
-/**
- * Arguments for using a form hook.
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- */
 export interface UseFormArgs<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store,
 > extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
-  /** Initial values for the form fields */
   initialValues?: z.infer<Schema>;
-  /** Whether to automatically save form changes */
   autoSave?: boolean;
-  /** Parameters for the form query */
   params: Query;
-  /** Function to run before the validation operation. If the function returns undefined,
-   * the validation will be cancelled. */
   beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
-  /** Function to run before the save operation. If the function returns undefined,
-   * the save will be cancelled. */
   beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
-  /** Callback function called after successful save */
   afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
-  /** The scope to use for the form operation */
   scope?: string;
 }
 
-/**
- * Form hook function signature.
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- */
 export interface UseForm<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
@@ -171,50 +123,6 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
-/**
- * Creates a form query hook that combines data fetching, form management, and real-time updates.
- *
- * This function creates a React hook that automatically handles:
- * - Data fetching with loading states
- * - Form validation using Zod schemas
- * - Automatic form saving and persistence
- * - Real-time synchronization with server state
- * - Error handling and user feedback
- *
- * @template Query The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- * @param config Configuration object with form schema, update function, and query settings
- * @returns A React hook for managing the form
- *
- * @example
- * ```typescript
- * const userSchema = z.object({
- *   name: z.string().min(1),
- *   email: z.string().email(),
- *   age: z.number().optional()
- * });
- *
- * const useUserForm = createForm({
- *   name: "user",
- *   schema: userSchema,
- *   initialValues: { name: "", email: "", age: undefined },
- *   retrieve: async ({ params, client }) => {
- *     return await client.users.retrieve(params.userId);
- *   },
- *   update: async ({ value, params, client }) => {
- *     await client.users.update(params.userId, value);
- *   }
- * });
- *
- * // Usage in component
- * const { form, save, variant } = useUserForm({
- *   params: { userId: 123 },
- *   afterSave: ({ form }) => {
- *     console.log("User saved:", form.value());
- *   }
- * });
- * ```
- */
 export const createForm =
   <
     Query extends core.Shape,
@@ -277,13 +185,7 @@ export const createForm =
           if (signal?.aborted) return;
           listeners.cleanup();
           listeners.set(mountListeners?.(args));
-          setResult(
-            successResult<undefined, undefined>(
-              `retrieved ${name}`,
-              undefined,
-              undefined,
-            ),
-          );
+          setResult(successResult<undefined>(`retrieved ${name}`));
         } catch (error) {
           if (signal?.aborted) return;
           const res = errorResult(`retrieve ${name}`, error);

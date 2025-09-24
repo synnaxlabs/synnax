@@ -10,7 +10,6 @@
 import { array, type record } from "@synnaxlabs/x";
 import {
   createContext,
-  type FC,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -231,22 +230,23 @@ export const Frame = <
   multiple,
   onFetchMore,
   virtual = false,
+  value,
+  onChange,
   ...rest
-}: FrameProps<K, E>): ReactElement => {
-  const Provider = (multiple ? MultipleProvider : SingleProvider) as FC<
-    MultipleProviderProps<K> | SingleProviderProps<K>
-  >;
-  return (
-    <List.Frame<K, E>
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      itemHeight={itemHeight}
-      virtual={virtual}
-    >
-      <Provider {...rest} />
-    </List.Frame>
-  );
-};
+}: FrameProps<K, E>): ReactElement => (
+  <List.Frame<K, E>
+    data={data}
+    getItem={getItem}
+    subscribe={subscribe}
+    onFetchMore={onFetchMore}
+    itemHeight={itemHeight}
+    virtual={virtual}
+  >
+    {multiple ? (
+      <MultipleProvider value={value} onChange={onChange} {...rest} />
+    ) : (
+      <SingleProvider value={value} onChange={onChange} {...rest} />
+    )}
+  </List.Frame>
+);
 Frame.displayName = "Select.Frame";

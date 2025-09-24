@@ -49,45 +49,40 @@ interface StatusDetails {
 const { useUpdate } = Flux.createUpdate<Update, {}, Update, StatusDetails>({
   name: "Console",
   verbs: Flux.UPDATE_VERBS,
-  statusData: {
+  initialStatusDetails: {
     total: Size.bytes(0),
     progress: Size.bytes(0),
   },
   update: async ({ data: update, setStatus }) => {
     await update.downloadAndInstall((prog) => {
-      switch (prog.event) {
-        case "Started":
-          setStatus((p) => ({
+      const updateStatus = (v: (p: StatusDetails) => StatusDetails) =>
+        setStatus((p) => {
+          if (p.variant === "error") return p;
+          return {
             ...p,
             variant: "loading",
-            details: {
-              total: Size.bytes(prog.data.contentLength ?? 0),
-              progress: Size.bytes(0),
-            },
+            details: v(p.details),
+          };
+        });
+      switch (prog.event) {
+        case "Started":
+          updateStatus((p) => ({
+            ...p,
+            total: Size.bytes(prog.data.contentLength ?? 0),
           }));
           break;
         case "Progress":
-          setStatus((p) => {
-            if (p.variant === "error") return p;
-            return {
-              ...p,
-              variant: "loading",
-              details: {
-                total: p.details.total,
-                progress: p.details.progress.add(prog.data.chunkLength),
-              },
-            };
-          });
+          updateStatus((p) => ({
+            ...p,
+            progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+          }));
           break;
         case "Finished":
-          setStatus((p) => {
-            if (p.variant === "error") return p;
-            return {
-              ...p,
-              variant: "success",
-              details: { ...p.details, progress: p.details.total },
-            };
-          });
+          updateStatus((p) => ({
+            ...p,
+            variant: "success",
+            details: { ...p, progress: p.total },
+          }));
           break;
       }
     });

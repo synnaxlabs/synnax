@@ -33,7 +33,6 @@ export { Icon } from "@/icon";
 export { Input } from "@/input";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
-export { Range } from "@/lineplot/range";
 export { List } from "@/list";
 export { Log } from "@/log";
 export * from "@/memo";

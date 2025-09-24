@@ -42,75 +42,39 @@ import {
 import { state } from "@/state";
 import { Synnax } from "@/synnax";
 
-/**
- * Function interface for getting items from a list by key(s).
- *
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
-  /** Get a single item by key, returns undefined if not found */
   (key: K): E | undefined;
-  /** Get multiple items by an array of keys */
   (keys: K[]): E[];
 }
 
-/**
- * Options for async list operations.
- */
 interface AsyncListOptions extends core.FetchOptions {
-  /**
-   * How to modify the list when new data is retrieved. In append mode, new entries
-   * will be added to the end of the list. In replace mode, the list will be replaced
-   * with the new data.
-   */
   mode?: "append" | "replace";
 }
 
-/**
- * Return type for the list hook, providing comprehensive list management utilities.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 export type UseListReturn<
   Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
-  /** Function to trigger a list retrieval operation (fire-and-forget) */
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => void;
-  /** Function to trigger a list retrieval operation and await the result */
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => Promise<void>;
-  /** Array of keys for the items currently in the list */
   data: K[];
-  /** Function to get items by key, with automatic lazy loading */
   getItem: GetItem<K, E>;
-  /** Function to subscribe to changes for specific items */
   subscribe: (callback: () => void, key: K) => Destructor;
 };
 
-/**
- * Arguments for retrieving a single item by key.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- */
 export interface RetrieveByKeyParams<
   Query extends core.Shape,
   K extends record.Key,
   Store extends flux.Store,
 > extends Omit<RetrieveParams<Query, Store>, "query"> {
-  /** Parameters for the retrieve operation */
   query: Partial<Query>;
-  /** The key of the item to retrieve */
   key: K;
 }
 
@@ -122,62 +86,32 @@ export interface RetrieveCachedParams<
   store: Store;
 }
 
-/**
- * Configuration arguments for creating a list query.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 export interface CreateListParams<
   Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   Store extends flux.Store,
 > extends Omit<CreateRetrieveParams<Query, E[], Store>, "mountListeners"> {
-  /** Function to sort the list */
   sort?: compare.Comparator<E>;
-  /** Function to retrieve a single item by key for lazy loading */
   retrieveByKey: (args: RetrieveByKeyParams<Query, K, Store>) => Promise<E | undefined>;
-  /** Function that allows  */
   retrieveCached?: (args: RetrieveCachedParams<Query, Store>) => E[];
-  /** Function to mount listeners for the list */
   mountListeners?: (
     args: ListMountListenersParams<Query, K, E, Store>,
   ) => Destructor | Destructor[];
 }
 
-/**
- * Arguments for using a list hook.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 export interface UseListParams<
   Query extends core.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  /** Initial parameters for the list query */
   initialQuery?: Query;
-  /** Optional filter function to apply to items */
   filter?: (item: E) => boolean;
-  /** Optional function to sort the list */
   sort?: compare.Comparator<E>;
-  /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
-  /** Whether to retreve initial list results from the cache */
   useCachedList?: boolean;
 }
 
-/**
- * List hook function signature.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 export interface UseList<
   Query extends core.Shape,
   K extends record.Key,
@@ -192,13 +126,6 @@ interface ListenerOnChangeOptions {
   mode?: ListChangeMode;
 }
 
-/**
- * Configuration for a list listener that handles real-time updates.
- *
- * @template Query The type of parameters for the retrieve operation
- * @template Key The type of the key (must be a record key)
- * @template Data The type of the entity (must be keyed by K)
- */
 export interface ListMountListenersParams<
   Query extends core.Shape,
   Key extends record.Key,
@@ -217,9 +144,7 @@ export interface ListMountListenersParams<
   onDelete: (key: Key) => void;
 }
 
-/** Default filter function that accepts all items */
 const defaultFilter = () => true;
-/** Default debounce time for retrieve operations */
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface GetInitialDataParams<
@@ -260,78 +185,6 @@ const getInitialData = <
   return cached.map((v) => v.key);
 };
 
-/**
- * Creates a list query hook that provides comprehensive list management with real-time updates.
- *
- * This function creates a React hook that handles:
- * - List data retrieval with loading states
- * - Individual item lazy loading
- * - Real-time synchronization with server state
- * - Pagination and infinite scrolling support
- * - Item filtering and search
- * - Optimistic updates and error handling
- * - Subscribe to individual item changes
- *
- * @template P The type of parameters for the list query
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- * @param config Configuration object with list retrieval functions and settings
- * @returns A React hook for managing the list
- *
- * @example
- * ```typescript
- * interface UserListParams extends Params {
- *   department?: string;
- *   searchTerm?: string;
- *   offset?: number;
- *   limit?: number;
- * }
- *
- * interface User {
- *   id: number;
- *   name: string;
- *   email: string;
- *   department: string;
- * }
- *
- * const useUserList = createList<UserListParams, number, User>({
- *   name: "users",
- *   retrieve: async ({ query, client }) => {
- *     return await client.users.list(query);
- *   },
- *   retrieveByKey: async ({ key, client }) => {
- *     return await client.users.get(key);
- *   },
- *   listeners: [
- *     {
- *       channel: "user_updates",
- *       onChange: ({ changed, onChange, onDelete }) => {
- *         const updates = changed.get("user_updates");
- *         updates.forEach(update => {
- *           if (update.deleted) {
- *             onDelete(update.id);
- *           } else {
- *             onChange(update.id, update);
- *           }
- *         });
- *       }
- *     }
- *   ]
- * });
- *
- * // Usage in component
- * const { data, getItem, retrieve, variant } = useUserList({
- *   initialParams: { department: "engineering" },
- *   filter: (user) => user.name.includes("John")
- * });
- *
- * // Get individual user (lazy loaded if not in cache)
- * const user = getItem(123);
- *
- * // Load more users
- * retrieve({ offset: data.length, limit: 10 }, { mode: "append" });
- * ```
- */
 export const createList =
   <
     Query extends core.Shape,
@@ -575,45 +428,11 @@ export const createList =
     };
   };
 
-/**
- * Arguments for the useListItem hook.
- *
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
 export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
   extends Pick<UseListReturn<core.Shape, K, E>, "subscribe" | "getItem"> {
-  /** The key of the item to retrieve and subscribe to */
   key: K;
 }
 
-/**
- * Hook for subscribing to and retrieving individual items from a list.
- *
- * This hook provides a way to efficiently track individual items from a list
- * with automatic re-rendering when the item changes. It uses React's
- * useSyncExternalStore to provide optimal performance.
- *
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- * @param args Configuration object with key and list utilities
- * @returns The current item data, or undefined if not found
- *
- * @example
- * ```typescript
- * const userList = useUserList();
- * const user = useListItem({
- *   key: userId,
- *   subscribe: userList.subscribe,
- *   getItem: userList.getItem
- * });
- *
- * // Component will re-render when this specific user changes
- * if (user) {
- *   return <div>{user.name} - {user.email}</div>;
- * }
- * ```
- */
 export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
   key,
   subscribe,
