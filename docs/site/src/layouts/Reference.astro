@@ -4,7 +4,8 @@ import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
 import PageNav from "@/components/PageNav/PageNav.astro";
 import Main from "@/layouts/Root.astro";
 const { headings, frontmatter } = Astro.props;
-const { title, heading, description, url, next, nextURL, prev, prevURL, platforms } = frontmatter;
+const { title, heading, description, url, next, nextURL, prev, prevURL, platforms } =
+    frontmatter;
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>

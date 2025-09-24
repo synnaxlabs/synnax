@@ -105,7 +105,7 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig returns the default configuration for the storage layer.
 	DefaultConfig = Config{
-		Perm:     xfs.OS_USER_RWX,
+		Perm:     xfs.OwnerReadWriteExecute,
 		InMemory: config.False(),
 		KVEngine: PebbleKV,
 		TSEngine: CesiumTS,
@@ -273,7 +273,7 @@ func validateSufficientDirPermissions(cfg Config) error {
 		return err
 	}
 	// We need the directory to have at least the permissions set in ServiceConfig.Perm.
-	if !xfs.CheckSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
+	if !xfs.HasSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
 		return errors.Newf(
 			insufficientDirPermissions,
 			cfg.Dirname,

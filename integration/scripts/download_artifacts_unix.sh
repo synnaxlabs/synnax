@@ -30,18 +30,18 @@ install_github_cli() {
 download_artifacts() {
     local run_id=$1
     echo "Downloading artifacts from run: $run_id"
-    
+
     # Verify the run exists
     echo "Verifying run $run_id exists..."
     gh run view $run_id
-    
+
     # Create binaries directory
     mkdir -p ./binaries
-    
+
     # Download artifacts using GitHub CLI
     echo "Downloading synnax-core-linux artifact..."
     gh run download $run_id --name synnax-core-linux --dir ./binaries
-    
+
     # Verify artifacts were downloaded
     if ! ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
         echo "❌ Error: No synnax executable found in binaries directory"
@@ -49,21 +49,21 @@ download_artifacts() {
         ls -la ./binaries/ || echo "No ./binaries directory found"
         exit 1
     fi
-    
+
     echo "✅ Artifacts downloaded successfully"
 }
 
 # Setup binaries in home directory
 setup_binaries() {
     echo "Setting up binaries..."
-    
+
     # Create a binaries directory in a reliable location
     mkdir -p $HOME/synnax-binaries
-    
+
     # Debug: Check what's in binaries directory
     echo "Contents of ./binaries directory:"
     ls -la ./binaries/ || echo "No ./binaries directory found"
-    
+
     # Copy the synnax binary
     if ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
         cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
@@ -72,15 +72,15 @@ setup_binaries() {
         echo "❌ Error: Server binary (synnax-*-linux) not found in ./binaries/"
         exit 1
     fi
-    
+
     chmod +x $HOME/synnax-binaries/synnax*
-    
+
     # Verify setup
     if [ ! -f "$HOME/synnax-binaries/synnax" ]; then
         echo "❌ Error: synnax binary not found in $HOME/synnax-binaries after setup"
         exit 1
     fi
-    
+
     echo "✅ Binaries prepared in $HOME/synnax-binaries:"
     ls -la $HOME/synnax-binaries/synnax*
 }
@@ -94,14 +94,14 @@ main() {
     else
         echo "No existing binaries directory to clean"
     fi
-    
+
     echo "Starting Linux artifacts download and setup..."
-    
+
     install_github_cli
-    
+
     # Debug: Print environment variables
     echo "DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
-    
+
     # Download artifacts from the specified run
     if [ -n "${REF_RUN_ID:-}" ]; then
         download_artifacts "$REF_RUN_ID"
@@ -109,9 +109,9 @@ main() {
         echo "❌ Error: REF_RUN_ID not provided"
         exit 1
     fi
-    
+
     setup_binaries
-    
+
     echo "✅ Linux artifacts setup completed successfully"
 }
 

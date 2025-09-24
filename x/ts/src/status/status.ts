@@ -25,21 +25,26 @@ export const variantZ = z.enum([
 // Represents one of the possible variants of a status message.
 export type Variant = z.infer<typeof variantZ>;
 
-type StatusZodObject<D extends z.ZodType> = z.ZodObject<{
-  key: z.ZodString;
-  variant: typeof variantZ;
-  message: z.ZodString;
-  description: z.ZodOptional<z.ZodString>;
-  time: typeof TimeStamp.z;
-  details: D;
-}>;
+type StatusZodObject<DetailsSchema extends z.ZodType> = z.ZodObject<
+  {
+    key: z.ZodString;
+    variant: typeof variantZ;
+    message: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    time: typeof TimeStamp.z;
+  } & ([DetailsSchema] extends [z.ZodNever] ? {} : { details: DetailsSchema })
+>;
 
 interface StatusZFunction {
-  (): StatusZodObject<z.ZodOptional<z.ZodUnknown>>;
-  <D extends z.ZodType>(details: D): StatusZodObject<D>;
+  (): StatusZodObject<z.ZodNever>;
+  <DetailsSchema extends z.ZodType>(
+    details: DetailsSchema,
+  ): StatusZodObject<DetailsSchema>;
 }
 
-export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
+export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
+  details?: DetailsSchema,
+) =>
   z.object({
     key: z.string(),
     variant: variantZ,
@@ -49,18 +54,22 @@ export const statusZ: StatusZFunction = <D extends z.ZodType>(details?: D) =>
     details: details ?? z.unknown().optional(),
   });
 
-export type Status<D = undefined, V extends Variant = Variant> = {
+type Base<V extends Variant> = {
   key: string;
   variant: V;
   message: string;
   description?: string;
   time: TimeStamp;
-} & (D extends undefined ? {} : { details: D });
+};
 
-export type Crude<D = undefined, V extends Variant = Variant> = Optional<
-  Status<D, V>,
-  "time" | "key"
->;
+export type Status<Details = never, V extends Variant = Variant> = Base<V> &
+  ([Details] extends [never] ? {} : { details: Details });
+
+export type Crude<Details = never, V extends Variant = Variant> = Optional<
+  Base<V>,
+  "key" | "time"
+> &
+  ([Details] extends [never] ? {} : { details: Details });
 
 export interface ExceptionDetails {
   stack: string;
@@ -81,14 +90,14 @@ export const fromException = (
   });
 };
 
-export const create = <D = undefined, V extends Variant = Variant>(
-  spec: Crude<D, V>,
-): Status<D, V> =>
+export const create = <Details = never, V extends Variant = Variant>(
+  spec: Crude<Details, V>,
+): Status<Details, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     ...spec,
-  }) as unknown as Status<D, V>;
+  }) as Status<Details, V>;
 
 export const keepVariants = (
   variant?: Variant,

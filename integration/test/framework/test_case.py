@@ -503,6 +503,25 @@ class TestCase(ABC):
         except:
             return default
 
+    def get_value(self, channel_name: str) -> float | None:
+        """Get the latest data value for any channel using the synnax client"""
+        try:
+            latest_value = self.client.read_latest(channel_name)
+            if latest_value is not None and len(latest_value) > 0:
+                return float(latest_value)
+
+            # If read_latest is empty, read recent time range
+            now = sy.TimeStamp.now()
+            recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
+            frame = self.client.read(recent_range, channel_name)
+            if len(frame) > 0:
+                return float(frame[-1])
+
+            return None
+
+        except:
+            raise RuntimeError(f'Could not get value for channel "{channel_name}"')
+
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
