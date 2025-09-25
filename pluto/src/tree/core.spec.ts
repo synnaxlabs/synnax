@@ -21,13 +21,13 @@ import {
   getDescendants,
   getNodeShape,
   moveNode,
+  type Node,
   removeNode,
   setNode,
+  type Shape,
   shouldExpand,
   updateNode,
   updateNodeChildren,
-  type Node,
-  type Shape,
 } from "@/tree/core";
 
 describe("tree/core", () => {
