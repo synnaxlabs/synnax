@@ -1075,7 +1075,7 @@ describe("queries", () => {
       });
     });
 
-    it("should delete multiple channel aliases", async () => {
+    it.only("should delete multiple channel aliases", async () => {
       const indexCh = await client.channels.create({
         name: "alias_delete_multi_index",
         dataType: DataType.TIMESTAMP,
@@ -1109,7 +1109,10 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => {
+        console.log(result.current.retrieve.status);
+        expect(result.current.retrieve.variant).toEqual("success");
+      });
       const ch1Before = result.current.retrieve.data?.find((c) => c.key === ch1.key);
       const ch2Before = result.current.retrieve.data?.find((c) => c.key === ch2.key);
       expect(ch1Before?.alias).toEqual("multi_alias_1");

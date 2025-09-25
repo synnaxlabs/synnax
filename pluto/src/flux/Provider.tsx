@@ -21,7 +21,7 @@ import { flux } from "@/flux/aether";
 import { core } from "@/flux/core";
 import { useInitializerRef, useRequiredContext } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useAsyncErrorHandler, useErrorHandler } from "@/status/external";
+import { useAsyncErrorHandler, useErrorHandler } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 type ContextValue = core.Client;
