@@ -14,9 +14,9 @@ import { Button, Icon, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { fromClientRange } from "@/range/ContextMenu";
 import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
+import { fromClientRange } from "@/range/translate";
 
 export interface FavoriteButtonProps extends Button.ButtonProps {
   range: ranger.Range;

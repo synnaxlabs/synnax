@@ -62,15 +62,14 @@ const singleRetrieveArgsZ = z
     includeStatus,
   }));
 
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
-  readonly type = "device";
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -81,13 +80,13 @@ export class Client {
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-  >(args: SingleRetrieveArgs): Promise<Device<Properties, Make, Model>>;
+  >(args: RetrieveSingleParams): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-  >(args: MultiRetrieveArgs): Promise<Array<Device<Properties, Make, Model>>>;
+  >(args: RetrieveMultipleParams): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
@@ -138,7 +137,7 @@ export class Client {
     return isSingle ? created[0] : created;
   }
 
-  async delete(keys: string | string[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,

@@ -26,7 +26,7 @@ export const useFetchPermissions = (): void => {
       }
       const username = client.props.username;
       try {
-        const user = await client.user.retrieve({ username });
+        const user = await client.users.retrieve({ username });
         if (signal.aborted) return;
         const policies = await client.access.policy.retrieve({
           for: clientUser.ontologyID(user.key),

@@ -60,10 +60,13 @@ interface ContextValue<K extends record.Key = record.Key>
   getState: () => SelectionState<K>;
 }
 
+interface MultipleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseMultipleProps<K>> {}
+
 const MultipleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseMultipleProps<K> & PropsWithChildren): ReactElement => {
+}: MultipleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useMultiple(rest);
   return (
@@ -73,10 +76,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   );
 };
 
+interface SingleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseSingleProps<K>> {}
+
 const SingleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseSingleProps<K> & PropsWithChildren): ReactElement => {
+}: SingleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useSingle(rest);
   return (
@@ -220,27 +226,26 @@ export const Frame = <
   getItem,
   subscribe,
   itemHeight,
-  value,
-  onChange,
   multiple,
   onFetchMore,
   virtual = false,
+  value,
+  onChange,
   ...rest
-}: FrameProps<K, E>): ReactElement => {
-  let child: ReactElement;
-  if (multiple === true)
-    child = <MultipleProvider value={value} onChange={onChange} {...rest} />;
-  else child = <SingleProvider value={value} onChange={onChange} {...rest} />;
-  return (
-    <List.Frame<K, E>
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      itemHeight={itemHeight}
-      virtual={virtual}
-    >
-      {child}
-    </List.Frame>
-  );
-};
+}: FrameProps<K, E>): ReactElement => (
+  <List.Frame<K, E>
+    data={data}
+    getItem={getItem}
+    subscribe={subscribe}
+    onFetchMore={onFetchMore}
+    itemHeight={itemHeight}
+    virtual={virtual}
+  >
+    {multiple ? (
+      <MultipleProvider value={value} onChange={onChange} {...rest} />
+    ) : (
+      <SingleProvider value={value} onChange={onChange} {...rest} />
+    )}
+  </List.Frame>
+);
+Frame.displayName = "Select.Frame";

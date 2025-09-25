@@ -1928,7 +1928,7 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   customStatic,
 };
 
-export interface Group extends group.Payload {
+export interface Group extends group.Group {
   Icon: Icon.FC;
   symbols: Variant[];
 }

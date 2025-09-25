@@ -41,8 +41,8 @@ const listRetrieveArgsZ = z.union([
   retrieveRequestZ,
 ]);
 
-export type SingleRetrieveArgs = z.input<typeof keyRetrieveRequestZ>;
-export type ListRetrieveArgs = z.input<typeof listRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
+export type RetrieveMultipleParams = z.input<typeof listRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
 
@@ -86,8 +86,8 @@ export class Client {
     return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Policy>;
-  async retrieve(args: ListRetrieveArgs): Promise<Policy[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Policy>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Policy[]>;
   async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(

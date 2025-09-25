@@ -49,14 +49,14 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
-      const s = await client.workspaces.schematic.retrieve(key);
+      const s = await client.workspaces.schematics.retrieve({ key });
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
       );
     },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
-      await client.workspaces.schematic.delete(key);
+      await client.workspaces.schematics.delete(key);
     },
   },
   task: {
@@ -125,8 +125,8 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildren({
-    initialParams: { id: ranger.ontologyID(rangeKey) },
+  const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
+    initialQuery: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
   const { fetchMore } = List.usePager({ retrieve });

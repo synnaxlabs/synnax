@@ -87,7 +87,13 @@ const MetaDataListItem = ({
     },
     sync: !isCreate,
     afterSave: useCallback(
-      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Ranger.kvPairFormSchema>) => {
+      ({
+        reset,
+      }: Flux.AfterSaveParams<
+        Flux.Shape,
+        typeof Ranger.kvPairFormSchema,
+        Ranger.FluxSubStore
+      >) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
@@ -171,8 +177,8 @@ const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
-  const { data, getItem, subscribe, retrieve, status } = Ranger.useListKV({
-    initialParams: { rangeKey },
+  const { data, getItem, subscribe, retrieve, status } = Ranger.useListMetaData({
+    initialQuery: { rangeKey },
     sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);

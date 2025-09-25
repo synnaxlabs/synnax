@@ -8,258 +8,282 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-import { type FetchOptions } from "@/flux/core/params";
-import { type Store } from "@/flux/core/store";
+import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  type InitialStatusDetailsContainer,
+  loadingResult,
   nullClientResult,
-  pendingResult,
+  parseInitialStatusDetails,
   type Result,
+  resultStatusDetails,
+  type Status,
   successResult,
 } from "@/flux/result";
-import { type state } from "@/state";
+import { useDebouncedCallback } from "@/hooks";
+import { state } from "@/state";
+import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
-/**
- * Arguments passed to the update function.
- *
- * @template UpdateParams The type of parameters for the update operation
- * @template Data The type of data being updated
- */
-export interface UpdateArgs<Data extends state.State, ScopedStore extends Store = {}> {
-  /** The data to be updated */
-  value: Data;
-  /** The Synnax client instance for making requests */
-  client: Client;
-  /** Function to update the form state with new data */
-  onChange: state.PureSetter<Data>;
-  /** The store to update */
-  store: ScopedStore;
-}
-
-/**
- * Configuration arguments for creating an update query.
- *
- * @template UpdateParams The type of parameters for the update operation
- * @template Data The type of data being updated
- */
-export interface CreateUpdateArgs<
-  Data extends state.State,
-  ScopedStore extends Store = {},
+export interface UpdateParams<
+  Input extends core.Shape,
+  Store extends core.Store,
+  StatusDetails = never,
 > {
-  /** The name of the resource being updated (used for status messages) */
+  data: Input;
+  client: Client;
+  store: Store;
+  rollbacks: Destructor[];
+  setStatus: (setter: state.SetArg<Status<StatusDetails>>) => void;
+}
+
+export type CreateUpdateParams<
+  Input extends core.Shape,
+  ScopedStore extends core.Store,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> = {
   name: string;
-  /** Function that performs the actual update operation */
-  update: (args: UpdateArgs<Data, ScopedStore>) => Promise<void>;
+  verbs: core.Verbs;
+  update: (
+    params: UpdateParams<Input, ScopedStore, StatusDetails>,
+  ) => Promise<Output | false>;
+} & InitialStatusDetailsContainer<StatusDetails>;
+
+export interface UseObservableUpdateReturn<Input extends core.Shape> {
+  update: (data: Input, opts?: core.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: core.FetchOptions) => Promise<boolean>;
 }
 
-/**
- * Return type for the observable update hook.
- *
- * @template Data The type of data being updated
- */
-export interface UseObservableUpdateReturn<Data extends state.State> {
-  /** Function to trigger an update (fire-and-forget) */
-  update: (value: Data, opts?: FetchOptions) => void;
-  /** Function to trigger an update and await the result */
-  updateAsync: (value: Data, opts?: FetchOptions) => Promise<boolean>;
-}
-
-/**
- * Arguments for the observable update hook.
- *
- * @template UpdateParams The type of parameters for the update operation
- * @template Data The type of data being updated
- */
-export interface UseObservableUpdateArgs<Data extends state.State> {
-  /** Callback function to handle state changes */
-  onChange: state.Setter<Result<Data | undefined>>;
-  /** The scope to use for the update operation */
+export interface UseObservableUpdateParams<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> {
+  debounce?: number;
+  onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   scope?: string;
-  /** Function to run before the update operation. If the function returns undefined,
-   * the update will be cancelled. */
-  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | boolean>;
-  /** Function to run after the update operation. */
-  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
+  beforeUpdate?: (
+    params: BeforeUpdateParams<Input>,
+  ) => Promise<Input | boolean> | Input | boolean;
+  afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
+  afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
 }
 
-export interface BeforeUpdateArgs<Data extends state.State> {
+export interface BeforeUpdateParams<Data extends core.Shape> {
+  rollbacks: Destructor[];
   client: Client;
-  value: Data;
+  data: Data;
 }
 
-export interface AfterUpdateArgs<Data extends state.State> {
+export interface AfterSuccessParams<Output extends core.Shape> {
   client: Client;
-  value: Data;
+  data: Output;
 }
 
-/**
- * Arguments for the direct update hook.
- *
- * @template UpdateParams The type of parameters for the update operation
- */
-export interface UseDirectUpdateArgs<Data extends state.State>
-  extends Omit<UseObservableUpdateArgs<Data>, "onChange"> {}
-
-/**
- * Return type for the direct update hook, combining result state with update functions.
- *
- * @template Data The type of data being updated
- */
-export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | undefined> &
-  UseObservableUpdateReturn<Data>;
-
-/**
- * Return type for the createUpdate function.
- *
- * @template UpdateParams The type of parameters for the update operation
- * @template Data The type of data being updated
- */
-export interface CreateUpdateReturn<Data extends state.State> {
-  /** Hook that provides update functions with external state management */
-  useObservableUpdate: (
-    args: UseObservableUpdateArgs<Data>,
-  ) => UseObservableUpdateReturn<Data>;
-  /** Hook that provides update functions with internal state management */
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) => UseDirectUpdateReturn<Data>;
+export interface AfterFailureParams<Data extends core.Shape> {
+  client: Client;
+  status: status.Status<status.ExceptionDetails, "error">;
+  data: Data;
 }
 
-/**
- * Internal hook for observable updates with external state management.
- * @internal
- */
-const useObservable = <Data extends state.State, ScopedStore extends Store = {}>({
-  onChange,
-  update,
-  name,
-  scope,
-  beforeUpdate,
-  afterUpdate,
-}: UseObservableUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseObservableUpdateReturn<Data> => {
+export interface UseDirectUpdateParams<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
+
+export type UseDirectUpdateReturn<
+  Input extends core.Shape,
+  StatusDetails = never,
+> = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
+
+export interface UseObservableUpdate<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> {
+  (
+    args: UseObservableUpdateParams<Input, Output, StatusDetails>,
+  ): UseObservableUpdateReturn<Input>;
+}
+
+export interface UseUpdate<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> {
+  (
+    args?: UseDirectUpdateParams<Input, Output, StatusDetails>,
+  ): UseDirectUpdateReturn<Input, StatusDetails>;
+}
+
+export interface CreateUpdateReturn<
+  Input extends core.Shape,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+> {
+  useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
+  useUpdate: UseUpdate<Input, Output, StatusDetails>;
+}
+
+const useObservable = <
+  Input extends core.Shape,
+  Store extends core.Store,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+>(
+  params: UseObservableUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Store, Output, StatusDetails>,
+): UseObservableUpdateReturn<Input> => {
+  const {
+    onChange,
+    update,
+    name,
+    verbs: { present, past, participle },
+    debounce = 0,
+    scope,
+    beforeUpdate,
+    afterSuccess,
+    afterFailure,
+  } = params;
   const client = Synnax.use();
-  const store = useStore<ScopedStore>(scope);
-  const handleUpdate = useCallback(
-    async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
+  const store = useStore<Store>(scope);
+  const addStatus = useAdder();
+  const handleUpdate = useDebouncedCallback(
+    async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
+
+      const rollbacks: Destructor[] = [];
+      const runRollbacks = () => {
+        try {
+          rollbacks.reverse().forEach((rollback) => rollback());
+        } catch (error) {
+          console.error(`failed to rollback changes to ${name}`, error);
+        }
+      };
+
+      if (client == null) {
+        onChange((p) =>
+          nullClientResult(
+            `${present} ${name}`,
+            resultStatusDetails<Input | undefined, StatusDetails>(p),
+          ),
+        );
+        return false;
+      }
+
       try {
-        if (client == null) {
-          onChange(nullClientResult(name, "update"));
-          return false;
-        }
-        onChange((p) => pendingResult(name, "updating", p.data));
-        let updated = false;
+        onChange((p) =>
+          loadingResult(
+            `${participle} ${name}`,
+            p.data,
+            resultStatusDetails<Input | undefined, StatusDetails>(p),
+          ),
+        );
+
         if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({ client, value });
-          if (updatedValue === false) return false;
-          if (updatedValue !== true) value = updatedValue;
+          const updatedValue = await beforeUpdate({ client, data, rollbacks });
+          if (signal?.aborted === true) return false;
+          if (updatedValue === false) {
+            onChange(successResult(`${past} ${name}`, data));
+            runRollbacks();
+            return false;
+          }
+          if (updatedValue !== true) data = updatedValue;
         }
-        await update({
-          client,
-          onChange: (value) => {
-            updated = true;
-            onChange(successResult(name, "updated", value));
-          },
-          value,
-          store,
-        });
+
+        const setStatus = (setter: state.SetArg<Status<StatusDetails>>) =>
+          onChange((p) => {
+            const nextStatus = state.executeSetter(setter, p.status);
+            return {
+              ...p,
+              status: nextStatus,
+              variant: nextStatus.variant,
+            } as Result<Input | undefined, StatusDetails>;
+          });
+
+        const output = await update({ client, data, store, rollbacks, setStatus });
         if (signal?.aborted === true) return false;
-        if (!updated) onChange(successResult(name, "updated", value));
-        if (afterUpdate != null) await afterUpdate({ client, value });
+        onChange((p) =>
+          successResult(
+            `${past} ${name}`,
+            data,
+            resultStatusDetails<Input | undefined, StatusDetails>(p),
+          ),
+        );
+        if (output === false) return false;
+        await afterSuccess?.({ client, data: output });
         return true;
       } catch (error) {
-        if (signal?.aborted !== true) onChange(errorResult(name, "update", error));
+        runRollbacks();
+        if (signal?.aborted === true) return false;
+
+        const result = errorResult(`${present} ${name}`, error);
+        const { status } = result;
+        onChange(result);
+        addStatus(status);
+        await afterFailure?.({ client, status, data });
+
         return false;
       }
     },
-    [name],
+    debounce,
+    [name, onChange, beforeUpdate, afterSuccess, afterFailure],
   );
   const handleSyncUpdate = useCallback(
-    (value: Data, opts?: FetchOptions) => void handleUpdate(value, opts),
+    (data: Input, opts?: core.FetchOptions) => void handleUpdate(data, opts),
     [handleUpdate],
   );
-  return {
-    update: handleSyncUpdate,
-    updateAsync: handleUpdate,
-  };
+  return { update: handleSyncUpdate, updateAsync: handleUpdate };
 };
 
-/**
- * Internal hook for direct updates with internal state management.
- * @internal
- */
-const useDirect = <Data extends state.State, ScopedStore extends Store = {}>({
-  name,
-  ...restArgs
-}: UseDirectUpdateArgs<Data> &
-  CreateUpdateArgs<Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
-  const [result, setResult] = useState<Result<Data | undefined>>(
-    successResult(name, "updated", undefined),
+const useDirect = <
+  Input extends core.Shape,
+  Store extends core.Store = {},
+  Output extends core.Shape = Input,
+  initialStatusDetails = never,
+>(
+  params: UseDirectUpdateParams<Input, Output, initialStatusDetails> &
+    CreateUpdateParams<Input, Store, Output, initialStatusDetails>,
+): UseDirectUpdateReturn<Input, initialStatusDetails> => {
+  const { name, verbs, ...restParams } = params;
+  const initialStatusDetails = parseInitialStatusDetails<initialStatusDetails>(params);
+  const [result, setResult] = useState<Result<Input | undefined, initialStatusDetails>>(
+    successResult(`${verbs.past} ${name}`, undefined, initialStatusDetails),
   );
-  const methods = useObservable<Data, ScopedStore>({
-    ...restArgs,
+  const methods = useObservable<Input, Store, Output, initialStatusDetails>({
+    ...restParams,
+    initialStatusDetails,
+    verbs,
     name,
     onChange: setResult,
   });
   return { ...result, ...methods };
 };
 
-/**
- * Creates an update query system that provides hooks for updating data.
- *
- * This function creates a set of React hooks that handle data updates with
- * proper loading states, error handling, and optimistic updates. It provides
- * both observable and direct variants for different use cases.
- *
- * @template UpdateParams The type of parameters for the update operation
- * @template Data The type of data being updated
- * @param createArgs Configuration object containing the update function and resource name
- * @returns Object containing hooks for different update patterns
- *
- * @example
- * ```typescript
- * interface UserUpdateParams extends Params {
- *   userId: number;
- * }
- *
- * interface User {
- *   id: number;
- *   name: string;
- *   email: string;
- * }
- *
- * const userUpdate = createUpdate<UserUpdateParams, User>({
- *   name: "user",
- *   update: async ({ value, params, client }) => {
- *     await client.users.update(params.userId, value);
- *   }
- * });
- *
- * // Usage with external state management
- * const { update, updateAsync } = userUpdate.useObservable({
- *   params: { userId: 123 },
- *   onChange: (result) => {
- *     console.log("Update result:", result);
- *   }
- * });
- *
- * // Usage with internal state management
- * const { update, updateAsync, variant, error } = userUpdate.useDirect({
- *   params: { userId: 123 }
- * });
- *
- * // Trigger update
- * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
- * ```
- */
-export const createUpdate = <Data extends state.State, ScopedStore extends Store = {}>(
-  createArgs: CreateUpdateArgs<Data, ScopedStore>,
-): CreateUpdateReturn<Data> => ({
-  useObservableUpdate: (args: UseObservableUpdateArgs<Data>) =>
-    useObservable<Data, ScopedStore>({ ...args, ...createArgs }),
-  useUpdate: (args?: UseDirectUpdateArgs<Data>) =>
-    useDirect<Data, ScopedStore>({ ...args, ...createArgs }),
+export const createUpdate = <
+  Input extends core.Shape,
+  ScopedStore extends core.Store,
+  Output extends core.Shape = Input,
+  StatusDetails = never,
+>(
+  createParams: CreateUpdateParams<Input, ScopedStore, Output, StatusDetails>,
+): CreateUpdateReturn<Input, Output, StatusDetails> => ({
+  useObservableUpdate: (
+    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
+  ) =>
+    useObservable<Input, ScopedStore, Output, StatusDetails>({
+      ...params,
+      ...createParams,
+    }),
+  useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusDetails> = {}) =>
+    useDirect<Input, ScopedStore, Output, StatusDetails>({
+      ...params,
+      ...createParams,
+    }),
 });
