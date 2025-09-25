@@ -59,12 +59,9 @@ export const DateTime = ({
 
     nextTS = applyTimezoneOffset(nextTS);
     let ok = false;
-    try {
-      const str = nextTS.toString("ISO", "local");
-      ok = str.slice(0, -1) === nextStr;
-    } catch (e) {
-      console.error(e);
-    }
+    const str = nextTS.toString("ISO", "local");
+    ok = str.slice(0, -1) === nextStr;
+
     if (ok && !onlyChangeOnBlur) {
       onChange(Number(nextTS.valueOf()));
       setTempValue(null);
@@ -312,7 +309,7 @@ interface CalendarProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
+const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const month = value.month;
   const year = value.year;
   const day = value.day;
@@ -398,7 +395,7 @@ interface TimeListProps {
 
 const timeListItem = renderProp(TimeListItem);
 
-export const createTimeList = (count: number): FC<TimeListProps> => {
+const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
@@ -425,7 +422,7 @@ interface TimeSelectorProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
+const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
   <Flex.Box pack y className={CSS.B("time-selector")}>
     <Flex.Box pack x grow className={CSS.B("time-selector-list")}>
       <HoursList

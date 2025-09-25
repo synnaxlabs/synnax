@@ -46,7 +46,7 @@ import { Synnax } from "@/synnax";
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
+export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   /** Get a single item by key, returns undefined if not found */
   (key: K): E | undefined;
   /** Get multiple items by an array of keys */
@@ -56,7 +56,7 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 /**
  * Options for async list operations.
  */
-interface AsyncListOptions extends FetchOptions {
+export interface AsyncListOptions extends FetchOptions {
   /**
    * How to modify the list when new data is retrieved. In append mode, new entries
    * will be added to the end of the list. In replace mode, the list will be replaced
@@ -171,7 +171,7 @@ export interface UseListArgs<
   sort?: compare.Comparator<E>;
   /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
-  /** Whether to retreve initial list results from the cache */
+  /** Whether to retrieve initial list results from the cache */
   useCachedList?: boolean;
 }
 

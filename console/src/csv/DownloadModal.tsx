@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Button, Channel, Flex, Icon, Nav, Progress, Text } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { useDownload } from "@/csv/useDownload";
@@ -17,7 +17,7 @@ import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export interface DownloadModalArgs extends Modals.BaseArgs<void> {
-  timeRanges: NumericTimeRange[];
+  timeRanges: CrudeTimeRange[];
   name: string;
 }
 
