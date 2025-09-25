@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 
 import { type flux } from "@/flux/aether";
 
@@ -19,13 +20,13 @@ export interface ResourceFluxStore extends flux.UnaryStore<string, ontology.Reso
 export const RELATIONSHIPS_FLUX_STORE_KEY = "relationships";
 export const RESOURCES_FLUX_STORE_KEY = "resources";
 
-interface SubStore extends flux.Store {
+export interface FluxSubStore extends flux.Store {
   [RELATIONSHIPS_FLUX_STORE_KEY]: RelationshipFluxStore;
   [RESOURCES_FLUX_STORE_KEY]: ResourceFluxStore;
 }
 
 const RELATIONSHIP_SET_LISTENER: flux.ChannelListener<
-  SubStore,
+  FluxSubStore,
   typeof ontology.relationshipZ
 > = {
   channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
@@ -35,32 +36,51 @@ const RELATIONSHIP_SET_LISTENER: flux.ChannelListener<
 };
 
 const RELATIONSHIP_DELETE_LISTENER: flux.ChannelListener<
-  SubStore,
+  FluxSubStore,
   typeof ontology.relationshipZ
 > = {
   channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
   schema: ontology.relationshipZ,
-  onChange: ({ store, changed }) =>
-    store.relationships.delete(ontology.relationshipToString(changed)),
+  onChange: ({ store, changed }) => {
+    store.relationships.delete(ontology.relationshipToString(changed));
+  },
 };
 
-export const RELATIONSHIP_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
+export const RELATIONSHIP_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
+  FluxSubStore,
+  string,
+  ontology.Relationship
+> = {
+  equal: (a, b) =>
+    ontology.idsEqual(a.from, b.from) &&
+    ontology.idsEqual(a.to, b.to) &&
+    a.type === b.type,
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
-const RESOURCE_SET_LISTENER: flux.ChannelListener<SubStore, typeof ontology.idZ> = {
+const RESOURCE_SET_LISTENER: flux.ChannelListener<
+  FluxSubStore,
+  typeof ontology.resourceZ
+> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-  schema: ontology.idZ,
-  onChange: async ({ store, changed, client }) =>
-    store.resources.set(changed.key, await client.ontology.retrieve(changed)),
+  schema: ontology.resourceZ,
+  onChange: async ({ store, changed }) => {
+    store.resources.set(changed.key, (p) =>
+      p == null ? changed : { ...p, ...changed },
+    );
+  },
 };
 
-const RESOURCE_DELETE_LISTENER: flux.ChannelListener<SubStore, typeof ontology.idZ> = {
+const RESOURCE_DELETE_LISTENER: flux.ChannelListener<
+  FluxSubStore,
+  typeof ontology.idZ
+> = {
   channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
   schema: ontology.idZ,
   onChange: ({ store, changed }) => store.resources.delete(changed.key),
 };
 
-export const RESOURCE_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
+export const RESOURCE_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<FluxSubStore> = {
+  equal: (a, b) => deep.equal(a, b),
   listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
 };

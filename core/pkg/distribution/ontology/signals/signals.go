@@ -39,7 +39,7 @@ func Publish(
 				if ch.Variant == change.Set {
 					v, err := signals.MarshalJSON(ch.Value)
 					if err != nil {
-						otg.L.DPanic("unxexpected failure to marshal ontology failed to marshal set", zap.Error(err))
+						otg.L.DPanic("unexpected failure to marshal ontology failed to marshal set", zap.Error(err))
 						return change.Change[[]byte, struct{}]{}, false
 					}
 					return change.Change[[]byte, struct{}]{Key: v, Variant: ch.Variant}, true
