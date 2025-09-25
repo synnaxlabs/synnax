@@ -129,7 +129,7 @@ interface StatusChipProps {
 }
 
 const StatusChip = ({ layoutKey }: StatusChipProps) => {
-  const status = Status.useRetrieve({ key: layoutKey });
+  const status = Status.useRetrieve({ key: layoutKey }, { addStatusOnFailure: false });
   return (
     <Status.Summary variant="disabled" message="Arc not deployed" {...status.data} />
   );

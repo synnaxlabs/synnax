@@ -132,35 +132,35 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   labels: [],
 };
 
-// export const useForm = createForm<Partial<RetrieveQuery>, typeof formSchema, SubStore>({
-//   name: RESOURCE_NAME,
-//   schema: formSchema,
-//   initialValues: INITIAL_VALUES,
-//   retrieve: async ({ reset, ...args }) => {
-//     const {
-//       query: { key },
-//       client,
-//     } = args;
-//     if (primitive.isZero(key)) return;
-//     const stat = await retrieveSingle({ ...args, query: { key } });
-//     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
-//     reset({
-//       ...stat,
-//       labels: labels.map((l) => l.key),
-//     });
-//   },
-//   update: async ({ client, value }) => {
-//     const v = value();
-//     if (primitive.isZero(v.key)) v.key = uuid.create();
-//     await client.statuses.set(v);
-//   },
-//   mountListeners: ({ store, query: { key }, set }) => [
-//     store.statuses.onSet((v) => {
-//       set("key", v.key);
-//       set("message", v.message);
-//       set("time", v.time);
-//       set("name", v.name);
-//       set("description", v.description);
-//     }, key),
-//   ],
-// });
+export const useForm = createForm<Partial<RetrieveQuery>, typeof formSchema, SubStore>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  initialValues: INITIAL_VALUES,
+  retrieve: async ({ reset, ...args }) => {
+    const {
+      query: { key },
+      client,
+    } = args;
+    if (primitive.isZero(key)) return;
+    const stat = await retrieveSingle({ ...args, query: { key } });
+    const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
+    reset({
+      ...stat,
+      labels: labels.map((l) => l.key),
+    });
+  },
+  update: async ({ client, value }) => {
+    const v = value();
+    if (primitive.isZero(v.key)) v.key = uuid.create();
+    await client.statuses.set(v);
+  },
+  mountListeners: ({ store, query: { key }, set }) => [
+    store.statuses.onSet((v) => {
+      set("key", v.key);
+      set("message", v.message);
+      set("time", v.time);
+      set("name", v.name);
+      set("description", v.description);
+    }, key),
+  ],
+});
