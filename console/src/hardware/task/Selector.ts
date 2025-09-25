@@ -16,11 +16,11 @@ import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 
 export const SELECTABLES: CoreSelector.Selectable[] = [
-  ...NI.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
+  ...Modbus.Task.SELECTABLES,
+  ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
-  ...Modbus.Task.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
