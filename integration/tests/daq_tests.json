@@ -6,8 +6,7 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/simple_press_control",
-          "parameters": { "headless": false }
+          "case": "console/simple_press_control"
         },
         {
           "case": "daq/simulated_daq"

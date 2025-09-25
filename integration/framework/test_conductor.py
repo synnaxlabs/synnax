@@ -62,7 +62,7 @@ class TestResult:
 
     def __str__(self) -> str:
         """Return display name for test result."""
-        if self.name:
+        if self.name and self.name != self.test_name.split("/")[-1]:
             return f"{self.test_name} ({self.name})"
         return self.test_name
 
@@ -78,7 +78,7 @@ class TestDefinition:
 
     def __str__(self) -> str:
         """Return display name for test definition."""
-        if self.name:
+        if self.name and self.name != self.case.split("/")[-1]:
             return f"{self.case} ({self.name})"
         return self.case
 
