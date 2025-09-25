@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { ExpiredTokenError } from "@/errors";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
-import { type status } from "@/status";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -261,6 +262,36 @@ describe("Status", () => {
 
       // Delete again - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
+    });
+  });
+
+  describe("with labels", () => {
+    it("should correctly retrieve a status with labels attached", async () => {
+      const label1 = await client.labels.create({
+        name: "Label 1",
+        color: "#0000FF",
+      });
+      const label2 = await client.labels.create({
+        name: "Label 2",
+        color: "#FF0000",
+      });
+      const stat = await client.statuses.set({
+        name: "Idempotent",
+        key: uuid.create(),
+        variant: "info",
+        message: "Test",
+        time: TimeStamp.now(),
+      });
+      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+        replace: true,
+      });
+
+      const retrievedStat = await client.statuses.retrieve({
+        key: stat.key,
+        includeLabels: true,
+      });
+      expect(retrievedStat.key).toEqual(stat.key);
+      expect(retrievedStat.labels).toHaveLength(2);
     });
   });
 

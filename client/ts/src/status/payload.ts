@@ -10,7 +10,9 @@
 import { status as xStatus } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { label } from "@/label";
 import { type ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
@@ -18,11 +20,15 @@ export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
 // The Status type combines a name with the base status from x/status
-export const statusZ = xStatus.statusZ();
+export const statusZ = xStatus.statusZ().extend({
+  labels: nullableArrayZ(label.labelZ),
+});
 
-export interface Status extends z.infer<typeof statusZ> {
-  name: string;
-}
+export const newZ = statusZ.partial({ key: true });
+
+export interface New extends z.input<typeof newZ> {}
+
+export interface Status extends z.infer<typeof statusZ> {}
 
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";

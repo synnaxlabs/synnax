@@ -13,8 +13,10 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -23,17 +25,35 @@ type StatusService struct {
 	dbProvider
 	accessProvider
 	internal *status.Service
+	label    *label.Service
 }
 
 func NewStatusService(p Provider) *StatusService {
 	return &StatusService{
 		internal:       p.Service.Status,
+		label:          p.Service.Label,
 		dbProvider:     p.db,
 		accessProvider: p.access,
 	}
 }
 
-type Status = status.Status
+type Status struct {
+	status.Status
+	Labels []label.Label
+}
+
+func translateStatusesToService(statuses []Status) []status.Status {
+	return lo.Map(statuses, func(s Status, _ int) status.Status {
+		return s.Status
+	})
+}
+
+func translateStatusesFromService(statuses []status.Status) []Status {
+	return lo.Map(statuses, func(s status.Status, _ int) Status {
+		return Status{Status: s}
+	})
+
+}
 
 // StatusSetRequest is a request to set (create or update) statuses in the cluster.
 type StatusSetRequest struct {
@@ -49,27 +69,38 @@ type StatusSetResponse struct {
 	Statuses []Status `json:"statuses" msgpack:"statuses"`
 }
 
+func statusAccessOntologyIDs(statuses []Status) []ontology.ID {
+	ids := make([]ontology.ID, 0, len(statuses))
+	for _, r := range statuses {
+		ids = append(ids, r.Status.OntologyID())
+		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
+	}
+	return ids
+}
+
 // Set creates or updates statuses in the cluster.
 func (s *StatusService) Set(
 	ctx context.Context,
 	req StatusSetRequest,
 ) (res StatusSetResponse, err error) {
+	ids := statusAccessOntologyIDs(req.Statuses)
 	// For status setting, we use Create action for new statuses
 	// and Update action for existing ones. Since Set can do both,
 	// we'll use Create permission.
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: status.OntologyIDsFromStatuses(req.Statuses),
+		Objects: ids,
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).SetManyWithParent(ctx, &req.Statuses, req.Parent)
+		translated := translateStatusesToService(req.Statuses)
+		err := s.internal.NewWriter(tx).SetManyWithParent(ctx, &translated, req.Parent)
 		if err != nil {
 			return err
 		}
-		res.Statuses = req.Statuses
+		res.Statuses = translateStatusesFromService(translated)
 		return nil
 	})
 }
@@ -83,6 +114,8 @@ type StatusRetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
+	// IncludeLabels
+	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
 }
 
 type StatusRetrieveResponse struct {
@@ -95,6 +128,7 @@ func (s *StatusService) Retrieve(
 	req StatusRetrieveRequest,
 ) (res StatusRetrieveResponse, err error) {
 	q := s.internal.NewRetrieve()
+	resStatuses := make([]status.Status, 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
@@ -108,14 +142,25 @@ func (s *StatusService) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.WhereKeys(req.Keys...)
 	}
-
-	if err = q.Entries(&res.Statuses).Exec(ctx, nil); err != nil {
+	if err = q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
 		return StatusRetrieveResponse{}, err
 	}
+	res.Statuses = translateStatusesFromService(resStatuses)
+	ids := statusAccessOntologyIDs(res.Statuses)
+	if req.IncludeLabels {
+		for i, stat := range res.Statuses {
+			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			if err != nil {
+				return StatusRetrieveResponse{}, err
+			}
+			res.Statuses[i].Labels = labels
+		}
+	}
+
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: status.OntologyIDsFromStatuses(res.Statuses),
+		Objects: ids,
 	}); err != nil {
 		return StatusRetrieveResponse{}, err
 	}

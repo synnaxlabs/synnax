@@ -13,7 +13,6 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { useRetrieve } from "@/status/queries";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
@@ -68,8 +67,8 @@ export interface RemoteSummaryProps {
   statusKey: string;
 }
 
-export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
-  const res = useRetrieve({ key: statusKey });
-  const { key, ...rest } = res.data ?? res.status;
-  return <Summary key={key} {...rest} />;
-};
+// export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
+//   const res = useRetrieve({ key: statusKey });
+//   const { key, ...rest } = res.data ?? res.status;
+//   return <Summary key={key} {...rest} />;
+// };
