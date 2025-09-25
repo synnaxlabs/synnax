@@ -37,12 +37,8 @@ export const useStore = <ScopedStore extends flux.Store>(
 };
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
-  | {
-      client: core.Client<ScopedStore>;
-    }
-  | {
-      storeConfig: flux.StoreConfig<ScopedStore>;
-    }
+  | { client: core.Client<ScopedStore> }
+  | { storeConfig: flux.StoreConfig<ScopedStore> }
 ) &
   PropsWithChildren;
 

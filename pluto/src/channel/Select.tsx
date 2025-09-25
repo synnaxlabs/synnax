@@ -11,7 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type ListParams, useList } from "@/channel/queries";
+import { type ListQuery, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
@@ -49,18 +49,18 @@ export interface SelectMultipleProps
       Select.MultipleProps<channel.Key, channel.Channel | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
+    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
 
 export const SelectMultiple = ({
   onChange,
   value,
   emptyContent,
-  initialParams,
+  initialQuery,
   filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialParams,
+    initialQuery,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
@@ -90,19 +90,19 @@ export interface SelectSingleProps
       Select.SingleProps<channel.Key, channel.Channel | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
+    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
 
 export const SelectSingle = ({
   onChange,
   value,
   allowNone,
   emptyContent,
-  initialParams,
+  initialQuery,
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
-    initialParams,
+    initialQuery,
     filter,
   });
   const { fetchMore, search } = List.usePager({ retrieve });

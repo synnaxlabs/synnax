@@ -41,6 +41,7 @@ const generateStatic = (
       .filter(([_, value]) => value != null)
       .map(([key, value]) => `${key}: ${value};`)
       .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
+
   // Determine which theme to use as default and which for the media query
   const defaultVars = defaultTheme === "light" ? lightVars : darkVars;
   const mediaQueryVars = defaultTheme === "light" ? darkVars : lightVars;

@@ -72,7 +72,7 @@ var _ = Describe("storage", func() {
 					AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
 					It("Should return an error if the directory exists but has insufficient permissions", func() {
 						// use os.Stat to check the dir permissions
-						cfg.Perm = xfs.OwnerAll
+						cfg.Perm = xfs.OwnerReadWriteExecute
 						_, err := storage.Open(ctx, cfg)
 						Expect(err).To(HaveOccurred())
 					})

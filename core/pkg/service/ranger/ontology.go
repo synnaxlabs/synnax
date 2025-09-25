@@ -31,7 +31,7 @@ func OntologyID(k uuid.UUID) ontology.ID {
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
+func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
@@ -82,9 +82,12 @@ func (s *Service) RetrieveResource(
 	key string,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
-	k := uuid.MustParse(key)
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return ontology.Resource{}, err
+	}
 	var r Range
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(r), nil

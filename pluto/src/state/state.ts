@@ -26,10 +26,20 @@ export type Setter<NextState extends State, PrevState = NextState> = (
 export type PureSetter<NextState extends State> = (value: NextState) => void;
 export type Initial<InitialState extends State> = InitialState | (() => InitialState);
 
-export const executeSetter = <NextState extends State, PrevState = NextState>(
+export const executeSetter = <
+  NextState extends State,
+  PrevState extends State = NextState,
+>(
   setter: SetArg<NextState, PrevState>,
   prev: PrevState,
 ): NextState => (isSetter(setter) ? setter(prev) : setter);
+
+export const skipNull =
+  <NextState extends State, PrevState extends State = NextState>(
+    f: SetFunc<NextState, PrevState>,
+  ): SetFunc<NextState | undefined, PrevState | undefined> =>
+  (v) =>
+    v == null ? undefined : f(v);
 
 export const executeInitialSetter = <InitialState extends State>(
   setter: Initial<InitialState>,

@@ -14,19 +14,19 @@ import { type ReactElement } from "react";
 import { canGroupSelection } from "@/group/canGroupSelection";
 
 export interface MenuItemProps {
-  resourceIDs: ontology.ID[];
+  ids: ontology.ID[];
   rootID: ontology.ID;
   shape: Tree.Shape;
   showBottomDivider?: boolean;
 }
 
 export const MenuItem = ({
-  resourceIDs,
+  ids,
   shape,
   showBottomDivider = false,
   rootID,
 }: MenuItemProps): ReactElement | null =>
-  canGroupSelection(resourceIDs, shape, rootID) ? (
+  canGroupSelection(ids, shape, rootID) ? (
     <>
       <PMenu.Item itemKey="group">
         <Icon.Group />

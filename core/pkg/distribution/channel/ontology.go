@@ -52,8 +52,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"expression":  zyn.String(),
 })
 
-func newResource(c Channel) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, map[string]any{
+func ToPayload(c Channel) map[string]any {
+	return map[string]any{
 		"key":         c.Key(),
 		"name":        c.Name,
 		"leaseholder": c.Leaseholder,
@@ -63,7 +63,12 @@ func newResource(c Channel) ontology.Resource {
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
 		"expression":  c.Expression,
-	})
+		"requires":    c.Requires,
+	}
+}
+
+func newResource(c Channel) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
 }
 
 var _ ontology.Service = (*service)(nil)
@@ -72,7 +77,7 @@ type change = xchange.Change[Key, Channel]
 
 func (s *service) Type() ontology.Type { return OntologyType }
 
-// schema implements ontology.Service.
+// Schema implements ontology.Service.
 func (s *service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.

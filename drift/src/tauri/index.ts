@@ -120,6 +120,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   private async startFullscreenPoll(): Promise<void> {
     if (runtime.getOS() !== "macOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
+    if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
     this.fullscreenPoll = setInterval(() => {
       this.win
         .isFullscreen()

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	xchange "github.com/synnaxlabs/x/change"
@@ -27,12 +28,12 @@ import (
 
 const aliasKeySeparator = "---"
 
-func aliasKey(r uuid.UUID, c channel.Key) string {
-	return fmt.Sprintf("%s%s%s", r, aliasKeySeparator, c)
+func aliasKey(r uuid.UUID, ch channel.Key) string {
+	return fmt.Sprintf("%s%s%s", r, aliasKeySeparator, ch)
 }
 
-func parseAliasKey(s string) (uuid.UUID, channel.Key, error) {
-	split := strings.Split(s, aliasKeySeparator)
+func parseAliasKey(key string) (uuid.UUID, channel.Key, error) {
+	split := strings.Split(key, aliasKeySeparator)
 	if len(split) != 2 {
 		return uuid.Nil, 0, errors.Newf("[alias] - invalid key")
 	}
@@ -63,16 +64,14 @@ func (a Alias) SetOptions() []any { return nil }
 
 const aliasOntologyType ontology.Type = "range-alias"
 
-func AliasOntologyID(r uuid.UUID, c channel.Key) ontology.ID {
-	return ontology.ID{Type: aliasOntologyType, Key: aliasKey(r, c)}
+func AliasOntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
+	return ontology.ID{Type: aliasOntologyType, Key: aliasKey(r, ch)}
 }
 
 func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(chs))
-	for _, ch := range chs {
-		ids = append(ids, AliasOntologyID(r, ch))
-	}
-	return ids
+	return lo.Map(chs, func(ch channel.Key, _ int) ontology.ID {
+		return AliasOntologyID(r, ch)
+	})
 }
 
 var aliasSchema = zyn.Object(map[string]zyn.Schema{
@@ -114,7 +113,7 @@ func (s *aliasOntologyService) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var res Alias
-	if err := gorp.NewRetrieve[string, Alias]().
+	if err = gorp.NewRetrieve[string, Alias]().
 		WhereKeys(Alias{Range: rangeKey, Channel: channelKey}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, tx); err != nil {

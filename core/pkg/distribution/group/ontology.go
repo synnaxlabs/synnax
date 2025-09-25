@@ -22,10 +22,10 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "group"
+const OntologyType ontology.Type = "group"
 
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: key.String()}
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
@@ -38,7 +38,7 @@ func newResource(g Group) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Group]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 func (s *Service) Schema() zyn.Schema { return schema }
 
@@ -70,13 +70,10 @@ func (s *Service) OnChange(
 	f func(context.Context, iter.Nexter[ontology.Change]),
 ) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Group]) {
-		f(
-			ctx,
-			iter.NexterTranslator[change, ontology.Change]{
-				Wrap:      reader,
-				Translate: translateChange,
-			},
-		)
+		f(ctx, iter.NexterTranslator[change, ontology.Change]{
+			Wrap:      reader,
+			Translate: translateChange,
+		})
 	}
 	return gorp.Observe[uuid.UUID, Group](s.DB).OnChange(handleChange)
 }

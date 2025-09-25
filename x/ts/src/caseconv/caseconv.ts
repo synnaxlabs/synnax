@@ -150,7 +150,7 @@ const belongToTypes = (obj: unknown): boolean =>
  */
 const toKebabStr = (str: string): string =>
   str
-    .replace(/\s+/g, "-")
+    .replace(/[\s_]+/g, "-")
     .replace(
       /([a-z0-9])([A-Z])/g,
       (_, p1: string, p2: string) => `${p1}-${p2.toLowerCase()}`,

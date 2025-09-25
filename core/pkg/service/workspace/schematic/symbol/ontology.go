@@ -15,8 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -62,10 +61,10 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Symbol) ontology.Resource {
-	return core.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
-type change = changex.Change[uuid.UUID, Symbol]
+type change = xchange.Change[uuid.UUID, Symbol]
 
 func (s *Service) Type() ontology.Type { return ontologyType }
 

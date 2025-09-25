@@ -19,10 +19,10 @@ describe("zod", () => {
       expect(schema.parse("string")).toBe("string");
     });
     it("should parse null as undefined", () => {
-      expect(schema.parse(null)).toBe(undefined);
+      expect(schema.parse(null)).toBeUndefined();
     });
     it("should parse undefined as undefined", () => {
-      expect(schema.parse(undefined)).toBe(undefined);
+      expect(schema.parse(undefined)).toBeUndefined();
     });
     it("should throw for other values", () => {
       expect(() => schema.parse(1)).toThrow(z.ZodError);

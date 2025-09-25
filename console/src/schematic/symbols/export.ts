@@ -21,7 +21,7 @@ import { type GroupManifest } from "@/schematic/symbols/types";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
+  const symbol = await client.workspaces.schematics.symbols.retrieve({ key });
   return { data: JSON.stringify(symbol), name: symbol.name };
 };
 
@@ -29,7 +29,7 @@ export const useExport = () => Export.use(extract, "symbol");
 
 interface ExportGroupArgs {
   client: Client | null;
-  group: group.Payload;
+  group: group.Group;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
   confirm: Modals.PromptConfirm;
@@ -53,7 +53,7 @@ const exportGroup = async ({
       message: "No symbols found in this group to export",
     });
 
-  const symbols = await client.workspaces.schematic.symbols.retrieve({
+  const symbols = await client.workspaces.schematics.symbols.retrieve({
     keys: symbolKeys,
   });
 
@@ -115,13 +115,13 @@ const exportGroup = async ({
   });
 };
 
-export const useExportGroup = (): ((group: group.Payload) => void) => {
+export const useExportGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   return useCallback(
-    (group: group.Payload) => {
+    (group: group.Group) => {
       handleError(
         () => exportGroup({ client, group, handleError, addStatus, confirm }),
         "Failed to export symbol group",

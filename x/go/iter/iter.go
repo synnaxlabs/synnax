@@ -138,3 +138,18 @@ func MapToSlice[I, O any](ctx context.Context, n Nexter[I], f func(I) O) []O {
 	}
 	return values
 }
+
+// MapToSliceWithFilter iterates over a Nexter, applying a transformation function
+// that both maps and filters values. The function f returns the transformed value
+// and a boolean indicating whether to include it in the result slice.
+// Only values where f returns true as the second return value are included.
+func MapToSliceWithFilter[I, O any](ctx context.Context, n Nexter[I], f func(I) (O, bool)) []O {
+	var values []O
+	for v, ok := n.Next(ctx); ok; v, ok = n.Next(ctx) {
+		val, ok := f(v)
+		if ok {
+			values = append(values, val)
+		}
+	}
+	return values
+}

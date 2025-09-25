@@ -29,7 +29,8 @@
         box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
     }
 
-    & input {
+    & input,
+    & textarea {
         outline: none;
         border: none;
         background: none;
@@ -46,6 +47,14 @@
         &::-webkit-input-placeholder {
             text-overflow: ellipsis;
             max-width: 100%;
+        }
+    }
+
+    & textarea {
+        resize: none;
+        &::placeholder,
+        &::-webkit-input-placeholder {
+            padding-left: 2px;
         }
     }
 

@@ -534,7 +534,7 @@ describe("list", () => {
     });
   });
 
-  interface SubStore extends Flux.Store {
+  interface FluxStore extends Flux.Store {
     ranges: aetherRanger.FluxStore;
   }
 
@@ -621,12 +621,12 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             retrieveCached,
-          })({ initialParams: { searchTerm: "test" } }),
+          })({ initialQuery: { searchTerm: "test" } }),
         { wrapper },
       );
 
       expect(retrieveCached).toHaveBeenCalledWith({
-        params: { searchTerm: "test" },
+        query: { searchTerm: "test" },
         store: expect.any(Object),
       });
     });
@@ -793,7 +793,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -819,7 +819,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -846,7 +846,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -873,7 +873,7 @@ describe("list", () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -901,7 +901,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -936,12 +936,12 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<TestParams, number, record.Keyed<number>, SubStore>({
+          Flux.createList<TestParams, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
             mountListeners,
-          })({ initialParams: { filter: "active" } }),
+          })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
 
@@ -951,7 +951,7 @@ describe("list", () => {
 
       await waitFor(() => {
         const firstCall = mountListeners.mock.calls[0];
-        expect(firstCall[0].params).toEqual({ filter: "active" });
+        expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
 
@@ -962,7 +962,7 @@ describe("list", () => {
 
       renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
@@ -992,7 +992,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -1039,7 +1039,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -1082,7 +1082,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
@@ -1135,7 +1135,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),

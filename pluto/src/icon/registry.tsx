@@ -152,7 +152,12 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
+import {
+  RiProgress1Line,
+  RiProgress8Line,
+  RiSettings3Fill,
+  RiWeightFill,
+} from "react-icons/ri";
 import { RxReset } from "react-icons/rx";
 import {
   SiGooglenearby,
@@ -232,7 +237,7 @@ export const Caret = {
   Top: wrapSVGIcon(PiCaretUpBold, "caret-top"),
   Down: wrapSVGIcon(PiCaretDown, "caret-down"),
 };
-export const Settings = wrapSVGIcon(RiSettingsFill, "settings");
+export const Settings = wrapSVGIcon(RiSettings3Fill, "settings");
 export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
 export const Import = wrapSVGIcon(PiUploadSimple, "import");
@@ -393,6 +398,9 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const InProgress = wrapSVGIcon(MdOutlineTimelapse, "in-progress");
+export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
+export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
@@ -540,6 +548,9 @@ const icons = {
   None,
   Constant,
   Terminal,
+  InProgress,
+  Completed,
+  ToDo,
   CSV,
   Valve,
   Safety,
