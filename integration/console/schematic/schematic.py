@@ -7,62 +7,68 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from test.console.console import Console
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
+from playwright.sync_api import Page
+
+from ..page import ConsolePage
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
 
+if TYPE_CHECKING:
+    from console.console import Console
 
-class Schematic(Console):
-    """
-    Parent class for schematic tests
-    """
 
-    def setup(self) -> None:
-        super().setup()
-        self.create_page("Schematic")
-        self.page.locator(".react-flow__pane").dblclick()
+class Schematic(ConsolePage):
+    """Schematic page management interface"""
 
-    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
-        """
-        Common logic for adding a symbol to the schematic and returning its ID
+    def __init__(self, page: Page, console: "Console") -> None:
+        super().__init__(page, console)
+        self.page_type = "Schematic"
+        self.pluto_label = ".react-flow__pane"
 
-        SY-2965: Will become schematic.add_symbol()
-        """
+    def _add_symbol(self, symbol_type: str) -> str:
+        """Add a symbol to the schematic and return its ID."""
+        self._dblclick_canvas()
+        self._open_symbols_tab()
 
-        # Go to "Symbols" tab
+        initial_count = self._count_symbols()
+        self._select_symbol_type(symbol_type)
+        self._wait_for_new_symbol(initial_count)
+
+        return self._get_newest_symbol_id()
+
+    def _open_symbols_tab(self) -> None:
+        """Open the Symbols tab."""
+        self.page.wait_for_selector("text=Symbols", timeout=10000)
         self.page.get_by_text("Symbols", exact=True).click()
 
-        # Count existing symbols before adding
-        symbols_count = len(self.page.locator("[data-testid^='rf__node-']").all())
+    def _count_symbols(self) -> int:
+        """Count number of symbols on the schematic."""
+        return len(self.page.locator("[data-testid^='rf__node-']").all())
 
-        # Select symbol
+    def _select_symbol_type(self, symbol_type: str) -> None:
+        """Select a symbol type from the symbols panel."""
         self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
         self.page.get_by_text(symbol_type, exact=True).first.click()
 
-        # Wait for new symbol to appear
+    def _wait_for_new_symbol(self, initial_count: int) -> None:
+        """Wait for a new symbol to appear."""
         self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {symbols_count}"
+            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
         )
 
-        # Get all symbols and find the new one
+    def _get_newest_symbol_id(self) -> str:
+        """Get the ID of the newest symbol."""
         all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
-        symbol_id = (
-            all_symbols[-1].get_attribute("data-testid") or "unknown"
-        )  # Last one should be the newest symbol
-
-        return symbol_id
+        return all_symbols[-1].get_attribute("data-testid") or "unknown"
 
     def create_setpoint(self, channel_name: str) -> Setpoint:
-        """Create a setpoint symbol on the schematic"""
-
-        setpoint_id = self._add_symbol_to_schematic("Setpoint")
-        setpoint = Setpoint(self.page, setpoint_id, channel_name)
+        """Create a setpoint symbol on the schematic."""
+        setpoint_id = self._add_symbol("Setpoint")
+        setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
-
-        self._log_message(f"Added setpoint with channel {channel_name}")
         return setpoint
 
     def create_value(
@@ -74,10 +80,9 @@ class Schematic(Console):
         stale_color: Optional[str] = None,
         stale_timeout: Optional[int] = None,
     ) -> Value:
-        """Create a value symbol on the schematic"""
-
-        value_id = self._add_symbol_to_schematic("Value")
-        value = Value(self.page, value_id, channel_name)
+        """Create a value symbol on the schematic."""
+        value_id = self._add_symbol("Value")
+        value = Value(self.page, self.console, value_id, channel_name)
 
         value.edit_properties(
             channel_name=channel_name,
@@ -88,7 +93,6 @@ class Schematic(Console):
             stale_timeout=stale_timeout,
         )
 
-        self._log_message(f"Added value with channel {channel_name}")
         return value
 
     def connect_symbols(
@@ -98,15 +102,9 @@ class Schematic(Console):
         target_symbol: Symbol,
         target_handle: str,
     ) -> None:
-        """
-        Connect two symbols by dragging from source handle to target handle.
-        """
+        """Connect two symbols by dragging from source handle to target handle."""
         source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
         target_x, target_y = self.find_symbol_handle(target_symbol, target_handle)
-
-        self._log_message(
-            f"Connecting {source_symbol.label}:{source_handle} to {target_symbol.label}:{target_handle}"
-        )
 
         self.page.mouse.move(source_x, source_y)
         self.page.mouse.down()
@@ -134,8 +132,9 @@ class Schematic(Console):
         }
 
         if handle not in handle_positions:
+            valid_handles = ", ".join(handle_positions.keys())
             raise ValueError(
-                f"Invalid handle: {handle}. Must be one of {list(handle_positions.keys())}"
+                f"Invalid handle: {handle}. Must be one of: {valid_handles}"
             )
 
         return handle_positions[handle]

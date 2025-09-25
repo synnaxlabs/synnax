@@ -8,10 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from test.framework.test_case import TestCase
 
 import numpy as np
 import synnax as sy
+
+from framework.test_case import TestCase
 
 
 class LatencyABCD(TestCase):
