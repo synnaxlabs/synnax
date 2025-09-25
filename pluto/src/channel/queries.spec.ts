@@ -1075,7 +1075,7 @@ describe("queries", () => {
       });
     });
 
-    it.only("should delete multiple channel aliases", async () => {
+    it("should delete multiple channel aliases", async () => {
       const indexCh = await client.channels.create({
         name: "alias_delete_multi_index",
         dataType: DataType.TIMESTAMP,

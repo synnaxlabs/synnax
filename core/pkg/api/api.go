@@ -256,6 +256,7 @@ func (a *Layer) BindTo(t Transport) {
 		t.RangeKVDelete,
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
+		t.RangeAliasRetrieve,
 		t.RangeAliasList,
 		t.RangeRename,
 		t.RangeAliasDelete,
@@ -385,6 +386,7 @@ func (a *Layer) BindTo(t Transport) {
 	t.RangeKVDelete.BindHandler(a.Range.KVDelete)
 	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
 	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
+	t.RangeAliasRetrieve.BindHandler(a.Range.AliasRetrieve)
 	t.RangeAliasList.BindHandler(a.Range.AliasList)
 	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
 
