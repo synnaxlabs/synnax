@@ -12,13 +12,17 @@ import { primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
+import { DELETE_VERBS, SET_VERBS } from "@/flux/external";
 import { createForm } from "@/flux/form";
 import { createList } from "@/flux/list";
-import { createRetrieve, type RetrieveArgs } from "@/flux/retrieve";
+import { useStore } from "@/flux/Provider";
+import { createRetrieve, type RetrieveParams } from "@/flux/retrieve";
 import { createUpdate } from "@/flux/update";
 
 export const FLUX_STORE_KEY = "statuses";
+const RESOURCE_NAME = "Status";
+const PLURAL_RESOURCE_NAME = "Statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 
@@ -45,10 +49,10 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 export interface ListParams extends status.MultiRetrieveArgs {}
 
 export const useList = createList<ListParams, status.Key, status.Status, SubStore>({
-  name: "Statuses",
-  retrieve: async ({ client, params }) => await client.statuses.retrieve(params),
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
+  mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
     return [
       store.statuses.onSet(async (status) => {
@@ -64,49 +68,53 @@ export const { useUpdate: useDelete } = createUpdate<
   status.Key | status.Key[],
   SubStore
 >({
-  name: "Status",
-  update: async ({ client, value }) => await client.statuses.delete(value),
+  name: RESOURCE_NAME,
+  verbs: DELETE_VERBS,
+  update: async ({ client, data }) => {
+    await client.statuses.delete(data);
+    return data;
+  },
 });
 
-export interface SetArgs {
+export interface SetParams {
   statuses: status.New | status.New[];
   parent?: ontology.ID;
 }
 
-export const { useUpdate: useSet } = createUpdate<SetArgs, SubStore>({
-  name: "Status",
-  update: async ({ client, value: { statuses, parent } }) => {
+export const { useUpdate: useSet } = createUpdate<SetParams, SubStore>({
+  name: RESOURCE_NAME,
+  verbs: SET_VERBS,
+  update: async ({ client, data, data: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
+    return data;
   },
 });
 
-interface UseRetrieveArgs extends status.SingleRetrieveArgs {}
+export interface RetrieveQuery extends status.SingleRetrieveArgs {}
 
-const cachedSingleRetrieve = async ({
+const retrieveSingle = async ({
   store,
   client,
-  params,
-}: RetrieveArgs<status.SingleRetrieveArgs, SubStore>) => {
-  const cached = store.statuses.get(params.key);
+  query,
+}: RetrieveParams<status.SingleRetrieveArgs, SubStore>) => {
+  const cached = store.statuses.get(query.key);
   if (cached != null) return cached;
-  const res = await client.statuses.retrieve(params);
-  store.statuses.set(params.key, res);
+  const res = await client.statuses.retrieve(query);
+  store.statuses.set(query.key, res);
   return res;
 };
 
-export const { useRetrieve } = createRetrieve<UseRetrieveArgs, status.Status, SubStore>(
-  {
-    name: "Status",
-    retrieve: cachedSingleRetrieve,
-    mountListeners: ({ store, params: { key }, onChange }) => [
-      store.statuses.onSet(onChange, key),
-    ],
-  },
-);
+export const { useRetrieve } = createRetrieve<RetrieveQuery, status.Status, SubStore>({
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.statuses.onSet(onChange, key),
+  ],
+});
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = useStore<SubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };
 
@@ -121,44 +129,38 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   time: TimeStamp.now(),
   name: "",
   description: "",
-  details: undefined,
   labels: [],
 };
 
-export const useForm = createForm<
-  Partial<UseRetrieveArgs>,
-  typeof formSchema,
-  SubStore
->({
-  name: "Status",
-  schema: formSchema,
-  initialValues: INITIAL_VALUES,
-  retrieve: async ({ reset, ...args }) => {
-    const { params, client } = args;
-    if (!("key" in params) || primitive.isZero(params.key)) return;
-    const stat = await cachedSingleRetrieve({
-      ...args,
-      params: params as UseRetrieveArgs,
-    });
-    const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
-    reset({
-      ...stat,
-      labels: labels.map((l) => l.key),
-    });
-  },
-  update: async ({ client, value }) => {
-    const v = value();
-    if (primitive.isZero(v.key)) v.key = uuid.create();
-    await client.statuses.set(v);
-  },
-  mountListeners: ({ store, params: { key }, set }) => [
-    store.statuses.onSet((v) => {
-      set("key", v.key);
-      set("message", v.message);
-      set("time", v.time);
-      set("name", v.name);
-      set("description", v.description);
-      set("details", v.details);
-    }, key),
-  ],
-});
+// export const useForm = createForm<Partial<RetrieveQuery>, typeof formSchema, SubStore>({
+//   name: RESOURCE_NAME,
+//   schema: formSchema,
+//   initialValues: INITIAL_VALUES,
+//   retrieve: async ({ reset, ...args }) => {
+//     const {
+//       query: { key },
+//       client,
+//     } = args;
+//     if (primitive.isZero(key)) return;
+//     const stat = await retrieveSingle({ ...args, query: { key } });
+//     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
+//     reset({
+//       ...stat,
+//       labels: labels.map((l) => l.key),
+//     });
+//   },
+//   update: async ({ client, value }) => {
+//     const v = value();
+//     if (primitive.isZero(v.key)) v.key = uuid.create();
+//     await client.statuses.set(v);
+//   },
+//   mountListeners: ({ store, query: { key }, set }) => [
+//     store.statuses.onSet((v) => {
+//       set("key", v.key);
+//       set("message", v.message);
+//       set("time", v.time);
+//       set("name", v.name);
+//       set("description", v.description);
+//     }, key),
+//   ],
+// });

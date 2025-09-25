@@ -29,16 +29,16 @@ export interface SelectProps
       | "children"
       | "resourceName"
     >,
-    Flux.UseListArgs<ListParams, status.Key, status.Status> {}
+    Flux.UseListParams<ListParams, status.Key, status.Status> {}
 
 export const Select = ({
   value,
   onChange,
   filter,
-  initialParams,
+  initialQuery,
   ...props
 }: SelectProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem, status } = useList({});
+  const { data, retrieve, subscribe, getItem, status } = useList({ initialQuery });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Core.Single<status.Key, status.Status>

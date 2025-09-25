@@ -11,28 +11,28 @@ import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Select as Core } from "@/select";
-import { Status } from "@/status";
+import { Indicator } from "@/status/Indicator";
 
 const DATA: Core.StaticEntry<status.Variant>[] = [
   {
     key: "success",
     name: "Success",
-    icon: <Status.Indicator variant="success" />,
+    icon: <Indicator variant="success" />,
   },
   {
     key: "error",
     name: "Error",
-    icon: <Status.Indicator variant="error" />,
+    icon: <Indicator variant="error" />,
   },
   {
     key: "warning",
     name: "Warning",
-    icon: <Status.Indicator variant="warning" />,
+    icon: <Indicator variant="warning" />,
   },
   {
     key: "info",
     name: "Info",
-    icon: <Status.Indicator variant="info" />,
+    icon: <Indicator variant="info" />,
   },
 ];
 

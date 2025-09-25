@@ -58,7 +58,7 @@ import {
   translateGraphToServer,
 } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
-import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type Selector } from "@/selector";
@@ -411,30 +411,22 @@ export const createEditor =
     };
   };
 
+const useLoadRemote = createLoadRemote<arc.Arc>({
+  useRetrieve: Core.useRetrieveObservable,
+  targetVersion: ZERO_STATE.version,
+  useSelectVersion,
+  actionCreator: (v) =>
+    internalCreate({
+      version: "0.0.0",
+      key: v.key,
+      type: TYPE,
+      remoteCreated: false,
+      graph: translateGraphToConsole(v.graph),
+    }),
+});
+
 export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const loaded = useLoadRemote({
-    name: "arc",
-    targetVersion: ZERO_STATE.version,
-    layoutKey,
-    useSelectVersion,
-    fetcher: async (client, layoutKey) => {
-      try {
-        const arc = await client.arcs.retrieve({ key: layoutKey });
-        const graph = translateGraphToConsole(arc.graph);
-        const state: State = {
-          version: "0.0.0",
-          key: arc.key,
-          type: TYPE,
-          remoteCreated: false,
-          graph,
-        };
-        return state;
-      } catch (__) {
-        return { ...ZERO_STATE, key: layoutKey };
-      }
-    },
-    actionCreator: internalCreate,
-  });
-  if (!loaded) return null;
+  const arc = useLoadRemote(layoutKey);
+  if (arc == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };

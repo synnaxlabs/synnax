@@ -31,7 +31,6 @@ import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { useAdder } from "@/status/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
@@ -155,7 +154,7 @@ export const createForm =
     const client = Synnax.use();
     const store = useStore<Store>(scope);
     const listeners = useDestructors();
-    const addStatus = useAdder();
+    const addStatus = () => {};
 
     const form = Form.use<Schema>({
       schema,

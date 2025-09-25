@@ -74,7 +74,6 @@ import {
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
-import { Triggers } from "@/triggers";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
@@ -179,8 +178,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
-    if (prevName !== name)
-      syncDispatch(Layout.rename({ key: layoutKey, name }));
+    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
   const isEditable = useSelectEditable(layoutKey);
@@ -209,17 +207,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch, undoableDispatch],
   );
 
-  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] =
-    useCallback(
-      (vp) => syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
-      [layoutKey, syncDispatch],
-    );
+  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
+    (vp) => syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
+    [layoutKey, syncDispatch],
+  );
 
-  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] =
-    useCallback(
-      (cbk) => syncDispatch(setEditable({ key: layoutKey, editable: cbk })),
-      [layoutKey, syncDispatch],
-    );
+  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
+    (cbk) => syncDispatch(setEditable({ key: layoutKey, editable: cbk })),
+    [layoutKey, syncDispatch],
+  );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) =>
@@ -243,11 +239,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
-      <SymbolRenderer
-        layoutKey={layoutKey}
-        dispatch={undoableDispatch}
-        {...props}
-      />
+      <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
     [layoutKey, undoableDispatch],
   );
@@ -324,8 +316,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
 
   const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) =>
-      dispatch(setViewportMode({ key: layoutKey, mode })),
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
     [dispatch, layoutKey],
   );
 
@@ -471,13 +462,7 @@ export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
-    const {
-      name = "Schematic",
-      location = "mosaic",
-      window,
-      tab,
-      ...rest
-    } = initial;
+    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
     const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));

@@ -11,7 +11,6 @@ import { arc, UnexpectedError } from "@synnaxlabs/client";
 import { Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import {
-  type Node,
   type NodeProps,
   SLICE_NAME,
   type SliceState,

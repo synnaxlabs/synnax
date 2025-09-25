@@ -202,36 +202,3 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
     ];
   },
 });
-
-export interface RetrieveMultipleParams {
-  keys: label.Key[];
-}
-
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
-  RetrieveMultipleParams,
-  label.Label[],
-  SubStore
->({
-  name: "Labels",
-  retrieve: async ({ client, params: { keys }, store }) => {
-    const cached = store.labels.get(keys);
-    const missing = keys.filter((k) => !store.labels.has(k));
-    if (missing.length === 0) return cached;
-    const retrieved = await client.labels.retrieve({ keys: missing });
-    store.labels.set(retrieved);
-    return [...cached, ...retrieved];
-  },
-  mountListeners: ({ store, params: { keys }, onChange }) => {
-    const keysSet = new Set(keys);
-    return [
-      store.labels.onSet(async (label) => {
-        if (!keysSet.has(label.key)) return;
-        onChange((prev) => [...prev.filter((l) => l.key !== label.key), label]);
-      }),
-      store.labels.onDelete(async (key) => {
-        keysSet.delete(key);
-        onChange((prev) => prev.filter((l) => l.key !== key));
-      }),
-    ];
-  },
-});

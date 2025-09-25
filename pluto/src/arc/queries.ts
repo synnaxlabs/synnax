@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, uuid } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Flux } from "@/flux";
@@ -17,6 +17,8 @@ import { type List } from "@/list";
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
 export const FLUX_STORE_KEY = "arcs";
+const RESOURCE_NAME = "Arc";
+const PLURAL_RESOURCE_NAME = "Arcs";
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -27,45 +29,48 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc
     listeners: [],
   };
 
-export interface SubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export interface ListParams extends List.PagerParams {
-  keys?: arc.Key[];
+export interface RetrieveQuery {
+  key: arc.Key;
+  includeStatus?: boolean;
 }
 
-export type RetrieveParams = arc.SingleRetrieveArgs;
-
-const retrieveSingleFn = async ({
+const retrieveSingle = async ({
   client,
-  params,
+  query,
   store,
-}: Flux.RetrieveArgs<RetrieveParams, SubStore>) => {
-  if ("key" in params) {
-    const cached = store.arcs.get(params.key);
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+  if ("key" in query) {
+    const cached = store.arcs.get(query.key);
     if (cached != null) {
       const status = await store.statuses.get(cached.key);
       if (status != null) cached.status = status;
       return cached;
     }
-    const arc = await client.arcs.retrieve(params);
-    store.arcs.set(params.key, arc);
+    const arc = await client.arcs.retrieve(query);
+    store.arcs.set(query.key, arc);
     return arc;
   }
-  const arc = await client.arcs.retrieve(params);
+  const arc = await client.arcs.retrieve(query);
   store.arcs.set(arc.key, arc);
   return arc;
 };
 
-export const useList = Flux.createList<ListParams, arc.Key, arc.Arc, SubStore>({
-  name: "Arcs",
-  retrieveCached: ({ store, params }) =>
+export interface ListQuery extends List.PagerParams {
+  keys?: arc.Key[];
+}
+
+export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieveCached: ({ store, query }) =>
     store.arcs.get((a) => {
-      if (primitive.isNonZero(params.keys)) return params.keys.includes(a.key);
+      if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
       return true;
     }),
-  retrieve: async ({ client, params }) => await client.arcs.retrieve(params),
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
   retrieveByKey: async ({ client, key, store }) => {
     const cached = store.arcs.get(key);
     if (cached != null) return cached;
@@ -81,10 +86,15 @@ export const useList = Flux.createList<ListParams, arc.Key, arc.Arc, SubStore>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<
   arc.Key | arc.Key[],
-  SubStore
+  FluxSubStore
 >({
-  name: "Arcs",
-  update: async ({ client, value }) => await client.arcs.delete(value),
+  name: PLURAL_RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    await client.arcs.delete(data);
+    rollbacks.push(store.arcs.delete(data));
+    return data;
+  },
 });
 
 export const formSchema = arc.newZ.extend({
@@ -98,38 +108,43 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
 };
 
 export const useForm = Flux.createForm<
-  Partial<RetrieveParams>,
+  Partial<RetrieveQuery>,
   typeof formSchema,
-  SubStore
+  FluxSubStore
 >({
-  name: "Arcs",
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params, reset, store }) => {
-    if (
-      (!("key" in params) || params.key == null) &&
-      (!("name" in params) || params.name == null)
-    )
-      return;
-    reset(
-      await retrieveSingleFn({
-        client,
-        params: params as RetrieveParams,
-        store,
-      }),
-    );
+  retrieve: async ({ client, query, reset, store }) => {
+    if (!("key" in query) || primitive.isZero(query.key)) return;
+    reset(await retrieveSingle({ client, query: query as RetrieveQuery, store }));
   },
-  update: async ({ client, value, reset, store }) => {
+  update: async ({ client, value, reset, store, rollbacks }) => {
     const updated = await client.arcs.create(value());
     reset(updated);
-    store.arcs.set(updated.key, updated);
+    rollbacks.push(store.arcs.set(updated.key, updated));
   },
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, SubStore>({
-  name: "Arcs",
-  update: async ({ client, value, store }) => {
-    const arc = await client.arcs.create(value);
-    store.arcs.set(arc.key, arc);
+export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const arc = await client.arcs.create(data);
+    rollbacks.push(store.arcs.set(arc));
+    return data;
+  },
+});
+
+export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
+  RetrieveQuery,
+  arc.Arc,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query, onChange }) => {
+    if (!("key" in query) || primitive.isZero(query.key)) return [];
+    return [store.arcs.onSet(onChange, query.key)];
   },
 });

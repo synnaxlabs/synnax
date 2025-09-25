@@ -45,7 +45,6 @@ export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
       time: TimeStamp.now(),
       name: "",
       description: "",
-      details: undefined,
       variant: "success",
       labels: [],
     },

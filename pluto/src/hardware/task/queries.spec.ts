@@ -1259,6 +1259,7 @@ describe("queries", () => {
         const parsed = task.commandZ.parse(sample);
         const stat: task.Status = {
           key: parsed.key,
+          name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
           time: TimeStamp.now(),

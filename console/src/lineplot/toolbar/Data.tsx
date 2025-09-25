@@ -100,5 +100,3 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
     </Flex.Box>
   );
 };
-
-const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };

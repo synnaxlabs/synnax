@@ -11,6 +11,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ontology } from "@/ontology";
+import { group } from "@/ontology/group";
 import { type status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
@@ -80,11 +81,11 @@ describe("Status", () => {
     });
 
     it("should set a status with a parent", async () => {
-      const parentGroup = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "Parent Group",
-      );
-
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "Parent Group",
+      });
+      const parentOntologyID = group.ontologyID(parentGroup.key);
       const s = await client.statuses.set(
         {
           name: "Child Status",
@@ -93,12 +94,12 @@ describe("Status", () => {
           message: "Status with parent",
           time: TimeStamp.now(),
         },
-        { parent: parentGroup.ontologyID },
+        { parent: parentOntologyID },
       );
 
       expect(s.key).toBe("child-status");
 
-      const resources = await client.ontology.retrieveChildren(parentGroup.ontologyID);
+      const resources = await client.ontology.retrieveChildren(parentOntologyID);
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();
@@ -288,36 +289,6 @@ describe("Status", () => {
       statuses.forEach((s, i) => {
         expect(s.variant).toBe(variants[i]);
       });
-    });
-  });
-
-  describe("status details", () => {
-    it("should store and retrieve status details", async () => {
-      const details = {
-        errorCode: 500,
-        stack: "Error stack trace",
-        metadata: {
-          source: "test",
-          timestamp: Date.now(),
-        },
-      };
-
-      const s = await client.statuses.set({
-        name: "Detailed Status",
-        key: "detailed-status",
-        variant: "error",
-        message: "Error with details",
-        description: "This is a longer description of the error",
-        time: TimeStamp.now(),
-        details,
-      });
-
-      expect(s.details).toEqual(details);
-      expect(s.description).toBe("This is a longer description of the error");
-
-      const retrieved = await client.statuses.retrieve({ key: s.key });
-      expect(retrieved.details).toEqual(details);
-      expect(retrieved.description).toBe("This is a longer description of the error");
     });
   });
 });

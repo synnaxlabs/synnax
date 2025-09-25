@@ -80,6 +80,12 @@ export const COPY_VERBS: Verbs = {
   participle: "copying",
 };
 
+export const SET_VERBS: Verbs = {
+  present: "set",
+  past: "set",
+  participle: "setting",
+};
+
 export const SAVE_VERBS: Verbs = {
   present: "save",
   past: "saved",
