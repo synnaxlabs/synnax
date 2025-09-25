@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
+import { type List } from "@/list";
 import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
@@ -80,8 +81,8 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
-export interface ChildrenParams {
-  key: ranger.Key;
+export interface ChildrenParams extends List.PagerParams {
+  key?: ranger.Key;
 }
 
 const handleListLabelRelationshipSet = async (
@@ -140,6 +141,7 @@ export const useChildren = Flux.createList<
 >({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) => {
+    if (key == null) return [];
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });
@@ -262,7 +264,11 @@ export interface RetrieveParams {
   key: ranger.Key;
 }
 
-export const useRetrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
+export const { useRetrieve } = Flux.createRetrieve<
+  RetrieveParams,
+  ranger.Range,
+  SubStore
+>({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) =>
     await cachedRetrieve(client, store, key),
@@ -306,7 +312,12 @@ export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
+  timeRange: z
+    .object({ start: z.number(), end: z.number() })
+    .refine(({ start, end }) => end >= start, {
+      error: "End time must be after start time",
+      path: ["end"],
+    }),
 });
 
 export const toFormValues = async (

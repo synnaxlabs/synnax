@@ -12,12 +12,11 @@ package ranger
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -48,7 +47,10 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r 
 func (r Retrieve) Entries(rng *[]Range) Retrieve { r.gorp.Entries(rng); return r }
 
 // WhereKeys filters for ranges whose Name attribute matches the provided key.
-func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
+func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
+	r.gorp.WhereKeys(keys...)
+	return r
+}
 
 // WhereNames filters for ranges whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
@@ -64,7 +66,7 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
 	r.gorp.Where(func(rng *Range) bool {
-		oRng := rng.UseTx(r.baseTX)
+		oRng := rng.UseTx(r.baseTX).setLabel(r.label).setOntology(r.otg)
 		labels, _ := oRng.RetrieveLabels(context.Background())
 		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
 		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {

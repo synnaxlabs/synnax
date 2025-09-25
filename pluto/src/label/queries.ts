@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
+import { primitive } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -95,6 +96,16 @@ export interface ListParams extends label.MultiRetrieveArgs {}
 
 export const useList = Flux.createList<ListParams, label.Key, label.Label, SubStore>({
   name: "Labels",
+  retrieveCached: ({ params, store }) => {
+    if (primitive.isNonZero(params.for) || primitive.isNonZero(params.searchTerm))
+      return [];
+    let labels = store.labels.list();
+    if (params.keys != null && params.keys.length > 0) {
+      const keys = params.keys;
+      labels = labels.filter((l) => keys.includes(l.key));
+    }
+    return labels;
+  },
   retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
   mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
@@ -145,4 +156,37 @@ export interface UseDeleteArgs {
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
   update: async ({ client, value }) => await client.labels.delete(value.key),
+});
+
+export interface RetrieveMultipleParams {
+  keys: label.Key[];
+}
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleParams,
+  label.Label[],
+  SubStore
+>({
+  name: "Labels",
+  retrieve: async ({ client, params: { keys }, store }) => {
+    const cached = store.labels.get(keys);
+    const missing = keys.filter((k) => !store.labels.has(k));
+    if (missing.length === 0) return cached;
+    const retrieved = await client.labels.retrieve({ keys: missing });
+    store.labels.set(retrieved);
+    return [...cached, ...retrieved];
+  },
+  mountListeners: ({ store, params: { keys }, onChange }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.labels.onSet(async (label) => {
+        if (!keysSet.has(label.key)) return;
+        onChange((prev) => [...prev.filter((l) => l.key !== label.key), label]);
+      }),
+      store.labels.onDelete(async (key) => {
+        keysSet.delete(key);
+        onChange((prev) => prev.filter((l) => l.key !== key));
+      }),
+    ];
+  },
 });

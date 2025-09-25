@@ -19,6 +19,7 @@ import {
   type Legend,
   LinePlot as Core,
   Menu as PMenu,
+  Ranger,
   Status,
   Synnax,
   useAsyncEffect,
@@ -354,7 +355,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const props = PMenu.useContextMenu();
 
-  interface ContextMenuContentProps {
+  interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
   }
 
@@ -370,7 +371,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       if (bounds == null) return null;
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
-    }, []);
+    }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
 
@@ -420,7 +421,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range">
-              <Icon.Add /> Create Range from Selection
+              <Ranger.CreateIcon /> Create Range from Selection
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
@@ -429,12 +430,13 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             <PMenu.Divider />
           </>
         )}
+        <PMenu.Divider />
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );
   };
 
-  const rangeAnnotationProvider: Channel.LinePlotProps["rangeAnnotationProvider"] = {
+  const rangeProviderProps: Channel.LinePlotProps["rangeProviderProps"] = {
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
@@ -445,7 +447,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     >
       <PMenu.ContextMenu
         {...props}
-        menu={() => <ContextMenuContent layoutKey={layoutKey} />}
+        menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
           aetherKey={layoutKey}
@@ -480,7 +482,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onHold={(hold) =>
             dispatch(setControlState({ key: layoutKey, state: { hold } }))
           }
-          rangeAnnotationProvider={rangeAnnotationProvider}
+          rangeProviderProps={rangeProviderProps}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
