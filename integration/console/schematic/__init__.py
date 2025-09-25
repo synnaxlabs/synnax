@@ -12,4 +12,4 @@ from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
 
-__all__ = ["Plot", "Schematic", "Setpoint", "Symbol", "Value"]
+__all__ = ["Schematic", "Setpoint", "Symbol", "Value"]
