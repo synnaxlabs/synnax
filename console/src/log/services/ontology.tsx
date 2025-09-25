@@ -40,7 +40,7 @@ const useRename = createUseRename({
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
     store.dispatch(Layout.rename({ key, name }));
-    rollbacks.add(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    rollbacks.push(() => store.dispatch(Layout.rename({ key, name: oldName })));
     return { ...data, name };
   },
 });

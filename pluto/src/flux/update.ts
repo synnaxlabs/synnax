@@ -37,7 +37,7 @@ export interface UpdateParams<
   data: Input;
   client: Client;
   store: Store;
-  rollbacks: Set<Destructor>;
+  rollbacks: Destructor[];
   setStatus: (setter: state.SetArg<Status<StatusDetails>>) => void;
 }
 
@@ -75,7 +75,7 @@ export interface UseObservableUpdateParams<
 }
 
 export interface BeforeUpdateParams<Data extends core.Shape> {
-  rollbacks: Set<Destructor>;
+  rollbacks: Destructor[];
   client: Client;
   data: Data;
 }
@@ -158,10 +158,10 @@ const useObservable = <
     async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
-      const rollbacks = new Set<Destructor>();
+      const rollbacks: Destructor[] = [];
       const runRollbacks = () => {
         try {
-          rollbacks.forEach((rollback) => rollback());
+          rollbacks.reverse().forEach((rollback) => rollback());
         } catch (error) {
           console.error(`failed to rollback changes to ${name}`, error);
         }

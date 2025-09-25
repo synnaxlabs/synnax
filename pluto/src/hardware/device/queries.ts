@@ -173,9 +173,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const keys = array.toArray(data);
     const ids = keys.map((key) => device.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
-    rollbacks.add(store.devices.delete(keys));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.push(store.devices.delete(keys));
     await client.hardware.devices.delete(keys);
     return data;
   },
@@ -192,7 +192,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ data, client, rollbacks, store }) => {
     const dev = await client.hardware.devices.create(data);
-    rollbacks.add(store.devices.set(dev, "payload"));
+    rollbacks.push(store.devices.set(dev, "payload"));
     return dev;
   },
 });
@@ -229,7 +229,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ data, client, rollbacks, store }) => {
     const { key, name } = data;
     const dev = await retrieveSingle({ client, store, query: { key } });
-    rollbacks.add(store.devices.set(dev, "payload"));
+    rollbacks.push(store.devices.set(dev, "payload"));
     await client.hardware.devices.create({ ...dev, name });
     return data;
   },
@@ -284,7 +284,7 @@ export const createForm = <
     },
     update: async ({ value, client, store, rollbacks }) => {
       const result = await client.hardware.devices.create(value());
-      rollbacks.add(store.devices.set(result, "payload"));
+      rollbacks.push(store.devices.set(result, "payload"));
     },
     mountListeners: ({ store, query: { key }, reset }) => {
       if (primitive.isZero(key)) return [];

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  NotFoundError,
+  ontology,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Component,
   Flux,
@@ -280,10 +285,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const ids = array.toArray(id);
       const stringIDs = ontology.idToString(ids);
       const resources = resourceStore.get(stringIDs);
-      if (isSingle)
-        // if (resources[0] == null)
-        //   throw new Error(`Resource ${ontology.idToString(id)} not found`);
+      if (isSingle) {
+        if (resources[0] == null)
+          throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
         return resources[0];
+      }
 
       return resources;
     }) as GetResource,

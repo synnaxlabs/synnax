@@ -204,7 +204,7 @@ export const createForm =
     const saveAsync = useCallback(
       async (opts: core.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
-        const rollbacks = new Set<Destructor>();
+        const rollbacks: Destructor[] = [];
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(`update ${name}`));
@@ -235,7 +235,7 @@ export const createForm =
           return true;
         } catch (error) {
           try {
-            rollbacks.forEach((rollback) => rollback());
+            rollbacks.reverse().forEach((rollback) => rollback());
           } catch (rollbackError) {
             console.error("Error rolling back changes:", rollbackError);
           }

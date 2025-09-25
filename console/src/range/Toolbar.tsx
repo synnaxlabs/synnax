@@ -109,7 +109,7 @@ export const useRename = () => {
         const oldName = rng.name;
         if (!rng.persisted) return false;
         store.dispatch(rename({ key, name }));
-        rollbacks.add(() => store.dispatch(rename({ key, name: oldName })));
+        rollbacks.push(() => store.dispatch(rename({ key, name: oldName })));
         return data;
       },
       [store],

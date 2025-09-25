@@ -111,9 +111,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const keys = array.toArray(data);
     const ids = keys.map((key) => workspace.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.resources.delete(keys));
-    rollbacks.add(store.workspaces.delete(keys));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.resources.delete(keys));
+    rollbacks.push(store.workspaces.delete(keys));
     await client.workspaces.delete(keys);
     return data;
   },
@@ -130,8 +130,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
     await client.workspaces.rename(key, name);
-    rollbacks.add(Flux.partialUpdate(store.workspaces, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, workspace.ontologyID(key), name));
+    rollbacks.push(Flux.partialUpdate(store.workspaces, key, { name }));
+    rollbacks.push(Ontology.renameFluxResource(store, workspace.ontologyID(key), name));
     return data;
   },
 });
@@ -198,7 +198,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, layout } = data;
-    rollbacks.add(
+    rollbacks.push(
       store.workspaces.set(
         key,
         state.skipNull((p) => ({ ...p, layout })),

@@ -332,9 +332,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const keys = array.toArray(data);
     const ids = keys.map((key) => task.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
-    rollbacks.add(store.tasks.delete(keys));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.push(store.tasks.delete(keys));
     await client.hardware.tasks.delete(keys);
     return data;
   },
@@ -381,14 +381,14 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
       store,
       data: { key, name },
     } = params;
-    rollbacks.add(
+    rollbacks.push(
       store.tasks.set(
         key,
         state.skipNull((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
         "payload",
       ),
     );
-    rollbacks.add(Ontology.renameFluxResource(store, task.ontologyID(key), name));
+    rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
     const t = await retrieveSingle({ ...params, query: { key } });
     await client.hardware.tasks.create({ ...t.payload, name });
     return data;

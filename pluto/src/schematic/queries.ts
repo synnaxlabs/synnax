@@ -66,7 +66,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const keys = array.toArray(data);
     const ids = keys.map((k) => schematic.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.schematics.delete(data);
     return data;
   },
@@ -149,8 +149,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
     await client.workspaces.schematics.rename(key, name);
-    rollbacks.add(Flux.partialUpdate(store.schematics, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
+    rollbacks.push(Flux.partialUpdate(store.schematics, key, { name }));
+    rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
     return data;
   },
 });

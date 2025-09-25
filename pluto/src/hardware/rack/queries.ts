@@ -120,9 +120,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
     const keys = array.toArray(data);
     const ids = keys.map((key) => rack.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
-    rollbacks.add(store.racks.delete(keys));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.push(store.racks.delete(keys));
     await client.hardware.racks.delete(keys);
     return data;
   },
@@ -135,8 +135,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ data, client, rollbacks, store }) => {
     const { key, name } = data;
-    rollbacks.add(Flux.partialUpdate(store.racks, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
+    rollbacks.push(Flux.partialUpdate(store.racks, key, { name }));
+    rollbacks.push(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
     const r = await retrieveSingle({ client, query: { key }, store });
     await client.hardware.racks.create({ ...r, name });
     return data;

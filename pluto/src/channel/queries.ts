@@ -32,11 +32,14 @@ interface FluxSubStore extends Flux.Store {
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-const SET_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> = {
+const SET_CHANNEL_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof channel.payloadZ
+> = {
   channel: channel.SET_CHANNEL_NAME,
-  schema: channel.keyZ,
+  schema: channel.payloadZ,
   onChange: async ({ store, changed, client }) =>
-    store.channels.set(changed, await client.channels.retrieve(changed)),
+    store.channels.set(client.channels.sugar(changed)),
 };
 
 const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> =
@@ -443,13 +446,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, name } = data;
-    rollbacks.add(
+    rollbacks.push(
       store.channels.set(
         key,
         state.skipNull((p) => client.channels.sugar({ ...p, name })),
       ),
     );
-    rollbacks.add(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
+    rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
     await client.channels.rename(key, name);
     return data;
   },
@@ -489,9 +492,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const keys = array.toArray(data);
     const ids = keys.map((k) => channel.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.channels.delete(keys));
-    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.channels.delete(keys));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     store.channels.delete(keys);
     await client.channels.delete(keys);
     return data;
@@ -516,7 +519,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
     const arrChannels = array.toArray(channels);
     await client.ranges.deleteAlias(range, arrChannels);
     const aliasKeys = arrChannels.map((c) => ranger.aliasKey({ range, channel: c }));
-    rollbacks.add(store.rangeAliases.delete(aliasKeys));
+    rollbacks.push(store.rangeAliases.delete(aliasKeys));
     return data;
   },
 });
