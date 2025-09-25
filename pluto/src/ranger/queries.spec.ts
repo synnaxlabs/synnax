@@ -169,7 +169,7 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialParams: { keys } }), {
+      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
         wrapper,
       });
       act(() => {
@@ -322,7 +322,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -351,7 +351,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -374,7 +374,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
       });
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -393,7 +393,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -435,7 +435,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -469,7 +469,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -511,7 +511,7 @@ describe("queries", () => {
       );
 
       // Test grandparent's children
-      const { result: grandparentResult } = renderHook(() => Ranger.useChildren(), {
+      const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -525,7 +525,7 @@ describe("queries", () => {
       expect(grandparentResult.current.data).not.toContain(childRange.key);
 
       // Test parent's children
-      const { result: parentResult } = renderHook(() => Ranger.useChildren(), {
+      const { result: parentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -558,7 +558,7 @@ describe("queries", () => {
         children.push(child);
       }
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {

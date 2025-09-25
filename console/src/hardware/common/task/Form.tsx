@@ -192,7 +192,7 @@ export const wrapForm = <
     });
     Device.useRetrieveEffect({
       onChange: (d) => form.set("rackKey", d.data?.rack),
-      params: deviceKey == null ? undefined : { key: deviceKey },
+      query: deviceKey == null ? undefined : { key: deviceKey },
     });
     const name = PForm.useFieldValue<
       string,

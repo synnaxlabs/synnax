@@ -224,9 +224,10 @@ export const MaybeEditable = ({
   allowDoubleClick,
   ...rest
 }: MaybeEditableProps): ReactElement => {
-  if (disabled || onChange == null || typeof onChange === "boolean")
+  if (disabled || onChange == null || onChange === false)
     return <Text {...rest}>{value}</Text>;
 
+  if (onChange === true) onChange = () => {};
   return (
     <Editable
       allowDoubleClick={allowDoubleClick}

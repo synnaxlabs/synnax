@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array, type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useInitializerRef } from "@/hooks";
 import { type FrameProps } from "@/list/Frame";
@@ -86,5 +86,8 @@ export const useMapData = <
     [],
   );
   const hasItem = useCallback((key: K) => dataRef.current.has(key), []);
-  return { setItem, deleteItem, subscribe, getItem, hasItem };
+  return useMemo(
+    () => ({ setItem, deleteItem, subscribe, getItem, hasItem }),
+    [setItem, deleteItem, subscribe, getItem, hasItem],
+  );
 };

@@ -60,10 +60,13 @@ interface ContextValue<K extends record.Key = record.Key>
   getState: () => SelectionState<K>;
 }
 
+interface MultipleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseMultipleProps<K>> {}
+
 const MultipleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseMultipleProps<K> & PropsWithChildren): ReactElement => {
+}: MultipleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useMultiple(rest);
   return (
@@ -73,10 +76,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   );
 };
 
+interface SingleProviderProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<UseSingleProps<K>> {}
+
 const SingleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
-}: UseSingleProps<K> & PropsWithChildren): ReactElement => {
+}: SingleProviderProps<K>): ReactElement => {
   const { value } = rest;
   const res = useSingle(rest);
   return (
@@ -141,41 +147,40 @@ export interface UseItemStateReturn {
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
   reactUseContext(Context) as unknown as ContextValue<K>;
 
-enum ItemState {
-  NONE = 0,
-  SELECTED = 1,
-  HOVERED = 2,
-  SELECTED_HOVERED = 3,
-}
+type ItemState = "none" | "selected" | "hovered" | "selected-hovered";
 
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { getState, onSelect, subscribe } = useContext();
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
-  const selected = useSyncExternalStore(
+  const itemState = useSyncExternalStore(
     useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
-    useCallback(() => {
+    useCallback((): ItemState => {
       const state = getState();
       const selected = isSelected(state.value, key);
       const hovered = state.hover === key;
-      if (selected && hovered) return ItemState.SELECTED_HOVERED;
-      if (selected) return ItemState.SELECTED;
-      if (hovered) return ItemState.HOVERED;
-      return ItemState.NONE;
+      if (selected && hovered) return "selected-hovered";
+      if (selected) return "selected";
+      if (hovered) return "hovered";
+      return "none";
     }, [key, getState]),
   );
-  return {
-    selected:
-      selected === ItemState.SELECTED || selected === ItemState.SELECTED_HOVERED,
-    hovered: selected === ItemState.HOVERED || selected === ItemState.SELECTED_HOVERED,
-    onSelect: handleSelect,
-  };
+  return useMemo(
+    () => ({
+      selected: itemState === "selected" || itemState === "selected-hovered",
+      hovered: itemState === "hovered" || itemState === "selected-hovered",
+      onSelect: handleSelect,
+    }),
+    [itemState, handleSelect],
+  );
 };
 
 export const useSelection = <K extends record.Key>(): K[] => {
-  const { getState, subscribe } = useContext();
+  const { getState, subscribe } = useContext<K>();
   const res = useSyncExternalStore(subscribe, () => getState().value);
-  if (res == null) return [];
-  return array.toArray(res) as K[];
+  return useMemo((): K[] => {
+    if (res == null) return [];
+    return array.toArray(res);
+  }, [res]);
 };
 
 export const useClear = () => useContext().clear;
@@ -221,27 +226,26 @@ export const Frame = <
   getItem,
   subscribe,
   itemHeight,
-  value,
-  onChange,
   multiple,
   onFetchMore,
   virtual = false,
+  value,
+  onChange,
   ...rest
-}: FrameProps<K, E>): ReactElement => {
-  let child: ReactElement;
-  if (multiple === true)
-    child = <MultipleProvider value={value} onChange={onChange} {...rest} />;
-  else child = <SingleProvider value={value} onChange={onChange} {...rest} />;
-  return (
-    <List.Frame<K, E>
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      itemHeight={itemHeight}
-      virtual={virtual}
-    >
-      {child}
-    </List.Frame>
-  );
-};
+}: FrameProps<K, E>): ReactElement => (
+  <List.Frame<K, E>
+    data={data}
+    getItem={getItem}
+    subscribe={subscribe}
+    onFetchMore={onFetchMore}
+    itemHeight={itemHeight}
+    virtual={virtual}
+  >
+    {multiple ? (
+      <MultipleProvider value={value} onChange={onChange} {...rest} />
+    ) : (
+      <SingleProvider value={value} onChange={onChange} {...rest} />
+    )}
+  </List.Frame>
+);
+Frame.displayName = "Select.Frame";

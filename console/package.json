@@ -33,7 +33,6 @@
     "@synnaxlabs/media": "workspace:^",
     "@synnaxlabs/pluto": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-query": "^5.87.4",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/plugin-deep-link": "^2.4.3",
     "@tauri-apps/plugin-dialog": "^2.4.0",

@@ -19,18 +19,18 @@ describe("TimeRange", () => {
     const end = TimeSpan.hours(14);
     const range = new XTimeRange(start, end);
     const c = render(
-      <Telem.Text.TimeRange suppliedTZ="UTC" displayTZ="UTC">
-        {range}
-      </Telem.Text.TimeRange>,
+      <Telem.Text.TimeRange displayTZ="UTC">{range}</Telem.Text.TimeRange>,
     );
-    expect(c.getByText("Jan 1 10:00:00")).toBeTruthy();
-    expect(c.getByText("14:00:00")).toBeTruthy();
+    expect(c.container.textContent).toContain("Jan 1 10:00:00");
+    expect(c.container.textContent).toContain("14:00:00");
   });
-  it("should render open time range with Now", () => {
+  it("should render open time range with Started", () => {
     const start = TimeSpan.hours(10);
     const range = new XTimeRange(start, TimeStamp.MAX);
-    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
-    expect(c.getByText("Now")).toBeTruthy();
+    const c = render(
+      <Telem.Text.TimeRange displayTZ="UTC">{range}</Telem.Text.TimeRange>,
+    );
+    expect(c.getByText("Started Jan 1 10:00:00")).toBeTruthy();
   });
   it("should show Today for current date", () => {
     const now = TimeStamp.now();
@@ -38,21 +38,10 @@ describe("TimeRange", () => {
     const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).toContain("Today");
   });
-  it("should show span when showSpan is true", () => {
-    const start = TimeSpan.hours(10);
-    const end = TimeSpan.hours(14).add(TimeSpan.minutes(30));
-    const range = new XTimeRange(start, end);
-    const c = render(<Telem.Text.TimeRange showSpan>{range}</Telem.Text.TimeRange>);
-    expect(c.container.textContent).toContain("4h 30m");
-  });
-  it("should not show span when showSpan is false", () => {
-    const start = TimeSpan.hours(10);
-    const end = TimeSpan.hours(14).add(TimeSpan.minutes(30));
-    const range = new XTimeRange(start, end);
-    const c = render(
-      <Telem.Text.TimeRange showSpan={false}>{range}</Telem.Text.TimeRange>,
-    );
-    expect(c.container.textContent).not.toContain("4h 30m");
+  it("should return null for fully-open time range", () => {
+    const range = new XTimeRange(TimeStamp.MAX, TimeStamp.MAX);
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
+    expect(c.container.textContent).toBe("");
   });
   it("should show date for multi-day ranges", () => {
     const start = new TimeStamp(1704108000000000);
@@ -76,7 +65,7 @@ describe("TimeRange", () => {
   it("should handle zero span ranges", () => {
     const ts = TimeSpan.hours(10);
     const range = new XTimeRange(ts, ts);
-    const c = render(<Telem.Text.TimeRange showSpan>{range}</Telem.Text.TimeRange>);
+    const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).toBeTruthy();
   });
 });

@@ -185,7 +185,7 @@ export const StateOverrideControls = (): ReactElement => {
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
   useRetrieveEffect({
-    params: { key: specKey },
+    query: { key: specKey },
     onChange: (res) => {
       if (res.data?.data == null) return;
       const symbolSpec = res.data.data;

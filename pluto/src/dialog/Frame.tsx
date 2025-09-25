@@ -191,6 +191,8 @@ export const Frame = ({
     if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
       return;
     const target = box.construct(targetRef.current);
+    if (box.areaIsZero(target) && variant !== "modal") return setVisible(false);
+
     let dialog = box.construct(dialogRef.current);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);

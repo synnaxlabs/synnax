@@ -11,12 +11,12 @@ import { ontology } from "@synnaxlabs/client";
 import { Tree } from "@synnaxlabs/pluto";
 
 export const getResourcesToGroup = (
-  resourceIDs: ontology.ID[],
+  ids: ontology.ID[],
   shape: Tree.Shape,
 ): ontology.ID[] => {
-  const strIDs = resourceIDs.map((id) => ontology.idToString(id));
+  const strIDs = ids.map((id) => ontology.idToString(id));
   const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(
     Tree.filterShape(shape, (key) => strIDs.includes(key)),
   );
-  return resourceIDs.filter((id) => nodesOfMinDepth.includes(ontology.idToString(id)));
+  return ids.filter((id) => nodesOfMinDepth.includes(ontology.idToString(id)));
 };

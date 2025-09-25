@@ -128,11 +128,11 @@ export class Aliaser {
     return isSingle ? res.aliases[alias] : res.aliases;
   }
 
-  async delete(aliases: channel.Key[]): Promise<void> {
+  async delete(aliases: channel.Key | channel.Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       Aliaser.DELETE_ENDPOINT,
-      { range: this.rangeKey, channels: aliases },
+      { range: this.rangeKey, channels: array.toArray(aliases) },
       deleteReqZ,
       deleteResZ,
     );

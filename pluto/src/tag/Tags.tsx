@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/tag/Tags.css";
+
 import { Button } from "@/button";
+import { CSS } from "@/css";
 
 export interface TagsProps extends Button.ButtonProps<"div"> {}
 
@@ -16,9 +19,11 @@ export const Tags = ({
   onClick,
   variant = "outlined",
   size = "medium",
+  className,
   ...rest
 }: TagsProps) => (
   <Button.Button
+    className={CSS(CSS.B("tags"), className)}
     el="div"
     variant={variant}
     size={size}
@@ -26,7 +31,6 @@ export const Tags = ({
     onClick={onClick}
     align="center"
     gap="small"
-    style={{ padding: "0rem 0.5rem", paddingRight: "2rem" }}
     rounded
     {...rest}
   >
