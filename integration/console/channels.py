@@ -24,46 +24,47 @@ from synnax.telem import (
 if TYPE_CHECKING:
     from .console import Console
 
-
+import time
 class ChannelClient:
     """Console channel client"""
 
-    resources_button: Locator
-    resources_pane: Locator
-    channels_dropdown: Locator
+    channels_button: Locator
+    channels_pane: Locator
     channels_list: Locator
 
     def __init__(self, page: Page, console: "Console"):
         self.page = page
         self.console = console
-        # Resource Pane
-        self.resources_button = self.page.locator(
+        # Channels button - try multiple approaches to find it
+        self.channels_button = self.page.locator(
             "button.console-main-nav__item"
-        ).filter(has=self.page.locator("svg.pluto-icon--group"))
-        self.resources_pane = self.page.locator("text=Resources").first
+        ).filter(has=self.page.locator("svg.pluto-icon--channel"))
 
-        # Channels section within resources pane
-        self.channels_dropdown = self.page.locator("text=Channels").first
+        # Backup selector - try finding by keyboard shortcut text "C"
+        self.channels_button_backup = self.page.locator(
+            "button.console-main-nav__item:has-text('C')"
+        )
+        self.channels_pane = self.page.locator("text=Channels").first
         self.channels_list = self.page.locator("div[id^='channel:']")
 
     def show_channels(self) -> None:
-        self.show_resources()
-        if self.channels_list.count() == 0:
-            self.channels_dropdown.click(force=True)
-        self.channels_list.first.wait_for(state="visible", timeout=500)
+        if not self.channels_pane.is_visible():
+            self.channels_button.click(force=True, timeout=2000)
+
+        self.channels_pane.first.wait_for(state="visible", timeout=500)
+        self.page.wait_for_timeout(100)
 
     def hide_channels(self) -> None:
-        if self.channels_list.is_visible():
-            self.channels_dropdown.click(force=True)
+        if self.channels_pane.is_visible():
+            self.channels_button.click(force=True, timeout=2000)
 
-    def show_resources(self) -> None:
-        if not self.resources_pane.is_visible():
-            self.resources_button.click(force=True)
-        self.resources_pane.first.wait_for(state="visible", timeout=500)
-
-    def hide_resources(self) -> None:
-        if self.resources_pane.is_visible():
-            self.resources_button.click(force=True)
+    def _check_for_error_screen(self) -> None:
+        self.page.wait_for_timeout(300)
+        """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
+        if self.page.get_by_text("Something went wrong").is_visible():
+            self.page.wait_for_timeout(200)
+            self.page.get_by_text("Try again").click()
+            self.page.wait_for_timeout(200)
 
     def create(
         self,
@@ -88,21 +89,16 @@ class ChannelClient:
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-
-        if self.existing_channel(name):
-            self.hide_resources()
+        existing = self.existing_channel(name)
+        if existing:
             return False
-
         # Open command palette and create channel
         self.console.command_palette("Create a Channel")
-
         # Fill channel name
         self.console.fill_input_field("Name", name)
-
         # Set virtual if needed
         if virtual:
             self.console.click_checkbox("Virtual")
-
         # Configure as index or regular channel
         if is_index:
             self.console.click_checkbox("Is Index")
@@ -112,7 +108,8 @@ class ChannelClient:
 
             # Set data type
             data_type_str = str(DataType(data_type))
-            self.console.click_btn("Data Type")
+
+            self.console.click_btn("Data Type") 
             self.console.select_from_dropdown(data_type_str, "Search Data Types")
 
             # Set index - index should be the channel name
@@ -121,12 +118,15 @@ class ChannelClient:
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
-        self.hide_resources()
+        self._check_for_error_screen()
+        self.hide_channels()
         return True
 
     def existing_channel(self, name: ChannelName) -> bool:
         """Checks if a channel with the given name exists"""
-        return name in self.list_all()
+        all_channels = self.list_all()
+        exists = name in all_channels
+        return exists
 
     def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
@@ -161,22 +161,26 @@ class ChannelClient:
         if self.existing_channel(new_name):
             raise ValueError(f"Channel {new_name} already exists")
 
-        # Find the channel in the list and right-click it
+        # Find the channel in the list and rename it
         self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
-                text = item.inner_text().strip()
+                # Get the channel name from the <p> element inside the channel div
+                channel_name_element = item.locator("p.pluto-text--editable")
+                text = channel_name_element.inner_text().strip()
                 if text == old_name:
-                    # Right click option
+                    # Right click on the channel item to get context menu
                     item.click(button="right")
                     rename_option = self.page.get_by_text("Rename", exact=True).first
                     rename_option.click()
-                    # Double click to edit the name directly
-                    item.dblclick()
-                    self.page.keyboard.type(new_name)
+
+                    # The <p> element should now be editable - clear it and type new name
+                    channel_name_element.click()
+                    channel_name_element.fill(new_name)
                     self.page.keyboard.press("Enter")
+                    self.page.wait_for_timeout(500)
                     break
-        self.hide_resources()
+        self.hide_channels()
 
     def delete(self, names: ChannelNames) -> None:
         """Deletes one or more channels via console UI.
@@ -200,13 +204,14 @@ class ChannelClient:
         if not self.existing_channel(name):
             raise ValueError(f"Channel {name} does not exist")
 
-        # Find the channel in the list and right-click it
+        # Find the channel in the list and delete it
         self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
-                text = item.inner_text().strip()
+                # Get the channel name from the <p> element inside the channel div
+                channel_name_element = item.locator("p.pluto-text--editable")
+                text = channel_name_element.inner_text().strip()
                 if text == name:
-
                     # Right click option
                     item.click(button="right")
                     delete_option = self.page.locator("text=Delete").first
@@ -215,13 +220,19 @@ class ChannelClient:
                     # Delete button in Modal
                     self.page.get_by_role("button", name="Delete", exact=True).click()
                     break
-        self.hide_resources()
+        self.hide_channels()
 
     def list_all(self) -> list[ChannelName]:
         """Lists all channels via console UI."""
         self.show_channels()
+
+        all_items = self.channels_list.all()
         channels = list[ChannelName]()
-        for item in self.channels_list.all():
+        for item in all_items:
             if item.is_visible():
-                channels.append(item.inner_text().strip())
+                # Extract channel name from the <p> element inside the channel div
+                channel_name_element = item.locator("p.pluto-text--editable")
+                channel_name = channel_name_element.inner_text().strip()
+                channels.append(channel_name)
+
         return channels

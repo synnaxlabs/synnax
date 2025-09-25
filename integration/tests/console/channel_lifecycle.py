@@ -60,7 +60,6 @@ class Channel_Lifecycle(ConsoleCase):
 
         index_ch = self.client.channels.retrieve(INDEX_NAME)
         assert index_ch.data_type == sy.DataType.TIMESTAMP
-        self._log_message(f"Created index channel: {INDEX_NAME}")
 
         # Then, create a channel for each data type
         for data_type in data_types:
