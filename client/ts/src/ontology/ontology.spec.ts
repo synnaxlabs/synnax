@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 
 import { ontology } from "@/ontology";
+import { group } from "@/ontology/group";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -125,59 +126,88 @@ describe("Ontology", () => {
   describe("retrieve", () => {
     test("retrieve", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
-      const g2 = await client.ontology.retrieve(g.ontologyID);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(name);
     });
     test("retrieve children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      await client.ontology.groups.create(g.ontologyID, name2);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
+      await client.ontology.groups.create({
+        parent: group.ontologyID(g.key),
+        name: name2,
+      });
+      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
     test("retrieve parents", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(g.ontologyID, name2);
-      const parents = await client.ontology.retrieveParents(g2.ontologyID);
+      const g2 = await client.ontology.groups.create({
+        parent: group.ontologyID(g.key),
+        name: name2,
+      });
+      const parents = await client.ontology.retrieveParents(group.ontologyID(g2.key));
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
   });
+
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.ROOT_ID, name2);
-      await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
+      const g2 = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: name2,
+      });
+      await client.ontology.addChildren(
+        group.ontologyID(g.key),
+        group.ontologyID(g2.key),
+      );
+      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
     test("remove children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.ROOT_ID, name2);
-      await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
-      await client.ontology.removeChildren(g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
+      const g2 = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: name2,
+      });
+      await client.ontology.addChildren(
+        group.ontologyID(g.key),
+        group.ontologyID(g2.key),
+      );
+      await client.ontology.removeChildren(
+        group.ontologyID(g.key),
+        group.ontologyID(g2.key),
+      );
+      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(0);
     });
     test("move children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
+      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.ROOT_ID, name2);
+      const g2 = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: name2,
+      });
       const oldRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
         .length;
-      await client.ontology.moveChildren(ontology.ROOT_ID, g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
+      await client.ontology.moveChildren(
+        ontology.ROOT_ID,
+        group.ontologyID(g.key),
+        group.ontologyID(g2.key),
+      );
+      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
       const newRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
         .length;
@@ -437,6 +467,43 @@ describe("Ontology", () => {
         const result = ontology.matchRelationship(relationship, match);
         expect(result).toBe(true);
       });
+    });
+  });
+
+  describe("idToString", () => {
+    it("should convert an ID to a string", () => {
+      const result = ontology.idToString({ type: "group", key: "one" });
+      expect(result).toEqual("group:one");
+    });
+
+    it("should convert an array of IDs to strings", () => {
+      const result = ontology.idToString([
+        { type: "group", key: "one" },
+        { type: "channel", key: "two" },
+      ]);
+      expect(result).toEqual(["group:one", "channel:two"]);
+    });
+
+    it("should pass through string IDs", () => {
+      const result = ontology.idToString("group:one");
+      expect(result).toEqual("group:one");
+    });
+
+    it("should validate string IDs that get passed", () => {
+      expect(() => {
+        ontology.idToString("dog");
+      }).toThrow();
+    });
+
+    it("should pass through an array of string IDs", () => {
+      const result = ontology.idToString(["group:one", "channel:two"]);
+      expect(result).toEqual(["group:one", "channel:two"]);
+    });
+
+    it("should validate an array of string IDs that get passed", () => {
+      expect(() => {
+        ontology.idToString(["group:one", "channel:two", "dog"]);
+      }).toThrow();
     });
   });
 });

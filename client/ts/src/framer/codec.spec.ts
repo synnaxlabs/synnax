@@ -206,7 +206,7 @@ describe("encoder", () => {
           const ser = spec.frame.get(k);
           expect(ser.series.length).toBeGreaterThan(0);
           const os = ser.series[0];
-          if (dcs.timeRange != null && !dcs.timeRange.isZero)
+          if (dcs.timeRange != null && !dcs.timeRange.span.isZero)
             expect(dcs.timeRange.toString()).toEqual(os.timeRange?.toString());
           expect(new Series(dcs).toString()).toEqual(os.toString());
         });

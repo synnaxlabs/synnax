@@ -14,9 +14,10 @@ import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
 
 export interface BooleanProps
-  extends InputProps<boolean>,
+  extends Omit<InputProps<boolean>, "onClick">,
     Omit<Button.ExtensionProps, "variant"> {
   inputType: "switch" | "checkbox";
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
 const parseTextColor = (
@@ -35,6 +36,7 @@ export const Boolean = ({
   ref,
   className,
   value,
+  ghost,
   disabled,
   onChange,
   inputType,
@@ -48,12 +50,14 @@ export const Boolean = ({
   rounded,
   background,
   textColor,
+  onClick,
   ...rest
 }: BooleanProps): ReactElement => (
   <Button.Button
     el="label"
     variant={variant}
     className={CSS(CSS.BE("input", inputType), className)}
+    ghost={ghost}
     disabled={disabled}
     size={size}
     preventClick
@@ -65,6 +69,7 @@ export const Boolean = ({
     rounded={rounded}
     background={background}
     textColor={parseTextColor(variant, textColor, value)}
+    onClick={onClick}
   >
     {variant !== "preview" ? (
       <>
@@ -73,12 +78,16 @@ export const Boolean = ({
           type="checkbox"
           ref={ref}
           checked={value}
-          onChange={(e) => onChange?.(e.target.checked)}
+          onChange={(e) => {
+            e.stopPropagation();
+            onChange?.(e.target.checked);
+          }}
           value=""
           disabled={disabled}
+          onClick={onClick}
           {...rest}
         />
-        <span className={CSS.BE("input", inputType, "indicator")} />
+        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick} />
       </>
     ) : value ? (
       "True"

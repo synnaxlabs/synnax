@@ -51,6 +51,14 @@
     transform: scale(var(--pluto-base-scale));
 }
 
+.pluto-icon--in-progress {
+    color: var(--pluto-warning-z);
+}
+
+.pluto-icon--completed {
+    color: var(--pluto-primary-z);
+}
+
 .pluto-icon--logo-opc {
     transform: translateY(1px) scale(1.25);
 }

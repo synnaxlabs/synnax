@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -32,20 +32,17 @@ func OntologyID(k uuid.UUID) ontology.ID {
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID {
-		return OntologyID(k)
-	})
+func OntologyIDs(keys []uuid.UUID) []ontology.ID {
+	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
-func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
-	return uuid.Parse(id.Key)
-}
+func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
 
-// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning
-// an error if any of the IDs are invalid.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
+// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning an
+// error if any of the IDs are invalid.
+func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
+	keys := make([]uuid.UUID, len(ids))
+	var err error
 	for i, id := range ids {
 		keys[i], err = KeyFromOntologyID(id)
 		if err != nil {
@@ -56,10 +53,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 }
 
 // OntologyIDsFromRanges converts a slice of ranges to a slice of ontology IDs.
-func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
-	return lo.Map(ranges, func(r Range, _ int) ontology.ID {
-		return OntologyID(r.Key)
-	})
+func OntologyIDsFromRanges(ranges []Range) []ontology.ID {
+	return lo.Map(ranges, func(r Range, _ int) ontology.ID { return OntologyID(r.Key) })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -75,7 +70,7 @@ func newResource(r Range) ontology.Resource {
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Range]
+type change = xchange.Change[uuid.UUID, Range]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -83,11 +78,20 @@ func (s *Service) Type() ontology.Type { return OntologyType }
 func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k := uuid.MustParse(key)
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return ontology.Resource{}, err
+	}
 	var r Range
-	err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx)
-	return newResource(r), err
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(r), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -99,9 +103,17 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Nexter[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
+		f(
+			ctx,
+			iter.NexterTranslator[change, ontology.Change]{
+				Wrap:      reader,
+				Translate: translateChange,
+			},
+		)
 	}
 	return gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
 }
@@ -109,8 +121,11 @@ func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontolo
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter()
+	if err != nil {
+		return nil, err
+	}
 	return iter.NexterCloserTranslator[Range, ontology.Resource]{
 		Wrap:      n,
 		Translate: newResource,
-	}, err
+	}, nil
 }

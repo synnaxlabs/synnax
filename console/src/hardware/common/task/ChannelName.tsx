@@ -10,7 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
 import { type Optional, primitive } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
@@ -28,10 +28,11 @@ export const ChannelName = ({
   ...rest
 }: ChannelNameProps) => {
   const range = useSelectActiveRangeKey();
-  const { data } = Channel.useRetrieve({
-    key: channel,
-    rangeKey: range ?? undefined,
-  });
+  const { data, retrieve } = Channel.useRetrieveStateful();
+  useEffect(() => {
+    if (primitive.isZero(channel)) return;
+    retrieve({ key: channel, rangeKey: range ?? undefined });
+  }, [channel, range]);
   const { update } = Channel.useRename();
   const name = data?.name ?? defaultName;
   const handleRename = useCallback(
