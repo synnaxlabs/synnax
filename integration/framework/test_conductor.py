@@ -324,10 +324,10 @@ class TestConductor:
         for test_file in test_files:
             self.log_message(f"Loading tests from: {test_file}")
 
-            # Simple path resolution - try current dir first, then test/ dir
+            # Simple path resolution - try current dir first, then tests/ dir
             file_path = Path(test_file)
             if not file_path.exists():
-                file_path = Path("test") / test_file
+                file_path = Path("tests") / test_file
 
             try:
                 with open(file_path, "r") as f:
