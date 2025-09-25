@@ -22,7 +22,7 @@ import { Text } from "@/text";
 
 export interface TimeRangeProps
   extends Omit<Flex.BoxProps<"div">, "children">,
-    Pick<Text.TextProps, "level" | "color"> {
+    Pick<Text.TextProps, "level" | "color" | "weight"> {
   children: CrudeTimeRange;
   displayTZ?: TZInfo;
 }
@@ -50,19 +50,20 @@ export const TimeRange = ({
   level = "p",
   color = 9,
   displayTZ = "local",
+  weight = 450,
   ...rest
 }: TimeRangeProps): ReactElement | null => {
   const formattedTime = formatTime(children, displayTZ);
   if (formattedTime == null) return null;
   return (
     <Flex.Box x gap="small" align="center" {...rest}>
-      <Text.Text level={level} color={color} weight={450} gap="tiny">
+      <Text.Text level={level} color={color} weight={weight} gap="tiny">
         {typeof formattedTime === "string" ? (
           formattedTime
         ) : (
           <>
             {formattedTime[0]}
-            <Icon.Arrow.Right color={9} style={{ height: "1em", width: "1em" }} />
+            <Icon.Arrow.Right color={9} size="1em" />
             {formattedTime[1]}
           </>
         )}

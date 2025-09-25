@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+//
+import "@/range/list/List.css";
 
 import { type ranger } from "@synnaxlabs/client";
 import {
@@ -18,8 +20,9 @@ import {
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { Item, type ItemProps } from "@/range/list/Item";
@@ -53,17 +56,22 @@ export const List = ({
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const handleRequestChange = (
-    setter: state.SetArg<ranger.RetrieveRequest>,
-    opts?: Flux.AsyncListOptions,
-  ) => {
-    retrieve(setter, opts);
-    setRequest(setter);
-  };
-  const handleSearch = (term: string) =>
-    handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
-  const handleFetchMore = () =>
-    handleRequestChange((r) => PList.page(r, 25), { mode: "append" });
+  const handleRequestChange = useCallback(
+    (setter: state.SetArg<ranger.RetrieveRequest>, opts?: Flux.AsyncListOptions) => {
+      retrieve(setter, opts);
+      setRequest(setter);
+    },
+    [retrieve],
+  );
+  const handleSearch = useCallback(
+    (term: string) =>
+      handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term)),
+    [handleRequestChange],
+  );
+  const handleFetchMore = useCallback(
+    () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
+    [handleRequestChange],
+  );
   return (
     <Select.Frame<ranger.Key, ranger.Range>
       multiple
@@ -97,6 +105,7 @@ export const List = ({
             }
             onChange={handleSearch}
           />
+          {enableAddButton && <AddButton />}
         </Flex.Box>
       )}
       {(enableFilters || enableAddButton) && (
@@ -113,7 +122,6 @@ export const List = ({
               <Filters request={request} onRequestChange={handleRequestChange} />
             </>
           )}
-          {enableAddButton && <AddButton />}
         </Flex.Box>
       )}
       <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>

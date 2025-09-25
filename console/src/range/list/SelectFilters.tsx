@@ -14,7 +14,7 @@ import {
   Icon,
   Label as PLabel,
   Menu,
-  type state,
+  state,
   Tag,
   Text,
 } from "@synnaxlabs/pluto";
@@ -27,19 +27,28 @@ export interface SelectFiltersProps {
   onRequestChange: state.Setter<ranger.RetrieveRequest>;
 }
 
-const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <Menu.Menu level="small" gap="small">
-    <Label.SelectMultiple
-      value={request.hasLabels ?? []}
-      onChange={(v) => onRequestChange((p) => ({ ...p, hasLabels: v }))}
-      triggerProps={{ hideTags: true, variant: "text" }}
-      location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
-    />
-  </Menu.Menu>
-);
+const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
+  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
+    onRequestChange((prev) => {
+      const next = state.executeSetter(setter, prev);
+      return { ...next, offset: 0, limit: 0 };
+    });
+  };
+
+  return (
+    <Menu.Menu level="small" gap="small">
+      <Label.SelectMultiple
+        value={request.hasLabels ?? []}
+        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+        triggerProps={{ hideTags: true, variant: "text" }}
+        location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
+      />
+    </Menu.Menu>
+  );
+};
 
 export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <Dialog.Frame location={location.BOTTOM_LEFT}>
+  <Dialog.Frame>
     <Dialog.Trigger hideCaret>
       <Icon.Filter />
       <Text.Text>Filter</Text.Text>
@@ -60,8 +69,9 @@ interface HasLabelsFilterProps {
 }
 
 const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
+  const labels =
+    PLabel.useRetrieveMultiple({ keys: request.hasLabels ?? [] }).data ?? [];
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
-  const labels = PLabel.useRetrieveMultiple({ keys: request.hasLabels }).data ?? [];
   return (
     <Flex.Box x pack background={0}>
       <Text.Text

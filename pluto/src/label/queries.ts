@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
+import { primitive } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -95,6 +96,16 @@ export interface ListParams extends label.MultiRetrieveArgs {}
 
 export const useList = Flux.createList<ListParams, label.Key, label.Label, SubStore>({
   name: "Labels",
+  retrieveCached: ({ params, store }) => {
+    if (primitive.isNonZero(params.for) || primitive.isNonZero(params.searchTerm))
+      return [];
+    let labels = store.labels.list();
+    if (params.keys != null && params.keys.length > 0) {
+      const keys = params.keys;
+      labels = labels.filter((l) => keys.includes(l.key));
+    }
+    return labels;
+  },
   retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
   mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {

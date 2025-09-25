@@ -10,178 +10,180 @@
  */
 
 .pluto-input__checkbox {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: pointer !important;
+  background: none !important;
+  padding: 0;
+
+  &:not(.pluto--disabled).pluto-btn--prevent-click input {
+    cursor: pointer;
+  }
+
+  &:focus-within {
+    .pluto-input__checkbox-indicator {
+      box-shadow:
+        0 0 0 2px var(--pluto-gray-l0),
+        0 0 0 3px var(--pluto-primary-z);
+    }
+  }
+
+  .pluto-input__checkbox-input {
     position: relative;
-    cursor: pointer !important;
-    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+    height: var(--pluto-height-medium);
+    width: var(--pluto-height-medium);
+  }
 
-    &:not(.pluto--disabled).pluto-btn--prevent-click input {
-        cursor: pointer;
-    }
+  .pluto-input__checkbox-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    width: round(2.666rem, 1px);
+    height: round(2.666rem, 1px);
+    background: var(--pluto-gray-l1);
+    border: var(--pluto-border-l5);
+    border-radius: 0.5rem;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      outline-color 0.15s ease;
+    cursor: pointer;
+  }
 
-    &:focus-within {
-        .pluto-input__checkbox-indicator {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l0),
-                0 0 0 3px var(--pluto-primary-z);
-        }
-    }
+  .pluto-input__checkbox-indicator::after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: round(1rem, 1px);
+    top: round(0.4rem, 1px);
+    width: round(0.5rem, 1px);
+    height: round(1.3rem, 1px);
+    border: solid var(--pluto-text-on-primary);
+    border-width: 0 1px 1px 0;
+    transform: rotate(45deg);
+  }
 
+  .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+    background: var(--pluto-primary-m1);
+    border-color: var(--pluto-primary-m1);
+  }
+
+  .pluto-input__checkbox-input:checked
+    ~ .pluto-input__checkbox-indicator::after {
+    display: block;
+  }
+
+  &.pluto--height-tiny {
     .pluto-input__checkbox-input {
-        position: relative;
-        cursor: pointer;
-        opacity: 0;
-        height: var(--pluto-height-medium);
-        width: var(--pluto-height-medium);
+      height: var(--pluto-height-small);
+      width: var(--pluto-height-small);
+    }
+    .pluto-input__checkbox-indicator {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 0.25rem;
+    }
+    .pluto-input__checkbox-indicator::after {
+      left: 0.4rem;
+      top: 0.2rem;
+      width: 0.25rem;
+      height: 0.5rem;
+      border-width: 0 1.5px 1.5px 0;
+    }
+  }
+
+  &.pluto--height-small {
+    .pluto-input__checkbox-input {
+      height: var(--pluto-height-medium);
+      width: var(--pluto-height-medium);
+    }
+    .pluto-input__checkbox-indicator {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.25rem;
+    }
+    .pluto-input__checkbox-indicator::after {
+      left: 0.5rem;
+      top: 0.25rem;
+      width: 0.5rem;
+      height: 0.75rem;
+      border-width: 0 2px 2px 0;
+    }
+  }
+
+  &.pluto--height-large {
+    .pluto-input__checkbox-input {
+      height: var(--pluto-height-large);
+      width: var(--pluto-height-large);
+    }
+    .pluto-input__checkbox-indicator {
+      width: 3.25rem;
+      height: 3.25rem;
+      border-radius: 0.5rem;
+    }
+    .pluto-input__checkbox-indicator::after {
+      left: 1.1rem;
+      top: 0.4rem;
+      width: 0.75rem;
+      height: 1.5rem;
+      border-width: 0 2.5px 2.5px 0;
+    }
+  }
+
+  &.pluto--height-huge {
+    .pluto-input__checkbox-input {
+      height: var(--pluto-height-huge);
+      width: var(--pluto-height-huge);
+    }
+    .pluto-input__checkbox-indicator {
+      width: 3.75rem;
+      height: 3.75rem;
+      border-radius: 0.5rem;
+    }
+    .pluto-input__checkbox-indicator::after {
+      left: 1.1rem;
+      top: 0.4rem;
+      width: 1rem;
+      height: 1.75rem;
+      border-width: 0 3px 3px 0;
+    }
+  }
+
+  &.pluto--disabled {
+    * {
+      cursor: not-allowed !important;
     }
 
     .pluto-input__checkbox-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        display: inline-block;
-        width: round(2.666rem, 1px);
-        height: round(2.666rem, 1px);
-        background: var(--pluto-gray-l1);
-        border: var(--pluto-border-l5);
-        border-radius: 0.5rem;
-        transition:
-            background-color 0.15s ease,
-            border-color 0.15s ease,
-            outline-color 0.15s ease;
-        cursor: pointer;
-    }
-
-    .pluto-input__checkbox-indicator::after {
-        content: "";
-        position: absolute;
-        display: none;
-        left: round(1rem, 1px);
-        top: round(0.4rem, 1px);
-        width: round(0.5rem, 1px);
-        height: round(1.3rem, 1px);
-        border: solid var(--pluto-text-on-primary);
-        border-width: 0 1px 1px 0;
-        transform: rotate(45deg);
+      background: var(--pluto-gray-l2-50);
+      border-color: var(--pluto-gray-l3-50);
     }
 
     .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
-        background: var(--pluto-primary-m1);
-        border-color: var(--pluto-primary-m1);
+      background: color-mix(
+        in srgb,
+        var(--pluto-gray-l3),
+        var(--pluto-primary-m1)
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--pluto-gray-l3),
+        var(--pluto-primary-m1)
+      );
     }
 
-    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
-        display: block;
+    .pluto-input__checkbox-indicator::after {
+      border-color: color-mix(
+        in srgb,
+        var(--pluto-gray-l6),
+        var(--pluto-text-on-primary)
+      );
     }
-
-    &.pluto--height-tiny {
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-small);
-            width: var(--pluto-height-small);
-        }
-        .pluto-input__checkbox-indicator {
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 0.25rem;
-        }
-        .pluto-input__checkbox-indicator::after {
-            left: 0.4rem;
-            top: 0.2rem;
-            width: 0.25rem;
-            height: 0.5rem;
-            border-width: 0 1.5px 1.5px 0;
-        }
-    }
-
-    &.pluto--height-small {
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-medium);
-            width: var(--pluto-height-medium);
-        }
-        .pluto-input__checkbox-indicator {
-            width: 2rem;
-            height: 2rem;
-            border-radius: 0.25rem;
-        }
-        .pluto-input__checkbox-indicator::after {
-            left: 0.5rem;
-            top: 0.25rem;
-            width: 0.5rem;
-            height: 0.75rem;
-            border-width: 0 2px 2px 0;
-        }
-    }
-
-    &.pluto--height-large {
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-large);
-            width: var(--pluto-height-large);
-        }
-        .pluto-input__checkbox-indicator {
-            width: 3.25rem;
-            height: 3.25rem;
-            border-radius: 0.5rem;
-        }
-        .pluto-input__checkbox-indicator::after {
-            left: 1.1rem;
-            top: 0.4rem;
-            width: 0.75rem;
-            height: 1.5rem;
-            border-width: 0 2.5px 2.5px 0;
-        }
-    }
-
-    &.pluto--height-huge {
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-huge);
-            width: var(--pluto-height-huge);
-        }
-        .pluto-input__checkbox-indicator {
-            width: 3.75rem;
-            height: 3.75rem;
-            border-radius: 0.5rem;
-        }
-        .pluto-input__checkbox-indicator::after {
-            left: 1.1rem;
-            top: 0.4rem;
-            width: 1rem;
-            height: 1.75rem;
-            border-width: 0 3px 3px 0;
-        }
-    }
-
-    &.pluto--disabled {
-        * {
-            cursor: not-allowed !important;
-        }
-
-        .pluto-input__checkbox-indicator {
-            background: var(--pluto-gray-l2-50);
-            border-color: var(--pluto-gray-l3-50);
-        }
-
-        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
-            background: color-mix(
-                in srgb,
-                var(--pluto-gray-l3),
-                var(--pluto-primary-m1)
-            );
-            border-color: color-mix(
-                in srgb,
-                var(--pluto-gray-l3),
-                var(--pluto-primary-m1)
-            );
-        }
-
-        .pluto-input__checkbox-indicator::after {
-            border-color: color-mix(
-                in srgb,
-                var(--pluto-gray-l6),
-                var(--pluto-text-on-primary)
-            );
-        }
-    }
+  }
 }

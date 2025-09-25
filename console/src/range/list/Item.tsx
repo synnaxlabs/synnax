@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/list/Item.css";
-
 import { type ranger, UnexpectedError } from "@synnaxlabs/client";
 import {
   Flex,
@@ -123,15 +121,17 @@ const Base = ({
           </Flex.Box>
         </Flex.Box>
         <Flex.Box x align="center">
-          <Tag.Tags variant="text">
-            {showLabels &&
-              labels != null &&
-              labels.map(({ key, name, color }) => (
-                <Tag.Tag key={key} color={color} size="small">
-                  {name}
-                </Tag.Tag>
-              ))}
-          </Tag.Tags>
+          {showLabels && labels != null && labels.length > 0 && (
+            <Tag.Tags variant="text">
+              {showLabels &&
+                labels != null &&
+                labels.map(({ key, name, color }) => (
+                  <Tag.Tag key={key} color={color} size="small">
+                    {name}
+                  </Tag.Tag>
+                ))}
+            </Tag.Tags>
+          )}
           {showTimeRange && (
             <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
