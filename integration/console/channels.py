@@ -24,7 +24,7 @@ from synnax.telem import (
 if TYPE_CHECKING:
     from .console import Console
 
-import time
+
 class ChannelClient:
     """Console channel client"""
 
@@ -109,7 +109,7 @@ class ChannelClient:
             # Set data type
             data_type_str = str(DataType(data_type))
 
-            self.console.click_btn("Data Type") 
+            self.console.click_btn("Data Type")
             self.console.select_from_dropdown(data_type_str, "Search Data Types")
 
             # Set index - index should be the channel name

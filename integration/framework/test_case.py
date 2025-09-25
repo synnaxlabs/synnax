@@ -684,7 +684,7 @@ class TestCase(ABC):
 
         if loop_rate is not None:
             self.loop = sy.Loop(loop_rate)
-            params["loop_rate"] = loop_rate
+            params["loop_rate"] = int(loop_rate)
 
         if timeout_limit is not None:
             self._timeout_limit = timeout_limit

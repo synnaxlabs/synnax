@@ -28,7 +28,7 @@ class Simulated_DAQ(TestCase):
         """
         Run the test case.
         """
-        #self.wait_for_tlm_init()
+        # self.wait_for_tlm_init()
         client = self.client
 
         daq_time_ch = client.channels.create(
@@ -117,9 +117,8 @@ class Simulated_DAQ(TestCase):
             ) as writer:
 
                 def test_active() -> bool:
-                    return all( 
-                        [loop.wait(), self.should_continue]
-                    )
+                    return all([loop.wait(), self.should_continue])
+
                 watch_for_end = False
                 while test_active():
                     # Read incoming commands
@@ -150,7 +149,11 @@ class Simulated_DAQ(TestCase):
                     writer.write(state)
 
                     value = self.get_value("simple_press_control_state")
-                    if watch_for_end and value >= STATUS.PASSED.value:
+                    if (
+                        watch_for_end
+                        and value is not None
+                        and value >= STATUS.PASSED.value
+                    ):
                         self._log_message("Controller has stopped. Ending simulation.")
                         break
 

@@ -10,7 +10,7 @@
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
 from playwright.sync_api import Locator, Page
 
@@ -45,7 +45,7 @@ class Symbol(ABC):
         self.set_label(channel_name)
 
     @contextmanager
-    def bring_to_front(self, element):
+    def bring_to_front(self, element: "Locator") -> Generator["Locator", None, None]:
         original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
         element.evaluate("element => element.style.zIndex = '9999'")
         try:
@@ -58,10 +58,10 @@ class Symbol(ABC):
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def _click_symbol(self) -> None: 
+    def _click_symbol(self) -> None:
         with self.bring_to_front(self.symbol) as s:
             s.click(force=True)
-        self.console.page.wait_for_timeout(100)   
+        self.console.page.wait_for_timeout(100)
 
     def set_label(self, label: str) -> None:
         self._click_symbol()

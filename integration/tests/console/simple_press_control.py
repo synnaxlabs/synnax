@@ -16,6 +16,7 @@ class Simple_Press_Control(ConsoleCase):
     """
     Control the pressure of "simulated_daq" test case
     """
+
     def setup(self) -> None:
         sy.sleep(2)
         self.subscribe(["press_vlv_cmd", "vent_vlv_cmd", "press_pt"])
@@ -24,7 +25,6 @@ class Simple_Press_Control(ConsoleCase):
 
     def run(self) -> None:
         console = self.console
-        
 
         if not self.wait_for_tlm_init():
             self.fail()
@@ -46,19 +46,15 @@ class Simple_Press_Control(ConsoleCase):
         console.schematic.move("left")
         press_valve = console.schematic.create_setpoint(PRESS_VALVE)
         press_valve.move(-200, 0)
-        
+
         press_pt = console.schematic.create_value(PRESSURE)
         press_pt.move(0, -3)
 
         vent_valve = console.schematic.create_setpoint(VENT_VALVE)
         vent_valve.move(200, 0)
 
-        console.schematic.connect_symbols(
-            press_valve, "right", press_pt, "left"
-        )
-        console.schematic.connect_symbols(
-            press_pt, "right", vent_valve, "left"
-        )
+        console.schematic.connect_symbols(press_valve, "right", press_pt, "left")
+        console.schematic.connect_symbols(press_pt, "right", vent_valve, "left")
 
         target_Pressure = 20
         press_valve.set_value(0)
@@ -68,11 +64,12 @@ class Simple_Press_Control(ConsoleCase):
             self._log_message(f"Target pressure: {target_Pressure}")
             if self.should_stop:
                 return
-            
+
             # Press and wait
-            press_valve.set_value(1.0)        
+            press_valve.set_value(1.0)
             while self.should_continue:
-                if self.get_value(PRESSURE) > target_Pressure:
+                pressure_value = self.get_value(PRESSURE)
+                if pressure_value is not None and pressure_value > target_Pressure:
                     break
             if self.should_stop:
                 return
@@ -80,12 +77,13 @@ class Simple_Press_Control(ConsoleCase):
             press_valve.set_value(0)
             sy.sleep(1)
             target_Pressure += 20
-                
+
         # Depressurize the system
         self._log_message("Venting the system")
         vent_valve.set_value(1)
         while self.should_continue:
-            if self.get_value(PRESSURE) < 5:
+            pressure_value = self.get_value(PRESSURE)
+            if pressure_value is not None and pressure_value < 5:
                 vent_valve.set_value(0)
                 self._log_message("System vented")
                 self.console.screenshot("console_press_control_passed")
