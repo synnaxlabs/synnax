@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDataType, DataType, status, zod } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
@@ -18,7 +18,7 @@ export const keyZ = z.uint32().or(
     .string()
     .refine((val) => !isNaN(Number(val)), { message: errorMessage })
     .transform(Number)
-    .refine((val) => val < 2 ** 32 - 1, { message: errorMessage }),
+    .refine((val) => val < math.MAX_UINT32, { message: errorMessage }),
 );
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];

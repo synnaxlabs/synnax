@@ -18,7 +18,7 @@ export type Params = Key | Key[];
 
 export const workspaceZ = z.object({
   key: keyZ,
-  name: z.string(),
+  name: z.string().min(1, "Name is required"),
   layout: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}

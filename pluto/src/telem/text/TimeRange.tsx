@@ -7,91 +7,67 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type CrudeTimeRange,
+  TimeRange as XTimeRange,
+  TimeSpan,
+  TimeStamp,
+  type TZInfo,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { TimeSpan as TimeSpanText } from "@/telem/text/TimeSpan";
-import {
-  TimeStamp as TimeStampText,
-  type TimeStampProps as TimeStampTextProps,
-} from "@/telem/text/TimeStamp";
 import { Text } from "@/text";
 
-export interface TimeRange extends Omit<TimeStampTextProps, "children" | "format"> {
-  showSpan?: boolean;
+export interface TimeRangeProps
+  extends Omit<Flex.BoxProps<"div">, "children">,
+    Pick<Text.TextProps, "level" | "color" | "weight"> {
   children: CrudeTimeRange;
+  displayTZ?: TZInfo;
 }
 
+const formatTime = (
+  timeRange: CrudeTimeRange,
+  displayTZ: TZInfo,
+): null | string | [string, string] => {
+  const tr = new XTimeRange(timeRange).makeValid();
+  if (tr.start.equals(TimeStamp.MAX)) return null;
+  const startFormat = tr.start.isToday ? "time" : "dateTime";
+  let startTime = new TimeStamp(tr.start).toString(startFormat, displayTZ);
+  if (tr.start.isToday) startTime = `Today ${startTime}`;
+  if (tr.end.equals(TimeStamp.MAX)) {
+    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
+    return `Starts ${startTime}`;
+  }
+  const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
+  const endTime = new TimeStamp(tr.end).toString(endFormat, displayTZ);
+  return [startTime, endTime];
+};
+
 export const TimeRange = ({
-  children: timeRange,
+  children,
   level = "p",
   color = 9,
-  showSpan = false,
-  suppliedTZ,
-  displayTZ,
+  displayTZ = "local",
+  weight = 450,
   ...rest
-}: TimeRange): ReactElement => {
-  const startTS = new TimeStamp(timeRange.start);
-  const startFormat = startTS.isToday ? "time" : "dateTime";
-  const endTS = new TimeStamp(timeRange.end);
-  const isOpen = endTS.equals(TimeStamp.MAX);
-  const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
-  const span = startTS.span(endTS);
-
-  const startTime = (
-    <Text.Text x align="center" gap="small">
-      {startTS.isToday && (
-        <Text.Text level={level} color={color} weight={450}>
-          Today
-        </Text.Text>
-      )}
-      <TimeStampText
-        el="span"
-        level={level}
-        displayTZ={displayTZ}
-        suppliedTZ={suppliedTZ}
-        format={startFormat}
-        color={color}
-        weight={450}
-      >
-        {startTS}
-      </TimeStampText>
-    </Text.Text>
-  );
-
-  const endTime = (
-    <>
-      {isOpen ? (
-        <Text.Text level={level} el="span">
-          Now
-        </Text.Text>
-      ) : (
-        <TimeStampText
-          level={level}
-          el="span"
-          displayTZ={displayTZ}
-          suppliedTZ={suppliedTZ}
-          format={endFormat}
-          color={color}
-          weight={450}
-        >
-          {endTS}
-        </TimeStampText>
-      )}
-      {!span.isZero && showSpan && (
-        <TimeSpanText level={level} el="span" color={color} weight={450}>
-          {startTS.span(endTS).truncate(TimeSpan.MILLISECOND)}
-        </TimeSpanText>
-      )}
-    </>
-  );
-
+}: TimeRangeProps): ReactElement | null => {
+  const formattedTime = formatTime(children, displayTZ);
+  if (formattedTime == null) return null;
   return (
-    <Text.Text x gap="small" align="center" level={level} color={color} {...rest}>
-      {startTime}
-      <Icon.Arrow.Right color={9} />
-      {endTime}
-    </Text.Text>
+    <Flex.Box x gap="small" align="center" {...rest}>
+      <Text.Text level={level} color={color} weight={weight} gap="tiny">
+        {typeof formattedTime === "string" ? (
+          formattedTime
+        ) : (
+          <>
+            {formattedTime[0]}
+            <Icon.Arrow.Right color={9} size="1em" />
+            {formattedTime[1]}
+          </>
+        )}
+      </Text.Text>
+    </Flex.Box>
   );
 };

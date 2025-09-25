@@ -19,7 +19,6 @@ export * from "@/hardware/common/task/Form";
 export * from "@/hardware/common/task/getChannelNameID";
 export * from "@/hardware/common/task/layouts";
 export * from "@/hardware/common/task/ReadChannelContextMenuItem";
-export * from "@/hardware/common/task/shouldExecuteCommand";
 export * from "@/hardware/common/task/TareButton";
 export * from "@/hardware/common/task/types";
 export * from "@/hardware/common/task/useTare";

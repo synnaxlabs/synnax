@@ -126,4 +126,4 @@ jobs:
         run: pnpm lint:pluto
 
       - name: Test
-        run: pnpm test:pluto
+        run: pnpm test:pluto -- --no-file-parallelism

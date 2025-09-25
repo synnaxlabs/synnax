@@ -15,6 +15,7 @@ import { type ReactElement, type ReactNode, useRef, useState } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as CoreText } from "@/text";
@@ -34,6 +35,7 @@ export interface TextProps
   endContent?: ReactNode;
   startContent?: ReactNode;
   onlyChangeOnBlur?: boolean;
+  area?: boolean;
 }
 
 /**
@@ -95,6 +97,8 @@ export const Text = ({
   tooltipDelay,
   tooltipLocation,
   hideTooltip,
+  ghost,
+  area,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -193,6 +197,7 @@ export const Text = ({
       tooltipDelay={tooltipDelay}
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
+      ghost={ghost}
       {...restButtonProps}
     >
       {showPlaceholder && (
@@ -215,7 +220,8 @@ export const Text = ({
           {startContent}
         </CoreText.Text>
       )}
-      <input
+      <Generic.Element<"textarea" | "input">
+        el={area ? "textarea" : "input"}
         ref={combinedRef}
         value={tempValue ?? value}
         role="textbox"

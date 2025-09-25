@@ -125,16 +125,23 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             path="description"
             showLabel={false}
             showHelpText={false}
+            grow
           >
             {(p) => (
-              <Input.TextArea
+              <Input.Text
                 {...p}
+                area
                 maxLength={50000}
                 placeholder="What can we improve?"
                 autoFocus
-                rows={10}
+                variant="text"
+                grow
+                shrink
                 style={{
                   width: "100%",
+                  maxHeight: 200,
+                  flexBasis: 200,
+                  height: "100%",
                   borderRadius: "2px",
                   fontSize: "var(--pluto-h4-size)",
                   whiteSpace: "pre-wrap",

@@ -15,6 +15,7 @@
     align-items: center;
     position: relative;
     cursor: pointer !important;
+    background: none !important;
     padding: 0;
 
     &:not(.pluto--disabled).pluto-btn--prevent-click input {
@@ -43,8 +44,8 @@
         left: 50%;
         transform: translate(-50%, -50%);
         display: inline-block;
-        width: 2.5rem;
-        height: 2.5rem;
+        width: round(2.666rem, 1px);
+        height: round(2.666rem, 1px);
         background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
         border-radius: 0.5rem;
@@ -59,12 +60,12 @@
         content: "";
         position: absolute;
         display: none;
-        left: 0.8rem;
-        top: 0.3rem;
-        width: 0.5rem;
-        height: 1rem;
+        left: round(1rem, 1px);
+        top: round(0.4rem, 1px);
+        width: round(0.5rem, 1px);
+        height: round(1.3rem, 1px);
         border: solid var(--pluto-text-on-primary);
-        border-width: 0 2px 2px 0;
+        border-width: 0 1px 1px 0;
         transform: rotate(45deg);
     }
 

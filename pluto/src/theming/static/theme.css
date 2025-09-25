@@ -376,9 +376,9 @@
     --pluto-schematic-element-stroke-width: 2px;
     --pluto-font-family: "Inter Variable", sans-serif;
     --pluto-code-font-family: "Geist Mono", monospace;
-    --pluto-h1-size: round(6rem, 1px);
+    --pluto-h1-size: round(5.5rem, 1px);
     --pluto-h1-weight: 500;
-    --pluto-h1-line-height: round(9rem, 1px);
+    --pluto-h1-line-height: round(8.25rem, 1px);
     --pluto-h2-size: round(4.5rem, 1px);
     --pluto-h2-weight: medium;
     --pluto-h2-line-height: round(6.75rem, 1px);
@@ -774,9 +774,9 @@
     --pluto-dark-schematic-element-stroke-width: 2px;
     --pluto-dark-font-family: "Inter Variable", sans-serif;
     --pluto-dark-code-font-family: "Geist Mono", monospace;
-    --pluto-dark-h1-size: round(6rem, 1px);
+    --pluto-dark-h1-size: round(5.5rem, 1px);
     --pluto-dark-h1-weight: 500;
-    --pluto-dark-h1-line-height: round(9rem, 1px);
+    --pluto-dark-h1-line-height: round(8.25rem, 1px);
     --pluto-dark-h2-size: round(4.5rem, 1px);
     --pluto-dark-h2-weight: medium;
     --pluto-dark-h2-line-height: round(6.75rem, 1px);
@@ -1176,9 +1176,9 @@
         --pluto-schematic-element-stroke-width: 2px;
         --pluto-font-family: "Inter Variable", sans-serif;
         --pluto-code-font-family: "Geist Mono", monospace;
-        --pluto-h1-size: round(6rem, 1px);
+        --pluto-h1-size: round(5.5rem, 1px);
         --pluto-h1-weight: 500;
-        --pluto-h1-line-height: round(9rem, 1px);
+        --pluto-h1-line-height: round(8.25rem, 1px);
         --pluto-h2-size: round(4.5rem, 1px);
         --pluto-h2-weight: medium;
         --pluto-h2-line-height: round(6.75rem, 1px);
@@ -1574,9 +1574,9 @@
         --pluto-dark-schematic-element-stroke-width: 2px;
         --pluto-dark-font-family: "Inter Variable", sans-serif;
         --pluto-dark-code-font-family: "Geist Mono", monospace;
-        --pluto-dark-h1-size: round(6rem, 1px);
+        --pluto-dark-h1-size: round(5.5rem, 1px);
         --pluto-dark-h1-weight: 500;
-        --pluto-dark-h1-line-height: round(9rem, 1px);
+        --pluto-dark-h1-line-height: round(8.25rem, 1px);
         --pluto-dark-h2-size: round(4.5rem, 1px);
         --pluto-dark-h2-weight: medium;
         --pluto-dark-h2-line-height: round(6.75rem, 1px);

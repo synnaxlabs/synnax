@@ -120,6 +120,8 @@ describe("caseconv", () => {
       ["foo.bar", "foo.bar"],
       ["foo.bar.baz", "foo.bar.baz"],
       ["Foo Bar", "foo-bar"],
+      ["foo_bar", "foo-bar"],
+      ["foo_bar_baz", "foo-bar-baz"],
     ];
     SPECS.forEach(([input, expected]) => {
       it(`should convert ${input} to ${expected}`, () => {

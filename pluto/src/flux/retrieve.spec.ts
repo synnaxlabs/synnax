@@ -43,7 +43,9 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.status.message).toEqual("Retrieved Resource");
+          expect(result.current.status.message).toEqual(
+            "Successfully retrieved Resource",
+          );
         });
       });
 
@@ -100,9 +102,9 @@ describe("retrieve", () => {
           Store
         >({
           name: "Resource",
-          retrieve: async ({ client, params: { key } }) =>
+          retrieve: async ({ client, query: { key } }) =>
             await client.labels.retrieve({ key }),
-          mountListeners: ({ store, onChange, params: { key } }) =>
+          mountListeners: ({ store, onChange, query: { key } }) =>
             store.labels.onSet(onChange, key),
         });
 
@@ -139,9 +141,9 @@ describe("retrieve", () => {
       const { result } = renderHook(
         () => {
           const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.pendingResult<number>("Resource", "retrieving", undefined),
+            Flux.loadingResult<number>("retrieving Resource", undefined),
           );
-          const handleChange: Flux.useRetrieveEffectArgs<
+          const handleChange: Flux.UseRetrieveEffectParams<
             { key: string },
             number
           >["onChange"] = (value) => {
@@ -153,7 +155,7 @@ describe("retrieve", () => {
             retrieve: async () => 12,
           });
           useRetrieveEffect({
-            params: { key: "test" },
+            query: { key: "test" },
             onChange: handleChange,
           });
           return result;

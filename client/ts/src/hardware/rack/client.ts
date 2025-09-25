@@ -59,11 +59,11 @@ const singleRetrieveArgsZ = z.union([
     })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
 ]);
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 
 const multiRetrieveArgsZ = retrieveReqZ;
 
-export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 
@@ -76,7 +76,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 export class Client {
-  readonly type = "rack";
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
 
@@ -110,8 +109,8 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Rack>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Rack[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Rack>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Rack[]>;
   async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
     const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(
