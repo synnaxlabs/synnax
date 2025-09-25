@@ -28,10 +28,9 @@ import { type Optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
+import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { type Device } from "@/hardware/opc/device/types";
 import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
-
-import { retrieveScanTask } from "./useRetrieveScanTask";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,

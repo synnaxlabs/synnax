@@ -1702,9 +1702,8 @@ export class DataType
     return others.some((o) => this.equals(o));
   }
 
-  /** @returns a string representation of the DataType. */
-  toString(): string;
-  toString(short?: boolean): string;
+  /** @returns a string representation of the DataType. If short is true, a 1-4
+   * character representation (i64, str, etc.) is returned instead. */
   toString(short: boolean = false): string {
     if (short) return DataType.SHORT_STRINGS.get(this.valueOf()) ?? this.valueOf();
     return this.valueOf();
@@ -1849,11 +1848,11 @@ export class DataType
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
-  /** Represents a boolean value. Alias for UINT8. */
+  /** Represents a boolean value. Stored as a 8-bit unsigned integer. */
   static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
-  /** Represents a UUID data type */
+  /** Represents a UUID data type. */
   static readonly UUID = new DataType("uuid");
   /** Represents a string data type. Strings have an unknown density, and are separate
    * by a newline character. */
