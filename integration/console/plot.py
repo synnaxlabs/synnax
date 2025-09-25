@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Dict, List, Union, Literal
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Union
 
 from playwright.sync_api import Page
 
@@ -32,7 +32,9 @@ class Plot(ConsolePage):
             "X1": None,
         }
 
-    def add_Y(self, axis: Literal["Y1", "Y2"], channel_ids: Union[str, List[str]]) -> None:
+    def add_Y(
+        self, axis: Literal["Y1", "Y2"], channel_ids: Union[str, List[str]]
+    ) -> None:
 
         channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
 
@@ -123,17 +125,19 @@ class Plot(ConsolePage):
 
         raise RuntimeError(f"Could not find input field for {key}")
 
-    def _set_label_direction(self, direction: Literal["horizontal", "vertical"]) -> None:
+    def _set_label_direction(
+        self, direction: Literal["horizontal", "vertical"]
+    ) -> None:
         """Set label direction button."""
 
-        direction = "arrow-up" if direction == "vertical" else "arrow-right"
-        selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{direction}'])"
+        icon_direction: Literal["arrow-up", "arrow-right"] = (
+            "arrow-up" if direction == "vertical" else "arrow-right"
+        )
+        selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{icon_direction}'])"
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
         """Set label size button."""
 
-        selector = (
-            f"label:has-text('Label Size') + div button:has-text('{size}')"
-        )
+        selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)

@@ -8,16 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import random
 import re
 import time
-import random
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
-from .page import ConsolePage
 from .log import Log
+from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
 
@@ -71,10 +71,14 @@ class Console:
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
 
-
     @property
     def MODAL_OPEN(self) -> bool:
-        return self.page.locator("div.pluto-dialog__dialog.pluto--modal.pluto--visible").count() > 0
+        return (
+            self.page.locator(
+                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+            ).count()
+            > 0
+        )
 
     def select_from_dropdown(
         self, text: str, placeholder: Optional[str] = None
@@ -93,7 +97,9 @@ class Console:
         except Exception:
             raise RuntimeError(f"Could not find item '{text}' in dropdown")
 
-    def create_page(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
+    def create_page(
+        self, page_type: PageType, page_name: Optional[str] = None
+    ) -> tuple[Locator, str]:
         """
         Public method for creating a new page in one of two ways:
         - By the New Page (+) button
@@ -101,14 +107,20 @@ class Console:
         """
 
         if random.random() < 0.5:
-            page_tab, page_id = self._create_page_by_new_page_button(page_type, page_name)
+            page_tab, page_id = self._create_page_by_new_page_button(
+                page_type, page_name
+            )
         else:
-            page_tab, page_id = self._create_page_by_command_palette(page_type, page_name)
-    
+            page_tab, page_id = self._create_page_by_command_palette(
+                page_type, page_name
+            )
+
         return page_tab, page_id
 
-    def _create_page_by_new_page_button(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
-        """ Create a new page via the New Page (+) button. """
+    def _create_page_by_new_page_button(
+        self, page_type: PageType, page_name: Optional[str] = None
+    ) -> tuple[Locator, str]:
+        """Create a new page via the New Page (+) button."""
 
         self.page.locator(".pluto-icon--add").first.click()  # (+)
         self.page.get_by_role("button", name=page_type).first.click()
@@ -137,7 +149,9 @@ class Console:
 
         return page_tab, page_id
 
-    def _handle_new_page(self, page_type: PageType, page_name: Optional[str] = None) -> tuple[Locator, str]:
+    def _handle_new_page(
+        self, page_type: PageType, page_name: Optional[str] = None
+    ) -> tuple[Locator, str]:
         """Handle the new page creation"""
         if self.MODAL_OPEN:
             page_name = page_name or page_type
@@ -165,9 +179,11 @@ class Console:
         Close a page by name.
         Ignore unsaved changes.
         """
-        tab = self.page.locator("div").filter(
-            has_text=re.compile(f"^{re.escape(page_name)}$")
-        ).first
+        tab = (
+            self.page.locator("div")
+            .filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
+            .first
+        )
         tab.get_by_label("pluto-tabs__close").click()
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:

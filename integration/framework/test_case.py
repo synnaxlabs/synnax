@@ -23,6 +23,10 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from selectors import SelectorKey
+from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
+
+import synnax as sy
+
 from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
@@ -30,9 +34,6 @@ from framework.utils import (
     is_websocket_error,
     validate_and_sanitize_name,
 )
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
-
-import synnax as sy
 
 # Error filter
 sys.excepthook = ignore_websocket_errors

@@ -24,11 +24,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from framework.utils import is_ci, validate_and_sanitize_name
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import synnax as sy
+
+from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
+from framework.utils import is_ci, validate_and_sanitize_name
 
 
 class STATE(Enum):

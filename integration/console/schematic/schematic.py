@@ -17,7 +17,7 @@ from .symbol import Symbol
 from .value import Value
 
 if TYPE_CHECKING:
-    from test.console.console import Console
+    from console.console import Console
 
 
 class Schematic(ConsolePage):

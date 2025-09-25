@@ -10,12 +10,12 @@
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Optional, cast, Literal
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 if TYPE_CHECKING:
-    from .console import Console
+    from .console import Console, PageType
 
 
 class ConsolePage:
@@ -26,7 +26,7 @@ class ConsolePage:
         self.console = console
 
         # Page identification - subclasses should set these
-        self.page_type: str = ""
+        self.page_type: "PageType" = "Log"  # Default, overridden by subclasses
         self.pluto_label: str = ""
         self.tab_locator: Optional[Locator] = None
         self.pane_locator: Optional[Locator] = None

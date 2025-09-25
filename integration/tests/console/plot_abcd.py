@@ -40,16 +40,16 @@ class Plot_Abcd(ConsoleCase):
                 "Lower Bound": -0.005,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
-            }
+            },
         )
         console.plot.set_axis(
             "Y2",
             {
                 "Tick Spacing": 100,
-            }
+            },
         )
         self.wait_for_tlm_stale()
-        
+
         # Reset after auto adjust
         console.plot.set_axis(
             "Y1",
@@ -57,12 +57,12 @@ class Plot_Abcd(ConsoleCase):
                 "Lower Bound": -0.05,
                 "Upper Bound": 0.08,
                 "Tick Spacing": 50,
-            }
+            },
         )
         console.plot.set_axis(
             "Y2",
             {
                 "Tick Spacing": 100,
-            }
+            },
         )
         console.plot.screenshot()

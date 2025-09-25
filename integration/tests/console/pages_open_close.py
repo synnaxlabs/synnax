@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
+from console.console import PageType
+
 
 class Pages_Open_Close(ConsoleCase):
     """
@@ -20,7 +22,7 @@ class Pages_Open_Close(ConsoleCase):
         """
         console = self.console
 
-        pages = [
+        pages: list[PageType] = [
             "Control Sequence",
             "Schematic",
             "Line Plot",
@@ -36,7 +38,7 @@ class Pages_Open_Close(ConsoleCase):
             "OPC UA Write Task",
         ]
 
-        pages_renamed = [
+        pages_renamed: list[tuple[PageType, str]] = [
             ("Control Sequence", "CS"),
             ("Schematic", "S_Name"),
             ("Line Plot", "L_Name"),
@@ -59,22 +61,22 @@ class Pages_Open_Close(ConsoleCase):
             console.close_page(p)
 
         self._log_message("(2/6) Create pages (Custom names)")
-        for p in pages_renamed:
-            console.create_page(p[0], p[1])
-        for p in pages_renamed:
-            console.close_page(p[1])
+        for page_type, page_name in pages_renamed:
+            console.create_page(page_type, page_name)
+        for page_type, page_name in pages_renamed:
+            console.close_page(page_name)
 
-        self._log_message("(3/6) Create pages by cmd palette (Default names)")        
+        self._log_message("(3/6) Create pages by cmd palette (Default names)")
         for p in pages:
             console._create_page_by_command_palette(p)
         for p in pages:
             console.close_page(p)
 
         self._log_message("(4/6) Create pages by cmd palette (Custom names)")
-        for p in pages_renamed:
-            console._create_page_by_command_palette(p[0], p[1])
-        for p in pages_renamed:
-            console.close_page(p[1])
+        for page_type, page_name in pages_renamed:
+            console._create_page_by_command_palette(page_type, page_name)
+        for page_type, page_name in pages_renamed:
+            console.close_page(page_name)
 
         self._log_message("(5/6) Create pages by (+) button (Default names)")
         for p in pages:
@@ -83,15 +85,16 @@ class Pages_Open_Close(ConsoleCase):
             console.close_page(p)
 
         self._log_message("(6/6) Create pages by (+) button (Custom names)")
-        for p in pages_renamed:
-            console._create_page_by_command_palette(p[0], p[1])
-        for p in pages_renamed:
-            console.close_page(p[1])
+        for page_type, page_name in pages_renamed:
+            console._create_page_by_command_palette(page_type, page_name)
+        for page_type, page_name in pages_renamed:
+            console.close_page(page_name)
 
         # Opened at startup
         console.close_page("Get Started")
 
-        # Should see "New Component" if all pages closed successfully    
+        # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0
-        assert pass_condition, "Some pages were not closed - 'New Component' screen not visible"
-
+        assert (
+            pass_condition
+        ), "Some pages were not closed - 'New Component' screen not visible"

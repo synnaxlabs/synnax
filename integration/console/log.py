@@ -30,10 +30,11 @@ class Log(ConsolePage):
         self.page_type = "Log"
         self.pluto_label = ".pluto-log"
 
-    def new(self, channel_name: Optional[ChannelName] = None) -> None:
-        super().new()
+    def new(self, channel_name: Optional[ChannelName] = None) -> str:
+        page_id = super().new()
         if channel_name is not None:
             self.set_channel(channel_name)
+        return page_id
 
     def set_channel(self, channel_name: str) -> None:
         self.console.click_btn("Channel")
