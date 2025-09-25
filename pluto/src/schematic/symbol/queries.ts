@@ -226,7 +226,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, store, rollbacks }) => {
     const { key, name } = data;
     await client.workspaces.schematics.symbols.rename(key, name);
-    rollbacks.add(
+    rollbacks.push(
       store.schematicSymbols.set(
         key,
         state.skipNull((p) => ({ ...p, name })),
@@ -242,7 +242,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    rollbacks.add(store.schematicSymbols.delete(data));
+    rollbacks.push(store.schematicSymbols.delete(data));
     await client.workspaces.schematics.symbols.delete(data);
     return data;
   },

@@ -65,7 +65,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const keys = array.toArray(data);
     const ids = keys.map((k) => lineplot.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.lineplots.delete(data);
     return data;
   },
@@ -101,8 +101,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    rollbacks.add(Flux.partialUpdate(store.lineplots, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
+    rollbacks.push(Flux.partialUpdate(store.lineplots, key, { name }));
+    rollbacks.push(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
     await client.workspaces.lineplots.rename(key, name);
     return data;
   },

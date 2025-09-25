@@ -222,7 +222,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
   verbs: MOVE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { source, destination, ids } = data;
-    rollbacks.add(
+    rollbacks.push(
       store.relationships.delete((rel) =>
         ids.some((id) =>
           ontology.matchRelationship(rel, {
@@ -239,7 +239,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: id,
       };
-      rollbacks.add(store.relationships.set(ontology.relationshipToString(rel), rel));
+      rollbacks.push(store.relationships.set(ontology.relationshipToString(rel), rel));
     });
     await client.ontology.moveChildren(source, destination, ...ids);
     return data;

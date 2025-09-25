@@ -65,7 +65,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const keys = array.toArray(data);
     const ids = keys.map((k) => table.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
+    rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.tables.delete(data);
     return data;
   },
@@ -105,8 +105,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
     await client.workspaces.tables.rename(key, name);
-    rollbacks.add(Flux.partialUpdate(store.tables, key, { name }));
-    rollbacks.add(Ontology.renameFluxResource(store, table.ontologyID(key), name));
+    rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
+    rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
     return data;
   },
 });

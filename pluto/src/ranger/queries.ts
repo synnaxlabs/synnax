@@ -810,13 +810,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, name } = data;
-    rollbacks.add(
+    rollbacks.push(
       store.ranges.set(
         key,
         state.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
-    rollbacks.add(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
+    rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
     await client.ranges.rename(key, name);
     return data;
   },

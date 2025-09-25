@@ -44,8 +44,8 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const keys = array.toArray(data);
     const ids = keys.map((k) => user.ontologyID(k));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.add(store.relationships.delete(relFilter));
-    rollbacks.add(store.resources.delete(ontology.idToString(ids)));
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     await client.users.delete(keys);
     return data;
   },
@@ -80,7 +80,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<
     const { key, username } = data;
     await client.users.changeUsername(key, username);
     const id = user.ontologyID(key);
-    rollbacks.add(
+    rollbacks.push(
       store.resources.set(
         ontology.idToString(id),
         state.skipNull((r) => ({ ...r, username })),
