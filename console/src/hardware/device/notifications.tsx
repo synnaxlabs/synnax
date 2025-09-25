@@ -27,7 +27,7 @@ const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
       {status.message}
     </Text.Text>
   );
-  if (make)
+  if (make != null)
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
   return sugared;
 };
@@ -46,6 +46,4 @@ const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
-  notificationAdapter,
-];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

@@ -16,6 +16,7 @@ import {
   Nav,
   Rack,
   Status,
+  Task,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -26,12 +27,14 @@ import {
   type Properties,
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
-import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/modbus/task/types";
+import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/hardware/modbus/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-
-import { retrieveScanTask } from "./useRetrieveScanTask";
 
 export const CONNECT_LAYOUT_TYPE = "configureModbusServer";
 
@@ -79,7 +82,12 @@ const beforeSave = async ({
   typeof Device.formSchema,
   Device.FluxSubStore
 >) => {
-  const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
+  const scanTask = await Task.retrieveSingle({
+    client,
+    store,
+    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    schemas: SCAN_SCHEMAS,
+  });
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TimeSpan.seconds(10),
