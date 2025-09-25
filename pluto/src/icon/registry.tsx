@@ -571,7 +571,6 @@ const icons = {
   None,
   Constant,
   Terminal,
-  Effect: Arc,
   Arc,
   Select,
   Notification,

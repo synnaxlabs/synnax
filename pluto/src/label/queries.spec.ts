@@ -394,7 +394,7 @@ describe("queries", () => {
             { name: "label2", color: "#00FF00" },
           ]);
           const { result } = renderHook(
-            () => Label.useList({ initialParams: { keys: labels.map((l) => l.key) } }),
+            () => Label.useList({ initialQuery: { keys: labels.map((l) => l.key) } }),
             { wrapper },
           );
           result.current.retrieve({});
@@ -498,7 +498,7 @@ describe("queries", () => {
       const { result } = renderHook(Label.useDelete, { wrapper });
 
       act(() => {
-        result.current.update({ key: labelToDelete.key });
+        result.current.update(labelToDelete.key);
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -522,12 +522,12 @@ describe("queries", () => {
       const { result: result2 } = renderHook(Label.useDelete, { wrapper });
 
       act(() => {
-        result1.current.update({ key: label1.key });
+        result1.current.update(label1.key);
       });
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
       act(() => {
-        result2.current.update({ key: label2.key });
+        result2.current.update(label2.key);
       });
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
 

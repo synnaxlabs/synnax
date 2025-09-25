@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -18,7 +19,7 @@ describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.workspaces.table.create(ws.key, {
+      const table = await client.workspaces.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
       });
@@ -30,36 +31,38 @@ describe("Table", () => {
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.workspaces.table.create(ws.key, {
+      const table = await client.workspaces.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.table.rename(table.key, "Table2");
-      const res = await client.workspaces.table.retrieve(table.key);
+      await client.workspaces.tables.rename(table.key, "Table2");
+      const res = await client.workspaces.tables.retrieve({ key: table.key });
       expect(res.name).toEqual("Table2");
     });
   });
   describe("setData", () => {
     test("set data", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.workspaces.table.create(ws.key, {
+      const table = await client.workspaces.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.table.setData(table.key, { two: 2 });
-      const res = await client.workspaces.table.retrieve(table.key);
+      await client.workspaces.tables.setData(table.key, { two: 2 });
+      const res = await client.workspaces.tables.retrieve({ key: table.key });
       expect(res.data.two).toEqual(2);
     });
   });
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.workspaces.table.create(ws.key, {
+      const table = await client.workspaces.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.table.delete(table.key);
-      await expect(client.workspaces.table.retrieve(table.key)).rejects.toThrow();
+      await client.workspaces.tables.delete(table.key);
+      await expect(
+        client.workspaces.tables.retrieve({ key: table.key }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

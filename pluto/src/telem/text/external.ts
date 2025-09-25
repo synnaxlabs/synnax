@@ -9,5 +9,4 @@
 
 export * from "@/telem/text/TimeRange";
 export * from "@/telem/text/TimeSpan";
-export * from "@/telem/text/TimeSpanSince";
 export * from "@/telem/text/TimeStamp";

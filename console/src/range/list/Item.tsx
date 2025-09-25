@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/list/Item.css";
-
-import { type ranger } from "@synnaxlabs/client";
+import { type ranger, UnexpectedError } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
@@ -23,7 +21,7 @@ import {
   Telem,
 } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -38,7 +36,7 @@ export interface ItemProps extends List.ItemProps<ranger.Key> {
   showFavorite?: boolean;
 }
 
-export const Item = ({
+const Base = ({
   showParent = true,
   showLabels = true,
   showTimeRange = true,
@@ -49,7 +47,7 @@ export const Item = ({
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
-  if (getItem == null) throw new Error("getItem is null");
+  if (getItem == null) throw new UnexpectedError("getItem is null");
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return null;
@@ -60,20 +58,19 @@ export const Item = ({
       timeRange: item.timeRange.numeric,
     };
   }, [item]);
+  const { form } = Ranger.useForm({
+    params: {},
+    initialValues: initialValues ?? undefined,
+    sync: true,
+    autoSave: true,
+  });
+  const menuProps = Menu.useContextMenu();
   if (initialValues == null || item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
 
-  const { form } = Ranger.useForm({
-    params: {},
-    initialValues,
-    sync: true,
-    autoSave: true,
-  });
-
   const handleSelect = () => placeLayout({ ...OVERVIEW_LAYOUT, name, key: itemKey });
 
-  const menuProps = Menu.useContextMenu();
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"))}
@@ -110,7 +107,6 @@ export const Item = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
-                  location="bottom"
                   onClick={stopPropagation}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
@@ -125,15 +121,17 @@ export const Item = ({
           </Flex.Box>
         </Flex.Box>
         <Flex.Box x align="center">
-          <Tag.Tags variant="text">
-            {showLabels &&
-              labels != null &&
-              labels.map(({ key, name, color }) => (
-                <Tag.Tag key={key} color={color} size="small">
-                  {name}
-                </Tag.Tag>
-              ))}
-          </Tag.Tags>
+          {showLabels && labels != null && labels.length > 0 && (
+            <Tag.Tags variant="text">
+              {showLabels &&
+                labels != null &&
+                labels.map(({ key, name, color }) => (
+                  <Tag.Tag key={key} color={color} size="small">
+                    {name}
+                  </Tag.Tag>
+                ))}
+            </Tag.Tags>
+          )}
           {showTimeRange && (
             <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
@@ -143,3 +141,5 @@ export const Item = ({
     </List.Item>
   );
 };
+
+export const Item = memo(Base);

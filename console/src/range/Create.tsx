@@ -79,9 +79,7 @@ export const Create: Layout.Renderer = (props) => {
       if (key == null) return;
       dispatch(
         add({
-          ranges: [
-            { name, key, persisted: true, variant: "static", timeRange },
-          ],
+          ranges: [{ name, key, persisted: true, variant: "static", timeRange }],
         }),
       );
     },
@@ -134,7 +132,7 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<NumericTimeRange> path="timeRange" required={false}>
+          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
             {(p) => (
               <Ranger.SelectStage
                 {...Ranger.wrapNumericTimeRangeToStage(p)}
@@ -169,9 +167,7 @@ export const Create: Layout.Renderer = (props) => {
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => (
-                <Label.SelectMultiple zIndex={100} {...p} />
-              )}
+              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Flex.Box>
         </Form.Form>
@@ -179,10 +175,7 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            onClick={() => saveLocal()}
-            disabled={variant === "loading"}
-          >
+          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button

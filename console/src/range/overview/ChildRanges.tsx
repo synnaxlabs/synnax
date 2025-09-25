@@ -20,8 +20,8 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const placeLayout = Layout.usePlacer();
-  const { data, getItem, subscribe, retrieve } = Ranger.useChildren({
-    initialParams: { key: rangeKey },
+  const { data, getItem, subscribe, retrieve } = Ranger.useListChildren({
+    initialQuery: { key: rangeKey },
   });
   return (
     <Flex.Box y>

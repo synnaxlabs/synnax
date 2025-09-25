@@ -6,9 +6,12 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+//
+import "@/range/list/List.css";
 
 import { type ranger } from "@synnaxlabs/client";
 import {
+  Button,
   Flex,
   type Flux,
   Icon,
@@ -17,8 +20,10 @@ import {
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/range/Create";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
@@ -30,6 +35,7 @@ export interface ListProps
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
   enableFilters?: boolean;
+  enableAddButton?: boolean;
   initialRequest?: ranger.RetrieveRequest;
 }
 
@@ -40,6 +46,7 @@ export const List = ({
   retrieve,
   enableSearch = false,
   enableFilters = false,
+  enableAddButton = false,
   showParent = true,
   showLabels = true,
   showTimeRange = true,
@@ -48,22 +55,33 @@ export const List = ({
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
-    retrieve(setter);
-    setRequest(setter);
-  };
-  const handleSearch = (term: string) =>
-    handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
-  const handleFetchMore = () => handleRequestChange(PList.page);
+  const handleRequestChange = useCallback(
+    (setter: state.SetArg<ranger.RetrieveRequest>, opts?: Flux.AsyncListOptions) => {
+      retrieve(setter, opts);
+      setRequest(setter);
+    },
+    [retrieve],
+  );
+  const handleSearch = useCallback(
+    (term: string) =>
+      handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term)),
+    [handleRequestChange],
+  );
+  const handleFetchMore = useCallback(
+    () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
+    [handleRequestChange],
+  );
   return (
     <Select.Frame<ranger.Key, ranger.Range>
       multiple
       data={data}
+      virtual
       getItem={getItem}
       subscribe={subscribe}
       onChange={setSelected}
       value={selected}
       onFetchMore={handleFetchMore}
+      itemHeight={45}
     >
       {enableSearch && (
         <Flex.Box
@@ -86,9 +104,10 @@ export const List = ({
             }
             onChange={handleSearch}
           />
+          {enableAddButton && <AddButton />}
         </Flex.Box>
       )}
-      {enableFilters && (
+      {(enableFilters || enableAddButton) && (
         <Flex.Box
           x
           bordered
@@ -96,11 +115,15 @@ export const List = ({
           background={1}
           justify="between"
         >
-          <SelectFilters request={request} onRequestChange={handleRequestChange} />
-          <Filters request={request} onRequestChange={handleRequestChange} />
+          {enableFilters && (
+            <>
+              <SelectFilters request={request} onRequestChange={handleRequestChange} />
+              <Filters request={request} onRequestChange={handleRequestChange} />
+            </>
+          )}
         </Flex.Box>
       )}
-      <PList.Items<string>>
+      <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>
         {({ key, ...rest }) => (
           <Item
             key={key}
@@ -113,5 +136,14 @@ export const List = ({
         )}
       </PList.Items>
     </Select.Frame>
+  );
+};
+
+const AddButton = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  return (
+    <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
+      <Icon.Add />
+    </Button.Button>
   );
 };

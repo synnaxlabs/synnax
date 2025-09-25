@@ -55,11 +55,7 @@ const ParentRangeButton = ({
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placeLayout({
-            ...OVERVIEW_LAYOUT,
-            key: parent.key,
-            name: parent.name,
-          })
+          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
         <Icon />
@@ -89,12 +85,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
-  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>(
-    "name",
-    {
-      ctx: form,
-    },
-  );
+  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
+    ctx: form,
+  });
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
@@ -159,7 +152,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
-
           <Flex.Box x style={{ height: "fit-content" }} gap="small">
             <Button.Button
               tooltip={`Copy Python code to retrieve ${name}`}
@@ -195,9 +187,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 handleError(async () => {
                   await promptDownloadCSVModal(
                     {
-                      timeRanges: [
-                        form.get<NumericTimeRange>("timeRange").value,
-                      ],
+                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
                       name,
                     },
                     { icon: "Range" },
@@ -212,36 +202,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
-          <Form.Field<number>
-            path="timeRange.start"
-            padHelpText={false}
-            label="From"
-          >
+          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
-              <Input.DateTime
-                level="h4"
-                variant="text"
-                onlyChangeOnBlur
-                {...p}
-              />
+              <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Icon.Arrow.Right
-            style={{ width: "3rem", height: "3rem" }}
-            color={9}
-          />
-          <Form.Field<number>
-            padHelpText={false}
-            path="timeRange.end"
-            label="To"
-          >
+          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
+          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
-              <Input.DateTime
-                onlyChangeOnBlur
-                level="h4"
-                variant="text"
-                {...p}
-              />
+              <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
             )}
           </Form.Field>
         </Flex.Box>

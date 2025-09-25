@@ -9,5 +9,6 @@
 
 export * from "@/schematic/edge";
 export * from "@/schematic/Schematic";
+export * from "@/schematic/queries";
 export * from "@/schematic/symbol";
 export { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";

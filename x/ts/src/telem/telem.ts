@@ -16,6 +16,9 @@ import { type bounds } from "@/spatial";
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";
 
+const SIMPLE_DAYS_IN_YEAR = 365;
+const SIMPLE_DAYS_IN_MONTH = 30;
+
 /** Different string formats for time stamps. */
 export type TimeStampStringFormat =
   | "ISO"
@@ -107,7 +110,7 @@ export class TimeStamp
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
         if (isFinite(value))
-          if (value === 2 ** 63 - 1) value = 2n ** 63n - 1n;
+          if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
           else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
@@ -482,8 +485,8 @@ export class TimeStamp
   }
 
   /**
-   * @reutrns the integer millisecond that the timestamp corresponds to within
-   * its second.
+   * @returns the integer millisecond that the timestamp corresponds to within its
+   * second.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
@@ -658,7 +661,7 @@ export class TimeStamp
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
+  static readonly MAX = new TimeStamp(math.MAX_INT64);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -854,30 +857,30 @@ export class TimeSpan
     const totalMinutes = span.minutes;
     const totalSeconds = span.seconds;
 
-    const years = Math.floor(totalDays / 365);
-    const months = Math.floor(totalDays / 30);
+    const years = Math.floor(totalDays / SIMPLE_DAYS_IN_YEAR);
+    const months = Math.floor(totalDays / SIMPLE_DAYS_IN_MONTH);
     const weeks = Math.floor(totalDays / 7);
     const days = Math.floor(totalDays);
     const hours = Math.floor(totalHours);
     const minutes = Math.floor(totalMinutes);
     const seconds = Math.floor(totalSeconds);
 
-    let result = "";
+    const prefix = isNegative ? "-" : "";
 
     if (years >= 1) {
-      result = `${years}y`;
+      let result = `${years}y`;
       if (years < 2) {
-        const remainingMonths = Math.floor((totalDays % 365) / 30);
+        const remainingMonths = Math.floor(
+          (totalDays % SIMPLE_DAYS_IN_YEAR) / SIMPLE_DAYS_IN_MONTH,
+        );
         if (remainingMonths > 0) result += ` ${remainingMonths}mo`;
       }
-    } else if (months >= 1) {
-      result = `${months}mo`;
-      if (months < 3) {
-        const remainingDays = Math.floor(totalDays % 30);
-        if (remainingDays > 0) result += ` ${remainingDays}d`;
-      }
-    } else if (weeks >= 1) {
-      result = `${weeks}w`;
+      return prefix + result;
+    }
+
+    // For durations less than 1 month (30 days), prefer weeks if it's exactly divisible
+    if (weeks >= 1 && totalDays < SIMPLE_DAYS_IN_MONTH && totalDays % 7 === 0) {
+      let result = `${weeks}w`;
       const remainingDays = Math.floor(totalDays % 7);
       const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
 
@@ -886,25 +889,59 @@ export class TimeSpan
         else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
           // Only hours remaining after full weeks (e.g., "1w 1h")
           result += ` ${remainingHoursAfterWeeks}h`;
-    } else if (days >= 1) {
-      result = `${days}d`;
+
+      return prefix + result;
+    }
+
+    if (months >= 1) {
+      let result = `${months}mo`;
+      if (months < 3) {
+        const remainingDays = Math.floor(totalDays % SIMPLE_DAYS_IN_MONTH);
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+      }
+      return prefix + result;
+    }
+
+    if (weeks >= 1) {
+      let result = `${weeks}w`;
+      const remainingDays = Math.floor(totalDays % 7);
+      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
+
+      if (weeks < 2)
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
+          // Only hours remaining after full weeks (e.g., "1w 1h")
+          result += ` ${remainingHoursAfterWeeks}h`;
+
+      return prefix + result;
+    }
+
+    if (days >= 1) {
+      let result = `${days}d`;
       const remainingHours = Math.floor(totalHours - days * 24);
       if (days < 2 && remainingHours > 0) result += ` ${remainingHours}h`;
-    } else if (hours >= 1) {
-      result = `${hours}h`;
+      return prefix + result;
+    }
+
+    if (hours >= 1) {
+      let result = `${hours}h`;
       if (hours < 3) {
         const remainingMinutes = Math.floor(totalMinutes - hours * 60);
         if (remainingMinutes > 0) result += ` ${remainingMinutes}m`;
       }
-    } else if (minutes >= 1) {
-      result = `${minutes}m`;
+      return prefix + result;
+    }
+
+    if (minutes >= 1) {
+      let result = `${minutes}m`;
       if (minutes < 5) {
         const remainingSeconds = Math.floor(totalSeconds - minutes * 60);
         if (remainingSeconds > 0) result += ` ${remainingSeconds}s`;
       }
-    } else result = `${seconds}s`;
+      return prefix + result;
+    }
 
-    return isNegative ? `-${result}` : result;
+    return `${prefix}${seconds}s`;
   }
 
   /**
@@ -1090,7 +1127,7 @@ export class TimeSpan
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
+  static readonly MAX = new TimeSpan(math.MAX_INT64);
 
   /** The minimum possible value for a TimeSpan. */
   static readonly MIN = new TimeSpan(0);
@@ -1098,7 +1135,7 @@ export class TimeSpan
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
-  /** A zod schema for validating and transforming timespans */
+  /** A zod schema for validating and transforming time spans */
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
@@ -1567,9 +1604,6 @@ export class TimeRange implements primitive.Stringer {
 
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
-
-  /** The minimum possible time range. */
-  static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
 
   /** A time range whose start and end are both zero. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
@@ -2128,14 +2162,16 @@ export interface CrudeTimeRange {
   end: CrudeTimeStamp;
 }
 
+export const numericTimeRangeZ = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
 /**
  * A time range backed by numbers instead of TimeStamps/BigInts.
  * Involves a loss of precision, but can be useful for serialization.
  */
-export interface NumericTimeRange {
-  start: number;
-  end: number;
-}
+export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

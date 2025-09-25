@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Icon, Synnax } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -17,21 +15,13 @@ import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
-  const client = Synnax.use();
-  const group = useQuery({
-    queryKey: [client?.key, "device-group"],
-    queryFn: async () => {
-      if (client == null) return null;
-      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-      return res.filter((r) => r.name === "Devices")[0].id;
-    },
-  });
+  const { data: groupID } = Device.useRetrieveGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
       </Toolbar.Header>
-      <Ontology.Tree root={group.data} />
+      <Ontology.Tree root={groupID} />
     </Toolbar.Content>
   );
 };

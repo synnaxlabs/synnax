@@ -12,6 +12,7 @@ import {
   type CrudeTimeRange,
   type NumericTimeRange,
   TimeRange,
+  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -25,8 +26,8 @@ export const sortByStage = (a: ranger.Range, b: ranger.Range): number =>
   STAGES.indexOf(getStage(a.timeRange)) - STAGES.indexOf(getStage(b.timeRange));
 
 export const getStage = (timeRange: CrudeTimeRange): Stage => {
-  const now = TimeStamp.now();
   const tr = new TimeRange(timeRange).makeValid();
+  const now = TimeStamp.now();
   if (now.before(tr.start)) return "to_do";
   if (now.after(tr.end)) return "completed";
   return "in_progress";
@@ -60,7 +61,10 @@ export const wrapNumericTimeRangeToStage = ({
 }: WrapNumericTimeRangeToStageArgs): WrapNumericTimeRangeToStageReturn => ({
   value: getStage(value),
   onChange: (v: Stage) => {
-    const now = TimeStamp.now().nanoseconds;
+    // We subtract a millisecond here to avoid weird issues where you select "completed"
+    // but you actually get "in_progress" or "to_do" because of precision issues with
+    // numeric time ranges.
+    const now = TimeStamp.now().sub(TimeSpan.MILLISECOND).nanoseconds;
     const tr = new TimeRange(value).makeValid().numeric;
     switch (v) {
       case "to_do":

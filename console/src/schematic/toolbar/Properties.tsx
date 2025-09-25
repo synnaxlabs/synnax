@@ -105,13 +105,7 @@ const IndividualProperties = ({
         variant="filled"
         size="tiny"
         style={{ marginRight: "1rem" }}
-        onClick={() => {
-          placeLayout(
-            createEditLayout({
-              args: { key: specKey },
-            }),
-          );
-        }}
+        onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
       >
         <Icon.Edit />
       </Button.Button>

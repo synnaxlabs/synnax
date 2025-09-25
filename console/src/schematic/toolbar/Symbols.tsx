@@ -178,11 +178,12 @@ const RemoteSymbolListContextMenu = (
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
+      const { name } = data;
       if (item == null) return false;
       const newName = await renameModal(
         {
-          initialValue: value.name,
+          initialValue: name,
           allowEmpty: false,
           label: "Symbol Name",
         },
@@ -192,7 +193,7 @@ const RemoteSymbolListContextMenu = (
         },
       );
       if (newName == null) return false;
-      return value;
+      return data;
     },
   });
   const del = Schematic.Symbol.useDelete({
@@ -209,7 +210,7 @@ const RemoteSymbolListContextMenu = (
     );
   };
   const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update({ key: firstKey }),
+    delete: () => del.update(firstKey),
     rename: () => {
       if (item == null) return;
       rename.update(item);
@@ -270,7 +271,7 @@ const RemoteListEmptyContent = ({
 
 const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
-    initialParams: { parent: group.ontologyID(groupKey) },
+    initialQuery: { parent: group.ontologyID(groupKey) },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
@@ -302,7 +303,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement
 
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
-  const group = List.useItem<group.Key, group.Payload & { Icon?: Icon.FC }>(itemKey);
+  const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon: GroupIcon } = group;
@@ -441,22 +442,23 @@ const GroupListContextMenu = ({
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
-  const item = List.useItem<group.Key, group.Payload>(firstKey);
+  const item = List.useItem<group.Key, group.Group>(firstKey);
   const renameModal = Modals.useRename();
   const exportGroup = useExportGroup();
   const deleteSymbolGroup = useDeleteSymbolGroup();
   const rename = Group.useRename({
-    beforeUpdate: async ({ value }) => {
+    beforeUpdate: async ({ data }) => {
+      const { name } = data;
       if (item == null) return false;
       const newName = await renameModal(
-        { initialValue: value.name, allowEmpty: false, label: "Group Name" },
+        { initialValue: name, allowEmpty: false, label: "Group Name" },
         {
           name: "Schematic.Symbols.Rename Group",
           icon: "Group",
         },
       );
       if (newName == null) return false;
-      return value;
+      return data;
     },
   });
 
@@ -500,18 +502,18 @@ const GroupList = ({
   onChange,
   symbolGroupID,
 }: GroupListProps): ReactElement => {
-  const staticData = List.useStaticData<group.Key, group.Payload>({
+  const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Symbol.GROUPS,
   });
-  const remoteData = Group.useList({ initialParams: { parent: symbolGroupID } });
+  const remoteData = Group.useList({ initialQuery: { parent: symbolGroupID } });
   useEffect(
     () => remoteData.retrieve({ parent: symbolGroupID }),
-    [remoteData, symbolGroupID],
+    [remoteData.retrieve, symbolGroupID],
   );
   const data = List.useCombinedData({ first: staticData, second: remoteData });
   const menuProps = Menu.useContextMenu();
   return (
-    <Select.Frame<group.Key, group.Payload>
+    <Select.Frame<group.Key, group.Group>
       {...data}
       value={value}
       onChange={onChange}
@@ -551,7 +553,7 @@ const SearchSymbolList = ({
   onSelect,
 }: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList({
-    initialParams: { searchTerm },
+    initialQuery: { searchTerm },
   });
   const staticData = List.useStaticData<string, Schematic.Symbol.Spec>({
     data: ALL_STATIC_SYMBOLS,

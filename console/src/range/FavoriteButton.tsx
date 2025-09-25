@@ -14,9 +14,9 @@ import { Button, Icon, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { fromClientRange } from "@/range/ContextMenu";
 import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
+import { fromClientRange } from "@/range/translate";
 
 export interface FavoriteButtonProps extends Button.ButtonProps {
   range: ranger.Range;
@@ -26,17 +26,15 @@ export const FavoriteButton = ({ range, ghost, ...rest }: FavoriteButtonProps) =
   const sliceRange = useSelect(range.key);
   const dispatch = useDispatch();
   const starred = sliceRange != null;
-  const handleStar = () => {
+  const handleStar = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     if (!starred) dispatch(add({ ranges: fromClientRange(range) }));
     else dispatch(remove({ keys: [range.key] }));
   };
   return (
     <Button.Button
       className={CSS(CSS.BE("range", "favorite-button"), starred && CSS.M("favorite"))}
-      onClick={(e) => {
-        e.stopPropagation();
-        handleStar();
-      }}
+      onClick={handleStar}
       tooltip={
         <Text.Text level="small" color={10}>
           {starred ? "Remove from" : "Add to"} Favorites

@@ -53,5 +53,5 @@ export const useCombinedData = <
     },
     [first.subscribe, second.subscribe],
   );
-  return { data, getItem, subscribe };
+  return useMemo(() => ({ data, getItem, subscribe }), [data, getItem, subscribe]);
 };
