@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
@@ -33,7 +33,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     );
     this.renderAxis(props, dataToDecimal.reverse());
     this.renderYAxes(props, dataToDecimal);
-    this.renderRangeAnnotations(props, dataToDecimal);
+    this.renderRanges(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -74,7 +74,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return this.childrenOfType<YAxis>(YAxis.TYPE);
   }
 
-  get rangeAnnotations(): readonly range.Provider[] {
+  get ranges(): readonly range.Provider[] {
     return this.childrenOfType<range.Provider>(range.Provider.TYPE);
   }
 
@@ -84,17 +84,19 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  private renderRangeAnnotations(
+  private renderRanges(
     props: XAxisRenderProps,
     xDataToDecimalScale: scale.Scale,
   ): void {
     const bound = this.bounds(props.hold);
-    this.rangeAnnotations.forEach((el) =>
+    const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
+    const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
+    this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,
-        timeRange: new TimeRange(bound.lower, bound.upper),
+        timeRange,
       }),
     );
   }

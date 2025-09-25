@@ -8,16 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { type CrudeTimeRange } from "@synnaxlabs/x";
 
 import { Breadcrumb as Core } from "@/breadcrumb";
+import { StageIcon } from "@/ranger/StageIcon";
 
 export interface BreadcrumbProps extends Omit<Core.BreadcrumbProps, "children"> {
+  timeRange?: CrudeTimeRange;
   name: string;
   showParent?: boolean;
   parent?: Pick<ranger.Payload, "name"> | null;
 }
 
 export const Breadcrumb = ({
+  timeRange,
   name,
   parent,
   showParent = true,
@@ -25,6 +29,7 @@ export const Breadcrumb = ({
 }: BreadcrumbProps) => (
   <Core.Breadcrumb {...rest}>
     <Core.Segment weight={450} color={10}>
+      {timeRange != null && <StageIcon timeRange={timeRange} />}
       {name}
     </Core.Segment>
     {parent != null && showParent && (

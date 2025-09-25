@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
+import { type List } from "@/list";
 import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { state } from "@/state";
@@ -141,8 +142,8 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
-export interface ListChildrenQuery {
-  key: ranger.Key;
+export interface ListChildrenQuery extends List.PagerParams {
+  key?: ranger.Key;
 }
 
 const handleListLabelRelationshipSet = async (
@@ -201,6 +202,7 @@ export const useListChildren = Flux.createList<
 >({
   name: PLURAL_CHILDREN_RESOURCE_NAME,
   retrieve: async ({ client, query: { key }, store }) => {
+    if (key == null) return [];
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });
@@ -471,7 +473,12 @@ export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
+  timeRange: z
+    .object({ start: z.number(), end: z.number() })
+    .refine(({ start, end }) => end >= start, {
+      error: "End time must be after start time",
+      path: ["end"],
+    }),
 });
 
 export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> => ({

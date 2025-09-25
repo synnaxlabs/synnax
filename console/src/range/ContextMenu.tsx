@@ -118,7 +118,7 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-export const addChildRangeMenuItem = (
+export const createChildRangeMenuItem = (
   <PMenu.Item itemKey="addChildRange">
     <CreateChildRangeIcon key="plot" />
     Create Child Range
@@ -245,14 +245,14 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           {rng.persisted && viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />
-          {rng.persisted && addChildRangeMenuItem}
+          {rng.persisted && createChildRangeMenuItem}
           <PMenu.Divider />
           {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
           {addToNewPlotMenuItem}
           <PMenu.Divider />
           <PMenu.Item itemKey="remove">
             <Icon.Close />
-            Remove from List
+            Remove from Favorites
           </PMenu.Item>
           {rng.persisted ? (
             <>

@@ -17,6 +17,7 @@ import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
+import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -38,8 +39,12 @@ import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,
 };
 
 export const render = (): void => {

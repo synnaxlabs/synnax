@@ -240,7 +240,7 @@ export class Client {
 
   async retrieve(params: Key | Name): Promise<Range>;
   async retrieve(params: Keys | Names): Promise<Range[]>;
-  async retrieve(params: TimeRange): Promise<Range[]>;
+  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
   async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";

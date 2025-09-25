@@ -148,7 +148,7 @@ export class CoreAxis<
       this.setState((p) => ({ ...p, size }));
   }
 
-  iBounds(
+  protected iBounds(
     hold: boolean,
     fetchDataBounds: () => bounds.Bounds[],
   ): [bounds.Bounds, Error | null] {

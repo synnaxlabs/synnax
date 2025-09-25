@@ -45,7 +45,7 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useClient = <ScopedStore extends core.Store>(
+export const useStore = <ScopedStore extends core.Store>(
   ctx: aether.Context,
   scope: string,
 ): ScopedStore => ctx.get<ContextValue>(CONTEXT_KEY).scopedStore<ScopedStore>(scope);

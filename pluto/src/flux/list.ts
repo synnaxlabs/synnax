@@ -42,12 +42,12 @@ import {
 import { state } from "@/state";
 import { Synnax } from "@/synnax";
 
-interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
+export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
   (keys: K[]): E[];
 }
 
-interface AsyncListOptions extends core.FetchOptions {
+export interface AsyncListOptions extends core.FetchOptions {
   mode?: "append" | "replace";
 }
 

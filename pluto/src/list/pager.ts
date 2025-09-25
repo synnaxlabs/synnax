@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { type state } from "@/state";
 
@@ -51,6 +51,29 @@ export interface UsePagerArgs {
   pageSize?: number;
 }
 
+const DEFAULT_PAGE_SIZE = 10;
+
+export const page = (
+  { offset, searchTerm = "", ...prev }: PagerParams,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+): PagerParams => ({
+  ...prev,
+  offset: (offset ?? -pageSize) + pageSize,
+  limit: pageSize,
+  searchTerm,
+});
+
+export const search = (
+  prev: PagerParams,
+  searchTerm: string,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+) => ({
+  ...prev,
+  searchTerm,
+  offset: 0,
+  limit: pageSize,
+});
+
 /**
  * Hook that provides pagination utilities for list queries.
  *
@@ -76,30 +99,27 @@ export interface UsePagerArgs {
  * onSearch("john");
  * ```
  */
-export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerReturn => {
+export const usePager = ({
+  retrieve,
+  pageSize = DEFAULT_PAGE_SIZE,
+}: UsePagerArgs): UsePagerReturn => {
   /**
    * Fetches the next page of results by incrementing the offset.
    */
   const fetchMore = useCallback(() => {
-    retrieve(
-      ({ offset = -pageSize, searchTerm = "", ...prev }) => ({
-        ...prev,
-        offset: offset + pageSize,
-        limit: pageSize,
-        searchTerm,
-      }),
-      { mode: "append" },
-    );
+    retrieve((prev) => page(prev, pageSize), { mode: "append" });
   }, [retrieve, pageSize]);
 
   /**
    * Performs a search with the given term, resetting to the first page.
    */
-  const search = useCallback(
-    (searchTerm: string) =>
-      retrieve((prev) => ({ ...prev, searchTerm, offset: 0, limit: pageSize })),
+  const handleSearch = useCallback(
+    (searchTerm: string) => retrieve((prev) => search(prev, searchTerm, pageSize)),
     [retrieve, pageSize],
   );
 
-  return { fetchMore, search };
+  return useMemo(
+    () => ({ fetchMore, search: handleSearch }),
+    [fetchMore, handleSearch],
+  );
 };
