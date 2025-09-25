@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-list {
-    container-type: size;
-}
-
 @container (max-width: 500px) {
     .console-range__list-item {
         .pluto-tags {

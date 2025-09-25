@@ -22,7 +22,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { Item, type ItemProps } from "@/range/list/Item";

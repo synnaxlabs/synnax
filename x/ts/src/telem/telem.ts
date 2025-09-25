@@ -2162,14 +2162,16 @@ export interface CrudeTimeRange {
   end: CrudeTimeStamp;
 }
 
+export const numericTimeRangeZ = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
 /**
  * A time range backed by numbers instead of TimeStamps/BigInts.
  * Involves a loss of precision, but can be useful for serialization.
  */
-export interface NumericTimeRange {
-  start: number;
-  end: number;
-}
+export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
