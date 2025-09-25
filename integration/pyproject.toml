@@ -7,11 +7,11 @@ requires-python = ">=3.12,<4"
 dynamic = ["dependencies"]
 
 [tool.poetry]
-packages = [{ include = "test" }]
+packages = [{ include = "framework" }, { include = "tests" }]
 
 [project.scripts]
 # Make the test conductor easily runnable
-test-conductor = "test.framework.test_conductor:main"
+test-conductor = "framework.test_conductor:main"
 
 [tool.poetry.dependencies]
 synnax = { path = "../client/py", develop = true }
@@ -25,7 +25,7 @@ isort = "^6.0.1"
 mypy = "^1.18.1"
 
 [tool.poetry.scripts]
-test-conductor = "test.framework.test_conductor:main"
+test-conductor = "framework.test_conductor:main"
 
 [tool.isort]
 profile = "black"
@@ -36,7 +36,7 @@ plugins = ["pydantic.mypy"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = "synnax"
+module = "synnax.*"
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

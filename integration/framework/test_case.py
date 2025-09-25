@@ -23,16 +23,17 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from selectors import SelectorKey
-from test.framework.utils import (
+from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
+
+import synnax as sy
+
+from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_ci,
     is_websocket_error,
     validate_and_sanitize_name,
 )
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
-
-import synnax as sy
 
 # Error filter
 sys.excepthook = ignore_websocket_errors
@@ -506,16 +507,20 @@ class TestCase(ABC):
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""
         try:
-            latest_value = self.client.read_latest(channel_name)
-            if latest_value is not None and len(latest_value) > 0:
-                return float(latest_value)
+            # Retry with short delays for CI resource constraints
+            for attempt in range(3):
+                latest_value = self.client.read_latest(channel_name)
+                if latest_value is not None and len(latest_value) > 0:
+                    return float(latest_value)
 
-            # If read_latest is empty, read recent time range
-            now = sy.TimeStamp.now()
-            recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
-            frame = self.client.read(recent_range, channel_name)
-            if len(frame) > 0:
-                return float(frame[-1])
+                # If read_latest is empty, read recent time range
+                now = sy.TimeStamp.now()
+                recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
+                frame = self.client.read(recent_range, channel_name)
+                if len(frame) > 0:
+                    return float(frame[-1])
+                if attempt < 2:
+                    time.sleep(0.2)
 
             return None
 
@@ -706,7 +711,9 @@ class TestCase(ABC):
         """Get writer thread status."""
         return "Running" if self.writer_thread.is_alive() else "Stopped"
 
-    def fail(self) -> None:
+    def fail(self, message: Optional[str] = None) -> None:
+        if message is not None:
+            self._log_message(message)
         self.STATUS = STATUS.FAILED
 
     def execute(self) -> None:
