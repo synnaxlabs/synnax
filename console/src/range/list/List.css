@@ -10,17 +10,17 @@
  */
 
 .console-range-list {
-  container-type: size;
+    container-type: size;
 }
 
 @container (max-width: 500px) {
-  .console-range__list-item {
-    .pluto-tags {
-      display: none;
+    .console-range__list-item {
+        .pluto-tags {
+            display: none;
+        }
     }
-  }
 }
 
 .console-range__list-item {
-  padding-left: round(0.666rem, 1px);
+    padding-left: round(0.666rem, 1px);
 }
