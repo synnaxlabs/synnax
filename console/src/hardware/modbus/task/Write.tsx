@@ -15,7 +15,7 @@ import { type FC, useCallback } from "react";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
-import { SelectOutputChannelType } from "@/hardware/modbus/task/SelectOutputChannelType";
+import { SelectOutputChannelTypeField } from "@/hardware/modbus/task/SelectOutputChannelTypeField";
 import {
   HOLDING_REGISTER_OUTPUT_TYPE,
   OUTPUT_CHANNEL_SCHEMAS,
@@ -59,7 +59,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   return (
     <Select.ListItem {...props} justify="between" align="center" direction="x" full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectOutputChannelType
+        <SelectOutputChannelTypeField
           path={path}
           onChange={(value, { get, set, path }) => {
             const prevType = get<OutputChannelType>(path).value;

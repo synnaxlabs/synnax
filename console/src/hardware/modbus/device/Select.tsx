@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
 import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
 import { MAKE } from "@/hardware/modbus/device/types";
 import { Layout } from "@/layout";
-
-import { EmptyAction } from "../../../components";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();

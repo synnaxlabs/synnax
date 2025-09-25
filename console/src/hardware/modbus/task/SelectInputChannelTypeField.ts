@@ -20,7 +20,7 @@ import {
 
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
-const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
+const DATA: InputChannelTypeEntry[] = [
   { key: COIL_INPUT_TYPE, name: "Coil" },
   { key: DISCRETE_INPUT_TYPE, name: "Discrete" },
   { key: HOLDING_REGISTER_INPUT_TYPE, name: "Holding Register" },
@@ -47,7 +47,7 @@ export const SelectInputChannelTypeField = Form.buildSelectField<
   inputProps: {
     allowNone: false,
     resourceName: "Channel Type",
-    data: INPUT_CHANNEL_TYPES,
+    data: DATA,
     style: { width: "25rem" },
   },
 });
