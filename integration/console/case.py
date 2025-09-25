@@ -52,10 +52,10 @@ class ConsoleCase(TestCase):
         host = self.synnax_connection.server_address
         port = self.synnax_connection.port
 
-        self.page.goto(f"http://{host}:{port}/", timeout=10000)
+        self.page.goto(f"http://{host}:{port}/", timeout=20000)
         if "Core built without embedded console" in self.page.content():
             port = 5173
-            self.page.goto(f"http://{host}:{port}/", timeout=5000)
+            self.page.goto(f"http://{host}:{port}/", timeout=15000)
 
         self._log_message(f"Console found on port {port}")
 

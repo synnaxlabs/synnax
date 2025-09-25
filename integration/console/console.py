@@ -84,18 +84,30 @@ class Console:
         self, text: str, placeholder: Optional[str] = None
     ) -> None:
         """Select an item from an open dropdown."""
-        self.page.wait_for_timeout(300)
+        self.page.wait_for_timeout(500)
+        target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
         if placeholder is not None:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
             if search_input.count() > 0:
                 search_input.fill(text)
-        try:
-            target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
-            self.page.wait_for_selector(target_item, timeout=1000)
-            self.page.locator(target_item).first.click()
-        except Exception:
-            raise RuntimeError(f"Could not find item '{text}' in dropdown")
+                self.page.wait_for_timeout(100)
+
+        for attempt in range(10):
+            try:
+                self.page.wait_for_selector(target_item, timeout=100)
+                self.page.locator(target_item).first.click()
+                return
+            except Exception:
+                self.page.wait_for_timeout(100)
+                continue
+
+        items = self.page.locator(
+            ".pluto-list__item:not(.pluto-tree__item)"
+        ).all_text_contents()
+        raise RuntimeError(
+            f"Could not find item '{text}' in dropdown. Available items: {items}"
+        )
 
     def create_page(
         self, page_type: PageType, page_name: Optional[str] = None
