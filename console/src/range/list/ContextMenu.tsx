@@ -28,13 +28,13 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import {
   createChildRangeMenuItem,
   deleteMenuItem,
-  fromClientRange,
   viewDetailsMenuItem,
 } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
+import { fromClientRange } from "@/range/translate";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
   getItem: List.GetItem<string, ranger.Range>;

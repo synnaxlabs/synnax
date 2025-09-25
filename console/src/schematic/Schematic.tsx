@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Dispatch,
-  type PayloadAction,
-  type UnknownAction,
-} from "@reduxjs/toolkit";
+import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -42,7 +38,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
@@ -82,39 +78,29 @@ import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-interface SyncPayload {
-  key?: string;
-}
-
 export const HAUL_TYPE = "schematic-element";
 
-const useSyncComponent = (
-  layoutKey: string,
-  dispatch?: Dispatch<PayloadAction<SyncPayload>>,
-): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "Schematic",
-    layoutKey,
-    async (ws, store, client) => {
-      const storeState = store.getState();
-      if (!selectHasPermission(storeState)) return;
-      const data = selectOptional(storeState, layoutKey);
-      if (data == null) return;
-      const layout = Layout.selectRequired(storeState, layoutKey);
-      if (data.snapshot) {
-        await client.workspaces.schematic.rename(layoutKey, layout.name);
-        return;
-      }
-      const setData = { ...data, key: undefined };
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.schematic.create(ws, {
-        key: layoutKey,
-        name: layout.name,
-        data: setData,
-      });
-    },
-    dispatch,
-  );
+const useSyncComponent = Workspace.createSyncComponent(
+  "Schematic",
+  async ({ key, workspace, store, client }) => {
+    const storeState = store.getState();
+    if (!selectHasPermission(storeState)) return;
+    const data = selectOptional(storeState, key);
+    if (data == null) return;
+    const layout = Layout.selectRequired(storeState, key);
+    if (data.snapshot) {
+      await client.workspaces.schematics.rename(key, layout.name);
+      return;
+    }
+    const setData = { ...data, key: undefined };
+    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+    await client.workspaces.schematics.create(workspace, {
+      key,
+      name: layout.name,
+      data: setData,
+    });
+  },
+);
 
 interface SymbolRendererProps extends Diagram.SymbolProps {
   layoutKey: string;
@@ -437,19 +423,16 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
+const useLoadRemote = createLoadRemote<schematic.Schematic>({
+  useRetrieve: Core.useRetrieveObservable,
+  targetVersion: ZERO_STATE.version,
+  useSelectVersion,
+  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+});
+
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const loaded = useLoadRemote({
-    name: "Schematic",
-    targetVersion: ZERO_STATE.version,
-    layoutKey,
-    useSelectVersion,
-    fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
-      return { key, ...data } as State;
-    },
-    actionCreator: internalCreate,
-  });
-  if (!loaded) return null;
+  const schematic = useLoadRemote(layoutKey);
+  if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 

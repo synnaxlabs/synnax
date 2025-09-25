@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Synnax } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { group } from "@synnaxlabs/client";
+import { Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CREATE_LAYOUT } from "@/channel/Create";
@@ -17,14 +17,7 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
-  const client = Synnax.use();
-  const group = useQuery({
-    queryKey: [client?.key, "channel-group"],
-    queryFn: async () => {
-      if (client == null) return null;
-      return await client.channels.retrieveGroup();
-    },
-  });
+  const { data: g } = Channel.useRetrieveGroup({});
   const placeLayout = Layout.usePlacer();
   return (
     <Toolbar.Content>
@@ -36,7 +29,7 @@ const Content = (): ReactElement => {
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
-      <Ontology.Tree root={group.data?.ontologyID} />
+      <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
     </Toolbar.Content>
   );
 };

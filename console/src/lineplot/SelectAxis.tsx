@@ -37,7 +37,7 @@ export const SelectMultipleAxesInputItem = ({
   <Input.Item x label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
-      initialParams={SEARCH_OPTIONS}
+      initialQuery={SEARCH_OPTIONS}
       onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
       full="x"
       location="top"
@@ -65,7 +65,7 @@ export const SelectAxisInputItem = ({
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
       allowNone
-      initialParams={SEARCH_OPTIONS}
+      initialQuery={SEARCH_OPTIONS}
       {...selectProps}
     />
   </Input.Item>

@@ -71,7 +71,9 @@ describe("useForm", () => {
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
       const retrieve = vi.fn(
-        async ({ reset }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+        async ({
+          reset,
+        }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
           reset({
             key: "123",
             name: "Apple Cat",
@@ -80,7 +82,7 @@ describe("useForm", () => {
       );
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: "",
               name: "",
@@ -363,7 +365,7 @@ describe("useForm", () => {
     });
   });
 
-  interface SubStore extends Flux.Store {
+  interface FluxStore extends Flux.Store {
     labels: Flux.UnaryStore<label.Key, label.Label>;
   }
 
@@ -382,13 +384,13 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
         reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: label.key.toString(),
               name: "",
@@ -436,13 +438,13 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
         reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: label.key.toString(),
               name: "",

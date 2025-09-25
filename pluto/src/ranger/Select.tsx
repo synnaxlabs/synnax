@@ -18,7 +18,7 @@ import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
-import { type ListParams, useList } from "@/ranger/queries";
+import { type ListQuery, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select as Core } from "@/select";
 import { Tag } from "@/tag";
@@ -36,16 +36,16 @@ export interface SelectProps
       | "children"
       | "resourceName"
     >,
-    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
+    Flux.UseListParams<ListQuery, ranger.Key, ranger.Payload> {}
 
 export const Select = ({
   filter,
-  initialParams,
+  initialQuery,
   ...rest
 }: SelectProps): ReactElement => {
   const { data, retrieve, subscribe, getItem, status } = useList({
     filter,
-    initialParams,
+    initialQuery,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

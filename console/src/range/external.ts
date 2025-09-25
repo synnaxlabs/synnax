@@ -23,6 +23,9 @@ export * from "@/range/selectors";
 export * from "@/range/slice";
 export * from "@/range/slice";
 export * from "@/range/Toolbar";
+export * from "@/range/translate";
+export * from "@/range/useAddToActivePlot";
+export * from "@/range/useAddToNewPlot";
 export * from "@/range/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
