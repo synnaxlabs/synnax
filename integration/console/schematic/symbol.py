@@ -9,6 +9,7 @@
 
 import time
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from playwright.sync_api import Locator, Page
@@ -43,18 +44,28 @@ class Symbol(ABC):
         self.symbol = self.page.get_by_test_id(self.symbol_id)
         self.set_label(channel_name)
 
+    @contextmanager
+    def bring_to_front(self, element):
+        original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
+        element.evaluate("element => element.style.zIndex = '9999'")
+        try:
+            yield element
+        finally:
+            element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+
     def _disable_edit_mode(self) -> None:
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def _click_symbol(self) -> None:
-        self.symbol.click(force=True)
-        time.sleep(0.1)
+    def _click_symbol(self) -> None: 
+        with self.bring_to_front(self.symbol) as s:
+            s.click(force=True)
+        self.console.page.wait_for_timeout(100)   
 
     def set_label(self, label: str) -> None:
         self._click_symbol()
-        self.page.get_by_text("Style").click()
+        self.page.get_by_text("Style").click(force=True)
         self.console.fill_input_field("Label", label)
         self.label = label
 
@@ -111,7 +122,7 @@ class Symbol(ABC):
         final_x = new_box["x"] + new_box["width"] / 2
         final_y = new_box["y"] + new_box["height"] / 2
 
-        grid_tolerance = 25
+        grid_tolerance = 100
         if (
             abs(final_x - target_x) > grid_tolerance
             or abs(final_y - target_y) > grid_tolerance

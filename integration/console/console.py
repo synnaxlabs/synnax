@@ -201,12 +201,16 @@ class Console:
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
 
-    def screenshot(self, path: Optional[str] = None) -> None:
+    def screenshot(self, name: Optional[str] = None) -> None:
         """Take a screenshot of the entire console page."""
-        if path is None:
-            os.makedirs("test/results", exist_ok=True)
-            path = "test/results/console.png"
+        os.makedirs("test/results", exist_ok=True)
+        if name is None:
+            name = "console.png"
+        else:
+            if not name.endswith(".png"):
+                name = name + ".png"
 
+        path = "test/results/" + name
         self.page.screenshot(
             path=path, full_page=True, animations="disabled", type="png"
         )
@@ -219,7 +223,7 @@ class Console:
             .locator("button")
             .first
         )
-        button.click()
+        button.click(force=True)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""

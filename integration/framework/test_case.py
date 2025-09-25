@@ -662,25 +662,39 @@ class TestCase(ABC):
         self._manual_timeout = value
         self._log_message(f"Manual timeout set ({value}s)")
 
-    def configure(self, **kwargs: Any) -> None:
+    def configure(
+        self,
+        read_timeout: int | None = None,
+        loop_rate: float | None = None,
+        timeout_limit: int | None = None,
+        manual_timeout: int | None = None,
+    ) -> None:
         """Configure test case parameters.
 
         Args:
-            read_timeout: Timeout for read operations (default: 1)
-            loop_rate: Loop frequency in Hz (default: 1)
-            websocket_retry_delay: Delay before retrying WebSocket operations (default: 1)
-            timeout_limit: Maximum execution time in seconds (default: -1, no limit)
-            manual_timeout: Manual timeout value (default: -1, no limit)
+            read_timeout: Timeout for synnax client read operations (default: 1)
+            loop_rate: Synnax Client Loop frequency in Hz (default: 1)
+            timeout_limit: Maximum execution time before failure (default: -1, no limit)
+            manual_timeout: Manual timeout for test termination (default: -1, no limit)
         """
-        if "read_timeout" in kwargs:
-            self.read_timeout = kwargs["read_timeout"]
-        if "loop_rate" in kwargs:
-            self.loop = sy.Loop(kwargs["loop_rate"])
-        if "timeout_limit" in kwargs:
-            self._timeout_limit = kwargs["timeout_limit"]
-        if "manual_timeout" in kwargs:
-            self._manual_timeout = kwargs["manual_timeout"]
-        self._log_message(f"Configured with: {kwargs}")
+        params = {}
+        if read_timeout is not None:
+            self._read_timeout = read_timeout
+            params["read_timeout"] = read_timeout
+
+        if loop_rate is not None:
+            self.loop = sy.Loop(loop_rate)
+            params["loop_rate"] = loop_rate
+
+        if timeout_limit is not None:
+            self._timeout_limit = timeout_limit
+            params["timeout_limit"] = timeout_limit
+
+        if manual_timeout is not None:
+            self._manual_timeout = manual_timeout
+            params["manual_timeout"] = manual_timeout
+
+        self._log_message(f"Configured with: {params}")
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
@@ -713,7 +727,7 @@ class TestCase(ABC):
 
     def fail(self, message: Optional[str] = None) -> None:
         if message is not None:
-            self._log_message(message)
+            self._log_message(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED
 
     def execute(self) -> None:
