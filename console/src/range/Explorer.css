@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.ranger__select-single-dialog {
-    width: 800px;
+.console-range-explorer {
+    container-type: size;
 }
