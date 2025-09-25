@@ -156,13 +156,13 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 					if c.Variant == change.Set {
 						v, err := cfg.MarshalSet(c.Value)
 						if err != nil {
-							svc.L.Error("failed to marshal set", zap.Error(err))
+							svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))
 						}
 						oc.Key = v
 					} else {
 						k, err := cfg.MarshalDelete(c.Key)
 						if err != nil {
-							svc.L.Error("failed to marshal delete", zap.Error(err))
+							svc.L.Error("failed to marshal delete", zap.Error(err), zap.String("channel", cfg.DeleteName))
 						}
 						oc.Key = k
 					}

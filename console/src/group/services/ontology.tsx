@@ -190,7 +190,7 @@ const useCreateEmpty = ({
         const destination = ontology.idToString(data.parent);
         expand(destination);
         setNodes([...Tree.setNode({ tree, destination, additions: node })]);
-        rollbacks.add(() =>
+        rollbacks.push(() =>
           setNodes([...Tree.removeNode({ tree, keys: newIDString })]),
         );
         const [name, renamed] = await Text.asyncEdit(newIDString);

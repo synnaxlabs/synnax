@@ -32,11 +32,14 @@ interface FluxSubStore extends Flux.Store {
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-const SET_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> = {
+const SET_CHANNEL_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof channel.payloadZ
+> = {
   channel: channel.SET_CHANNEL_NAME,
-  schema: channel.keyZ,
+  schema: channel.payloadZ,
   onChange: async ({ store, changed, client }) =>
-    store.channels.set(changed, await client.channels.retrieve(changed)),
+    store.channels.set(client.channels.sugar(changed)),
 };
 
 const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> =

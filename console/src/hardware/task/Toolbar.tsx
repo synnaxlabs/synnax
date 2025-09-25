@@ -84,7 +84,7 @@ const Content = () => {
           if (!confirmed) return false;
         }
         dispatch(Layout.rename({ key, name }));
-        rollbacks.add(() => dispatch(Layout.rename({ key, name: oldName })));
+        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
         return data;
       },
       [],

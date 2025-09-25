@@ -62,7 +62,7 @@ export const useRename = createUseRename({
     );
     if (layout != null) {
       store.dispatch(Layout.rename({ key: layout.key, name }));
-      rollbacks.add(() => Layout.rename({ key: layout.key, name: oldName }));
+      rollbacks.push(() => Layout.rename({ key: layout.key, name: oldName }));
     }
     return { ...data, name };
   },
