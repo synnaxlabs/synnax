@@ -311,7 +311,7 @@ describe("tree/core", () => {
         throwOnMissing: false,
       });
       expect(result).toEqual(tree);
-    })
+    });
   });
 
   describe("findNode", () => {
