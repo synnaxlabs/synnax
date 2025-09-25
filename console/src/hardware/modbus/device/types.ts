@@ -10,6 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
+export const MAKE = "modbus";
 export type Make = "modbus";
 export type Model = "modbus";
 

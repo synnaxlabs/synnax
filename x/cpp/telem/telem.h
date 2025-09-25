@@ -498,11 +498,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = telem::Rate(1);
+inline const auto HZ = Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * telem::HZ;
+inline const Rate KHZ = 1000 * HZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * telem::KHZ;
+inline const Rate MHZ = 1000 * KHZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.
