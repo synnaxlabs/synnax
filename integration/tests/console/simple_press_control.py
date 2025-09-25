@@ -88,9 +88,8 @@ class Simple_Press_Control(ConsoleCase):
             if self.get_value(PRESSURE) < 5:
                 vent_valve.set_value(0)
                 self._log_message("System vented")
+                self.console.screenshot("console_press_control_passed")
                 return
 
-        self.console.screenshot("console_press_control")
-        self._log_message("Console screenshot taken")
-
-        self.fail()
+        self.console.screenshot("console_press_control_failed")
+        self.fail("Exited without venting")

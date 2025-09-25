@@ -68,8 +68,8 @@ class ConsolePage:
     def screenshot(self, path: Optional[str] = None) -> None:
         """Save a screenshot of the pane area with margin."""
         if path is None:
-            os.makedirs("test/results", exist_ok=True)
-            path = f"test/results/{self.id}.png"
+            os.makedirs("tests/results", exist_ok=True)
+            path = f"tests/results/{self.id}.png"
 
         if not self.pane_locator:
             raise RuntimeError("No pane locator available for screenshot")

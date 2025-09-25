@@ -200,7 +200,7 @@ dmypy.json
 cython_debug/
 
 # |||| TEST RESULTS ||||
-integration/test/results/
+integration/tests/results/
 
 # |||| LANDING SITE ||||
 
