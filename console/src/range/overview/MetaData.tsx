@@ -40,9 +40,9 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         width: "unset",
         flexGrow: 2,
       }}
-      selectOnFocus={true}
+      selectOnFocus
       variant="shadow"
-      resetOnBlurIfEmpty={true}
+      resetOnBlurIfEmpty
       placeholder="Value"
       textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
       {...rest}
@@ -117,7 +117,7 @@ const MetaDataListItem = ({
         {isCreate ? (
           <Form.TextField
             style={{ flexBasis: "30%", width: 250 }}
-            path={"key"}
+            path="key"
             inputProps={{
               ref: inputRef,
               autoFocus: isCreate,
@@ -137,7 +137,7 @@ const MetaDataListItem = ({
           </Text.Text>
         )}
         <Divider.Divider y />
-        <Form.Field<string> path={"value"} showLabel={false} hideIfNull>
+        <Form.Field<string> path="value" showLabel={false} hideIfNull>
           {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (

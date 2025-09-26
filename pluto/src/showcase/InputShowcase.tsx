@@ -142,11 +142,11 @@ export const InputShowcase = () => (
             <Text.Text level="small" weight={500}>
               With End Content
             </Text.Text>
-            <InputShowcaseText endContent={"m/s"} size="huge" />
-            <InputShowcaseText endContent={"m/s"} size="large" />
-            <InputShowcaseText endContent={"m/s"} size="medium" />
-            <InputShowcaseText endContent={"m/s"} size="small" />
-            <InputShowcaseText endContent={"m/s"} size="tiny" />
+            <InputShowcaseText endContent="m/s" size="huge" />
+            <InputShowcaseText endContent="m/s" size="large" />
+            <InputShowcaseText endContent="m/s" size="medium" />
+            <InputShowcaseText endContent="m/s" size="small" />
+            <InputShowcaseText endContent="m/s" size="tiny" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -208,7 +208,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">On</Text.Text>
-              <InputShowcaseSwitch value={true} />
+              <InputShowcaseSwitch value />
             </Flex.Box>
           </Flex.Box>
           <Text.Text level="small" weight={500}>
@@ -221,7 +221,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">True</Text.Text>
-              <InputShowcaseSwitch value={true} variant="preview" />
+              <InputShowcaseSwitch value variant="preview" />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
@@ -270,7 +270,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Checked</Text.Text>
-                <InputShowcaseCheckbox value={true} />
+                <InputShowcaseCheckbox value />
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Disabled</Text.Text>
@@ -289,7 +289,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">True</Text.Text>
-                <InputShowcaseCheckbox value={true} variant="preview" />
+                <InputShowcaseCheckbox value variant="preview" />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>
@@ -344,8 +344,8 @@ export const InputShowcase = () => (
       description="Inputs with custom colors and different background contrast levels"
     >
       <Flex.Box x gap="large">
-        <InputShowcaseText placeholder="Catalyst" color={"#00FF00"} />
-        <InputShowcaseNumeric placeholder="Catalyst" color={"#00FF00"} />
+        <InputShowcaseText placeholder="Catalyst" color="#00FF00" />
+        <InputShowcaseNumeric placeholder="Catalyst" color="#00FF00" />
       </Flex.Box>
     </SubcategorySection>
 
