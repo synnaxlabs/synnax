@@ -204,14 +204,15 @@ class Console:
 
     def screenshot(self, name: Optional[str] = None) -> None:
         """Take a screenshot of the entire console page."""
-        os.makedirs("tests/results", exist_ok=True)
+        results_dir = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
+        os.makedirs(results_dir, exist_ok=True)
         if name is None:
             name = "console.png"
         else:
             if not name.endswith(".png"):
                 name = name + ".png"
 
-        path = "tests/results/" + name
+        path = os.path.join(results_dir, name)
         self.page.screenshot(
             path=path, full_page=True, animations="disabled", type="png"
         )

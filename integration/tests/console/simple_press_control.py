@@ -19,7 +19,7 @@ class Simple_Press_Control(ConsoleCase):
 
     def setup(self) -> None:
         sy.sleep(2)
-        self.subscribe(["press_vlv_cmd", "vent_vlv_cmd", "press_pt"])
+        self.subscribe(["press_vlv_cmd", "vent_vlv_cmd", "press_pt", "start_test_state", "end_test_state"])
         self.set_manual_timeout(30)
         super().setup()
 
@@ -31,6 +31,8 @@ class Simple_Press_Control(ConsoleCase):
             return
 
         # Define the control channel names
+        START_TEST_CMD = "start_test_cmd"
+        END_TEST_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"
         VENT_VALVE = "vent_vlv_cmd"
         PRESSURE = "press_pt"
@@ -44,6 +46,13 @@ class Simple_Press_Control(ConsoleCase):
         self._log_message("Creating schematic symbols")
         console.schematic.new()
         console.schematic.move("left")
+
+        start_test_cmd = console.schematic.create_setpoint(START_TEST_CMD)
+        start_test_cmd.move(-200, -90)
+
+        end_test_cmd = console.schematic.create_setpoint(END_TEST_CMD)
+        end_test_cmd.move(-200, 90)
+
         press_valve = console.schematic.create_setpoint(PRESS_VALVE)
         press_valve.move(-200, 0)
 
@@ -55,6 +64,10 @@ class Simple_Press_Control(ConsoleCase):
 
         console.schematic.connect_symbols(press_valve, "right", press_pt, "left")
         console.schematic.connect_symbols(press_pt, "right", vent_valve, "left")
+
+        start_test_cmd.set_value(1)
+        sy.sleep(0.2)
+        start_test_cmd.set_value(0)
 
         target_Pressure = 20
         press_valve.set_value(0)
@@ -86,7 +99,9 @@ class Simple_Press_Control(ConsoleCase):
             if pressure_value is not None and pressure_value < 5:
                 vent_valve.set_value(0)
                 self._log_message("System vented")
+                end_test_cmd.set_value(1)
                 self.console.screenshot("console_press_control_passed")
+                end_test_cmd.set_value(0)
                 return
 
         self.console.screenshot("console_press_control_failed")

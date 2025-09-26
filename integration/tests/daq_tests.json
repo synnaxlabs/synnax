@@ -6,19 +6,8 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/simple_press_control"
-        },
-        {
-          "case": "daq/simulated_daq"
-        }
-      ]
-    },
-    {
-      "sequence_name": "Simple Press Control (Client)",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "daq/simple_press_control"
+          "case": "console/simple_press_control",
+          "parameters": {"headless": false}
         },
         {
           "case": "daq/simulated_daq"
