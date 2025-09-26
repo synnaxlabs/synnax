@@ -59,7 +59,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<OutputChannel>(path);
   return (
-    <Select.ListItem {...props} justify="between" align="center" direction="x" full="x">
+    <Select.ListItem {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectOutputChannelTypeField
           path={path}

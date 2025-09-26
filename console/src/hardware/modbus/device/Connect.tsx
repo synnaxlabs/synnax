@@ -124,7 +124,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
-          <Flex.Box direction="x" justify="between">
+          <Flex.Box x justify="between">
             <Form.Field<string> grow path="properties.connection.host">
               {(p) => <Input.Text autoFocus placeholder="localhost" {...p} />}
             </Form.Field>
@@ -132,7 +132,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               {(p) => <Input.Numeric placeholder="502" {...p} />}
             </Form.Field>
           </Flex.Box>
-          <Flex.Box direction="x" justify="start">
+          <Flex.Box x justify="start">
             <Form.Field<boolean>
               path="properties.connection.swapBytes"
               label="Swap Bytes"

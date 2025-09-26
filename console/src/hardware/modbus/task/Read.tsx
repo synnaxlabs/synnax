@@ -54,7 +54,7 @@ export const READ_SELECTABLE = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Flex.Box direction="x" grow>
+    <Flex.Box x grow>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
@@ -73,7 +73,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       style={{ width: "100%" }}
       justify="between"
       align="center"
-      direction="x"
+      x
     >
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectInputChannelTypeField
