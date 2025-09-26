@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { color, type notation, primitive } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -81,16 +81,24 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to Value.TelemForm");
+  const channelKey = source.channel;
 
-  const { data } = Channel.useRetrieve({ key: source.channel });
+  const { retrieve } = Channel.useRetrieveObservable({
+    onChange: useCallback(
+      ({ data }) => {
+        if (data == null) return;
+        onChange({ ...value, tooltip: [data.name] });
+      },
+      [onChange],
+    ),
+  });
   useEffect(() => {
-    if (data == null) return;
-    onChange({ ...value, tooltip: [data.name] });
-  }, [data?.name, onChange]);
+    if (primitive.isNonZero(channelKey)) retrieve({ key: channelKey });
+  }, [source.channel]);
   return (
     <>
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+        <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
         <Input.Item label="Notation">
