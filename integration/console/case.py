@@ -32,6 +32,7 @@ class ConsoleCase(TestCase):
     def setup(self) -> None:
 
         headless = self.params.get("headless", True)
+        slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 5000)  # 5s
         default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
 
@@ -41,7 +42,7 @@ class ConsoleCase(TestCase):
         )
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=headless)
+        self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)
         self.page = self.browser.new_page()
 
         # Set timeouts

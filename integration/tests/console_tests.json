@@ -17,6 +17,9 @@
           "case": "console/schematic_edit_value_props"
         },
         {
+          "case": "console/schematic_edit_button_props"
+        },
+        {
           "case": "console/pages_open_close"
         }
       ]

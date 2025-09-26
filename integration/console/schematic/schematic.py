@@ -14,6 +14,7 @@ from playwright.sync_api import Page
 from ..page import ConsolePage
 from .setpoint import Setpoint
 from .symbol import Symbol
+from .button import Button
 from .value import Value
 
 if TYPE_CHECKING:
@@ -70,6 +71,25 @@ class Schematic(ConsolePage):
         setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
         return setpoint
+    
+    def create_button(
+        self,
+        channel_name: str,
+        activation_delay: Optional[float] = None,
+        show_control_chip: Optional[bool] = None,
+        mode: Optional[str] = None,
+    ) -> Button:
+        """Create a button symbol on the schematic."""
+        button_id = self._add_symbol("Button")
+        button = Button(self.page, self.console, button_id, channel_name)
+        button.edit_properties(
+            channel_name=channel_name,
+            activation_delay=activation_delay,
+            show_control_chip=show_control_chip,
+            mode=mode,
+        )
+        return button
+
 
     def create_value(
         self,
