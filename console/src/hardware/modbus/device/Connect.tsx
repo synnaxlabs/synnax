@@ -22,12 +22,13 @@ import {
   Status,
   Task,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import {
   type Make,
+  type Model,
   type Properties,
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
@@ -51,9 +52,9 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 500, width: 600 }, navTop: true },
 };
 
-const useForm = Device.createForm<Properties, Make>();
+const useForm = Device.createForm<Properties, Make, Model>();
 
-const INITIAL_VALUES: device.Device<Properties, Make> = {
+const INITIAL_VALUES: device.Device<Properties, Make, Model> = {
   key: "",
   name: "Modbus Server",
   make: "modbus",
@@ -102,12 +103,7 @@ const beforeSave = async ({
 };
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const {
-    form,
-    save,
-    status: stat,
-    variant,
-  } = useForm({
+  const { form, save, status, variant } = useForm({
     params: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
     beforeValidate,
@@ -157,12 +153,12 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           {variant == "success" ? (
             <Triggers.SaveHelpText action="Connect" noBar />
           ) : (
-            <Status.Summary status={variant} message={stat.description} />
+            <Status.Summary status={variant} message={status.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            status={status.keepVariants(variant, "loading")}
+            status={xstatus.keepVariants(variant, "loading")}
             onClick={() => save()}
             variant="filled"
           >

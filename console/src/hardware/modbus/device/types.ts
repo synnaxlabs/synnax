@@ -11,7 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
 export const MAKE = "modbus";
-export type Make = "modbus";
+export type Make = typeof MAKE;
 export type Model = "modbus";
 
 export const connectionConfigZ = z.object({
@@ -20,7 +20,7 @@ export const connectionConfigZ = z.object({
   swapBytes: z.boolean(),
   swapWords: z.boolean(),
 });
-export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
+export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
 
 export const ZERO_CONNECTION_CONFIG = {
   host: "",
@@ -34,12 +34,11 @@ export const propertiesZ = z.object({
   read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
   write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
-export type Properties = z.infer<typeof propertiesZ>;
-
+export interface Properties extends z.infer<typeof propertiesZ> {}
 export const ZERO_PROPERTIES = {
   connection: ZERO_CONNECTION_CONFIG,
   read: { index: 0, channels: {} },
   write: { channels: {} },
 } as const satisfies Properties;
 
-export interface Device extends device.Device<Properties, Make> {}
+export interface Device extends device.Device<Properties, Make, Model> {}

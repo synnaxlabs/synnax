@@ -18,7 +18,7 @@ const EmptyContent = () => {
   return (
     <EmptyAction
       message="No Modbus servers connected."
-      action="Connect a Modbus Server"
+      action="Connect a new server"
       onClick={() => placeLayout(CONNECT_LAYOUT)}
     />
   );

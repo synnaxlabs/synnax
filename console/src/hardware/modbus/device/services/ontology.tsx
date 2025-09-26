@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
-
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
 import { Task } from "@/hardware/modbus/task";
-import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
@@ -25,27 +22,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     },
   ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
-  const placeLayout = Layout.usePlacer();
-  const {
-    selection: { ids },
-  } = props;
-  if (ids.length !== 1) return null;
-  const handleEditConnection = () =>
-    placeLayout({ ...Device.CONNECT_LAYOUT, key: ids[0].key });
-  return (
-    <Common.DeviceServices.ContextMenuItems
-      {...props}
-      configureLayout={Device.CONNECT_LAYOUT}
-      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-    >
-      <>
-        <Menu.Item itemKey="modbus.connect" onClick={handleEditConnection}>
-          <Icon.Connect />
-          Edit Connection
-        </Menu.Item>
-        <Menu.Divider />
-      </>
-    </Common.DeviceServices.ContextMenuItems>
-  );
-};
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
+  <Common.DeviceServices.ContextMenuItemsWithConfigure
+    {...props}
+    itemKey="modbus.connect"
+    configureLayout={Device.CONNECT_LAYOUT}
+    taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+  />
+);
