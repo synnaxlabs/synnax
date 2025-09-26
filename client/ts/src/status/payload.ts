@@ -24,7 +24,7 @@ export const statusZ = xStatus.statusZ().extend({
   labels: nullableArrayZ(label.labelZ),
 });
 
-export const newZ = statusZ.partial({ key: true });
+export const newZ = statusZ.omit({ labels: true }).partial({ key: true });
 
 export interface New extends z.input<typeof newZ> {}
 

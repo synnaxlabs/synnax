@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, status, TimeStamp } from "@synnaxlabs/client";
-import { primitive, uuid } from "@synnaxlabs/x";
+import { label, ontology, status, TimeStamp } from "@synnaxlabs/client";
+import { array, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -19,6 +19,8 @@ import { createList } from "@/flux/list";
 import { useStore } from "@/flux/Provider";
 import { createRetrieve, type RetrieveParams } from "@/flux/retrieve";
 import { createUpdate } from "@/flux/update";
+import { Label } from "@/label";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "statuses";
 const RESOURCE_NAME = "Status";
@@ -26,29 +28,29 @@ const PLURAL_RESOURCE_NAME = "Statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 
-interface SubStore extends Flux.Store {
-  statuses: FluxStore;
+interface FluxSubStore extends Label.FluxSubStore {
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.statusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof status.statusZ> = {
   channel: status.SET_CHANNEL_NAME,
   schema: status.statusZ,
   onChange: ({ store, changed }) => store.statuses.set(changed.key, changed),
 };
 
-const DELETE_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof status.keyZ> = {
+const DELETE_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof status.keyZ> = {
   channel: status.DELETE_CHANNEL_NAME,
   schema: status.keyZ,
   onChange: ({ store, changed }) => store.statuses.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_STATUS_LISTENER, DELETE_STATUS_LISTENER],
 };
 
 export interface ListParams extends status.MultiRetrieveArgs {}
 
-export const useList = createList<ListParams, status.Key, status.Status, SubStore>({
+export const useList = createList<ListParams, status.Key, status.Status, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.statuses.list(),
   retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
@@ -67,7 +69,7 @@ export const useList = createList<ListParams, status.Key, status.Status, SubStor
 
 export const { useUpdate: useDelete } = createUpdate<
   status.Key | status.Key[],
-  SubStore
+  FluxSubStore
 >({
   name: RESOURCE_NAME,
   verbs: DELETE_VERBS,
@@ -82,7 +84,7 @@ export interface SetParams {
   parent?: ontology.ID;
 }
 
-export const { useUpdate: useSet } = createUpdate<SetParams, SubStore>({
+export const { useUpdate: useSet } = createUpdate<SetParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: SET_VERBS,
   update: async ({ client, data, data: { statuses, parent } }) => {
@@ -94,32 +96,71 @@ export const { useUpdate: useSet } = createUpdate<SetParams, SubStore>({
 
 export interface RetrieveQuery extends status.SingleRetrieveArgs {}
 
+const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
+  includeLabels: true,
+};
+
 const retrieveSingle = async ({
   store,
   client,
   query,
-}: RetrieveParams<status.SingleRetrieveArgs, SubStore>) => {
+}: RetrieveParams<status.SingleRetrieveArgs, FluxSubStore>) => {
   const cached = store.statuses.get(query.key);
-  if (cached != null) return cached;
-  const res = await client.statuses.retrieve(query);
+  if (cached != null) {
+    cached.labels = Label.retrieveCachedLabelsOf(store, status.ontologyID(query.key));
+    return cached;
+  }
+  const res = await client.statuses.retrieve({ ...BASE_QUERY, ...query });
+  store.labels.set(res.labels);
   store.statuses.set(query.key, res);
   return res;
 };
 
-export const { useRetrieve } = createRetrieve<RetrieveQuery, status.Status, SubStore>({
+export const { useRetrieve } = createRetrieve<
+  RetrieveQuery,
+  status.Status,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, client, onChange }) => [
     store.statuses.onSet(onChange, key),
+    store.relationships.onSet(async (rel) => {
+      const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+      if (!isLabelChange) return;
+      const l = await Label.retrieveSingle({
+        store,
+        query: { key: rel.to.key },
+        client,
+      });
+      onChange(
+        state.skipNull((p) => ({
+          ...p,
+          labels: array.upsertKeyed(p.labels, l),
+        })),
+      );
+    }),
+    store.relationships.onDelete(async (relKey) => {
+      const rel = ontology.relationshipZ.parse(relKey);
+      const otgID = status.ontologyID(key);
+      const isLabelChange = Label.matchRelationship(rel, otgID);
+      if (!isLabelChange) return;
+      onChange(
+        state.skipNull((p) => ({
+          ...p,
+          labels: array.removeKeyed(p.labels, rel.to.key),
+        })),
+      );
+    }),
   ],
 });
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
-  const store = useStore<SubStore>();
+  const store = useStore<FluxSubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };
 
-export const formSchema = status.statusZ.safeExtend({
+export const formSchema = status.statusZ.omit({ labels: true }).safeExtend({
   labels: label.keyZ.array().optional(),
 });
 
@@ -133,7 +174,11 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   labels: [],
 };
 
-export const useForm = createForm<Partial<RetrieveQuery>, typeof formSchema, SubStore>({
+export const useForm = createForm<
+  Partial<RetrieveQuery>,
+  typeof formSchema,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
@@ -145,23 +190,50 @@ export const useForm = createForm<Partial<RetrieveQuery>, typeof formSchema, Sub
     if (primitive.isZero(key)) return;
     const stat = await retrieveSingle({ ...args, query: { key } });
     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
-    reset({
-      ...stat,
-      labels: labels.map((l) => l.key),
-    });
+    reset({ ...stat, labels: labels.map((l) => l.key) });
   },
-  update: async ({ client, value }) => {
+  update: async ({ client, value, store, rollbacks, set }) => {
+    set("time", TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
-    await client.statuses.set(v);
+    const { labels: labelKeys, ...rest } = v;
+    const res = await client.statuses.set(rest);
+    if (labelKeys != null) {
+      const labels = await Label.setLabelsFor({
+        store,
+        client,
+        rollbacks,
+        data: { id: status.ontologyID(res.key), labels: labelKeys },
+      });
+      res.labels = labels;
+    }
+    store.statuses.set(res);
+    set("key", res.key);
   },
-  mountListeners: ({ store, query: { key }, set }) => [
-    store.statuses.onSet((v) => {
-      set("key", v.key);
-      set("message", v.message);
-      set("time", v.time);
-      set("name", v.name);
-      set("description", v.description);
-    }, key),
-  ],
+  mountListeners: ({ store, query: { key }, set, get }) => {
+    const getKey = () => get<label.Key>("key").value;
+    return [
+      store.statuses.onSet((v) => {
+        if (getKey() != v.key) return;
+        set("key", v.key);
+        set("message", v.message);
+        set("time", v.time);
+        set("name", v.name);
+        set("description", v.description);
+      }, key),
+      store.relationships.onSet(async (rel) => {
+        const key = getKey();
+        const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+        if (!isLabelChange) return;
+        set("labels", array.upsert(get<string[]>("labels").value, rel.to.key));
+      }),
+      store.relationships.onDelete(async (relKey) => {
+        const key = getKey();
+        const rel = ontology.relationshipZ.parse(relKey);
+        const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+        if (!isLabelChange) return;
+        return set("labels", array.remove(get<string[]>("labels").value, rel.to.key));
+      }),
+    ];
+  },
 });
