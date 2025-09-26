@@ -631,18 +631,7 @@ template<typename T>
 }
 
 [[nodiscard]] inline std::string to_string(const SampleValue &value) {
-    return std::visit(
-        []<typename T>(const T &arg) -> std::string {
-            if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
-                return arg;
-            else if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
-                return std::to_string(arg.nanoseconds());
-            else if constexpr (std::is_arithmetic_v<std::decay_t<T>>)
-                return std::to_string(arg);
-            throw std::runtime_error("cannot convert unknown type to string");
-        },
-        value
-    );
+    return cast<std::string>(value);
 }
 using NowFunc = std::function<TimeStamp()>;
 

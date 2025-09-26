@@ -381,6 +381,7 @@ TEST(testConfig, testFieldErrWithXError) {
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "test_field");
     EXPECT_TRUE(
-        err["message"].get<std::string>().find("Custom validation error") != std::string::npos
+        err["message"].get<std::string>().find("Custom validation error") !=
+        std::string::npos
     );
 }
