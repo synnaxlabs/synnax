@@ -67,8 +67,16 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const handleSourceChange = (v: channel.Key | null): void =>
+  const { retrieve } = Channel.useRetrieveObservable({
+    onChange: useCallback(
+      ({ data }) => data != null && onChange({ ...value, tooltip: [data.name] }),
+      [onChange],
+    ),
+  });
+  const handleSourceChange = (v: channel.Key | null): void => {
+    if (primitive.isNonZero(v)) retrieve({ key: v });
     handleChange({ valueStream: telem.streamChannelValue({ channel: v ?? 0 }) });
+  };
 
   const handleNotationChange = (notation: notation.Notation): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });
@@ -83,18 +91,6 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     throw new Error("Must pass in a channel by key to Value.TelemForm");
   const channelKey = source.channel;
 
-  const { retrieve } = Channel.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data }) => {
-        if (data == null) return;
-        onChange({ ...value, tooltip: [data.name] });
-      },
-      [onChange],
-    ),
-  });
-  useEffect(() => {
-    if (primitive.isNonZero(channelKey)) retrieve({ key: channelKey });
-  }, [source.channel]);
   return (
     <>
       <Input.Item label="Input Channel" grow>
