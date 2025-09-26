@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2178-modbus-integration
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -99,6 +100,8 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
           elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/sy-2178-modbus-integration" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)-sy-2178-modbus-integration" >> $GITHUB_OUTPUT
           fi
 
   create-release:
