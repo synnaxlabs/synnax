@@ -9,16 +9,11 @@
 
 from typing import Any, Dict, Optional
 
-from playwright.sync_api import Page
-
 from .symbol import Symbol
 
 
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
-
-    def __init__(self, page: Page, symbol_id: str, channel_name: str):
-        super().__init__(page, symbol_id, channel_name)
 
     def edit_properties(
         self,
@@ -41,10 +36,7 @@ class Setpoint(Symbol):
 
         return applied_properties
 
-    def set_value(self, value: Any = None) -> None:
-
-        if value is None:
-            raise ValueError(f"{self.label}: Set Value cannot be None")
+    def set_value(self, value: float) -> None:
 
         self._disable_edit_mode()
         self._click_symbol()
