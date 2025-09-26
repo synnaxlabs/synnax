@@ -265,7 +265,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                           onChange={(v) => onChange(v / 100)}
                           bounds={SCALE_BOUNDS}
                           dragScale={0.5}
-                          endContent={"%"}
+                          endContent="%"
                         />
                       )}
                     </Form.Field>

@@ -87,6 +87,10 @@ export default [
       "simple-import-sort/exports": "error",
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
+      "react/jsx-curly-brace-presence": [
+        "error",
+        { props: "never", children: "never" },
+      ],
       "@typescript-eslint/no-empty-object-type": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-filename-extension": [

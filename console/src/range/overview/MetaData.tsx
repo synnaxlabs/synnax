@@ -117,7 +117,7 @@ const MetaDataListItem = ({
         {isCreate ? (
           <Form.TextField
             style={{ flexBasis: "30%", width: 250 }}
-            path={"key"}
+            path="key"
             inputProps={{
               ref: inputRef,
               autoFocus: isCreate,
@@ -137,7 +137,7 @@ const MetaDataListItem = ({
           </Text.Text>
         )}
         <Divider.Divider y />
-        <Form.Field<string> path={"value"} showLabel={false} hideIfNull>
+        <Form.Field<string> path="value" showLabel={false} hideIfNull>
           {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (

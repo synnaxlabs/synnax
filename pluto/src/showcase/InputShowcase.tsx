@@ -142,11 +142,11 @@ export const InputShowcase = () => (
             <Text.Text level="small" weight={500}>
               With End Content
             </Text.Text>
-            <InputShowcaseText endContent={"m/s"} size="huge" />
-            <InputShowcaseText endContent={"m/s"} size="large" />
-            <InputShowcaseText endContent={"m/s"} size="medium" />
-            <InputShowcaseText endContent={"m/s"} size="small" />
-            <InputShowcaseText endContent={"m/s"} size="tiny" />
+            <InputShowcaseText endContent="m/s" size="huge" />
+            <InputShowcaseText endContent="m/s" size="large" />
+            <InputShowcaseText endContent="m/s" size="medium" />
+            <InputShowcaseText endContent="m/s" size="small" />
+            <InputShowcaseText endContent="m/s" size="tiny" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -344,8 +344,8 @@ export const InputShowcase = () => (
       description="Inputs with custom colors and different background contrast levels"
     >
       <Flex.Box x gap="large">
-        <InputShowcaseText placeholder="Catalyst" color={"#00FF00"} />
-        <InputShowcaseNumeric placeholder="Catalyst" color={"#00FF00"} />
+        <InputShowcaseText placeholder="Catalyst" color="#00FF00" />
+        <InputShowcaseNumeric placeholder="Catalyst" color="#00FF00" />
       </Flex.Box>
     </SubcategorySection>
 
