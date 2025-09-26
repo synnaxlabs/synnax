@@ -34,7 +34,7 @@ export const resultStatusDetails = <Data extends state.State, StatusDetails = ne
   return undefined as StatusDetails;
 };
 
-export type Status<StatusDetails = never> =
+export type ResultStatus<StatusDetails = never> =
   | status.Status<StatusDetails, "success">
   | status.Status<StatusDetails, "loading">
   | status.Status<StatusDetails, "disabled">

@@ -21,12 +21,12 @@ import {
   parseInitialStatusDetails,
   type Result,
   resultStatusDetails,
-  type Status,
+  type ResultStatus,
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
 import { state } from "@/state";
-import { useAdder } from "@/status/Aggregator";
+import { useAdder } from "@/status/core/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
@@ -38,7 +38,7 @@ export interface UpdateParams<
   client: Client;
   store: Store;
   rollbacks: Destructor[];
-  setStatus: (setter: state.SetArg<Status<StatusDetails>>) => void;
+  setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
 }
 
 export type CreateUpdateParams<
@@ -197,7 +197,7 @@ const useObservable = <
           if (updatedValue !== true) data = updatedValue;
         }
 
-        const setStatus = (setter: state.SetArg<Status<StatusDetails>>) =>
+        const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
           onChange((p) => {
             const nextStatus = state.executeSetter(setter, p.status);
             return {

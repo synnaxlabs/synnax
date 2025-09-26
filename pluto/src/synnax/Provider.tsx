@@ -24,7 +24,7 @@ import {
 
 import { Aether } from "@/aether";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {
