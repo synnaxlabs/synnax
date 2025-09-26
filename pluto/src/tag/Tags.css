@@ -9,11 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-<<<<<<<< HEAD:console/src/status/list/Item.css
-.console-status__list-item {
-  padding-left: 1rem;
-========
 .pluto-tags {
     padding: 0 2rem 0 0.5rem;
->>>>>>>> d7a03464d7c8be12af958fc5d115d0a96f21db39:pluto/src/tag/Tags.css
 }
