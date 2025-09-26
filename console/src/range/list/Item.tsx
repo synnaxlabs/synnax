@@ -123,13 +123,11 @@ const Base = ({
         <Flex.Box x align="center">
           {showLabels && labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
-              {showLabels &&
-                labels != null &&
-                labels.map(({ key, name, color }) => (
-                  <Tag.Tag key={key} color={color} size="small">
-                    {name}
-                  </Tag.Tag>
-                ))}
+              {labels.map(({ key, name, color }) => (
+                <Tag.Tag key={key} color={color} size="small">
+                  {name}
+                </Tag.Tag>
+              ))}
             </Tag.Tags>
           )}
           {showTimeRange && (

@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Flex, Form, Nav, Status } from "@synnaxlabs/pluto";
-import { type status, TimeStamp, uuid } from "@synnaxlabs/x";
+import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import type z from "zod";
 
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
@@ -72,6 +73,9 @@ export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
             label="Message"
             inputProps={{ placeholder: "Message" }}
           />
+          <Form.Field<string[]> path="labels" required={false}>
+            {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+          </Form.Field>
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>
