@@ -23,7 +23,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { ContextMenu } from "@/status/list/ContextMenu";
@@ -33,9 +33,16 @@ export interface ItemProps extends List.ItemProps<status.Key> {}
 export const Item = (props: ItemProps): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<status.Key, status.Status>(itemKey);
+  const initialValues = useMemo(() => {
+    if (item == null) return undefined;
+    return {
+      ...item,
+      labels: item.labels.map((l) => l.key),
+    };
+  }, [item]);
   const { form } = Status.useForm({
     params: {},
-    initialValues: item,
+    initialValues,
     autoSave: true,
     sync: true,
   });

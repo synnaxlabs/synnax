@@ -50,7 +50,7 @@ const Base = ({
   if (getItem == null) throw new UnexpectedError("getItem is null");
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
-    if (item == null) return null;
+    if (item == null) return undefined;
     return {
       ...item.payload,
       labels: item.labels?.map((l) => l.key) ?? [],
@@ -60,7 +60,7 @@ const Base = ({
   }, [item]);
   const { form } = Ranger.useForm({
     params: {},
-    initialValues: initialValues ?? undefined,
+    initialValues,
     sync: true,
     autoSave: true,
   });

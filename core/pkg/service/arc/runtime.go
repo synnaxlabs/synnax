@@ -46,14 +46,12 @@ func (s *Service) handleChange(
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
 				&status.Status{
-					Name:    fmt.Sprintf("%s Status", a.Name),
+					Name:    a.Name,
 					Key:     a.Key.String(),
 					Variant: xstatus.DisabledVariant,
 					Message: "Stopped",
 					Time:    telem.Now(),
-					Details: map[string]interface{}{
-						"running": false,
-					},
+					Details: map[string]any{"running": false},
 				},
 				OntologyID(a.Key),
 			); err != nil {
@@ -74,9 +72,7 @@ func (s *Service) handleChange(
 					Message:     "Deployment Failed",
 					Description: err.Error(),
 					Time:        telem.Now(),
-					Details: map[string]interface{}{
-						"running": false,
-					},
+					Details:     map[string]any{"running": false},
 				},
 				OntologyID(a.Key),
 			); err != nil {
@@ -97,9 +93,7 @@ func (s *Service) handleChange(
 					Variant:     xstatus.ErrorVariant,
 					Description: err.Error(),
 					Time:        telem.Now(),
-					Details: map[string]interface{}{
-						"running": false,
-					},
+					Details:     map[string]any{"running": false},
 				},
 				OntologyID(a.Key),
 			); err != nil {
@@ -116,9 +110,7 @@ func (s *Service) handleChange(
 				Message: "Deployment Successful",
 				Variant: xstatus.SuccessVariant,
 				Time:    telem.Now(),
-				Details: map[string]interface{}{
-					"running": false,
-				},
+				Details: map[string]any{"running": true},
 			},
 			OntologyID(a.Key),
 		); err != nil {

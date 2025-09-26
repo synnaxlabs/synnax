@@ -31,7 +31,7 @@ type Arc struct {
 	// Note that this text content does not necessarily represent a valid arg program.
 	Text text.Text `json:"text" msgpack:"text"`
 	// Deploy sets whether on not the arc program should be deployed.
-	Deploy bool `json:"deploy", msgpack:"deploy"`
+	Deploy bool `json:"deploy" msgpack:"deploy"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Arc{}
