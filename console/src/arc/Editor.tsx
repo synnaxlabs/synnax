@@ -125,20 +125,63 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 interface StatusChipProps {
-  layoutKey: string;
+  arc: State;
 }
 
-const StatusChip = ({ layoutKey }: StatusChipProps) => {
-  const status = Status.useRetrieve({ key: layoutKey }, { addStatusOnFailure: false });
+const Controls = ({ arc }: StatusChipProps) => {
+  const name = Layout.useSelectRequiredName(arc.key);
+  const status = Status.useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
+  const { update: create } = Arc.useCreate();
+  const handleDeploy = useCallback(() => {
+    create({
+      key: arc.key,
+      name,
+      graph: translateGraphToServer(arc.graph),
+      text: { raw: "" },
+      deploy: true,
+      version: arc.version,
+    });
+  }, [arc, name, create]);
+
   return (
-    <Status.Summary variant="disabled" message="Arc not deployed" {...status.data} />
+    <Flex.Box
+      style={{
+        padding: "2rem",
+        position: "absolute",
+        bottom: 0,
+        right: 0,
+        width: 500,
+      }}
+      justify="end"
+      grow
+    >
+      <Flex.Box
+        x
+        background={1}
+        style={{ padding: "2rem" }}
+        bordered
+        borderColor={5}
+        grow
+        rounded={2}
+        justify="between"
+      >
+        <Status.Summary
+          variant="disabled"
+          message="Arc not deployed"
+          {...status.data}
+        />
+        <Button.Button onClick={handleDeploy}>
+          <Icon.Play />
+          Deploy
+        </Button.Button>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const arc = useSelect(layoutKey);
-  const name = Layout.useSelectRequiredName(layoutKey);
 
   const dispatch = useDispatch();
   const selector = useCallback(
@@ -301,8 +344,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
-  const { update: create } = Arc.useCreate();
-
   return (
     <div
       ref={ref}
@@ -337,43 +378,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Diagram.FitViewControl />
         </Diagram.Controls>
       </Core.Arc>
-      <Flex.Box
-        style={{
-          padding: "2rem",
-          position: "absolute",
-          bottom: 0,
-          right: 0,
-          width: 500,
-        }}
-        justify="end"
-        grow
-      >
-        <Flex.Box
-          x
-          background={1}
-          style={{ padding: "2rem" }}
-          bordered
-          borderColor={5}
-          grow
-          rounded={2}
-          justify="between"
-        >
-          <StatusChip layoutKey={layoutKey} />
-          <Button.Button
-            onClick={() => {
-              create({
-                key: arc.key,
-                name,
-                graph: translateGraphToServer(arc.graph),
-                text: { raw: "" },
-              });
-            }}
-          >
-            <Icon.Play />
-            Deploy
-          </Button.Button>
-        </Flex.Box>
-      </Flex.Box>
+      <Controls arc={arc} />
     </div>
   );
 };

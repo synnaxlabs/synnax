@@ -54,6 +54,8 @@ export const arcZ = z.object({
   name: z.string(),
   graph: graphZ,
   text: textZ,
+  deploy: z.boolean(),
+  version: z.string(),
 });
 
 export interface Arc extends z.infer<typeof arcZ> {

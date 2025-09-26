@@ -19,7 +19,6 @@ export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
-// The Status type combines a name with the base status from x/status
 export const statusZ = xStatus.statusZ().extend({
   labels: nullableArrayZ(label.labelZ),
 });

@@ -58,7 +58,7 @@ func (s *Service) handleChange(
 				s.cfg.L.Error("failed to set arc status", zap.Error(err))
 			}
 		}
-		if e.Variant == changex.Delete {
+		if e.Variant == changex.Delete || !a.Deploy {
 			return
 		}
 		mod, err := arc.CompileGraph(ctx, e.Value.Graph, arc.WithResolver(s.symbolResolver))

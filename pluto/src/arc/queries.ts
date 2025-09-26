@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { primitive, uuid } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Flux } from "@/flux";
@@ -105,6 +105,7 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   graph: { nodes: [], edges: [] },
   text: { raw: "" },
+  deploy: true,
 };
 
 export const useForm = Flux.createForm<

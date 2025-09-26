@@ -37,7 +37,7 @@ export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
     position: xy.ZERO,
     zoom: 1,
   },
-  editable: true,
+  editable: false,
   fitViewOnResize: false,
 });
 
