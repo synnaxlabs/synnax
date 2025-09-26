@@ -20,6 +20,7 @@ describe("Notification Component", () => {
   const notificationProps: NotificationProps = {
     status: {
       key: "test-key",
+      name: "test-name",
       time: TimeStamp.now(),
       count: 1,
       message: "Test notification message",

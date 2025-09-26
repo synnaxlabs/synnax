@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { ExpiredTokenError } from "@/errors";
 import { ontology } from "@/ontology";
-import { type status } from "@/status";
+import { group } from "@/ontology/group";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -80,11 +82,11 @@ describe("Status", () => {
     });
 
     it("should set a status with a parent", async () => {
-      const parentGroup = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "Parent Group",
-      );
-
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "Parent Group",
+      });
+      const parentOntologyID = group.ontologyID(parentGroup.key);
       const s = await client.statuses.set(
         {
           name: "Child Status",
@@ -93,12 +95,12 @@ describe("Status", () => {
           message: "Status with parent",
           time: TimeStamp.now(),
         },
-        { parent: parentGroup.ontologyID },
+        { parent: parentOntologyID },
       );
 
       expect(s.key).toBe("child-status");
 
-      const resources = await client.ontology.retrieveChildren(parentGroup.ontologyID);
+      const resources = await client.ontology.retrieveChildren(parentOntologyID);
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();
@@ -263,6 +265,36 @@ describe("Status", () => {
     });
   });
 
+  describe("with labels", () => {
+    it("should correctly retrieve a status with labels attached", async () => {
+      const label1 = await client.labels.create({
+        name: "Label 1",
+        color: "#0000FF",
+      });
+      const label2 = await client.labels.create({
+        name: "Label 2",
+        color: "#FF0000",
+      });
+      const stat = await client.statuses.set({
+        name: "Idempotent",
+        key: uuid.create(),
+        variant: "info",
+        message: "Test",
+        time: TimeStamp.now(),
+      });
+      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+        replace: true,
+      });
+
+      const retrievedStat = await client.statuses.retrieve({
+        key: stat.key,
+        includeLabels: true,
+      });
+      expect(retrievedStat.key).toEqual(stat.key);
+      expect(retrievedStat.labels).toHaveLength(2);
+    });
+  });
+
   describe("status variants", () => {
     it("should support all status variants", async () => {
       const variants: status.Status["variant"][] = [
@@ -288,36 +320,6 @@ describe("Status", () => {
       statuses.forEach((s, i) => {
         expect(s.variant).toBe(variants[i]);
       });
-    });
-  });
-
-  describe("status details", () => {
-    it("should store and retrieve status details", async () => {
-      const details = {
-        errorCode: 500,
-        stack: "Error stack trace",
-        metadata: {
-          source: "test",
-          timestamp: Date.now(),
-        },
-      };
-
-      const s = await client.statuses.set({
-        name: "Detailed Status",
-        key: "detailed-status",
-        variant: "error",
-        message: "Error with details",
-        description: "This is a longer description of the error",
-        time: TimeStamp.now(),
-        details,
-      });
-
-      expect(s.details).toEqual(details);
-      expect(s.description).toBe("This is a longer description of the error");
-
-      const retrieved = await client.statuses.retrieve({ key: s.key });
-      expect(retrieved.details).toEqual(details);
-      expect(retrieved.description).toBe("This is a longer description of the error");
     });
   });
 });

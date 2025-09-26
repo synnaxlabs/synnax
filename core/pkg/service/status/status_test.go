@@ -66,26 +66,22 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Set", func() {
 			It("Should create a new status", func() {
 				s := &status.Status{
-					Name: "Test Status",
-					Status: xstatus.Status[any]{
-						Key:     "test-key",
-						Variant: "success",
-						Message: "Test message",
-						Time:    telem.Now(),
-					},
+					Name:    "Test Status",
+					Key:     "test-key",
+					Variant: "success",
+					Message: "Test message",
+					Time:    telem.Now(),
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(s.Key).To(Equal("test-key"))
 			})
 			It("Should update an existing status", func() {
 				s := &status.Status{
-					Name: "Test Status",
-					Status: xstatus.Status[any]{
-						Key:     "update-key",
-						Variant: "info",
-						Message: "Initial message",
-						Time:    telem.Now(),
-					},
+					Name:    "Test Status",
+					Key:     "update-key",
+					Variant: "info",
+					Message: "Initial message",
+					Time:    telem.Now(),
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				s.Message = "Updated message"
@@ -100,22 +96,18 @@ var _ = Describe("Status", Ordered, func() {
 			Context("Parent Management", func() {
 				It("Should set a custom parent for the status", func() {
 					parent := status.Status{
-						Name: "Parent Status",
-						Status: xstatus.Status[any]{
-							Key:     "parent-key",
-							Variant: "info",
-							Message: "Parent status",
-						},
+						Name:    "Parent Status",
+						Key:     "parent-key",
+						Variant: "info",
+						Message: "Parent status",
 					}
 					Expect(w.Set(ctx, &parent)).To(Succeed())
 
 					child := status.Status{
-						Name: "Child Status",
-						Status: xstatus.Status[any]{
-							Key:     "child-key",
-							Variant: "info",
-							Message: "Child status",
-						},
+						Name:    "Child Status",
+						Key:     "child-key",
+						Variant: "info",
+						Message: "Child status",
 					}
 					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
 
@@ -134,20 +126,16 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should create multiple statuses", func() {
 				statuses := []status.Status{
 					{
-						Name: "Status 1",
-						Status: xstatus.Status[any]{
-							Key:     "key1",
-							Variant: "info",
-							Message: "Message 1",
-						},
+						Name:    "Status 1",
+						Key:     "key1",
+						Variant: "info",
+						Message: "Message 1",
 					},
 					{
-						Name: "Status 2",
-						Status: xstatus.Status[any]{
-							Key:     "key2",
-							Variant: "warning",
-							Message: "Message 2",
-						},
+						Name:    "Status 2",
+						Key:     "key2",
+						Variant: "warning",
+						Message: "Message 2",
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -161,12 +149,10 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Delete", func() {
 			It("Should delete a status", func() {
 				s := &status.Status{
-					Name: "To Delete",
-					Status: xstatus.Status[any]{
-						Key:     "delete-key",
-						Variant: "info",
-						Message: "Will be deleted",
-					},
+					Name:    "To Delete",
+					Key:     "delete-key",
+					Variant: "info",
+					Message: "Will be deleted",
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
@@ -184,18 +170,14 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should delete multiple statuses", func() {
 				statuses := []status.Status{
 					{
-						Name: "Del 1",
-						Status: xstatus.Status[any]{
-							Key:     "del1",
-							Variant: "info",
-						},
+						Name:    "Del 1",
+						Key:     "del1",
+						Variant: "info",
 					},
 					{
-						Name: "Del 2",
-						Status: xstatus.Status[any]{
-							Key:     "del2",
-							Variant: "info",
-						},
+						Name:    "Del 2",
+						Key:     "del2",
+						Variant: "info",
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -210,28 +192,22 @@ var _ = Describe("Status", Ordered, func() {
 		BeforeEach(func() {
 			statuses := []status.Status{
 				{
-					Name: "Status A",
-					Status: xstatus.Status[any]{
-						Key:     "retrieve-a",
-						Variant: "info",
-						Message: "Status A message",
-					},
+					Name:    "Status A",
+					Key:     "retrieve-a",
+					Variant: "info",
+					Message: "Status A message",
 				},
 				{
-					Name: "Status B",
-					Status: xstatus.Status[any]{
-						Key:     "retrieve-b",
-						Variant: "warning",
-						Message: "Status B message",
-					},
+					Name:    "Status B",
+					Key:     "retrieve-b",
+					Variant: "warning",
+					Message: "Status B message",
 				},
 				{
-					Name: "Status C",
-					Status: xstatus.Status[any]{
-						Key:     "retrieve-c",
-						Variant: "error",
-						Message: "Status C message",
-					},
+					Name:    "Status C",
+					Key:     "retrieve-c",
+					Variant: "error",
+					Message: "Status C message",
 				},
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, ontology } from "@synnaxlabs/client";
+import { createTestClient, group, ontology } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -208,10 +208,11 @@ describe("Status queries", () => {
     });
 
     it("should set status with parent", async () => {
-      const parentGroup = await client.ontology.groups.create(
-        ontology.ROOT_ID,
-        "Parent Group",
-      );
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "Parent Group",
+      });
+      const parentOntologyID = group.ontologyID(parentGroup.key);
 
       const { result } = renderHook(() => Status.useSet(), { wrapper });
 
@@ -224,11 +225,11 @@ describe("Status queries", () => {
             message: "Has parent",
             time: TimeStamp.now(),
           },
-          parent: parentGroup.ontologyID,
+          parent: parentOntologyID,
         });
       });
 
-      const resources = await client.ontology.retrieveChildren(parentGroup.ontologyID);
+      const resources = await client.ontology.retrieveChildren(parentOntologyID);
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
       expect(statusResource).toBeDefined();

@@ -10,16 +10,16 @@
 package status
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/status"
 )
 
-type Status struct {
-	Name string `json:"name" msgpack:"name"`
-	status.Status[any]
-}
+type Status status.Status[any]
 
 var _ gorp.Entry[string] = (*Status)(nil)
+
+func (s Status) OntologyID() ontology.ID { return OntologyID(s.Key) }
 
 // GorpKey implements gorp.Entry.
 func (s Status) GorpKey() string { return s.Key }

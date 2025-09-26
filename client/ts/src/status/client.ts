@@ -12,12 +12,9 @@ import { array } from "@synnaxlabs/x/array";
 import z from "zod";
 
 import { ontology } from "@/ontology";
-import { type Key, keyZ, type Status, statusZ } from "@/status/payload";
+import { type Key, keyZ, type New, newZ, type Status, statusZ } from "@/status/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
-
-export const newZ = statusZ.extend({ key: keyZ.optional() });
-export interface New extends z.infer<typeof newZ> {}
 
 const setReqZ = z.object({
   parent: ontology.idZ.optional(),
@@ -36,11 +33,12 @@ const retrieveRequestZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
+  includeLabels: z.boolean().optional(),
 });
 
 const singleRetrieveArgsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+  .object({ key: keyZ, includeLabels: z.boolean().optional() })
+  .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 

@@ -28,6 +28,7 @@ export type Variant = z.infer<typeof variantZ>;
 type StatusZodObject<DetailsSchema extends z.ZodType> = z.ZodObject<
   {
     key: z.ZodString;
+    name: z.ZodDefault<z.ZodString>;
     variant: typeof variantZ;
     message: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
@@ -47,6 +48,7 @@ export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
 ) =>
   z.object({
     key: z.string(),
+    name: z.string().default(""),
     variant: variantZ,
     message: z.string(),
     description: z.string().optional(),
@@ -56,6 +58,7 @@ export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
 
 type Base<V extends Variant> = {
   key: string;
+  name: string;
   variant: V;
   message: string;
   description?: string;
@@ -67,7 +70,7 @@ export type Status<Details = never, V extends Variant = Variant> = Base<V> &
 
 export type Crude<Details = never, V extends Variant = Variant> = Optional<
   Base<V>,
-  "key" | "time"
+  "key" | "time" | "name"
 > &
   ([Details] extends [never] ? {} : { details: Details });
 
@@ -96,6 +99,7 @@ export const create = <Details = never, V extends Variant = Variant>(
   ({
     key: id.create(),
     time: TimeStamp.now(),
+    name: "",
     ...spec,
   }) as Status<Details, V>;
 
