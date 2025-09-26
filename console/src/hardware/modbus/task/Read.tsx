@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/modbus/task/Read.css";
+import "@/hardware/modbus/task/Task.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -20,7 +20,6 @@ import { Device } from "@/hardware/modbus/device";
 import { SelectInputChannelTypeField } from "@/hardware/modbus/task/SelectInputChannelTypeField";
 import {
   COIL_INPUT_TYPE,
-  DISCRETE_INPUT_TYPE,
   HOLDING_REGISTER_INPUT_TYPE,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
@@ -38,23 +37,19 @@ import {
 } from "@/hardware/modbus/task/types";
 import { type Selector } from "@/selector";
 
-interface FormProps {
-  path: string;
-}
-
-export const READ_LAYOUT: Common.Task.Layout = {
+export const READ_LAYOUT = {
   ...Common.Task.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.Modbus",
-};
+} as const satisfies Common.Task.Layout;
 
-export const READ_SELECTABLE: Selector.Selectable = {
+export const READ_SELECTABLE = {
   key: READ_TYPE,
   title: "Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
   create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
-};
+} as const satisfies Selector.Selectable;
 
 const Properties = () => (
   <>
@@ -63,16 +58,11 @@ const Properties = () => (
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
 
-export const FORMS: Record<InputChannelType, FC<FormProps>> = {
-  [COIL_INPUT_TYPE]: () => <></>,
-  [DISCRETE_INPUT_TYPE]: () => <></>,
-  [HOLDING_REGISTER_INPUT_TYPE]: () => <></>,
-  [REGISTER_INPUT_TYPE]: () => <></>,
-};
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
@@ -119,7 +109,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
-                hideVariableDensity={true}
+                hideVariableDensity
                 location="bottom"
               />
             )}
@@ -158,18 +148,12 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => {
-  const createChannel = useCallback(
-    (channels: InputChannel[]) => getOpenChannel(channels),
-    [],
-  );
-  return (
-    <Common.Task.Layouts.List<InputChannel>
-      createChannel={createChannel}
-      listItem={listItem}
-    />
-  );
-};
+> = () => (
+  <Common.Task.Layouts.List<InputChannel>
+    createChannel={getOpenChannel}
+    listItem={listItem}
+  />
+);
 
 const readMapKey = (channel: InputChannel) => {
   let s = `${channel.type}-${channel.address.toString()}`;
@@ -200,7 +184,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+  const dev = await client.hardware.devices.retrieve<
+    Device.Properties,
+    Device.Make,
+    Device.Model
+  >({
     key: config.device,
   });
   let shouldCreateIndex = false;

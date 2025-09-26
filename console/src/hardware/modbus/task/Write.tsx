@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/modbus/task/Task.css";
+
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { caseconv, deep, id } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -31,24 +33,24 @@ import {
 } from "@/hardware/modbus/task/types";
 import { type Selector } from "@/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
+export const WRITE_LAYOUT = {
   ...Common.Task.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.Modbus",
-};
+} as const satisfies Common.Task.Layout;
 
-export const WRITE_SELECTABLE: Selector.Selectable = {
+export const WRITE_SELECTABLE = {
   key: WRITE_TYPE,
   title: "Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
   create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
-};
+} as const satisfies Selector.Selectable;
 
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.DataSaving />
+    <Common.Task.Fields.AutoStart />
   </>
 );
 
@@ -130,18 +132,12 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => {
-  const createChannel = useCallback(
-    (channels: OutputChannel[]) => getOpenChannel(channels),
-    [],
-  );
-  return (
-    <Common.Task.Layouts.List<OutputChannel>
-      createChannel={createChannel}
-      listItem={listItem}
-    />
-  );
-};
+> = () => (
+  <Common.Task.Layouts.List<OutputChannel>
+    createChannel={getOpenChannel}
+    listItem={listItem}
+  />
+);
 
 const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
