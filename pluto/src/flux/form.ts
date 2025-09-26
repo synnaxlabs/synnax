@@ -103,7 +103,7 @@ export interface UseFormArgs<
 > extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
-  params: Query;
+  query: Query;
   beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
   beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
   afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
@@ -137,7 +137,7 @@ export const createForm =
     initialValues: baseInitialValues,
   }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
   ({
-    params: query,
+    query,
     initialValues,
     autoSave = false,
     afterSave,

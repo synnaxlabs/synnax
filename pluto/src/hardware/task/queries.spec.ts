@@ -702,7 +702,7 @@ describe("queries", () => {
           config: {},
         },
       });
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
       await waitFor(() => {
@@ -737,7 +737,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -770,7 +770,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -813,7 +813,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -868,7 +868,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             beforeSave,
           }),
         { wrapper },
@@ -921,7 +921,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             afterSave,
           }),
         { wrapper },
@@ -972,7 +972,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -1019,7 +1019,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -1056,7 +1056,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -1096,7 +1096,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: "999999" },
+            query: { key: "999999" },
           }),
         { wrapper },
       );
@@ -1131,7 +1131,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             autoSave: true,
           }),
         { wrapper },
@@ -1202,7 +1202,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 

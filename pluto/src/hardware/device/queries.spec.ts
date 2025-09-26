@@ -810,7 +810,7 @@ describe("queries", () => {
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new device", async () => {
-        const { result } = renderHook(() => Device.useForm({ params: { key: "" } }), {
+        const { result } = renderHook(() => Device.useForm({ query: { key: "" } }), {
           wrapper,
         });
 
@@ -831,7 +831,7 @@ describe("queries", () => {
           name: "test form rack",
         });
         const useForm = Device.createForm();
-        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
 
@@ -870,7 +870,7 @@ describe("queries", () => {
 
       it("should validate required fields", async () => {
         const useForm = Device.createForm();
-        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
 
@@ -900,7 +900,7 @@ describe("queries", () => {
           name: "test custom props rack",
         });
         const useForm = Device.createForm<CustomProperties>();
-        const { result } = renderHook(() => useForm({ params: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
 
@@ -950,7 +950,7 @@ describe("queries", () => {
         const { result } = renderHook(
           () =>
             useForm({
-              params: { key: testDevice.key },
+              query: { key: testDevice.key },
             }),
           { wrapper },
         );
@@ -984,7 +984,7 @@ describe("queries", () => {
         });
 
         const { result } = renderHook(
-          () => Device.useForm({ params: { key: testDevice.key } }),
+          () => Device.useForm({ query: { key: testDevice.key } }),
           { wrapper },
         );
 
@@ -1014,7 +1014,7 @@ describe("queries", () => {
 
     describe("validation", () => {
       it("should validate name field", async () => {
-        const { result } = renderHook(() => Device.useForm({ params: { key: "" } }), {
+        const { result } = renderHook(() => Device.useForm({ query: { key: "" } }), {
           wrapper,
         });
 

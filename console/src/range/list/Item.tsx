@@ -59,7 +59,7 @@ const Base = ({
     };
   }, [item]);
   const { form } = Ranger.useForm({
-    params: {},
+    query: {},
     initialValues: initialValues ?? undefined,
     sync: true,
     autoSave: true,

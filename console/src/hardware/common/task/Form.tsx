@@ -163,7 +163,7 @@ export const wrapForm = <
     };
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
-      params: { key: taskKey },
+      query: { key: taskKey },
       onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();

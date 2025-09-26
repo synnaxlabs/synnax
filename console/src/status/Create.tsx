@@ -37,7 +37,7 @@ export const createCreateLayout = (
 export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const { form, save, variant } = Status.useForm({
-    params: { key: args?.key },
+    query: { key: args?.key },
     autoSave: false,
     initialValues: {
       ...args,

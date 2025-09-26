@@ -47,7 +47,7 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    params: {},
+    query: {},
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(

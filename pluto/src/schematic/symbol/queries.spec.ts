@@ -268,7 +268,7 @@ describe("Symbol queries", () => {
       });
 
       const { result } = renderHook(
-        () => Symbol.useForm({ params: { parent: group.ontologyID(parent.key) } }),
+        () => Symbol.useForm({ query: { parent: group.ontologyID(parent.key) } }),
         { wrapper },
       );
 
@@ -314,7 +314,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useForm({
-            params: { key: symbol.key, parent: group.ontologyID(parent.key) },
+            query: { key: symbol.key, parent: group.ontologyID(parent.key) },
           }),
         { wrapper },
       );
