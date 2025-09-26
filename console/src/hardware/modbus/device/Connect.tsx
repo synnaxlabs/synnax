@@ -57,8 +57,8 @@ const useForm = Device.createForm<Properties, Make, Model>();
 const INITIAL_VALUES: device.Device<Properties, Make, Model> = {
   key: "",
   name: "Modbus Server",
-  make: "modbus",
-  model: "modbus",
+  make: "Modbus",
+  model: "Modbus",
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,

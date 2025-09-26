@@ -10,9 +10,9 @@
 import { type device } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
-export const MAKE = "modbus";
+export const MAKE = "Modbus";
 export type Make = typeof MAKE;
-export type Model = "modbus";
+export type Model = "Modbus";
 
 export const connectionConfigZ = z.object({
   host: z.string(),
