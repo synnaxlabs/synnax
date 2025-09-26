@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Simple_Press(ConsoleCase):
+class Simple_Press_Setpoints(ConsoleCase):
     """
     Test a basic press control sequence
     """
