@@ -1,6 +1,0 @@
-{
-  "cluster": { "insecure": true, "mem_fs": false },
-  "setup": { "index_channels": 1, "data_channels": 1, "client": "py" },
-  "steps": [],
-  "cleanup": { "delete_all_channels": true, "client": "py" }
-}

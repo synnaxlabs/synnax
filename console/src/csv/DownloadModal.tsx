@@ -8,8 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Button, Channel, Flex, Icon, Nav, Progress, Text } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange } from "@synnaxlabs/x";
+import {
+  Button,
+  Channel,
+  Flex,
+  Icon,
+  Nav,
+  Progress,
+  type Select,
+  Text,
+} from "@synnaxlabs/pluto";
+import { type CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { useDownload } from "@/csv/useDownload";
@@ -17,11 +26,17 @@ import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export interface DownloadModalArgs extends Modals.BaseArgs<void> {
-  timeRanges: NumericTimeRange[];
+  timeRanges: CrudeTimeRange[];
   name: string;
 }
 
 export const DOWNLOAD_MODAL_LAYOUT_TYPE = "downloadCSV";
+const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
+  virtual: false,
+};
+const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
+  placeholder: "Select Channels to Download",
+};
 
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
 
@@ -73,8 +88,8 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
           <Channel.SelectMultiple
             value={channels}
             onChange={setChannels}
-            initialParams={{ virtual: false }}
-            triggerProps={{ placeholder: "Select Channels to Download" }}
+            initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+            triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
             full="x"
           />
         </Flex.Box>

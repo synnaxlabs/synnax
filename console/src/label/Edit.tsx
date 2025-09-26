@@ -51,7 +51,13 @@ const LabelListItem = ({
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+      ({
+        reset,
+      }: Flux.AfterSaveParams<
+        Flux.Shape,
+        typeof Label.formSchema,
+        Label.FluxSubStore
+      >) => {
         onClose?.();
         if (isCreate) reset({ name: "", color: "#000000" });
       },
@@ -90,7 +96,7 @@ const LabelListItem = ({
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
-            path={`color`}
+            path="color"
             padHelpText={false}
             showLabel={false}
           >
@@ -101,7 +107,7 @@ const LabelListItem = ({
           <Form.TextField
             showLabel={false}
             hideIfNull
-            path={`name`}
+            path="name"
             showHelpText={false}
             padHelpText={false}
             inputProps={{
@@ -134,7 +140,7 @@ const LabelListItem = ({
         <Button.Button
           variant="outlined"
           size="small"
-          onClick={() => handleDelete({ key: itemKey })}
+          onClick={() => handleDelete(itemKey)}
           className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />

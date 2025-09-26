@@ -130,8 +130,8 @@ export const themeZ = z
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.infer<typeof themeZ>;
 
-const fontFamily = "'Inter Variable', sans-serif";
-const codeFontFamily = "'Geist Mono', monospace";
+const fontFamily = '"Inter Variable", sans-serif';
+const codeFontFamily = '"Geist Mono", monospace';
 const baseSize: number = 6;
 
 // Error
@@ -240,7 +240,7 @@ const SYNNAX_BASE: ThemeSpec = {
   typography: {
     family: fontFamily,
     codeFamily: codeFontFamily,
-    h1: { size: 6, weight: "500", lineHeight: 6 * 1.5 },
+    h1: { size: 5.5, weight: "500", lineHeight: 5.5 * 1.5 },
     h2: { size: 4.5, weight: "medium", lineHeight: 4.5 * 1.5 },
     h3: { size: 3.5, weight: "medium", lineHeight: 3.5 * 1.5 },
     h4: { size: 2.6666, weight: "medium", lineHeight: 2.6666 * 1.5 },
@@ -260,8 +260,8 @@ const DARK_SCALE = [
   "#020202", // l0
   "#080808", // l1
   "#151515", // l2
-  "#242424", // l3
-  "#2F2F2F", // l4
+  "#202020", // l3
+  "#272727", // l4
   "#3B3B3B", // l5
   "#4A4A4A", // l6
   "#5C5C5C", // l7
@@ -283,7 +283,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,
     logo: "var(--pluto-text-color)",
-    border: DARK_GRAY_SCALE.l3,
+    border: DARK_GRAY_SCALE.l4,
     text: DARK_GRAY_SCALE.l11,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,

@@ -10,6 +10,7 @@
 package falamos
 
 import (
+	"context"
 	"strings"
 
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -148,7 +150,10 @@ func log(ctx freighter.Context, err error, cfg Config) {
 		zap.Stringer("variant", ctx.Variant),
 		zap.Stringer("role", ctx.Role),
 	}
-	if err != nil {
+	// context.Canceled is returned when the client abruptly closes the connection,
+	// which happens when performing tasks like reloading web pages. As such,
+	// we don't consider it anomalous and don't log it.
+	if errors.Skip(err, context.Canceled) != nil {
 		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
 	} else {
 		cfg.L.Debug(ctx.Target.String(), args...)

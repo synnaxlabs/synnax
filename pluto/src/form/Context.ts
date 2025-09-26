@@ -11,7 +11,7 @@ import { type Destructor, type status } from "@synnaxlabs/x";
 import { createContext, use } from "react";
 import { type z } from "zod";
 
-import { type FieldState, type State } from "@/form/state";
+import { type State } from "@/form/state";
 
 export interface RemoveFunc {
   (path: string): void;
@@ -52,31 +52,14 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   getStatuses: () => status.Crude[];
 }
 
-export const Context = createContext<ContextValue>({
-  mode: "normal",
-  bind: () => () => {},
-  set: () => {},
-  reset: () => {},
-  remove: () => {},
-  get: <V = unknown>(): FieldState<V> => ({
-    value: undefined as V,
-    status: { key: "", variant: "success", message: "" },
-    touched: false,
-    required: false,
-  }),
-  validate: () => false,
-  validateAsync: () => Promise.resolve(false),
-  value: () => ({}),
-  has: () => false,
-  setStatus: () => {},
-  clearStatuses: () => {},
-  setCurrentStateAsInitialValues: () => {},
-  getStatuses: () => [],
-});
+export const Context = createContext<ContextValue | null>(null);
 
 export const useContext = <Z extends z.ZodType = z.ZodType>(
   override?: ContextValue<Z>,
+  funcName: string = "Form.useContext",
 ): ContextValue<Z> => {
   const internal = use(Context);
+  if (internal == null && override == null)
+    throw new Error(`${funcName} must be used within a Form context value`);
   return override ?? (internal as unknown as ContextValue<Z>);
 };

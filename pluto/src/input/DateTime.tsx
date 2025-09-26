@@ -26,6 +26,7 @@ import { type Control } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Select } from "@/select";
+import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -58,12 +59,9 @@ export const DateTime = ({
 
     nextTS = applyTimezoneOffset(nextTS);
     let ok = false;
-    try {
-      const str = nextTS.fString("ISO", "local");
-      ok = str.slice(0, -1) === nextStr;
-    } catch (e) {
-      console.error(e);
-    }
+    const str = nextTS.toString("ISO", "local");
+    ok = str.slice(0, -1) === nextStr;
+
     if (ok && !onlyChangeOnBlur) {
       onChange(Number(nextTS.valueOf()));
       setTempValue(null);
@@ -81,7 +79,7 @@ export const DateTime = ({
   };
 
   const tsValue = new TimeStamp(value, "UTC");
-  const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
+  const parsedValue = tsValue.toString("ISO", "local").slice(0, -1);
 
   const [visible, setVisible] = useState(false);
 
@@ -131,9 +129,9 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
           <Flex.Box x className={CSS.B("header")}>
-            <Text.DateTime level="h3" format="preciseDate">
+            <TelemText.TimeStamp level="h3" format="preciseDate">
               {value}
-            </Text.DateTime>
+            </TelemText.TimeStamp>
           </Flex.Box>
           <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
             <Icon.Close />
@@ -200,7 +198,7 @@ const AISelector = ({
         const nextTS = applyTimezoneOffset(new TimeStamp(d.start, "UTC"));
         return {
           key: d.start,
-          name: nextTS.fString("preciseDate", "local"),
+          name: nextTS.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(nextTS);
             close();
@@ -221,7 +219,7 @@ const AISelector = ({
         const next = applyTimezoneOffset(pValue.add(span));
         return {
           key: next.valueOf().toString(),
-          name: next.fString("preciseDate", "local"),
+          name: next.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(next);
             close();
@@ -311,7 +309,7 @@ interface CalendarProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
+const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const month = value.month;
   const year = value.year;
   const day = value.day;
@@ -397,7 +395,7 @@ interface TimeListProps {
 
 const timeListItem = renderProp(TimeListItem);
 
-export const createTimeList = (count: number): FC<TimeListProps> => {
+const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
@@ -424,7 +422,7 @@ interface TimeSelectorProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
+const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
   <Flex.Box pack y className={CSS.B("time-selector")}>
     <Flex.Box pack x grow className={CSS.B("time-selector-list")}>
       <HoursList

@@ -38,7 +38,7 @@ import { Triggers } from "@/triggers";
 
 export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
-export interface CreateLayoutArgs extends Schematic.Symbol.UseFormParams {
+export interface CreateLayoutArgs extends Schematic.Symbol.FormQuery {
   scale?: number;
 }
 
@@ -265,7 +265,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                           onChange={(v) => onChange(v / 100)}
                           bounds={SCALE_BOUNDS}
                           dragScale={0.5}
-                          endContent={"%"}
+                          endContent="%"
                         />
                       )}
                     </Form.Field>

@@ -158,7 +158,6 @@ ipython_config.py
 
 # pyenv
 
-
 # PEP 582
 __pypackages__/
 
@@ -199,6 +198,9 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# |||| TEST RESULTS ||||
+integration/test/results/
 
 # |||| LANDING SITE ||||
 
@@ -252,11 +254,9 @@ assets
 
 # |||| OTHER ||||
 .obsidian
-test
 src/**.js
 
 # ||| Build Binary |||
-
 freighter/integration/integration
 integration/integration
 core/synnax

@@ -21,7 +21,9 @@ export const DividerShowcase = () => (
         description="Vertical separators for dividing content horizontally within flex containers"
       >
         <Flex.Box y gap="medium">
-          <Text.Text level="small" weight={500}>Between Text Elements</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Between Text Elements
+          </Text.Text>
           <Flex.Box
             x
             style={{
@@ -58,7 +60,9 @@ export const DividerShowcase = () => (
         description="Horizontal separators for dividing content vertically within flex containers"
       >
         <Flex.Box y gap="medium">
-          <Text.Text level="small" weight={500}>Between Text Elements</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Between Text Elements
+          </Text.Text>
           <Flex.Box
             y
             style={{

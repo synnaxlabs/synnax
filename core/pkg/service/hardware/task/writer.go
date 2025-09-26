@@ -27,7 +27,7 @@ type Writer struct {
 
 func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	if !t.Key.IsValid() {
-		localKey, err := w.rack.NextTaskKey(ctx, t.Rack())
+		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
 		if err != nil {
 			return err
 		}
@@ -72,19 +72,21 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.NextTaskKey(ctx, key.Rack())
+	localKey, err := w.rack.NewTaskKey(ctx, key.Rack())
 	if err != nil {
 		return Task{}, err
 	}
 	newKey := NewKey(key.Rack(), localKey)
 	var res Task
-	err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
+	if err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
 		t.Key = newKey
 		t.Name = name
 		t.Snapshot = snapshot
 		res = t
 		return t
-	}).Exec(ctx, w.tx)
+	}).Exec(ctx, w.tx); err != nil {
+		return res, err
+	}
 	if err := w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
