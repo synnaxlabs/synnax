@@ -96,7 +96,7 @@ const LabelListItem = ({
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
-            path={`color`}
+            path="color"
             padHelpText={false}
             showLabel={false}
           >
@@ -107,7 +107,7 @@ const LabelListItem = ({
           <Form.TextField
             showLabel={false}
             hideIfNull
-            path={`name`}
+            path="name"
             showHelpText={false}
             padHelpText={false}
             inputProps={{

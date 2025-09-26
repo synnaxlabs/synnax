@@ -181,7 +181,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             </Button.Button>
             <Button.Button
               tooltip={`Download data for ${name} as a CSV`}
-              tooltipLocation={"bottom"}
+              tooltipLocation="bottom"
               variant="text"
               onClick={() =>
                 handleError(async () => {
