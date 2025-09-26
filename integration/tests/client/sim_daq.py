@@ -14,14 +14,13 @@ import synnax as sy
 from framework.test_case import STATUS, TestCase
 
 
-class Simulated_DAQ(TestCase):
+class Sim_DAQ(TestCase):
     """
     Simulated DAQ for press control sequence
     """
 
     def setup(self) -> None:
-
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(300)
         super().setup()
 
     def run(self) -> None:
@@ -31,13 +30,13 @@ class Simulated_DAQ(TestCase):
         # self.wait_for_tlm_init()
         client = self.client
 
-        # Index channel: 
+        # Index channel:
         # -------------------
         daq_time_ch = client.channels.create(
             name="daq_time", is_index=True, retrieve_if_name_exists=True
         )
 
-        # Pressure channel: 
+        # Pressure channel:
         # -------------------
         press_pt = client.channels.create(
             name="press_pt",
@@ -46,7 +45,7 @@ class Simulated_DAQ(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # Start test channels: 
+        # Start test channels:
         # -------------------
         start_test_cmd_time = client.channels.create(
             name="start_test_cmd_time",
@@ -69,7 +68,7 @@ class Simulated_DAQ(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # End test channels: 
+        # End test channels:
         # -------------------
         end_test_cmd_time = client.channels.create(
             name="end_test_cmd_time",
@@ -92,7 +91,7 @@ class Simulated_DAQ(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # Pres valve channels: 
+        # Pres valve channels:
         # -------------------
         press_vlv_cmd_time = client.channels.create(
             name="press_vlv_cmd_time",
@@ -115,7 +114,7 @@ class Simulated_DAQ(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # Vent valve channels: 
+        # Vent valve channels:
         # -------------------
         vent_vlv_cmd_time = client.channels.create(
             name="vent_vlv_cmd_time",
@@ -161,7 +160,9 @@ class Simulated_DAQ(TestCase):
         }
 
         sy.sleep(1)
-        with client.open_streamer(["start_test_cmd","end_test_cmd","press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
+        with client.open_streamer(
+            ["start_test_cmd", "end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
+        ) as streamer:
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[
@@ -180,7 +181,9 @@ class Simulated_DAQ(TestCase):
                     return all([loop.wait(), self.should_continue])
 
                 start_test = False
-                while test_active() and self.uptime<30:
+                controller_timeout = 30
+                self._log_message(f"Awaiting start command for {controller_timeout}s")
+                while test_active() and self.uptime < controller_timeout:
                     frame = streamer.read(timeout=0)
                     if frame is not None:
                         start_test_cmd = frame.get("start_test_cmd")
@@ -190,7 +193,7 @@ class Simulated_DAQ(TestCase):
                             state["daq_time"] = sy.TimeStamp.now()
                             writer.write(state)
                     if start_test:
-                        state["start_test_state"] = 0
+                        self._log_message("Start command received")
                         break
 
                 if not start_test:

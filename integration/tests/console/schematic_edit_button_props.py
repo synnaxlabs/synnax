@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from console.case import ConsoleCase
 import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class Schematic_Edit_Button_Props(ConsoleCase):
@@ -46,8 +47,9 @@ class Schematic_Edit_Button_Props(ConsoleCase):
             "show_control_chip": True,
             "mode": "fire",
         }
-        assert default_props == expected_default_props, f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
-
+        assert (
+            default_props == expected_default_props
+        ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
 
         self._log_message("Editing properties of schematic button")
         button.edit_properties(
@@ -64,8 +66,9 @@ class Schematic_Edit_Button_Props(ConsoleCase):
         }
 
         edited_props = button.get_properties()
-        assert edited_props == expected_edited_props, f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
-
+        assert (
+            edited_props == expected_edited_props
+        ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
 
         self._log_message("Checking non-default properties of schematic button")
         non_default_props = {
@@ -81,6 +84,8 @@ class Schematic_Edit_Button_Props(ConsoleCase):
             mode="pulse",
         )
         actual_non_default_props = non_default_button.get_properties()
-        assert actual_non_default_props == non_default_props, f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
+        assert (
+            actual_non_default_props == non_default_props
+        ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
 
         self._log_message("Test Complete")

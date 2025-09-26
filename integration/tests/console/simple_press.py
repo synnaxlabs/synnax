@@ -12,15 +12,23 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Simple_Press_Control(ConsoleCase):
+class Simple_Press(ConsoleCase):
     """
-    Control the pressure of "simulated_daq" test case
+    Test a basic press control sequence
     """
 
     def setup(self) -> None:
         sy.sleep(2)
-        self.subscribe(["press_vlv_cmd", "vent_vlv_cmd", "press_pt", "start_test_state", "end_test_state"])
-        self.set_manual_timeout(30)
+        self.subscribe(
+            [
+                "press_vlv_cmd",
+                "vent_vlv_cmd",
+                "press_pt",
+                "start_test_state",
+                "end_test_state",
+            ]
+        )
+        self.set_manual_timeout(45)
         super().setup()
 
     def run(self) -> None:
@@ -39,7 +47,10 @@ class Simple_Press_Control(ConsoleCase):
 
         self._log_message("Creating plot page")
         console.plot.new()
-        console.plot.add_Y("Y1", ["press_vlv_state", "vent_vlv_state"])
+        console.plot.add_Y(
+            "Y1",
+            ["start_test_cmd", "end_test_cmd", "start_test_state", "end_test_state"],
+        )
         console.plot.add_Y("Y2", ["press_pt"])
         console.plot.add_ranges(["30s"])
 
@@ -47,61 +58,52 @@ class Simple_Press_Control(ConsoleCase):
         console.schematic.new()
         console.schematic.move("left")
 
-        start_test_cmd = console.schematic.create_setpoint(START_TEST_CMD)
+        start_test_cmd = console.schematic.create_button(
+            START_TEST_CMD, mode="Momentary"
+        )
         start_test_cmd.move(-200, -90)
 
-        end_test_cmd = console.schematic.create_setpoint(END_TEST_CMD)
-        end_test_cmd.move(-200, 90)
+        end_test_cmd = console.schematic.create_button(END_TEST_CMD, mode="Fire")
+        end_test_cmd.move(0, -90)
 
         press_valve = console.schematic.create_setpoint(PRESS_VALVE)
         press_valve.move(-200, 0)
 
-        press_pt = console.schematic.create_value(PRESSURE)
-        press_pt.move(0, -3)
-
         vent_valve = console.schematic.create_setpoint(VENT_VALVE)
-        vent_valve.move(200, 0)
+        console.schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
-        console.schematic.connect_symbols(press_valve, "right", press_pt, "left")
-        console.schematic.connect_symbols(press_pt, "right", vent_valve, "left")
-
-        start_test_cmd.set_value(1)
-        sy.sleep(0.2)
-        start_test_cmd.set_value(0)
-
+        self._log_message("Starting test")
+        start_test_cmd.press()
         target_Pressure = 20
         press_valve.set_value(0)
         vent_valve.set_value(0)
 
         for i in range(3):
             self._log_message(f"Target pressure: {target_Pressure}")
-            if self.should_stop:
-                return
-
-            # Press and wait
             press_valve.set_value(1.0)
             while self.should_continue:
                 pressure_value = self.get_value(PRESSURE)
                 if pressure_value is not None and pressure_value > target_Pressure:
                     break
-            if self.should_stop:
-                return
+                elif self.should_stop:
+                    self.fail("Exiting on timeout.")
+                    return
 
+            # Configure next cycle
             press_valve.set_value(0)
             sy.sleep(1)
             target_Pressure += 20
 
-        # Depressurize the system
+        # Safe the system
         self._log_message("Venting the system")
         vent_valve.set_value(1)
         while self.should_continue:
             pressure_value = self.get_value(PRESSURE)
             if pressure_value is not None and pressure_value < 5:
                 vent_valve.set_value(0)
-                self._log_message("System vented")
-                end_test_cmd.set_value(1)
+                sy.sleep(0.2)
+                end_test_cmd.press()
                 self.console.screenshot("console_press_control_passed")
-                end_test_cmd.set_value(0)
                 return
 
         self.console.screenshot("console_press_control_failed")

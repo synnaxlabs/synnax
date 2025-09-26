@@ -82,7 +82,6 @@ class Value(Symbol):
             self.console.fill_input_field("Stale Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
-    
             applied_properties["stale_timeout"] = stale_timeout
 
         return applied_properties

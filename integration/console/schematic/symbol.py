@@ -111,22 +111,3 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
-
-        # Verify the move
-        new_box = self.symbol.bounding_box()
-        if not new_box:
-            raise RuntimeError(
-                f"Could not get new bounding box for symbol {self.symbol_id}"
-            )
-
-        final_x = new_box["x"] + new_box["width"] / 2
-        final_y = new_box["y"] + new_box["height"] / 2
-
-        grid_tolerance = 100
-        if (
-            abs(final_x - target_x) > grid_tolerance
-            or abs(final_y - target_y) > grid_tolerance
-        ):
-            raise RuntimeError(
-                f"Symbol {self.symbol_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
-            )

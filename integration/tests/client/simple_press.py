@@ -12,14 +12,22 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Simple_Press_Control(TestCase):
+class Simple_Press(TestCase):
     """
-    Press control test
+    Test a basic press control sequence
     """
 
     def setup(self) -> None:
         sy.sleep(2)
-        self.subscribe(["press_vlv_cmd", "vent_vlv_cmd", "press_pt"])
+        self.subscribe(
+            [
+                "press_vlv_cmd",
+                "vent_vlv_cmd",
+                "press_pt",
+                "start_test_state",
+                "end_test_state",
+            ]
+        )
         self.set_manual_timeout(30)
         super().setup()
 
@@ -31,6 +39,8 @@ class Simple_Press_Control(TestCase):
             return
 
         # Define the control channel names
+        START_TEST_CMD = "start_test_cmd"
+        END_TEST_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"
         VENT_VALVE = "vent_vlv_cmd"
         PRESSURE = "press_pt"
@@ -38,10 +48,11 @@ class Simple_Press_Control(TestCase):
         with client.control.acquire(
             name="Pressurization Sequence",
             write_authorities=[200],
-            write=[PRESS_VALVE, VENT_VALVE],
+            write=[PRESS_VALVE, VENT_VALVE, START_TEST_CMD, END_TEST_CMD],
             read=[PRESSURE],
         ) as ctrl:
 
+            ctrl[START_TEST_CMD] = True
             target_pressure = 20
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False
@@ -74,3 +85,4 @@ class Simple_Press_Control(TestCase):
                 timeout=10 * sy.TimeSpan.SECOND,
             )
             ctrl[VENT_VALVE] = False
+            ctrl[END_TEST_CMD] = True

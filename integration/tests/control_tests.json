@@ -1,0 +1,29 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Console Press Control",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/simple_press"
+        },
+        {
+          "case": "client/sim_daq"
+        }
+      ]
+    },
+    {
+    "sequence_name": "Client Press Control",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "client/simple_press"
+        },
+        {
+          "case": "client/sim_daq"
+        }
+      ]
+    }
+  ]
+}

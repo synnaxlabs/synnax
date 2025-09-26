@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Literal, Optional, Tuple
 
 from playwright.sync_api import Page
 
 from ..page import ConsolePage
+from .button import Button
 from .setpoint import Setpoint
 from .symbol import Symbol
-from .button import Button
 from .value import Value
 
 if TYPE_CHECKING:
@@ -71,13 +71,15 @@ class Schematic(ConsolePage):
         setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
         return setpoint
-    
+
     def create_button(
         self,
         channel_name: str,
         activation_delay: Optional[float] = None,
         show_control_chip: Optional[bool] = None,
-        mode: Optional[str] = None,
+        mode: Optional[
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
+        ] = None,
     ) -> Button:
         """Create a button symbol on the schematic."""
         button_id = self._add_symbol("Button")
@@ -89,7 +91,6 @@ class Schematic(ConsolePage):
             mode=mode,
         )
         return button
-
 
     def create_value(
         self,

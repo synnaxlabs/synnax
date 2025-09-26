@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Dict, Literal, Optional
+
 import synnax as sy
 
 from .symbol import Symbol
 
 
-class Button (Symbol):
+class Button(Symbol):
     """Schematic button symbol"""
 
     def edit_properties(
@@ -21,7 +22,9 @@ class Button (Symbol):
         channel_name: Optional[str] = None,
         activation_delay: Optional[float] = None,
         show_control_chip: Optional[bool] = None,
-        mode: Optional[Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]] = None,
+        mode: Optional[
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
+        ] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
@@ -45,7 +48,11 @@ class Button (Symbol):
             applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
-            chip_toggle = self.page.locator("text=Show Control Chip").locator("..").locator("input[type='checkbox']")
+            chip_toggle = (
+                self.page.locator("text=Show Control Chip")
+                .locator("..")
+                .locator("input[type='checkbox']")
+            )
             if chip_toggle.count() > 0:
                 current_state = chip_toggle.is_checked()
                 if current_state != show_control_chip:
@@ -68,7 +75,7 @@ class Button (Symbol):
 
         props: Dict[str, Any] = {
             "channel": "",
-            "activation_delay": -1.,
+            "activation_delay": -1.0,
             "show_control_chip": False,
             "mode": "",
         }
@@ -86,16 +93,15 @@ class Button (Symbol):
         )
 
         # Show Control Chip
-        chip_toggle = self.page.locator("text=Show Control Chip").locator("..").locator("input[type='checkbox']")
+        chip_toggle = (
+            self.page.locator("text=Show Control Chip")
+            .locator("..")
+            .locator("input[type='checkbox']")
+        )
         if chip_toggle.count() > 0:
             props["show_control_chip"] = chip_toggle.is_checked()
 
         # Mode
-        #a = self.console.get_input_field("Mode")
-        #print(a)
-        #props["stale_timeout"] = a
-
-        # Mo
         mode_options = ["Fire", "Momentary", "Pulse"]
         for option in mode_options:
             try:
@@ -111,6 +117,8 @@ class Button (Symbol):
         return props
 
     def press(self) -> None:
+        """Press button"""
+        self._disable_edit_mode()
         self._click_symbol()
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
