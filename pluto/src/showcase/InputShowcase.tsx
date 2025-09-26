@@ -208,7 +208,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">On</Text.Text>
-              <InputShowcaseSwitch value={true} />
+              <InputShowcaseSwitch value />
             </Flex.Box>
           </Flex.Box>
           <Text.Text level="small" weight={500}>
@@ -221,7 +221,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">True</Text.Text>
-              <InputShowcaseSwitch value={true} variant="preview" />
+              <InputShowcaseSwitch value variant="preview" />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
@@ -270,7 +270,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Checked</Text.Text>
-                <InputShowcaseCheckbox value={true} />
+                <InputShowcaseCheckbox value />
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Disabled</Text.Text>
@@ -289,7 +289,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">True</Text.Text>
-                <InputShowcaseCheckbox value={true} variant="preview" />
+                <InputShowcaseCheckbox value variant="preview" />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>

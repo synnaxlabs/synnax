@@ -40,9 +40,9 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         width: "unset",
         flexGrow: 2,
       }}
-      selectOnFocus={true}
+      selectOnFocus
       variant="shadow"
-      resetOnBlurIfEmpty={true}
+      resetOnBlurIfEmpty
       placeholder="Value"
       textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
       {...rest}

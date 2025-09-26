@@ -97,6 +97,7 @@ export default [
         "error",
         { allow: "as-needed", extensions: [".jsx", ".tsx"] },
       ],
+      "react/jsx-boolean-value": "error",
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": "error",
