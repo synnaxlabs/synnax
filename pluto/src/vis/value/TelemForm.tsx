@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { color, type notation, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -73,9 +73,9 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
       [onChange],
     ),
   });
-  const handleSourceChange = (v: channel.Key | null): void => {
-    if (primitive.isNonZero(v)) retrieve({ key: v });
-    handleChange({ valueStream: telem.streamChannelValue({ channel: v ?? 0 }) });
+  const handleSourceChange = (key: channel.Key | null): void => {
+    if (primitive.isNonZero(key)) retrieve({ key });
+    handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
   };
 
   const handleNotationChange = (notation: notation.Notation): void =>
