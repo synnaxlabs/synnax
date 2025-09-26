@@ -21,7 +21,7 @@ class Simulated_DAQ(TestCase):
 
     def setup(self) -> None:
 
-        self.set_manual_timeout(30)
+        self.set_manual_timeout(60)
         super().setup()
 
     def run(self) -> None:
@@ -180,7 +180,7 @@ class Simulated_DAQ(TestCase):
                     return all([loop.wait(), self.should_continue])
 
                 start_test = False
-                while test_active() and self.uptime<20:
+                while test_active() and self.uptime<30:
                     frame = streamer.read(timeout=0)
                     if frame is not None:
                         start_test_cmd = frame.get("start_test_cmd")

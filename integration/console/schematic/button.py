@@ -110,10 +110,10 @@ class Button (Symbol):
 
         return props
 
-    def click(self) -> None:
+    def press(self) -> None:
         self._click_symbol()
 
-    def click_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
+    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""
         self._disable_edit_mode()
         self.page.mouse.down()
