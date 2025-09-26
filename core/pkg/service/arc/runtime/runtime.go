@@ -114,11 +114,10 @@ func (r *Runtime) Get(key channel.Key) telem.Series {
 }
 
 func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
-	return func(ctx context.Context, value value.Value) {
+	return func(ctx context.Context, sourceParam string, value value.Value) {
 		for _, edge := range r.module.Edges {
-			if edge.Source.Node == nodeKey && edge.Source.Param == value.Param {
-				value.Param = edge.Target.Param
-				r.nodes[edge.Target.Node].Next(ctx, value)
+			if edge.Source.Node == nodeKey && edge.Source.Param == sourceParam {
+				r.nodes[edge.Target.Node].Next(ctx, edge.Target.Param, value)
 			}
 		}
 	}
@@ -134,7 +133,7 @@ func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse
 	keys := res.Frame.KeysSlice()
 	for _, node := range r.nodes {
 		if len(lo.Intersect(node.ReadChannels(), keys)) > 0 {
-			node.Next(ctx, value.Value{})
+			node.Next(ctx, "", value.Value{})
 		}
 	}
 	return nil

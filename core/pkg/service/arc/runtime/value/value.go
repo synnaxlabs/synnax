@@ -13,15 +13,12 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Value struct {
-	Address address.Address
-	Param   string
-	Type    ir.Type
-	Value   uint64
+	Type  ir.Type
+	Value uint64
 }
 
 // PutUint64 stores a uint64 value
@@ -247,18 +244,13 @@ func DataTypeToIRType(dt telem.DataType) ir.Type {
 }
 
 // FromSeries converts a telem.Series to a slice of Values
-func FromSeries(s telem.Series, addr address.Address, param string) []Value {
+func FromSeries(s telem.Series) []Value {
 	length := int(s.Len())
 	values := make([]Value, length)
 
 	for i := 0; i < length; i++ {
-		v := Value{
-			Address: addr,
-			Param:   param,
-			Type:    DataTypeToIRType(s.DataType),
-		}
+		v := Value{Type: DataTypeToIRType(s.DataType)}
 
-		// Convert based on the telem data type
 		switch s.DataType {
 		case telem.Uint64T:
 			v = v.PutUint64(telem.ValueAt[uint64](s, i))
@@ -524,11 +516,7 @@ func (v Value) toUint64() uint64 {
 
 // Add adds two values, result type is determined by left operand
 func (v Value) Add(other Value) Value {
-	result := Value{
-		Address: v.Address,
-		Param:   v.Param,
-		Type:    v.Type,
-	}
+	result := Value{Type: v.Type}
 
 	switch v.Type.(type) {
 	case ir.F64:
@@ -558,11 +546,7 @@ func (v Value) Add(other Value) Value {
 
 // Sub subtracts two values, result type is determined by left operand
 func (v Value) Sub(other Value) Value {
-	result := Value{
-		Address: v.Address,
-		Param:   v.Param,
-		Type:    v.Type,
-	}
+	result := Value{Type: v.Type}
 
 	switch v.Type.(type) {
 	case ir.F64:
@@ -592,11 +576,7 @@ func (v Value) Sub(other Value) Value {
 
 // Mul multiplies two values, result type is determined by left operand
 func (v Value) Mul(other Value) Value {
-	result := Value{
-		Address: v.Address,
-		Param:   v.Param,
-		Type:    v.Type,
-	}
+	result := Value{Type: v.Type}
 
 	switch v.Type.(type) {
 	case ir.F64:
@@ -626,11 +606,7 @@ func (v Value) Mul(other Value) Value {
 
 // Div divides two values, result type is determined by left operand
 func (v Value) Div(other Value) Value {
-	result := Value{
-		Address: v.Address,
-		Param:   v.Param,
-		Type:    v.Type,
-	}
+	result := Value{Type: v.Type}
 
 	switch v.Type.(type) {
 	case ir.F64:
@@ -696,11 +672,7 @@ func (v Value) Div(other Value) Value {
 
 // Mod calculates modulo, result type is determined by left operand
 func (v Value) Mod(other Value) Value {
-	result := Value{
-		Address: v.Address,
-		Param:   v.Param,
-		Type:    v.Type,
-	}
+	result := Value{Type: v.Type}
 
 	switch v.Type.(type) {
 	case ir.F64:

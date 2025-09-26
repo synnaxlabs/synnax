@@ -35,7 +35,7 @@ func (b *base) WriteChannels() []channel.Key { return b.readChannels }
 
 func (b *base) Flow(signal.Context) {}
 
-func (b *base) Next(context.Context, value.Value) {}
+func (b *base) Next(context.Context, string, value.Value) {}
 
 func (b *base) OnOutput(handler stage.OutputHandler) {
 	b.outputHandler = handler

@@ -12,6 +12,7 @@ package std
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
@@ -22,27 +23,15 @@ var symbolSelect = ir.Symbol{
 	Name: "select",
 	Kind: ir.KindStage,
 	Type: ir.Stage{
-		Params: maps.Ordered[string, ir.Type]{
-			Keys:   []string{"condition", "false", "true"},
-			Values: []ir.Type{
-				ir.U8{}, // Boolean condition
-				ir.NewTypeVariable("T", nil), // false branch value
-				ir.NewTypeVariable("T", nil), // true branch value
-			},
-		},
-		Return: ir.NewTypeVariable("T", nil), // Return type matches branches
+		Params: maps.Ordered[string, ir.Type]{},
+		Return: ir.NewTypeVariable("T", nil),
 	},
 }
 
 type selectStage struct{ base }
 
-func (s *selectStage) Next(ctx context.Context, val value.Value) {
-	if val.Value == 0 {
-		val.Param = "false"
-	} else {
-		val.Param = "true"
-	}
-	s.outputHandler(ctx, val)
+func (s *selectStage) Next(ctx context.Context, _ string, val value.Value) {
+	s.outputHandler(ctx, lo.Ternary(val.Value == 0, "false", "true"), val)
 }
 
 func createSelect(_ context.Context, cfg Config) (stage.Stage, error) {

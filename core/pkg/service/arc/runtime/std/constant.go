@@ -37,19 +37,15 @@ type constant struct {
 }
 
 func (c *constant) Flow(ctx signal.Context) {
-	c.value.Param = "output"
-	c.outputHandler(ctx, c.value)
+	c.outputHandler(ctx, "output", c.value)
 }
 
 func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
 	// The actual type will be determined by the graph analysis
 	// For runtime, we just store the value
 	c := &constant{
-		base: base{key: cfg.Node.Key},
-		value: value.Value{
-			Param: "output",
-			// Type will be determined at runtime based on the actual value
-		}.Put(cfg.Node.Config["value"]),
+		base:  base{key: cfg.Node.Key},
+		value: value.Value{}.Put(cfg.Node.Config["value"]),
 	}
 	return c, nil
 }

@@ -12,19 +12,18 @@ package stage
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/x/signal"
 )
 
-
-type OutputHandler = func(ctx context.Context, val value.Value)
+type OutputHandler = func(ctx context.Context, param string, val value.Value)
 
 type Stage interface {
 	Key() string
 	WriteChannels() []channel.Key
 	ReadChannels() []channel.Key
 	Flow(signal.Context)
-	Next(context.Context, value.Value)
+	Next(context.Context, string, value.Value)
 	OnOutput(OutputHandler)
 }

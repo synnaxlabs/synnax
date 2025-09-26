@@ -12,10 +12,9 @@ package std
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
 	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -45,7 +44,9 @@ type stableFor struct {
 	now         func() telem.TimeStamp
 }
 
-func (s *stableFor) Next(ctx context.Context, val value.Value) {
+var _ stage.Stage = (*stableFor)(nil)
+
+func (s *stableFor) Next(ctx context.Context, _ string, val value.Value) {
 	if val.Value != s.value {
 		s.value = val.Value
 		s.lastChanged = s.now()
@@ -53,8 +54,7 @@ func (s *stableFor) Next(ctx context.Context, val value.Value) {
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration && (s.lastSent == nil || *s.lastSent != s.value) {
 		v := s.value
 		s.lastSent = &v
-		val.Param = "output"
-		s.outputHandler(ctx, val)
+		s.outputHandler(ctx, "output", val)
 	}
 }
 

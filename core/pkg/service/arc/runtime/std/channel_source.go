@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -37,11 +36,11 @@ type channelSource struct {
 	values ChannelData
 }
 
-func (c *channelSource) Next(ctx context.Context, val value.Value) {
+func (c *channelSource) Next(ctx context.Context, _ string, _ value.Value) {
 	key := c.readChannels[0]
-	values := value.FromSeries(c.values.Get(key), address.Address(c.key), "output")
+	values := value.FromSeries(c.values.Get(key))
 	for _, v := range values {
-		c.outputHandler(ctx, v)
+		c.outputHandler(ctx, "output", v)
 	}
 }
 

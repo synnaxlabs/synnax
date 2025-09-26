@@ -53,7 +53,7 @@ func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
 	return s, nil
 }
 
-func (s *setStatus) Next(ctx context.Context, _ value.Value) {
+func (s *setStatus) Next(ctx context.Context, _ string, _ value.Value) {
 	stat := status.Status{}
 	stat.Key = s.key
 	stat.Name = "OX Alarm"

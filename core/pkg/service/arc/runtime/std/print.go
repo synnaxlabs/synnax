@@ -31,6 +31,6 @@ func createPrinter(_ context.Context, cfg Config) (stage.Stage, error) {
 	return &printer{base{key: cfg.Node.Key}}, nil
 }
 
-func (p *printer) Next(_ context.Context, val value.Value) {
+func (p *printer) Next(_ context.Context, _ string, val value.Value) {
 	fmt.Println(val)
 }
