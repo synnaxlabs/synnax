@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .plot import Plot
+from .schematic import Schematic
+from .setpoint import Setpoint
+from .symbol import Symbol
+from .value import Value
 
-__all__ = ["Plot"]
+__all__ = ["Schematic", "Setpoint", "Symbol", "Value"]

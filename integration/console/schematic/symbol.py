@@ -9,27 +9,34 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from playwright.sync_api import Locator, Page
+
+if TYPE_CHECKING:
+    from ..console import Console
 
 
 class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
+    console: "Console"
     symbol: Locator
     symbol_id: str
     channel_name: str
     label: str
 
-    def __init__(self, page: Page, symbol_id: str, channel_name: str):
+    def __init__(
+        self, page: Page, console: "Console", symbol_id: str, channel_name: str
+    ):
 
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
         self.channel_name = channel_name
         self.page = page
+        self.console = console
         self.symbol_id = symbol_id
         self.label = channel_name
 
@@ -48,10 +55,7 @@ class Symbol(ABC):
     def set_label(self, label: str) -> None:
         self._click_symbol()
         self.page.get_by_text("Style").click()
-        label_input = (
-            self.page.locator("text=Label").locator("..").locator("input").first
-        )
-        label_input.fill(label)
+        self.console.fill_input_field("Label", label)
         self.label = label
 
     @abstractmethod
@@ -74,32 +78,8 @@ class Symbol(ABC):
 
     def set_channel(self, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
-            channel_button = (
-                self.page.locator(f"text={input_field}")
-                .locator("..")
-                .locator("button")
-                .first
-            )
-            # Click on the selector and fill channel_name
-            channel_button.click()
-            search_input = self.page.locator("input[placeholder*='Search']")
-            search_input.click()
-            search_input.fill(channel_name)
-            self.page.wait_for_timeout(500)
-
-            # Iterate through dropdown items
-            channel_found = False
-            item_selector = self.page.locator(".pluto-list__item").all()
-            for item in item_selector:
-                if item.is_visible() and channel_name in item.inner_text().strip():
-                    item.click()
-                    channel_found = True
-                    break
-
-            if not channel_found:
-                raise RuntimeError(
-                    f"Could not find channel '{channel_name}' in dropdown"
-                )
+            self.console.click_btn(input_field)
+            self.console.select_from_dropdown(channel_name, "Search")
 
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
