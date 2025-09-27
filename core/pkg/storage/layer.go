@@ -313,7 +313,7 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 func openPebbleCache(cfg Config) (*pebble.Cache, io.Closer, error) {
 	// Create a shared block cache for Pebble.
 	// For read-heavy workloads, a large cache is critical for performance.
-	// Default is 8 MB, we're using 2 GB for production workloads.
+	// Default is 8 MB, we're using 1 GB for production workloads.
 	// Adjust based on available system memory.
 	cacheSize := 1 * telem.Gigabyte
 	if *cfg.InMemory {
