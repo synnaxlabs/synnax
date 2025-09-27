@@ -431,7 +431,6 @@ describe("Status queries", () => {
     });
 
     it("should handle status with labels", async () => {
-      const key = uuid.create();
       const label1 = await client.labels.create({ name: "Label 1", color: "#FF0000" });
       const label2 = await client.labels.create({ name: "Label 2", color: "#00FF00" });
       const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
