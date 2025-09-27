@@ -521,6 +521,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         showRules
         shape={shape}
         subscribe={subscribe}
+        // Use resourceStore.get directly instead of getResource because there is
+        // a chance that the resource will not be in the store before the tree attempts
+        // to render it.
         getItem={resourceStore.get.bind(resourceStore)}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
