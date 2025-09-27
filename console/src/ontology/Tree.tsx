@@ -308,8 +308,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const sort = useCallback(
     (a: Core.Node<string>, b: Core.Node<string>) => {
-      const [aResource] = getResource([ontology.idZ.parse(a.key)]);
-      const [bResource] = getResource([ontology.idZ.parse(b.key)]);
+      const [aResource, bResource] = resourceStore.get([a.key, b.key]);
       if (aResource == null && bResource == null) return 0;
       if (aResource == null) return 1;
       if (bResource == null) return -1;
@@ -317,7 +316,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
       return aResource.name.localeCompare(bResource.name);
     },
-    [getResource],
+    [resourceStore],
   );
 
   const treeProps = Core.use({
@@ -399,7 +398,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleDragStart = useCallback(
     (itemKey: string) => {
-      const selectedResources = getResource(ontology.parseIDs(selectedRef.current));
+      const selectedResources = getResource(selectedRef.current);
       if (selectedRef.current.includes(itemKey)) {
         const selectedHaulItems = selectedResources.flatMap((res) => {
           const svcItems = services[res.id.type].haulItems(res);
@@ -423,7 +422,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return startDrag(selectedHaulItems);
       }
       const haulItems = services[ontology.idZ.parse(itemKey).type].haulItems(
-        getResource(ontology.idZ.parse(itemKey)),
+        getResource(itemKey),
       );
       const depth = Core.getDepth(itemKey, shapeRef.current);
       startDrag([
@@ -446,7 +445,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         handleError,
         removeLayout,
         addStatus,
-        selection: getResource([ontology.idZ.parse(key)]),
+        selection: getResource([key]),
       });
     },
     [client, store, services, placeLayout, handleError, removeLayout, addStatus],
