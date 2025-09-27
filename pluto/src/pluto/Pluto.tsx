@@ -98,7 +98,6 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Table.FLUX_STORE_KEY]: Table.FLUX_STORE_CONFIG,
   [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
   [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
-  [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
   [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
 };
 

@@ -27,6 +27,7 @@ import {
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import z from "zod";
 
 import {
   select,
@@ -128,20 +129,27 @@ interface StatusChipProps {
   arc: State;
 }
 
+const statusDetailsSchema = z.object({
+  running: z.boolean(),
+});
+
+const { useRetrieve } = Status.createRetrieve(statusDetailsSchema);
+
 const Controls = ({ arc }: StatusChipProps) => {
   const name = Layout.useSelectRequiredName(arc.key);
-  const status = Status.useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
+  const status = useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
   const { update: create } = Arc.useCreate();
+  const isRunning = status.data?.details?.running ?? false;
   const handleDeploy = useCallback(() => {
     create({
       key: arc.key,
       name,
       graph: translateGraphToServer(arc.graph),
       text: { raw: "" },
-      deploy: true,
+      deploy: !isRunning,
       version: arc.version,
     });
-  }, [arc, name, create]);
+  }, [arc, name, create, isRunning]);
 
   return (
     <Flex.Box
@@ -170,9 +178,9 @@ const Controls = ({ arc }: StatusChipProps) => {
           message="Arc not deployed"
           {...status.data}
         />
-        <Button.Button onClick={handleDeploy}>
-          <Icon.Play />
-          Deploy
+        <Button.Button onClick={handleDeploy} variant="filled">
+          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+          {isRunning ? "Stop" : "Deploy"}
         </Button.Button>
       </Flex.Box>
     </Flex.Box>

@@ -11,7 +11,7 @@ import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Select as Core } from "@/select";
-import { Indicator } from "@/status/Indicator";
+import { Indicator } from "@/status/core/Indicator";
 
 const DATA: Core.StaticEntry<status.Variant>[] = [
   {

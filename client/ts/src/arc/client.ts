@@ -23,7 +23,6 @@ import {
 } from "@/arc/payload";
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/arc/retrieve";
 const CREATE_ENDPOINT = "/arc/create";
@@ -40,7 +39,7 @@ const retrieveReqZ = z.object({
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: nullableArrayZ(arcZ) });
+const retrieveResZ = z.object({ arcs: array.nullableZ(arcZ) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
