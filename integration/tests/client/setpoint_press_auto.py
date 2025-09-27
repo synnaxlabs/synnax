@@ -113,24 +113,23 @@ class Setpoint_Press_Auto(TestCase):
                 # Update on a new value
                 if setpoint != setpoint_prev:
                     setpoint_prev = setpoint
+                import time
 
-                if setpoint - pressure > 1 and mode != "press":
-                    mode = "press"
-                    ctrl["press_vlv_cmd"] = 1
-                    ctrl["vent_vlv_cmd"] = 0
-                    sy.sleep(0.5)
+                if mode == "hold":
+                    if pressure - setpoint > 2:
+                        mode = "vent"
+                        ctrl["vent_vlv_cmd"] = 1
+                    elif setpoint - pressure > 2:
+                        mode = "press"
+                        ctrl["press_vlv_cmd"] = 1
 
-                if pressure - setpoint > 1 and mode != "vent":
-                    mode = "vent"
-                    ctrl["press_vlv_cmd"] = 0
-                    ctrl["vent_vlv_cmd"] = 1
-                    sy.sleep(0.5)
-
-                elif abs(pressure - setpoint) < 2 and mode != "hold":
+                elif mode == "press" and pressure > setpoint:
                     mode = "hold"
                     ctrl["press_vlv_cmd"] = 0
+
+                elif mode == "vent" and pressure < setpoint:
+                    mode = "hold"
                     ctrl["vent_vlv_cmd"] = 0
-                    sy.sleep(0.5)
 
                 # Check for test end
                 if end_test_state > 0.9:

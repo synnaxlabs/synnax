@@ -243,4 +243,7 @@ class Sim_DAQ(TestCase):
 
         if state["press_pt"] > 10:
             self.fail("Pressure was left above 10")
-
+        if state["press_vlv_state"] == 1:
+            self.fail("Press valve was left open")
+        if state["vent_vlv_state"] == 1:
+            self.fail("Vent valve was left open")

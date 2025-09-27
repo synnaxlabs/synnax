@@ -64,12 +64,6 @@ class Setpoint_Press_User(ConsoleCase):
         end_cmd = console.schematic.create_button(END_CMD, mode="Fire")
         end_cmd.move(0, -90)
 
-        # For display ONLY
-        # press_vlv = console.schematic.create_valve("press_vlv")
-        # press_vlv.move(-200, 0)
-        # vent_vlv = console.schematic.create_valve("vent_vlv")
-        # vent_vlv.move(200, 0)
-
         # Setpoint control
         setpoint = console.schematic.create_setpoint(SETPOINT)
 
@@ -87,7 +81,10 @@ class Setpoint_Press_User(ConsoleCase):
                 if pressure_value is not None:
                     delta = abs(pressure_value - target)
                     if delta < 0.5:
-                        self._log_message(f"Target pressure reached: {pressure_value}.2f")
+                        self._log_message(
+                            f"Target pressure reached: {pressure_value}.2f"
+                        )
+                        sy.sleep(1)
                         break
 
                 if self.should_stop:
