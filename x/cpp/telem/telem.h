@@ -498,11 +498,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = Rate(1);
+inline const auto HERTZ = Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * HZ;
+inline const Rate KILOHERTZ = 1000 * HERTZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * KHZ;
+inline const Rate MEGAHERTZ = 1000 * KILOHERTZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.

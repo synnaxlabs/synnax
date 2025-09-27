@@ -18,7 +18,7 @@
 
 /// @brief it should correctly use the system clock to time samples.
 TEST(TestSampleClock, testSoftwareTimedSampleClock) {
-    auto clock = common::SoftwareTimedSampleClock(telem::HZ * 250);
+    auto clock = common::SoftwareTimedSampleClock(telem::HERTZ * 250);
     auto now = telem::TimeStamp::now();
     breaker::Breaker b;
     const auto start = clock.wait(b);
@@ -30,8 +30,8 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
 
 /// @brief it should correctly rely on steady sample spacing to time samples.
 TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = 0 * telem::SECOND;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
     auto clock = common::HardwareTimedSampleClock(
@@ -58,8 +58,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = 0 * telem::SECOND;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
     constexpr double k_p = 0.1;
@@ -89,8 +89,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = telem::SECOND * 5;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
     auto clock = common::HardwareTimedSampleClock(
@@ -119,8 +119,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = 0 * telem::SECOND;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
     auto clock = common::HardwareTimedSampleClock(
@@ -148,8 +148,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = 0 * telem::SECOND;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
     auto clock = common::HardwareTimedSampleClock(
@@ -177,8 +177,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
-    const auto sample_rate = telem::HZ * 2;
-    const auto stream_rate = telem::HZ * 1;
+    const auto sample_rate = telem::HERTZ * 2;
+    const auto stream_rate = telem::HERTZ * 1;
     auto now_v = 0 * telem::SECOND;
     auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
 
@@ -320,8 +320,8 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         // Test case 1: Fast stream rate, constant jitter
         PIDTestParams{
-            .sample_rate = telem::HZ * 1000,
-            .stream_rate = telem::HZ * 100,
+            .sample_rate = telem::HERTZ * 1000,
+            .stream_rate = telem::HERTZ * 100,
             .k_p = 0.1,
             .k_i = 0.01,
             .k_d = 0.001,
@@ -334,8 +334,8 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 2: Slow stream rate with sinusoidal jitter
         PIDTestParams{
-            .sample_rate = telem::HZ * 100,
-            .stream_rate = telem::HZ * 10,
+            .sample_rate = telem::HERTZ * 100,
+            .stream_rate = telem::HERTZ * 10,
             .k_p = 0.2,
             .k_i = 0.05,
             .k_d = 0.01,
@@ -354,8 +354,8 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 3: Aggressive PID parameters
         PIDTestParams{
-            .sample_rate = telem::HZ * 500,
-            .stream_rate = telem::HZ * 50,
+            .sample_rate = telem::HERTZ * 500,
+            .stream_rate = telem::HERTZ * 50,
             .k_p = 0.5,
             .k_i = 0.1,
             .k_d = 0.05,
@@ -368,8 +368,8 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 4: Very slow rate with minimal correction
         PIDTestParams{
-            .sample_rate = telem::HZ * 50,
-            .stream_rate = telem::HZ * 1,
+            .sample_rate = telem::HERTZ * 50,
+            .stream_rate = telem::HERTZ * 1,
             .k_p = 0.05,
             .k_i = 0.005,
             .k_d = 0.001,
@@ -382,8 +382,8 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 5: High frequency with tight timing
         PIDTestParams{
-            .sample_rate = telem::HZ * 2000,
-            .stream_rate = telem::HZ * 200,
+            .sample_rate = telem::HERTZ * 2000,
+            .stream_rate = telem::HERTZ * 200,
             .k_p = 0.1,
             .k_i = 0.01,
             .k_d = 0.000,
@@ -396,8 +396,8 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 6: Steady then sudden jitter
         PIDTestParams{
-            .sample_rate = telem::HZ * 1000,
-            .stream_rate = telem::HZ * 100,
+            .sample_rate = telem::HERTZ * 1000,
+            .stream_rate = telem::HERTZ * 100,
             .k_p = 0.3,
             .k_i = 0.02,
             .k_d = 0.05,
