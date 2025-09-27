@@ -208,8 +208,8 @@ public:
         return static_cast<double>(value) / _priv::MINUTE;
     }
 
-    /// @brief returns the exact number of seconds in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of seconds in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / _priv::SECOND;
     }
