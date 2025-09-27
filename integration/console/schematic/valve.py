@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
 import synnax as sy
 
@@ -19,6 +19,7 @@ class Valve(Symbol):
 
     def edit_properties(
         self,
+        channel_name: Optional[str] = None,
         state_channel: Optional[str] = None,
         command_channel: Optional[str] = None,
         show_control_chip: Optional[bool] = None,
@@ -30,14 +31,19 @@ class Valve(Symbol):
         applied_properties: Dict[str, Any] = {}
 
         # Only set label if the names match
-        if state_channel.endswith("_state") and command_channel.endswith("_cmd"):
+        if (
+            state_channel is not None
+            and command_channel is not None
+            and state_channel.endswith("_state")
+            and command_channel.endswith("_cmd")
+        ):
             if state_channel[:-5] == command_channel[:-3]:
                 self.set_label(state_channel[:-6])
-        else:
+        elif state_channel is not None or command_channel is not None:
             raise ValueError(
                 "State and command channels must match and end with _state and _cmd respectively"
-                )
-    
+            )
+
         # Navigate to Properties > Control tab
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
@@ -115,9 +121,9 @@ class Valve(Symbol):
         self.page.mouse.up()
 
     def open(self) -> None:
-        """ Press if closed, do nothing if open """
+        """Press if closed, do nothing if open"""
         raise NotImplementedError("Not implemented")
 
     def close(self) -> None:
-        """ Press if open, do nothing if closed """
+        """Press if open, do nothing if closed"""
         raise NotImplementedError("Not implemented")

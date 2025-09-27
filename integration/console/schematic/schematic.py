@@ -65,7 +65,7 @@ class Schematic(ConsolePage):
             self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
             self.page.get_by_text(symbol_type, exact=True).first.click()
             #########################################################
-        else:   
+        else:
             #########################################################
             # TODO: This is a hack to wait for the symbol to appear
             # Clean this up
@@ -130,7 +130,6 @@ class Schematic(ConsolePage):
             show_control_chip=show_control_chip,
         )
         return valve
-
 
     def create_value(
         self,

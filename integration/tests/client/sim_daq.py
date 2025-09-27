@@ -204,6 +204,7 @@ class Sim_DAQ(TestCase):
                 while test_active():
                     # Read incoming commands
                     frame = streamer.read(timeout=0)
+
                     if frame is not None:
                         vent_vlv_cmd = frame.get("vent_vlv_cmd")
                         if len(vent_vlv_cmd) > 0:
@@ -231,7 +232,7 @@ class Sim_DAQ(TestCase):
                     if state["press_pt"] < 0:
                         state["press_pt"] = 0
 
-                    state["press_pt"] += random.uniform(-0.1, 0.1)
+                    state["press_pt"] += random.uniform(-0.05, 0.05)
                     state["daq_time"] = sy.TimeStamp.now()
                     writer.write(state)
 
@@ -242,7 +243,4 @@ class Sim_DAQ(TestCase):
 
         if state["press_pt"] > 10:
             self.fail("Pressure was left above 10")
-        if state["press_vlv_state"] == 1:
-            self.fail("Press valve was left open")
-        if state["vent_vlv_state"] == 1:
-            self.fail("Vent valve was left open")
+

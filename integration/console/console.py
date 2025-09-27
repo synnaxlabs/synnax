@@ -258,6 +258,6 @@ class Console:
         return input_field.input_value()
 
     def click(self, selector: str, timeout: Optional[int] = 2000) -> None:
-        """ Wait for and click a selector (by text) """
+        """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         self.page.get_by_text(selector, exact=True).click()
