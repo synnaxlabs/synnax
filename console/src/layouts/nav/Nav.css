@@ -60,7 +60,7 @@
     }
 
     .pluto-navbar__content {
-        z-index: 2;
+        z-index: var(--pluto-z-elevated);
     }
 
     &.pluto--direction-x {
@@ -117,7 +117,7 @@
                 transform 0.15s linear;
         }
         position: absolute;
-        z-index: 200;
+        z-index: var(--pluto-z-modal);
         &.pluto--location-bottom {
             bottom: 1rem;
             width: calc(100vw - 8rem - 1px);

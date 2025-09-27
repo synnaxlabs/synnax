@@ -12,7 +12,7 @@
 .console-notifications {
     height: unset !important;
     position: absolute;
-    z-index: 20;
+    z-index: var(--pluto-z-notification);
     bottom: 3rem;
     right: 3rem;
     overflow: unset;

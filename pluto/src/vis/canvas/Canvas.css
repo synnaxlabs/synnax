@@ -19,18 +19,18 @@
     }
 
     .pluto-canvas--gl {
-        z-index: 1;
+        z-index: var(--pluto-z-canvas-gl);
         pointer-events: none;
     }
 
     .pluto-canvas--lower2d {
-        z-index: 0;
+        z-index: var(--pluto-z-canvas-lower);
         pointer-events: none;
     }
 
     .pluto-canvas--upper2d {
         /* pass through all user events */
         pointer-events: none;
-        z-index: 2;
+        z-index: var(--pluto-z-canvas-upper);
     }
 }

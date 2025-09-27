@@ -36,7 +36,7 @@
         display: none;
         &.console-mosaic-modal-bar--focused {
             display: flex;
-            z-index: 10;
+            z-index: calc(var(--pluto-z-mosaic-modal-backdrop) + 4); /* 15 - above canvas but below notifications */
         }
         & .pluto-navbar__content {
             &.pluto--start {

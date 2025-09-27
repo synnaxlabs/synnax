@@ -27,7 +27,7 @@ const TOOLTIP_LOCATION: location.XY = {
   y: "bottom",
 };
 
-const style = { zIndex: 500 };
+const style = { zIndex: "var(--pluto-z-control)" };
 
 export interface NavControlsProps {
   layoutKey: string;

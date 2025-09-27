@@ -299,7 +299,7 @@ const TabLeaf = memo(
           {dragging && (
             <div
               style={{
-                zIndex: 1000,
+                zIndex: "var(--pluto-z-critical)",
                 position: "absolute",
                 top: 0,
                 left: 0,

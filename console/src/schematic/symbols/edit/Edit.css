@@ -70,7 +70,7 @@
 
     .console-schematic__handle-preview {
         cursor: grab;
-        z-index: 1000;
+        z-index: var(--pluto-z-critical);
         transform: translate(-50%, -50%);
         pointer-events: auto;
         position: relative;

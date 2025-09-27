@@ -242,7 +242,7 @@ export const Preview = ({
                 position: "absolute",
                 top: 16,
                 right: 16,
-                zIndex: 1000,
+                zIndex: "var(--pluto-z-critical)",
               }}
             >
               <Text.Text level="small" color={7}>

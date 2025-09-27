@@ -56,7 +56,7 @@
     transition:
         border-color 0.1s ease-in-out,
         border-width 0.1s ease-in-out;
-    z-index: 4;
+    z-index: var(--pluto-z-sticky);
 
     &:hover {
         border-color: var(--pluto-primary-z);

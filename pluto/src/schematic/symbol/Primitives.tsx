@@ -2111,8 +2111,8 @@ export const Setpoint = ({
           left={100}
           top={50}
           id="2"
-          // Filled button has a z-index of 4 so we need to set this higher to show handle above
-          style={{ zIndex: 5 }}
+          // Filled button has higher z-index so we need to set this higher to show handle above
+          style={{ zIndex: "var(--pluto-z-floating)" }}
         />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle

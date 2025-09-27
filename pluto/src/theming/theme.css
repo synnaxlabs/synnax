@@ -10,11 +10,11 @@
  */
 
 .pluto--pack button:is(:focus, :focus-within, :active, :hover) {
-    z-index: 3;
+    z-index: var(--pluto-z-sticky);
 }
 
 .pluto-input {
-    z-index: 4;
+    z-index: var(--pluto-z-sticky);
 }
 
 @keyframes fade-in-zoom {

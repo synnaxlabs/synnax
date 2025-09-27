@@ -18,13 +18,13 @@
 
     &.console--focused {
         .pluto-canvas--gl {
-            z-index: 13;
+            z-index: var(--pluto-z-canvas-focused-gl);
         }
         .pluto-canvas--lower2d {
-            z-index: 12;
+            z-index: var(--pluto-z-canvas-focused-lower);
         }
         .pluto-canvas--upper2d {
-            z-index: 14;
+            z-index: var(--pluto-z-canvas-focused-upper);
         }
     }
 }

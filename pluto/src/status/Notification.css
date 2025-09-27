@@ -26,7 +26,7 @@
     box-shadow: var(--pluto-shadow-v2);
     border: var(--pluto-border-l5);
     border-radius: 1rem;
-    z-index: 20;
+    z-index: var(--pluto-z-notification);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
     .pluto-notification__silence {

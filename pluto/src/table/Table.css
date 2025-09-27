@@ -32,7 +32,7 @@
 
     .pluto-table__resizer {
         background: var(--pluto-gray-l2);
-        z-index: 6;
+        z-index: var(--pluto-z-floating);
         &.pluto--selected {
             background: var(--pluto-primary-z-30);
             .pluto-text {
@@ -89,7 +89,7 @@
         }
         & button {
             border: none;
-            z-index: 10;
+            z-index: var(--pluto-z-overlay);
             background: none;
             position: absolute;
             box-sizing: border-box;
@@ -106,7 +106,7 @@
 
     .pluto-table__cell {
         border: var(--pluto-border);
-        z-index: 5;
+        z-index: var(--pluto-z-floating);
         position: relative;
         border-top: none;
         border-left: none;
@@ -124,7 +124,7 @@
             border: var(--pluto-border);
             border-width: 2px;
             border-radius: 1px;
-            z-index: 7;
+            z-index: var(--pluto-z-floating);
         }
         &.pluto--selected {
             border: none;

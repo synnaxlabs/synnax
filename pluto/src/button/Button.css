@@ -44,7 +44,7 @@
     /* We give the button a fixed z-index to ensure that we maintain a consistent
     stacking context even when increasing the z-index on hover. This prevents strange
     layout shifting of internal content (especially icons) */
-    z-index: 1;
+    z-index: var(--pluto-z-elevated);
 
     &.pluto--direction-x {
         align-items: center;
@@ -135,7 +135,7 @@
             left: 0;
             height: 100%;
             width: 0%;
-            z-index: 1;
+            z-index: var(--pluto-z-elevated);
             border-radius: var(--pluto-border-radius);
         }
         &:active::after {
@@ -180,7 +180,7 @@
             top: 0;
             right: 0;
             transform: translate(45%, -45%);
-            z-index: 10;
+            z-index: var(--pluto-z-overlay);
             transition: opacity 0.1s ease-in-out;
             & .pluto-text--keyboard {
                 background: var(--pluto-gray-l0);

@@ -1,0 +1,55 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * Z-Index Tier System
+ *
+ * Simple, semantic z-index tiers to prevent conflicts and maintain predictable layering.
+ * Use the closest tier that makes semantic sense for your component.
+ */
+
+:root {
+    /* Base layers */
+    --pluto-z-base: 0;           /* Default layer */
+    --pluto-z-elevated: 1;       /* Slightly elevated (buttons, cards) */
+    --pluto-z-sticky: 3;         /* Sticky elements (headers, nav) */
+    --pluto-z-floating: 5;       /* Floating UI (dropdowns, menus) */
+    --pluto-z-overlay: 10;       /* Overlays (selections, tooltips) */
+
+    /* Canvas layers (base state) */
+    --pluto-z-canvas-lower: 0;
+    --pluto-z-canvas-gl: 1;
+    --pluto-z-canvas-upper: 2;
+
+    /* Canvas layers (focused state) */
+    --pluto-z-canvas-focused-lower: 12;
+    --pluto-z-canvas-focused-gl: 13;
+    --pluto-z-canvas-focused-upper: 14;
+
+    /* Special: Mosaic modal backdrop (must be below focused canvas) */
+    --pluto-z-mosaic-modal-backdrop: 11;
+
+    /* Notifications */
+    --pluto-z-notification: 20;
+
+    /* Modal layers */
+    --pluto-z-modal: 100;
+
+    /* Canvas layers (modal state) - must be higher than modal UI */
+    --pluto-z-canvas-modal-lower: 105;
+    --pluto-z-canvas-modal-gl: 106;
+    --pluto-z-canvas-modal-upper: 107;
+
+    /* Critical UI */
+    --pluto-z-control: 500;       /* Line plot controls, nav controls */
+    --pluto-z-critical: 1000;    /* Drag handles, critical controls */
+    --pluto-z-maximum: 10000;    /* Maximum for special cases */
+}

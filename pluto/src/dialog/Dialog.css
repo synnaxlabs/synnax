@@ -47,7 +47,7 @@
         animation: var(--pluto-dialog-animation);
         box-shadow: var(--pluto-shadow-v1);
         max-height: 360px;
-        z-index: 6;
+        z-index: var(--pluto-z-floating);
         &.pluto-height-small {
             max-height: 200px;
         }
@@ -62,9 +62,18 @@
         z-index: -1;
         pointer-events: none;
     }
-    &.pluto--visible {
-        z-index: 5;
+    &.pluto--visible:not(.console-mosaic-modal) {
+        z-index: var(--pluto-z-floating);
         opacity: 1;
+    }
+
+    &.console-mosaic-modal.pluto--visible {
+        /* No z-index for mosaic modal to avoid stacking context */
+        opacity: 1;
+    }
+
+    &.pluto--modal.pluto--visible:not(.console-mosaic-modal) {
+        z-index: calc(var(--pluto-z-modal) + 1);
     }
 }
 
@@ -89,7 +98,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        z-index: 4;
+        z-index: var(--pluto-z-modal);
         padding: 3rem 5rem 3rem 5rem;
         transition: background 0.15s ease-in-out;
         background: var(--pluto-gray-l8-40);
@@ -100,6 +109,12 @@
         }
     }
 }
+
+/* Special case: Mosaic modal needs different z-index hierarchy */
+.pluto-dialog__bg:has(.console-mosaic-modal).pluto--visible {
+    z-index: var(--pluto-z-mosaic-modal-backdrop);
+}
+
 
 .pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
     background: var(--pluto-gray-l1-60);

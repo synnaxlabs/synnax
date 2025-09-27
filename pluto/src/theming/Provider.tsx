@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@/theming/theme.css";
+import "@/theming/z-index.css";
 
 import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
 import inter200 from "@fontsource/inter/files/inter-latin-200-normal.woff2";
