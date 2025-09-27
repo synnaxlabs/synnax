@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -115,7 +116,8 @@ type StatusRetrieveRequest struct {
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
 	// IncludeLabels
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+	IncludeLabels bool        `json:"include_labels" msgpack:"include_labels"`
+	HasLabels     []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 }
 
 type StatusRetrieveResponse struct {
@@ -138,6 +140,9 @@ func (s *StatusService) Retrieve(
 	}
 	if req.Offset != 0 {
 		q = q.Offset(req.Offset)
+	}
+	if len(req.HasLabels) > 0 {
+		q = q.WhereHasLabels(req.HasLabels...)
 	}
 	if len(req.Keys) != 0 {
 		q = q.WhereKeys(req.Keys...)

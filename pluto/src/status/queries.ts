@@ -53,7 +53,11 @@ export interface ListParams extends status.MultiRetrieveArgs {}
 export const useList = createList<ListParams, status.Key, status.Status, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.statuses.list(),
-  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
+  retrieve: async ({ client, query }) =>
+    await client.statuses.retrieve({
+      ...BASE_QUERY,
+      ...query,
+    }),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
   mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
     const keysSet = keys ? new Set(keys) : undefined;

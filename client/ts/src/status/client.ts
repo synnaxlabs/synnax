@@ -11,6 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import z from "zod";
 
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { type Key, keyZ, type New, newZ, type Status, statusZ } from "@/status/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -34,6 +35,7 @@ const retrieveRequestZ = z.object({
   offset: z.number().optional(),
   limit: z.number().optional(),
   includeLabels: z.boolean().optional(),
+  hasLabels: label.keyZ.array().optional(),
 });
 
 const singleRetrieveArgsZ = z

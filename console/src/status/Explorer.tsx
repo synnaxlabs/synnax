@@ -32,6 +32,7 @@ export const Explorer: Layout.Renderer = () => {
       subscribe={subscribe}
       retrieve={retrieve}
       enableSearch
+      enableFilters
     />
   );
 };

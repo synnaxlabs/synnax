@@ -11,14 +11,16 @@ import { type status } from "@synnaxlabs/client";
 import {
   Flex,
   type Flux,
+  Icon,
   Input,
   List as PList,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Item } from "@/status/list/Item";
+import { Filters, SelectFilters } from "@/status/list/SelectFilters";
 import { CreateButton } from "@/status/Select";
 
 export interface ListProps
@@ -27,6 +29,8 @@ export interface ListProps
     "data" | "getItem" | "subscribe" | "retrieve"
   > {
   enableSearch?: boolean;
+  enableFilters?: boolean;
+  initialRequest?: status.MultiRetrieveArgs;
 }
 
 export const List = ({
@@ -35,19 +39,30 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
+  enableFilters = false,
+  initialRequest = {},
 }: ListProps) => {
-  const [request, setRequest] = useState<status.MultiRetrieveArgs>({});
+  const [request, setRequest] = useState<status.MultiRetrieveArgs>(initialRequest);
   const [selected, setSelected] = useState<status.Key[]>([]);
 
-  const handleRequestChange = (setter: state.SetArg<status.MultiRetrieveArgs>) => {
-    retrieve(setter);
-    setRequest(setter);
-  };
+  const handleRequestChange = useCallback(
+    (setter: state.SetArg<status.MultiRetrieveArgs>, opts?: Flux.AsyncListOptions) => {
+      retrieve(setter, opts);
+      setRequest(setter);
+    },
+    [retrieve],
+  );
 
-  const handleSearch = (term: string) =>
-    handleRequestChange((p: status.MultiRetrieveArgs) => PList.search(p, term));
+  const handleSearch = useCallback(
+    (term: string) =>
+      handleRequestChange((p: status.MultiRetrieveArgs) => PList.search(p, term)),
+    [handleRequestChange],
+  );
 
-  const handleFetchMore = () => handleRequestChange(PList.page);
+  const handleFetchMore = useCallback(
+    () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
+    [handleRequestChange],
+  );
 
   return (
     <Select.Frame<status.Key, status.Status>
@@ -72,10 +87,27 @@ export const List = ({
             level="h5"
             variant="text"
             value={request.searchTerm ?? ""}
-            placeholder="Search"
+            placeholder={
+              <>
+                <Icon.Search />
+                Search Statuses...
+              </>
+            }
             onChange={handleSearch}
           />
           <CreateButton />
+        </Flex.Box>
+      )}
+      {enableFilters && (
+        <Flex.Box
+          x
+          bordered
+          style={{ padding: "1rem 2rem", borderTop: "none" }}
+          background={1}
+          justify="between"
+        >
+          <SelectFilters request={request} onRequestChange={handleRequestChange} />
+          <Filters request={request} onRequestChange={handleRequestChange} />
         </Flex.Box>
       )}
       <PList.Items<status.Key>>

@@ -12,8 +12,11 @@ package status
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -22,6 +25,7 @@ type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[string, Status]
 	otg        *ontology.Ontology
+	label      *label.Service
 	searchTerm string
 }
 
@@ -43,6 +47,17 @@ func (r Retrieve) Entries(s *[]Status) Retrieve { r.gorp.Entries(s); return r }
 
 // WhereKeys filters for statuses whose Key attribute matches the provided key.
 func (r Retrieve) WhereKeys(keys ...string) Retrieve { r.gorp.WhereKeys(keys...); return r }
+
+func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
+	r.gorp.Where(func(s *Status) bool {
+		labels, _ := r.label.RetrieveFor(context.Background(), OntologyID(s.Key), nil)
+		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
+		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
+			return lo.Contains(matchLabels, l)
+		})
+	})
+	return r
+}
 
 // Exec executes the query and fills the results into the provided Status or slice of
 // Statuses. It's important to note that fuzzy search will not be aware of any writes/
