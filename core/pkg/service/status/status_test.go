@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -29,12 +30,13 @@ import (
 
 var _ = Describe("Status", Ordered, func() {
 	var (
-		db     *gorp.DB
-		svc    *status.Service
-		w      status.Writer
-		otg    *ontology.Ontology
-		tx     gorp.Tx
-		closer io.Closer
+		db       *gorp.DB
+		svc      *status.Service
+		w        status.Writer
+		labelSvc *label.Service
+		otg      *ontology.Ontology
+		tx       gorp.Tx
+		closer   io.Closer
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
@@ -43,15 +45,24 @@ var _ = Describe("Status", Ordered, func() {
 			EnableSearch: config.True(),
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 		}))
+		svc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Label:    labelSvc,
+			Group:    g,
+		}))
 		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
+
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
+		Expect(labelSvc.Close()).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
 		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
