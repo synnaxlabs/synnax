@@ -9,6 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import {
+  Component,
   Flex,
   type Flux,
   Icon,
@@ -19,6 +20,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
+import { EmptyAction } from "@/components";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
 import { Filters, SelectFilters } from "@/status/list/SelectFilters";
 import { CreateButton } from "@/status/Select";
@@ -32,6 +36,19 @@ export interface ListProps
   enableFilters?: boolean;
   initialRequest?: status.MultiRetrieveArgs;
 }
+
+const componentRenderProp = Component.renderProp(Item);
+
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  return (
+    <EmptyAction
+      message="No statuses found."
+      action="Create a status"
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+    />
+  );
+};
 
 export const List = ({
   data,
@@ -65,54 +82,60 @@ export const List = ({
   );
 
   return (
-    <Select.Frame<status.Key, status.Status>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onChange={setSelected}
-      value={selected}
-      onFetchMore={handleFetchMore}
-    >
-      {enableSearch && (
-        <Flex.Box
-          x
-          bordered
-          style={{ padding: "1.5rem" }}
-          background={1}
-          justify="between"
+    <Flex.Box full="y" empty>
+      <Select.Frame<status.Key, status.Status>
+        multiple
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onChange={setSelected}
+        value={selected}
+        onFetchMore={handleFetchMore}
+      >
+        {enableSearch && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1.5rem" }}
+            background={1}
+            justify="between"
+          >
+            <Input.Text
+              size="small"
+              level="h5"
+              variant="text"
+              value={request.searchTerm ?? ""}
+              placeholder={
+                <>
+                  <Icon.Search />
+                  Search Statuses...
+                </>
+              }
+              onChange={handleSearch}
+            />
+            <CreateButton />
+          </Flex.Box>
+        )}
+        {enableFilters && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1rem 2rem", borderTop: "none" }}
+            background={1}
+            justify="between"
+          >
+            <SelectFilters request={request} onRequestChange={handleRequestChange} />
+            <Filters request={request} onRequestChange={handleRequestChange} />
+          </Flex.Box>
+        )}
+        <PList.Items<status.Key>
+          emptyContent={<EmptyContent />}
+          displayItems={Infinity}
+          grow
         >
-          <Input.Text
-            size="small"
-            level="h5"
-            variant="text"
-            value={request.searchTerm ?? ""}
-            placeholder={
-              <>
-                <Icon.Search />
-                Search Statuses...
-              </>
-            }
-            onChange={handleSearch}
-          />
-          <CreateButton />
-        </Flex.Box>
-      )}
-      {enableFilters && (
-        <Flex.Box
-          x
-          bordered
-          style={{ padding: "1rem 2rem", borderTop: "none" }}
-          background={1}
-          justify="between"
-        >
-          <SelectFilters request={request} onRequestChange={handleRequestChange} />
-          <Filters request={request} onRequestChange={handleRequestChange} />
-        </Flex.Box>
-      )}
-      <PList.Items<status.Key>>
-        {({ key, ...rest }) => <Item key={key} {...rest} />}
-      </PList.Items>
-    </Select.Frame>
+          {componentRenderProp}
+        </PList.Items>
+      </Select.Frame>
+    </Flex.Box>
   );
 };
