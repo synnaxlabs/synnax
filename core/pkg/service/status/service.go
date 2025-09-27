@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -38,6 +39,7 @@ type ServiceConfig struct {
 	Group *group.Service
 	// Signals is used to publish signals when statuses are created, updated, or deleted.
 	Signals *signals.Provider
+	Label   *label.Service
 }
 
 var (
@@ -51,6 +53,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -60,6 +63,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
 	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "Label", c.Label)
 	return v.Error()
 }
 
@@ -139,5 +143,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:   gorp.NewRetrieve[string, Status](),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
+		label:  s.cfg.Label,
 	}
 }

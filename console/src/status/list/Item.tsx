@@ -20,6 +20,7 @@ import {
   Select,
   Status,
   stopPropagation,
+  Tag,
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
@@ -37,11 +38,11 @@ export const Item = (props: ItemProps): ReactElement | null => {
     if (item == null) return undefined;
     return {
       ...item,
-      labels: item.labels.map((l) => l.key),
+      labels: item.labels?.map((l) => l.key) ?? [],
     };
   }, [item]);
   const { form } = Status.useForm({
-    params: {},
+    query: {},
     initialValues,
     autoSave: true,
     sync: true,
@@ -52,7 +53,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const menuProps = Menu.useContextMenu();
 
   if (item == null) return null;
-  const { name, time, variant, message } = item;
+  const { name, time, variant, message, labels } = item;
 
   return (
     <List.Item<status.Key>
@@ -87,6 +88,15 @@ export const Item = (props: ItemProps): ReactElement | null => {
           </Text.Text>
         </Flex.Box>
         <Text.Text x>
+          {labels != null && labels.length > 0 && (
+            <Tag.Tags variant="text">
+              {labels.map(({ key, name, color }) => (
+                <Tag.Tag key={key} color={color} size="small">
+                  {name}
+                </Tag.Tag>
+              ))}
+            </Tag.Tags>
+          )}
           <Telem.Text.TimeSpanSince
             el="span"
             level="p"

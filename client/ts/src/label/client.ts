@@ -14,7 +14,6 @@ import z from "zod";
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -61,7 +60,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
+const retrieveResponseZ = z.object({ labels: array.nullableZ(labelZ) });
 
 export class Client {
   readonly type: string = "label";

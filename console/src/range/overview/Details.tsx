@@ -73,7 +73,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const { data: range } = Ranger.useRetrieve({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
-    params: { key: rangeKey },
+    query: { key: rangeKey },
     initialValues: {
       key: rangeKey,
       name: "",
@@ -181,7 +181,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             </Button.Button>
             <Button.Button
               tooltip={`Download data for ${name} as a CSV`}
-              tooltipLocation={"bottom"}
+              tooltipLocation="bottom"
               variant="text"
               onClick={() =>
                 handleError(async () => {

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { decodeArrayStream } from "@msgpack/msgpack";
-
 import { type record } from "@/record";
 
 export const upsert = <V>(prev: V[] | null | undefined, changes: V | V[]): V[] => {

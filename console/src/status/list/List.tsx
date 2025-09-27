@@ -9,16 +9,22 @@
 
 import { type status } from "@synnaxlabs/client";
 import {
+  Component,
   Flex,
   type Flux,
+  Icon,
   Input,
   List as PList,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
+import { EmptyAction } from "@/components";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
+import { Filters, SelectFilters } from "@/status/list/SelectFilters";
 import { CreateButton } from "@/status/Select";
 
 export interface ListProps
@@ -27,7 +33,22 @@ export interface ListProps
     "data" | "getItem" | "subscribe" | "retrieve"
   > {
   enableSearch?: boolean;
+  enableFilters?: boolean;
+  initialRequest?: status.MultiRetrieveArgs;
 }
+
+const componentRenderProp = Component.renderProp(Item);
+
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  return (
+    <EmptyAction
+      message="No statuses found."
+      action="Create a status"
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+    />
+  );
+};
 
 export const List = ({
   data,
@@ -35,52 +56,86 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
+  enableFilters = false,
+  initialRequest = {},
 }: ListProps) => {
-  const [request, setRequest] = useState<status.MultiRetrieveArgs>({});
+  const [request, setRequest] = useState<status.MultiRetrieveArgs>(initialRequest);
   const [selected, setSelected] = useState<status.Key[]>([]);
 
-  const handleRequestChange = (setter: state.SetArg<status.MultiRetrieveArgs>) => {
-    retrieve(setter);
-    setRequest(setter);
-  };
+  const handleRequestChange = useCallback(
+    (setter: state.SetArg<status.MultiRetrieveArgs>, opts?: Flux.AsyncListOptions) => {
+      retrieve(setter, opts);
+      setRequest(setter);
+    },
+    [retrieve],
+  );
 
-  const handleSearch = (term: string) =>
-    handleRequestChange((p: status.MultiRetrieveArgs) => PList.search(p, term));
+  const handleSearch = useCallback(
+    (term: string) =>
+      handleRequestChange((p: status.MultiRetrieveArgs) => PList.search(p, term)),
+    [handleRequestChange],
+  );
 
-  const handleFetchMore = () => handleRequestChange(PList.page);
+  const handleFetchMore = useCallback(
+    () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
+    [handleRequestChange],
+  );
 
   return (
-    <Select.Frame<status.Key, status.Status>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onChange={setSelected}
-      value={selected}
-      onFetchMore={handleFetchMore}
-    >
-      {enableSearch && (
-        <Flex.Box
-          x
-          bordered
-          style={{ padding: "1.5rem" }}
-          background={1}
-          justify="between"
+    <Flex.Box full="y" empty>
+      <Select.Frame<status.Key, status.Status>
+        multiple
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onChange={setSelected}
+        value={selected}
+        onFetchMore={handleFetchMore}
+      >
+        {enableSearch && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1.5rem" }}
+            background={1}
+            justify="between"
+          >
+            <Input.Text
+              size="small"
+              level="h5"
+              variant="text"
+              value={request.searchTerm ?? ""}
+              placeholder={
+                <>
+                  <Icon.Search />
+                  Search Statuses...
+                </>
+              }
+              onChange={handleSearch}
+            />
+            <CreateButton />
+          </Flex.Box>
+        )}
+        {enableFilters && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1rem 2rem", borderTop: "none" }}
+            background={1}
+            justify="between"
+          >
+            <SelectFilters request={request} onRequestChange={handleRequestChange} />
+            <Filters request={request} onRequestChange={handleRequestChange} />
+          </Flex.Box>
+        )}
+        <PList.Items<status.Key>
+          emptyContent={<EmptyContent />}
+          displayItems={Infinity}
+          grow
         >
-          <Input.Text
-            size="small"
-            level="h5"
-            variant="text"
-            value={request.searchTerm ?? ""}
-            placeholder="Search"
-            onChange={handleSearch}
-          />
-          <CreateButton />
-        </Flex.Box>
-      )}
-      <PList.Items<status.Key>>
-        {({ key, ...rest }) => <Item key={key} {...rest} />}
-      </PList.Items>
-    </Select.Frame>
+          {componentRenderProp}
+        </PList.Items>
+      </Select.Frame>
+    </Flex.Box>
   );
 };

@@ -10,10 +10,10 @@
 package status_test
 
 import (
-	"testing"
+	"github.com/stretchr/testify/assert"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 type CustomDetails struct {
@@ -209,14 +209,14 @@ func TestStatus_String_NilDetails(t *testing.T) {
 	type PtrDetails struct {
 		Value *string
 	}
-	
+
 	s := status.Status[*PtrDetails]{
 		Variant: status.InfoVariant,
 		Name:    "Nil Test",
 		Message: "Testing nil details",
 		Details: nil,
 	}
-	
+
 	expected := "[ℹ info] Nil Test: Testing nil details"
 	assert.Equal(t, expected, s.String())
 }
@@ -234,7 +234,7 @@ func BenchmarkStatus_String(b *testing.B) {
 			"duration":   "5s",
 		},
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = s.String()

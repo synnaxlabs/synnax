@@ -542,7 +542,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new virtual channel", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -565,7 +565,7 @@ describe("queries", () => {
     });
 
     it("should create a new index channel", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -594,7 +594,7 @@ describe("queries", () => {
         isIndex: true,
       });
 
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -624,7 +624,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Channel.useForm({ params: { key: existingChannel.key } }),
+        () => Channel.useForm({ query: { key: existingChannel.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -652,7 +652,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const form = Channel.useForm({ params: { key: testChannel.key } });
+          const form = Channel.useForm({ query: { key: testChannel.key } });
           const rename = Channel.useRename();
           return { form, rename };
         },
@@ -674,7 +674,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -686,7 +686,7 @@ describe("queries", () => {
     });
 
     it("should validate that index channels have timestamp data type", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -703,7 +703,7 @@ describe("queries", () => {
     });
 
     it("should validate that data channels have an index or are virtual", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -722,7 +722,7 @@ describe("queries", () => {
     });
 
     it("should validate that persisted channels have fixed-size data types", async () => {
-      const { result } = renderHook(() => Channel.useForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -1165,7 +1165,7 @@ describe("queries", () => {
         virtual: true,
       });
 
-      const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
       });
 
@@ -1205,7 +1205,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Channel.useCalculatedForm({ params: { key: existingCalculated.key } }),
+        () => Channel.useCalculatedForm({ query: { key: existingCalculated.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -1229,7 +1229,7 @@ describe("queries", () => {
     });
 
     it("should validate that expression is not empty", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
       });
 
@@ -1245,7 +1245,7 @@ describe("queries", () => {
     });
 
     it("should validate that expression contains return statement", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
       });
 
@@ -1261,7 +1261,7 @@ describe("queries", () => {
     });
 
     it("should validate that expression uses at least one channel", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
       });
 
@@ -1278,7 +1278,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
+      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
       });
 
@@ -1307,7 +1307,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () => {
           const form = Channel.useCalculatedForm({
-            params: { key: testCalculated.key },
+            query: { key: testCalculated.key },
           });
           const rename = Channel.useRename();
           return { form, rename };
