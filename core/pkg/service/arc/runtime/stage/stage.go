@@ -24,6 +24,6 @@ type Stage interface {
 	WriteChannels() []channel.Key
 	ReadChannels() []channel.Key
 	Flow(signal.Context)
-	Next(context.Context, string, value.Value)
+	Next(ctx context.Context, param string, value value.Value)
 	OnOutput(OutputHandler)
 }

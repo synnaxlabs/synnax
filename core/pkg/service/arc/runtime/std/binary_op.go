@@ -94,8 +94,6 @@ func (n *arithmeticOperator) Next(ctx context.Context, param string, val value.V
 	if n.a != nil && n.b != nil {
 		result := n.operate(*n.a, *n.b)
 		n.outputHandler(ctx, "output", result)
-		n.a = nil
-		n.b = nil
 	}
 }
 

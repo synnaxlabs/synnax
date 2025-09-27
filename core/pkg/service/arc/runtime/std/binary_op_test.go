@@ -17,19 +17,16 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
-	"github.com/synnaxlabs/x/address"
 )
 
 var _ = Describe("BinaryOp", func() {
 	var (
-		ctx  context.Context
-		addr address.Address
-		cfg  std.Config
+		ctx context.Context
+		cfg std.Config
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		addr = address.Rand()
 		cfg = std.Config{
 			Node: ir.Node{
 				Key: "test_op",
@@ -44,18 +41,17 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
-				Expect(output.Param).To(Equal("output"))
 			})
 
 			It("Should return 0 when values are not equal", func() {
@@ -63,15 +59,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
@@ -81,15 +77,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.F32{}}.PutFloat32(10.0)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
+				v1 := value.Value{Type: ir.F32{}}.PutFloat32(10.0)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -101,15 +97,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -121,15 +117,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(20)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(20)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -139,15 +135,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
@@ -159,15 +155,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -179,15 +175,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -199,15 +195,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -221,19 +217,18 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(30)))
 				Expect(output.Type).To(Equal(ir.I32{}))
-				Expect(output.Param).To(Equal("output"))
 			})
 
 			It("Should add two floats", func() {
@@ -241,15 +236,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.F64{}}.PutFloat64(10.5)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.F64{}}.PutFloat64(20.5)
+				v1 := value.Value{Type: ir.F64{}}.PutFloat64(10.5)
+				v2 := value.Value{Type: ir.F64{}}.PutFloat64(20.5)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetFloat64()).To(Equal(31.0))
 				Expect(output.Type).To(Equal(ir.F64{}))
@@ -260,15 +255,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.F32{}}.PutFloat32(10.5)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.F32{}}.PutFloat32(10.5)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetFloat32()).To(Equal(float32(30.5)))
 				Expect(output.Type).To(Equal(ir.F32{}))
@@ -281,15 +276,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(30)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(10)))
 			})
@@ -301,15 +296,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(3)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(3)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(30)))
 			})
@@ -321,15 +316,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(30)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(3)))
 			})
@@ -339,15 +334,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(30)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(0)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(0)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(0)))
 			})
@@ -359,15 +354,15 @@ var _ = Describe("BinaryOp", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(3)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(3)
 
-				stage.Next(ctx, v1)
-				stage.Next(ctx, v2)
+				stage.Next(ctx, "a", v1)
+				stage.Next(ctx, "b", v2)
 
 				Expect(output.GetInt32()).To(Equal(int32(1)))
 			})
@@ -375,30 +370,28 @@ var _ = Describe("BinaryOp", func() {
 	})
 
 	Describe("State Management", func() {
-		It("Should reset state after outputting", func() {
+		It("Should not reset state after outputting", func() {
 			stage, err := std.EQFactory(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			outputCount := 0
-			stage.OnOutput(func(_ context.Context, val value.Value) {
+			stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 				outputCount++
 			})
 
-			// First pair
-			v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-			v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, v1)
-			stage.Next(ctx, v2)
+			v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
+			stage.Next(ctx, "a", v1)
+			stage.Next(ctx, "b", v2)
 
 			Expect(outputCount).To(Equal(1))
 
-			// Second pair - should work independently
-			v3 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(20)
-			v4 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
-			stage.Next(ctx, v3)
-			stage.Next(ctx, v4)
+			v3 := value.Value{Type: ir.I32{}}.PutInt32(20)
+			v4 := value.Value{Type: ir.I32{}}.PutInt32(20)
+			stage.Next(ctx, "a", v3)
+			stage.Next(ctx, "b", v4)
 
-			Expect(outputCount).To(Equal(2))
+			Expect(outputCount).To(Equal(3))
 		})
 
 		It("Should only output when both values are present", func() {
@@ -406,18 +399,18 @@ var _ = Describe("BinaryOp", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			outputCalled := false
-			stage.OnOutput(func(_ context.Context, val value.Value) {
+			stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 				outputCalled = true
 			})
 
-			v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, v1)
+			v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+			stage.Next(ctx, "a", v1)
 
 			// Should not output yet
 			Expect(outputCalled).To(BeFalse())
 
-			v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, v2)
+			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
+			stage.Next(ctx, "b", v2)
 
 			// Now should output
 			Expect(outputCalled).To(BeTrue())

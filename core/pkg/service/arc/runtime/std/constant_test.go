@@ -47,16 +47,14 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
-				// Trigger Flow to emit the constant
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				stage.Flow(sCtx)
 
-				Expect(output.Param).To(Equal("output"))
 				Expect(output.GetInt32()).To(Equal(int32(42)))
 			})
 		})
@@ -71,7 +69,7 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
@@ -79,7 +77,6 @@ var _ = Describe("Constant", func() {
 				defer cancel()
 				stage.Flow(sCtx)
 
-				Expect(output.Param).To(Equal("output"))
 				Expect(output.GetFloat64()).To(Equal(3.14159))
 			})
 		})
@@ -94,7 +91,7 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
@@ -102,7 +99,6 @@ var _ = Describe("Constant", func() {
 				defer cancel()
 				stage.Flow(sCtx)
 
-				Expect(output.Param).To(Equal("output"))
 				Expect(output.GetUint64()).To(Equal(uint64(100)))
 			})
 		})
@@ -117,7 +113,7 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
@@ -137,7 +133,7 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 				})
 
@@ -151,7 +147,6 @@ var _ = Describe("Constant", func() {
 
 		Context("No value configured", func() {
 			It("Should output a zero value when no value is configured", func() {
-				// No config value set
 				cfg.Node.Config = map[string]any{}
 
 				stage, err := std.Create(ctx, cfg)
@@ -159,7 +154,7 @@ var _ = Describe("Constant", func() {
 
 				var output value.Value
 				outputCalled := false
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					output = val
 					outputCalled = true
 				})
@@ -183,14 +178,13 @@ var _ = Describe("Constant", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				outputs := []value.Value{}
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				stage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 					outputs = append(outputs, val)
 				})
 
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 
-				// Call Flow multiple times
 				stage.Flow(sCtx)
 				stage.Flow(sCtx)
 				stage.Flow(sCtx)
@@ -198,7 +192,6 @@ var _ = Describe("Constant", func() {
 				Expect(outputs).To(HaveLen(3))
 				for _, output := range outputs {
 					Expect(output.GetInt32()).To(Equal(int32(7)))
-					Expect(output.Param).To(Equal("output"))
 				}
 			})
 		})
@@ -206,7 +199,6 @@ var _ = Describe("Constant", func() {
 
 	Describe("Integration with operators", func() {
 		It("Should work as input to comparison operators", func() {
-			// Create a constant stage
 			constCfg := cfg
 			constCfg.Node.Config = map[string]any{
 				"value": int32(10),
@@ -214,7 +206,6 @@ var _ = Describe("Constant", func() {
 			constStage, err := std.Create(ctx, constCfg)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Create an EQ operator
 			eqCfg := std.Config{
 				Node: ir.Node{
 					Key:  "test_eq",
@@ -224,27 +215,22 @@ var _ = Describe("Constant", func() {
 			eqStage, err := std.Create(ctx, eqCfg)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Wire constant output to EQ input
-			constStage.OnOutput(func(ctx context.Context, val value.Value) {
-				val.Param = "a"
-				eqStage.Next(ctx, val)
+			constStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
+				eqStage.Next(ctx, "a", val)
 			})
 
 			var eqOutput value.Value
-			eqStage.OnOutput(func(_ context.Context, val value.Value) {
+			eqStage.OnOutput(func(_ context.Context, _ string, val value.Value) {
 				eqOutput = val
 			})
 
-			// Trigger the constant
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
 			constStage.Flow(sCtx)
 
-			// Send second value to EQ
-			v2 := value.Value{Param: "b", Type: ir.I32{}}.PutInt32(10)
-			eqStage.Next(ctx, v2)
+			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
+			eqStage.Next(ctx, "b", v2)
 
-			// Should output 1 (true) since both values are 10
 			Expect(eqOutput.GetUint8()).To(Equal(uint8(1)))
 		})
 	})

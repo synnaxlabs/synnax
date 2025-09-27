@@ -40,7 +40,6 @@ var factories = map[string]Constructor{
 	"select":     createSelect,
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
-	"printer":    createPrinter,
 	"set_status": createSetStatus,
 }
 
@@ -60,7 +59,6 @@ var Resolver = ir.MapResolver{
 	"on":         symbolChannelSource,
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
-	"printer":    symbolPrinter,
 	"set_status": symbolSetStatus,
 }
 

@@ -17,20 +17,17 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
 
 var _ = Describe("Select", func() {
 	var (
 		ctx  context.Context
-		addr address.Address
 		cfg  std.Config
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		addr = address.Rand()
 		cfg = std.Config{
 			Node: ir.Node{
 				Key:  "test_select",
@@ -46,17 +43,18 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Send a zero value
-				v := value.Value{Address: addr, Param: "input", Type: ir.I32{}}.PutInt32(0)
-				stage.Next(ctx, v)
+				v := value.Value{Type: ir.I32{}}.PutInt32(0)
+				stage.Next(ctx, "input", v)
 
-				Expect(output.Param).To(Equal("false"))
+				Expect(outputParam).To(Equal("false"))
 				Expect(output.GetInt32()).To(Equal(int32(0)))
-				Expect(output.Address).To(Equal(addr))
+				
 			})
 
 			It("Should output with 'true' param when value is non-zero", func() {
@@ -64,17 +62,18 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Send a non-zero value
-				v := value.Value{Address: addr, Param: "input", Type: ir.I32{}}.PutInt32(42)
-				stage.Next(ctx, v)
+				v := value.Value{Type: ir.I32{}}.PutInt32(42)
+				stage.Next(ctx, "input", v)
 
-				Expect(output.Param).To(Equal("true"))
+				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(42)))
-				Expect(output.Address).To(Equal(addr))
+				
 			})
 		})
 
@@ -84,19 +83,19 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var outputs []value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParams []string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					outputs = append(outputs, val)
+					outputParams = append(outputParams, param)
 				})
 
-				// Test float zero
-				v1 := value.Value{Address: addr, Type: ir.F64{}}.PutFloat64(0.0)
-				stage.Next(ctx, v1)
-				Expect(outputs[0].Param).To(Equal("false"))
+				v1 := value.Value{Type: ir.F64{}}.PutFloat64(0.0)
+				stage.Next(ctx, "input", v1)
+				Expect(outputParams[0]).To(Equal("false"))
 
-				// Test non-zero float
-				v2 := value.Value{Address: addr, Type: ir.F64{}}.PutFloat64(3.14)
-				stage.Next(ctx, v2)
-				Expect(outputs[1].Param).To(Equal("true"))
+				v2 := value.Value{Type: ir.F64{}}.PutFloat64(3.14)
+				stage.Next(ctx, "input", v2)
+				Expect(outputParams[1]).To(Equal("true"))
 			})
 
 			It("Should handle unsigned integers", func() {
@@ -104,19 +103,19 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var outputs []value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParams []string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					outputs = append(outputs, val)
+					outputParams = append(outputParams, param)
 				})
 
-				// Test uint zero
-				v1 := value.Value{Address: addr, Type: ir.U64{}}.PutUint64(0)
-				stage.Next(ctx, v1)
-				Expect(outputs[0].Param).To(Equal("false"))
+				v1 := value.Value{Type: ir.U64{}}.PutUint64(0)
+				stage.Next(ctx, "input", v1)
+				Expect(outputParams[0]).To(Equal("false"))
 
-				// Test non-zero uint
-				v2 := value.Value{Address: addr, Type: ir.U64{}}.PutUint64(100)
-				stage.Next(ctx, v2)
-				Expect(outputs[1].Param).To(Equal("true"))
+				v2 := value.Value{Type: ir.U64{}}.PutUint64(100)
+				stage.Next(ctx, "input", v2)
+				Expect(outputParams[1]).To(Equal("true"))
 			})
 
 			It("Should handle negative values", func() {
@@ -124,15 +123,16 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Negative values should result in "true" (non-zero)
-				v := value.Value{Address: addr, Type: ir.I32{}}.PutInt32(-10)
-				stage.Next(ctx, v)
+				v := value.Value{Type: ir.I32{}}.PutInt32(-10)
+				stage.Next(ctx, "input", v)
 
-				Expect(output.Param).To(Equal("true"))
+				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(-10)))
 			})
 		})
@@ -143,15 +143,16 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Boolean true stored as 1
-				v := value.Value{Address: addr, Type: ir.U8{}}.PutUint8(1)
-				stage.Next(ctx, v)
+				v := value.Value{Type: ir.U8{}}.PutUint8(1)
+				stage.Next(ctx, "input", v)
 
-				Expect(output.Param).To(Equal("true"))
+				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
 
@@ -160,15 +161,16 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Boolean false stored as 0
-				v := value.Value{Address: addr, Type: ir.U8{}}.PutUint8(0)
-				stage.Next(ctx, v)
+				v := value.Value{Type: ir.U8{}}.PutUint8(0)
+				stage.Next(ctx, "input", v)
 
-				Expect(output.Param).To(Equal("false"))
+				Expect(outputParam).To(Equal("false"))
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
 		})
@@ -179,11 +181,12 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var outputs []value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParams []string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					outputs = append(outputs, val)
+					outputParams = append(outputParams, param)
 				})
 
-				// Send multiple values
 				values := []struct {
 					val      int32
 					expected string
@@ -197,13 +200,13 @@ var _ = Describe("Select", func() {
 				}
 
 				for _, test := range values {
-					v := value.Value{Address: addr, Type: ir.I32{}}.PutInt32(test.val)
-					stage.Next(ctx, v)
+					v := value.Value{Type: ir.I32{}}.PutInt32(test.val)
+					stage.Next(ctx, "input", v)
 				}
 
 				Expect(outputs).To(HaveLen(6))
 				for i, test := range values {
-					Expect(outputs[i].Param).To(Equal(test.expected))
+					Expect(outputParams[i]).To(Equal(test.expected))
 					Expect(outputs[i].GetInt32()).To(Equal(test.val))
 				}
 			})
@@ -211,7 +214,6 @@ var _ = Describe("Select", func() {
 
 		Context("Integration with other stages", func() {
 			It("Should work with comparison operator output", func() {
-				// Create an EQ operator
 				eqCfg := std.Config{
 					Node: ir.Node{
 						Key:  "test_eq",
@@ -221,41 +223,38 @@ var _ = Describe("Select", func() {
 				eqStage, err := std.Create(ctx, eqCfg)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Create select stage
 				selectStage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Wire EQ output to select input
-				eqStage.OnOutput(func(ctx context.Context, val value.Value) {
-					selectStage.Next(ctx, val)
+				eqStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
+					selectStage.Next(ctx, "input", val)
 				})
 
 				var selectOutput value.Value
-				selectStage.OnOutput(func(_ context.Context, val value.Value) {
+				var selectParam string
+				selectStage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					selectOutput = val
+					selectParam = param
 				})
 
-				// Test equal values (should output 1, which select routes to "false")
-				v1 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v2 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(10)
-				eqStage.Next(ctx, v1)
-				eqStage.Next(ctx, v2)
+				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				eqStage.Next(ctx, "a", v1)
+				eqStage.Next(ctx, "b", v2)
 
-				Expect(selectOutput.Param).To(Equal("true")) // Because EQ outputs 1 for true
+				Expect(selectParam).To(Equal("true"))
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(1)))
 
-				// Test unequal values (should output 0, which select routes to "false")
-				v3 := value.Value{Address: addr, Param: "a", Type: ir.I32{}}.PutInt32(10)
-				v4 := value.Value{Address: addr, Param: "b", Type: ir.I32{}}.PutInt32(20)
-				eqStage.Next(ctx, v3)
-				eqStage.Next(ctx, v4)
+				v3 := value.Value{Type: ir.I32{}}.PutInt32(10)
+				v4 := value.Value{Type: ir.I32{}}.PutInt32(20)
+				eqStage.Next(ctx, "a", v3)
+				eqStage.Next(ctx, "b", v4)
 
-				Expect(selectOutput.Param).To(Equal("false")) // Because EQ outputs 0 for false
+				Expect(selectParam).To(Equal("false"))
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(0)))
 			})
 
 			It("Should work with constant stage", func() {
-				// Create a constant stage with value 0
 				constCfg := std.Config{
 					Node: ir.Node{
 						Key:  "test_const",
@@ -268,27 +267,25 @@ var _ = Describe("Select", func() {
 				constStage, err := std.Create(ctx, constCfg)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Create select stage
 				selectStage, err := std.Create(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Wire constant output to select input
-				constStage.OnOutput(func(ctx context.Context, val value.Value) {
-					selectStage.Next(ctx, val)
+				constStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
+					selectStage.Next(ctx, "input", val)
 				})
 
 				var selectOutput value.Value
-				selectStage.OnOutput(func(_ context.Context, val value.Value) {
+				var selectParam string
+				selectStage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					selectOutput = val
+					selectParam = param
 				})
 
-				// Trigger constant
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				constStage.Flow(sCtx)
 
-				// Constant 0 should be routed to "false"
-				Expect(selectOutput.Param).To(Equal("false"))
+				Expect(selectParam).To(Equal("false"))
 				Expect(selectOutput.GetInt32()).To(Equal(int32(0)))
 			})
 		})
@@ -299,24 +296,23 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
-				stage.OnOutput(func(_ context.Context, val value.Value) {
+				var outputParam string
+				stage.OnOutput(func(_ context.Context, param string, val value.Value) {
 					output = val
+					outputParam = param
 				})
 
-				// Test with a specific float value
 				v := value.Value{
-					Address: addr,
-					Param:   "input",
+					
 					Type:    ir.F32{},
 				}.PutFloat32(123.456)
-				
-				stage.Next(ctx, v)
 
-				// Value should be preserved, only param changed
-				Expect(output.Address).To(Equal(addr))
+				stage.Next(ctx, "input", v)
+
+				
 				Expect(output.Type).To(Equal(ir.F32{}))
 				Expect(output.GetFloat32()).To(BeNumerically("~", float32(123.456), 0.001))
-				Expect(output.Param).To(Equal("true")) // Non-zero routes to true
+				Expect(outputParam).To(Equal("true"))
 			})
 		})
 	})
