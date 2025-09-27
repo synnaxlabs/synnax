@@ -220,8 +220,8 @@ public:
         return static_cast<double>(value) / _priv::MILLISECOND;
     }
 
-    /// @brief returns the exact number of microseconds in the timespan as a
-    /// double precision floating point value.
+    /// @brief returns the exact number of microseconds in the timespan as a double
+    /// precision floating point value.
     [[nodiscard]] double microseconds() const {
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
