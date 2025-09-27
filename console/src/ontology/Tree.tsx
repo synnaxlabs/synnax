@@ -446,7 +446,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         handleError,
         removeLayout,
         addStatus,
-        selection: [getResource(ontology.idZ.parse(key))],
+        selection: getResource([ontology.idZ.parse(key)]),
       });
     },
     [client, store, services, placeLayout, handleError, removeLayout, addStatus],
@@ -521,7 +521,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         showRules
         shape={shape}
         subscribe={subscribe}
-        getItem={getResource}
+        getItem={resourceStore.get.bind(resourceStore)}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
       >
