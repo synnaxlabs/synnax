@@ -38,7 +38,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     if (item == null) return undefined;
     return {
       ...item,
-      labels: item.labels.map((l) => l.key),
+      labels: item.labels?.map((l) => l.key) ?? [],
     };
   }, [item]);
   const { form } = Status.useForm({
@@ -88,7 +88,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           </Text.Text>
         </Flex.Box>
         <Text.Text x>
-          {labels.length > 0 && (
+          {labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
               {labels.map(({ key, name, color }) => (
                 <Tag.Tag key={key} color={color} size="small">

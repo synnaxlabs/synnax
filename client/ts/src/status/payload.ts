@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status as xStatus } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { label } from "@/label";
 import { type ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
-export const statusZ = xStatus.statusZ().extend({
-  labels: nullableArrayZ(label.labelZ),
-});
+export const statusZ = status.statusZ;
 
-export const newZ = statusZ.omit({ labels: true }).partial({ key: true });
+export const newZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
+  detailsSchema?: DetailsSchema,
+) => statusZ(detailsSchema).omit({ labels: true }).partial({ key: true });
 
-export interface New extends z.input<typeof newZ> {}
+export type New<DetailsSchema extends z.ZodType = z.ZodNever> = z.input<
+  ReturnType<typeof newZ<DetailsSchema>>
+>;
 
-export interface Status extends z.infer<typeof statusZ> {}
+export type Status<Details = never> = status.Status<Details>;
 
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";

@@ -9,6 +9,7 @@
 
 import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import z from "zod";
 
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
@@ -203,6 +204,33 @@ describe("Status", () => {
       const page1Keys = page1.map((s) => s.key);
       const page2Keys = page2.map((s) => s.key);
       expect(page1Keys.some((k) => page2Keys.includes(k))).toBe(false);
+    });
+
+    it("should retrieve a status with a details schema", async () => {
+      const detailsSchema = z.object({
+        name: z.string(),
+        key: z.string(),
+      });
+      const s = await client.statuses.set<typeof detailsSchema>({
+        name: "Details Schema",
+        key: "details-schema",
+        variant: "info",
+        message: "Test",
+        time: TimeStamp.now(),
+        details: {
+          name: "Details Schema",
+          key: "details-schema",
+        },
+      });
+      const retrieved = await client.statuses.retrieve<typeof detailsSchema>({
+        key: s.key,
+        detailsSchema,
+      });
+      expect(retrieved.key).toBe(s.key);
+      expect(retrieved.name).toBe(s.name);
+      expect(retrieved.details).toBeDefined();
+      expect(retrieved.details.name).toBe(s.details.name);
+      expect(retrieved.details.key).toBe(s.details.key);
     });
   });
 

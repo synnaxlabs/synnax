@@ -90,15 +90,17 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
-      const devStatus: device.Status = status.create({
-        key: id.create(),
-        variant: "success",
-        message: "Device is happy as a clam",
-        details: {
-          rack: rack.key,
-          device: dev.key,
+      const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
+        {
+          key: id.create(),
+          variant: "success",
+          message: "Device is happy as a clam",
+          details: {
+            rack: rack.key,
+            device: dev.key,
+          },
         },
-      });
+      );
       const writer = await client.openWriter([device.STATUS_CHANNEL_NAME]);
       await writer.write(device.STATUS_CHANNEL_NAME, [devStatus]);
       await writer.close();
@@ -384,15 +386,14 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const devStatus: device.Status = status.create({
-        key: id.create(),
-        variant: "error",
-        message: "Device has issues",
-        details: {
-          rack: rack.key,
-          device: dev.key,
+      const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
+        {
+          key: id.create(),
+          variant: "error",
+          message: "Device has issues",
+          details: { rack: rack.key, device: dev.key },
         },
-      });
+      );
       await act(async () => {
         const writer = await client.openWriter([device.STATUS_CHANNEL_NAME]);
         await writer.write(device.STATUS_CHANNEL_NAME, [devStatus]);

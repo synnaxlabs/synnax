@@ -14,7 +14,6 @@ import { z } from "zod";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type ontology } from "@/ontology";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
-import { nullableArrayZ } from "@/util/zod";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -54,7 +53,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-const retrieveResZ = z.object({ users: nullableArrayZ(userZ) });
+const retrieveResZ = z.object({ users: array.nullableZ(userZ) });
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });

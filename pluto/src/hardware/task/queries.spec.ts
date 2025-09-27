@@ -221,7 +221,9 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -316,7 +318,9 @@ describe("queries", () => {
         config: {},
       });
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "success",
         message: "Task running",
@@ -389,7 +393,9 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const newStatus: task.Status = status.create({
+      const newStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -978,7 +984,9 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task error",

@@ -20,7 +20,6 @@ import {
   policyZ,
 } from "@/access/policy/payload";
 import { ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -48,7 +47,7 @@ const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ policies: nullableArrayZ(policyZ) });
+const retrieveResZ = z.object({ policies: array.nullableZ(policyZ) });
 
 const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
 const createResZ = z.object({ policies: policyZ.array() });

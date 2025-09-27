@@ -12,13 +12,9 @@ import { array, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { DELETE_VERBS, SET_VERBS } from "@/flux/external";
-import { createForm } from "@/flux/form";
-import { createList } from "@/flux/list";
 import { useStore } from "@/flux/Provider";
-import { createRetrieve, type RetrieveParams } from "@/flux/retrieve";
-import { createUpdate } from "@/flux/update";
 import { Label } from "@/label";
 import { state } from "@/state";
 
@@ -32,9 +28,12 @@ interface FluxSubStore extends Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof status.statusZ> = {
+const SET_STATUS_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  ReturnType<typeof status.statusZ>
+> = {
   channel: status.SET_CHANNEL_NAME,
-  schema: status.statusZ,
+  schema: status.statusZ(),
   onChange: ({ store, changed }) => store.statuses.set(changed.key, changed),
 };
 
@@ -50,7 +49,12 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
 
 export interface ListParams extends status.MultiRetrieveArgs {}
 
-export const useList = createList<ListParams, status.Key, status.Status, FluxSubStore>({
+export const useList = Flux.createList<
+  ListParams,
+  status.Key,
+  status.Status,
+  FluxSubStore
+>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.statuses.list(),
   retrieve: async ({ client, query }) =>
@@ -71,7 +75,7 @@ export const useList = createList<ListParams, status.Key, status.Status, FluxSub
   },
 });
 
-export const { useUpdate: useDelete } = createUpdate<
+export const { useUpdate: useDelete } = Flux.createUpdate<
   status.Key | status.Key[],
   FluxSubStore
 >({
@@ -88,7 +92,7 @@ export interface SetParams {
   parent?: ontology.ID;
 }
 
-export const { useUpdate: useSet } = createUpdate<SetParams, FluxSubStore>({
+export const { useUpdate: useSet } = Flux.createUpdate<SetParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: SET_VERBS,
   update: async ({ client, data, data: { statuses, parent } }) => {
@@ -104,67 +108,81 @@ const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
 };
 
-const retrieveSingle = async ({
+interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
+  extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
+  detailsSchema?: DetailsSchema;
+}
+
+const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
   store,
   client,
   query,
-}: RetrieveParams<status.SingleRetrieveArgs, FluxSubStore>) => {
+  detailsSchema,
+}: RetrieveSingleParams<DetailsSchema>): Promise<status.Status<DetailsSchema>> => {
   const cached = store.statuses.get(query.key);
   if (cached != null) {
     cached.labels = Label.retrieveCachedLabelsOf(store, status.ontologyID(query.key));
-    return cached;
+    return cached as status.Status<DetailsSchema>;
   }
-  const res = await client.statuses.retrieve({ ...BASE_QUERY, ...query });
-  store.labels.set(res.labels);
+  const res = await client.statuses.retrieve({
+    ...BASE_QUERY,
+    ...query,
+    detailsSchema,
+  });
+  if (res.labels != null) store.labels.set(res.labels);
   store.statuses.set(query.key, res);
   return res;
 };
 
-export const { useRetrieve } = createRetrieve<
-  RetrieveQuery,
-  status.Status,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, client, onChange }) => [
-    store.statuses.onSet(onChange, key),
-    store.relationships.onSet(async (rel) => {
-      const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
-      if (!isLabelChange) return;
-      const l = await Label.retrieveSingle({
-        store,
-        query: { key: rel.to.key },
-        client,
-      });
-      onChange(
-        state.skipNull((p) => ({
-          ...p,
-          labels: array.upsertKeyed(p.labels, l),
-        })),
-      );
-    }),
-    store.relationships.onDelete(async (relKey) => {
-      const rel = ontology.relationshipZ.parse(relKey);
-      const otgID = status.ontologyID(key);
-      const isLabelChange = Label.matchRelationship(rel, otgID);
-      if (!isLabelChange) return;
-      onChange(
-        state.skipNull((p) => ({
-          ...p,
-          labels: array.removeKeyed(p.labels, rel.to.key),
-        })),
-      );
-    }),
-  ],
-});
+export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
+  detailsSchema?: DetailsSchema,
+) =>
+  Flux.createRetrieve<RetrieveQuery, status.Status<DetailsSchema>, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: async (args) =>
+      await retrieveSingle<DetailsSchema>({ ...args, detailsSchema }),
+    mountListeners: ({ store, query: { key }, client, onChange }) => [
+      store.statuses.onSet((status) => {
+        onChange(status as status.Status<DetailsSchema>);
+      }, key),
+      store.relationships.onSet(async (rel) => {
+        const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+        if (!isLabelChange) return;
+        const l = await Label.retrieveSingle({
+          store,
+          query: { key: rel.to.key },
+          client,
+        });
+        onChange(
+          state.skipNull((p) => ({
+            ...p,
+            labels: array.upsertKeyed(p.labels, l),
+          })),
+        );
+      }),
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        const otgID = status.ontologyID(key);
+        const isLabelChange = Label.matchRelationship(rel, otgID);
+        if (!isLabelChange) return;
+        onChange(
+          state.skipNull((p) => ({
+            ...p,
+            labels: array.removeKeyed(p.labels, rel.to.key),
+          })),
+        );
+      }),
+    ],
+  });
+
+export const { useRetrieve } = createRetrieve();
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
   const store = useStore<FluxSubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
 };
 
-export const formSchema = status.statusZ.omit({ labels: true }).safeExtend({
+export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
   labels: label.keyZ.array().optional(),
 });
 
@@ -178,7 +196,7 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   labels: [],
 };
 
-export const useForm = createForm<
+export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
   typeof formSchema,
   FluxSubStore
