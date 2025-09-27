@@ -37,9 +37,7 @@ on:
       - relic.conf
       - scripts/EnVar.dll
       - turbo.json
-      - vendor/libmodbus/**
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -72,9 +70,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vendor/libmodbus/**
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
       - x/ts/**

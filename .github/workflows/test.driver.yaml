@@ -22,8 +22,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
   push:
@@ -50,8 +49,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
   workflow_dispatch:
@@ -135,6 +133,5 @@ jobs:
         run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
-        run:
-          bazel test --test_output=all //driver/... --jobs=1
+        run: bazel test --test_output=all //driver/... --jobs=1
           --test_tag_filters=-hardware --nocache_test_results
