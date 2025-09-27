@@ -202,8 +202,8 @@ public:
         return static_cast<double>(value) / _priv::HOUR;
     }
 
-    /// @brief returns the exact number of minutes in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of minutes in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double minutes() const {
         return static_cast<double>(value) / _priv::MINUTE;
     }
