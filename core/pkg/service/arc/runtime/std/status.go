@@ -36,31 +36,25 @@ var symbolSetStatus = ir.Symbol{
 
 type setStatus struct {
 	base
-	cfg     Config
-	key     string
-	variant xstatus.Variant
-	message string
+	cfg  Config
+	stat status.Status
 }
 
 func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
-	s := &setStatus{
-		cfg:     cfg,
-		key:     cfg.Node.Config["status_key"].(string),
-		message: cfg.Node.Config["message"].(string),
-		variant: xstatus.Variant(cfg.Node.Config["variant"].(string)),
+	s := status.Status{
+		Name:    cfg.Node.Config["name"].(string),
+		Key:     cfg.Node.Config["status_key"].(string),
+		Message: cfg.Node.Config["message"].(string),
+		Variant: xstatus.Variant(cfg.Node.Config["variant"].(string)),
 	}
-	s.base.key = cfg.Node.Key
-	return s, nil
+	stg := &setStatus{cfg: cfg, stat: s}
+	stg.base.key = cfg.Node.Key
+	return stg, nil
 }
 
 func (s *setStatus) Next(ctx context.Context, _ string, _ value.Value) {
-	stat := status.Status{}
-	stat.Key = s.key
-	stat.Name = "OX Alarm"
-	stat.Variant = s.variant
-	stat.Message = s.message
-	stat.Time = telem.Now()
-	if err := s.cfg.Status.NewWriter(nil).Set(ctx, &stat); err != nil {
+	s.stat.Time = telem.Now()
+	if err := s.cfg.Status.NewWriter(nil).Set(ctx, &s.stat); err != nil {
 		s.cfg.L.Error("error setting status", zap.Error(err))
 	}
 }

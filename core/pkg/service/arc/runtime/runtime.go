@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -188,12 +189,10 @@ func createStreamPipeline(
 }
 
 func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
-	// Priority 1: Resolve node from inside of module
 	_, ok := cfg.Module.GetStage(arcNode.Type)
 	if ok {
-		panic("unsupported")
+		return nil, errors.Newf("unsupported module type: %s", arcNode.Type)
 	}
-	// Priority 2: Attempt t find the stage i the standard library.
 	return std.Create(ctx, std.Config{
 		Node:        arcNode,
 		Status:      cfg.Status,

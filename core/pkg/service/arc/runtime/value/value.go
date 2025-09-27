@@ -142,7 +142,7 @@ func (v Value) GetFloat64() float64 {
 }
 
 // Put stores an arbitrary value using type switching
-func (v Value) Put(val interface{}) Value {
+func (v Value) Put(val any) Value {
 	switch typed := val.(type) {
 	case uint64:
 		return v.PutUint64(typed)
@@ -174,14 +174,12 @@ func (v Value) Put(val interface{}) Value {
 		}
 		return v.PutUint8(0)
 	default:
-		// If type is not recognized, store 0
 		v.Value = 0
 		return v
 	}
 }
 
-// Get retrieves the stored value as an interface{} based on the IR type
-func (v Value) Get() interface{} {
+func (v Value) Get() any {
 	switch v.Type.(type) {
 	case ir.U64:
 		return v.GetUint64()
@@ -209,7 +207,6 @@ func (v Value) Get() interface{} {
 	}
 }
 
-// DataTypeToIRType converts a telem.DataType to an ir.Type
 func DataTypeToIRType(dt telem.DataType) ir.Type {
 	switch dt {
 	case telem.Uint64T:
@@ -243,7 +240,6 @@ func DataTypeToIRType(dt telem.DataType) ir.Type {
 	}
 }
 
-// FromSeries converts a telem.Series to a slice of Values
 func FromSeries(s telem.Series) []Value {
 	length := int(s.Len())
 	values := make([]Value, length)
@@ -280,36 +276,27 @@ func FromSeries(s telem.Series) []Value {
 	return values
 }
 
-// Comparison operators
-
-// Eq checks if two values are equal
 func (v Value) Eq(other Value) bool {
 	return v.compare(other) == 0
 }
 
-// Gt checks if v is greater than other
 func (v Value) Gt(other Value) bool {
 	return v.compare(other) > 0
 }
 
-// Ge checks if v is greater than or equal to other
 func (v Value) Ge(other Value) bool {
 	return v.compare(other) >= 0
 }
 
-// Lt checks if v is less than other
 func (v Value) Lt(other Value) bool {
 	return v.compare(other) < 0
 }
 
-// Le checks if v is less than or equal to other
 func (v Value) Le(other Value) bool {
 	return v.compare(other) <= 0
 }
 
-// compare performs comparison based on the left value's type
 func (v Value) compare(other Value) int {
-	// Convert both values to the left value's type for comparison
 	switch v.Type.(type) {
 	case ir.F64:
 		left := v.GetFloat64()
@@ -512,9 +499,6 @@ func (v Value) toUint64() uint64 {
 	}
 }
 
-// Arithmetic operators
-
-// Add adds two values, result type is determined by left operand
 func (v Value) Add(other Value) Value {
 	result := Value{Type: v.Type}
 
@@ -544,7 +528,6 @@ func (v Value) Add(other Value) Value {
 	}
 }
 
-// Sub subtracts two values, result type is determined by left operand
 func (v Value) Sub(other Value) Value {
 	result := Value{Type: v.Type}
 
@@ -574,10 +557,8 @@ func (v Value) Sub(other Value) Value {
 	}
 }
 
-// Mul multiplies two values, result type is determined by left operand
 func (v Value) Mul(other Value) Value {
 	result := Value{Type: v.Type}
-
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() * other.toFloat64())
@@ -604,10 +585,8 @@ func (v Value) Mul(other Value) Value {
 	}
 }
 
-// Div divides two values, result type is determined by left operand
 func (v Value) Div(other Value) Value {
 	result := Value{Type: v.Type}
-
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(v.GetFloat64() / other.toFloat64())
@@ -670,10 +649,8 @@ func (v Value) Div(other Value) Value {
 	}
 }
 
-// Mod calculates modulo, result type is determined by left operand
 func (v Value) Mod(other Value) Value {
 	result := Value{Type: v.Type}
-
 	switch v.Type.(type) {
 	case ir.F64:
 		return result.PutFloat64(math.Mod(v.GetFloat64(), other.toFloat64()))
