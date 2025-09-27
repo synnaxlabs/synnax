@@ -220,6 +220,7 @@ export const useForm = createForm<
         set("time", v.time);
         set("name", v.name);
         set("description", v.description);
+        set("variant", v.variant);
       }, key),
       store.relationships.onSet(async (rel) => {
         const key = getKey();
