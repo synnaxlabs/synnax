@@ -20,8 +20,8 @@ import {
   nullClientResult,
   parseInitialStatusDetails,
   type Result,
-  resultStatusDetails,
   type ResultStatus,
+  resultStatusDetails,
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
