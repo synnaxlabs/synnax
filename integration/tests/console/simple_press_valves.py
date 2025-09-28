@@ -18,6 +18,7 @@ class Simple_Press_Valves(ConsoleCase):
     """
 
     def setup(self) -> None:
+        self.set_manual_timeout(90)
         self.subscribe(
             [
                 "end_test_state",
@@ -26,7 +27,6 @@ class Simple_Press_Valves(ConsoleCase):
                 "press_pt",
             ]
         )
-        self.set_manual_timeout(90)
         super().setup()
 
     def run(self) -> None:

@@ -19,6 +19,7 @@ class Setpoint_Press_Auto(TestCase):
 
     def setup(self) -> None:
 
+        self.set_manual_timeout(120)
         self.subscribe(
             [
                 "press_vlv_cmd",
@@ -28,7 +29,6 @@ class Setpoint_Press_Auto(TestCase):
                 "end_test_state",
             ]
         )
-        self.set_manual_timeout(120)
         super().setup()
 
     def run(self) -> None:

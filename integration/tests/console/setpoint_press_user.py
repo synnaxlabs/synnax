@@ -21,22 +21,20 @@ class Setpoint_Press_User(ConsoleCase):
 
     def setup(self) -> None:
 
+        self.set_manual_timeout(90)
         self.subscribe(
             [
-                "start_test_state",
                 "end_test_state",
                 "press_setpoint_state",
                 "press_pt",
             ]
         )
-        self.set_manual_timeout(90)
         super().setup()
 
     def run(self) -> None:
         console = self.console
 
         # Define the control channel names
-        START_CMD = "start_test_cmd"
         END_CMD = "end_test_cmd"
         SETPOINT = "press_setpoint_cmd"
         PRESSURE = "press_pt"
@@ -54,8 +52,7 @@ class Setpoint_Press_User(ConsoleCase):
         console.schematic.new()
         console.schematic.move("left")
 
-        start_cmd = console.schematic.create_button(START_CMD, mode="Momentary")
-        start_cmd.move(-200, -90)
+        # End test command
         end_cmd = console.schematic.create_button(END_CMD, mode="Fire")
         end_cmd.move(0, -90)
 
@@ -63,9 +60,6 @@ class Setpoint_Press_User(ConsoleCase):
         setpoint = console.schematic.create_setpoint(SETPOINT)
 
         self._log_message("Starting test")
-        sy.sleep(1)
-        start_cmd.press()
-
         setpoints = [30, 15, 60, 30, 0]
         for target in setpoints:
             self._log_message(f"Target pressure: {target}")

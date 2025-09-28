@@ -18,7 +18,7 @@ class Simple_Press(TestCase):
     """
 
     def setup(self) -> None:
-        sy.sleep(2)
+        self.set_manual_timeout(30)
         self.subscribe(
             [
                 "press_vlv_cmd",
@@ -27,7 +27,6 @@ class Simple_Press(TestCase):
                 "end_test_state",
             ]
         )
-        self.set_manual_timeout(30)
         super().setup()
 
     def run(self) -> None:
