@@ -11,7 +11,6 @@ import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
-import { ExpiredTokenError } from "@/errors";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { status } from "@/status";

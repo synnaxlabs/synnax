@@ -1,5 +1,5 @@
-import { CSS } from "@/css";
 import { Core, type CoreProps } from "@/arc/handle/Core";
+import { CSS } from "@/css";
 
 export interface SinkProps extends Omit<CoreProps, "type"> {}
 

@@ -1,5 +1,5 @@
-import { CSS } from "@/css";
 import { Core, type CoreProps } from "@/arc/handle/Core";
+import { CSS } from "@/css";
 
 export interface SourceProps extends Omit<CoreProps, "type"> {}
 

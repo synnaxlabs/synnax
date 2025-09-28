@@ -1,8 +1,8 @@
 import { color } from "@synnaxlabs/x";
 
+import { Minimal } from "@/arc/stage/Base";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Minimal } from "@/arc/stage/Base";
 
 const ORANGE_HEX = color.construct("#FF8A00");
 
