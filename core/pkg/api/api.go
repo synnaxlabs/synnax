@@ -159,14 +159,14 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
-	// Arc
-	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
-	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
-	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
 	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
+	// Arc
+	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
+	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
+	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
