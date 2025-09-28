@@ -17,23 +17,17 @@ class Simple_Press_Valves(ConsoleCase):
     Test a basic press control sequence using valves and buttons
     """
 
-    # TODO BEFORE MERGE
-    # Update subscribe to leverage wait_on()
-    # # Wait for setpoint to be defined by console
-    # Example: ctrl.wait_until_defined([PRESS_SETPOINT_CMD])
-
     def setup(self) -> None:
         sy.sleep(2)
         self.subscribe(
             [
-                "start_test_state",
                 "end_test_state",
                 "press_vlv_cmd",
                 "vent_vlv_cmd",
                 "press_pt",
             ]
         )
-        self.set_manual_timeout(45)
+        self.set_manual_timeout(60)
         super().setup()
 
     def run(self) -> None:
@@ -44,7 +38,6 @@ class Simple_Press_Valves(ConsoleCase):
             return
 
         # Define the control channel names
-        START_CMD = "start_test_cmd"
         END_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"
         VENT_VALVE = "vent_vlv_cmd"
@@ -54,7 +47,7 @@ class Simple_Press_Valves(ConsoleCase):
         console.plot.new()
         console.plot.add_Y(
             "Y1",
-            ["start_test_cmd", "end_test_cmd", "start_test_state", "end_test_state"],
+            ["press_vlv_state", "vent_vlv_state"],
         )
         console.plot.add_Y("Y2", ["press_pt"])
         console.plot.add_ranges(["30s"])
@@ -63,10 +56,7 @@ class Simple_Press_Valves(ConsoleCase):
         console.schematic.new()
         console.schematic.move("left")
 
-        start_test_cmd = console.schematic.create_button(START_CMD, mode="Momentary")
-        start_test_cmd.move(-200, -90)
-
-        end_test_cmd = console.schematic.create_button(END_CMD, mode="Fire")
+        end_test_cmd = console.schematic.create_button(END_CMD)
         end_test_cmd.move(0, -90)
 
         press_valve = console.schematic.create_valve("press_vlv")
@@ -76,7 +66,6 @@ class Simple_Press_Valves(ConsoleCase):
         console.schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self._log_message("Starting test")
-        start_test_cmd.press()
         target_Pressure = 20
 
         for i in range(3):

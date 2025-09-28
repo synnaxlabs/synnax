@@ -264,4 +264,4 @@ class Console:
     def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
-        self.page.get_by_text(selector, exact=True).click()
+        self.page.get_by_text(selector, exact=True).first.click()

@@ -11,7 +11,7 @@ import random
 
 import synnax as sy
 
-from framework.test_case import STATUS, TestCase
+from framework.test_case import TestCase
 
 
 class Sim_DAQ(TestCase):
@@ -20,7 +20,7 @@ class Sim_DAQ(TestCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(300)
+        self.set_manual_timeout(120)
         super().setup()
 
     def run(self) -> None:
@@ -159,7 +159,6 @@ class Sim_DAQ(TestCase):
             "press_pt": 0,
         }
 
-        sy.sleep(1)
         with client.open_streamer(
             ["start_test_cmd", "end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
         ) as streamer:
@@ -180,27 +179,6 @@ class Sim_DAQ(TestCase):
                 def test_active() -> bool:
                     return all([loop.wait(), self.should_continue])
 
-                start_test = False
-                controller_timeout = 30
-                # self._log_message(f"Awaiting start command for {controller_timeout}s")
-                # while test_active() and self.uptime < controller_timeout:
-                #    frame = streamer.read(timeout=0)
-                #    if frame is not None:
-                #        start_test_cmd = frame.get("start_test_cmd")
-                #        if len(start_test_cmd) > 0:
-                #            state["start_test_state"] = start_test_cmd[-1]
-                #            start_test = state["start_test_state"] > 0.9
-                #            state["daq_time"] = sy.TimeStamp.now()
-                #            writer.write(state)
-                #    if start_test:
-                #         self._log_message("Start command received")
-                #        break
-                #
-                # if not start_test:
-                #    self.fail("Start test command was not received")
-                #    return
-
-                # The actual run loop
                 self._log_message("Sim DAQ running")
                 while test_active():
                     # Read incoming commands

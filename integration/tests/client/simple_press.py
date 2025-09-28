@@ -24,7 +24,6 @@ class Simple_Press(TestCase):
                 "press_vlv_cmd",
                 "vent_vlv_cmd",
                 "press_pt",
-                "start_test_state",
                 "end_test_state",
             ]
         )
@@ -39,7 +38,6 @@ class Simple_Press(TestCase):
             return
 
         # Define the control channel names
-        START_TEST_CMD = "start_test_cmd"
         END_TEST_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"
         VENT_VALVE = "vent_vlv_cmd"
@@ -48,11 +46,10 @@ class Simple_Press(TestCase):
         with client.control.acquire(
             name="Pressurization Sequence",
             write_authorities=[200],
-            write=[PRESS_VALVE, VENT_VALVE, START_TEST_CMD, END_TEST_CMD],
+            write=[PRESS_VALVE, VENT_VALVE, END_TEST_CMD],
             read=[PRESSURE],
         ) as ctrl:
 
-            ctrl[START_TEST_CMD] = True
             target_pressure = 20
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False

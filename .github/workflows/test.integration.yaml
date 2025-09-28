@@ -363,7 +363,7 @@ jobs:
         if: always()
         with:
           name: test-results-windows
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -436,7 +436,7 @@ jobs:
         if: always()
         with:
           name: test-results-macos
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -507,7 +507,7 @@ jobs:
         if: always()
         with:
           name: test-results-linux
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment

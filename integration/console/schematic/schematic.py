@@ -53,24 +53,11 @@ class Schematic(ConsolePage):
         """Select a symbol type from the symbols panel."""
 
         if symbol_type == "Valve":
-            self.console.click("Valves", timeout=3000)
-            self.console.click("Generic", timeout=3000)
-        elif symbol_type == "Setpoint":
-            self.console.click("General", timeout=3000)
-            #########################################################
-            # TODO: This is a hack to wait for the setpoint to appear
-            # Replace with instances of console.click() throughout the codebase!
-            #########################################################
-            self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
-            self.page.get_by_text(symbol_type, exact=True).first.click()
-            #########################################################
+            self.console.click("Valves")
+            self.console.click("Generic")
         else:
-            #########################################################
-            # TODO: This is a hack to wait for the symbol to appear
-            # Clean this up
-            #########################################################
-            self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
-            self.page.get_by_text(symbol_type, exact=True).first.click()
+            self.console.click("General")
+            self.console.click(symbol_type)
 
     def _wait_for_new_symbol(self, initial_count: int) -> None:
         """Wait for a new symbol to appear."""
