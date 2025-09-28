@@ -29,7 +29,9 @@ update_module_bazel() {
     local module_file="../MODULE.bazel"
 
     if [[ -f "$module_file" ]]; then
-        sed -i '' "s/version = \".*\"/version = \"$version\"/" "$module_file"
+        # Only update the version within the module() declaration, not bazel_dep versions
+        # This matches the pattern: module(...version = "X.Y.Z"...)
+        sed -i '' "/^module(/,/^)/ s/version = \".*\"/version = \"$version\"/" "$module_file"
         echo "Updated version in MODULE.bazel to $version"
     else
         echo "MODULE.bazel not found!"
