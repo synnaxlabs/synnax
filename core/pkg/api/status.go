@@ -86,7 +86,7 @@ func (s *StatusService) Set(
 ) (res StatusSetResponse, err error) {
 	ids := statusAccessOntologyIDs(req.Statuses)
 	// For status setting, we use Create action for new statuses
-	// and Update action for existing ones. Since Set can do both,
+	// and Update action for existing ones. Since Create can do both,
 	// we'll use Create permission.
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),

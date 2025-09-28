@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package set_test
+import z from "zod";
 
-import (
-	"testing"
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
+export const viewZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  type: z.string(),
+  query: z.record(z.string(), z.any()),
+});
 
-func TestData(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Create Suite")
-}
+export type View = z.infer<typeof viewZ>;
+export type Params = Key | Key[];

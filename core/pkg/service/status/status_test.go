@@ -74,7 +74,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Writer", func() {
-		Describe("Set", func() {
+		Describe("Create", func() {
 			It("Should create a new status", func() {
 				s := &status.Status{
 					Name:    "Test Status",
@@ -133,7 +133,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("SetMany", func() {
+		Describe("CreateMany", func() {
 			It("Should create multiple statuses", func() {
 				statuses := []status.Status{
 					{

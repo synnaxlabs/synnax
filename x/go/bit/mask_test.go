@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Mask Test", func() {
-	Describe("Set & Get", func() {
+	Describe("Create & Get", func() {
 		It("Should properly set & get positions", func() {
 			mask := bit.Mask128{}
 			for i := range mask.Cap() {

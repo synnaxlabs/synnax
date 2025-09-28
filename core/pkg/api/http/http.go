@@ -142,5 +142,10 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.StatusRetrieve = fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve")
 	t.StatusDelete = fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete")
 
+	// VIEW
+	t.ViewCreate = fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](router, "/api/v1/view/create")
+	t.ViewRetrieve = fhttp.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse](router, "/api/v1/view/retrieve")
+	t.ViewDelete = fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](router, "/api/v1/view/delete")
+
 	return t
 }

@@ -163,6 +163,10 @@ type Transport struct {
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
 	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
+	// VIEW
+	ViewCreate   freighter.UnaryServer[ViewCreateRequest, ViewCreateResponse]
+	ViewRetrieve freighter.UnaryServer[ViewRetrieveRequest, ViewRetrieveResponse]
+	ViewDelete   freighter.UnaryServer[ViewDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -186,6 +190,7 @@ type Layer struct {
 	Hardware     *HardwareService
 	Access       *AccessService
 	Status       *StatusService
+	View         *ViewService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -328,6 +333,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+
+		// VIEW
+		t.ViewCreate,
+		t.ViewRetrieve,
+		t.ViewDelete,
 	)
 
 	// AUTH
@@ -451,6 +461,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(a.Status.Set)
 	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
 	t.StatusDelete.BindHandler(a.Status.Delete)
+
+	// VIEW
+	t.ViewCreate.BindHandler(a.View.Create)
+	t.ViewRetrieve.BindHandler(a.View.Retrieve)
+	t.ViewDelete.BindHandler(a.View.Delete)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -477,5 +492,6 @@ func New(configs ...Config) (*Layer, error) {
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
 	api.Status = NewStatusService(api.provider)
+	api.View = NewViewService(api.provider)
 	return api, nil
 }

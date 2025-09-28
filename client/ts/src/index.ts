@@ -38,6 +38,7 @@ export { ranger } from "@/ranger";
 export { status } from "@/status";
 export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
 export { user } from "@/user";
+export { view } from "@/view";
 export { workspace } from "@/workspace";
 export { lineplot } from "@/workspace/lineplot";
 export { log } from "@/workspace/log";
