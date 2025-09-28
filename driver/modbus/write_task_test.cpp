@@ -140,8 +140,12 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     auto int16_ch = ASSERT_NIL_P(sy->channels.create("int16", telem::INT16_T, true));
     auto uint32_ch = ASSERT_NIL_P(sy->channels.create("uint32", telem::UINT32_T, true));
     auto int32_ch = ASSERT_NIL_P(sy->channels.create("int32", telem::INT32_T, true));
-    auto float32_ch = ASSERT_NIL_P(sy->channels.create("float32", telem::FLOAT32_T, true));
-    auto float64_ch = ASSERT_NIL_P(sy->channels.create("float64", telem::FLOAT64_T, true));
+    auto float32_ch = ASSERT_NIL_P(
+        sy->channels.create("float32", telem::FLOAT32_T, true)
+    );
+    auto float64_ch = ASSERT_NIL_P(
+        sy->channels.create("float64", telem::FLOAT64_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},

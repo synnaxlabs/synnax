@@ -13,9 +13,9 @@
 #include "gtest/gtest.h"
 
 /// internal
-#include "driver/modbus/read_task.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 /// module
