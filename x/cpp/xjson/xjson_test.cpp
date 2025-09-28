@@ -368,3 +368,20 @@ TEST(testConfig, testParseFromFileInvalidJSON) {
     // Clean up
     std::remove(test_file.c_str());
 }
+
+TEST(testConfig, testFieldErrWithXError) {
+    const json j = {};
+    xjson::Parser parser(j);
+
+    xerrors::Error custom_error(xerrors::VALIDATION, "Custom validation error");
+    parser.field_err("test_field", custom_error);
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "test_field");
+    EXPECT_TRUE(
+        err["message"].get<std::string>().find("Custom validation error") !=
+        std::string::npos
+    );
+}

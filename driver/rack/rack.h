@@ -27,6 +27,9 @@
 
 /// internal
 #include "driver/labjack/labjack.h"
+#ifndef SYNNAX_NILINUXRT
+#include "driver/modbus/modbus.h"
+#endif
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
@@ -56,12 +59,16 @@ struct RemoteInfo {
 };
 
 inline std::vector<std::string> default_integrations() {
-    return {
+    std::vector<std::string> integrations = {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
     };
+#ifndef SYNNAX_NILINUXRT
+    integrations.push_back(modbus::INTEGRATION_NAME);
+#endif
+    return integrations;
 }
 
 /// @brief the configuration information necessary for running the driver. The

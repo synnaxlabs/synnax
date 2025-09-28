@@ -22,8 +22,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
   push:
@@ -50,8 +49,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
   workflow_dispatch:
