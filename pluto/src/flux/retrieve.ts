@@ -24,7 +24,7 @@ import { useAsyncEffect } from "@/hooks";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { useAdder } from "@/status/Aggregator";
+import { useAdder } from "@/status/core/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface RetrieveParams<Query extends core.Shape, Store extends core.Store> {

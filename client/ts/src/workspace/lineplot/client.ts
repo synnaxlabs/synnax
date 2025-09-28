@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 import {
   type Key,
   keyZ,
@@ -46,7 +45,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ linePlots: nullableArrayZ(linePlotZ) });
+const retrieveResZ = z.object({ linePlots: array.nullableZ(linePlotZ) });
 
 const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });

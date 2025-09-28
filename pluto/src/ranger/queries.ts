@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { type Optional, primitive } from "@synnaxlabs/x";
+import { array, type Optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -32,11 +32,8 @@ const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
 const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
 const PARENT_RESOURCE_NAME = "Parent Range";
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
@@ -342,15 +339,19 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
         ranger.ontologyID(key),
       );
       if (isLabelChange) {
-        const label = await client.labels.retrieve({ key: relationship.to.key });
-        store.labels.set(relationship.to.key, label);
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.ranges.sugarOne({
-            ...prev,
-            labels: [...(prev.labels ?? []).filter((l) => l.key !== label.key), label],
-          });
+        const label = await Label.retrieveSingle({
+          store,
+          query: { key: relationship.to.key },
+          client,
         });
+        onChange(
+          state.skipNull((prev) =>
+            client.ranges.sugarOne({
+              ...prev,
+              labels: array.upsertKeyed(prev.labels, label),
+            }),
+          ),
+        );
       }
       const isParentChange = ontology.matchRelationship(relationship, {
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -365,6 +366,28 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
         });
       }
     }, key),
+    store.relationships.onDelete(async (relKey) => {
+      const rel = ontology.relationshipZ.parse(relKey);
+      const otgID = ranger.ontologyID(key);
+      const isLabelChange = Label.matchRelationship(rel, otgID);
+      if (isLabelChange)
+        return onChange(
+          state.skipNull((p) =>
+            client.ranges.sugarOne({
+              ...p,
+              labels: array.removeKeyed(p.labels, rel.to.key),
+            }),
+          ),
+        );
+      const isParentChange = ontology.matchRelationship(rel, {
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: otgID,
+      });
+      if (isParentChange)
+        return onChange(
+          state.skipNull((p) => client.ranges.sugarOne({ ...p, parent: null })),
+        );
+    }),
   ],
 });
 
@@ -444,7 +467,7 @@ export const {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({
                     ...r,
-                    labels: r.labels?.filter((l) => l.key !== rel.to.key),
+                    labels: array.removeKeyed(r.labels, rel.to.key),
                   });
                 }),
               ),
@@ -505,33 +528,24 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
     if (key == null) return;
     reset(toFormValues(await retrieveSingle({ client, store, query: { key } })));
   },
-  update: async ({ client, value: getValue, reset, store }) => {
+  update: async ({ client, value: getValue, reset, store, rollbacks }) => {
     const value = getValue();
     const parentKey = value.parent;
     const parentID = primitive.isNonZero(parentKey)
       ? ranger.ontologyID(parentKey)
       : undefined;
     const rng = await client.ranges.create(value, { parent: parentID });
-    await client.labels.label(rng.ontologyID, value.labels, { replace: true });
-    const labels: label.Label[] = store.labels.get(value.labels);
-    const cachedLabelKeys = new Set(labels.map((l) => l.key));
-    const missingLabels = value.labels.filter((l) => !cachedLabelKeys.has(l));
-    if (missingLabels.length > 0) {
-      const newLabels = await client.labels.retrieve({ keys: missingLabels });
-      labels.push(...newLabels);
-      store.labels.set(newLabels);
-    }
-    let parent: ranger.Range | null = null;
+    const labels = await Label.setLabelsFor({
+      store,
+      client,
+      rollbacks,
+      data: { id: rng.ontologyID, labels: value.labels },
+    });
+    let parent: ranger.Payload | null = null;
     if (primitive.isNonZero(parentKey))
-      parent = await retrieveSingle({ client, store, query: { key: parentKey } });
-    store.ranges.set(
-      rng.key,
-      client.ranges.sugarOne({
-        ...rng.payload,
-        labels,
-        parent: parent?.payload ?? null,
-      }),
-    );
+      parent = (await retrieveSingle({ client, store, query: { key: parentKey } }))
+        .payload;
+    store.ranges.set(client.ranges.sugarOne({ ...rng.payload, labels, parent }));
     reset({
       ...value,
       ...rng.payload,

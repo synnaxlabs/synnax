@@ -20,10 +20,10 @@ export interface CreateUseDeleteArgs<K extends record.Key> {
   query: Flux.UseUpdate<K | K[]>;
   convertKey: (key: string) => K;
   beforeUpdate?: (
-    params: Flux.BeforeUpdateParams<K | K[]> & Ontology.TreeContextMenuProps,
+    query: Flux.BeforeUpdateParams<K | K[]> & Ontology.TreeContextMenuProps,
   ) => Promise<K | K[] | boolean>;
   afterSuccess?: (
-    params: Flux.AfterSuccessParams<K | K[]> & Ontology.TreeContextMenuProps,
+    query: Flux.AfterSuccessParams<K | K[]> & Ontology.TreeContextMenuProps,
   ) => void;
 }
 
@@ -45,17 +45,17 @@ export const createUseDelete =
     const confirm = Ontology.useConfirmDelete({ type, description, icon });
     const { update } = query({
       beforeUpdate: useCallback(
-        async (params: Flux.BeforeUpdateParams<K | K[]>) => {
+        async (query: Flux.BeforeUpdateParams<K | K[]>) => {
           const res = await confirm(getResource(ids));
           if (!res) return false;
-          if (beforeUpdate != null) return await beforeUpdate({ ...params, ...props });
+          if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
           return true;
         },
         [props],
       ),
       afterSuccess: useCallback(
-        (params: Flux.AfterSuccessParams<K | K[]>) => {
-          afterSuccess?.({ ...params, ...props });
+        (query: Flux.AfterSuccessParams<K | K[]>) => {
+          afterSuccess?.({ ...query, ...props });
         },
         [props],
       ),

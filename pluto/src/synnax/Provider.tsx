@@ -21,10 +21,11 @@ import {
   use as reactUse,
   useCallback,
 } from "react";
+import z from "zod";
 
 import { Aether } from "@/aether";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {
@@ -63,12 +64,14 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 
-export interface StatusDetails {
-  type: string;
-  oldServer: boolean;
-  nodeVersion?: string;
-  clientVersion: string;
-}
+export const statusDetailsSchema = z.object({
+  type: z.string(),
+  oldServer: z.boolean(),
+  nodeVersion: z.string().optional(),
+  clientVersion: z.string(),
+});
+
+export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const createErrorDescription = (
   oldServer: boolean,

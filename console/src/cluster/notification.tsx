@@ -12,9 +12,9 @@ import { Button, Synnax } from "@synnaxlabs/pluto";
 import { type Notifications } from "@/notifications";
 import { Version } from "@/version";
 
-export const versionOutdatedAdapter: Notifications.Adapter<Synnax.StatusDetails> = (
-  status,
-) => {
+export const versionOutdatedAdapter: Notifications.Adapter<
+  typeof Synnax.statusDetailsSchema
+> = (status) => {
   if (status.details == null) return null;
   if (status.details.type !== Synnax.SERVER_VERSION_MISMATCH) return null;
   const oldServer = status.details.oldServer;

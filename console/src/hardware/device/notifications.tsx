@@ -15,7 +15,7 @@ import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
+const notificationAdapter: Notifications.Adapter<typeof device.deviceZ> = (status) => {
   const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };

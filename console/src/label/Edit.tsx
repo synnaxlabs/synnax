@@ -47,7 +47,7 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    params: {},
+    query: {},
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
@@ -96,7 +96,7 @@ const LabelListItem = ({
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
-            path={`color`}
+            path="color"
             padHelpText={false}
             showLabel={false}
           >
@@ -107,7 +107,7 @@ const LabelListItem = ({
           <Form.TextField
             showLabel={false}
             hideIfNull
-            path={`name`}
+            path="name"
             showHelpText={false}
             padHelpText={false}
             inputProps={{

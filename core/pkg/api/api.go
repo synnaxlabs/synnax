@@ -159,6 +159,10 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	// STATUS
+	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
+	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
+	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -181,6 +185,7 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
+	Status       *StatusService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -318,6 +323,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+
+		// STATUS
+		t.StatusSet,
+		t.StatusRetrieve,
+		t.StatusDelete,
 	)
 
 	// AUTH
@@ -436,6 +446,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+
+	// STATUS
+	t.StatusSet.BindHandler(a.Status.Set)
+	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
+	t.StatusDelete.BindHandler(a.Status.Delete)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -461,5 +476,6 @@ func New(configs ...Config) (*Layer, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
+	api.Status = NewStatusService(api.provider)
 	return api, nil
 }

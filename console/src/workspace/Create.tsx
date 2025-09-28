@@ -35,7 +35,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const active = useSelectActiveKey();
 
   const { form, save, variant } = Workspace.useForm({
-    params: {},
+    query: {},
     initialValues: {
       name: "",
       layout: Layout.ZERO_SLICE_STATE,

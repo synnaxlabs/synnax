@@ -22,6 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
+import { EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { Item, type ItemProps } from "@/range/list/Item";
@@ -38,6 +39,17 @@ export interface ListProps
   enableAddButton?: boolean;
   initialRequest?: ranger.RetrieveRequest;
 }
+
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  return (
+    <EmptyAction
+      message="No ranges found."
+      action="Create a range"
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+    />
+  );
+};
 
 export const List = ({
   data,
@@ -72,70 +84,79 @@ export const List = ({
     [handleRequestChange],
   );
   return (
-    <Select.Frame<ranger.Key, ranger.Range>
-      multiple
-      data={data}
-      virtual
-      getItem={getItem}
-      subscribe={subscribe}
-      onChange={setSelected}
-      value={selected}
-      onFetchMore={handleFetchMore}
-      itemHeight={45}
-    >
-      {enableSearch && (
-        <Flex.Box
-          x
-          bordered
-          style={{ padding: "1.5rem" }}
-          background={1}
-          justify="between"
-        >
-          <Input.Text
-            size="small"
-            level="h5"
-            variant="text"
-            value={request.searchTerm ?? ""}
-            placeholder={
-              <>
-                <Icon.Search />
-                Search Ranges...
-              </>
-            }
-            onChange={handleSearch}
-          />
-          {enableAddButton && <AddButton />}
-        </Flex.Box>
-      )}
-      {(enableFilters || enableAddButton) && (
-        <Flex.Box
-          x
-          bordered
-          style={{ padding: "1rem 2rem", borderTop: "none" }}
-          background={1}
-          justify="between"
-        >
-          {enableFilters && (
-            <>
-              <SelectFilters request={request} onRequestChange={handleRequestChange} />
-              <Filters request={request} onRequestChange={handleRequestChange} />
-            </>
-          )}
-        </Flex.Box>
-      )}
-      <PList.Items<string> displayItems={Infinity} style={{ height: "100%" }}>
-        {({ key, ...rest }) => (
-          <Item
-            key={key}
-            {...rest}
-            showParent={showParent}
-            showLabels={showLabels}
-            showTimeRange={showTimeRange}
-            showFavorite={showFavorite}
-          />
+    <Flex.Box full="y" empty>
+      <Select.Frame<ranger.Key, ranger.Range>
+        multiple
+        data={data}
+        virtual
+        getItem={getItem}
+        subscribe={subscribe}
+        onChange={setSelected}
+        value={selected}
+        onFetchMore={handleFetchMore}
+        itemHeight={45}
+      >
+        {enableSearch && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1.5rem" }}
+            background={1}
+            justify="between"
+          >
+            <Input.Text
+              size="small"
+              level="h5"
+              variant="text"
+              value={request.searchTerm ?? ""}
+              placeholder={
+                <>
+                  <Icon.Search />
+                  Search Ranges...
+                </>
+              }
+              onChange={handleSearch}
+            />
+            {enableAddButton && <AddButton />}
+          </Flex.Box>
         )}
-      </PList.Items>
-    </Select.Frame>
+        {(enableFilters || enableAddButton) && (
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "1rem 2rem", borderTop: "none" }}
+            background={1}
+            justify="between"
+          >
+            {enableFilters && (
+              <>
+                <SelectFilters
+                  request={request}
+                  onRequestChange={handleRequestChange}
+                />
+                <Filters request={request} onRequestChange={handleRequestChange} />
+              </>
+            )}
+          </Flex.Box>
+        )}
+        <PList.Items<string>
+          emptyContent={<EmptyContent />}
+          displayItems={Infinity}
+          grow
+        >
+          {({ key, ...rest }) => (
+            <Item
+              key={key}
+              {...rest}
+              showParent={showParent}
+              showLabels={showLabels}
+              showTimeRange={showTimeRange}
+              showFavorite={showFavorite}
+            />
+          )}
+        </PList.Items>
+      </Select.Frame>
+    </Flex.Box>
   );
 };
 
