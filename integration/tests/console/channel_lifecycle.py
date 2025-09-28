@@ -103,5 +103,5 @@ class Channel_Lifecycle(ConsoleCase):
         self.console.channels.delete(ch_list)
 
         for ch in ch_list:
-            exists = self.console.channels.existing_channel(ch)
+            exists, _ = self.console.channels.existing_channel(ch)
             assert not exists

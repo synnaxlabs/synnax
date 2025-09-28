@@ -89,8 +89,8 @@ class ChannelClient:
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-        existing = self.existing_channel(name)
-        if existing:
+        exists, _ = self.existing_channel(name)
+        if exists:
             return False
         # Open command palette and create channel
         self.console.command_palette("Create a Channel")
@@ -122,11 +122,16 @@ class ChannelClient:
         self.hide_channels()
         return True
 
-    def existing_channel(self, name: ChannelName) -> bool:
-        """Checks if a channel with the given name exists"""
+    def existing_channel(self, name: ChannelName) -> tuple[bool, list[ChannelName]]:
+        """
+        Checks if a channel with the given name exists
+        :param name: The name of the channel to check.
+        :returns: A tuple containing a boolean indicating whether the channel exists
+        and a list of all channels.
+        """
         all_channels = self.list_all()
         exists = name in all_channels
-        return exists
+        return exists, all_channels
 
     def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
@@ -156,9 +161,11 @@ class ChannelClient:
 
     def _rename_single_channel(self, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        if not self.existing_channel(old_name):
-            raise ValueError(f"Channel {old_name} does not exist")
-        if self.existing_channel(new_name):
+        exists, all_channels = self.existing_channel(old_name)
+        if not exists:
+            raise ValueError(f"Channel {old_name} does not exist in {all_channels}")
+        new_exists, _ = self.existing_channel(new_name)
+        if new_exists:
             raise ValueError(f"Channel {new_name} already exists")
 
         # Find the channel in the list and rename it
@@ -201,8 +208,9 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        if not self.existing_channel(name):
-            raise ValueError(f"Channel {name} does not exist")
+        exists, all_channels = self.existing_channel(name)
+        if not exists:
+            raise ValueError(f"Channel {name} does not exist in {all_channels}")
 
         # Find the channel in the list and delete it
         self.show_channels()

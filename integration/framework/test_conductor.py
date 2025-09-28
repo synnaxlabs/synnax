@@ -990,7 +990,7 @@ def main() -> None:
     gc.disable()
 
     parser = argparse.ArgumentParser(description="Run test sequences")
-    parser.add_argument("--name", default=None, help="Test conductor name")
+    parser.add_argument("--name", default="tc", help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
     parser.add_argument("--username", default="synnax", help="Synnax username")
