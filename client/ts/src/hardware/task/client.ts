@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { caseconv, id, type record, strings } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
+import { array, caseconv, id, type record, strings } from "@synnaxlabs/x";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -29,7 +28,6 @@ import {
 import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const STATUS_CHANNEL_NAME = "sy_task_status";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
@@ -224,7 +222,7 @@ const retrieveResZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   z.object({
-    tasks: nullableArrayZ(taskZ(schemas)),
+    tasks: array.nullableZ(taskZ(schemas)),
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}

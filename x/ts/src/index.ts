@@ -27,6 +27,7 @@ export * from "@/instance";
 export * from "@/invert";
 export * from "@/jsonrpc";
 export * from "@/kv";
+export * from "@/label";
 export * from "@/link";
 export * from "@/map";
 export * from "@/math";

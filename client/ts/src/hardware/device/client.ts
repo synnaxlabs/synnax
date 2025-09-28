@@ -22,7 +22,6 @@ import {
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
@@ -50,7 +49,7 @@ const retrieveRequestZ = z.object({
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
+const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ) });
 
 const singleRetrieveArgsZ = z
   .object({

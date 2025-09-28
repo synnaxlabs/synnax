@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/status/Notification.css";
+import "@/status/core/Notification.css";
 
-import { array } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type NotificationSpec } from "@/status/Aggregator";
-import { Indicator } from "@/status/Indicator";
+import { type NotificationSpec } from "@/status/core/Aggregator";
+import { Indicator } from "@/status/core/Indicator";
 import { Telem } from "@/telem";
 import { Text } from "@/text";
 
@@ -39,7 +39,7 @@ export interface NotificationProps extends Flex.BoxProps {
 }
 
 export const Notification = ({
-  status: { key, time, count, message, description, variant },
+  status: { key, time, count, message, description, variant, name },
   silence,
   actions,
   className,
@@ -59,7 +59,10 @@ export const Notification = ({
     >
       <Flex.Box x justify="between" grow style={{ width: "100%" }}>
         <Flex.Box x align="center" gap="small">
-          <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
+          <Text.Text level="small" status={variant} gap="tiny">
+            <Indicator variant={variant} />
+            {primitive.isNonZero(name) && name}
+          </Text.Text>
           <Text.Text level="small">{`x${count}`}</Text.Text>
           <Telem.Text.TimeStamp
             className={CSS(CSS.BE("notification", "time"))}

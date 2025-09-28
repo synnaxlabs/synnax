@@ -12,7 +12,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
-import { Notification, type NotificationProps } from "@/status/Notification";
+import { Notification, type NotificationProps } from "@/status/core/Notification";
 
 const mockSilence = vi.fn();
 
@@ -20,6 +20,7 @@ describe("Notification Component", () => {
   const notificationProps: NotificationProps = {
     status: {
       key: "test-key",
+      name: "test-name",
       time: TimeStamp.now(),
       count: 1,
       message: "Test notification message",
