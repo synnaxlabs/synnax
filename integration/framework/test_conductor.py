@@ -942,12 +942,18 @@ class TestConductor:
         # Individual Summary
         self.log_message("\n" + "=" * 60, False)
         for result in self.test_results:
+            if result.start_time and result.end_time:
+                duration = (result.end_time - result.start_time).total_seconds()
+                duration_str = f" ({duration:.1f}s)"
+            else:
+                duration_str = ""
+
             status_symbol = SYMBOLS.get_symbol(result.status)
             case_parts = str(result).split("/")
             display_name = (
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(result)
             )
-            self.log_message(f"{status_symbol} {display_name}", False)
+            self.log_message(f"{status_symbol} {display_name}{duration_str}", False)
             if result.error_message:
                 self.log_message(f"ERROR: {result.error_message}")
 

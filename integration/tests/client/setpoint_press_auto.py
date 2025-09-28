@@ -62,7 +62,6 @@ class Setpoint_Press_Auto(TestCase):
             index=press_setpoint_cmd_time.key,
         )
 
-        self._log_message("DEBUG: Acquiring control")
         with client.control.acquire(
             name="Pressurization Sequence",
             write_authorities=[200],
@@ -74,7 +73,6 @@ class Setpoint_Press_Auto(TestCase):
             ],
             read=["press_pt", "press_setpoint_cmd", "end_test_state"],
         ) as ctrl:
-            self._log_message("DEBUG: Control acquired")
             loop = sy.Loop(sy.Rate.HZ * 100)
 
             def test_active() -> bool:
@@ -90,7 +88,6 @@ class Setpoint_Press_Auto(TestCase):
                 }
             )
 
-            self._log_message("DEBUG: Waiting for press_pt and press_setpoint_cmd")
             if not ctrl.wait_until_defined(
                 ["press_pt", "press_setpoint_cmd"], timeout=60
             ):
@@ -114,27 +111,27 @@ class Setpoint_Press_Auto(TestCase):
 
                 if mode == "hold":
                     if pressure - setpoint > 2:
-                        print("DEBUG: Venting")
+                        self._log_message("Venting")
                         mode = "vent"
                         ctrl["vent_vlv_cmd"] = 1
                     elif setpoint - pressure > 2:
-                        print("DEBUG: Pressing")
+                        self._log_message("Pressing")
                         mode = "press"
                         ctrl["press_vlv_cmd"] = 1
 
                 elif mode == "press" and pressure > setpoint:
-                    print("DEBUG: Holding")
+                    self._log_message("Holding")
                     mode = "hold"
                     ctrl["press_vlv_cmd"] = 0
 
                 elif mode == "vent" and pressure < setpoint:
-                    print("DEBUG: Holding")
+                    self._log_message("Holding")
                     mode = "hold"
                     ctrl["vent_vlv_cmd"] = 0
 
                 # Check for test end
                 if end_test_state > 0.9:
-                    print("DEBUG: Test ended")
+                    self._log_message("End signal received")
                     ctrl["press_vlv_cmd"] = 0
                     ctrl["vent_vlv_cmd"] = 0
                     return

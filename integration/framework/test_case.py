@@ -16,13 +16,11 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 import logging
 import sys
 import threading
-import time
 import traceback
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from selectors import SelectorKey
 from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
 
 import synnax as sy
@@ -125,6 +123,7 @@ class TestCase(ABC):
 
         """Initialize test case with Synnax server connection."""
         self.params = params
+        self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame: Optional[Dict[str, Union[int, float]]] = None
@@ -207,7 +206,7 @@ class TestCase(ABC):
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
-        start_time = sy.TimeStamp.now()
+        start_time = self.start_time
         client = None
 
         try:
@@ -224,7 +223,7 @@ class TestCase(ABC):
                 """
 
                 now = sy.TimeStamp.now()
-                uptime_value = (now - start_time) / 1e9
+                uptime_value = (now - self.start_time) / 1e9
                 self.tlm[f"{self.name}_time"] = now
                 self.tlm[f"{self.name}_uptime"] = uptime_value
                 self.tlm[f"{self.name}_state"] = self._status.value
@@ -243,7 +242,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except Exception as e:
                     if is_websocket_error(e):
-                        time.sleep(self.WEBSOCKET_RETRY_DELAY)
+                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self.STATUS = STATUS.FAILED
                         raise e
@@ -299,7 +298,7 @@ class TestCase(ABC):
 
                 except Exception as e:
                     if is_websocket_error(e):
-                        time.sleep(self.WEBSOCKET_RETRY_DELAY)
+                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self._log_message(f"Streamer error: {e}")
                         break
@@ -418,8 +417,9 @@ class TestCase(ABC):
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
 
+        self._log_message(f"Uptime: {self.uptime:.1f} s")
         # Sleep for 2 loops to ensure the status is updated
-        time.sleep(self.DEFAULT_LOOP_RATE * 2)
+        sy.sleep(self.DEFAULT_LOOP_RATE * 2)
 
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
@@ -559,7 +559,7 @@ class TestCase(ABC):
                 if len(frame) > 0:
                     return float(frame[-1])
                 if attempt < 2:
-                    time.sleep(0.2)
+                    sy.sleep(0.2)
 
             return None
 
