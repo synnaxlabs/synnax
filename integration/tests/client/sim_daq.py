@@ -182,8 +182,8 @@ class Sim_DAQ(TestCase):
 
                 start_test = False
                 controller_timeout = 30
-                #self._log_message(f"Awaiting start command for {controller_timeout}s")
-                #while test_active() and self.uptime < controller_timeout:
+                # self._log_message(f"Awaiting start command for {controller_timeout}s")
+                # while test_active() and self.uptime < controller_timeout:
                 #    frame = streamer.read(timeout=0)
                 #    if frame is not None:
                 #        start_test_cmd = frame.get("start_test_cmd")
@@ -196,7 +196,7 @@ class Sim_DAQ(TestCase):
                 #         self._log_message("Start command received")
                 #        break
                 #
-                #if not start_test:
+                # if not start_test:
                 #    self.fail("Start test command was not received")
                 #    return
 

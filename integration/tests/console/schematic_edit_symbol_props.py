@@ -9,7 +9,6 @@
 
 import synnax as sy
 
-
 from console.case import ConsoleCase
 
 
@@ -24,7 +23,6 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
         self.test_value_props()
         self.test_button_props()
         self._log_message("Test Complete")
-
 
     def test_value_props(self) -> None:
         self._log_message("Testing value props")
@@ -68,7 +66,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
             edited_props == expected_edited_props
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
         value.delete()
-        
+
         self._log_message("Checking new node with non-default properties")
         non_default_props = {
             "channel": f"{self.name}_state",

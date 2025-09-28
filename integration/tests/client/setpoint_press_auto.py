@@ -96,7 +96,9 @@ class Setpoint_Press_Auto(TestCase):
             )
 
             self._log_message("DEBUG: Waiting for press_pt and press_setpoint_cmd")
-            if not ctrl.wait_until_defined(["press_pt", "press_setpoint_cmd"], timeout=45):
+            if not ctrl.wait_until_defined(
+                ["press_pt", "press_setpoint_cmd"], timeout=45
+            ):
                 self.fail("Failed to wait for press_pt and press_setpoint_cmd")
                 return
 
