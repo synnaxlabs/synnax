@@ -14,7 +14,7 @@ import {
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { box, color, id, scale, xy } from "@synnaxlabs/x";
+import { color, id, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
