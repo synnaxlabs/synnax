@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,22 +23,31 @@ var _ = Describe("Runtime", Ordered, func() {
 	var (
 		dist      mock.Node
 		statusSvc *status.Service
+		labelSvc  *label.Service
 	)
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
 		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
+			Label:    labelSvc,
 		}))
 	})
 
 	AfterAll(func() {
-		Expect(dist.Close()).To(Succeed())
+		Expect(labelSvc.Close()).To(Succeed())
 		Expect(statusSvc.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
 	})
 
 	It("Should run a basic value printer", func() {
@@ -129,20 +139,20 @@ var _ = Describe("Runtime", Ordered, func() {
 						Key:  "status_success",
 						Type: "set_status",
 						Config: map[string]any{
-							"key":     "ox_alarm",
-							"variant": "success",
-							"name":    "OX Alarm",
-							"message": "OX Pressure Nominal",
+							"status_key": "ox_alarm",
+							"variant":    "success",
+							"name":       "OX Alarm",
+							"message":    "OX Pressure Nominal",
 						},
 					}},
 					{Node: arc.Node{
 						Key:  "status_error",
 						Type: "set_status",
 						Config: map[string]any{
-							"key":     "ox_alarm",
-							"variant": "error",
-							"name":    "OX Alarm",
-							"message": "OX Pressure Exceed",
+							"status_key": "ox_alarm",
+							"variant":    "error",
+							"name":       "OX Alarm",
+							"message":    "OX Pressure Exceed",
 						},
 					}},
 				},
@@ -201,7 +211,6 @@ var _ = Describe("Runtime", Ordered, func() {
 				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(Equal("error"))
 			}).To(Succeed())
-			fmt.Println("HERE")
 
 			Expect(r.Close()).To(Succeed())
 		})

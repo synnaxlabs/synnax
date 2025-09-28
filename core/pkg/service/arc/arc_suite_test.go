@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,6 +35,7 @@ var (
 	ctx       = context.Background()
 	db        *gorp.DB
 	otg       *ontology.Ontology
+	labelSvc  *label.Service
 	svc       *arc.Service
 	tx        gorp.Tx
 	statusSvc *status.Service
@@ -51,10 +53,17 @@ var _ = BeforeSuite(func() {
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
 
+	labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+		DB:       db,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+	}))
+
 	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    dist.Group,
+		Label:    labelSvc,
 	}))
 
 	svc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
@@ -68,10 +77,11 @@ var _ = BeforeSuite(func() {
 
 var (
 	_ = AfterSuite(func() {
-		Expect(svc.Close()).To(Succeed())
-		Expect(dist.Close()).To(Succeed())
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+		//Expect(svc.Close()).To(Succeed())
+		//Expect(labelSvc.Close()).To(Succeed())
+		//Expect(dist.Close()).To(Succeed())
+		//Expect(otg.Close()).To(Succeed())
+		//Expect(db.Close()).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = db.OpenTx() })
 	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })

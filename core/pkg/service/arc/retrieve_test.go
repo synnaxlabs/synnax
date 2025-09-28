@@ -145,7 +145,7 @@ var _ = Describe("Retrieve", func() {
 
 			Expect(s.Key).To(Equal(a.Key.String()))
 			Expect(s.Name).To(Equal("metadata-arc Status"))
-			Expect(s.Message).To(Equal("Arc created successfully"))
+			Expect(s.Message).To(Equal("Deploying"))
 			Expect(s.Time).ToNot(BeZero())
 		})
 	})
