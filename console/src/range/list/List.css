@@ -16,11 +16,3 @@
         }
     }
 }
-
-.console-range__list-item {
-<<<<<<<< HEAD:console/src/range/list/Item.css
-    padding-left: 1rem;
-========
-    padding-left: round(0.666rem, 1px);
->>>>>>>> d7a03464d7c8be12af958fc5d115d0a96f21db39:console/src/range/list/List.css
-}
