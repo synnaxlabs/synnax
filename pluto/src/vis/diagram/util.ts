@@ -14,29 +14,22 @@ import { type Diagram } from ".";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
-  if (el == null)
-    throw new Error(`[diagram] - cannot find node with key: ${key}`);
+  if (el == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
   return el as HTMLDivElement;
 };
 
-export const selectNodeBox = (
-  flow: ReactFlowInstance,
-  key: string,
-): box.Box => {
+export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => {
   const n = selectNode(key);
   const flowN = flow.getNodes().find((n) => n.id === key);
-  if (flowN == null)
-    throw new Error(`[diagram] - cannot find node with key: ${key}`);
+  if (flowN == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
   return box.construct(
     flowN.position,
     dimensions.scale(box.dims(box.construct(n)), 1 / flow.getZoom()),
   );
 };
 
-export const selectNodeLayout = (
-  key: string,
-  flow: ReactFlowInstance,
-): NodeLayout => NodeLayout.fromFlow(key, flow);
+export const selectNodeLayout = (key: string, flow: ReactFlowInstance): NodeLayout =>
+  NodeLayout.fromFlow(key, flow);
 
 export class HandleLayout {
   node_: NodeLayout | null = null;

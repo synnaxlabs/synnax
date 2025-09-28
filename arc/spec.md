@@ -46,11 +46,13 @@ ChannelType ::= ('chan' | '<-chan' | '->chan') (PrimitiveType | SeriesType)
 ```
 
 Channels are typed communication primitives:
+
 - `chan` - Bidirectional channel
 - `<-chan` - Read-only channel (only in function/stage parameters)
 - `->chan` - Write-only channel (only in function/stage parameters)
 
-Note: Directional constraints (`<-chan`, `->chan`) can only be specified in function or stage parameters, not in variable declarations or the inter-stage layer.
+Note: Directional constraints (`<-chan`, `->chan`) can only be specified in function or
+stage parameters, not in variable declarations or the inter-stage layer.
 
 ### Series Types
 
@@ -105,12 +107,17 @@ not_equal := series1 != series2 // [1, 1, 1]
 - **Immutable**: Series cannot be modified after creation
 - **Bounds checking**: Out-of-bounds access is a runtime error
 - **Type consistency**: All elements must be the same type
-- **Length matching**: Binary operations require equal-length series (runtime error if lengths differ)
+- **Length matching**: Binary operations require equal-length series (runtime error if
+  lengths differ)
 - **Zero value**: Empty series `[]` for any series type
-- **Scalar operations**: Mixed scalar/series operations require explicit type casting (no implicit promotion)
-  - In mixed scalar/series expressions, the scalar's type MUST be explicitly cast to the series element type.
-- **Series equality**: `==` and `!=` perform elementwise comparison, returning `series u8`, requiring equal lengths
-- **Empty series typing**: Bare `[]` without type context is a compile error - must use explicit type annotation or infer from context
+- **Scalar operations**: Mixed scalar/series operations require explicit type casting
+  (no implicit promotion)
+  - In mixed scalar/series expressions, the scalar's type MUST be explicitly cast to the
+    series element type.
+- **Series equality**: `==` and `!=` perform elementwise comparison, returning
+  `series u8`, requiring equal lengths
+- **Empty series typing**: Bare `[]` without type context is a compile error - must use
+  explicit type annotation or infer from context
 - **Length function**: `len(series)` returns `i64` representing the number of elements
 
 ### Type Annotations
@@ -151,6 +158,7 @@ f32(1000.0)        // f32 via explicit cast
 ```
 
 **Default Types**:
+
 - Integer literals default to `i64`
 - Float literals default to `f64`
 - Use type casting (e.g., `i32(42)`) to specify a different type
@@ -175,12 +183,14 @@ FrequencyUnit ::= 'hz' | 'khz' | 'mhz'
 ```
 
 **Unit Disambiguation**:
+
 - `m` always means minutes in temporal contexts (never meters or milliseconds)
 - `ms` always means milliseconds
 - Arc has no spatial units - all units are temporal or frequency
 
 Frequency literals are automatically converted to timespan by inverting the period.
-**Case**: Frequency units are case-insensitive (`hz`, `kHz`, `MHz` all valid). The canonical form is lowercase in this spec.
+**Case**: Frequency units are case-insensitive (`hz`, `kHz`, `MHz` all valid). The
+canonical form is lowercase in this spec.
 
 ### Type Notes
 
@@ -197,7 +207,8 @@ Strings in Arc are immutable UTF-8 encoded sequences:
 - **Comparisons**: Only `==` and `!=` are supported (no lexicographic ordering)
 - **No concatenation**: String manipulation is not supported
 - **Literals only**: Strings can only be created from literals
-- **Operations**: Strings have no operations beyond equality - no length function, no indexing, no slicing
+- **Operations**: Strings have no operations beyond equality - no length function, no
+  indexing, no slicing
 
 ```arc
 msg := "Hello"           // String literal
@@ -292,6 +303,7 @@ TypeCast ::= Type '(' Expression ')'
 #### Casting Rules
 
 **Integer Widening** (always safe):
+
 ```arc
 // Zero-extend unsigned, sign-extend signed
 u16_val := u16(u8_val)    // Zero extends
@@ -300,6 +312,7 @@ i64_val := i64(i32_val)   // Sign extends
 ```
 
 **Integer Narrowing** (truncates):
+
 ```arc
 // Keeps low bits only
 u8_val := u8(u16_val)     // Keeps low 8 bits
@@ -307,6 +320,7 @@ i8_val := i8(i64_val)     // Keeps low 8 bits
 ```
 
 **Signed ↔ Unsigned** (saturates):
+
 ```arc
 // Same width: saturate at bounds
 u32_val := u32(i32_val)   // Negative → 0, positive unchanged
@@ -318,12 +332,14 @@ i8_val := i8(u32(200))    // Saturates to 127 (i8::MAX)
 ```
 
 **Float ↔ Float**:
+
 ```arc
 f64_val := f64(f32_val)   // Exact promotion
 f32_val := f32(f64_val)   // Rounds to nearest even (IEEE default)
 ```
 
 **Float → Integer**:
+
 ```arc
 // Truncates toward zero, saturates on overflow
 i32_val := i32(3.7_f64)   // 3
@@ -332,13 +348,15 @@ u32_val := u32(-1.0_f64)  // 0 (saturates)
 ```
 
 **Integer → Float**:
+
 ```arc
 // Exact for small integers, rounds for large
 f32_val := f32(i32_val)   // Exact within ±16M range
 f64_val := f64(i64_val)   // Exact within ±2^53 range
 ```
 
-**Integer Overflow Behavior**: Arithmetic operations use two's-complement wrapping on overflow (like C/Rust in release mode). For example, `u8(255) + u8(1)` equals `u8(0)`.
+**Integer Overflow Behavior**: Arithmetic operations use two's-complement wrapping on
+overflow (like C/Rust in release mode). For example, `u8(255) + u8(1)` equals `u8(0)`.
 
 ## Channel Operations
 
@@ -379,6 +397,7 @@ data -> history_chan    // Write entire series to channel
 Two types of read operations are supported:
 
 #### Blocking Read
+
 Waits for the next value to be written to the channel:
 
 ```arc
@@ -386,6 +405,7 @@ value := <-input_chan    // Block until next value arrives
 ```
 
 #### Non-Blocking Read
+
 Gets the current/latest value immediately:
 
 ```arc
@@ -405,7 +425,9 @@ value := sensor          // Non-blocking read
 value -> display         // Write value
 ```
 
-**IMPORTANT**: In the inter-stage layer, `sensor -> stage{}` creates a reactive connection that triggers stage execution. Inside functions/tasks, `sensor -> display` is a simple read-then-write operation with no triggering.
+**IMPORTANT**: In the inter-stage layer, `sensor -> stage{}` creates a reactive
+connection that triggers stage execution. Inside functions/tasks, `sensor -> display` is
+a simple read-then-write operation with no triggering.
 
 ### Channel Semantics
 
@@ -420,13 +442,16 @@ Channels are unbounded FIFO queues with the following behavior:
 
 #### Series-Based Channel Implementation
 
-**Implementation Note**: Runtimes are recommended to implement all channels as series channels internally. A channel typed as `chan f32` actually carries series of f32 values. Scalar channel operations are conveniences that interact with the first element:
+**Implementation Note**: Runtimes are recommended to implement all channels as series
+channels internally. A channel typed as `chan f32` actually carries series of f32
+values. Scalar channel operations are conveniences that interact with the first element:
 
 - **Scalar write**: `42.0 -> ch` creates a single-element series `[42.0]`
 - **Scalar read**: `<-ch` returns the first element of the next series
 - **Series read**: `<-ch[]` returns the entire next series (future syntax)
 
-This unified model simplifies runtime implementation and naturally supports streaming telemetry where sensors often produce batches of samples.
+This unified model simplifies runtime implementation and naturally supports streaming
+telemetry where sensors often produce batches of samples.
 
 ```arc
 // Blocking read - waits for value, removes from queue
@@ -439,7 +464,9 @@ current := sensor
 temp := uninitialized_chan  // Returns 0.0 for f64 channel - can mask wiring bugs!
 ```
 
-**⚠️ Potential Gotcha**: Non-blocking reads return the zero value if a channel has never been written to. This can mask wiring bugs where channels aren't properly connected. Consider using explicit checks or the future `??` operator when implemented:
+**⚠️ Potential Gotcha**: Non-blocking reads return the zero value if a channel has never
+been written to. This can mask wiring bugs where channels aren't properly connected.
+Consider using explicit checks or the future `??` operator when implemented:
 
 ```arc
 // Current behavior (can mask bugs)
@@ -449,12 +476,21 @@ value := sensor_chan  // Returns 0.0 if never written
 // value := sensor_chan ?? -1.0  // Would make empty channels explicit
 ```
 
-**Memory Note**: Queue growth is managed by the runtime. Maximum queue sizes are a topic for future discussion.
+**Memory Note**: Queue growth is managed by the runtime. Maximum queue sizes are a topic
+for future discussion.
 
 ### Event Ordering
-The runtime MUST produce a deterministic total order of stage activations. When multiple channel writes occur within the same scheduler tick, their resulting activations are ordered deterministically by (1) enqueue timestamp, then (2) a stable topological order of edges, then (3) a stable tie-break on channel identifier. Implementations may choose any fixed scheme, but it MUST be deterministic across runs given the same inputs.
 
-**Capacity Note**: While channels are specified as logically unbounded, implementations MAY impose a high-water mark for resource safety. If imposed, the drop policy MUST be deterministic (e.g., `drop_oldest` or `drop_newest`) and documented. The semantic guarantees above (ordering, snapshot) still apply to all retained items.
+The runtime MUST produce a deterministic total order of stage activations. When multiple
+channel writes occur within the same scheduler tick, their resulting activations are
+ordered deterministically by (1) enqueue timestamp, then (2) a stable topological order
+of edges, then (3) a stable tie-break on channel identifier. Implementations may choose
+any fixed scheme, but it MUST be deterministic across runs given the same inputs.
+
+**Capacity Note**: While channels are specified as logically unbounded, implementations
+MAY impose a high-water mark for resource safety. If imposed, the drop policy MUST be
+deterministic (e.g., `drop_oldest` or `drop_newest`) and documented. The semantic
+guarantees above (ordering, snapshot) still apply to all retained items.
 
 ### Channel Rules
 
@@ -462,7 +498,8 @@ The runtime MUST produce a deterministic total order of stage activations. When 
 - Read operations respect channel direction (`<-chan` can only be read from)
 - Piping triggers stage execution on new values
 - Type compatibility is enforced at compile time
-- **Per-Activation Snapshot**: All non-blocking reads within a single stage activation see the same channel state snapshot taken at activation start
+- **Per-Activation Snapshot**: All non-blocking reads within a single stage activation
+  see the same channel state snapshot taken at activation start
 
 ## Variables
 
@@ -484,7 +521,8 @@ Identifier ::= Letter (Letter | Digit | '_')*
 
 ### Local Variables
 
-Local variables are scoped to the current function or stage execution and reset on each invocation. They are declared with `:=`:
+Local variables are scoped to the current function or stage execution and reset on each
+invocation. They are declared with `:=`:
 
 ```arc
 count := 0                    // Type inferred local declaration
@@ -498,7 +536,8 @@ voltage = 5.0                // Reassign with new value
 
 ### Stateful Variables
 
-Stateful variables persist across reactive stage executions. They are declared with `$=`:
+Stateful variables persist across reactive stage executions. They are declared with
+`$=`:
 
 ```arc
 total $= 0                   // Stateful variable declaration
@@ -535,7 +574,8 @@ count = count + 1  // OK: update count
 - **Type inference**: Types can be inferred from initial value
 - **No shadowing**: Variable names must be unique within scope
 - **Initialization required**: All variables must be initialized at declaration
-- **No channel variables**: Channels cannot be declared as variables (only as parameters)
+- **No channel variables**: Channels cannot be declared as variables (only as
+  parameters)
 - **Declaration once**: Each variable can only be declared once in its scope
 - **Assignment requires prior declaration**: Cannot assign to undeclared variables
 
@@ -624,9 +664,12 @@ safe := !alarm && system_ready
 
 ### No Bitwise Operations
 
-Arc does not support bitwise operations. The `^` operator is used for exponentiation, not XOR. Bitwise operations (`&`, `|`, `^`, `~`, `<<`, `>>`) are not available. For hardware register manipulation, use dedicated driver tasks or external functions.
+Arc does not support bitwise operations. The `^` operator is used for exponentiation,
+not XOR. Bitwise operations (`&`, `|`, `^`, `~`, `<<`, `>>`) are not available. For
+hardware register manipulation, use dedicated driver tasks or external functions.
 
 ### Evaluation Order
+
 - Binary operators evaluate their left operand before the right operand.
 - Function call arguments are evaluated left-to-right.
 - Short-circuit operators `&&` and `||` only evaluate the right operand if needed.
@@ -806,11 +849,13 @@ alarm{
 Tasks are purely event-driven - they execute when they receive input values:
 
 - **Event-driven only**: Tasks execute when upstream sources send values
-- **No implicit intervals**: Config params like `interval timespan` are just data, not triggers
+- **No implicit intervals**: Config params like `interval timespan` are just data, not
+  triggers
 - **Interval execution via stdlib**: Use the `interval{}` stage for periodic execution
 - **Multi-input triggering**: Tasks with multiple input channels trigger:
   - **First execution**: When ALL input channels have received at least one value
-  - **Subsequent executions**: When ANY input channel receives a new value (uses stale values for other channels)
+  - **Subsequent executions**: When ANY input channel receives a new value (uses stale
+    values for other channels)
 
 ```arc
 // Tasks execute when they receive input
@@ -847,11 +892,13 @@ stage combiner{
 - **Stateful variables**: Use `$=` for state that persists across executions
 - **Config immutability**: Configuration parameters cannot change after instantiation
 - **No stage recursion**: Tasks cannot invoke themselves
-- **Extra runtime arguments ignored**: Tasks safely ignore extra runtime arguments (unlike functions)
+- **Extra runtime arguments ignored**: Tasks safely ignore extra runtime arguments
+  (unlike functions)
 
 ### Stage Return Value Plumbing
 
-When a stage has a return type, it creates an anonymous output channel that other tasks can consume:
+When a stage has a return type, it creates an anonymous output channel that other tasks
+can consume:
 
 ```arc
 // Stage with return value
@@ -880,11 +927,13 @@ source -> processor{} -> tee{logger{}, monitor{}, storage{}}
 ```
 
 **Return Value Semantics**:
+
 - A stage with return type `T` creates an anonymous `->chan T`
 - The return statement sends a value to this channel
 - The anonymous channel is automatically connected in inter-stage flows
 - Tasks without return types have no output channel
-- **Anonymous channels are normal channels**: They follow the same unbounded FIFO queue semantics, snapshot behavior, and channel rules as explicitly declared channels
+- **Anonymous channels are normal channels**: They follow the same unbounded FIFO queue
+  semantics, snapshot behavior, and channel rules as explicitly declared channels
 
 ## Control Flow
 
@@ -939,6 +988,7 @@ if sensor_enabled && value > threshold {
 ### Design Rationale
 
 The absence of explicit loops is intentional - Arc's reactive model means:
+
 - Tasks re-execute based on events or intervals
 - State persistence via `$=` variables enables iteration across executions
 - This design ensures predictable real-time behavior
@@ -960,7 +1010,8 @@ StageInvocation ::= Identifier ConfigValues? Arguments?
 
 ### Data Flow
 
-The inter-stage layer connects tasks and channels to create reactive automation pipelines:
+The inter-stage layer connects tasks and channels to create reactive automation
+pipelines:
 
 ```arc
 // Simple pipeline
@@ -975,7 +1026,8 @@ startup{} -> pressurize{} -> ignition{} -> shutdown{}
 
 ### Inline Expression Tasks
 
-Expressions can act as implicit tasks in the inter-stage layer, but can only reference channels (not variables):
+Expressions can act as implicit tasks in the inter-stage layer, but can only reference
+channels (not variables):
 
 ```arc
 // Channel pass-through - trigger stage on any channel change
@@ -1004,6 +1056,7 @@ pressure_sensor > 100 -> alarm{}     // Valid: channel and literal
 ```
 
 These inline expressions:
+
 - Include simple channel references that pass through values
 - Can only reference channels and literal values
 - Execute reactively when referenced channels receive new values
@@ -1012,7 +1065,8 @@ These inline expressions:
 
 ### Standard Library Orchestration Tasks
 
-Common flow patterns are implemented as standard library tasks with specific behavioral contracts:
+Common flow patterns are implemented as standard library tasks with specific behavioral
+contracts:
 
 ```arc
 // all: Wait for all inputs before proceeding
@@ -1036,17 +1090,28 @@ sensor -> tee{logger{}, display{}, storage{}}
 
 #### Standard Library Stage Contracts
 
-**all{}**: Waits for all inputs to receive at least one value since instantiation or last emit. If an input fires multiple times before others, only the latest value is kept. Emits when the last required input arrives, then resets and waits for all inputs again.
+**all{}**: Waits for all inputs to receive at least one value since instantiation or
+last emit. If an input fires multiple times before others, only the latest value is
+kept. Emits when the last required input arrives, then resets and waits for all inputs
+again.
 
-**once{}**: Emits only the first value received from its input, then ignores all subsequent values. Useful for single-shot triggers or preventing repeated execution.
+**once{}**: Emits only the first value received from its input, then ignores all
+subsequent values. Useful for single-shot triggers or preventing repeated execution.
 
-**any{}**: Emits immediately whenever any of its inputs receives a value. Does not wait for other inputs and does not reset - continues forwarding values from any input as they arrive.
+**any{}**: Emits immediately whenever any of its inputs receives a value. Does not wait
+for other inputs and does not reset - continues forwarding values from any input as they
+arrive.
 
-**throttle{rate: R}**: Rate-limits its input by ensuring output values are emitted at most every 1/R period. Intermediate values that arrive too quickly are dropped. Always emits the most recent value when the rate period expires.
+**throttle{rate: R}**: Rate-limits its input by ensuring output values are emitted at
+most every 1/R period. Intermediate values that arrive too quickly are dropped. Always
+emits the most recent value when the rate period expires.
 
-**merge{}**: Forwards any value from any of its inputs immediately to the output. Similar to `any{}` but semantically indicates combining multiple similar streams rather than event selection.
+**merge{}**: Forwards any value from any of its inputs immediately to the output.
+Similar to `any{}` but semantically indicates combining multiple similar streams rather
+than event selection.
 
-**tee{}**: Takes one input and forwards it to multiple output tasks simultaneously. All configured output tasks receive the same input value when it arrives.
+**tee{}**: Takes one input and forwards it to multiple output tasks simultaneously. All
+configured output tasks receive the same input value when it arrives.
 
 ### Complex Flow Examples
 
@@ -1099,7 +1164,9 @@ sensor -> tee{path_a{}, path_b{}} -> merger{}  // No cycle
 ## Naming and Scoping
 
 ### Global Namespace
+
 All items at the global scope must have unique names:
+
 - Tasks
 - Functions
 - External channels (defined outside Arc)
@@ -1112,6 +1179,7 @@ func pump() { }     // Error: name already used by stage
 ```
 
 ### Variable Scoping
+
 Variables within functions/tasks cannot shadow global names:
 
 ```arc
@@ -1124,6 +1192,7 @@ func process() {
 ```
 
 ### Channel Declaration
+
 Channels are defined externally to Arc and referenced by name:
 
 ```arc
@@ -1140,6 +1209,7 @@ stage monitor{
 ```
 
 ### Stage Return Values
+
 Tasks with return types create anonymous output channels:
 
 ```arc
@@ -1159,7 +1229,9 @@ sensor -> doubler{input: sensor} -> display
 These restrictions simplify implementation while maintaining expressiveness:
 
 ### No Mixed Type Arithmetic
+
 Type conversions must be explicit:
+
 ```arc
 // Error: type mismatch
 result := sensor_f32 + counter_u32
@@ -1169,7 +1241,9 @@ result := sensor_f32 + f32(counter_u32)
 ```
 
 ### No Nested Function Calls
+
 Function calls cannot be nested in expressions:
+
 ```arc
 // Disallowed
 result := calculate(process(sensor), transform(data))
@@ -1181,7 +1255,9 @@ result := calculate(processed, transformed)
 ```
 
 ### No Dynamic Stage Creation
+
 Tasks can only be instantiated at compile time:
+
 ```arc
 // All stage invocations must be statically defined
 controller{setpoint: 100}  // OK: compile-time instantiation
@@ -1193,7 +1269,9 @@ if condition {
 ```
 
 ### No Assignment in Expressions
+
 Assignments cannot appear within expressions:
+
 ```arc
 // Disallowed
 if (value := <-sensor) > 100 {
@@ -1208,7 +1286,9 @@ if value > 100 {
 ```
 
 ### No Partial Function Application
+
 Functions must be called with all arguments:
+
 ```arc
 func add(x f64, y f64) f64 {
     return x + y
@@ -1219,8 +1299,10 @@ result := add(1.0, 2.0)  // OK: all arguments provided
 ```
 
 ### Stage Config Must Be Compile-Time Constants
+
 Stage configuration values must be literals or channel identifiers:
-```arc
+
+````arc
 // Valid: literals and channel names
 controller{
     setpoint: 100,        // OK: literal
@@ -1308,11 +1390,12 @@ result := 10 / 0  // Runtime error: division by zero
 // Runtime array error
 data := [1, 2, 3]
 value := data[10]  // Runtime error: index out of bounds
-```
+````
 
 ## Compilation Target
 
-Arc compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module along with metadata describing the reactive stage graph and channel connections.
+Arc compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module
+along with metadata describing the reactive stage graph and channel connections.
 
 ### WASM Module Structure
 
@@ -1410,24 +1493,18 @@ The compiler produces a JSON structure containing the WASM module and metadata:
       "name": "controller",
       "key": "task_controller",
       "config": [
-        {"name": "setpoint", "type": "f64"},
-        {"name": "sensor", "type": "chan_in"},
-        {"name": "actuator", "type": "chan_out"}
+        { "name": "setpoint", "type": "f64" },
+        { "name": "sensor", "type": "chan_in" },
+        { "name": "actuator", "type": "chan_out" }
       ],
-      "args": [
-        {"name": "enable", "type": "u8"}
-      ],
-      "stateful_vars": [
-        {"name": "integral", "type": "f64", "key": 0}
-      ],
+      "args": [{ "name": "enable", "type": "u8" }],
+      "stateful_vars": [{ "name": "integral", "type": "f64", "key": 0 }],
       "return": null
     },
     {
       "name": null,
       "key": "task_expr_0",
-      "config": [
-        {"name": "ox_pt_1", "type": "chan_in"}
-      ],
+      "config": [{ "name": "ox_pt_1", "type": "chan_in" }],
       "args": [],
       "stateful_vars": [],
       "return": "u8"
@@ -1438,8 +1515,8 @@ The compiler produces a JSON structure containing the WASM module and metadata:
       "name": "add",
       "key": "func_add",
       "params": [
-        {"name": "x", "type": "f64"},
-        {"name": "y", "type": "f64"}
+        { "name": "x", "type": "f64" },
+        { "name": "y", "type": "f64" }
       ],
       "return": "f64"
     }
@@ -1485,16 +1562,16 @@ The compiler produces a JSON structure containing the WASM module and metadata:
   ],
   "edges": [
     {
-      "from": {"key": "temp_sensor", "param": "output"},
-      "to": {"key": "controller_0", "param": "sensor"}
+      "from": { "key": "temp_sensor", "param": "output" },
+      "to": { "key": "controller_0", "param": "sensor" }
     },
     {
-      "from": {"key": "controller_0", "param": "actuator"},
-      "to": {"key": "valve_cmd", "param": "input"}
+      "from": { "key": "controller_0", "param": "actuator" },
+      "to": { "key": "valve_cmd", "param": "input" }
     },
     {
-      "from": {"key": "expr_0", "param": "output"},
-      "to": {"key": "alarm", "param": "input"}
+      "from": { "key": "expr_0", "param": "output" },
+      "to": { "key": "alarm", "param": "input" }
     }
   ]
 }
@@ -1505,6 +1582,7 @@ The compiler produces a JSON structure containing the WASM module and metadata:
 The runtime provides these functions to the WASM module:
 
 #### Channel Operations
+
 ```go
 // Per-type channel read operations (non-blocking)
 func channelReadI8(channelID uint32) int8
@@ -1547,6 +1625,7 @@ func channelBlockingReadString(channelID uint32) int32  // Returns string handle
 ```
 
 #### Series Operations
+
 ```go
 // Type-agnostic operations
 func seriesLen(seriesID int32) int64
@@ -1595,6 +1674,7 @@ func seriesSeriesMulI32(series1 int32, series2 int32) int32
 ```
 
 #### State Persistence
+
 ```go
 // Per-type state load operations
 func stateLoadI8(taskID int32, varID int32) int8
@@ -1624,6 +1704,7 @@ func stateStoreString(taskID int32, varID int32, handle int32)
 ```
 
 #### String Operations
+
 ```go
 // Create string from literal in WASM memory
 // ptr: Pointer to UTF-8 bytes in WASM data section
@@ -1636,12 +1717,14 @@ func stringLen(handle int32) int32
 ```
 
 #### Built-in Functions
+
 ```go
 // Get current timestamp (nanoseconds since Unix epoch)
 func now() int64
 ```
 
 #### Error Handling
+
 ```go
 // Trigger runtime panic with error message
 // ptr: Pointer to UTF-8 error message in WASM memory
@@ -1652,6 +1735,7 @@ func panic(ptr int32, length int32)
 ### Memory Layout
 
 WASM uses **no dynamic memory allocation**. All memory is either:
+
 - **Static**: String literals in the data section
 - **Stack**: Local variables and computation temporaries
 
@@ -1661,24 +1745,33 @@ WASM uses **no dynamic memory allocation**. All memory is either:
 ```
 
 No heap, no malloc, no dynamic allocation. The WASM module has:
+
 - **No linear memory exports** - runtime cannot write to WASM memory
 - **Fixed memory size** - 1 page (64KB) maximum
 - **Stack-only computation** - all temporaries on the operand stack
 
 #### String Storage
+
 String literals are stored at compile-time in the data section:
+
 ```
 [offset][length: u32][utf8_bytes...]
 ```
+
 String operations return handles (i32) to host-managed strings.
 
 #### Series Storage
-**Series are entirely managed by the host runtime**. WASM code never directly accesses series memory. All series operations (creation, indexing, arithmetic) are performed via host function calls. The WASM module only handles series as opaque handle values (i32).
+
+**Series are entirely managed by the host runtime**. WASM code never directly accesses
+series memory. All series operations (creation, indexing, arithmetic) are performed via
+host function calls. The WASM module only handles series as opaque handle values (i32).
 
 ### Function Calling Convention
 
 #### Stage Functions
+
 Tasks are compiled to WASM functions with this signature:
+
 ```wasm
 ;; task_name(config_channels..., runtime_params...)
 (func $task_controller
@@ -1690,7 +1783,9 @@ Tasks are compiled to WASM functions with this signature:
 ```
 
 #### Regular Functions
+
 Functions maintain their declared signature:
+
 ```wasm
 (func $func_add
   (param $x f64)
@@ -1745,7 +1840,9 @@ The runtime (execution VM) handles:
 ### Analyzer & Compiler Interface
 
 #### Global Resolver
-The analyzer requires a resolver to validate external globals (channels, stdlib tasks, etc):
+
+The analyzer requires a resolver to validate external globals (channels, stdlib tasks,
+etc):
 
 ```go
 type GlobalResolver interface {
@@ -1828,17 +1925,20 @@ func (s *StubResolver) ResolveStdFunction(name string) (*StdFunctionSignature, e
 ```
 
 The analyzer uses this interface to:
+
 - Validate external channel references exist and get their types
 - Verify stdlib stage invocations are valid
 - Check stdlib function calls have correct arguments
 - Provide autocomplete suggestions in LSP (all available globals)
 
 The compiler uses the validated information to:
+
 - Generate channel nodes in the graph with correct IDs
 - Mark stdlib tasks in nodes (not generating WASM for them)
 - Emit correct host function calls for stdlib functions
 
 #### Standard Library Tasks
+
 These tasks are recognized by the compiler but implemented by the runtime:
 
 - `interval{period: duration}` - Emits at regular intervals
@@ -1850,6 +1950,7 @@ These tasks are recognized by the compiler but implemented by the runtime:
 - `tee{outputs...}` - Splits stream
 
 The compiler:
+
 - Parses their configuration
 - Adds them as nodes with type = stage name
 - Does NOT generate WASM functions for them
@@ -1860,24 +1961,26 @@ The compiler:
 The Arc compilation pipeline consists of three distinct phases:
 
 #### Phase 1: Parser (1 pass)
-**Input:** Source text
-**Output:** Abstract Syntax Tree (AST)
-**Responsibilities:**
+
+**Input:** Source text **Output:** Abstract Syntax Tree (AST) **Responsibilities:**
+
 - Lexical analysis (tokenization)
 - Syntactic analysis (grammar validation)
 - Build parse tree structure
 - Report syntax errors
 
 The parser does NOT:
+
 - Check types
 - Validate identifiers exist
 - Understand semantics
 
 #### Phase 2: Analyzer (2 passes)
-**Input:** AST + GlobalResolver
-**Output:** Validated AST + Symbol Table + Diagnostics
+
+**Input:** AST + GlobalResolver **Output:** Validated AST + Symbol Table + Diagnostics
 
 **Pass 1: Symbol Collection**
+
 - Build symbol table for all declarations:
   - User-defined tasks and functions
   - Variables (local and stateful)
@@ -1888,6 +1991,7 @@ The parser does NOT:
   - Function calls
 
 **Pass 2: Validation**
+
 - Type check all expressions
 - Verify identifier resolution:
   - Variables are defined before use
@@ -1900,15 +2004,18 @@ The parser does NOT:
 - Ensure all code paths return (for non-void functions)
 
 The analyzer does NOT:
+
 - Generate any code
 - Build runtime data structures
 - Assign instance IDs
 
 #### Phase 3: Compiler (2 passes)
-**Input:** Validated AST + Symbol Table + GlobalResolver
-**Output:** WASM module + Metadata (JSON)
+
+**Input:** Validated AST + Symbol Table + GlobalResolver **Output:** WASM module +
+Metadata (JSON)
 
 **Pass 1: Collection & Graph Building**
+
 - Extract specifications:
   - Stage specs → tasks array
   - Function specs → functions array
@@ -1919,6 +2026,7 @@ The analyzer does NOT:
 - Resolve channel IDs via GlobalResolver
 
 **Pass 2: Code Generation**
+
 - Generate WASM functions:
   - One per user-defined stage/function
   - One per inline expression
@@ -1932,26 +2040,28 @@ The analyzer does NOT:
 - Assemble final WASM module
 
 The compiler does NOT:
+
 - Validate types (trusts analyzer)
 - Check identifier existence
 - Report semantic errors
 
 ### Division of Responsibilities
 
-| Component | Parser | Analyzer | Compiler |
-|-----------|--------|----------|----------|
-| Syntax validation | ✓ | | |
-| Type checking | | ✓ | |
-| Channel validation | | ✓ | |
-| Symbol resolution | | ✓ | |
-| Cycle detection | | ✓ | |
-| Flow graph building | | | ✓ |
-| Instance creation | | | ✓ |
-| WASM generation | | | ✓ |
-| Metadata output | | | ✓ |
+| Component           | Parser | Analyzer | Compiler |
+| ------------------- | ------ | -------- | -------- |
+| Syntax validation   | ✓      |          |          |
+| Type checking       |        | ✓        |          |
+| Channel validation  |        | ✓        |          |
+| Symbol resolution   |        | ✓        |          |
+| Cycle detection     |        | ✓        |          |
+| Flow graph building |        |          | ✓        |
+| Instance creation   |        |          | ✓        |
+| WASM generation     |        |          | ✓        |
+| Metadata output     |        |          | ✓        |
 
 ### Error Reporting
 
 - **Parser errors**: Syntax errors only (missing braces, invalid tokens)
-- **Analyzer errors**: Semantic errors (type mismatches, undefined variables, missing channels)
+- **Analyzer errors**: Semantic errors (type mismatches, undefined variables, missing
+  channels)
 - **Compiler errors**: Should be rare (out of memory, WASM limits exceeded)

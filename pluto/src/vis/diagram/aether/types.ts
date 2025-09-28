@@ -125,9 +125,7 @@ export const translateNodesForward = (
   }));
 
 /** Translates edges from their pluto representation to their react-flow representation. */
-export const translateEdgesForward = (
-  edges: Edge[],
-): Array<rf.Edge<record.Unknown>> =>
+export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<record.Unknown>> =>
   edges.map(({ data, ...edge }) => ({
     ...edge,
     id: edge.key,

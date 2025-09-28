@@ -203,10 +203,7 @@ export const { actions, reducer } = createSlice({
       }
       state.copy = copyBuffer;
     },
-    pasteSelection: (
-      state,
-      { payload }: PayloadAction<PasteSelectionPayload>,
-    ) => {
+    pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
       const { pos, key: layoutKey } = payload;
       const console = xy.translation(state.copy.pos, pos);
       const schematic = state.schematics[layoutKey];
@@ -254,10 +251,7 @@ export const { actions, reducer } = createSlice({
       }
       state.schematics[layoutKey] = schematic;
     },
-    clearSelection: (
-      state,
-      { payload }: PayloadAction<ClearSelectionPayload>,
-    ) => {
+    clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.nodes.forEach((node) => {
@@ -273,8 +267,7 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic == null) return;
-        if (schematic.control === "acquired")
-          schematic.controlAcquireTrigger -= 1;
+        if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
         delete state.schematics[layoutKey];
       });
     },
@@ -290,10 +283,7 @@ export const { actions, reducer } = createSlice({
       });
       schematic.props[key] = props;
     },
-    setElementProps: (
-      state,
-      { payload }: PayloadAction<SetElementPropsPayload>,
-    ) => {
+    setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
       if (key in schematic.props)
@@ -303,8 +293,7 @@ export const { actions, reducer } = createSlice({
         } as NodeProps;
       else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1)
-          schematic.edges[edge] = { ...schematic.edges[edge], ...props };
+        if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
@@ -327,10 +316,7 @@ export const { actions, reducer } = createSlice({
         state.schematics[layoutKey].toolbar.activeTab = "properties";
       } else state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
-    setNodePositions: (
-      state,
-      { payload }: PayloadAction<SetNodePositionsPayload>,
-    ) => {
+    setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
       const schematic = state.schematics[layoutKey];
       Object.entries(positions).forEach(([key, position]) => {
@@ -384,8 +370,7 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
-      if (schematic.control === "acquired")
-        schematic.controlAcquireTrigger -= 1;
+      if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
       if (schematic.snapshot) return;
       schematic.editable = editable;
     },
@@ -397,10 +382,7 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.fitViewOnResize = fitViewOnResize;
     },
-    toggleControl: (
-      state,
-      { payload }: PayloadAction<ToggleControlPayload>,
-    ) => {
+    toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
       const { key: layoutKey } = payload;
       let { status } = payload;
       const schematic = state.schematics[layoutKey];
@@ -408,10 +390,7 @@ export const { actions, reducer } = createSlice({
       if (status === "released") schematic.controlAcquireTrigger -= 1;
       else schematic.controlAcquireTrigger += 1;
     },
-    setControlStatus: (
-      state,
-      { payload }: PayloadAction<SetControlStatusPayload>,
-    ) => {
+    setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { key: layoutKey, control } = payload;
       const schematic = state.schematics[layoutKey];
       if (schematic == null) return;
@@ -427,18 +406,12 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.schematics[key].mode = mode;
     },
-    setRemoteCreated: (
-      state,
-      { payload }: PayloadAction<SetRemoteCreatedPayload>,
-    ) => {
+    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.remoteCreated = true;
     },
-    fixThemeContrast: (
-      state,
-      { payload }: PayloadAction<FixThemeContrastPayload>,
-    ) => {
+    fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
       const { theme } = payload;
       const bgColor = color.construct(theme.colors.gray.l0);
       const shouldChange = (crude: color.Crude): boolean => {
@@ -454,10 +427,7 @@ export const { actions, reducer } = createSlice({
               nodeProps.color = theme.colors.gray.l11;
         });
         edges.forEach((edge) => {
-          if (
-            edge.data?.color != null &&
-            shouldChange(edge.data.color as string)
-          )
+          if (edge.data?.color != null && shouldChange(edge.data.color as string))
             edge.data.color = theme.colors.gray.l11;
           else if (edge.data != null) edge.data.color ??= theme.colors.gray.l11;
         });

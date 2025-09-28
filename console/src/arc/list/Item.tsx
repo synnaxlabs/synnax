@@ -42,7 +42,7 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
     sync: true,
     autoSave: true,
   });
-  const { name, } = arc;
+  const { name } = arc;
 
   const menuProps = Menu.useContextMenu();
 

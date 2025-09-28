@@ -10,53 +10,53 @@
  */
 
 .pluto--spin {
-  animation: spin 1s infinite linear;
+    animation: spin 1s infinite linear;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .pluto-icon--log {
-  --pluto-base-scale: 0.85;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 0.85;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--schematic {
-  --pluto-base-scale: 1;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 1;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--decimal {
-  --pluto-base-scale: 1.3;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 1.3;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--wave-triangle,
 .pluto-icon--wave-square,
 .pluto-icon--wave-sine,
 .pluto-icon--wave-sawtooth {
-  --pluto-base-scale: 1.25;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 1.25;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--units-current,
 .pluto-icon--units-voltage {
-  --pluto-base-scale: 1.05;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 1.05;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--in-progress {
-  color: var(--pluto-warning-z);
+    color: var(--pluto-warning-z);
 }
 
 .pluto-icon--completed {
-  color: var(--pluto-primary-z);
+    color: var(--pluto-primary-z);
 }
 
 .pluto-icon--in-progress {
@@ -68,30 +68,30 @@
 }
 
 .pluto-icon--logo-opc {
-  transform: translateY(1px) scale(1.25);
+    transform: translateY(1px) scale(1.25);
 }
 
 .pluto-icon--csv {
-  transform: scale(1.25);
+    transform: scale(1.25);
 }
 
 .pluto-icon--fitting {
-  --pluto-base-scale: 1.8;
-  transform: scale(var(--pluto-base-scale));
+    --pluto-base-scale: 1.8;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--reset {
-  fill: var(--pluto-gray-l11);
+    fill: var(--pluto-gray-l11);
 }
 
 .pluto-icon--boolean {
-  fill: currentColor;
+    fill: currentColor;
 }
 
 .pluto-icon--true {
-  color: var(--pluto-success-z);
+    color: var(--pluto-success-z);
 }
 
 .pluto-icon--false {
-  color: var(--pluto-error-z);
+    color: var(--pluto-error-z);
 }

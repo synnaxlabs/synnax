@@ -1,4 +1,3 @@
-
 // Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -9,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import {
-  Flex,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Flex, type Flux, Icon, Input, List as PList, Select } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Item, type ItemProps } from "@/arc/list/Item";
@@ -73,9 +65,7 @@ export const List = ({
         </Flex.Box>
       )}
       <PList.Items<arc.Key>>
-        {({ key, ...rest }) => (
-          <Item key={key} {...rest} showStatus={showStatus} />
-        )}
+        {({ key, ...rest }) => <Item key={key} {...rest} showStatus={showStatus} />}
       </PList.Items>
     </Select.Frame>
   );
