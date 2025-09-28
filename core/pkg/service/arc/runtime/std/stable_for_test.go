@@ -355,7 +355,7 @@ var _ = Describe("StableFor", func() {
 					output = val
 				})
 
-				v := value.Value{Type: ir.U64{}}.PutUint64(uint64(1<<40))
+				v := value.Value{Type: ir.U64{}}.PutUint64(uint64(1 << 40))
 				stage.Next(ctx, "input", v)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)

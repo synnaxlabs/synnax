@@ -22,8 +22,8 @@ import (
 
 var _ = Describe("Select", func() {
 	var (
-		ctx  context.Context
-		cfg  std.Config
+		ctx context.Context
+		cfg std.Config
 	)
 
 	BeforeEach(func() {
@@ -54,7 +54,7 @@ var _ = Describe("Select", func() {
 
 				Expect(outputParam).To(Equal("false"))
 				Expect(output.GetInt32()).To(Equal(int32(0)))
-				
+
 			})
 
 			It("Should output with 'true' param when value is non-zero", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Select", func() {
 
 				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(42)))
-				
+
 			})
 		})
 
@@ -303,13 +303,12 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{
-					
-					Type:    ir.F32{},
+
+					Type: ir.F32{},
 				}.PutFloat32(123.456)
 
 				stage.Next(ctx, "input", v)
 
-				
 				Expect(output.Type).To(Equal(ir.F32{}))
 				Expect(output.GetFloat32()).To(BeNumerically("~", float32(123.456), 0.001))
 				Expect(outputParam).To(Equal("true"))
