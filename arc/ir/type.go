@@ -22,7 +22,6 @@ type Type interface {
 	fmt.Stringer
 }
 
-
 type U8 struct{}
 
 func (u U8) String() string { return "u8" }
@@ -256,4 +255,3 @@ func IsTypeVariable(t Type) bool {
 func NewTypeVariable(name string, constraint Type) TypeVariable {
 	return TypeVariable{Name: name, Constraint: constraint}
 }
-

@@ -92,12 +92,12 @@ type ConstraintSystem interface {
 }
 
 type IR struct {
-	Stages      []Stage           `json:"stages"`
-	Functions   []Function        `json:"functions"`
-	Nodes       []Node            `json:"nodes"`
-	Edges       []Edge            `json:"edges"`
-	Symbols     *Scope            `json:"-"`
-	Constraints ConstraintSystem  `json:"-"`
+	Stages      []Stage          `json:"stages"`
+	Functions   []Function       `json:"functions"`
+	Nodes       []Node           `json:"nodes"`
+	Edges       []Edge           `json:"edges"`
+	Symbols     *Scope           `json:"-"`
+	Constraints ConstraintSystem `json:"-"`
 }
 
 func (ir IR) GetStage(key string) (Stage, bool) {
