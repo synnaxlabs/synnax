@@ -10,7 +10,6 @@
 import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
-import { math } from "@/math";
 import {
   addSamples,
   type CrudeDataType,
