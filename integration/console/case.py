@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import time
 from typing import cast
 
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
@@ -73,7 +72,7 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page)
 
         # Toggle theme
-        time.sleep(0.5)
+        self.page.wait_for_timeout(1000)
         self.console.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:

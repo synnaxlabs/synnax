@@ -9,17 +9,92 @@
 
 import synnax as sy
 
+
 from console.case import ConsoleCase
 
 
-class Schematic_Edit_Button_Props(ConsoleCase):
+class Schematic_Edit_Symbol_Props(ConsoleCase):
     """
     Add a value component and edit its properties
     """
 
     def run(self) -> None:
+
+        self.console.schematic.new()
+        self.test_value_props()
+        self.test_button_props()
+        self._log_message("Test Complete")
+
+
+    def test_value_props(self) -> None:
+        self._log_message("Testing value props")
         console = self.console
-        console.schematic.new()
+
+        self._log_message("Checking default properties of schematic value")
+        value = console.schematic.create_value(f"{self.name}_uptime")
+        default_props = value.get_properties()
+
+        expected_default_props = {
+            "channel": f"{self.name}_uptime",
+            "notation": "standard",
+            "precision": 2,
+            "averaging_window": 1,
+            "stale_color": "#C29D0A",  # pluto-warning-m1
+            "stale_timeout": 5,
+        }
+        assert (
+            default_props == expected_default_props
+        ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
+
+        self._log_message("Checking edited properties of schematic value")
+        expected_edited_props = {
+            "channel": f"{self.name}_time",
+            "notation": "scientific",
+            "precision": 4,
+            "averaging_window": 4,
+            "stale_color": "#FF0000",
+            "stale_timeout": 10,
+        }
+        value.edit_properties(
+            channel_name=f"{self.name}_time",
+            notation="scientific",
+            precision=4,
+            averaging_window=4,
+            stale_color="#FF0000",
+            stale_timeout=10,
+        )
+        edited_props = value.get_properties()
+        assert (
+            edited_props == expected_edited_props
+        ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
+        value.delete()
+        
+        self._log_message("Checking new node with non-default properties")
+        non_default_props = {
+            "channel": f"{self.name}_state",
+            "notation": "engineering",
+            "precision": 7,
+            "averaging_window": 3,
+            "stale_color": "#00FF00",
+            "stale_timeout": 15,
+        }
+        non_default_value = console.schematic.create_value(
+            f"{self.name}_state",
+            notation="engineering",
+            precision=7,
+            averaging_window=3,
+            stale_color="#00FF00",
+            stale_timeout=15,
+        )
+        actual_non_default_props = non_default_value.get_properties()
+        assert (
+            actual_non_default_props == non_default_props
+        ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
+        non_default_value.delete()
+
+    def test_button_props(self) -> None:
+        self._log_message("Testing button props")
+        console = self.console
 
         self._log_message("Creating channels")
         CHANNEL_NAME = "button_cmd"
@@ -69,6 +144,7 @@ class Schematic_Edit_Button_Props(ConsoleCase):
         assert (
             edited_props == expected_edited_props
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
+        button.delete()
 
         self._log_message("Checking non-default properties of schematic button")
         non_default_props = {
@@ -87,5 +163,4 @@ class Schematic_Edit_Button_Props(ConsoleCase):
         assert (
             actual_non_default_props == non_default_props
         ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
-
-        self._log_message("Test Complete")
+        non_default_button.delete()

@@ -43,8 +43,7 @@ class Schematic(ConsolePage):
 
     def _open_symbols_tab(self) -> None:
         """Open the Symbols tab."""
-        self.page.wait_for_selector("text=Symbols", timeout=10000)
-        self.page.get_by_text("Symbols", exact=True).click()
+        self.console.click("Symbols")
 
     def _count_symbols(self) -> int:
         """Count number of symbols on the schematic."""
