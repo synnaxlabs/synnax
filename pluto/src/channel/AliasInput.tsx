@@ -14,7 +14,7 @@ import { Button } from "@/button";
 import { Channel } from "@/channel";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { Text } from "@/text";
 
 export interface AliasInputProps extends Input.TextProps {

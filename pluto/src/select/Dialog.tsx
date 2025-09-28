@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { Text } from "@/text";
 
 export interface DialogProps<K extends record.Key>

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -23,7 +23,6 @@ import {
 import { type task } from "@/hardware/task";
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
@@ -43,7 +42,7 @@ const retrieveReqZ = z.object({
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
+const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });
 
 const singleRetrieveArgsZ = z.union([
   z

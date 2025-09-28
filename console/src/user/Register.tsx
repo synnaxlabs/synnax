@@ -33,7 +33,7 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
-    params: {},
+    query: {},
     afterSave: useCallback(() => onClose(), [onClose]),
   });
 

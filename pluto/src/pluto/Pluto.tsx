@@ -28,6 +28,7 @@ import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
+import { Status as StatusCore } from "@/status/core";
 import { Synnax } from "@/synnax";
 import { Table } from "@/table";
 import { Telem } from "@/telem";
@@ -69,6 +70,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
   [LinePlot.FLUX_STORE_KEY]: LinePlot.FluxStore;
   [Log.FLUX_STORE_KEY]: Log.FluxStore;
   [Table.FLUX_STORE_KEY]: Table.FluxStore;
@@ -88,6 +90,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
+  [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
   [LinePlot.FLUX_STORE_KEY]: LinePlot.FLUX_STORE_CONFIG,
   [Log.FLUX_STORE_KEY]: Log.FLUX_STORE_CONFIG,
   [Table.FLUX_STORE_KEY]: Table.FLUX_STORE_CONFIG,
@@ -114,7 +117,7 @@ export const Provider = ({
         <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
           <CanDisableAether workerKey="vis">
             <Alamos.Provider {...alamos}>
-              <Status.Aggregator>
+              <StatusCore.Aggregator>
                 <Synnax.Provider connParams={connParams}>
                   <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                     <Color.Provider {...color}>
@@ -126,7 +129,7 @@ export const Provider = ({
                     </Color.Provider>
                   </Flux.Provider>
                 </Synnax.Provider>
-              </Status.Aggregator>
+              </StatusCore.Aggregator>
             </Alamos.Provider>
           </CanDisableAether>
         </Worker.Provider>

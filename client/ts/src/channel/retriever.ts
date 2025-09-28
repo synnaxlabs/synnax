@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x/array";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { DataType } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
@@ -30,7 +31,6 @@ import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,
 } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
@@ -53,7 +53,7 @@ export interface RetrieveOptions
   extends Omit<RetrieveRequest, "keys" | "names" | "search"> {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-const resZ = z.object({ channels: nullableArrayZ(payloadZ) });
+const resZ = z.object({ channels: array.nullableZ(payloadZ) });
 
 export const analyzeParams = (
   channels: Params,

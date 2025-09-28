@@ -198,7 +198,7 @@ describe("queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const rackStatus: rack.Status = status.create({
+      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsSchema>({
         key: id.create(),
         variant: "warning",
         message: "Rack needs attention",

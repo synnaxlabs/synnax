@@ -236,41 +236,38 @@ const retrieveInitialFormValues = async ({
   reset(channelToFormValues(res));
 };
 
-export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
-  RetrieveQuery,
-  channel.Channel,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, onChange, query: { key, rangeKey }, client }) => {
-    const ch = store.channels.onSet((channel) => {
-      if (rangeKey != null) {
-        const alias = store.rangeAliases.get(
-          ranger.aliasKey({ range: rangeKey, channel: key }),
-        );
-        if (alias != null) channel.alias = alias.alias;
-      }
-      onChange(channel);
-    }, key);
-    if (rangeKey == null) return ch;
-    const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
-    const onSetAlias = store.rangeAliases.onSet((alias) => {
-      if (alias == null) return;
-      onChange(
-        state.skipNull((p) => client.channels.sugar({ ...p, alias: alias.alias })),
-      );
-    }, aliasKey);
-    const onDeleteAlias = store.rangeAliases.onDelete(
-      () =>
+export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
+  Flux.createRetrieve<RetrieveQuery, channel.Channel, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, onChange, query: { key, rangeKey }, client }) => {
+      const ch = store.channels.onSet((channel) => {
+        if (rangeKey != null) {
+          const alias = store.rangeAliases.get(
+            ranger.aliasKey({ range: rangeKey, channel: key }),
+          );
+          if (alias != null) channel.alias = alias.alias;
+        }
+        onChange(channel);
+      }, key);
+      if (rangeKey == null) return ch;
+      const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
+      const onSetAlias = store.rangeAliases.onSet((alias) => {
+        if (alias == null) return;
         onChange(
-          state.skipNull((p) => client.channels.sugar({ ...p, alias: undefined })),
-        ),
-      aliasKey,
-    );
-    return [ch, onSetAlias, onDeleteAlias];
-  },
-});
+          state.skipNull((p) => client.channels.sugar({ ...p, alias: alias.alias })),
+        );
+      }, aliasKey);
+      const onDeleteAlias = store.rangeAliases.onDelete(
+        () =>
+          onChange(
+            state.skipNull((p) => client.channels.sugar({ ...p, alias: undefined })),
+          ),
+        aliasKey,
+      );
+      return [ch, onSetAlias, onDeleteAlias];
+    },
+  });
 
 export interface RetrieveMultipleQuery extends channel.RetrieveOptions {
   keys: channel.Keys;

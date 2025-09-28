@@ -221,7 +221,9 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -316,7 +318,9 @@ describe("queries", () => {
         config: {},
       });
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "success",
         message: "Task running",
@@ -389,7 +393,9 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const newStatus: task.Status = status.create({
+      const newStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -702,7 +708,7 @@ describe("queries", () => {
           config: {},
         },
       });
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
       await waitFor(() => {
@@ -737,7 +743,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -770,7 +776,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -813,7 +819,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -868,7 +874,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             beforeSave,
           }),
         { wrapper },
@@ -921,7 +927,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             afterSave,
           }),
         { wrapper },
@@ -972,13 +978,15 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task error",
@@ -1019,7 +1027,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -1056,7 +1064,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -1096,7 +1104,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: "999999" },
+            query: { key: "999999" },
           }),
         { wrapper },
       );
@@ -1131,7 +1139,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             autoSave: true,
           }),
         { wrapper },
@@ -1202,7 +1210,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -1259,6 +1267,7 @@ describe("queries", () => {
         const parsed = task.commandZ.parse(sample);
         const stat: task.Status = {
           key: parsed.key,
+          name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
           time: TimeStamp.now(),

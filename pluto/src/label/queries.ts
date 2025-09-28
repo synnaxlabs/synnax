@@ -12,6 +12,8 @@ import { primitive } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
+import { type RetrieveParams } from "@/flux/retrieve";
+import { type UpdateParams } from "@/flux/update";
 import { type Ontology } from "@/ontology";
 import { state } from "@/state";
 
@@ -42,6 +44,20 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
 };
 
+export interface RetrieveQuery extends label.RetrieveSingleParams {}
+
+export const retrieveSingle = async ({
+  store,
+  query,
+  client,
+}: RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+  const cached = store.labels.get(query.key);
+  if (cached != null) return cached;
+  const label = await client.labels.retrieve(query);
+  store.labels.set(label);
+  return label;
+};
+
 export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =>
   ontology.matchRelationship(rel, {
     from: id,
@@ -57,6 +73,46 @@ export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => 
     .get((rel) => matchRelationship(rel, id))
     .map((rel) => rel.to.key);
   return store.labels.get(keys);
+};
+
+interface SetLabelsForParams
+  extends Omit<
+    UpdateParams<
+      {
+        id: ontology.ID;
+        labels: label.Key[];
+      },
+      FluxSubStore
+    >,
+    "setStatus"
+  > {}
+
+export const setLabelsFor = async ({
+  store,
+  client,
+  rollbacks,
+  data: { id, labels },
+}: SetLabelsForParams): Promise<label.Label[]> => {
+  rollbacks.push(
+    ...labels.map((l) => {
+      const rel: ontology.Relationship = {
+        from: label.ontologyID(l),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: id,
+      };
+      return store.relationships.set(ontology.relationshipToString(rel), rel);
+    }),
+  );
+  await client.labels.label(id, labels, { replace: true });
+  const outLabels: label.Label[] = store.labels.get(labels);
+  const cachedLabelKeys = new Set(outLabels.map((l) => l.key));
+  const missingLabels = labels.filter((l) => !cachedLabelKeys.has(l));
+  if (missingLabels.length > 0) {
+    const newLabels = await client.labels.retrieve({ keys: missingLabels });
+    outLabels.push(...newLabels);
+    store.labels.set(newLabels);
+  }
+  return outLabels;
 };
 
 export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<

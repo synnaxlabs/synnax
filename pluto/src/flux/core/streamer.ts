@@ -12,7 +12,7 @@ import { type AsyncDestructor, DataType, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/core/store";
-import { type Status } from "@/status";
+import { type Status } from "@/status/core";
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.

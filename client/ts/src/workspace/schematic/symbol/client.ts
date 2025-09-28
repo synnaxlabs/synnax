@@ -14,7 +14,6 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 import {
   type Key,
   keyZ,
@@ -51,7 +50,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResZ = z.object({ symbols: nullableArrayZ(symbolZ) });
+const retrieveResZ = z.object({ symbols: array.nullableZ(symbolZ) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
