@@ -29,7 +29,7 @@
       ]
     },
     {
-    "sequence_name": "Client Press Control",
+      "sequence_name": "Client Press Control",
       "sequence_order": "asynchronous",
       "tests": [
         {
