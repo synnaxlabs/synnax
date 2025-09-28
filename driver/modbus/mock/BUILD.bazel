@@ -1,0 +1,24 @@
+cc_library(
+    name = "mock",
+    hdrs = ["slave.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/libmodbus",
+    ],
+)
+
+cc_binary(
+    name = "mock_slave",
+    srcs = ["main.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/modbus/mock",
+        "//driver/modbus/util",
+        "//vendor/libmodbus",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
+)

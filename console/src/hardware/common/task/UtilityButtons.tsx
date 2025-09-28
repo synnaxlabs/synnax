@@ -51,6 +51,16 @@ export const UtilityButtons = () => {
       `TypeScript code for retrieving ${name}`,
     );
   };
+  const handleCopyPythonCode = () => {
+    const name = getName();
+    copy(
+      `
+      # Retrieve ${name}
+      task = client.hardware.tasks.retrieve("${taskKey}")
+      `,
+      `Python code for retrieving ${name}`,
+    );
+  };
   const handleCopyJSONConfig = () => {
     const name = getName();
     const config = ctx.get("config").value;
@@ -71,6 +81,9 @@ export const UtilityButtons = () => {
         tooltip="Copy TypeScript code"
       >
         {Icon.TypeScript}
+      </UtilityButton>
+      <UtilityButton onClick={handleCopyPythonCode} tooltip="Copy Python code">
+        {Icon.Python}
       </UtilityButton>
       <UtilityButton onClick={handleCopyJSONConfig} tooltip="Copy JSON configuration">
         {Icon.JSON}

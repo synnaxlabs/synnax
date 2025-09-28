@@ -17,6 +17,10 @@ cc_library(
         "remote.cpp",
     ],
     hdrs = ["rack.h"],
+    defines = select({
+        ":nilinuxrt": ["SYNNAX_NILINUXRT"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//driver/labjack",
@@ -32,7 +36,10 @@ cc_library(
         "//x/cpp/xlog",
         "//x/cpp/xos",
         "//x/cpp/xpath",
-    ],
+    ] + select({
+        ":nilinuxrt": [],
+        "//conditions:default": ["//driver/modbus"],
+    }),
 )
 
 cc_test(

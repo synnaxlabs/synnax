@@ -33,7 +33,6 @@
     "editor.formatOnSave": true,
     "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
     "[python]": { "editor.defaultFormatter": "ms-python.black-formatter" },
-    "python.formatting.provider": "none",
     "eslint.workingDirectories": [{ "mode": "auto" }],
     "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
     "editor.codeActionsOnSave": { "source.fixAll.eslint": "always" },
@@ -187,7 +186,6 @@
       "xjson",
       "zodutil"
     ],
-    "cSpell.enableFiletypes": ["mdx"],
     "rewrap.autoWrap.enabled": true,
     "rewrap.wrappingColumn": 88
   },
