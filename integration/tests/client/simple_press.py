@@ -33,10 +33,6 @@ class Simple_Press(TestCase):
     def run(self) -> None:
         client: sy.Synnax = self.client
 
-        if not self.wait_for_tlm_init():
-            self.fail()
-            return
-
         # Define the control channel names
         END_TEST_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"

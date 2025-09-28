@@ -33,10 +33,6 @@ class Simple_Press_Valves(ConsoleCase):
     def run(self) -> None:
         console = self.console
 
-        if not self.wait_for_tlm_init():
-            self.fail()
-            return
-
         # Define the control channel names
         END_CMD = "end_test_cmd"
         PRESS_VALVE = "press_vlv_cmd"

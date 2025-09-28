@@ -20,7 +20,7 @@ class Setpoint_Press_User(ConsoleCase):
     """
 
     def setup(self) -> None:
-        sy.sleep(2)
+
         self.subscribe(
             [
                 "start_test_state",
@@ -34,11 +34,6 @@ class Setpoint_Press_User(ConsoleCase):
 
     def run(self) -> None:
         console = self.console
-
-        sy.sleep(5)
-        if not self.wait_for_tlm_init():
-            self.fail()
-            return
 
         # Define the control channel names
         START_CMD = "start_test_cmd"

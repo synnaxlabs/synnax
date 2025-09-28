@@ -27,7 +27,6 @@ class Sim_DAQ(TestCase):
         """
         Run the test case.
         """
-        # self.wait_for_tlm_init()
         client = self.client
 
         # Index channel:

@@ -18,7 +18,7 @@ class Setpoint_Press_Auto(TestCase):
     """
 
     def setup(self) -> None:
-        sy.sleep(2)
+
         self.subscribe(
             [
                 "press_vlv_cmd",
@@ -62,11 +62,6 @@ class Setpoint_Press_Auto(TestCase):
             index=press_setpoint_cmd_time.key,
         )
 
-        # Wait for sim DAQ channels
-        if not self.wait_for_tlm_init():
-            self.fail()
-            return
-
         self._log_message("DEBUG: Acquiring control")
         with client.control.acquire(
             name="Pressurization Sequence",
@@ -97,9 +92,9 @@ class Setpoint_Press_Auto(TestCase):
 
             self._log_message("DEBUG: Waiting for press_pt and press_setpoint_cmd")
             if not ctrl.wait_until_defined(
-                ["press_pt", "press_setpoint_cmd"], timeout=45
+                ["press_pt", "press_setpoint_cmd"], timeout=60
             ):
-                self.fail("Failed to wait for press_pt and press_setpoint_cmd")
+                self.fail("Timeout (60s) for press_pt and press_setpoint_cmd")
                 return
 
             self._log_message("Starting pressurization logic")

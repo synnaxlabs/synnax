@@ -281,7 +281,6 @@ class TestCase(ABC):
         self.read_frame = {}
         streamer = None
         if len(self.subscribed_channels):
-            self._log_message(f"Channels subscribed: {self.subscribed_channels}")
             for channel in self.subscribed_channels:
                 self.read_frame[channel] = 0
         else:
@@ -330,7 +329,11 @@ class TestCase(ABC):
 
     def _log_message(self, message: str) -> None:
         """Log a message to the console with real-time output."""
-        self.logger.info(f"{self.name} > {message}")
+        timestamp = (
+            time.strftime("%H:%M:%S", time.localtime())
+            + f".{int(time.time() * 100) % 100:02d}"
+        )
+        self.logger.info(f"{timestamp} | {self.name} > {message}")
 
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:
@@ -449,13 +452,51 @@ class TestCase(ABC):
 
         self.tlm[tlm_name] = initial_value
 
-    def subscribe(self, channels: Union[str, List[str]]) -> None:
-        """Subscribe to channels. Can take either a single channel name or a list of channels."""
+    def subscribe(
+        self, channels: Union[str, List[str]], timeout: Optional[int] = 10
+    ) -> None:
+        """
+        Subscribe to channels.
+        Can take either a single channel name or a list of channels.
+        Timeout is the time (s) to wait for the channels to be initialized.
+        """
+        self._log_message(f"Subscribing to channels: {channels} ({timeout}s timeout)")
+
+        client = self.client
+        time_start = sy.TimeStamp.now()
+        timeout_ns = timeout * sy.TimeSpan.SECOND
+        found = False
+
+        while self.loop.wait():
+            time_now = sy.TimeStamp.now()
+            elapsed = time_now - time_start
+            if elapsed > timeout_ns:
+                break
+
+            try:
+                existing_channels = client.channels.retrieve(channels)
+
+                if isinstance(channels, str):
+                    found = existing_channels is not None
+                else:
+                    found = isinstance(existing_channels, list) and len(
+                        existing_channels
+                    ) == len(channels)
+
+                if found:
+                    break
+
+            except Exception as e:
+                self._log_message(f"Channel retrieval failed: {e}")
+                continue
+
+        if not found:
+            raise TimeoutError(f"Unable to retrieve channels: {channels}")
+
+        self._log_message(f"Channels retrieved")
         if isinstance(channels, str):
-            # Single channel name
             self.subscribed_channels.add(channels)
         elif isinstance(channels, list):
-            # List of channels - extend the list
             self.subscribed_channels.update(channels)
         return None
 
@@ -610,23 +651,6 @@ class TestCase(ABC):
     @property
     def should_continue(self) -> bool:
         return not self.should_stop
-
-    def wait_for_tlm_init(self) -> bool:
-        self._log_message("Waiting for all channels to be initialized")
-
-        non_initialized_channels = self.subscribed_channels.copy()
-
-        while self.loop.wait() and self.should_continue:
-            if len(non_initialized_channels) > 0:
-                for ch in list(non_initialized_channels):
-                    if self.read_tlm(ch) is not None:
-                        non_initialized_channels.discard(ch)
-            else:
-                self._log_message("Subscribed Channels Initialized")
-                return True
-
-        self._log_message(f"Channels failed to initialize: {non_initialized_channels}")
-        raise TimeoutError("Channels failed to initialize")
 
     def wait_for_tlm_stale(self, buffer_size: int = 5) -> bool:
         """
