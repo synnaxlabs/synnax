@@ -604,7 +604,7 @@ describe("Triggers", () => {
           triggers: [["A"], ["Control", "B"]],
         });
         return (
-          <div data-testid="editable" contentEditable={true}>
+          <div data-testid="editable" contentEditable>
             Editable content
           </div>
         );

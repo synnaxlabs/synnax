@@ -49,4 +49,5 @@ export const SERVICES: Ontology.Services = {
   allow_all: createEmptyService("allow_all"),
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
+  status: createEmptyService("status"),
 };

@@ -92,6 +92,7 @@ describe("Task", async () => {
         const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
         const communicatedStatus: task.Status = {
           key: id.create(),
+          name: "test",
           variant: "success",
           details: { task: t.key, running: false, data: {} },
           message: "test",

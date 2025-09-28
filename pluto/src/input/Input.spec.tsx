@@ -427,7 +427,7 @@ describe("Input", () => {
 
     describe("value and onChange", () => {
       it("should render checked when value is true", () => {
-        const c = render(<Input.Checkbox value={true} onChange={vi.fn()} />);
+        const c = render(<Input.Checkbox value onChange={vi.fn()} />);
         const checkbox = c.container.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement;
@@ -446,7 +446,7 @@ describe("Input", () => {
 
       it("should toggle from true to false", () => {
         const onChange = vi.fn();
-        const c = render(<Input.Checkbox value={true} onChange={onChange} />);
+        const c = render(<Input.Checkbox value onChange={onChange} />);
         const checkbox = c.container.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement;
@@ -516,7 +516,7 @@ describe("Input", () => {
 
     describe("value and onChange", () => {
       it("should render on when value is true", () => {
-        const c = render(<Input.Switch value={true} onChange={vi.fn()} />);
+        const c = render(<Input.Switch value onChange={vi.fn()} />);
         const switchInput = c.container.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement;
@@ -535,7 +535,7 @@ describe("Input", () => {
 
       it("should toggle from true to false", () => {
         const onChange = vi.fn();
-        const c = render(<Input.Switch value={true} onChange={onChange} />);
+        const c = render(<Input.Switch value onChange={onChange} />);
         const switchInput = c.container.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement;

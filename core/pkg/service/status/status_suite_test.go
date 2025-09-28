@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+package status_test
 
-export const nullableArrayZ = <Z extends z.ZodType>(item: Z) =>
-  z.union([
-    z.union([z.null(), z.undefined()]).transform<z.infer<Z>[]>(() => []),
-    item.array(),
-  ]);
+import (
+	"context"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var ctx = context.Background()
+
+func TestStatus(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Status Suite")
+}

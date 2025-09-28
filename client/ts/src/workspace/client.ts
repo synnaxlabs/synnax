@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
-import { nullableArrayZ } from "@/util/zod";
 import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {
@@ -51,7 +50,7 @@ const setLayoutReqZ = z.object({
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
+const retrieveResZ = z.object({ workspaces: array.nullableZ(workspaceZ) });
 const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
 

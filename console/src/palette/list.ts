@@ -21,5 +21,5 @@ export interface UseListReturn<E extends record.Keyed<string>>
   data: string[];
   handleSelect: (key: string) => void;
   listItem: Component.RenderProp<List.ItemProps<string>>;
-  retrieve: (params: state.SetArg<RetrieveParams>) => void;
+  retrieve: (query: state.SetArg<RetrieveParams>) => void;
 }

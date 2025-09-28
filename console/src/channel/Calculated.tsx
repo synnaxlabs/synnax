@@ -62,7 +62,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
   const isEdit = args?.channelKey !== 0;
 
   const { form, variant, save, status } = Channel.useCalculatedForm({
-    params: { key: args?.channelKey },
+    query: { key: args?.channelKey },
     afterSave: ({ reset }) => {
       if (createMore) reset();
       else onClose();
