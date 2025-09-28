@@ -16,9 +16,9 @@ export type SymbolProps = types.SymbolProps<Config>;
 
 const PURPLE_HEX = color.construct("#635BFF");
 
-const SINKS: HandleSpec[] = [{ key: "input", Icon: Icon.Number }];
+const SINKS: HandleSpec[] = [{ key: "input", Icon: Icon.Value }];
 
-const SOURCES: HandleSpec[] = [{ key: "output", Icon: Icon.Number }];
+const SOURCES: HandleSpec[] = [{ key: "output", Icon: Icon.Value }];
 
 export const StableFor = ({ duration }: SymbolProps) => (
   <Base

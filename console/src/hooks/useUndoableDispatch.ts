@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Dispatch,
-  type Selector,
-  type UnknownAction,
-} from "@reduxjs/toolkit";
+import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
@@ -47,7 +43,7 @@ export const useUndoableDispatch = <
       if (history.current.present != null)
         history.current.past.push(history.current.present);
       if (history.current.past.length > size) history.current.past.shift();
-      history.current.present = deep.copy(currentState);
+      history.current.present = currentState;
       history.current.future = [];
     },
     waitFor,

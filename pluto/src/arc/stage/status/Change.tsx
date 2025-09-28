@@ -26,7 +26,7 @@ export const Symbol = ({ message, variant }: SymbolProps) => (
     Icon={<Icon.Notification />}
     color={color.cssString(color.setAlpha(RED_HEX, 0.2))}
     textColor={color.cssString(RED_HEX)}
-    sinks={[{ key: "output", Icon: Icon.Number }]}
+    sinks={[{ key: "output", Icon: Icon.Value }]}
   >
     <Text.Text level="p" weight={500} color={11}>
       <Status.Indicator variant={variant} size="2.5em" />

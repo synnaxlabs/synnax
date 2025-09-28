@@ -21,7 +21,7 @@ export const Constant = ({ value, scale }: SymbolProps) => (
     Icon={<Icon.Constant />}
     color="var(--pluto-success-z-20)"
     textColor="var(--pluto-success-z)"
-    sources={[{ key: "output", Icon: Icon.Number }]}
+    sources={[{ key: "output", Icon: Icon.Value }]}
     scale={scale}
   >
     <Text.Text level="h4" weight={500} variant="code">

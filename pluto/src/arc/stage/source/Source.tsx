@@ -26,7 +26,7 @@ export const Symbol = ({ channel }: SymbolProps) => {
       Icon={<Icon.Channel />}
       color="var(--pluto-primary-z-20)"
       textColor="var(--pluto-primary-z)"
-      sources={[{ key: "output", Icon: Icon.Number }]}
+      sources={[{ key: "output", Icon: Icon.Value }]}
     >
       <Text.Text
         level="p"

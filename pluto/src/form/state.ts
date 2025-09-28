@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -218,7 +218,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     cachedRefsToClear.forEach((path) => this.clearStatus(path));
     // Parse was a complete success. No errors encountered.
     if (result.success) return true;
-    console.log(z.treeifyError(result.error));
     let success = true;
     const statuses = this.errorsToStatuses(result.error.issues, [], []);
     statuses.forEach((status) => {
