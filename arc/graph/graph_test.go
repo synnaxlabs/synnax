@@ -144,8 +144,8 @@ var _ = Describe("Graph", func() {
 				},
 				Edges: []arc.Edge{
 					{
-						Source: arc.Handle{Node: "first", Param: ""},
-						Target: arc.Handle{Node: "printer", Param: ""},
+						Source: arc.Handle{Node: "first", Param: "output"},
+						Target: arc.Handle{Node: "printer", Param: "input"},
 					},
 				},
 			}
@@ -195,11 +195,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "source1", Param: ""},
+							Source: ir.Handle{Node: "source1", Param: "output"},
 							Target: ir.Handle{Node: "adder", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "source2", Param: ""},
+							Source: ir.Handle{Node: "source2", Param: "output"},
 							Target: ir.Handle{Node: "adder", Param: "b"},
 						},
 					},
@@ -255,11 +255,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "int_source1", Param: ""},
+							Source: ir.Handle{Node: "int_source1", Param: "output"},
 							Target: ir.Handle{Node: "multiplier", Param: "x"},
 						},
 						{
-							Source: ir.Handle{Node: "int_source2", Param: ""},
+							Source: ir.Handle{Node: "int_source2", Param: "output"},
 							Target: ir.Handle{Node: "multiplier", Param: "y"},
 						},
 					},
@@ -316,15 +316,15 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src1", Param: ""},
+							Source: ir.Handle{Node: "src1", Param: "output"},
 							Target: ir.Handle{Node: "add1", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "src2", Param: ""},
+							Source: ir.Handle{Node: "src2", Param: "output"},
 							Target: ir.Handle{Node: "add1", Param: "b"},
 						},
 						{
-							Source: ir.Handle{Node: "add1", Param: ""},
+							Source: ir.Handle{Node: "add1", Param: "output"},
 							Target: ir.Handle{Node: "scale1", Param: "input"},
 						},
 					},
@@ -373,11 +373,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "float_src", Param: ""},
+							Source: ir.Handle{Node: "float_src", Param: "output"},
 							Target: ir.Handle{Node: "adder", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "int_src", Param: ""},
+							Source: ir.Handle{Node: "int_src", Param: "output"},
 							Target: ir.Handle{Node: "adder", Param: "b"},
 						},
 					},
@@ -411,7 +411,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "str_src", Param: ""},
+							Source: ir.Handle{Node: "str_src", Param: "output"},
 							Target: ir.Handle{Node: "numeric_stage", Param: "value"},
 						},
 					},
@@ -444,8 +444,8 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: ""},
-							Target: ir.Handle{Node: "nonexistent", Param: ""}, // Invalid target node
+							Source: ir.Handle{Node: "src", Param: "output"},
+							Target: ir.Handle{Node: "nonexistent", Param: "output"}, // Invalid target node
 						},
 					},
 				}
@@ -476,7 +476,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: ""},
+							Source: ir.Handle{Node: "src", Param: "output"},
 							Target: ir.Handle{Node: "snk", Param: "invalid_param"}, // Invalid parameter
 						},
 					},
@@ -508,7 +508,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "str_src", Param: ""},
+							Source: ir.Handle{Node: "str_src", Param: "output"},
 							Target: ir.Handle{Node: "num_snk", Param: "value"},
 						},
 					},
@@ -537,8 +537,8 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: ""},
-							Target: ir.Handle{Node: "sink", Param: ""},
+							Source: ir.Handle{Node: "src", Param: "output"},
+							Target: ir.Handle{Node: "sink", Param: "output"},
 						},
 					},
 				}
@@ -601,28 +601,28 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []arc.Edge{
 						{
-							Source: arc.Handle{Node: "on"},
+							Source: arc.Handle{Node: "on", Param: "output"},
 							Target: arc.Handle{Node: "ge", Param: "a"},
 						},
 						{
-							Source: arc.Handle{Node: "constant"},
+							Source: arc.Handle{Node: "constant", Param: "output"},
 							Target: arc.Handle{Node: "ge", Param: "b"},
 						},
 						{
-							Source: arc.Handle{Node: "ge"},
-							Target: arc.Handle{Node: "stable_for"},
+							Source: arc.Handle{Node: "ge", Param: "output"},
+							Target: arc.Handle{Node: "stable_for", Param: "output"},
 						},
 						{
-							Source: arc.Handle{Node: "stable_for"},
-							Target: arc.Handle{Node: "select"},
+							Source: arc.Handle{Node: "stable_for", Param: "output"},
+							Target: arc.Handle{Node: "select", Param: "input"},
 						},
 						{
 							Source: arc.Handle{Node: "select", Param: "false"},
-							Target: arc.Handle{Node: "status_success"},
+							Target: arc.Handle{Node: "status_success", Param: "input"},
 						},
 						{
 							Source: arc.Handle{Node: "select", Param: "true"},
-							Target: arc.Handle{Node: "status_error"},
+							Target: arc.Handle{Node: "status_error", Param: "input"},
 						},
 					},
 				}
@@ -674,7 +674,7 @@ var _ = Describe("Graph", func() {
 					{
 						Key: "select",
 						Params: ir.NamedTypes{
-							Keys:   []string{"condition", "false", "true"},
+							Keys:   []string{"input", "false", "true"},
 							Values: []ir.Type{ir.U8{}, ir.U8{}, ir.U8{}},
 						},
 						Return: ir.U8{},
@@ -686,7 +686,7 @@ var _ = Describe("Graph", func() {
 							Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}},
 						},
 						Params: ir.NamedTypes{
-							Keys:   []string{"trigger"},
+							Keys:   []string{"input"},
 							Values: []ir.Type{ir.U8{}},
 						},
 					},
