@@ -22,6 +22,47 @@ get_version() {
     fi
 }
 
+# Function to check the version in MODULE.bazel
+check_module_bazel() {
+    local version=$1
+    local module_file="../MODULE.bazel"
+
+    if [[ -f "$module_file" ]]; then
+        # Extract version from within the module() declaration
+        bazel_version=$(awk '/^module\(/,/^\)/ {if (/version = /) print}' "$module_file" | cut -d '"' -f2 | cut -d '.' -f1-2)
+        if [[ "$bazel_version" == "$version" ]]; then
+            echo "Version match in MODULE.bazel"
+            return 0
+        else
+            echo "Version mismatch in MODULE.bazel: found $bazel_version, expected $version"
+            return 1
+        fi
+    else
+        echo "MODULE.bazel not found!"
+        return 1
+    fi
+}
+
+# Function to check the version in console/src-tauri/Cargo.toml
+check_cargo_toml() {
+    local version=$1
+    local cargo_file="../console/src-tauri/Cargo.toml"
+
+    if [[ -f "$cargo_file" ]]; then
+        cargo_version=$(grep '^version = ' "$cargo_file" | head -1 | cut -d '"' -f2 | cut -d '.' -f1-2)
+        if [[ "$cargo_version" == "$version" ]]; then
+            echo "Version match in console/src-tauri/Cargo.toml"
+            return 0
+        else
+            echo "Version mismatch in console/src-tauri/Cargo.toml: found $cargo_version, expected $version"
+            return 1
+        fi
+    else
+        echo "console/src-tauri/Cargo.toml not found!"
+        return 1
+    fi
+}
+
 # Combined function to check the version in either a TypeScript package.json or Python pyproject.toml file
 check_version() {
     local path=$1
@@ -57,6 +98,18 @@ get_version
 paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py" "../integration")
 
 version_check_passed=true
+
+# Check MODULE.bazel
+check_module_bazel "$VERSION"
+if [[ $? -ne 0 ]]; then
+    version_check_passed=false
+fi
+
+# Check console/src-tauri/Cargo.toml
+check_cargo_toml "$VERSION"
+if [[ $? -ne 0 ]]; then
+    version_check_passed=false
+fi
 
 # Check versions in all specified paths
 for path in "${paths[@]}"; do
