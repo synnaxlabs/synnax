@@ -40,3 +40,20 @@ type OffsetWriter interface {
 	Len() int64
 	io.Writer
 }
+
+type combinedReadWriteCloser struct {
+	io.Reader
+	io.Writer
+	io.Closer
+}
+
+func (c combinedReadWriteCloser) Close() error {
+	if c.Closer != nil {
+		return c.Closer.Close()
+	}
+	return nil
+}
+
+func CombineReadWriteCloser(r io.Reader, w io.Writer, closer io.Closer) io.ReadWriteCloser {
+	return combinedReadWriteCloser{Reader: r, Writer: w, Closer: closer}
+}

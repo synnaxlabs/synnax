@@ -86,19 +86,12 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
 
 const staticListItem = Component.renderProp(StaticListItem);
 
-export interface GroupProps
-  extends Pick<
-    List.FrameProps<string, Schematic.Symbol.Spec>,
-    "data" | "getItem" | "subscribe"
-  > {
+export interface SymbolListProps {
   onSelect: (key: string) => void;
-}
-
-export interface StaticGroupProps extends Pick<GroupProps, "onSelect"> {
   groupKey: group.Key;
 }
 
-const StaticSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
+const StaticSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
   const symbols = useMemo(() => {
     const group = Schematic.Symbol.GROUPS.find((g) => g.key === groupKey);
     return Object.values(Schematic.Symbol.REGISTRY).filter((s) =>
@@ -276,7 +269,7 @@ const RemoteListEmptyContent = ({
   );
 };
 
-const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
+const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
     initialQuery: { parent: group.ontologyID(groupKey) },
   });

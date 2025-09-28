@@ -17,6 +17,8 @@ export type RelationshipChange = change.Change<Relationship, undefined>;
 export interface RelationshipSet extends change.Set<Relationship, undefined> {}
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
 
+export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
+
 export const resourceTypeZ = z.enum([
   "label",
   "log",
@@ -38,6 +40,7 @@ export const resourceTypeZ = z.enum([
   "task",
   "policy",
   "table",
+  "arc",
   "schematic_symbol",
   "status",
 ]);

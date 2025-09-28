@@ -31,12 +31,35 @@ import { useRequiredContext, useSyncedRef } from "@/hooks";
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined> {
-  /** Get a single item by key, returns undefined if not found */
+export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
+  extends GetSingleItem<K, E>,
+    GetMultipleItems<K, E> {}
+
+export interface GetSingleItem<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
   (key: K): E | undefined;
-  /** Get multiple items by an array of keys */
+}
+
+export interface GetMultipleItems<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
   (keys: K[]): E[];
 }
+
+export const createGetItem = <
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+>(
+  first: GetSingleItem<K, E>,
+  second: GetMultipleItems<K, E>,
+): GetItem<K, E> =>
+  ((key: K | K[]) => {
+    if (Array.isArray(key)) return second(key);
+    return first(key);
+  }) as GetItem<K, E>;
 
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;

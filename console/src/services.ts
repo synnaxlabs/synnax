@@ -9,6 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 
+import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
@@ -50,4 +51,5 @@ export const SERVICES: Ontology.Services = {
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status"),
+  arc: ArcServices.ONTOLOGY_SERVICE,
 };
