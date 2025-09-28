@@ -566,6 +566,45 @@ I can successfully:
   - [ ] Register a new user.
 - [ ] Change a user's username and log in with the new username.
 
+### Arc
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Created a named arc automation.
+  - [ ] Open an existing arc automation.
+
+- **Arc Editor**
+  - [ ] Create an alarm automation that changes statuses and includes the 
+      following blocks: channel source, constant, comparison, stable for,
+      select, and status change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see
+      statuses change based on the constant condition.
+  - [ ] Stop the arc deployment.
+  - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
+
+
+### Statuses
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Open the status explorer.
+  - [ ] Open the status create modal.
+
+- **Status Create Modal**
+  - [ ] Create a new status.
+  - [ ] Create a new status with labels.
+
+- **Status Explorer**
+  - [ ] Filter statuses by labels.
+  - [ ] Delete a single status.
+  - [ ] Delete multiple statuses.
+
+- **Status Notifications**
+  - [ ] See status notifications in the bottom right corner when creating
+        a new status.
+
 ### Version
 
 I can successfully:
