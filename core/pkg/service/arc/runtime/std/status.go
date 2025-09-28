@@ -31,6 +31,10 @@ var symbolSetStatus = ir.Symbol{
 			Keys:   []string{"status_key", "variant", "message", "name"},
 			Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}, ir.String{}},
 		},
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"input"},
+			Values: []ir.Type{ir.U8{}},
+		},
 	},
 }
 

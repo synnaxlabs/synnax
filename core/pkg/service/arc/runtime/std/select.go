@@ -23,7 +23,10 @@ var symbolSelect = ir.Symbol{
 	Name: "select",
 	Kind: ir.KindStage,
 	Type: ir.Stage{
-		Params: maps.Ordered[string, ir.Type]{},
+		Params: maps.Ordered[string, ir.Type]{
+			Keys:   []string{"input", "true", "false"},
+			Values: []ir.Type{ir.U8{}, ir.U8{}, ir.U8{}},
+		},
 		Return: ir.NewTypeVariable("T", nil),
 	},
 }

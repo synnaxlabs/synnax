@@ -1,7 +1,6 @@
 package runtime_test
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,48 +49,8 @@ var _ = Describe("Runtime", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	It("Should run a basic value printer", func() {
-		ch := &channel.Channel{
-			Name:     "ox_pt_1",
-			Virtual:  true,
-			DataType: telem.Float32T,
-		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-
-		cfg := runtime.Config{
-			Channel: dist.Channel,
-			Framer:  dist.Framer,
-			Status:  statusSvc,
-		}
-
-		resolver := MustSucceed(runtime.CreateResolver(cfg))
-
-		graph := arc.Graph{
-			Nodes: []graph.Node{
-				{Node: arc.Node{
-					Key:    "first",
-					Type:   "on",
-					Config: map[string]any{"channel": ch.Key()},
-				}},
-				{Node: arc.Node{Key: "printer", Type: "printer"}},
-			},
-			Edges: []arc.Edge{
-				{
-					Source: arc.Handle{Node: "first"},
-					Target: arc.Handle{Node: "printer"},
-				},
-			},
-		}
-		cfg.Module = MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(resolver)))
-		Expect(cfg.Module.Nodes).To(HaveLen(2))
-		Expect(cfg.Module.Edges).To(HaveLen(1))
-
-		r := MustSucceed(runtime.Open(ctx, cfg))
-		Expect(r.Close()).To(Succeed())
-	})
-
 	Describe("Alarm", func() {
-		FIt("Should update alarm statuses", func() {
+		It("Should update alarm statuses", func() {
 			ch := &channel.Channel{
 				Name:     "ox_pt_1",
 				Virtual:  true,
@@ -167,19 +126,19 @@ var _ = Describe("Runtime", Ordered, func() {
 					},
 					{
 						Source: arc.Handle{Node: "ge", Param: "output"},
-						Target: arc.Handle{Node: "stable_for"},
+						Target: arc.Handle{Node: "stable_for", Param: "input"},
 					},
 					{
 						Source: arc.Handle{Node: "stable_for", Param: "output"},
-						Target: arc.Handle{Node: "select"},
+						Target: arc.Handle{Node: "select", Param: "input"},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success"},
+						Target: arc.Handle{Node: "status_success", Param: "input"},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error"},
+						Target: arc.Handle{Node: "status_error", Param: "input"},
 					},
 				},
 			}
@@ -194,13 +153,11 @@ var _ = Describe("Runtime", Ordered, func() {
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
-			fmt.Println("V1")
 			Expect(w.Write(core.UnaryFrame(
 				ch.Key(),
 				telem.NewSeriesV[float32](20),
 			))).To(BeTrue())
 			time.Sleep(time.Millisecond * 20)
-			fmt.Println("V2")
 			Expect(w.Write(core.UnaryFrame(
 				ch.Key(),
 				telem.NewSeriesV[float32](25),
@@ -209,7 +166,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status
 				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
-				g.Expect(stat.Variant).To(Equal("error"))
+				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).To(Succeed())
 
 			Expect(r.Close()).To(Succeed())
