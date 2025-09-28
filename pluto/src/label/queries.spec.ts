@@ -411,7 +411,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new label", async () => {
-      const { result } = renderHook(() => Label.useForm({ params: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -435,7 +435,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Label.useForm({ params: { key: existingLabel.key } }),
+        () => Label.useForm({ query: { key: existingLabel.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -460,7 +460,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Label.useForm({ params: { key: testLabel.key } }),
+        () => Label.useForm({ query: { key: testLabel.key } }),
         { wrapper },
       );
       await waitFor(() => {
@@ -479,7 +479,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Label.useForm({ params: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: {} }), {
         wrapper,
       });
 

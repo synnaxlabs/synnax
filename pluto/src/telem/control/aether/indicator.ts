@@ -17,8 +17,6 @@ export const indicatorStatusDetailsZ = z
   .object({ color: color.colorZ.optional() })
   .default({ color: undefined });
 
-export type IndicatorStatusDetails = z.infer<typeof indicatorStatusDetailsZ>;
-
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
@@ -27,7 +25,7 @@ export const indicatorStateZ = z.object({
 });
 
 interface InternalState {
-  statusSource: telem.StatusSource<IndicatorStatusDetails>;
+  statusSource: telem.StatusSource<typeof indicatorStatusDetailsZ>;
   colorSource: telem.ColorSource;
 }
 

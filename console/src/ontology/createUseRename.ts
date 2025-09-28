@@ -19,7 +19,7 @@ export interface CreateUseRenameArgs<K extends record.Key> {
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
   beforeUpdate?: (
-    params: Flux.BeforeUpdateParams<record.KeyedNamed<K>> &
+    query: Flux.BeforeUpdateParams<record.KeyedNamed<K>> &
       Ontology.TreeContextMenuProps & { oldName: string },
   ) => Promise<record.KeyedNamed<K> | boolean>;
 }
@@ -40,8 +40,8 @@ export const createUseRename =
     } = props;
     const { update } = query({
       beforeUpdate: useCallback(
-        async (params: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
-          const { data } = params;
+        async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
+          const { data } = query;
           const { key, name: oldName } = data;
           const [name, renamed] = await Text.asyncEdit(
             ontology.idToString(ontologyID(key)),
@@ -49,7 +49,7 @@ export const createUseRename =
           if (!renamed) return false;
           if (beforeUpdate != null)
             return await beforeUpdate({
-              ...params,
+              ...query,
               ...props,
               oldName,
               data: { ...data, name },

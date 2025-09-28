@@ -258,13 +258,13 @@ describe("Button", () => {
     });
 
     it("should not display the trigger indicator when triggerIndicator is true and no trigger has been set", () => {
-      const c = render(<Button.Button triggerIndicator={true}>Hello</Button.Button>);
+      const c = render(<Button.Button triggerIndicator>Hello</Button.Button>);
       expect(c.queryByLabelText("trigger-indicator")).not.toBeTruthy();
     });
 
     it("should display the trigger indicator when triggerIndicator is true and a trigger has been set", () => {
       const c = render(
-        <Button.Button triggerIndicator={true} trigger={["Enter"]}>
+        <Button.Button triggerIndicator trigger={["Enter"]}>
           Hello
         </Button.Button>,
       );

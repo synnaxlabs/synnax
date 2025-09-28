@@ -18,7 +18,7 @@ import {
   loadingResult,
   nullClientResult,
   type Result,
-  type Status,
+  type ResultStatus,
   successResult,
 } from "@/flux/result";
 import {
@@ -31,7 +31,7 @@ import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { useAdder } from "@/status/Aggregator";
+import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
@@ -103,7 +103,7 @@ export interface UseFormArgs<
 > extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
-  params: Query;
+  query: Query;
   beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
   beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
   afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
@@ -137,7 +137,7 @@ export const createForm =
     initialValues: baseInitialValues,
   }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
   ({
-    params: query,
+    query,
     initialValues,
     autoSave = false,
     afterSave,
@@ -155,7 +155,7 @@ export const createForm =
     const client = Synnax.use();
     const store = useStore<Store>(scope);
     const listeners = useDestructors();
-    const addStatus = useAdder();
+    const addStatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -219,7 +219,7 @@ export const createForm =
             return false;
           }
           if (signal?.aborted === true) return false;
-          const setStatus = (setter: state.SetArg<Status<never>>) =>
+          const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
             setResult((p) => {
               const nextStatus = state.executeSetter(setter, p.status);
               return {

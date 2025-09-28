@@ -90,6 +90,7 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   ReturnType<typeof task.statusDetailsZ<StatusData>>
 > => ({
   key: id.create(),
+  name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
   time: TimeStamp.now(),
@@ -162,7 +163,7 @@ export const wrapForm = <
     };
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
-      params: { key: taskKey },
+      query: { key: taskKey },
       onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();

@@ -10,6 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type Destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
+import type z from "zod";
 
 import { type core } from "@/flux/core";
 import { useStore } from "@/flux/Provider";
@@ -20,32 +21,32 @@ import {
   nullClientResult,
   parseInitialStatusDetails,
   type Result,
+  type ResultStatus,
   resultStatusDetails,
-  type Status,
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
 import { state } from "@/state";
-import { useAdder } from "@/status/Aggregator";
+import { useAdder } from "@/status/core/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
   Input extends core.Shape,
   Store extends core.Store,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > {
   data: Input;
   client: Client;
   store: Store;
   rollbacks: Destructor[];
-  setStatus: (setter: state.SetArg<Status<StatusDetails>>) => void;
+  setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
 }
 
 export type CreateUpdateParams<
   Input extends core.Shape,
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   name: string;
   verbs: core.Verbs;
@@ -62,7 +63,7 @@ export interface UseObservableUpdateReturn<Input extends core.Shape> {
 export interface UseObservableUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > {
   debounce?: number;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
@@ -87,25 +88,25 @@ export interface AfterSuccessParams<Output extends core.Shape> {
 
 export interface AfterFailureParams<Data extends core.Shape> {
   client: Client;
-  status: status.Status<status.ExceptionDetails, "error">;
+  status: status.Status<typeof status.exceptionDetailsSchema, "error">;
   data: Data;
 }
 
 export interface UseDirectUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
 export type UseDirectUpdateReturn<
   Input extends core.Shape,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > {
   (
     args: UseObservableUpdateParams<Input, Output, StatusDetails>,
@@ -115,7 +116,7 @@ export interface UseObservableUpdate<
 export interface UseUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > {
   (
     args?: UseDirectUpdateParams<Input, Output, StatusDetails>,
@@ -125,7 +126,7 @@ export interface UseUpdate<
 export interface CreateUpdateReturn<
   Input extends core.Shape,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 > {
   useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
   useUpdate: UseUpdate<Input, Output, StatusDetails>;
@@ -135,7 +136,7 @@ const useObservable = <
   Input extends core.Shape,
   Store extends core.Store,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 >(
   params: UseObservableUpdateParams<Input, Output, StatusDetails> &
     CreateUpdateParams<Input, Store, Output, StatusDetails>,
@@ -197,7 +198,7 @@ const useObservable = <
           if (updatedValue !== true) data = updatedValue;
         }
 
-        const setStatus = (setter: state.SetArg<Status<StatusDetails>>) =>
+        const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
           onChange((p) => {
             const nextStatus = state.executeSetter(setter, p.status);
             return {
@@ -246,17 +247,21 @@ const useDirect = <
   Input extends core.Shape,
   Store extends core.Store = {},
   Output extends core.Shape = Input,
-  initialStatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 >(
-  params: UseDirectUpdateParams<Input, Output, initialStatusDetails> &
-    CreateUpdateParams<Input, Store, Output, initialStatusDetails>,
-): UseDirectUpdateReturn<Input, initialStatusDetails> => {
+  params: UseDirectUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Store, Output, StatusDetails>,
+): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
-  const initialStatusDetails = parseInitialStatusDetails<initialStatusDetails>(params);
-  const [result, setResult] = useState<Result<Input | undefined, initialStatusDetails>>(
-    successResult(`${verbs.past} ${name}`, undefined, initialStatusDetails),
+  const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
+  const [result, setResult] = useState<Result<Input | undefined, StatusDetails>>(
+    successResult<Input | undefined, StatusDetails>(
+      `${verbs.past} ${name}`,
+      undefined,
+      initialStatusDetails,
+    ),
   );
-  const methods = useObservable<Input, Store, Output, initialStatusDetails>({
+  const methods = useObservable<Input, Store, Output, StatusDetails>({
     ...restParams,
     initialStatusDetails,
     verbs,
@@ -270,7 +275,7 @@ export const createUpdate = <
   Input extends core.Shape,
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
-  StatusDetails = never,
+  StatusDetails extends z.ZodType = z.ZodNever,
 >(
   createParams: CreateUpdateParams<Input, ScopedStore, Output, StatusDetails>,
 ): CreateUpdateReturn<Input, Output, StatusDetails> => ({

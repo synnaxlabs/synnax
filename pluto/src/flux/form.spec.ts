@@ -53,7 +53,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       expect(result.current.form.value()).toEqual({
@@ -92,7 +92,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: vi.fn(),
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       await waitFor(() => {
@@ -121,7 +121,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
 
@@ -149,7 +149,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
     act(() => {
@@ -181,7 +181,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => {
@@ -206,7 +206,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn().mockRejectedValue(new Error("Update failed")),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => result.current.save({ signal: controller.signal }));
@@ -227,7 +227,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => {
@@ -255,7 +255,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       expect(result.current.form.value()).toEqual({
@@ -294,7 +294,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
     act(() => {
@@ -323,7 +323,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ get }) => update(get("name").value),
-          })({ params: {}, autoSave: true }),
+          })({ query: {}, autoSave: true }),
         { wrapper },
       );
       act(() => {
@@ -355,7 +355,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ value }) => update(value.name),
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       await waitFor(() => {
@@ -402,7 +402,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ store, set }) =>
               store.labels.onSet((changed) => set("name", changed.name), label.key),
-          })({ params: { key: label.key } }),
+          })({ query: { key: label.key } }),
         { wrapper },
       );
 
@@ -456,7 +456,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ store, set }) =>
               store.labels.onSet((changed) => set("name", changed.name), label.key),
-          })({ params: { key: label.key } }),
+          })({ query: { key: label.key } }),
         { wrapper },
       );
 
