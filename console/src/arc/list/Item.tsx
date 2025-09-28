@@ -25,19 +25,21 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
-    if (arc == null) return null;
+    if (arc == null) return undefined;
     return {
       key: arc.key,
       name: arc.name,
       graph: arc.graph,
       text: arc.text,
+      deploy: arc.deploy,
+      version: arc.version,
     };
   }, [arc]);
 
   if (initialValues == null || arc == null) return null;
 
   const { form } = Arc.useForm({
-    params: { key: itemKey },
+    query: { key: itemKey },
     initialValues,
     sync: true,
     autoSave: true,
