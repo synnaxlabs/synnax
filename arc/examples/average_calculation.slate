@@ -1,8 +1,0 @@
-stage average{} (first chan i64) chan i64 {
-	return (first + second) / 2
-}
-
-stage on{} () chan i64 {
-}
-
-on{} -> average{} -> ox_pt_1

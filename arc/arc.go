@@ -12,7 +12,6 @@ package arc
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
@@ -58,23 +57,6 @@ func newOptions(opts []Option) *options {
 	return o
 }
 
-func CompileText(ctx context.Context, t Text, opts ...Option) (Module, error) {
-	o := newOptions(opts)
-	textWithAST, err := text.Parse(t)
-	if err != nil {
-		return Module{}, err
-	}
-	inter, diagnostics := text.Analyze(ctx, textWithAST, o.resolver)
-	if !diagnostics.Ok() {
-		return Module{}, diagnostics.Error()
-	}
-	wasmBytes, err := compiler.Compile(ctx, inter)
-	if err != nil {
-		return Module{}, err
-	}
-	return Module{WASM: wasmBytes, IR: inter}, nil
-}
-
 func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) {
 	o := newOptions(opts)
 	graphWithAST, err := graph.Parse(g)
@@ -85,11 +67,7 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics.Error()
 	}
-	wasmBytes, err := compiler.Compile(ctx, inter)
-	if err != nil {
-		return Module{}, err
-	}
-	return Module{WASM: wasmBytes, IR: inter}, nil
+	return Module{IR: inter}, nil
 }
 
 func ConvertTextToGraph(text Text, opts ...Option) (Graph, error) {
