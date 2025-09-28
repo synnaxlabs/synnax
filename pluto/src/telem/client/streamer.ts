@@ -13,6 +13,7 @@ import {
   array,
   compare,
   type CrudeTimeSpan,
+  debounce,
   type Destructor,
   MultiSeries,
   type Replace,
@@ -37,6 +38,8 @@ interface StreamerProps {
   streamUpdateDelay?: CrudeTimeSpan;
 }
 
+const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+
 export class Streamer {
   private readonly props: Replace<
     Required<StreamerProps>,
@@ -47,6 +50,7 @@ export class Streamer {
 
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
+  private readonly debouncedUpdateStreamer: () => void;
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
   private closed = false;
@@ -57,6 +61,10 @@ export class Streamer {
       ...props,
       streamUpdateDelay: new TimeSpan(props.streamUpdateDelay ?? TimeSpan.seconds(5)),
     };
+    this.debouncedUpdateStreamer = debounce(
+      () => void this.updateStreamer(),
+      STREAM_DEBOUNCE,
+    );
   }
 
   /** Implements StreamClient. */
@@ -84,7 +92,7 @@ export class Streamer {
       handler(dynamicBuffers);
 
       // Update the remote streamer to start streaming the new channels.
-      await this.updateStreamer();
+      this.debouncedUpdateStreamer();
 
       return () => this.removeStreamHandler(handler);
     });
@@ -100,7 +108,7 @@ export class Streamer {
     setTimeout(() => {
       void this.mu.runExclusive(async () => {
         ins.L.debug("removing stream handler");
-        if (this.listeners.delete(handler)) return await this.updateStreamer();
+        if (this.listeners.delete(handler)) return this.debouncedUpdateStreamer();
         ins.L.warn("attempted to remove non-existent stream handler");
       });
     }, this.props.streamUpdateDelay.milliseconds);
@@ -137,7 +145,7 @@ export class Streamer {
         ins.L.info("creating new streamer", { keys: arrKeys });
         this.streamer = await this.props.openStreamer({
           channels: arrKeys,
-          useHighPerformanceCodec: false,
+          // useHighPerformanceCodec: false,
         });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }
