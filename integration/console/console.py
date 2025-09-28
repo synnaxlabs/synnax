@@ -60,8 +60,7 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        self.page.wait_for_selector(f"text={command}", timeout=5000)
-        self.page.get_by_text(command).click()
+        self.click(command)
 
     @property
     def ESCAPE(self) -> None:
@@ -88,23 +87,21 @@ class Console:
         self, text: str, placeholder: Optional[str] = None
     ) -> None:
         """Select an item from an open dropdown."""
-        self.page.wait_for_timeout(300)
+        self.page.wait_for_timeout(200)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
         if placeholder is not None:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
             if search_input.count() > 0:
                 search_input.fill(text)
-                self.page.wait_for_timeout(200)
+                self.page.wait_for_timeout(100)
 
         for attempt in range(10):
             try:
                 self.page.wait_for_selector(target_item, timeout=100)
                 self.page.locator(target_item).first.click()
-                self.page.wait_for_timeout(100)
                 return
             except Exception:
-                self.page.wait_for_timeout(100)
                 continue
 
         items = self.page.locator(
@@ -205,6 +202,14 @@ class Console:
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
+
+    def check_for_error_screen(self) -> None:
+        self.page.wait_for_timeout(300)
+        """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
+        if self.page.get_by_text("Something went wrong").is_visible():
+            self.page.wait_for_timeout(200)
+            self.page.get_by_text("Try again").click()
+            self.page.wait_for_timeout(200)
 
     def screenshot(self, name: Optional[str] = None) -> None:
         """Take a screenshot of the entire console page."""

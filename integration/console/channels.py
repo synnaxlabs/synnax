@@ -58,14 +58,6 @@ class ChannelClient:
         if self.channels_pane.is_visible():
             self.channels_button.click(force=True, timeout=2000)
 
-    def _check_for_error_screen(self) -> None:
-        self.page.wait_for_timeout(300)
-        """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
-        if self.page.get_by_text("Something went wrong").is_visible():
-            self.page.wait_for_timeout(200)
-            self.page.get_by_text("Try again").click()
-            self.page.wait_for_timeout(200)
-
     def create(
         self,
         *,
@@ -118,7 +110,6 @@ class ChannelClient:
 
         # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
-        self._check_for_error_screen()
         self.hide_channels()
         return True
 
@@ -185,7 +176,7 @@ class ChannelClient:
                     channel_name_element.click()
                     channel_name_element.fill(new_name)
                     self.page.keyboard.press("Enter")
-                    self.page.wait_for_timeout(500)
+                    self.page.wait_for_timeout(200)
                     break
         self.hide_channels()
 
@@ -213,7 +204,7 @@ class ChannelClient:
             raise ValueError(f"Channel {name} does not exist in {all_channels}")
 
         # Find the channel in the list and delete it
-        self.show_channels()
+        # self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
                 # Get the channel name from the <p> element inside the channel div
