@@ -104,7 +104,7 @@ const beforeSave = async ({
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const { form, save, status, variant } = useForm({
-    params: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
+    query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
     beforeValidate,
     beforeSave,
