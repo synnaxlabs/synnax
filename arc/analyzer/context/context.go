@@ -24,7 +24,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Diagnostics *diagnostics.Diagnostics
 	Constraints *constraints.System
 	AST         AST
-	Hint        ir.Type
+	TypeHint    ir.Type
 }
 
 func (c Context[AST]) WithScope(scope *ir.Scope) Context[AST] {
@@ -32,8 +32,8 @@ func (c Context[AST]) WithScope(scope *ir.Scope) Context[AST] {
 	return c
 }
 
-func (c Context[AST]) WithHint(hint ir.Type) Context[AST] {
-	c.Hint = hint
+func (c Context[AST]) WithTypeHint(hint ir.Type) Context[AST] {
+	c.TypeHint = hint
 	return c
 }
 
@@ -59,6 +59,6 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		Diagnostics: ctx.Diagnostics,
 		Constraints: ctx.Constraints,
 		AST:         next,
-		Hint:        ctx.Hint,
+		TypeHint:    ctx.TypeHint,
 	}
 }

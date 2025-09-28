@@ -167,15 +167,15 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) ir.Type {
 		return ir.U8{}
 	}
 	if isDecimalLiteral(text) {
-		if ctx.Hint == nil || !ir.IsFloat(ctx.Hint) {
+		if ctx.TypeHint == nil || !ir.IsFloat(ctx.TypeHint) {
 			return ir.F64{}
 		}
-		return ctx.Hint
+		return ctx.TypeHint
 	}
-	if ctx.Hint == nil || !ir.IsNumeric(ctx.Hint) {
+	if ctx.TypeHint == nil || !ir.IsNumeric(ctx.TypeHint) {
 		return ir.I64{}
 	}
-	return ctx.Hint
+	return ctx.TypeHint
 }
 
 func isDecimalLiteral(text string) bool {

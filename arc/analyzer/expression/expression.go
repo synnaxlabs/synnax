@@ -110,7 +110,7 @@ func validateExpressionType[T antlr.ParserRuleContext, N antlr.ParserRuleContext
 		return false
 	}
 	for i := 1; i < len(items); i++ {
-		nextType := infer(context.Child(ctx, items[i]).WithHint(firstType))
+		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType))
 		if firstType != nil && nextType != nil && !atypes.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
