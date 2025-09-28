@@ -17,7 +17,7 @@ import {
   createErrorHandler,
   type ErrorHandler,
 } from "@/status/aether/errorHandler";
-import { type AsyncErrorHandler } from "@/status/Aggregator";
+import { type AsyncErrorHandler } from "@/status/core/Aggregator";
 
 export const aggregatorStateZ = z.object({ statuses: status.statusZ().array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}

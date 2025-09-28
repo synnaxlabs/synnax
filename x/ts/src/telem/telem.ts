@@ -193,7 +193,7 @@ export class TimeStamp
    * the other timestamp.
    * @param other - The other timestamp.
    */
-  static since(other: TimeStamp): TimeSpan {
+  static since(other: CrudeTimeStamp): TimeSpan {
     return new TimeStamp().span(other);
   }
 

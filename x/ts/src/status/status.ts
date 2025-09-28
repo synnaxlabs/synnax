@@ -9,7 +9,9 @@
 
 import { z } from "zod";
 
+import { array } from "@/array";
 import { id } from "@/id";
+import { label } from "@/label";
 import { type Optional } from "@/optional";
 import { TimeStamp } from "@/telem";
 
@@ -25,20 +27,24 @@ export const variantZ = z.enum([
 // Represents one of the possible variants of a status message.
 export type Variant = z.infer<typeof variantZ>;
 
-type StatusZodObject<DetailsSchema extends z.ZodType> = z.ZodObject<
+export type StatusZodObject<DetailsSchema extends z.ZodType = z.ZodNever> = z.ZodObject<
   {
     key: z.ZodString;
+    name: z.ZodDefault<z.ZodString>;
     variant: typeof variantZ;
     message: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
+    labels: z.ZodOptional<ReturnType<typeof array.nullableZ<typeof label.labelZ>>>;
     time: typeof TimeStamp.z;
   } & ([DetailsSchema] extends [z.ZodNever] ? {} : { details: DetailsSchema })
 >;
 
-interface StatusZFunction {
-  (): StatusZodObject<z.ZodNever>;
+export interface StatusZFunction {
   <DetailsSchema extends z.ZodType>(
     details: DetailsSchema,
+  ): StatusZodObject<DetailsSchema>;
+  <DetailsSchema extends z.ZodType = z.ZodNever>(
+    details?: DetailsSchema,
   ): StatusZodObject<DetailsSchema>;
 }
 
@@ -47,40 +53,44 @@ export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
 ) =>
   z.object({
     key: z.string(),
+    name: z.string().default(""),
     variant: variantZ,
     message: z.string(),
     description: z.string().optional(),
     time: TimeStamp.z,
+    labels: array.nullableZ(label.labelZ).optional(),
     details: details ?? z.unknown().optional(),
   });
 
 type Base<V extends Variant> = {
   key: string;
+  name: string;
   variant: V;
   message: string;
   description?: string;
   time: TimeStamp;
+  labels?: label.Label[];
 };
 
-export type Status<Details = never, V extends Variant = Variant> = Base<V> &
-  ([Details] extends [never] ? {} : { details: Details });
+export type Status<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Base<V> &
+  ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
-export type Crude<Details = never, V extends Variant = Variant> = Optional<
+export type Crude<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Optional<
   Base<V>,
-  "key" | "time"
+  "key" | "time" | "name"
 > &
-  ([Details] extends [never] ? {} : { details: Details });
+  ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
-export interface ExceptionDetails {
-  stack: string;
-}
+export const exceptionDetailsSchema = z.object({
+  stack: z.string(),
+});
 
 export const fromException = (
   exc: unknown,
   message?: string,
-): Status<ExceptionDetails, "error"> => {
+): Status<typeof exceptionDetailsSchema, "error"> => {
   if (!(exc instanceof Error)) throw exc;
-  return create<ExceptionDetails, "error">({
+  return create<typeof exceptionDetailsSchema, "error">({
     variant: "error",
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
@@ -90,14 +100,15 @@ export const fromException = (
   });
 };
 
-export const create = <Details = never, V extends Variant = Variant>(
-  spec: Crude<Details, V>,
-): Status<Details, V> =>
+export const create = <DetailsSchema = z.ZodNever, V extends Variant = Variant>(
+  spec: Crude<DetailsSchema, V>,
+): Status<DetailsSchema, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
+    name: "",
     ...spec,
-  }) as Status<Details, V>;
+  }) as Status<DetailsSchema, V>;
 
 export const keepVariants = (
   variant?: Variant,

@@ -78,7 +78,7 @@ const MetaDataListItem = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
-    params: { rangeKey },
+    query: { rangeKey },
     autoSave: !isCreate,
     initialValues: initialValues ?? {
       key: "",
