@@ -157,7 +157,6 @@ describe("useContext", () => {
       const { result } = renderHook(() => useContext(mockOverride, "TestFunction"), {
         wrapper: FormWrapper,
       });
-
       expect(result.current).toBe(mockOverride);
     });
   });

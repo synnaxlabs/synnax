@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/console"
@@ -116,6 +117,8 @@ type Layer struct {
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
 	Console *console.Service
+	// Arc is used for validating, saving, and executing arc automations.
+	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
@@ -258,6 +261,35 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Label:           l.Label,
 		},
 	); !ok(err, l.Status) {
+		return nil, err
+	}
+
+	if l.Status, err = status.OpenService(
+		ctx,
+		status.ServiceConfig{
+			Instrumentation: cfg.Instrumentation.Child("status"),
+			DB:              cfg.Distribution.DB,
+			Signals:         cfg.Distribution.Signals,
+			Ontology:        cfg.Distribution.Ontology,
+			Group:           cfg.Distribution.Group,
+			Label:           l.Label,
+		},
+	); !ok(err, l.Status) {
+		return nil, err
+	}
+
+	if l.Arc, err = arc.OpenService(
+		ctx,
+		arc.ServiceConfig{
+			Instrumentation: cfg.Instrumentation.Child("arc"),
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Channel:         cfg.Distribution.Channel,
+			Signals:         cfg.Distribution.Signals,
+			Status:          l.Status,
+		},
+	); !ok(err, l.Arc) {
 		return nil, err
 	}
 	return l, nil

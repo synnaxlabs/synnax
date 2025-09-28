@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 
 import { Modals } from "@/modals";
 
@@ -31,7 +31,7 @@ export const useConfirmDelete = ({
   const confirm = Modals.useConfirm();
   return async (items_: ConfirmDeleteItem | ConfirmDeleteItem[]): Promise<boolean> => {
     const items = array.toArray(items_);
-    let message = `Are you sure you want to delete ${items.length} ${type.toLowerCase()}s?`;
+    let message = `Are you sure you want to delete ${items.length} ${strings.pluralName(type.toLowerCase())}?`;
     if (items.length === 1)
       message = `Are you sure you want to delete ${items[0].name}?`;
     return (

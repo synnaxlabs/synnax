@@ -16,10 +16,12 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/arc v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
+	github.com/tetratelabs/wazero v1.9.0
 	github.com/uptrace/uptrace-go v1.37.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.42.0
@@ -39,7 +41,7 @@ replace github.com/synnaxlabs/x => ../x/go
 
 replace github.com/synnaxlabs/alamos => ../alamos/go
 
-replace github.com/synnaxlabs/computron => ../computron
+replace github.com/synnaxlabs/arc => ../arc
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
@@ -48,6 +50,7 @@ require (
 	github.com/RaduBerinde/btreemap v0.0.0-20250419232817-bf0d809ae648 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.10.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.0 // indirect
 	github.com/blevesearch/bleve_index_api v1.2.9 // indirect

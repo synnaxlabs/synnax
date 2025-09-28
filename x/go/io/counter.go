@@ -11,9 +11,10 @@ package io
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/x/errors"
 	"io"
 	"sync"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Int32Counter is an atomic, file backed counter.
