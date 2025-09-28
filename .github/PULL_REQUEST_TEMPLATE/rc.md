@@ -575,14 +575,13 @@ I can successfully:
   - [ ] Open an existing arc automation.
 
 - **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the 
-      following blocks: channel source, constant, comparison, stable for,
-      select, and status change.
-  - [ ] Deploy the arc automation using `press_simulated_daq` and see
-      statuses change based on the constant condition.
+  - [ ] Create an alarm automation that changes statuses and includes the following
+        blocks: channel source, constant, comparison, stable for, select, and status
+        change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change
+        based on the constant condition.
   - [ ] Stop the arc deployment.
   - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
-
 
 ### Statuses
 
@@ -602,8 +601,7 @@ I can successfully:
   - [ ] Delete multiple statuses.
 
 - **Status Notifications**
-  - [ ] See status notifications in the bottom right corner when creating
-        a new status.
+  - [ ] See status notifications in the bottom right corner when creating a new status.
 
 ### Version
 

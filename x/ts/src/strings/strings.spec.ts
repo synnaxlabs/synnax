@@ -105,8 +105,7 @@ describe("trimPrefix", () => {
 });
 
 describe("pluralName", () => {
-  it("should handle empty string", () =>
-    expect(strings.pluralName("")).toBe(""));
+  it("should handle empty string", () => expect(strings.pluralName("")).toBe(""));
 
   it("should add 's' to regular words", () => {
     expect(strings.pluralName("cat")).toBe("cats");
