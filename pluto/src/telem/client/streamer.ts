@@ -145,10 +145,7 @@ export class Streamer {
       // Update or create the streamer.
       if (this.streamer == null) {
         ins.L.info("creating new streamer", { keys: arrKeys });
-        this.streamer = await this.props.openStreamer({
-          channels: arrKeys,
-          // useHighPerformanceCodec: false,
-        });
+        this.streamer = await this.props.openStreamer({ channels: arrKeys });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }
 
