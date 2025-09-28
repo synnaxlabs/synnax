@@ -146,5 +146,7 @@ func (w Writer) validate(s Status) error {
 	v := validate.New("status.Status")
 	validate.NotEmptyString(v, "Key", s.Key)
 	validate.NotEmptyString(v, "Name", s.Name)
+	validate.Positive(v, "Time", s.Time)
+	validate.NotEmptyString(v, "Variant", s.Variant)
 	return v.Error()
 }
