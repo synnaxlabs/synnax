@@ -72,6 +72,10 @@ class Console:
         self.page.keyboard.press("Enter")
 
     @property
+    def DELETE(self) -> None:
+        self.page.keyboard.press("Delete")
+
+    @property
     def MODAL_OPEN(self) -> bool:
         return (
             self.page.locator(

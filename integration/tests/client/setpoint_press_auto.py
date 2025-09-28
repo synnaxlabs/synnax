@@ -67,7 +67,7 @@ class Setpoint_Press_Auto(TestCase):
             self.fail()
             return
 
-        print("Acquiring control")
+        self._log_message("DEBUG: Acquiring control")
         with client.control.acquire(
             name="Pressurization Sequence",
             write_authorities=[200],
@@ -79,18 +79,13 @@ class Setpoint_Press_Auto(TestCase):
             ],
             read=["press_pt", "press_setpoint_cmd", "end_test_state"],
         ) as ctrl:
-            print("Control acquired")
+            self._log_message("DEBUG: Control acquired")
             loop = sy.Loop(sy.Rate.HZ * 100)
-            state = {
-                "daq_time": sy.TimeStamp.now(),
-                "press_setpoint_state": 0,
-            }
 
             def test_active() -> bool:
                 return all([loop.wait(), self.should_continue])
 
             # Initialize valves to closed
-            print("Setting initial state")
             ctrl.set(
                 {
                     "press_vlv_cmd": 0,
@@ -100,9 +95,14 @@ class Setpoint_Press_Auto(TestCase):
                 }
             )
 
+            self._log_message("DEBUG: Waiting for press_pt and press_setpoint_cmd")
+            if not ctrl.wait_until_defined(["press_pt", "press_setpoint_cmd"], timeout=45):
+                self.fail("Failed to wait for press_pt and press_setpoint_cmd")
+                return
+
+            self._log_message("Starting pressurization logic")
             mode = "hold"
             setpoint_prev = None
-            ctrl.wait_until_defined(["press_setpoint_cmd"])
             while test_active():
 
                 setpoint = ctrl["press_setpoint_cmd"]
@@ -113,27 +113,31 @@ class Setpoint_Press_Auto(TestCase):
                 # Update on a new value
                 if setpoint != setpoint_prev:
                     setpoint_prev = setpoint
-                import time
+                    self._log_message(f"Setpoint changed to {setpoint:.2f}")
 
                 if mode == "hold":
                     if pressure - setpoint > 2:
+                        print("DEBUG: Venting")
                         mode = "vent"
                         ctrl["vent_vlv_cmd"] = 1
                     elif setpoint - pressure > 2:
+                        print("DEBUG: Pressing")
                         mode = "press"
                         ctrl["press_vlv_cmd"] = 1
 
                 elif mode == "press" and pressure > setpoint:
+                    print("DEBUG: Holding")
                     mode = "hold"
                     ctrl["press_vlv_cmd"] = 0
 
                 elif mode == "vent" and pressure < setpoint:
+                    print("DEBUG: Holding")
                     mode = "hold"
                     ctrl["vent_vlv_cmd"] = 0
 
                 # Check for test end
                 if end_test_state > 0.9:
-                    print("Test ended")
+                    print("DEBUG: Test ended")
                     ctrl["press_vlv_cmd"] = 0
                     ctrl["vent_vlv_cmd"] = 0
                     return

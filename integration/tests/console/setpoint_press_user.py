@@ -82,7 +82,7 @@ class Setpoint_Press_User(ConsoleCase):
                     delta = abs(pressure_value - target)
                     if delta < 0.5:
                         self._log_message(
-                            f"Target pressure reached: {pressure_value}.2f"
+                            f"Target pressure reached: {pressure_value:.2f}"
                         )
                         sy.sleep(1)
                         break

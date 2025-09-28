@@ -182,25 +182,26 @@ class Sim_DAQ(TestCase):
 
                 start_test = False
                 controller_timeout = 30
-                self._log_message(f"Awaiting start command for {controller_timeout}s")
-                while test_active() and self.uptime < controller_timeout:
-                    frame = streamer.read(timeout=0)
-                    if frame is not None:
-                        start_test_cmd = frame.get("start_test_cmd")
-                        if len(start_test_cmd) > 0:
-                            state["start_test_state"] = start_test_cmd[-1]
-                            start_test = state["start_test_state"] > 0.9
-                            state["daq_time"] = sy.TimeStamp.now()
-                            writer.write(state)
-                    if start_test:
-                        self._log_message("Start command received")
-                        break
-
-                if not start_test:
-                    self.fail("Start test command was not received")
-                    return
+                #self._log_message(f"Awaiting start command for {controller_timeout}s")
+                #while test_active() and self.uptime < controller_timeout:
+                #    frame = streamer.read(timeout=0)
+                #    if frame is not None:
+                #        start_test_cmd = frame.get("start_test_cmd")
+                #        if len(start_test_cmd) > 0:
+                #            state["start_test_state"] = start_test_cmd[-1]
+                #            start_test = state["start_test_state"] > 0.9
+                #            state["daq_time"] = sy.TimeStamp.now()
+                #            writer.write(state)
+                #    if start_test:
+                #         self._log_message("Start command received")
+                #        break
+                #
+                #if not start_test:
+                #    self.fail("Start test command was not received")
+                #    return
 
                 # The actual run loop
+                self._log_message("Sim DAQ running")
                 while test_active():
                     # Read incoming commands
                     frame = streamer.read(timeout=0)

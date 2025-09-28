@@ -253,7 +253,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-            self._log_message("Shutting down")
+            self._log_message("Writer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -305,7 +305,7 @@ class TestCase(ABC):
                         self._log_message(f"Streamer error: {e}")
                         break
 
-            self._log_message("streamer shutting down")
+            self._log_message("Streamer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):

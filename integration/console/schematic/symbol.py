@@ -111,3 +111,7 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
+
+    def delete(self) -> None:
+        self._click_symbol()
+        self.console.DELETE
