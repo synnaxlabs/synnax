@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.arc.yaml
+      - arc/**
+      - alamos/go/**
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -14,6 +16,8 @@ on:
       - rc
     paths:
       - .github/workflows/test.arc.yaml
+      - arc/**
+      - alamos/go/**
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -53,6 +57,7 @@ jobs:
 
       - name: Test
         run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending --fail-on-empty --keep-going --trace --github-output
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
+          --trace --github-output
         working-directory: arc
