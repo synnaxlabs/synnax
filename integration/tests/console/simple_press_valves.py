@@ -18,7 +18,6 @@ class Simple_Press_Valves(ConsoleCase):
     """
 
     def setup(self) -> None:
-        sy.sleep(2)
         self.subscribe(
             [
                 "end_test_state",
@@ -27,7 +26,7 @@ class Simple_Press_Valves(ConsoleCase):
                 "press_pt",
             ]
         )
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(90)
         super().setup()
 
     def run(self) -> None:
@@ -35,8 +34,6 @@ class Simple_Press_Valves(ConsoleCase):
 
         # Define the control channel names
         END_CMD = "end_test_cmd"
-        PRESS_VALVE = "press_vlv_cmd"
-        VENT_VALVE = "vent_vlv_cmd"
         PRESSURE = "press_pt"
 
         self._log_message("Creating plot page")

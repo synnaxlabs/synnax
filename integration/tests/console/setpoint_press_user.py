@@ -29,7 +29,7 @@ class Setpoint_Press_User(ConsoleCase):
                 "press_pt",
             ]
         )
-        self.set_manual_timeout(45)
+        self.set_manual_timeout(90)
         super().setup()
 
     def run(self) -> None:

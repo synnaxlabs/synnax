@@ -329,10 +329,8 @@ class TestCase(ABC):
 
     def _log_message(self, message: str) -> None:
         """Log a message to the console with real-time output."""
-        timestamp = (
-            time.strftime("%H:%M:%S", time.localtime())
-            + f".{int(time.time() * 100) % 100:02d}"
-        )
+        now = sy.TimeStamp.now()
+        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
         self.logger.info(f"{timestamp} | {self.name} > {message}")
 
         # Force flush to ensure immediate output in CI

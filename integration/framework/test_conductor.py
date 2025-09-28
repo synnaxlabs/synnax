@@ -291,8 +291,10 @@ class TestConductor:
 
     def log_message(self, message: str, use_name: bool = True) -> None:
         """Log message with real-time output using logging module."""
+        now = sy.TimeStamp.now()
+        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
         if use_name:
-            self.logger.info(f"{self.name} > {message}")
+            self.logger.info(f"{timestamp} | {self.name} > {message}")
         else:
             self.logger.info(message)
 
