@@ -9,47 +9,36 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
+  Device,
   Divider,
   Flex,
+  type Flux,
   Form,
   Input,
   Nav,
   Rack,
   Status,
-  Synnax,
-  Text,
 } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { z } from "zod";
+import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
-import { Common } from "@/hardware/common";
+import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
-  type ConnectionConfig,
-  connectionConfigZ,
-  MAKE,
-  migrateProperties,
+  type Make,
   NO_SECURITY_MODE,
   type Properties,
   type SecurityMode,
   type SecurityPolicy,
-  ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionStatus,
-} from "@/hardware/opc/task/types";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
@@ -65,89 +54,70 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
-const formSchema = z.object({
-  name: Common.Device.nameZ,
-  rack: rack.keyZ.refine((k) => k > 0, "Must select a location to connect from"),
-  connection: connectionConfigZ,
-});
-interface FormSchema extends z.infer<typeof formSchema> {}
+const useForm = Device.createForm<Properties, Make>();
 
-interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClose"> {
-  initialValues: FormSchema;
-  properties?: Properties;
-}
+const INITIAL_VALUES: device.Device<Properties, Make> = {
+  key: "",
+  name: "OPC UA Server",
+  make: "opc",
+  model: "OPC UA Server",
+  location: "",
+  properties: ZERO_PROPERTIES,
+  rack: 0,
+  configured: true,
+};
 
-const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
-  const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
-  const handleError = Status.useErrorHandler();
-  const methods = Form.use({ values: initialValues, schema: formSchema });
-  const testConnectionMutation = useMutation({
-    onError: (e) => handleError(e, "Failed to test connection"),
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      if (!methods.validate()) return;
-      const rack = await client.hardware.racks.retrieve({
-        key: methods.get<rack.Key>("rack").value,
-      });
-      const scanTasks = await client.hardware.tasks.retrieve({
-        types: [SCAN_TYPE],
-        rack: rack.key,
-        schemas: SCAN_SCHEMAS,
-      });
-      if (scanTasks.length === 0)
-        throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
-      const task = scanTasks[0];
-      const state = await task.executeCommandSync(
-        TEST_CONNECTION_COMMAND_TYPE,
-        TimeSpan.seconds(10),
-        { connection: methods.get("connection").value },
-      );
-      setConnectionState(state);
-    },
+const beforeValidate = ({
+  get,
+  set,
+}: Flux.BeforeValidateArgs<
+  Device.RetrieveQuery,
+  typeof Device.formSchema,
+  Device.FluxSubStore
+>) => set("location", get("properties.connection.endpoint").value);
+
+const beforeSave = async ({
+  client,
+  get,
+  store,
+}: Flux.FormBeforeSaveParams<
+  Device.RetrieveQuery,
+  typeof Device.formSchema,
+  Device.FluxSubStore
+>) => {
+  const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TimeSpan.seconds(10),
+    args: { connection: get("properties.connection").value },
   });
-  const connectMutation = useMutation({
-    onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      if (!methods.validate()) return;
-      await testConnectionMutation.mutateAsync();
-      if (connectionState?.variant !== "success")
-        throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve({
-        key: methods.get<rack.Key>("rack").value,
-      });
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
-      await client.hardware.devices.create<Properties>({
-        key,
-        name: methods.get<string>("name").value,
-        model: MAKE,
-        make: MAKE,
-        rack: rack.key,
-        location: methods.get<string>("connection.endpoint").value,
-        properties: {
-          ...ZERO_PROPERTIES,
-          ...properties,
-          connection: methods.get<ConnectionConfig>("connection").value,
-        },
-        configured: true,
-      });
-      onClose();
-    },
+  if (state.variant === "error") throw new Error(state.message);
+  return true;
+};
+
+export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
+    initialValues: INITIAL_VALUES,
+    beforeValidate,
+    beforeSave,
+    afterSave: useCallback(() => onClose(), [onClose]),
   });
+
   const hasSecurity =
-    Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
-      "connection.securityMode",
-      { ctx: methods },
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof Device.formSchema>(
+      "properties.connection.securityMode",
+      { ctx: form },
     ) != NO_SECURITY_MODE;
-  const status =
-    testConnectionMutation.isPending || connectMutation.isPending
-      ? "loading"
-      : undefined;
   return (
     <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Device.formSchema> {...form}>
           <Form.TextField
             inputProps={{
               level: "h2",
@@ -161,22 +131,22 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
-          <Form.Field<string> path="connection.endpoint">
+          <Form.Field<string> path="properties.connection.endpoint">
             {(p) => (
               <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
             )}
           </Form.Field>
           <Divider.Divider x padded="bottom" />
           <Flex.Box x justify="between">
-            <Form.Field<string> grow path="connection.username">
+            <Form.Field<string> grow path="properties.connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
-            <Form.Field<string> grow path="connection.password">
+            <Form.Field<string> grow path="properties.connection.password">
               {(p) => <Input.Text placeholder="password" type="password" {...p} />}
             </Form.Field>
             <Form.Field<SecurityMode>
               label="Security Mode"
-              path="connection.securityMode"
+              path="properties.connection.securityMode"
             >
               {({ value, onChange }) => (
                 <SelectSecurityMode value={value} onChange={onChange} />
@@ -186,7 +156,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
-            path="connection.securityPolicy"
+            path="properties.connection.securityPolicy"
             label="Security Policy"
           >
             {({ value, onChange }) => (
@@ -197,20 +167,20 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             <>
               <Form.Field<string>
                 label="Client Certificate"
-                path="connection.clientCertificate"
+                path="properties.connection.clientCertificate"
               >
                 {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
                 label="Client Private Key"
-                path="connection.clientPrivateKey"
+                path="properties.connection.clientPrivateKey"
               >
                 {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
                 grow
                 label="Server Certificate"
-                path="connection.serverCertificate"
+                path="properties.connection.serverCertificate"
               >
                 {FS.InputFilePath}
               </Form.Field>
@@ -220,78 +190,22 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       </Flex.Box>
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
-          {connectionState == null ? (
+          {variant == "success" ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Summary status={connectionState.variant}>
-              {connectionState.message}
-            </Status.Summary>
+            <Status.Summary variant={variant} message={stat.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            trigger={Triggers.SAVE}
-            status={status}
-            onClick={() => testConnectionMutation.mutate()}
-          >
-            Test Connection
-          </Button.Button>
-          <Button.Button
-            status={status}
-            onClick={() => connectMutation.mutate()}
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => save()}
             variant="filled"
           >
-            Save
+            Connect
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
     </Flex.Box>
-  );
-};
-
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const client = Synnax.use();
-  const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || layoutKey === CONNECT_LAYOUT_TYPE)
-        return [
-          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
-          deep.copy(ZERO_PROPERTIES),
-        ];
-      const dev = await client.hardware.devices.retrieve<Properties>({
-        key: layoutKey,
-      });
-      dev.properties = migrateProperties(dev.properties);
-      return [
-        { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
-        dev.properties,
-      ];
-    },
-  });
-  if (isPending)
-    return (
-      <Text.Text center level="h4" status="loading">
-        Loading Configuration from Synnax Server
-      </Text.Text>
-    );
-  if (isError)
-    return (
-      <Flex.Box style={{ padding: "3rem" }}>
-        <Text.Text level="h2" status="error">
-          Failed to load configuration for server with key {layoutKey}
-        </Text.Text>
-        <Text.Text status="error">{error.message}</Text.Text>
-      </Flex.Box>
-    );
-
-  const [initialValues, properties] = data;
-  return (
-    <Internal
-      initialValues={initialValues}
-      layoutKey={layoutKey}
-      onClose={onClose}
-      properties={properties}
-    />
   );
 };

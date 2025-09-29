@@ -53,7 +53,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       expect(result.current.form.value()).toEqual({
@@ -71,7 +71,9 @@ describe("useForm", () => {
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
       const retrieve = vi.fn(
-        async ({ reset }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+        async ({
+          reset,
+        }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
           reset({
             key: "123",
             name: "Apple Cat",
@@ -80,7 +82,7 @@ describe("useForm", () => {
       );
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: "",
               name: "",
@@ -90,7 +92,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: vi.fn(),
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       await waitFor(() => {
@@ -119,7 +121,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
 
@@ -147,7 +149,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
     act(() => {
@@ -179,7 +181,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => {
@@ -204,7 +206,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn().mockRejectedValue(new Error("Update failed")),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => result.current.save({ signal: controller.signal }));
@@ -225,7 +227,7 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ params: {}, afterSave }),
+          })({ query: {}, afterSave }),
         { wrapper },
       );
       act(() => {
@@ -253,7 +255,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       expect(result.current.form.value()).toEqual({
@@ -292,7 +294,7 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ params: {} }),
+        })({ query: {} }),
       { wrapper },
     );
     act(() => {
@@ -321,7 +323,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ get }) => update(get("name").value),
-          })({ params: {}, autoSave: true }),
+          })({ query: {}, autoSave: true }),
         { wrapper },
       );
       act(() => {
@@ -353,7 +355,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ value }) => update(value.name),
-          })({ params: {} }),
+          })({ query: {} }),
         { wrapper },
       );
       await waitFor(() => {
@@ -363,7 +365,7 @@ describe("useForm", () => {
     });
   });
 
-  interface SubStore extends Flux.Store {
+  interface FluxStore extends Flux.Store {
     labels: Flux.UnaryStore<label.Key, label.Label>;
   }
 
@@ -382,13 +384,13 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
         reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: label.key.toString(),
               name: "",
@@ -400,7 +402,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ store, set }) =>
               store.labels.onSet((changed) => set("name", changed.name), label.key),
-          })({ params: { key: label.key } }),
+          })({ query: { key: label.key } }),
         { wrapper },
       );
 
@@ -436,13 +438,13 @@ describe("useForm", () => {
 
       const retrieve = async ({
         reset,
-      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+      }: Flux.FormRetrieveParams<Params, typeof formSchema, FluxStore>) =>
         reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
+          Flux.createForm<Params, typeof formSchema, FluxStore>({
             initialValues: {
               key: label.key.toString(),
               name: "",
@@ -454,7 +456,7 @@ describe("useForm", () => {
             update,
             mountListeners: ({ store, set }) =>
               store.labels.onSet((changed) => set("name", changed.name), label.key),
-          })({ params: { key: label.key } }),
+          })({ query: { key: label.key } }),
         { wrapper },
       );
 

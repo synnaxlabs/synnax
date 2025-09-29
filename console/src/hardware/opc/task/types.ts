@@ -51,7 +51,7 @@ const validateNodeIDs = ({
       code: "custom",
       path: ["channels", i, "nodeId"],
       message: "This node ID has already been used elsewhere in the configuration",
-      params: { variant: "warning" },
+      query: { variant: "warning" },
       input: channels,
     });
   });

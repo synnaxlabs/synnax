@@ -9,6 +9,7 @@ deps:
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
+    COPY ../arc+source/* /arc
     COPY go.mod go.sum ./
     RUN go mod download
 

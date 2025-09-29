@@ -10,6 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
 import { type Optional, primitive } from "@synnaxlabs/x";
+import { useCallback, useEffect } from "react";
 
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
@@ -27,18 +28,24 @@ export const ChannelName = ({
   ...rest
 }: ChannelNameProps) => {
   const range = useSelectActiveRangeKey();
-  const { data } = Channel.retrieve.useDirect({
-    params: { key: channel, rangeKey: range ?? undefined },
-  });
-  const { update: rename } = Channel.rename.useDirect({ params: { key: channel } });
+  const { data, retrieve } = Channel.useRetrieveStateful();
+  useEffect(() => {
+    if (primitive.isZero(channel)) return;
+    retrieve({ key: channel, rangeKey: range ?? undefined });
+  }, [channel, range]);
+  const { update } = Channel.useRename();
   const name = data?.name ?? defaultName;
+  const handleRename = useCallback(
+    (name: string) => update({ key: channel, name }),
+    [channel, update],
+  );
   return (
     <Text.MaybeEditable
       className={CSS(className, CSS.BE("task", "channel-name"))}
       status={primitive.isZero(channel) ? "warning" : undefined}
       level="small"
       value={name}
-      onChange={rename}
+      onChange={handleRename}
       allowDoubleClick={false}
       {...rest}
     />

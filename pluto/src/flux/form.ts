@@ -7,156 +7,115 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-import { type FetchOptions, type Params } from "@/flux/core/params";
-import { type Store } from "@/flux/core/store";
-import { useStore } from "@/flux/external";
+import { type core } from "@/flux/core";
+import { useStore } from "@/flux/Provider";
 import {
   errorResult,
+  loadingResult,
   nullClientResult,
-  pendingResult,
   type Result,
+  type ResultStatus,
   successResult,
 } from "@/flux/result";
-import { type UpdateArgs as BaseUpdateArgs } from "@/flux/update";
+import {
+  type RetrieveMountListenersParams,
+  type RetrieveParams,
+} from "@/flux/retrieve";
+import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
-import { type state } from "@/state";
+import { state } from "@/state";
+import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateArgs<
-  UpdateParams extends Params,
-  Schema extends z.ZodType<state.State>,
-  ScopedStore extends Store = {},
-> extends Omit<
-      BaseUpdateArgs<UpdateParams, z.infer<Schema>, ScopedStore>,
-      "value" | "onChange"
-    >,
-    Form.UseReturn<Schema> {}
+export interface FormUpdateParams<
+  Schema extends z.ZodType<core.Shape>,
+  ScopedStore extends core.Store = {},
+> extends Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+    Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
-export interface FormRetrieveArgs<
-  RetrieveParams extends Params,
-  Schema extends z.ZodType<state.State>,
-  ScopedStore extends Store = {},
-> extends Form.UseReturn<Schema> {
-  client: Client;
-  params: RetrieveParams;
-  store: ScopedStore;
-}
+export interface FormRetrieveParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store = {},
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
-/**
- * Configuration arguments for creating a form query.
- *
- * @template FormParams The type of parameters for the form query
- * @template DataSchema The Zod schema type for form validation
- */
-export interface CreateFormArgs<
-  FormParams extends Params,
-  DataSchema extends z.ZodType<state.State>,
-  SubStore extends Store,
+export interface CreateFormParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
 > {
   name: string;
-  /** Zod schema for form validation */
-  schema: DataSchema;
-  /** Default values to use when creating new forms */
-  initialValues: z.infer<DataSchema>;
-  update: (args: FormUpdateArgs<FormParams, DataSchema, SubStore>) => Promise<void>;
-  retrieve: (args: FormRetrieveArgs<FormParams, DataSchema, SubStore>) => Promise<void>;
+  schema: Schema;
+  initialValues: z.infer<Schema>;
+  update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
+  retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
   mountListeners?: (
-    args: FormMountListenersArgs<SubStore, FormParams, DataSchema>,
+    args: FormMountListenersParams<Query, Schema, Store>,
   ) => Destructor | Destructor[];
 }
 
-/**
- * Return type for the form hook, providing form management utilities.
- *
- * @template DataSchema The Zod schema type for form validation
- */
-export type UseFormReturn<DataSchema extends z.ZodType<state.State>> = Omit<
-  Result<z.infer<DataSchema>>,
+export type UseFormReturn<Schema extends z.ZodType<core.Shape>> = Omit<
+  Result<z.infer<Schema>>,
   "data"
 > & {
-  /** Form management utilities for binding inputs and validation */
-  form: Form.UseReturn<DataSchema>;
-  /** Function to save the current form values */
-  save: (opts?: FetchOptions) => void;
+  form: Form.UseReturn<Schema>;
+  save: (opts?: core.FetchOptions) => void;
 };
 
-/**
- * Arguments passed to the afterSave callback.
- *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
- */
-export interface BeforeSaveArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-> extends Form.UseReturn<Z> {
-  client: Client;
-  /** The current form parameters */
-  params: FormParams;
-}
+export interface FormBeforeSaveParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
-interface FormMountListenersArgs<
-  ScopedStore extends Store,
-  FormParams extends Params,
-  Schema extends z.ZodType<state.State>,
-> extends Form.UseReturn<Schema> {
-  store: ScopedStore;
-  client: Client;
-  params: FormParams;
-}
+interface FormMountListenersParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Form.UseReturn<Schema>,
+    Omit<RetrieveMountListenersParams<Query, core.Shape, Store>, "onChange"> {}
 
-/**
- * Arguments passed to the afterSave callback.
- *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
- */
-export interface AfterSaveArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-> extends BeforeSaveArgs<FormParams, Z> {}
+export interface AfterSaveParams<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends FormBeforeSaveParams<Query, Schema, Store> {}
 
-/**
- * Arguments for using a form hook.
- *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
- */
+export interface BeforeValidateArgs<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends FormBeforeSaveParams<Query, Schema, Store> {}
+
 export interface UseFormArgs<
-  FormParams extends Params,
-  Z extends z.ZodType<state.State>,
-> extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
-  /** Initial values for the form fields */
-  initialValues?: z.infer<Z>;
-  /** Whether to automatically save form changes */
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
+  initialValues?: z.infer<Schema>;
   autoSave?: boolean;
-  /** Parameters for the form query */
-  params: FormParams;
-  /** Function to run before the save operation. If the function returns undefined,
-   * the save will be cancelled. */
-  beforeSave?: (args: BeforeSaveArgs<FormParams, Z>) => Promise<boolean>;
-  /** Callback function called after successful save */
-  afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
-  /** The scope to use for the form operation */
+  query: Query;
+  beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
+  beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
+  afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
   scope?: string;
 }
 
-/**
- * Form hook function signature.
- *
- * @template FormParams The type of parameters for the form query
- * @template Z The Zod schema type for form validation
- */
-export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.State>> {
-  (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
+export interface UseForm<
+  Query extends core.Shape,
+  Schema extends z.ZodType<core.Shape>,
+  Store extends core.Store,
+> {
+  (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -164,55 +123,11 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
-/**
- * Creates a form query hook that combines data fetching, form management, and real-time updates.
- *
- * This function creates a React hook that automatically handles:
- * - Data fetching with loading states
- * - Form validation using Zod schemas
- * - Automatic form saving and persistence
- * - Real-time synchronization with server state
- * - Error handling and user feedback
- *
- * @template FormParams The type of parameters for the form query
- * @template Schema The Zod schema type for form validation
- * @param config Configuration object with form schema, update function, and query settings
- * @returns A React hook for managing the form
- *
- * @example
- * ```typescript
- * const userSchema = z.object({
- *   name: z.string().min(1),
- *   email: z.string().email(),
- *   age: z.number().optional()
- * });
- *
- * const useUserForm = createForm({
- *   name: "user",
- *   schema: userSchema,
- *   initialValues: { name: "", email: "", age: undefined },
- *   retrieve: async ({ params, client }) => {
- *     return await client.users.retrieve(params.userId);
- *   },
- *   update: async ({ value, params, client }) => {
- *     await client.users.update(params.userId, value);
- *   }
- * });
- *
- * // Usage in component
- * const { form, save, variant } = useUserForm({
- *   params: { userId: 123 },
- *   afterSave: ({ form }) => {
- *     console.log("User saved:", form.value());
- *   }
- * });
- * ```
- */
 export const createForm =
   <
-    FormParams extends Params,
-    Schema extends z.ZodType<state.State>,
-    SubStore extends Store = {},
+    Query extends core.Shape,
+    Schema extends z.ZodType<core.Shape>,
+    Store extends core.Store = {},
   >({
     name,
     schema,
@@ -220,25 +135,27 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
-  }: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> =>
+  }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
   ({
-    params,
+    query,
     initialValues,
     autoSave = false,
     afterSave,
     beforeSave,
+    beforeValidate,
     sync,
     onHasTouched,
     mode,
     scope: argsScope,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
-      pendingResult(name, "retrieving", undefined),
+      loadingResult(`retrieving ${name}`),
     );
     const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
-    const store = useStore<SubStore>(scope);
+    const store = useStore<Store>(scope);
     const listeners = useDestructors();
+    const addStatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -256,62 +173,83 @@ export const createForm =
       [form],
     );
     const retrieveAsync = useCallback(
-      async (params: FormParams, options: FetchOptions = {}) => {
+      async (query: Query, options: core.FetchOptions = {}) => {
         const { signal } = options;
         try {
           if (client == null)
-            return setResult(nullClientResult<undefined>(name, "retrieve"));
-          setResult((p) => pendingResult(name, "retrieving", p.data));
+            return setResult(nullClientResult<undefined>(`retrieve ${name}`));
+          setResult((p) => loadingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
-          const args = { client, params, store, ...form, set: noNotifySet };
+          const args = { client, query, store, ...form, set: noNotifySet };
           await retrieve(args);
           if (signal?.aborted) return;
           listeners.cleanup();
           listeners.set(mountListeners?.(args));
-          setResult(successResult<undefined>(name, "retrieved", undefined));
+          setResult(successResult<undefined>(`retrieved ${name}`));
         } catch (error) {
           if (signal?.aborted) return;
-          setResult(errorResult<undefined>(name, "retrieve", error));
+          const res = errorResult(`retrieve ${name}`, error);
+          addStatus(res.status);
+          setResult(res);
         }
       },
       [client, name, form, store, noNotifySet],
     );
-    const memoParams = useMemoDeepEqual(params);
+    const memoQuery = useMemoDeepEqual(query);
     useAsyncEffect(
-      async (signal) => await retrieveAsync(memoParams, { signal }),
-      [retrieveAsync, memoParams],
+      async (signal) => await retrieveAsync(memoQuery, { signal }),
+      [retrieveAsync, memoQuery],
     );
 
     const saveAsync = useCallback(
-      async (opts: FetchOptions = {}): Promise<boolean> => {
+      async (opts: core.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
+        const rollbacks: Destructor[] = [];
         try {
           if (client == null) {
-            setResult(nullClientResult<undefined>(name, "update"));
+            setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
-          const args = { client, params, store, ...form, set: noNotifySet };
+          const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
+          if (beforeValidate?.(args) === false) return false;
           if (!(await form.validateAsync())) return false;
-          setResult(pendingResult(name, "updating", undefined));
+          setResult(loadingResult(`updating ${name}`, undefined));
           if ((await beforeSave?.(args)) === false) {
-            setResult(successResult(name, "updated", undefined));
+            setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
           if (signal?.aborted === true) return false;
-          await update(args);
-          setResult(successResult(name, "updated", undefined));
+          const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
+            setResult((p) => {
+              const nextStatus = state.executeSetter(setter, p.status);
+              return {
+                ...p,
+                status: nextStatus,
+                variant: nextStatus.variant,
+              } as Result<undefined>;
+            });
+
+          await update({ ...args, setStatus });
+          setResult(successResult(`updated ${name}`, undefined));
           if (afterSave != null) afterSave(args);
           return true;
         } catch (error) {
-          if (signal?.aborted !== true)
-            setResult(errorResult<undefined>(name, "update", error));
+          try {
+            rollbacks.reverse().forEach((rollback) => rollback());
+          } catch (rollbackError) {
+            console.error("Error rolling back changes:", rollbackError);
+          }
+          if (signal?.aborted === true) return false;
+          const res = errorResult(`update ${name}`, error);
+          addStatus(res.status);
+          setResult(res);
           return false;
         }
       },
-      [name, params, beforeSave, afterSave],
+      [name, query, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
-      (opts?: FetchOptions) => void saveAsync(opts),
+      (opts?: core.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
 

@@ -10,5 +10,5 @@
 export * from "@/vis/diagram/aether/types";
 export * from "@/vis/diagram/align";
 export * from "@/vis/diagram/Diagram";
-export * from "@/vis/diagram/edge/paths";
+export * from "@/vis/diagram/useTriggers";
 export * from "@/vis/diagram/util";

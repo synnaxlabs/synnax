@@ -11,10 +11,10 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, status } from "@synnaxlabs/x";
 import {
   type CrudeDensity,
+  type CrudeTimeRange,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
 import { z } from "zod";
@@ -201,7 +201,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<MultiSeries> {
+  async read(tr: CrudeTimeRange): Promise<MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 
@@ -230,7 +230,6 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client {
-  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -428,7 +427,7 @@ export class Client {
       retrieveGroupReqZ,
       retrieveGroupResZ,
     );
-    return new group.Group(res.group.name, res.group.key);
+    return res.group;
   }
 }
 

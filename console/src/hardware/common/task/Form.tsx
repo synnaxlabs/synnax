@@ -90,6 +90,7 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   ReturnType<typeof task.statusDetailsZ<StatusData>>
 > => ({
   key: id.create(),
+  name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
   time: TimeStamp.now(),
@@ -143,7 +144,6 @@ export const wrapForm = <
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
-  const retrieveDevice = Device.retrieve();
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
@@ -163,7 +163,7 @@ export const wrapForm = <
     };
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
-      params: { key: taskKey },
+      query: { key: taskKey },
       onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
@@ -191,9 +191,9 @@ export const wrapForm = <
         dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
       },
     });
-    retrieveDevice.useEffect({
+    Device.useRetrieveEffect({
       onChange: (d) => form.set("rackKey", d.data?.rack),
-      params: deviceKey == null ? undefined : { key: deviceKey },
+      query: deviceKey == null ? undefined : { key: deviceKey },
     });
     const name = PForm.useFieldValue<
       string,

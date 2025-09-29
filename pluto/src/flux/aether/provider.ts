@@ -11,7 +11,7 @@ import z from "zod";
 
 import { aether, synnax } from "@/ether";
 import { core } from "@/flux/core";
-import { status } from "@/status/aether";
+import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
 
 /** State schema for the flux provider (currently empty) */
 export const providerStateZ = z.object({});
@@ -45,7 +45,7 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useClient = <ScopedStore extends core.Store>(
+export const useStore = <ScopedStore extends core.Store>(
   ctx: aether.Context,
   scope: string,
 ): ScopedStore => ctx.get<ContextValue>(CONTEXT_KEY).scopedStore<ScopedStore>(scope);
@@ -80,8 +80,8 @@ const createProvider = <ScopedStore extends core.Store>(
     return new core.Client<ScopedStore>({
       client: nextClient,
       storeConfig: cfg.storeConfig,
-      handleError: status.useErrorHandler(ctx),
-      handleAsyncError: status.useAsyncErrorHandler(ctx),
+      handleError: useErrorHandler(ctx),
+      handleAsyncError: useAsyncErrorHandler(ctx),
     });
   };
   return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {

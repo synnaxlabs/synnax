@@ -9,7 +9,6 @@
 
 import "@/table/Table.css";
 
-import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -28,7 +27,7 @@ import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
-import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import {
@@ -85,30 +84,22 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
   return { key: tableKey, cellKey: keys[0], loc: loc as L };
 };
 
-interface SyncPayload {
-  key?: string;
-}
-
-export const useSyncComponent = (
-  layoutKey: string,
-): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "Table",
-    layoutKey,
-    async (ws, store, client) => {
-      const storeState = store.getState();
-      const data = select(storeState, layoutKey);
-      if (data == null) return;
-      const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined };
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.table.create(ws, {
-        key: layoutKey,
-        name: layout.name,
-        data: setData,
-      });
-    },
-  );
+export const useSyncComponent = Workspace.createSyncComponent(
+  "Table",
+  async ({ key, workspace, store, client }) => {
+    const storeState = store.getState();
+    const data = select(storeState, key);
+    if (data == null) return;
+    const layout = Layout.selectRequired(storeState, key);
+    const setData = { ...data, key: undefined };
+    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+    await client.workspaces.tables.create(workspace, {
+      key,
+      name: layout.name,
+      data: setData,
+    });
+  },
+);
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -447,18 +438,15 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
 });
 Cell.displayName = "Cell";
 
+const useLoadRemote = createLoadRemote<table.Table>({
+  useRetrieve: Core.useRetrieveObservable,
+  targetVersion: ZERO_STATE.version,
+  useSelectVersion,
+  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+});
+
 export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
-  const table = useLoadRemote({
-    name: "Table",
-    targetVersion: ZERO_STATE.version,
-    layoutKey,
-    useSelectVersion,
-    fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.table.retrieve(layoutKey);
-      return { key, ...data } as State;
-    },
-    actionCreator: internalCreate,
-  });
+  const table = useLoadRemote(layoutKey);
   if (table == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };

@@ -7,36 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
+import z from "zod";
 
-import { type ontology } from "@/ontology";
-import { Group } from "@/ontology/group/group";
-import { type Key, type Name, type Payload } from "@/ontology/group/payload";
-import { Writer } from "@/ontology/group/writer";
+import { type Group, groupZ, type Key, keyZ } from "@/ontology/group/payload";
+import { idZ as ontologyIDZ } from "@/ontology/payload";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
 
+const resZ = z.object({ group: groupZ });
+
+const createReqZ = z.object({
+  parent: ontologyIDZ,
+  key: keyZ.optional(),
+  name: z.string(),
+});
+
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
+
+const deleteReqZ = z.object({ keys: z.array(keyZ) });
+
+const CREATE_ENDPOINT = "/ontology/create-group";
+const RENAME_ENDPOINT = "/ontology/rename-group";
+const DELETE_ENDPOINT = "/ontology/delete-group";
+
+export interface CreateArgs extends z.infer<typeof createReqZ> {}
+
 export class Client {
-  private readonly creator: Writer;
+  client: UnaryClient;
 
-  constructor(unary: UnaryClient) {
-    this.creator = new Writer(unary);
+  constructor(client: UnaryClient) {
+    this.client = client;
   }
 
-  async create(parent: ontology.ID, name: Name, key?: Key): Promise<Group> {
-    return this.sugar(await this.creator.create(parent, name, key));
+  async create(args: CreateArgs): Promise<Group> {
+    const res = await sendRequired(
+      this.client,
+      CREATE_ENDPOINT,
+      args,
+      createReqZ,
+      resZ,
+    );
+    return res.group;
   }
 
-  async rename(key: Key, name: Name): Promise<void> {
-    return await this.creator.rename(key, name);
+  async rename(key: Key, name: string): Promise<void> {
+    await sendRequired(
+      this.client,
+      RENAME_ENDPOINT,
+      { key, name },
+      renameReqZ,
+      z.object({}),
+    );
   }
 
-  async delete(...keys: Key[]): Promise<void> {
-    return await this.creator.delete(keys);
-  }
-
-  private sugar(payload: Payload): Group {
-    return new Group(payload.name, payload.key);
+  async delete(keys: Key | Key[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      DELETE_ENDPOINT,
+      { keys: array.toArray(keys) },
+      deleteReqZ,
+      z.object({}),
+    );
   }
 }

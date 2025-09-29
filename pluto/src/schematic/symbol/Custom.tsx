@@ -21,9 +21,10 @@ import { type ReactElement, useCallback, useRef, useState } from "react";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { Flex } from "@/flex";
+import { type Flux } from "@/flux";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
-import { retrieve } from "@/schematic/symbol/queries";
+import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
 import { Text } from "@/text";
 
@@ -184,24 +185,27 @@ export const StateOverrideControls = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  retrieve.useEffect({
-    params: { key: specKey },
-    onChange: (res) => {
-      if (res.data?.data == null) return;
-      const symbolSpec = res.data.data;
-      setOriginalStates(deep.copy(symbolSpec.states));
-      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-      if (currentOverrides.value?.length === 0) {
-        form.set("stateOverrides", deep.copy(symbolSpec.states));
-        setSelectedState(symbolSpec.states[0].key);
-      } else {
-        const syncedStates = syncStateOverrides(
-          currentOverrides.value,
-          symbolSpec.states,
-        );
-        form.set("stateOverrides", syncedStates);
-      }
-    },
+  useRetrieveEffect({
+    query: { key: specKey },
+    onChange: useCallback(
+      (res: Flux.Result<schematic.symbol.Symbol>) => {
+        if (res.data?.data == null) return;
+        const symbolSpec = res.data.data;
+        setOriginalStates(deep.copy(symbolSpec.states));
+        const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+        if (currentOverrides.value?.length === 0) {
+          form.set("stateOverrides", deep.copy(symbolSpec.states));
+          setSelectedState(symbolSpec.states[0].key);
+        } else {
+          const syncedStates = syncStateOverrides(
+            currentOverrides.value,
+            symbolSpec.states,
+          );
+          form.set("stateOverrides", syncedStates);
+        }
+      },
+      [form],
+    ),
   });
 
   const resetRegion = useCallback(

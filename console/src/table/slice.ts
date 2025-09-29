@@ -40,6 +40,10 @@ export type CreatePayload = latest.State & {
 
 export type SelectionMode = "replace" | "add" | "region";
 
+export interface RemovePayload {
+  keys: string[];
+}
+
 export interface SelectCellsPayload {
   key: string;
   mode: SelectionMode;
@@ -263,6 +267,11 @@ export const { actions, reducer } = createSlice({
         });
 
       table.lastSelected = cells[cells.length - 1];
+    },
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      keys.forEach((k) => {
+        delete state.tables[k];
+      });
     },
     addRow: addRowInternal,
     addCol: addColInternal,
@@ -514,6 +523,7 @@ export const {
   clearSelected,
   addRow,
   setCellProps,
+  remove,
   resizeCol,
   resizeRow,
   deleteCol,

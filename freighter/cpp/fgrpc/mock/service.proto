@@ -3,14 +3,13 @@ syntax = "proto3";
 package test;
 
 service UnaryMessageService {
-    rpc Exec(Message) returns (Message) {}
+  rpc Exec(Message) returns (Message) {}
 }
 
 service StreamMessageService {
-    rpc Exec(stream Message) returns (stream Message) {}
+  rpc Exec(stream Message) returns (stream Message) {}
 }
 
-message Message
-{
-    string payload = 1;
+message Message {
+  string payload = 1;
 }

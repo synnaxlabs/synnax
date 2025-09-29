@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
+import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
@@ -35,13 +35,11 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
-const BASE_CLASS = CSS.BM("text", "editable");
+const BASE_CLASS = PCSS.BM("text", "editable");
 const MAX_EDIT_RETRIES = 10;
 const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
 const START_EDITING_EVENT_NAME = "start-editing";
-
-const escapeCharacters = (id: string): string => id.replace(/:/g, "\\:");
 
 export const edit = (
   id: string,
@@ -50,7 +48,7 @@ export const edit = (
   let currRetry = 0;
   const tryEdit = (): void => {
     currRetry++;
-    const el = document.querySelector(`#${escapeCharacters(id)}.${BASE_CLASS}`);
+    const el = document.querySelector(`#${CSS.escape(id)}.${BASE_CLASS}`);
     if (el == null || !el.classList.contains(BASE_CLASS)) {
       if (currRetry < MAX_EDIT_RETRIES) setTimeout(() => tryEdit(), 100);
       else throw new Error(`Could not find element with id ${id}`);
@@ -190,10 +188,10 @@ export const Editable = ({
   return (
     <Text
       ref={combinedRef}
-      className={CSS(
+      className={PCSS(
         className,
-        CSS.BM("text", "editable"),
-        outline && CSS.M("outline"),
+        PCSS.BM("text", "editable"),
+        outline && PCSS.M("outline"),
       )}
       onBlur={() => {
         setEditable(false);
@@ -226,9 +224,10 @@ export const MaybeEditable = ({
   allowDoubleClick,
   ...rest
 }: MaybeEditableProps): ReactElement => {
-  if (disabled || onChange == null || typeof onChange === "boolean")
+  if (disabled || onChange == null || onChange === false)
     return <Text {...rest}>{value}</Text>;
 
+  if (onChange === true) onChange = () => {};
   return (
     <Editable
       allowDoubleClick={allowDoubleClick}

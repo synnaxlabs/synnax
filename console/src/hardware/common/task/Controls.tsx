@@ -51,7 +51,8 @@ export const Controls = ({
     if (key == null) return;
     const command = taskStatus.details.running ? "stop" : "start";
     handleError(
-      async () => await client?.hardware.tasks.executeCommand(key, command),
+      async () =>
+        await client?.hardware.tasks.executeCommand({ task: key, type: command }),
       `Failed to ${command} task`,
     );
   }, [taskStatus]);
@@ -65,14 +66,7 @@ export const Controls = ({
       {...props}
     >
       <Flex.Box className={CSS.B("task-state")} x>
-        <Status.Summary
-          variant={stat.variant}
-          message={stat.message}
-          description={stat.description}
-          justify="center"
-          align="center"
-          center={false}
-        />
+        <Status.Summary status={stat} justify="center" align="center" center={false} />
       </Flex.Box>
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">

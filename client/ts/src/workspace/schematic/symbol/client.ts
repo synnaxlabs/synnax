@@ -14,7 +14,6 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 import {
   type Key,
   keyZ,
@@ -48,10 +47,10 @@ const singleRetrieveArgsZ = z
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResZ = z.object({ symbols: nullableArrayZ(symbolZ) });
+const retrieveResZ = z.object({ symbols: array.nullableZ(symbolZ) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
@@ -101,8 +100,8 @@ export class Client {
     );
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Symbol>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Symbol[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Symbol>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Symbol[]>;
   async retrieve(args: RetrieveArgs): Promise<Symbol | Symbol[]> {
     const isSingle = "key" in args;
     const res = await sendRequired(
@@ -116,8 +115,6 @@ export class Client {
     return isSingle ? res.symbols[0] : res.symbols;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
@@ -128,7 +125,7 @@ export class Client {
     );
   }
 
-  async retrieveGroup(): Promise<group.Payload> {
+  async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
       RETRIEVE_GROUP_ENDPOINT,

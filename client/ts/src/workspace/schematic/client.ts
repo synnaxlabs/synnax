@@ -12,7 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
@@ -33,15 +33,36 @@ const SET_DATA_ENDPOINT = "/workspace/schematic/set-data";
 const DELETE_ENDPOINT = "/workspace/schematic/delete";
 const COPY_ENDPOINT = "/workspace/schematic/copy";
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
-const createReqZ = z.object({ workspace: workspaceKeyZ, schematics: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 
-const retrieveResZ = z.object({ schematics: nullableArrayZ(remoteZ) });
+const copyReqZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+});
+
+const retrieveReqZ = z.object({ keys: keyZ.array() });
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+export type CopyArgs = z.input<typeof copyReqZ>;
+
+const retrieveResZ = z.object({ schematics: array.nullableZ(remoteZ) });
+
+const createReqZ = z.object({
+  workspace: workspaceKeyZ,
+  schematics: newZ.array(),
+});
 const createResZ = z.object({ schematics: remoteZ.array() });
+
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
 
@@ -91,22 +112,23 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Schematic>;
-  async retrieve(keys: Key[]): Promise<Schematic[]>;
-  async retrieve(keys: Params): Promise<Schematic | Schematic[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
+  async retrieve(
+    args: RetrieveSingleParams | RetrieveMultipleParams,
+  ): Promise<Schematic | Schematic[]> {
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.schematics : res.schematics[0];
+    checkForMultipleOrNoResults("Schematic", args, res.schematics, isSingle);
+    return isSingle ? res.schematics[0] : res.schematics;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
@@ -117,11 +139,11 @@ export class Client {
     );
   }
 
-  async copy(key: Key, name: string, snapshot: boolean): Promise<Schematic> {
+  async copy(args: CopyArgs): Promise<Schematic> {
     const res = await sendRequired(
       this.client,
       COPY_ENDPOINT,
-      { key, name, snapshot },
+      args,
       copyReqZ,
       copyResZ,
     );
@@ -129,4 +151,7 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "schematic", key });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: "schematic",
+  key,
+});

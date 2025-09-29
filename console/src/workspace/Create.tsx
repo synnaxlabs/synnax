@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
+import { Button, Flex, Form, Input, Nav, Synnax, Workspace } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
 
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -30,26 +29,22 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 225, width: 625 }, navTop: true },
 };
 
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Workspace must have a name" }),
-});
-
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const methods = Form.use({ values: { name: "" }, schema: formSchema });
-
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectActiveKey();
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
-      const { name } = methods.value();
-      const ws = await client.workspaces.create({
-        name,
-        layout: Layout.ZERO_SLICE_STATE,
-      });
-      dispatch(add(ws));
+  const { form, save, variant } = Workspace.useForm({
+    query: {},
+    initialValues: {
+      name: "",
+      layout: Layout.ZERO_SLICE_STATE,
+    },
+    afterSave: ({ value }) => {
+      const ws = value();
+      const { key, ...rest } = ws;
+      if (key == null) return;
+      dispatch(add({ key, ...rest }));
       if (active != null)
         dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
       onClose();
@@ -64,7 +59,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         justify="center"
         grow
       >
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Workspace.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -85,10 +80,10 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             type="submit"
             variant="filled"
             form="create-workspace"
-            status={isPending ? "loading" : undefined}
+            status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
-            onClick={() => mutate()}
+            onClick={() => save()}
             trigger={Triggers.SAVE}
           >
             Create

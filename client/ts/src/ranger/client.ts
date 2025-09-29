@@ -32,7 +32,6 @@ import {
 } from "@/ranger/payload";
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
@@ -193,7 +192,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const RETRIEVE_ENDPOINT = "/range/retrieve";
 
-const retrieveResZ = z.object({ ranges: nullableArrayZ(payloadZ) });
+const retrieveResZ = z.object({ ranges: array.nullableZ(payloadZ) });
 
 export class Client {
   readonly type: string = "range";
@@ -240,7 +239,7 @@ export class Client {
 
   async retrieve(params: Key | Name): Promise<Range>;
   async retrieve(params: Keys | Names): Promise<Range[]>;
-  async retrieve(params: TimeRange): Promise<Range[]>;
+  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
   async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";
@@ -293,6 +292,11 @@ export class Client {
   async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
     const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
     await aliaser.set({ [channel]: alias });
+  }
+
+  async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    await aliaser.delete(channels);
   }
 
   sugarOne(payload: Payload): Range {

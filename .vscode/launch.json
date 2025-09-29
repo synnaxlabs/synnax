@@ -9,18 +9,12 @@
       "preLaunchTask": "console: start dev server",
       "trace": true,
       "sourceMaps": true,
-      "resolveSourceMapLocations": [
-        "${workspaceFolder}/**",
-        "!**/node_modules/**"
-      ],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
       "sourceMapPathOverrides": {
         "http://localhost:5173/src/*": "${workspaceFolder}/console/src/*",
-        "http://localhost:5173/@fs/*": "/*",
+        "http://localhost:5173/@fs/*": "/*"
       },
-      "skipFiles": [
-        "<node_internals>/**",
-        "**/node_modules/**"
-      ],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
     }
   ]
 }

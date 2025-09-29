@@ -11,6 +11,7 @@ package confluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
@@ -26,43 +27,33 @@ type seg struct {
 func (s seg) Flow(sCtx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(s.Out)
-	sCtx.Go(func(ctx context.Context) error {
-		for {
-			select {
-			case v := <-s.In.Outlet():
-				if v == 1 {
-					panic("got 1")
-				}
+	sCtx.Go(func(context.Context) error {
+		for v := range s.In.Outlet() {
+			if v == 1 {
+				panic("got 1")
 			}
 		}
+		return nil
 	}, o.Signal...)
 }
 
 var _ = Describe("Confluence", func() {
-
 	Describe("EmptyFlow", func() {
-
 		It("Should do nothing", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			Expect(func() {
-				NopFlow{}.Flow(ctx)
-			}).ToNot(Panic())
+			Expect(func() { NopFlow{}.Flow(ctx) }).ToNot(Panic())
 		})
-
 	})
-
 	Describe("Options", func() {
 		It("Should not close inlet on panic", func() {
 			ctx, _ := signal.Isolated()
-
-			var s seg
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
 			s.Flow(ctx, CloseOutputInletsOnExit(), WithRetryOnPanic(1))
-
 			// this panics
 			i.Inlet() <- 1
 			// this does not panic
@@ -73,41 +64,49 @@ var _ = Describe("Confluence", func() {
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-
 		It("Should close inlet on a panic-recovered error", func() {
 			ctx, _ := signal.Isolated()
-
-			var s seg
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
 			s.Flow(ctx, CloseOutputInletsOnExit(), RecoverWithErrOnPanic())
-
 			i.Inlet() <- 1
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-
 		It("Should still run deferred methods after panic", func() {
 			ctx, _ := signal.Isolated()
-
-			var (
-				s seg
-				a = atomic.Int32Counter{}
-			)
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
-			s.Flow(ctx, CloseOutputInletsOnExit(), RecoverWithErrOnPanic(), Defer(func() {
-				a.Add(10)
-			}))
-
+			var a = atomic.Int32Counter{}
+			s.Flow(
+				ctx,
+				CloseOutputInletsOnExit(),
+				RecoverWithErrOnPanic(),
+				Defer(func() { a.Add(10) }),
+			)
 			i.Inlet() <- 1
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
-			Expect(a.Value()).To(Equal(int32(10)))
+			Expect(a.Value()).To(BeEquivalentTo(10))
+		})
+	})
+	Describe("Drain", func() {
+		It("Should drain an outlet of values until it is closed", func() {
+			c := NewStream[int](10)
+			go func() {
+				for range 10 {
+					c.Inlet() <- 1
+				}
+				c.Close()
+			}()
+			Drain(c)
+			Expect(c.Outlet()).To(BeClosed())
 		})
 	})
 })

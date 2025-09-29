@@ -1,10 +1,5 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
-  },
+  "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } },
   "include": ["src/**/*"]
 }

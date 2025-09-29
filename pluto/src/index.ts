@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { Aether } from "@/aether";
+export { Arc } from "@/arc";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
@@ -32,7 +33,9 @@ export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
 export { Label } from "@/label";
+export { LinePlot } from "@/lineplot";
 export { List } from "@/list";
+export { Log } from "@/log";
 export * from "@/memo";
 export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
@@ -66,6 +69,7 @@ export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
+export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
@@ -75,9 +79,6 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
-export { LinePlot } from "@/vis/lineplot";
-export { Range } from "@/vis/lineplot/range";
-export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";

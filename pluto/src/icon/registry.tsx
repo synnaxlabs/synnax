@@ -49,7 +49,14 @@ import {
   FaWind,
   FaWindows,
 } from "react-icons/fa";
-import { FaBridge, FaGaugeHigh, FaGear, FaHelmetSafety } from "react-icons/fa6";
+import {
+  FaBridge,
+  FaCheck,
+  FaGaugeHigh,
+  FaGear,
+  FaHelmetSafety,
+  FaXmark,
+} from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -60,6 +67,7 @@ import { IoMdColorFill, IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
+  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTerminal,
@@ -79,6 +87,7 @@ import {
   MdBook,
   MdBorderColor,
   MdCalendarToday,
+  MdComment,
   MdCommit,
   MdDarkMode,
   MdDataArray,
@@ -107,6 +116,7 @@ import {
   MdLabel,
   MdLightMode,
   MdLink,
+  MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
@@ -152,8 +162,14 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
-import { RxReset } from "react-icons/rx";
+import {
+  RiProgress1Line,
+  RiProgress4Line,
+  RiProgress8Line,
+  RiSettings3Fill,
+  RiWeightFill,
+} from "react-icons/ri";
+import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
   SiGooglenearby,
   SiNpm,
@@ -168,7 +184,9 @@ import {
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
+  TbArrowsSplit,
   TbArrowUp,
+  TbChartArcs,
   TbCircleDashed,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
@@ -192,6 +210,7 @@ import { CSS } from "@/css";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
+import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
 import { OPC } from "@/icon/OPC";
 import { Process } from "@/icon/Process";
@@ -232,7 +251,7 @@ export const Caret = {
   Top: wrapSVGIcon(PiCaretUpBold, "caret-top"),
   Down: wrapSVGIcon(PiCaretDown, "caret-down"),
 };
-export const Settings = wrapSVGIcon(RiSettingsFill, "settings");
+export const Settings = wrapSVGIcon(RiSettings3Fill, "settings");
 export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
 export const Import = wrapSVGIcon(PiUploadSimple, "import");
@@ -259,6 +278,7 @@ export const Logo = {
   LabJack,
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
+  Modbus,
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
@@ -390,13 +410,25 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
-export const Map = wrapSVGIcon(MdOutlineMap, "map");
-export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
-export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Map = wrapSVGIcon(MdOutlineMap, "map");
+export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
+export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const Arc = wrapSVGIcon(TbChartArcs, "arc");
+export const Select = wrapSVGIcon(TbArrowsSplit, "select");
+export const Notification = wrapSVGIcon(IoNotifications, "notification");
+export const Status = Notification;
+export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
+export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
+export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
+export const True = wrapSVGIcon(FaCheck, "true");
+export const False = wrapSVGIcon(FaXmark, "false");
+export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
+export const Annotation = wrapSVGIcon(MdComment, "annotation");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
@@ -410,6 +442,7 @@ export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
 interface Resolve {
   (icon?: ReactElement | string, overrides?: IconProps): ReactElement | undefined;
+
   (icon: ReactElement | string, overrides?: IconProps): ReactElement;
 }
 
@@ -540,6 +573,14 @@ const icons = {
   None,
   Constant,
   Terminal,
+  Arc,
+  Select,
+  Notification,
+  InProgress,
+  Completed,
+  ToDo,
+  Boolean,
+  Annotation,
   CSV,
   Valve,
   Safety,
@@ -547,6 +588,7 @@ const icons = {
   Fitting,
   Pump,
   Reset,
+  Status,
   FillColor,
   StrokeColor,
 };

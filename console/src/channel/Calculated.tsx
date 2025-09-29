@@ -62,7 +62,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
   const isEdit = args?.channelKey !== 0;
 
   const { form, variant, save, status } = Channel.useCalculatedForm({
-    params: { key: args?.channelKey },
+    query: { key: args?.channelKey },
     afterSave: ({ reset }) => {
       if (createMore) reset();
       else onClose();
@@ -98,14 +98,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
     [form, globals, client],
   );
 
-  if (variant !== "success")
-    return (
-      <Status.Summary
-        variant={status.variant}
-        message={status.message}
-        description={status.description}
-      />
-    );
+  if (variant !== "success") return <Status.Summary status={status} />;
 
   return (
     <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>

@@ -8,12 +8,20 @@ on:
       - cesium/**
       - go.work
       - go.work.sum
-      - scripts/check-gofmt.sh
+      - scripts/check_gofmt.sh
       - x/go/**
   push:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.cesium.yaml
+      - alamos/go/**
+      - cesium/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -35,18 +43,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh cesium
+        run: scripts/check_gofmt.sh cesium
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --trace
+          --github-output
         working-directory: cesium

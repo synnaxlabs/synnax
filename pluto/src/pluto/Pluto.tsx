@@ -11,6 +11,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
+import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
@@ -20,18 +21,23 @@ import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
 import { Label } from "@/label";
+import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
+import { Status as StatusCore } from "@/status/core";
 import { Synnax } from "@/synnax";
+import { Table } from "@/table";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
+import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Worker } from "@/worker";
 import { Workspace } from "@/workspace";
@@ -65,6 +71,13 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
+  [Arc.FLUX_STORE_KEY]: Arc.FluxStore;
+  [LinePlot.FLUX_STORE_KEY]: LinePlot.FluxStore;
+  [Log.FLUX_STORE_KEY]: Log.FluxStore;
+  [Table.FLUX_STORE_KEY]: Table.FluxStore;
+  [Schematic.FLUX_STORE_KEY]: Schematic.FluxStore;
+  [User.FLUX_STORE_KEY]: User.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
@@ -79,6 +92,13 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
+  [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
+  [LinePlot.FLUX_STORE_KEY]: LinePlot.FLUX_STORE_CONFIG,
+  [Log.FLUX_STORE_KEY]: Log.FLUX_STORE_CONFIG,
+  [Table.FLUX_STORE_KEY]: Table.FLUX_STORE_CONFIG,
+  [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
+  [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
+  [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({
@@ -100,7 +120,7 @@ export const Provider = ({
         <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
           <CanDisableAether workerKey="vis">
             <Alamos.Provider {...alamos}>
-              <Status.Aggregator>
+              <StatusCore.Aggregator>
                 <Synnax.Provider connParams={connParams}>
                   <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                     <Color.Provider {...color}>
@@ -112,7 +132,7 @@ export const Provider = ({
                     </Color.Provider>
                   </Flux.Provider>
                 </Synnax.Provider>
-              </Status.Aggregator>
+              </StatusCore.Aggregator>
             </Alamos.Provider>
           </CanDisableAether>
         </Worker.Provider>

@@ -1,15 +1,29 @@
 module(
     name = "synnax",
-    version = "0.43.0",
+    version = "0.46.0",
 )
 
-bazel_dep(name = "protobuf", version = "31.1")
+bazel_dep(name = "protobuf", version = "32.1")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "gflags", version = "2.2.2")
 bazel_dep(name = "glog", version = "0.7.1")
 bazel_dep(name = "googletest", version = "1.17.0")
-bazel_dep(name = "rules_proto_grpc_cpp", version = "5.1.0")
+bazel_dep(name = "rules_proto_grpc_cpp", version = "5.7.1")
 bazel_dep(name = "nlohmann_json", version = "3.12.0")
-bazel_dep(name = "grpc", version = "1.72.0")
+bazel_dep(name = "grpc", version = "1.74.1")
 bazel_dep(name = "lua", version = "5.4.6")
+
+bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
+
+# We're using this branch per this issue:
+# https://github.com/hedronvision/bazel-compile-commands-extractor/pull/219#issuecomment-2607795958
+git_override(
+    module_name = "hedron_compile_commands",
+    commit = "f5fbd4cee671d8d908f37c83abaf70fba5928fc7",
+    remote = "https://github.com/mikael-s-persson/bazel-compile-commands-extractor",
+)
+
+bazel_dep(name = "apple_support", version = "1.23.1", dev_dependency = True)
+
+bazel_dep(name = "rules_cc", version = "0.2.8")

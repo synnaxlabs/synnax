@@ -105,13 +105,7 @@ const IndividualProperties = ({
         variant="filled"
         size="tiny"
         style={{ marginRight: "1rem" }}
-        onClick={() => {
-          placeLayout(
-            createEditLayout({
-              args: { key: specKey },
-            }),
-          );
-        }}
+        onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
       >
         <Icon.Edit />
       </Button.Button>
@@ -144,16 +138,16 @@ const EdgeProperties = ({
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edge.color ?? color.ZERO}
+          value={(edge.data?.color ?? color.ZERO) as color.Crude}
           onChange={(v: color.Color) => {
             onChange(edge.key, { color: color.hex(v) });
           }}
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
-        <Diagram.SelectPathType
-          value={edge.variant as Diagram.PathType}
-          onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
+        <Schematic.SelectEdgeType
+          value={edge.data?.variant as Schematic.EdgeType}
+          onChange={(variant: Schematic.EdgeType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
     </Flex.Box>
@@ -177,7 +171,7 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    if (e.type === "edge") colorVal = color.construct(e.edge.color);
+    if (e.type === "edge") colorVal = color.colorZ.parse(e.edge.data?.color);
     else if (e.props.color != null) colorVal = color.construct(e.props.color);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);
@@ -223,9 +217,9 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Flex.Box align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
       <Input.Item label="Selection Colors" align="start">
-        <Flex.Box y>
+        <Flex.Box x>
           {Object.entries(colorGroups).map(([hex, elements]) => (
             <Color.Swatch
               key={elements[0].key}

@@ -43,8 +43,7 @@ export const Core = ({
   const dir = location.direction(parsedLocation);
   const dim = direction.dimension(dir);
   return (
-    /// @ts-expect-error - generic element issues
-    <Flex.Box<E>
+    <Flex.Box
       className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}

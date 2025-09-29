@@ -15,6 +15,8 @@ export const useRequiredContext = <T>(
 ): NonNullable<T> => {
   const value = use(context);
   if (value == null)
-    throw new NotFoundError(`useRequiredContext: context value is null`);
+    throw new NotFoundError(
+      `useRequiredContext: context value is null for ${context.displayName}`,
+    );
   return value;
 };

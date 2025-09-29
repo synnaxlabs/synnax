@@ -10,12 +10,15 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
+import { CONFIGURE_LAYOUTS, getIcon, getMake, type Make } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
+const shouldShowConfigureButton = (make: Make): boolean =>
+  make === "NI" || make === "LabJack";
+
+const notificationAdapter: Notifications.Adapter<typeof device.deviceZ> = (status) => {
   const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
@@ -27,7 +30,7 @@ const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
       {status.message}
     </Text.Text>
   );
-  if (make)
+  if (make != null && shouldShowConfigureButton(make))
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
   return sugared;
 };
@@ -46,6 +49,4 @@ const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
-  notificationAdapter,
-];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

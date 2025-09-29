@@ -10,7 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import { type ReactNode, type RefCallback, useRef, useState } from "react";
+import { type ReactNode, type RefCallback, useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -103,7 +103,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
-  const handleOpen: ContextMenuOpen = (e, keys) => {
+  const handleOpen: ContextMenuOpen = useCallback((e, keys) => {
     const p = xy.construct(e);
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
@@ -113,9 +113,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
       keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
     setMenuState({ visible: true, keys, position: p, cursor: p });
-  };
+  }, []);
 
-  const refCallback = (el: HTMLDivElement): void => {
+  const refCallback = useCallback((el: HTMLDivElement): void => {
     menuRef.current = el;
     if (el == null) return;
     setMenuState((prev) => {
@@ -130,7 +130,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       if (xy.equals(prev.position, nextPos)) return prev;
       return { ...prev, position: nextPos };
     });
-  };
+  }, []);
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 

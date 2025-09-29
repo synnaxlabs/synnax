@@ -6,8 +6,7 @@
 
 ## QA Template
 
-- [ ] I have verified that any changes to the `rc.md` template in this diff have been
-      manually added to this pull request.
+- [ ] <!-- prettier-ignore --> I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
 ## Version Conflicts
 
@@ -58,10 +57,7 @@ I have verified that code examples for each of the following services run correc
 
 ### Broken Links
 
-- [ ] I have used a broken link checker like
-      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or
-      [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the
-      live website.
+- [ ] <!-- prettier-ignore --> I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -96,9 +92,7 @@ I can successfully:
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create a channel with an erroneous expression, plot it and make
-        sure the server and console remain stable and the error is logged to the server
-        and the console.
+  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the server and console remain stable and the error is logged to the server and the console.
   - [ ] Plot a calculated channel that uses channels with hyphenated names.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
@@ -183,8 +177,7 @@ I can successfully:
   - [ ] Edit an existing label's name.
   - [ ] Change the color of an existing label.
   - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range
-        toolbar.
+  - [ ] <!-- prettier-ignore --> Change a label's color and ensure the change synchronizes with the range toolbar.
 
 ### Layout
 
@@ -301,8 +294,7 @@ I can successfully:
   - [ ] Cannot switch to edit mode on a schematic.
 - **As a user without admin permissions:**
   - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] Cannot delete users, open the permissions dialog, or change a username from the
-        resources toolbar.
+  - [ ] <!-- prettier-ignore --> Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
 
 ### Racks
 
@@ -325,24 +317,53 @@ I can successfully:
   - [ ] Create a new persisted range.
   - [ ] Create a range with a parent range.
   - [ ] Add labels while creating a range.
+  - [ ] Update the start and end times through changing the stage of a range
 - **Range Details**
-  - [ ] Rename a range.
   - [ ] Rename a range from the tab name.
+  - [ ] Rename a range.
+  - [ ] Navigate to a parent range from a range
+  - [ ] Copy Python code
+  - [ ] Copy TypeScript code
+  - [ ] Copy a link to the range
+  - [ ] Open and successfully download data as a CSV
+  - [ ] Favorite the range
+  - [ ] Unfavorite the range
   - [ ] Change start and end times.
+  - [ ] Change start and end times via the stage
   - [ ] Add labels.
-  - [ ] Set metadata.
-  - [ ] Open a link from metadata.
-  - [ ] Delete metadata.
-  - [ ] Add child ranges.
-  - [ ] Open snapshots.
-  - [ ] Navigate to and from child ranges.
-  - [ ] Download a range as a CSV.
-  - [ ] Download multiple channels for a range as a CSV.
+  - [ ] Remove labels.
+  - **Child Ranges**
+    - [ ] Click and navigate to a child range
+    - [ ] Create child ranges
+    - [ ] Change the stage of a child range
+    - [ ] Favorite a child range
+    - [ ] Unfavorite a child range
+    - **Context Menu**
+      - [ ] Rename a child range
+      - [ ] Create a child range
+      - [ ] Favorite a child range
+      - [ ] Favorite multiple child ranges
+      - [ ] Unfavorite a child range
+      - [ ] Unfavorite multiple child ranges
+      - [ ] Copy the link to a range
+      - [ ] Delete a child range
+      - [ ] Delete multiple child ranges
+  - **Metadata**
+    - [ ] Set metadata.
+    - [ ] Update the value of metadata.
+    - [ ] Copy the value of metadata to your clipboard
+    - [ ] Open a link from metadata.
+    - [ ] Delete metadata.
+  - **Snapshots**
+    - [ ] Navigate to a snapshot by clicking on it
+    - [ ] Remove a snapshot
 - **Search and Command Palette**
   - [ ] Open an existing range layout window.
   - [ ] Open the "Create Range" dialog.
+  - [ ] Open the Range Explorer
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
+  - [ ] Open the Range Explorer from the toolbar
   - [ ] Switch the active range by clicking it.
   - **Context Menu**
     - [ ] Open the "Create Range" modal.
@@ -353,43 +374,41 @@ I can successfully:
     - [ ] Open the "Create Range" modal with a child range.
     - [ ] Add to the active line plot.
     - [ ] Add to a new line plot.
-    - [ ] Remove from the range toolbar.
+    - [ ] Remove from favorites.
     - [ ] Delete a persisted range.
     - [ ] Copy a link to a persisted range.
     - [ ] Save a local range to Synnax.
-- **Resources Toolbar**
-  - [ ] Open the range overview dialog by double-clicking a range.
+- **Range Explorer**
+  - [ ] Open the range overview dialog by clicking on a range.
+  - [ ] Search ranges
+  - [ ] Filter ranges by labels
+  - [ ] Favorite and unfavorite ranges and see them added to the range toolbar
+  - [ ] Change the stage of a range
   - **Context Menu**
-    - [ ] Set an active range.
-    - [ ] Remove an active range.
-    - [ ] Open the range layout.
-    - [ ] Rename a range.
-    - [ ] Open the "Create Range" modal with a child range.
-    - [ ] Group ranges.
-    - [ ] Add to the active line plot.
-    - [ ] Add multiple ranges to the active line plot.
-    - [ ] Add to a new line plot.
-    - [ ] Add multiple ranges to a new line plot.
-    - [ ] Delete a range.
-    - [ ] Delete multiple ranges.
-    - [ ] Copy a link to a range.
+    - [ ] Rename a range
+    - [ ] Create a child range
+    - [ ] Favorite a range
+    - [ ] Favorite multiple ranges
+    - [ ] Unfavorite a range
+    - [ ] Unfavorite multiple ranges
+    - [ ] Copy the link to a range
+    - [ ] Delete a range
+    - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:
-  - Resources Toolbar
+  - Range Explorer
   - Range Overview
   - Range Overview Tab Name
   - Ranges Toolbar
 - [ ] Change the time of a range and ensure synchronization across:
   - Range Details
   - Ranges Toolbar
+  - Range explorer
 - [ ] Add or remove child ranges and ensure synchronization across:
-  - Resources Toolbar
-  - Range Details
+  - Range Details (both parent and child view)
 - [ ] Snapshot a schematic or task and ensure synchronization across:
-  - Resources Toolbar
   - Range Details
 - [ ] Ensure channel aliases synchronize correctly across:
-  - Resources Toolbar
   - Line Plot
   - Line Plot Toolbar
   - Task Configuration Dialog
@@ -547,6 +566,43 @@ I can successfully:
   - [ ] Register a new user.
 - [ ] Change a user's username and log in with the new username.
 
+### Arc
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Created a named arc automation.
+  - [ ] Open an existing arc automation.
+
+- **Arc Editor**
+  - [ ] Create an alarm automation that changes statuses and includes the following
+        blocks: channel source, constant, comparison, stable for, select, and status
+        change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change
+        based on the constant condition.
+  - [ ] Stop the arc deployment.
+  - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
+
+### Statuses
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Open the status explorer.
+  - [ ] Open the status create modal.
+
+- **Status Create Modal**
+  - [ ] Create a new status.
+  - [ ] Create a new status with labels.
+
+- **Status Explorer**
+  - [ ] Filter statuses by labels.
+  - [ ] Delete a single status.
+  - [ ] Delete multiple statuses.
+
+- **Status Notifications**
+  - [ ] See status notifications in the bottom right corner when creating a new status.
+
 ### Version
 
 I can successfully:
@@ -586,8 +642,7 @@ I can successfully:
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar
   - Workspace Selector
-- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
-      it in the release candidate.
+- [ ] <!-- prettier-ignore --> Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
 
@@ -617,15 +672,13 @@ I can successfully:
   - [ ] Delete a control sequence.
 - **Sequence Editing**
   - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] Edit a control sequence and see auto-complete suggestions for the following
-        built-in functions:
+  - [ ] <!-- prettier-ignore --> Edit a control sequence and see auto-complete suggestions for the following built-in functions:
     - [ ] `elapsed_time_within`
     - [ ] `elapsed_time`
     - [ ] `iteration`
     - [ ] `set`
     - [ ] `set_authority`
-  - [ ] Accept channel auto-complete suggestions and see the correct channel populated
-        in the `read_from` or `write_to` fields.
+  - [ ] <!-- prettier-ignore --> Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
   - [ ] Manually configure the `read_from` and `write_to` fields.
   - [ ] Set the sequence control rate.
   - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
@@ -647,8 +700,7 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
   - [ ] Run a read task with thermocouples, digital, and analog channels.
-  - [ ] Disconnect a device while reading, reconnect it, and read data after
-        reconfiguration.
+  - [ ] <!-- prettier-ignore --> Disconnect a device while reading, reconnect it, and read data after reconfiguration.
   - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
@@ -666,8 +718,7 @@ I can successfully:
   - **Configure response time based on the specified state rate:**
     - [ ] 1 Hz (should have a visible delay)
     - [ ] 20 Hz (should be nearly immediate)
-- [ ] Configure simultaneous write and read tasks and stop or delete either without
-      affecting the other.
+- [ ] <!-- prettier-ignore --> Configure simultaneous write and read tasks and stop or delete either without affecting the other.
 
 ### NI
 
@@ -680,8 +731,7 @@ I can successfully:
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
 - [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
-- [ ] Receive feedback when trying to create an NI task on a machine lacking the
-      necessary libraries.
+- [ ] <!-- prettier-ignore --> Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
@@ -706,8 +756,7 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after
-        configuration.
+  - [ ] <!-- prettier-ignore --> Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [ ] Ensure no lag between sensor input and server data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
@@ -764,11 +813,41 @@ I can successfully:
     - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] Maintain driver operation during device disconnection or channel removal while a
-        task is running.
+  - [ ] <!-- prettier-ignore --> Maintain driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
   - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
+
+### Modbus
+
+I can successfully:
+
+- [ ] Enable and disable Modbus integration when starting the server.
+- [ ] Connect to a Modbus TCP server.
+- [ ] Configure connection parameters (IP address, port, unit ID).
+- **Read Task**
+  - [ ] Read holding registers from a Modbus device.
+  - [ ] Read input registers from a Modbus device.
+  - [ ] Read coils and discrete inputs from a Modbus device.
+  - [ ] Plot live data from Modbus registers.
+  - [ ] Apply scaling to register values.
+  - [ ] Enable and disable data saving.
+  - [ ] Stop, start, and reconfigure read tasks.
+  - [ ] Handle device disconnection gracefully.
+  - **Reliable data reading at the following sample rates:**
+    - [ ] 1 Hz
+    - [ ] 10 Hz
+    - [ ] 100 Hz
+- **Write Task**
+  - [ ] Write to holding registers on a Modbus device.
+  - [ ] Write to coils on a Modbus device.
+  - [ ] Perform control actions using a schematic.
+  - [ ] Stop, start, and reconfigure write tasks.
+  - **Configure response time for specified state rates:**
+    - [ ] 1 Hz (visible delay)
+    - [ ] 20 Hz (near-instant response)
+- [ ] Run simultaneous read and write tasks on the same device.
+- [ ] Run tasks across multiple Modbus devices concurrently.

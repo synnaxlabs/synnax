@@ -51,6 +51,22 @@
     transform: scale(var(--pluto-base-scale));
 }
 
+.pluto-icon--in-progress {
+    color: var(--pluto-warning-z);
+}
+
+.pluto-icon--completed {
+    color: var(--pluto-primary-z);
+}
+
+.pluto-icon--in-progress {
+    color: var(--pluto-warning-z);
+}
+
+.pluto-icon--completed {
+    color: var(--pluto-primary-z);
+}
+
 .pluto-icon--logo-opc {
     transform: translateY(1px) scale(1.25);
 }
@@ -66,4 +82,16 @@
 
 .pluto-icon--reset {
     fill: var(--pluto-gray-l11);
+}
+
+.pluto-icon--boolean {
+    fill: currentColor;
+}
+
+.pluto-icon--true {
+    color: var(--pluto-success-z);
+}
+
+.pluto-icon--false {
+    color: var(--pluto-error-z);
 }
