@@ -23,6 +23,7 @@ import {
   Text,
   TimeSpan,
   Tree,
+  useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
 import { type Optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
@@ -109,11 +110,13 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
 });
 
 export const Browser = ({ device }: BrowserProps) => {
-  const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
+  const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
+    [],
+  );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [status, setStatus] = useState<status.Status | null>(null);
   const { retrieve: retrieveNodes } = useRetrieveNodes({
-    onChange: (result, { clicked: { id, key } }) => {
+    onChange: useCallback((result, { clicked: { id, key } }) => {
       setStatus(result.status);
       if (result.variant !== "success") return;
       const isRoot = id === "";
@@ -129,12 +132,12 @@ export const Browser = ({ device }: BrowserProps) => {
       else
         setTreeNodes([
           ...Tree.setNode({
-            tree: treeNodes,
+            tree: treeNodesRef.current,
             destination: key ?? null,
             additions: newNodes,
           }),
         ]);
-    },
+    }, []),
   });
 
   const expand = useCallback(

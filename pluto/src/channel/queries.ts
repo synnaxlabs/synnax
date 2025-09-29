@@ -101,7 +101,7 @@ export const formSchema = channel.newZ
       path: ["dataType"],
     },
   )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
     message: "Data channel must have an index",
     path: ["index"],
   })
