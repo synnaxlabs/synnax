@@ -16,7 +16,6 @@ import { text } from "@/text/core";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 
 // Define gauge size presets
@@ -53,8 +52,6 @@ export interface GaugeProps {
   scale?: scale.XY;
 }
 
-const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
-
 interface InternalState {
   theme: theming.Theme;
   render: render.Context;
@@ -65,6 +62,21 @@ interface InternalState {
   stopListeningBackground?: () => void;
   requestRender: render.Requestor | null;
   textColor: color.Color;
+  strokeColor: color.Color;
+  gaugeStartAngle: number;
+  gaugeEndAngle: number;
+  gaugeAngleRange: number;
+  outerRadius: number;
+  innerRadius: number;
+  labelRadius: number;
+  labelInwardShift: number;
+  minLabelPos: xy.XY;
+  maxLabelPos: xy.XY;
+  centerPos: xy.XY;
+  valueTextPos: xy.XY;
+  unitsTextPos: xy.XY;
+  textLevel: text.Level;
+  labelLevel: text.Level;
 }
 
 export class Gauge
@@ -92,6 +104,48 @@ export class Gauge
     i.stopListeningBackground?.();
     i.stopListeningBackground = i.backgroundTelem.onChange(() => this.requestRender());
     i.requestRender = render.useOptionalRequestor(ctx);
+
+    i.strokeColor = color.isZero(this.state.color)
+      ? i.theme.colors.visualization.palettes.default[0]
+      : this.state.color;
+
+    // Pre-calculate gauge geometry
+    const b = this.state.box;
+    const baseRadius = box.width(b) / 2;
+    const { barWidth } = this.state;
+
+    i.outerRadius = baseRadius - 8;
+    i.innerRadius = i.outerRadius - barWidth;
+
+    // Calculate gauge angles (270-degree arc with 90-degree gap at top)
+    const gapSize = Math.PI / 2; // 90 degree gap
+    i.gaugeStartAngle = (3 * Math.PI) / 4; // Start from top-left (135 degrees)
+    i.gaugeAngleRange = 2 * Math.PI - gapSize; // Total arc is 270 degrees
+    i.gaugeEndAngle = i.gaugeStartAngle + i.gaugeAngleRange;
+
+    // Calculate label positions
+    i.labelRadius = i.outerRadius + 12;
+    i.labelInwardShift = 12;
+    i.centerPos = box.center(b);
+
+    const labelY = i.centerPos.y + i.labelRadius * Math.sin(i.gaugeStartAngle) + 6;
+
+    i.minLabelPos = xy.construct(
+      i.centerPos.x + i.labelRadius * Math.cos(i.gaugeStartAngle) + i.labelInwardShift,
+      labelY,
+    );
+
+    i.maxLabelPos = xy.construct(
+      i.centerPos.x + i.labelRadius * Math.cos(i.gaugeEndAngle) - i.labelInwardShift,
+      labelY,
+    );
+
+    i.valueTextPos = xy.translateY(i.centerPos, -6);
+    i.unitsTextPos = xy.translateY(i.centerPos, box.height(b) / 9);
+
+    i.textLevel = this.state.level;
+    i.labelLevel = text.downLevel(text.downLevel(i.textLevel));
+
     this.requestRender();
   }
 
@@ -113,109 +167,78 @@ export class Gauge
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
-    const { render: renderCtx, theme } = this.internal;
-    const upper2d = renderCtx.upper2d.applyScale(viewportScale);
-    const draw2d = new Draw2D(upper2d, theme);
-    const b = this.state.box;
-    const baseRadius = box.width(b) / 2;
-    const value = this.internal.telem.value();
-    const { barWidth } = this.state;
+    const { internal: i } = this;
+    const upper2d = i.render.upper2d.applyScale(viewportScale);
+    const draw2d = new Draw2D(upper2d, i.theme);
+    const value = i.telem.value();
 
-    const outerRadius = baseRadius - 8;
-    const innerRadius = outerRadius - barWidth;
-
-    // Calculate value ratio based on bounds
+    // Calculate value angle (only thing that changes per render)
     const { lower, upper } = this.state.bounds;
-    // Create a gap at the top - gauge spans from top-left to top-right
-    // Rotating 90 degrees counter-clockwise from previous position
-    // Start at 3π/4 (135 degrees) and end at π/4 (45 degrees) - this leaves a 90 degree gap at top
-    const gapSize = Math.PI / 2; // 90 degree gap
-    const gaugeStartAngle = (3 * Math.PI) / 4; // Start from top-left (135 degrees)
-    const gaugeAngleRange = 2 * Math.PI - gapSize; // Total arc is 270 degrees
-
     const valueNum = Number(value);
     const clampedValue = bounds.clamp(this.state.bounds, valueNum);
-    // Ensure proper handling of negative values
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
-    const valueAngle = gaugeStartAngle + valueRatio * gaugeAngleRange;
+    const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
 
-    const textLevel = this.state.level;
-    const labelLevel = text.downLevel(text.downLevel(textLevel));
-
-    // Main value and units
     draw2d.text({
       text: value,
-      position: xy.translateY(box.center(b), -6),
+      position: i.valueTextPos,
       shade: 10,
-      level: textLevel,
+      level: i.textLevel,
       align: "middle",
       justify: "center",
       weight: 450,
       code: true,
+      useAtlas: true,
     });
     draw2d.text({
       text: this.state.units,
-      position: xy.translateY(box.center(b), 6),
+      position: i.unitsTextPos,
       shade: 8,
-      level: text.downLevel(textLevel),
-      align: "top",
+      level: text.downLevel(i.textLevel),
+      align: "middle",
       justify: "center",
+      code: true,
+      useAtlas: true,
     });
 
     // Add min/max labels at the gap endpoints
-    const labelRadius = outerRadius + 12;
-    const gaugeEndAngle = gaugeStartAngle + gaugeAngleRange;
-    const labelInwardShift = 8; // Shift labels inward on x-axis
-
-    // Min value label (at start of gauge arc - top left) - shift right
-    const minLabelPos = xy.construct(
-      box.center(b).x + labelRadius * Math.cos(gaugeStartAngle) + labelInwardShift,
-      box.center(b).y + labelRadius * Math.sin(gaugeStartAngle),
-    );
     draw2d.text({
-      text: String(lower),
-      position: minLabelPos,
+      text: lower.toString(),
+      position: i.minLabelPos,
       shade: 7,
-      level: labelLevel,
+      level: i.labelLevel,
       align: "middle",
       justify: "center",
       code: true,
+      useAtlas: true,
     });
 
-    // Max value label (at end of gauge arc - top right) - shift left
-    const maxLabelPos = xy.construct(
-      box.center(b).x + labelRadius * Math.cos(gaugeEndAngle) - labelInwardShift,
-      box.center(b).y + labelRadius * Math.sin(gaugeEndAngle),
-    );
     draw2d.text({
-      text: String(upper),
-      position: maxLabelPos,
+      text: upper.toString(),
+      position: i.maxLabelPos,
       shade: 7,
-      level: labelLevel,
+      level: i.labelLevel,
       align: "middle",
       justify: "center",
       code: true,
+      useAtlas: true,
     });
 
-    // Draw background arc (with gap) using stroke for rounded caps
     draw2d.circle({
-      stroke: this.internal.theme.colors.gray.l5,
-      radius: { inner: innerRadius, outer: outerRadius },
-      position: box.center(b),
-      angle: { lower: gaugeStartAngle, upper: gaugeEndAngle },
+      stroke: i.theme.colors.gray.l5,
+      radius: { inner: i.innerRadius, outer: i.outerRadius },
+      position: i.centerPos,
+      angle: { lower: i.gaugeStartAngle, upper: i.gaugeEndAngle },
       lineCap: "round",
     });
 
-    // Draw value arc with rounded caps
     draw2d.circle({
-      stroke: color.isZero(this.state.color)
-        ? this.internal.theme.colors.visualization.palettes.default[0]
-        : this.state.color,
-      radius: { inner: innerRadius, outer: outerRadius },
-      position: box.center(b),
+      stroke: i.strokeColor,
+      radius: { inner: i.innerRadius, outer: i.outerRadius },
+      position: i.centerPos,
       angle: {
-        lower: gaugeStartAngle,
+        lower: i.gaugeStartAngle,
         upper: valueAngle,
       },
       lineCap: "round",

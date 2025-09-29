@@ -897,7 +897,10 @@ export const Gauge = ({
         onChange({ label: { ...label, orientation: loc } });
       }}
     >
-      <div style={{ width: gaugeSize, height: gaugeSize }} />
+      <div
+        style={{ width: gaugeSize, height: gaugeSize }}
+        className={CSS.B("symbol-primitive")}
+      />
     </Grid>
   );
 };
@@ -912,7 +915,7 @@ export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
   // Arc spans from 135° (top-left) to 45° (top-right) - 270° total with 90° gap at top
   const startAngle = 135 * (Math.PI / 180);
   const endAngle = 45 * (Math.PI / 180);
-  const valueAngle = 135 + (270 * 0.5); // Show 50% filled for preview
+  const valueAngle = 135 + 270 * 0.5; // Show 50% filled for preview
   const valueEndAngle = valueAngle * (Math.PI / 180);
 
   // Calculate arc path coordinates

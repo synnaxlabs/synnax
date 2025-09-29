@@ -9,6 +9,7 @@
 
 import "@/schematic/Schematic.css";
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
@@ -22,6 +23,8 @@ export interface SchematicProps
 
 const edgeRenderer = Component.renderProp(Edge);
 
+const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
+
 export const Schematic = ({
   className,
   children,
@@ -30,6 +33,7 @@ export const Schematic = ({
   <Diagram.Diagram
     className={CSS(CSS.B("schematic"), className)}
     dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+    autoRenderInterval={AUTO_RENDER_INTERVAL}
     {...props}
   >
     <Diagram.EdgeRenderer<EdgeData> connectionLineComponent={ConnectionLine}>
