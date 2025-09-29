@@ -16,6 +16,7 @@ import { text } from "@/text/core";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
+import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 
 // Define gauge size presets
@@ -51,6 +52,8 @@ const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 export interface GaugeProps {
   scale?: scale.XY;
 }
+
+const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 interface InternalState {
   theme: theming.Theme;
