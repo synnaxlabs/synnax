@@ -361,7 +361,6 @@ export const createList =
       (key: Key, options: core.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
-          if (!storeListenersMountedRef.current) syncListeners();
           try {
             if (client == null || primitive.isZero(key)) return;
             const item = await retrieveByKey({
@@ -389,6 +388,7 @@ export const createList =
 
     const getItem = useCallback(
       ((key?: Key | Key[]) => {
+        if (!storeListenersMountedRef.current) syncListeners();
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
         // Zero-value keys that are not null or undefined are common as
@@ -402,7 +402,7 @@ export const createList =
         if (res === undefined) retrieveSingle(key);
         return res;
       }) as GetItem<Key, Data>,
-      [retrieveSingle],
+      [retrieveSingle, syncListeners],
     );
 
     const subscribe = useCallback((callback: () => void, key?: Key) => {

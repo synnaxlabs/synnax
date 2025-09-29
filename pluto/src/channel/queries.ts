@@ -162,18 +162,15 @@ const retrieveSingle = async ({
   if (rangeKey != null) {
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
-    if (alias == null)
-      try {
-        const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
-        alias = {
-          alias: aliasName,
-          channel: ch.key,
-          range: rangeKey,
-        };
-      } finally {
-        store.rangeAliases.set(aliasKey, { channel: ch.key, range: rangeKey });
-      }
-
+    if (alias == null) {
+      const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
+      alias = {
+        alias: aliasName,
+        channel: ch.key,
+        range: rangeKey,
+      };
+      store.rangeAliases.set(aliasKey, alias);
+    }
     if (alias != null) ch.alias = alias.alias;
   }
   return ch;
@@ -428,11 +425,18 @@ export const useList = Flux.createList<
     store.channels.set(channels);
     return channels;
   },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ client, query: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete }) => [
+  retrieveByKey: async ({ client, key, query, store }) =>
+    await retrieveSingle({ client, query: { ...query, key }, store }),
+  mountListeners: ({ store, onChange, onDelete, client }) => [
     store.channels.onSet((channel) => onChange(channel.key, channel)),
     store.channels.onDelete((key) => onDelete(key)),
+    store.rangeAliases.onSet((alias) => {
+      if (alias == null) return;
+      onChange(alias.channel, (prev) => {
+        if (prev == null) return prev;
+        return client.channels.sugar({ ...prev, alias: alias.alias });
+      });
+    }),
   ],
 });
 
