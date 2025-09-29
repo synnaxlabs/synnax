@@ -119,7 +119,6 @@ export interface Service {
 export const NOOP_SERVICE: Omit<Service, "type"> = {
   icon: <></>,
   hasChildren: true,
-  onSelect: () => {},
   canDrop: () => false,
   haulItems: () => [],
 };
