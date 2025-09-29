@@ -241,7 +241,7 @@ const useObservableBase = <
         onChange(res, query);
       }
     },
-    [client, name, beforeRetrieve, addStatusOnFailure],
+    [client, name, beforeRetrieve, addStatusOnFailure, onChange],
   );
   const retrieveSync = useCallback(
     (query: state.SetArg<Query, Partial<Query>>, options?: core.FetchOptions) =>
