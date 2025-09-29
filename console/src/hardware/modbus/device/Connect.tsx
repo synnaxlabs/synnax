@@ -153,7 +153,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           {variant == "success" ? (
             <Triggers.SaveHelpText action="Connect" noBar />
           ) : (
-            <Status.Summary status={variant} message={status.description} />
+            <Status.Summary variant={variant} message={status.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>

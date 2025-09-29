@@ -16,17 +16,18 @@ import { Icon } from "@/icon";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
-  extends Omit<BaseText.TextProps, "wrap" | "variant">,
+  extends Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
     Partial<Omit<status.Status, "key">> {
   hideIcon?: boolean;
+  status?: status.Status;
 }
 
 export const Summary = ({
   level = "p",
   variant,
-  status: textStatusVariant,
   description,
   hideIcon = false,
+  status,
   className,
   children,
   message,
@@ -34,7 +35,10 @@ export const Summary = ({
   ...rest
 }: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
-  variant ??= textStatusVariant;
+  if (status != null) {
+    const { key: _, ...restStatus } = status;
+    return <Summary {...rest} {...restStatus} />;
+  }
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const hasDescription = primitive.isNonZero(description);
   children ??= message;

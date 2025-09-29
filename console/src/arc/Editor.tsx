@@ -176,7 +176,7 @@ const Controls = ({ arc }: StatusChipProps) => {
         <Status.Summary
           variant="disabled"
           message="Arc not deployed"
-          {...status.data}
+          status={status.data}
         />
         <Button.Button onClick={handleDeploy} variant="filled">
           {isRunning ? <Icon.Pause /> : <Icon.Play />}

@@ -162,7 +162,7 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [clearExpanded]);
   useEffect(refresh, [refresh]);
   let content: ReactElement;
-  if (status?.variant === "error") content = <Status.Summary center {...status} />;
+  if (status?.variant === "error") content = <Status.Summary center status={status} />;
   else if (initialLoading)
     content = (
       <Flex.Box center>
