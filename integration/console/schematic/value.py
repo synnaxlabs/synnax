@@ -36,6 +36,9 @@ class Value(Symbol):
     ) -> Dict[str, Any]:
         """Edit Value symbol properties including channel and telemetry settings."""
         self._click_symbol()
+
+        applied_properties: Dict[str, Any] = {}
+
         # Always enforce label = channel_name for easy identification
         if channel_name is not None:
             self.set_label(channel_name)
@@ -46,46 +49,39 @@ class Value(Symbol):
 
         if channel_name is not None:
             self.set_channel("Input Channel", channel_name)
+            applied_properties["channel"] = channel_name
 
         if notation is not None:
             self.console.click_btn("Notation")
+            # Note to self, check if the next line is redundant
             self.page.get_by_text(notation).click()
+            applied_properties["notation"] = notation
 
         if precision is not None:
             self.console.fill_input_field("Precision", str(precision))
             self.page.keyboard.press("Enter")
+            applied_properties["precision"] = precision
 
         if averaging_window is not None:
             self.console.fill_input_field("Averaging Window", str(averaging_window))
             self.page.keyboard.press("Enter")
+            applied_properties["averaging_window"] = averaging_window
 
         if stale_color is not None:
             if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
                 raise ValueError(
                     "stale_color must be a valid hex color (e.g., #FF5733)"
                 )
-
             self.console.click_btn("Color")
             self.console.fill_input_field("Hex", stale_color.replace("#", ""))
             self.page.keyboard.press("Enter")
             self.page.keyboard.press("Escape")
+            applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
             self.console.fill_input_field("Stale Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
-        applied_properties: Dict[str, Any] = {}
-        if channel_name is not None:
-            applied_properties["channel"] = channel_name
-        if notation is not None:
-            applied_properties["notation"] = notation
-        if precision is not None:
-            applied_properties["precision"] = precision
-        if averaging_window is not None:
-            applied_properties["averaging_window"] = averaging_window
-        if stale_color is not None:
-            applied_properties["stale_color"] = stale_color
-        if stale_timeout is not None:
             applied_properties["stale_timeout"] = stale_timeout
 
         return applied_properties
