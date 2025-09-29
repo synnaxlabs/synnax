@@ -129,13 +129,16 @@ export const useViewDetails = (): ((key: string) => void) => {
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const { retrieve } = Ranger.useRetrieveObservable({
-    onChange: ({ data, variant, status }) => {
-      if (variant !== "success") {
-        if (variant === "error") addStatus(status);
-        return;
-      }
-      placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
-    },
+    onChange: useCallback(
+      ({ data, variant, status }) => {
+        if (variant !== "success") {
+          if (variant === "error") addStatus(status);
+          return;
+        }
+        placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
+      },
+      [placeLayout],
+    ),
   });
   return useCallback((key: string) => retrieve({ key }), [retrieve]);
 };

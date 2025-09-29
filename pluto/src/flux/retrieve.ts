@@ -293,13 +293,12 @@ const useEffect = <
       [onChange],
     ),
   });
-  const memoquery = useMemoDeepEqual(query);
+  const memoQuery = useMemoDeepEqual(query);
   useAsyncEffect(
     async (signal) => {
-      if (memoquery == null) return;
-      await retrieveAsync(memoquery, { signal });
+      if (memoQuery != null) await retrieveAsync(memoQuery, { signal });
     },
-    [retrieveAsync, memoquery],
+    [retrieveAsync, memoQuery],
   );
 };
 
