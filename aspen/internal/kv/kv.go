@@ -112,6 +112,7 @@ const (
 	leaseReceiverAddr     = "lease_receiver"
 	leaseProxyAddr        = "lease_proxy"
 	executorAddr          = "executor"
+	chanBuffer            = 100
 )
 
 func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
@@ -189,53 +190,53 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
 		SinkTargets:   []address.Address{leaseProxyAddr},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      1,
+		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{leaseProxyAddr},
 		SinkTargets:   []address.Address{versionAssignerAddr, leaseSenderAddr},
 		Stitch:        plumber.StitchWeave,
-		Capacity:      1,
+		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{operationReceiverAddr, operationSenderAddr},
 		SinkTargets:   []address.Address{versionFilterAddr},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      1,
+		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
 		SinkTargets:   []address.Address{persistAddr},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      1,
+		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: persistAddr,
 		SinkTarget:   persistDeltaAddr,
-		Capacity:     1,
+		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: versionFilterAddr,
 		SinkTarget:   feedbackSenderAddr,
-		Capacity:     1,
+		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: feedbackReceiverAddr,
 		SinkTarget:   recoveryTransformAddr,
-		Capacity:     1,
+		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{persistDeltaAddr, recoveryTransformAddr},
 		SinkTargets:   []address.Address{storeSinkAddr},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      1,
+		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
@@ -243,16 +244,20 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		SinkTarget:   observableAddr,
 		// Setting the capacity higher here allows us to unclog the pipeline in case
 		// we have a slow observer.
-		Capacity: 1,
+		Capacity: chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: storeEmitterAddr,
 		SinkTarget:   operationSenderAddr,
-		Capacity:     1,
+		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 	newRecoveryServer(cfg)
-	pipe.Flow(sCtx)
+	pipe.Flow(
+		sCtx,
+		confluence.RecoverWithoutErrOnPanic(),
+		confluence.WithRetryOnPanic(100),
+	)
 	return db_, runRecovery(ctx, cfg)
 }
 

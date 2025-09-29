@@ -240,7 +240,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	for _, node := range r.nodes {
 		node.Flow(sCtx)
 	}
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	p.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)
 	return r, err
 }
