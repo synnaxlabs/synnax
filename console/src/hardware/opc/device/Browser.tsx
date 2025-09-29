@@ -99,11 +99,12 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
     },
   }) => {
     const scanTask = await retrieveScanTask(client, store, rack);
-    const { details } = await scanTask.executeCommandSync({
+    const { details, variant, message } = await scanTask.executeCommandSync({
       type: SCAN_COMMAND_TYPE,
       timeout: TimeSpan.seconds(10),
       args: { connection, node_id: id },
     });
+    if (variant !== "success") throw new Error(message);
     if (details?.data == null || !("channels" in details.data)) return [];
     return details.data.channels;
   },
@@ -161,13 +162,13 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [clearExpanded]);
   useEffect(refresh, [refresh]);
   let content: ReactElement;
-  if (initialLoading)
+  if (status?.variant === "error") content = <Status.Summary center {...status} />;
+  else if (initialLoading)
     content = (
       <Flex.Box center>
         <Icon.Loading style={{ fontSize: "5rem" }} color={7} />
       </Flex.Box>
     );
-  else if (status?.variant === "error") content = <Status.Summary center {...status} />;
   else
     content = (
       <Tree.Tree
@@ -188,7 +189,7 @@ export const Browser = ({ device }: BrowserProps) => {
         <Header.Actions>
           <Button.Button
             onClick={refresh}
-            disabled={initialLoading}
+            disabled={initialLoading && status?.variant !== "error"}
             sharp
             contrast={2}
             variant="text"
