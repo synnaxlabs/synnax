@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/cockroachdb/errors/oserror"
@@ -409,7 +408,7 @@ func (f *memFile) ReadAt(p []byte, off int64) (int, error) {
 
 func (f *memFile) Write(p []byte) (int, error) {
 	if !f.write {
-		return 0, syscall.EBADF
+		return 0, invariants.ErrAccessDenied
 	}
 	if f.n.isDir {
 		return 0, errors.New("memfs: cannot write a directory")
