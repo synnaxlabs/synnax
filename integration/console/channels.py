@@ -204,7 +204,6 @@ class ChannelClient:
             raise ValueError(f"Channel {name} does not exist in {all_channels}")
 
         # Find the channel in the list and delete it
-        # self.show_channels()
         for item in self.channels_list.all():
             if item.is_visible():
                 # Get the channel name from the <p> element inside the channel div
@@ -217,7 +216,22 @@ class ChannelClient:
                     delete_option.click()
 
                     # Delete button in Modal
-                    self.page.get_by_role("button", name="Delete", exact=True).click()
+                    self.page.get_by_role(
+                        "button", name="Delete", exact=True
+                    ).first.click()
+
+                    # Check for notifications and close them if there's an error
+                    i = -1
+                    for notification in self.console.check_for_notifications():
+                        i += 1
+                        message = notification.get("message", "")
+                        description = notification.get("description", "")
+                        if (message == "Failed to delete Channel") and (
+                            name in description
+                        ):
+                            # Close the notification before raising the error
+                            self.console.close_notification(i)
+                            raise RuntimeError(f"{message} {name}, {description}")
                     break
         self.hide_channels()
 

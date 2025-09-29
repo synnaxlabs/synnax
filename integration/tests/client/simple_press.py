@@ -50,7 +50,7 @@ class Simple_Press(TestCase):
             ctrl[VENT_VALVE] = False
 
             # Pressurize the system
-            for i in range(3):
+            for i in range(5):
                 if self.should_stop:
                     return
 

@@ -11,7 +11,7 @@ import os
 import random
 import re
 import time
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from playwright.sync_api import Locator, Page
 
@@ -210,6 +210,100 @@ class Console:
             self.page.wait_for_timeout(200)
             self.page.get_by_text("Try again").click()
             self.page.wait_for_timeout(200)
+
+    def check_for_notifications(self) -> list[Dict[str, Any]]:
+        """
+        Check for notifications in the bottom right corner.
+        Returns a list of notification dictionaries with details.
+        """
+        self.page.wait_for_timeout(100)
+
+        notifications = []
+        notification_elements = self.page.locator(".pluto-notification").all()
+
+        for notification in notification_elements:
+            try:
+                # Extract notification details
+                notification_data = {}
+
+                # Get the count (e.g., "x1")
+                count_element = notification.locator(".pluto-text--small").first
+                if count_element.count() > 0:
+                    count_text = count_element.inner_text().strip()
+                    notification_data["count"] = count_text
+
+                # Get the timestamp
+                time_element = notification.locator(".pluto-notification__time")
+                if time_element.count() > 0:
+                    timestamp = time_element.inner_text().strip()
+                    notification_data["timestamp"] = timestamp
+
+                # Get the main message
+                message_element = notification.locator(".pluto-notification__message")
+                if message_element.count() > 0:
+                    message = message_element.inner_text().strip()
+                    notification_data["message"] = message
+
+                # Get the description
+                description_element = notification.locator(
+                    ".pluto-notification__description"
+                )
+                if description_element.count() > 0:
+                    description = description_element.inner_text().strip()
+                    notification_data["description"] = description
+
+                # Determine notification type based on icon or styling
+                error_icon = notification.locator("svg[color*='error']")
+                if error_icon.count() > 0:
+                    notification_data["type"] = "error"
+                else:
+                    notification_data["type"] = "info"
+
+                notifications.append(notification_data)
+
+            except Exception as e:
+                raise RuntimeError(f"Error parsing notification: {e}")
+
+        return notifications
+
+    def close_notification(self, notification_index: int = 0) -> bool:
+        """
+        Close a notification by clicking its close button.
+
+        :param notification_index: Index of the notification to close (0 for first)
+        :returns: True if notification was closed, False if not found
+        """
+        try:
+            notification_elements = self.page.locator(".pluto-notification").all()
+            if notification_index >= len(notification_elements):
+                return False
+
+            notification = notification_elements[notification_index]
+            close_button = notification.locator(".pluto-notification__silence")
+
+            if close_button.count() > 0:
+                close_button.click()
+                return True
+            return False
+
+        except Exception:
+            return False
+
+    def close_all_notifications(self) -> int:
+        """
+        Close all visible notifications.
+
+        :returns: Number of notifications closed
+        """
+        closed_count = 0
+        notifications_closed = True
+
+        while notifications_closed:
+            notifications_closed = self.close_notification(0)
+            if notifications_closed:
+                closed_count += 1
+
+        return closed_count
 
     def screenshot(self, name: Optional[str] = None) -> None:
         """Take a screenshot of the entire console page."""
