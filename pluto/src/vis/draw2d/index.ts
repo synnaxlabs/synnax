@@ -147,7 +147,15 @@ export class Draw2D {
     ctx.stroke();
   }
 
-  circle({ fill, stroke, strokeWidth, radius, position, angle, lineCap }: Draw2DCircleProps): void {
+  circle({
+    fill,
+    stroke,
+    strokeWidth,
+    radius,
+    position,
+    angle,
+    lineCap,
+  }: Draw2DCircleProps): void {
     const ctx = this.canvas;
     ctx.beginPath();
     const startAngle = angle?.lower ?? 0;
