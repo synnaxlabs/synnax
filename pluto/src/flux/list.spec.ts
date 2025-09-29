@@ -955,7 +955,7 @@ describe("list", () => {
       });
     });
 
-    it("should mount listeners immediately when retrieveCached returns data", () => {
+    it("should not mount listeners immediately when retrieveCached returns data", () => {
       const mountListeners = vi.fn();
       const cachedItems = [{ key: 1 }, { key: 2 }];
       const retrieveCached = vi.fn().mockReturnValue(cachedItems);
@@ -973,6 +973,23 @@ describe("list", () => {
       );
 
       expect(mountListeners).not.toHaveBeenCalled();
+    });
+
+    it("should mount listeners when getItem is called before retrieve AND the result of getItem is cached", () => {
+      const mountListeners = vi.fn();
+      const useList = Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+        name: "Resource",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key }),
+        retrieveCached: () => [{ key: 1 }],
+        mountListeners,
+      });
+
+      const { result } = renderHook(useList, { wrapper });
+      act(() => {
+        result.current.getItem(1);
+      });
+      expect(mountListeners).toHaveBeenCalledTimes(1);
     });
   });
 
