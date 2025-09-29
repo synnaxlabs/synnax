@@ -22,7 +22,10 @@ import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/core/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import {
+  type FillTextOptions,
+  type SugaredOffscreenCanvasRenderingContext2D,
+} from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -58,7 +61,7 @@ export interface Draw2DContainerProps {
   backgroundColor?: ColorSpec;
 }
 
-export interface DrawTextProps {
+export interface DrawTextProps extends FillTextOptions {
   text: string;
   position: xy.XY;
   level: text.Level;
@@ -383,6 +386,7 @@ export class Draw2D {
     code,
     justify = "left",
     align = "top",
+    useAtlas,
     color: colorVal,
   }: DrawTextProps): void {
     this.canvas.font = fontString(this.theme, { level, weight, code });
@@ -395,7 +399,7 @@ export class Draw2D {
     let removeScissor: Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
-    this.canvas.fillText(text, position.x, position.y);
+    this.canvas.fillText(text, position.x, position.y, undefined, { useAtlas });
     removeScissor?.();
   }
 }
