@@ -87,7 +87,7 @@ class Console:
         self, text: str, placeholder: Optional[str] = None
     ) -> None:
         """Select an item from an open dropdown."""
-        self.page.wait_for_timeout(200)
+        self.page.wait_for_timeout(300)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
         if placeholder is not None:

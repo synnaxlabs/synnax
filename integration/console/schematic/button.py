@@ -111,8 +111,8 @@ class Button(Symbol):
                     if "pluto-btn--filled" in class_name:
                         props["mode"] = str(option).lower()
                         break
-            except:
-                continue
+            except Exception as e:
+                raise RuntimeError(f"Error getting mode property: {e}")
 
         return props
 

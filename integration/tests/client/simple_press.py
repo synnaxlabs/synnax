@@ -21,10 +21,13 @@ class Simple_Press(TestCase):
         self.set_manual_timeout(30)
         self.subscribe(
             [
-                "press_vlv_cmd",
-                "vent_vlv_cmd",
-                "press_pt",
+                "end_test_cmd",
                 "end_test_state",
+                "press_vlv_cmd",
+                "press_vlv_state",
+                "vent_vlv_cmd",
+                "vent_vlv_state",
+                "press_pt",
             ]
         )
         super().setup()
@@ -53,9 +56,9 @@ class Simple_Press(TestCase):
             for i in range(5):
                 if self.should_stop:
                     return
-
                 # Open press valve and wait
                 ctrl[PRESS_VALVE] = True
+                self.assert_states(press_state=1, vent_state=0)
                 if ctrl.wait_until(
                     (lambda c: c[PRESSURE] > target_pressure),
                     timeout=10 * sy.TimeSpan.SECOND,
@@ -64,7 +67,7 @@ class Simple_Press(TestCase):
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
                     ctrl[PRESS_VALVE] = False
-                    ctrl.sleep(1)
+                    self.assert_states(press_state=0, vent_state=0)
                     target_pressure += 20
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
@@ -72,9 +75,20 @@ class Simple_Press(TestCase):
 
             # Depressurize the system
             ctrl[VENT_VALVE] = True
+            self.assert_states(press_state=0, vent_state=1)
             ctrl.wait_until(
                 lambda c: c[PRESSURE] < 5,
                 timeout=10 * sy.TimeSpan.SECOND,
             )
             ctrl[VENT_VALVE] = False
+            self.assert_states(press_state=0, vent_state=0)
             ctrl[END_TEST_CMD] = True
+
+    def assert_states(self, press_state: int, vent_state: int) -> None:
+        sy.sleep(1)
+        press_vlv_state = self.client.read_latest("press_vlv_state")
+        vent_vlv_state = self.client.read_latest("vent_vlv_state")
+        assert (
+            press_vlv_state == press_state
+        ), f"Press valve state should be {press_state}"
+        assert vent_vlv_state == vent_state, f"Vent valve state should be {vent_state}"

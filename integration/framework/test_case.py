@@ -451,7 +451,7 @@ class TestCase(ABC):
         self.tlm[tlm_name] = initial_value
 
     def subscribe(
-        self, channels: Union[str, List[str]], timeout: Optional[int] = 10
+        self, channels: Union[str, List[str]], timeout: Optional[sy.TimeSpan] = 10
     ) -> None:
         """
         Subscribe to channels.
