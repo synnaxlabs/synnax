@@ -10,8 +10,9 @@
 import "@/schematic/symbol/Symbols.css";
 
 import {
+  type bounds,
   box,
-  type color,
+  color,
   direction,
   location,
   type record,
@@ -34,6 +35,7 @@ import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
+import { Gauge as CoreGauge } from "@/vis/gauge";
 import { Light as CoreLight } from "@/vis/light";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -828,6 +830,119 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => (
   <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units="psi">
     <Text.Text>50.00</Text.Text>
   </Primitives.Value>
+);
+
+export interface GaugeProps extends Omit<CoreGauge.UseProps, "box" | "aetherKey"> {
+  position?: xy.XY;
+  label?: LabelExtensionProps;
+  color?: color.Crude;
+  bounds?: bounds.Bounds;
+  barWidth?: number;
+}
+
+const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
+  h1: 220,
+  h2: 190,
+  h3: 160,
+  h4: 130,
+  h5: 100,
+  p: 85,
+  small: 80,
+} as const;
+
+export const Gauge = ({
+  symbolKey,
+  label,
+  level = "p",
+  position,
+  color,
+  telem: t,
+  units,
+  onChange,
+  selected,
+  notation,
+  bounds: b,
+  barWidth,
+}: SymbolProps<GaugeProps>): ReactElement => {
+  const baseMultiplier = GAUGE_SIZE_MULTIPLIER[level] ?? 100;
+  const gaugeSize = baseMultiplier;
+
+  CoreGauge.use({
+    aetherKey: symbolKey,
+    box: box.construct(position || xy.ZERO, {
+      height: gaugeSize,
+      width: gaugeSize,
+    }),
+    telem: t,
+    color,
+    level,
+    units,
+    bounds: b,
+    notation,
+    barWidth,
+  });
+
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+
+  return (
+    <Grid
+      editable={selected}
+      symbolKey={symbolKey}
+      items={gridItems}
+      allowRotate={false}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <div style={{ width: gaugeSize, height: gaugeSize }} />
+    </Grid>
+  );
+};
+
+export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => (
+  <div style={{ width: 100, height: 100, position: "relative" }}>
+    <svg width="100" height="100" style={{ position: "absolute" }}>
+      <circle
+        cx="50"
+        cy="50"
+        r="40"
+        fill="none"
+        stroke={color.cssString(c ?? "var(--pluto-gray-l9)")}
+        strokeWidth="3"
+        opacity="0.3"
+      />
+      <circle
+        cx="50"
+        cy="50"
+        r="40"
+        fill="none"
+        stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
+        strokeWidth="5"
+        strokeDasharray="125.66 125.66"
+        strokeDashoffset="62.83"
+        transform="rotate(-90 50 50)"
+      />
+    </svg>
+    <div
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        textAlign: "center",
+      }}
+    >
+      <Text.Text level="h4" weight="bold">
+        750
+      </Text.Text>
+      <Text.Text level="small" color={7}>
+        RPM
+      </Text.Text>
+    </div>
+  </div>
 );
 
 export interface ButtonProps

@@ -39,9 +39,13 @@ export interface Draw2DRuleProps extends Omit<Draw2DLineProps, "start" | "end"> 
 }
 
 export interface Draw2DCircleProps {
-  fill: color.Color;
-  radius: number;
+  fill?: color.Color;
+  stroke?: color.Color;
+  strokeWidth?: number;
+  radius: number | { inner: number; outer: number };
   position: xy.XY;
+  angle?: { lower: number; upper: number };
+  lineCap?: CanvasLineCap;
 }
 
 export interface Draw2DContainerProps {
@@ -143,12 +147,54 @@ export class Draw2D {
     ctx.stroke();
   }
 
-  circle({ fill, radius, position }: Draw2DCircleProps): void {
+  circle({
+    fill,
+    stroke,
+    strokeWidth,
+    radius,
+    position,
+    angle,
+    lineCap,
+  }: Draw2DCircleProps): void {
     const ctx = this.canvas;
-    ctx.fillStyle = color.hex(fill);
     ctx.beginPath();
-    ctx.arc(...xy.couple(position), radius, 0, 2 * Math.PI);
-    ctx.fill();
+    const startAngle = angle?.lower ?? 0;
+    const endAngle = angle?.upper ?? 2 * Math.PI;
+
+    if (stroke != null && typeof radius === "object") {
+      // Stroke mode for rings - draw as a thick arc with rounded caps
+      const { inner, outer } = radius;
+      const midRadius = (inner + outer) / 2;
+      const arcWidth = outer - inner;
+
+      ctx.arc(...xy.couple(position), midRadius, startAngle, endAngle, false);
+      ctx.strokeStyle = color.hex(stroke);
+      ctx.lineWidth = strokeWidth ?? arcWidth;
+      if (lineCap) ctx.lineCap = lineCap;
+      ctx.stroke();
+    } else if (fill != null) {
+      // Fill mode (original behavior)
+      ctx.fillStyle = color.hex(fill);
+
+      if (typeof radius === "number") {
+        // Simple filled circle or arc
+        ctx.arc(...xy.couple(position), radius, startAngle, endAngle);
+        ctx.fill();
+      } else {
+        // Ring or arc segment with inner and outer radius
+        const { inner, outer } = radius;
+        // Draw outer arc
+        ctx.arc(...xy.couple(position), outer, startAngle, endAngle, false);
+        // Draw line to inner arc start
+        const innerStartX = position.x + inner * Math.cos(endAngle);
+        const innerStartY = position.y + inner * Math.sin(endAngle);
+        ctx.lineTo(innerStartX, innerStartY);
+        // Draw inner arc (reverse direction)
+        ctx.arc(...xy.couple(position), inner, endAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
   }
 
   resolveColor(c: ColorSpec | undefined, fallback: ColorSpec): color.Color;

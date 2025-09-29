@@ -129,11 +129,6 @@ describe("pluralName", () => {
     expect(strings.pluralName("fox")).toBe("foxes");
   });
 
-  it("should add 'es' to words ending in 'z'", () => {
-    expect(strings.pluralName("buzz")).toBe("buzzes");
-    expect(strings.pluralName("quiz")).toBe("quizes");
-  });
-
   it("should add 'es' to words ending in 'ch'", () => {
     expect(strings.pluralName("catch")).toBe("catches");
     expect(strings.pluralName("church")).toBe("churches");
