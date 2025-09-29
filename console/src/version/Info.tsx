@@ -115,9 +115,9 @@ export const Info: Layout.Renderer = () => {
     </Status.Summary>
   );
   if (availableQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" {...availableQuery.status} />;
+    updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
   else if (updateQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" {...updateQuery.status} />;
+    updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
   else if (updateQuery.variant === "loading")
     if (progressPercent === 100)
       updateContent = (

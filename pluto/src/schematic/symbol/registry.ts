@@ -1045,7 +1045,7 @@ const gauge: Spec<GaugeProps> = {
     units: "RPM",
     level: "h5",
     bounds: bounds.construct(0, 100),
-    barWidth: 12,
+    barWidth: 10,
     ...zeroLabel("Gauge"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,

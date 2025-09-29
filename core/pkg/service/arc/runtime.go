@@ -34,10 +34,10 @@ func (s *Service) handleChange(
 ) {
 	for {
 		e, ok := reader.Next(ctx)
-		a := e.Value
 		if !ok {
 			return
 		}
+		a := e.Value
 		existing, found := s.mu.entries[e.Key]
 		if found {
 			if err := existing.runtime.Close(); err != nil {

@@ -190,11 +190,7 @@ export const Configure = <
   layoutKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const {
-    data,
-    status: { key, ...status },
-    variant,
-  } = Device.useRetrieve({ key: layoutKey });
-  if (variant !== "success") return <Status.Summary key={key} {...status} />;
+  const { data, status, variant } = Device.useRetrieve({ key: layoutKey });
+  if (variant !== "success") return <Status.Summary status={status} />;
   return <Internal device={data} {...rest} />;
 };

@@ -897,53 +897,75 @@ export const Gauge = ({
         onChange({ label: { ...label, orientation: loc } });
       }}
     >
-      <div style={{ width: gaugeSize, height: gaugeSize }} />
+      <div
+        style={{ width: gaugeSize, height: gaugeSize }}
+        className={CSS.B("symbol-primitive")}
+      />
     </Grid>
   );
 };
 
-export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => (
-  <div style={{ width: 100, height: 100, position: "relative" }}>
-    <svg width="100" height="100" style={{ position: "absolute" }}>
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        fill="none"
-        stroke={color.cssString(c ?? "var(--pluto-gray-l9)")}
-        strokeWidth="3"
-        opacity="0.3"
-      />
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        fill="none"
-        stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
-        strokeWidth="5"
-        strokeDasharray="125.66 125.66"
-        strokeDashoffset="62.83"
-        transform="rotate(-90 50 50)"
-      />
-    </svg>
-    <div
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        textAlign: "center",
-      }}
-    >
-      <Text.Text level="h4" weight="bold">
-        750
-      </Text.Text>
-      <Text.Text level="small" color={7}>
-        RPM
-      </Text.Text>
+export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
+  // Calculate path for arc with gap at top
+  const radius = 27;
+  const strokeWidth = 5;
+  const centerX = 33.5;
+  const centerY = 33.5;
+
+  // Arc spans from 135° (top-left) to 45° (top-right) - 270° total with 90° gap at top
+  const startAngle = 135 * (Math.PI / 180);
+  const endAngle = 45 * (Math.PI / 180);
+  const valueAngle = 135 + 270 * 0.5; // Show 50% filled for preview
+  const valueEndAngle = valueAngle * (Math.PI / 180);
+
+  // Calculate arc path coordinates
+  const backgroundPath = `
+    M ${centerX + radius * Math.cos(startAngle)} ${centerY + radius * Math.sin(startAngle)}
+    A ${radius} ${radius} 0 1 1 ${centerX + radius * Math.cos(endAngle)} ${centerY + radius * Math.sin(endAngle)}
+  `;
+
+  const valuePath = `
+    M ${centerX + radius * Math.cos(startAngle)} ${centerY + radius * Math.sin(startAngle)}
+    A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
+  `;
+
+  return (
+    <div style={{ width: 67, height: 67, position: "relative" }}>
+      <svg width="67" height="67" style={{ position: "absolute" }}>
+        <path
+          d={backgroundPath}
+          fill="none"
+          stroke="var(--pluto-gray-l5)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <path
+          d={valuePath}
+          fill="none"
+          stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          textAlign: "center",
+        }}
+      >
+        <Text.Text level="h5" weight="bold">
+          750
+        </Text.Text>
+        <Text.Text level="small" color={7}>
+          RPM
+        </Text.Text>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export interface ButtonProps
   extends Omit<Primitives.ButtonProps, "label" | "onClick">,

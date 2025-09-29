@@ -87,7 +87,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             </Text.Text>
           </Text.Text>
         </Flex.Box>
-        <Text.Text x>
+        <Flex.Box x>
           {labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
               {labels.map(({ key, name, color }) => (
@@ -97,17 +97,19 @@ export const Item = (props: ItemProps): ReactElement | null => {
               ))}
             </Tag.Tags>
           )}
-          <Telem.Text.TimeSpanSince
-            el="span"
-            level="p"
-            color="gray"
-            format="semantic"
-            variant="code"
-          >
-            {time}
-          </Telem.Text.TimeSpanSince>
-          <Icon.Time color={8} />
-        </Text.Text>
+          <Text.Text x>
+            <Telem.Text.TimeSpanSince
+              el="span"
+              level="p"
+              color="gray"
+              format="semantic"
+              variant="code"
+            >
+              {time}
+            </Telem.Text.TimeSpanSince>
+            <Icon.Time color={8} />
+          </Text.Text>
+        </Flex.Box>
       </Form.Form>
     </List.Item>
   );

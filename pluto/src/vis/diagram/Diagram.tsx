@@ -177,7 +177,7 @@ const PRO_OPTIONS: ProOptions = {
 export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
-    Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
+    Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
       ReactFlowProps,
@@ -286,9 +286,10 @@ const Core = ({
   snapToGrid = false,
   viewportMode,
   onViewportModeChange,
+  autoRenderInterval,
   ...rest
 }: DiagramProps): ReactElement => {
-  const memoProps = useMemoDeepEqual({ visible });
+  const memoProps = useMemoDeepEqual({ visible, autoRenderInterval });
   const [{ path }, , setState] = Aether.use({
     aetherKey,
     type: diagram.Diagram.TYPE,

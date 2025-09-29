@@ -13,6 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -44,14 +46,19 @@ type setStatus struct {
 	stat status.Status
 }
 
-func createSetStatus(_ context.Context, cfg Config) (stage.Stage, error) {
-	s := status.Status{
-		Name:    cfg.Node.Config["name"].(string),
-		Key:     cfg.Node.Config["status_key"].(string),
-		Message: cfg.Node.Config["message"].(string),
-		Variant: xstatus.Variant(cfg.Node.Config["variant"].(string)),
+func createSetStatus(ctx context.Context, cfg Config) (stage.Stage, error) {
+	key := cfg.Node.Config["status_key"].(string)
+	var stat status.Status
+	if err := cfg.Status.NewRetrieve().
+		WhereKeys(key).
+		Entry(&stat).
+		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
+		return nil, err
 	}
-	stg := &setStatus{cfg: cfg, stat: s}
+	stat.Key = key
+	stat.Message = cfg.Node.Config["message"].(string)
+	stat.Variant = xstatus.Variant(cfg.Node.Config["variant"].(string))
+	stg := &setStatus{cfg: cfg, stat: stat}
 	stg.base.key = cfg.Node.Key
 	return stg, nil
 }
