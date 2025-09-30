@@ -141,7 +141,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
         });
     }
 
-    for (auto &t : threads) {
+    for (auto &t: threads) {
         t.join();
     }
 
@@ -168,8 +168,7 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
             &value
         );
 
-        EXPECT_EQ(status, UA_STATUSCODE_GOOD)
-            << "Iteration " << i << ": Read failed";
+        EXPECT_EQ(status, UA_STATUSCODE_GOOD) << "Iteration " << i << ": Read failed";
 
         UA_Variant_clear(&value);
 
@@ -183,14 +182,14 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
     // Configure very short timeouts for testing
     ConnectionConfig short_cfg = conn_cfg_;
-    short_cfg.secure_channel_lifetime_ms = 15000;  // 15 seconds
-    short_cfg.session_timeout_ms = 30000;          // 30 seconds
-    short_cfg.client_timeout_ms = 15000;           // 15 seconds
+    short_cfg.secure_channel_lifetime_ms = 15000; // 15 seconds
+    short_cfg.session_timeout_ms = 30000; // 30 seconds
+    short_cfg.client_timeout_ms = 15000; // 15 seconds
 
     // Keep acquiring at regular intervals to trigger keep-alive
     // Interval is less than half the lifetime to ensure renewal happens
     const int num_iterations = 8;
-    const int interval_seconds = 4;  // 4s interval < 15s/2 lifetime
+    const int interval_seconds = 4; // 4s interval < 15s/2 lifetime
 
     for (int i = 0; i < num_iterations; ++i) {
         auto [conn, err] = pool.acquire(short_cfg, "[test] ");
