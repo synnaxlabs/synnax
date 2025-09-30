@@ -13,16 +13,17 @@ from console.console import Console
 from console.task.channels.analog import Analog
 
 
-class Accelerometer(Analog):
+class Bridge(Analog):
 
     """
-    Accelerometer channel type for NI analog read tasks.
+    Bridge channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        sensitivity (float): Accelerometer sensitivity value
-        units (str): "mV/g" or "V/g"
+        units (str): "mV/V" or "V/V"
+        configuration (str): "FullBridge", "HalfBridge", or "QuarterBridge"
+        resistance (float): Nominal bridge resistance
         excitation_source (str): "Internal", "External", or "None"
-        excitation_value (float): Current excitation value
+        excitation_value (float): Voltage excitation value
 
     Base kwargs from Analog:
         port (int): Physical port number
@@ -32,22 +33,28 @@ class Accelerometer(Analog):
         custom_scale (str): "None", "Linear", "Map", "Table"
     """
 
+
     def __init__(
         self,
         console: Console,
         name: str,
         device: str,
-        sensitivity: float = None,
         units: Optional[Literal[
-            "mV/g",
-            "V/g",
+            "mV/V",
+            "V/V",
         ]]=None,
-        excitation_source: Optional[Literal[
-        "internal",
-        "External",
-        "None"
+        configuration: Optional[Literal[
+        "FullBridge",
+        "HalfBridge",
+        "QuarterBridge",
         ]] = None,
-        current_excitation_value: Optional[float]= None,
+        resistance: Optional[float]= None,
+        excitation_source: Optional[Literal[
+        "Internal",
+        "External",
+        "None",
+        ]] = None,
+        excitation_value: Optional[float]= None,
         **kwargs: Any,
     ) -> None:
 
@@ -61,14 +68,17 @@ class Accelerometer(Analog):
         )
 
         # Accelerometer-specific configurations:
-        if sensitivity is not None:
-            console.fill_input_field("Sensitivity", str(sensitivity))
         if units is not None:
+            console.click_btn("Electrical Units")
             console.select_from_dropdown(units)
+        if configuration is not None:
+            console.click_btn("Bridge Configuration")
+            console.select_from_dropdown(configuration)
+        if resistance is not None:
+            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
         if excitation_source is not None:
-            console.click_btn("Current Excitation Source")
+            console.click_btn("Voltage Excitation Source")
             console.select_from_dropdown(excitation_source)
-        if current_excitation_value is not None:
-            console.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        if excitation_value is not None:
+            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
+

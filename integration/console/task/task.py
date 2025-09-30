@@ -12,12 +12,15 @@ from typing import Any, Literal, Optional, Type
 from console.console import Console
 from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
+from console.task.channels.bridge import Bridge
 from console.task.channels.voltage import Voltage
+
 
 # Channel type registry for extensible factory pattern
 CHANNEL_TYPES: dict[str, Type[Analog]] = {
-    "Voltage": Voltage,
     "Accelerometer": Accelerometer,
+    "Bridge": Bridge,
+    "Voltage": Voltage,
 }
 
 

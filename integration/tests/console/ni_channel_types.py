@@ -37,6 +37,6 @@ class Ni_Channel_Types(ConsoleCase):
         task = Task(console, type="NI Analog Read Task")
         task.add_channel(name="new_channel", type="Voltage", device="E103")
         task.add_channel(name="hello", type="Accelerometer", device="E103")
-        task.add_channel(name="goodbye", type="Accelerometer", device="E103")
+        task.add_channel(name="goodbye", type="Bridge", device="E103")
 
 

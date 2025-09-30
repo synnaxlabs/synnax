@@ -17,7 +17,7 @@ class Voltage(Analog):
     """
     Voltage channel type for NI analog read tasks.
 
-    Supported kwargs:
+    Base kwargs:
         port (int): Physical port number
         terminal_config (str): "Default", "Differential", etc.
         min_val (float): Minimum voltage value

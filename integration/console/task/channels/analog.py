@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Literal, Optional
+import synnax as sy
 
 from console.console import Console
 
@@ -72,9 +73,9 @@ class Analog:
         # Handle device creation modal if it appears
         if console.check_for_modal():
             console.fill_input_field("Name", device)
-            console.META_ENTER
+            console.click_btn("Next")
             console.fill_input_field("Identifier", device)
-            console.META_ENTER
+            console.click_btn("Save")
 
         # Optional configurations
         if port is not None:
