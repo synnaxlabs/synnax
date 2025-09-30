@@ -28,13 +28,6 @@
 #include "driver/opc/util/util.h"
 
 namespace opc {
-std::unique_ptr<task::Task> ScanTask::configure(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    return std::make_unique<ScanTask>(ctx, task);
-}
-
 void ScanTask::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) return test_connection(cmd);
@@ -114,7 +107,7 @@ void ScanTask::scan(const task::Command &cmd) const {
              }}
         );
 
-    auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
+    auto [conn, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->set_status({
             .key = cmd.key,
@@ -125,16 +118,18 @@ void ScanTask::scan(const task::Command &cmd) const {
             },
         });
 
-    const auto scan_ctx = new ScanContext{
-        ua_client,
+    auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
+        conn.shared(),
         std::make_shared<std::vector<util::NodeProperties>>(),
-    };
+    });
+
     UA_Client_forEachChildNodeCall(
         scan_ctx->client.get(),
         args.node,
         node_iter,
-        scan_ctx
+        scan_ctx.get()
     );
+
     ctx->set_status({
         .key = cmd.key,
         .variant = status::variant::SUCCESS,
@@ -144,7 +139,6 @@ void ScanTask::scan(const task::Command &cmd) const {
                         .to_json(),
         },
     });
-    delete scan_ctx;
 }
 
 void ScanTask::test_connection(const task::Command &cmd) const {
@@ -159,7 +153,8 @@ void ScanTask::test_connection(const task::Command &cmd) const {
                  .data = parser.error_json()
              }}
         );
-    if (const auto err = connect(args.connection, "[opc.scanner] ").second)
+    auto [client, err] = connect(args.connection, "[opc.scanner] ");
+    if (err)
         return ctx->set_status(
             {.key = cmd.key,
              .variant = status::variant::ERR,

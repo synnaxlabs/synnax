@@ -31,7 +31,7 @@ telem::DataType ua_to_data_type(const UA_DataType *dt) {
     if (dt == &UA_TYPES[UA_TYPES_UINT64]) return telem::UINT64_T;
     if (dt == &UA_TYPES[UA_TYPES_STRING]) return telem::STRING_T;
     if (dt == &UA_TYPES[UA_TYPES_DATETIME]) return telem::TIMESTAMP_T;
-    if (dt == &UA_TYPES[UA_TYPES_GUID]) return telem::UINT128_T;
+    if (dt == &UA_TYPES[UA_TYPES_GUID]) return telem::UUID_T;
     if (dt == &UA_TYPES[UA_TYPES_BOOLEAN]) return telem::UINT8_T;
     return telem::UNKNOWN_T;
 }
@@ -48,7 +48,7 @@ UA_DataType *data_type_to_ua(const telem::DataType &data_type) {
     if (data_type == telem::UINT64_T) return &UA_TYPES[UA_TYPES_UINT64];
     if (data_type == telem::STRING_T) return &UA_TYPES[UA_TYPES_STRING];
     if (data_type == telem::TIMESTAMP_T) return &UA_TYPES[UA_TYPES_DATETIME];
-    if (data_type == telem::UINT128_T) return &UA_TYPES[UA_TYPES_GUID];
+    if (data_type == telem::UUID_T) return &UA_TYPES[UA_TYPES_GUID];
     if (data_type == telem::UINT8_T) return &UA_TYPES[UA_TYPES_BOOLEAN];
     return &UA_TYPES[UA_TYPES_VARIANT];
 }
