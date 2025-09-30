@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, dimensions, location, xy } from "@synnaxlabs/x";
+import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import { type ReactFlowInstance } from "@xyflow/react";
+
+import { type Diagram } from ".";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
@@ -83,3 +85,15 @@ export class NodeLayout {
     return new NodeLayout(key, nodeBox, handles);
   }
 }
+
+export const calculateCursorPosition = (
+  region: box.Box,
+  cursor: xy.Crude,
+  viewport: Diagram.Viewport,
+): xy.XY => {
+  const zoomXY = xy.construct(viewport.zoom);
+  const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
+    .translate(xy.scale(viewport.position, -1))
+    .magnify(xy.reciprocal(zoomXY));
+  return s.pos(xy.construct(cursor));
+};

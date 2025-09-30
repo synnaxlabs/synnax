@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/cockroachdb/errors/oserror"
@@ -36,18 +35,6 @@ func NewMem() *MemFS { return &MemFS{root: newRootMemNode()} }
 type MemFS struct {
 	mu   sync.Mutex
 	root *memNode
-
-	// lockFiles holds a map of open file locks. Presence in this map indicates a file
-	// lock is currently held. Keys are strings holding the path of the locked file. The
-	// stored value is untyped and  unused; only presence of the key within the map is
-	// significant.
-	lockedFiles sync.Map
-	strict      bool
-	ignoreSyncs bool
-	// Windows has peculiar semantics with respect to hard links and deleting open
-	// files. In tests meant to exercise this behavior, this flag can be set to error if
-	// removing an open file.
-	windowsSemantics bool
 }
 
 var _ FS = &MemFS{}
@@ -421,7 +408,7 @@ func (f *memFile) ReadAt(p []byte, off int64) (int, error) {
 
 func (f *memFile) Write(p []byte) (int, error) {
 	if !f.write {
-		return 0, syscall.EBADF
+		return 0, invariants.ErrAccessDenied
 	}
 	if f.n.isDir {
 		return 0, errors.New("memfs: cannot write a directory")
@@ -454,7 +441,7 @@ func (f *memFile) Write(p []byte) (int, error) {
 
 func (f *memFile) WriteAt(p []byte, ofs int64) (int, error) {
 	if !f.write {
-		return 0, syscall.EBADF
+		return 0, invariants.ErrAccessDenied
 	}
 	if f.n.isDir {
 		return 0, errors.New("memfs: cannot write a directory")
@@ -519,9 +506,6 @@ func (f *memFile) Sync() error {
 	}
 	f.fs.mu.Lock()
 	defer f.fs.mu.Unlock()
-	if f.fs.ignoreSyncs {
-		return nil
-	}
 	if f.n.isDir {
 		f.n.syncedChildren = make(map[string]*memNode)
 		maps.Copy(f.n.syncedChildren, f.n.children)

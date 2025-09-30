@@ -10,8 +10,9 @@
 import "@/schematic/symbol/Symbols.css";
 
 import {
+  type bounds,
   box,
-  type color,
+  color,
   direction,
   location,
   type record,
@@ -34,6 +35,7 @@ import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
+import { Gauge as CoreGauge } from "@/vis/gauge";
 import { Light as CoreLight } from "@/vis/light";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -829,6 +831,141 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => (
     <Text.Text>50.00</Text.Text>
   </Primitives.Value>
 );
+
+export interface GaugeProps extends Omit<CoreGauge.UseProps, "box" | "aetherKey"> {
+  position?: xy.XY;
+  label?: LabelExtensionProps;
+  color?: color.Crude;
+  bounds?: bounds.Bounds;
+  barWidth?: number;
+}
+
+const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
+  h1: 220,
+  h2: 190,
+  h3: 160,
+  h4: 130,
+  h5: 100,
+  p: 85,
+  small: 80,
+} as const;
+
+export const Gauge = ({
+  symbolKey,
+  label,
+  level = "p",
+  position,
+  color,
+  telem: t,
+  units,
+  onChange,
+  selected,
+  notation,
+  bounds: b,
+  barWidth,
+}: SymbolProps<GaugeProps>): ReactElement => {
+  const baseMultiplier = GAUGE_SIZE_MULTIPLIER[level] ?? 100;
+  const gaugeSize = baseMultiplier;
+
+  CoreGauge.use({
+    aetherKey: symbolKey,
+    box: box.construct(position || xy.ZERO, {
+      height: gaugeSize,
+      width: gaugeSize,
+    }),
+    telem: t,
+    color,
+    level,
+    units,
+    bounds: b,
+    notation,
+    barWidth,
+  });
+
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+
+  return (
+    <Grid
+      editable={selected}
+      symbolKey={symbolKey}
+      items={gridItems}
+      allowRotate={false}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <div
+        style={{ width: gaugeSize, height: gaugeSize }}
+        className={CSS.B("symbol-primitive")}
+      />
+    </Grid>
+  );
+};
+
+export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
+  // Calculate path for arc with gap at top
+  const radius = 27;
+  const strokeWidth = 5;
+  const centerX = 33.5;
+  const centerY = 33.5;
+
+  // Arc spans from 135° (top-left) to 45° (top-right) - 270° total with 90° gap at top
+  const startAngle = 135 * (Math.PI / 180);
+  const endAngle = 45 * (Math.PI / 180);
+  const valueAngle = 135 + 270 * 0.5; // Show 50% filled for preview
+  const valueEndAngle = valueAngle * (Math.PI / 180);
+
+  // Calculate arc path coordinates
+  const backgroundPath = `
+    M ${centerX + radius * Math.cos(startAngle)} ${centerY + radius * Math.sin(startAngle)}
+    A ${radius} ${radius} 0 1 1 ${centerX + radius * Math.cos(endAngle)} ${centerY + radius * Math.sin(endAngle)}
+  `;
+
+  const valuePath = `
+    M ${centerX + radius * Math.cos(startAngle)} ${centerY + radius * Math.sin(startAngle)}
+    A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
+  `;
+
+  return (
+    <div style={{ width: 67, height: 67, position: "relative" }}>
+      <svg width="67" height="67" style={{ position: "absolute" }}>
+        <path
+          d={backgroundPath}
+          fill="none"
+          stroke="var(--pluto-gray-l5)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <path
+          d={valuePath}
+          fill="none"
+          stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          textAlign: "center",
+        }}
+      >
+        <Text.Text level="h5" weight="bold">
+          750
+        </Text.Text>
+        <Text.Text level="small" color={7}>
+          RPM
+        </Text.Text>
+      </div>
+    </div>
+  );
+};
 
 export interface ButtonProps
   extends Omit<Primitives.ButtonProps, "label" | "onClick">,

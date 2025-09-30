@@ -27,6 +27,11 @@ export interface DataProps {
   layoutKey: string;
 }
 
+const SELECT_X_STYLE: CSSProperties = {
+  maxWidth: 400,
+  width: "100%",
+};
+
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
@@ -95,5 +100,3 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
     </Flex.Box>
   );
 };
-
-const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };

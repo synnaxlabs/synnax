@@ -411,7 +411,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             <PMenu.Divider />
           </>
         )}
-        <PMenu.Divider />
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );

@@ -9,7 +9,7 @@
 
 import { createTestClient, type label } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -143,13 +143,13 @@ describe("retrieve", () => {
           const [result, setResult] = useState<Flux.Result<number>>(
             Flux.loadingResult<number>("retrieving Resource", undefined),
           );
-          const handleChange: Flux.UseRetrieveEffectParams<
-            { key: string },
-            number
-          >["onChange"] = (value) => {
-            setResult(value);
-            onChangeMock(value);
-          };
+          const handleChange = useCallback(
+            (value: Flux.Result<number>) => {
+              setResult(value);
+              onChangeMock(value);
+            },
+            [onChangeMock],
+          );
           const { useRetrieveEffect } = Flux.createRetrieve<{ key: string }, number>({
             name: "Resource",
             retrieve: async () => 12,

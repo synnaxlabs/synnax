@@ -70,8 +70,14 @@ export const useSelectAltKey = (key: string): string | undefined =>
 const selectName = (state: StoreState, key: string): string | undefined =>
   select(state, key)?.name;
 
+const selectRequiredName = (state: StoreState, key: string): string =>
+  selectRequired(state, key).name;
+
 export const useSelectName = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectName(state, key), [key]);
+
+export const useSelectRequiredName = (key: string): string =>
+  useMemoSelect((state: StoreState) => selectRequiredName(state, key), [key]);
 
 export const selectByFilter = (
   state: StoreState,

@@ -16,7 +16,3 @@
         }
     }
 }
-
-.console-range__list-item {
-    padding-left: round(0.666rem, 1px);
-}

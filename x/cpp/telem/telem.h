@@ -202,14 +202,14 @@ public:
         return static_cast<double>(value) / _priv::HOUR;
     }
 
-    /// @brief returns the exact number of minutes in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of minutes in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double minutes() const {
         return static_cast<double>(value) / _priv::MINUTE;
     }
 
-    /// @brief returns the exact number of seconds in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of seconds in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / _priv::SECOND;
     }
@@ -220,8 +220,8 @@ public:
         return static_cast<double>(value) / _priv::MILLISECOND;
     }
 
-    /// @brief returns the exact number of microseconds in the timespan as a
-    /// double precision floating point value.
+    /// @brief returns the exact number of microseconds in the timespan as a double
+    /// precision floating point value.
     [[nodiscard]] double microseconds() const {
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
@@ -498,11 +498,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = Rate(1);
+inline const auto HERTZ = Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * HZ;
+inline const Rate KILOHERTZ = 1000 * HERTZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * KHZ;
+inline const Rate MEGAHERTZ = 1000 * KILOHERTZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.
@@ -630,6 +630,9 @@ template<typename T>
     );
 }
 
+[[nodiscard]] inline std::string to_string(const SampleValue &value) {
+    return cast<std::string>(value);
+}
 using NowFunc = std::function<TimeStamp()>;
 
 namespace _priv {

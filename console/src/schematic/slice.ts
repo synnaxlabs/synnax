@@ -14,7 +14,7 @@ import {
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { box, color, id, scale, xy } from "@synnaxlabs/x";
+import { color, id, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
@@ -165,21 +165,6 @@ export interface SetSelectedSymbolGroupPayload {
   group: string;
 }
 
-export const calculatePos = (
-  region: box.Box,
-  cursor: xy.XY,
-  viewport: Diagram.Viewport,
-): xy.XY => {
-  const zoomXY = xy.construct(viewport.zoom);
-  const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
-    .translate(xy.scale(viewport.position, -1))
-    .magnify({
-      x: 1 / zoomXY.x,
-      y: 1 / zoomXY.y,
-    });
-  return s.pos(cursor);
-};
-
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -302,7 +287,10 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
       if (key in schematic.props)
-        schematic.props[key] = { ...schematic.props[key], ...props } as NodeProps;
+        schematic.props[key] = {
+          ...schematic.props[key],
+          ...props,
+        } as NodeProps;
       else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
         if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };
@@ -349,8 +337,12 @@ export const { actions, reducer } = createSlice({
         if (source == null || target == null) return;
         const sourceProps = schematic.props[source.key];
         const targetProps = schematic.props[target.key];
-        if (sourceProps.color === targetProps.color && sourceProps.color != null)
-          edge.color = sourceProps.color;
+        if (
+          sourceProps.color === targetProps.color &&
+          sourceProps.color != null &&
+          edge.data != null
+        )
+          edge.data.color = sourceProps.color;
       });
       schematic.edges = edges;
       const anySelected =
@@ -435,9 +427,9 @@ export const { actions, reducer } = createSlice({
               nodeProps.color = theme.colors.gray.l11;
         });
         edges.forEach((edge) => {
-          if (edge.color != null && shouldChange(edge.color as string))
-            edge.color = theme.colors.gray.l11;
-          else edge.color ??= theme.colors.gray.l11;
+          if (edge.data?.color != null && shouldChange(edge.data.color as string))
+            edge.data.color = theme.colors.gray.l11;
+          else if (edge.data != null) edge.data.color ??= theme.colors.gray.l11;
         });
       });
     },

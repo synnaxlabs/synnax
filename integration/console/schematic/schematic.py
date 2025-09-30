@@ -7,14 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Literal, Optional, Tuple
 
 from playwright.sync_api import Page
 
 from ..page import ConsolePage
+from .button import Button
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
+from .valve import Valve
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -41,8 +43,7 @@ class Schematic(ConsolePage):
 
     def _open_symbols_tab(self) -> None:
         """Open the Symbols tab."""
-        self.page.wait_for_selector("text=Symbols", timeout=10000)
-        self.page.get_by_text("Symbols", exact=True).click()
+        self.console.click("Symbols")
 
     def _count_symbols(self) -> int:
         """Count number of symbols on the schematic."""
@@ -50,8 +51,13 @@ class Schematic(ConsolePage):
 
     def _select_symbol_type(self, symbol_type: str) -> None:
         """Select a symbol type from the symbols panel."""
-        self.page.wait_for_selector(f"text={symbol_type}", timeout=3000)
-        self.page.get_by_text(symbol_type, exact=True).first.click()
+
+        if symbol_type == "Valve":
+            self.console.click("Valves")
+            self.console.click("Generic")
+        else:
+            self.console.click("General")
+            self.console.click(symbol_type)
 
     def _wait_for_new_symbol(self, initial_count: int) -> None:
         """Wait for a new symbol to appear."""
@@ -70,6 +76,46 @@ class Schematic(ConsolePage):
         setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
         setpoint.edit_properties(channel_name=channel_name)
         return setpoint
+
+    def create_button(
+        self,
+        channel_name: str,
+        activation_delay: Optional[float] = None,
+        show_control_chip: Optional[bool] = None,
+        mode: Optional[
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
+        ] = None,
+    ) -> Button:
+        """Create a button symbol on the schematic."""
+        button_id = self._add_symbol("Button")
+        button = Button(self.page, self.console, button_id, channel_name)
+        button.edit_properties(
+            channel_name=channel_name,
+            activation_delay=activation_delay,
+            show_control_chip=show_control_chip,
+            mode=mode,
+        )
+        return button
+
+    def create_valve(
+        self,
+        channel_name: str,
+        show_control_chip: Optional[bool] = None,
+    ) -> Valve:
+        """Create a button symbol on the schematic.
+        channel_name will be used for _state and _cmd channels.
+        show_control_chip is whether to show the control chip.
+        """
+        valve_id = self._add_symbol("Valve")
+        ch_state = f"{channel_name}_state"
+        ch_cmd = f"{channel_name}_cmd"
+        valve = Valve(self.page, self.console, valve_id, channel_name)
+        valve.edit_properties(
+            state_channel=ch_state,
+            command_channel=ch_cmd,
+            show_control_chip=show_control_chip,
+        )
+        return valve
 
     def create_value(
         self,
