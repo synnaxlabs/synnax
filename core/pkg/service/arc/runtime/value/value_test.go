@@ -302,6 +302,252 @@ var _ = Describe("Value", func() {
 		})
 	})
 
+	Describe("ToSeries", func() {
+		It("Should handle empty slice", func() {
+			values := []value.Value{}
+			series := value.ToSeries(values, telem.Uint64T)
+			Expect(series.Len()).To(Equal(int64(0)))
+		})
+
+		It("Should convert uint64 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.U64{}}.PutUint64(10),
+				value.Value{Type: ir.U64{}}.PutUint64(20),
+				value.Value{Type: ir.U64{}}.PutUint64(30),
+			}
+			series := value.ToSeries(values, telem.Uint64T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Uint64T))
+			Expect(telem.ValueAt[uint64](series, 0)).To(Equal(uint64(10)))
+			Expect(telem.ValueAt[uint64](series, 1)).To(Equal(uint64(20)))
+			Expect(telem.ValueAt[uint64](series, 2)).To(Equal(uint64(30)))
+		})
+
+		It("Should convert uint32 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.U32{}}.PutUint32(100),
+				value.Value{Type: ir.U32{}}.PutUint32(200),
+			}
+			series := value.ToSeries(values, telem.Uint32T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Uint32T))
+			Expect(telem.ValueAt[uint32](series, 0)).To(Equal(uint32(100)))
+			Expect(telem.ValueAt[uint32](series, 1)).To(Equal(uint32(200)))
+		})
+
+		It("Should convert uint16 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.U16{}}.PutUint16(50),
+				value.Value{Type: ir.U16{}}.PutUint16(60),
+			}
+			series := value.ToSeries(values, telem.Uint16T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Uint16T))
+			Expect(telem.ValueAt[uint16](series, 0)).To(Equal(uint16(50)))
+			Expect(telem.ValueAt[uint16](series, 1)).To(Equal(uint16(60)))
+		})
+
+		It("Should convert uint8 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.U8{}}.PutUint8(5),
+				value.Value{Type: ir.U8{}}.PutUint8(10),
+			}
+			series := value.ToSeries(values, telem.Uint8T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Uint8T))
+			Expect(telem.ValueAt[uint8](series, 0)).To(Equal(uint8(5)))
+			Expect(telem.ValueAt[uint8](series, 1)).To(Equal(uint8(10)))
+		})
+
+		It("Should convert int64 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.I64{}}.PutInt64(-100),
+				value.Value{Type: ir.I64{}}.PutInt64(200),
+				value.Value{Type: ir.I64{}}.PutInt64(-300),
+			}
+			series := value.ToSeries(values, telem.Int64T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Int64T))
+			Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(-100)))
+			Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(200)))
+			Expect(telem.ValueAt[int64](series, 2)).To(Equal(int64(-300)))
+		})
+
+		It("Should convert int32 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.I32{}}.PutInt32(-50),
+				value.Value{Type: ir.I32{}}.PutInt32(50),
+			}
+			series := value.ToSeries(values, telem.Int32T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Int32T))
+			Expect(telem.ValueAt[int32](series, 0)).To(Equal(int32(-50)))
+			Expect(telem.ValueAt[int32](series, 1)).To(Equal(int32(50)))
+		})
+
+		It("Should convert int16 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.I16{}}.PutInt16(-25),
+				value.Value{Type: ir.I16{}}.PutInt16(25),
+			}
+			series := value.ToSeries(values, telem.Int16T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Int16T))
+			Expect(telem.ValueAt[int16](series, 0)).To(Equal(int16(-25)))
+			Expect(telem.ValueAt[int16](series, 1)).To(Equal(int16(25)))
+		})
+
+		It("Should convert int8 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.I8{}}.PutInt8(-5),
+				value.Value{Type: ir.I8{}}.PutInt8(10),
+			}
+			series := value.ToSeries(values, telem.Int8T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Int8T))
+			Expect(telem.ValueAt[int8](series, 0)).To(Equal(int8(-5)))
+			Expect(telem.ValueAt[int8](series, 1)).To(Equal(int8(10)))
+		})
+
+		It("Should convert float64 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.F64{}}.PutFloat64(1.5),
+				value.Value{Type: ir.F64{}}.PutFloat64(2.75),
+				value.Value{Type: ir.F64{}}.PutFloat64(-3.25),
+			}
+			series := value.ToSeries(values, telem.Float64T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Float64T))
+			Expect(telem.ValueAt[float64](series, 0)).To(Equal(1.5))
+			Expect(telem.ValueAt[float64](series, 1)).To(Equal(2.75))
+			Expect(telem.ValueAt[float64](series, 2)).To(Equal(-3.25))
+		})
+
+		It("Should convert float32 values to series", func() {
+			values := []value.Value{
+				value.Value{Type: ir.F32{}}.PutFloat32(1.5),
+				value.Value{Type: ir.F32{}}.PutFloat32(2.5),
+			}
+			series := value.ToSeries(values, telem.Float32T)
+
+			Expect(series.Len()).To(Equal(int64(2)))
+			Expect(series.DataType).To(Equal(telem.Float32T))
+			Expect(telem.ValueAt[float32](series, 0)).To(Equal(float32(1.5)))
+			Expect(telem.ValueAt[float32](series, 1)).To(Equal(float32(2.5)))
+		})
+
+		It("Should cast values to target data type", func() {
+			// Float64 values cast to Int32
+			values := []value.Value{
+				value.Value{Type: ir.F64{}}.PutFloat64(10.7),
+				value.Value{Type: ir.F64{}}.PutFloat64(20.3),
+				value.Value{Type: ir.F64{}}.PutFloat64(-30.9),
+			}
+			series := value.ToSeries(values, telem.Int32T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Int32T))
+			Expect(telem.ValueAt[int32](series, 0)).To(Equal(int32(10)))
+			Expect(telem.ValueAt[int32](series, 1)).To(Equal(int32(20)))
+			Expect(telem.ValueAt[int32](series, 2)).To(Equal(int32(-30)))
+		})
+
+		It("Should cast int values to float", func() {
+			// Int32 values cast to Float64
+			values := []value.Value{
+				value.Value{Type: ir.I32{}}.PutInt32(10),
+				value.Value{Type: ir.I32{}}.PutInt32(-20),
+				value.Value{Type: ir.I32{}}.PutInt32(30),
+			}
+			series := value.ToSeries(values, telem.Float64T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Float64T))
+			Expect(telem.ValueAt[float64](series, 0)).To(Equal(float64(10)))
+			Expect(telem.ValueAt[float64](series, 1)).To(Equal(float64(-20)))
+			Expect(telem.ValueAt[float64](series, 2)).To(Equal(float64(30)))
+		})
+
+		It("Should cast uint64 to uint8 with overflow", func() {
+			// Uint64 values cast to Uint8
+			values := []value.Value{
+				value.Value{Type: ir.U64{}}.PutUint64(10),
+				value.Value{Type: ir.U64{}}.PutUint64(256), // overflows to 0
+				value.Value{Type: ir.U64{}}.PutUint64(257), // overflows to 1
+			}
+			series := value.ToSeries(values, telem.Uint8T)
+
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.DataType).To(Equal(telem.Uint8T))
+			Expect(telem.ValueAt[uint8](series, 0)).To(Equal(uint8(10)))
+			Expect(telem.ValueAt[uint8](series, 1)).To(Equal(uint8(0)))
+			Expect(telem.ValueAt[uint8](series, 2)).To(Equal(uint8(1)))
+		})
+	})
+
+	Describe("Round-trip conversion", func() {
+		It("Should preserve uint64 data through FromSeries -> ToSeries", func() {
+			original := []uint64{10, 20, 30, 40, 50}
+			series := telem.NewSeries(original)
+			values := value.FromSeries(series)
+			result := value.ToSeries(values, telem.Uint64T)
+
+			Expect(result.Len()).To(Equal(int64(len(original))))
+			Expect(result.DataType).To(Equal(telem.Uint64T))
+			for i, expected := range original {
+				Expect(telem.ValueAt[uint64](result, i)).To(Equal(expected))
+			}
+		})
+
+		It("Should preserve int32 data through FromSeries -> ToSeries", func() {
+			original := []int32{-10, 20, -30, 40}
+			series := telem.NewSeries(original)
+			values := value.FromSeries(series)
+			result := value.ToSeries(values, telem.Int32T)
+
+			Expect(result.Len()).To(Equal(int64(len(original))))
+			Expect(result.DataType).To(Equal(telem.Int32T))
+			for i, expected := range original {
+				Expect(telem.ValueAt[int32](result, i)).To(Equal(expected))
+			}
+		})
+
+		It("Should preserve float64 data through FromSeries -> ToSeries", func() {
+			original := []float64{1.5, 2.75, -3.25, 4.125}
+			series := telem.NewSeries(original)
+			values := value.FromSeries(series)
+			result := value.ToSeries(values, telem.Float64T)
+
+			Expect(result.Len()).To(Equal(int64(len(original))))
+			Expect(result.DataType).To(Equal(telem.Float64T))
+			for i, expected := range original {
+				Expect(telem.ValueAt[float64](result, i)).To(Equal(expected))
+			}
+		})
+
+		It("Should preserve float32 data through FromSeries -> ToSeries", func() {
+			original := []float32{1.5, 2.5, 3.5}
+			series := telem.NewSeries(original)
+			values := value.FromSeries(series)
+			result := value.ToSeries(values, telem.Float32T)
+
+			Expect(result.Len()).To(Equal(int64(len(original))))
+			Expect(result.DataType).To(Equal(telem.Float32T))
+			for i, expected := range original {
+				Expect(telem.ValueAt[float32](result, i)).To(Equal(expected))
+			}
+		})
+	})
+
 	Describe("Complex operations", func() {
 		It("Should chain operations correctly", func() {
 			v1 := value.Value{Type: ir.I32{}}.PutInt32(10)

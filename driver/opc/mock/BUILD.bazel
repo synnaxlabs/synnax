@@ -6,3 +6,14 @@ cc_library(
         "//vendor/open62541",
     ],
 )
+
+cc_binary(
+    name = "opc_mock_server",
+    srcs = ["main.cpp"],
+    deps = [
+        ":mock",
+        "//driver/opc/util",
+        "//vendor/open62541",
+        "@glog//:glog",
+    ],
+)
