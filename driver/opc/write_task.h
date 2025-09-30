@@ -120,12 +120,12 @@ public:
         req.nodesToWrite = static_cast<UA_WriteValue *>(
             UA_Array_new(frame.size(), &UA_TYPES[UA_TYPES_WRITEVALUE])
         );
-        
+
         // Initialize all nodes to ensure proper cleanup
         for (size_t i = 0; i < frame.size(); ++i) {
             UA_WriteValue_init(&req.nodesToWrite[i]);
         }
-        
+
         size_t actual_writes = 0;
         const size_t max_size = frame.size();
         x::defer clear_req([&req, &actual_writes, max_size] {
@@ -135,28 +135,27 @@ public:
                 &UA_TYPES[UA_TYPES_WRITEVALUE]
             );
         });
-        
+
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
             const auto &ch = it->second;
             auto [val, err] = util::series_to_variant(s);
             if (err != xerrors::NIL) continue;
-            
+
             UA_WriteValue &node = req.nodesToWrite[actual_writes];
             node.attributeId = UA_ATTRIBUTEID_VALUE;
             node.nodeId = ch->node;
             node.value.hasValue = true;
             node.value.value = val;
-            
+
             // Transfer ownership - zero out val to prevent double-free
             UA_Variant_init(&val);
             actual_writes++;
         }
-        
+
         req.nodesToWriteSize = actual_writes;
         if (req.nodesToWriteSize == 0) return xerrors::NIL;
-        
         UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
         auto err = util::parse_error(res.responseHeader.serviceResult);
         UA_WriteResponse_clear(&res);
