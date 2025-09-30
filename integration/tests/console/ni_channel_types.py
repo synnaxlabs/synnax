@@ -12,9 +12,8 @@ import synnax as sy
 
 
 from console.case import ConsoleCase
-from console.console import PageType
 
-from console.task.voltage import Voltage
+from console.task.task import Task
 
 
 class Ni_Channel_Types(ConsoleCase):
@@ -34,10 +33,10 @@ class Ni_Channel_Types(ConsoleCase):
         """
         console = self.console
         self._log_message("Creating NI Analog Read Task page")
-        page, page_id = console.create_page("NI Analog Read Task")
-        
-        console.click("Add a channel")
-        
-        Voltage(console, "E103")
-        sy.sleep(10)
+
+        task = Task(console, type="NI Analog Read Task")
+        task.add_channel(name="new_channel", type="Voltage", device="E103")
+        task.add_channel(name="hello", type="Accelerometer", device="E103")
+        task.add_channel(name="goodbye", type="Accelerometer", device="E103")
+
 

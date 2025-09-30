@@ -6,7 +6,7 @@
       "tests": [
         {
           "case": "console/ni_channel_types",
-          "parameters": {"headless": false, "slow_mo": 250}
+          "parameters": {"headless": false}
         }
       ]
     }
