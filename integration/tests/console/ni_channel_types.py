@@ -14,6 +14,8 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.console import PageType
 
+from console.task.voltage import Voltage
+
 
 class Ni_Channel_Types(ConsoleCase):
     """
@@ -22,7 +24,8 @@ class Ni_Channel_Types(ConsoleCase):
 
     def setup(self) -> None:
         if platform.system() != "Windows":
-           self.auto_pass(msg="Requires DAQmx drivers")
+           #self.auto_pass(msg="Requires DAQmx drivers")
+           print('autopass goes here')
         super().setup()
 
     def run(self) -> None:
@@ -32,6 +35,9 @@ class Ni_Channel_Types(ConsoleCase):
         console = self.console
         self._log_message("Creating NI Analog Read Task page")
         page, page_id = console.create_page("NI Analog Read Task")
-
-        sy.sleep(45)
+        
+        console.click("Add a channel")
+        
+        Voltage(console, "E103")
+        sy.sleep(10)
 

@@ -11,7 +11,13 @@ import uuid
 
 import synnax as sy
 
-client = sy.Synnax()
+client = sy.Synnax(
+    host="localhost",
+    port= 9090,
+    username="synnax",
+    password= "seldon",
+    secure= False,
+)
 
 rack = client.hardware.racks.create(name="NI / LabJack Test Rack")
 
@@ -20,38 +26,11 @@ client.hardware.devices.create(
         sy.Device(
             key="130227d9-02aa-47e4-b370-0d590add1bc1",
             rack=rack.key,
-            name="PXI-6255",
+            name="E103",
             make="NI",
-            model="PXI-6255",
-            location="dev1",
-            identifier="dev1",
-        ),
-        sy.Device(
-            key="labjack-t4",
-            rack=rack.key,
-            name="LabJack T4",
-            make="LabJack",
-            model="LJM_dtT4",
-            location="dev2",
-            identifier="dev2",
-        ),
-        sy.Device(
-            key="labjack-t7",
-            rack=rack.key,
-            name="LabJack T7",
-            make="LabJack",
-            model="LJM_dtT7",
-            location="dev3",
-            identifier="dev3",
-        ),
-        sy.Device(
-            key="labjack-t8",
-            rack=rack.key,
-            name="LabJack T8",
-            make="LabJack",
-            model="LJM_dtT8",
-            location="dev4",
-            identifier="dev4",
+            model="NI 9229",
+            location="E103",
+            identifier="E103Mod1",
         ),
         sy.Device(
             key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",

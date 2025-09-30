@@ -71,6 +71,10 @@ class Console:
         self.page.keyboard.press("Enter")
 
     @property
+    def META_ENTER(self) -> None:
+        self.page.keyboard.press("ControlOrMeta+Enter")
+
+    @property
     def DELETE(self) -> None:
         self.page.keyboard.press("Delete")
 
@@ -364,3 +368,7 @@ class Console:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         self.page.get_by_text(selector, exact=True).first.click()
+
+    def check_for_modal(self) -> bool:
+        """Check for a modal"""
+        return self.page.locator("div.pluto-dialog__dialog.pluto--modal.pluto--visible").count() > 0
