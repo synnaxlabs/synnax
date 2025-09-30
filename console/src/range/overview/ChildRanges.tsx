@@ -45,6 +45,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         subscribe={subscribe}
         retrieve={retrieve}
         showParent={false}
+        emptyContent={null}
       />
     </Flex.Box>
   );

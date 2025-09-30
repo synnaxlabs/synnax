@@ -29,7 +29,6 @@ class Plot_Abcd(ConsoleCase):
     def run(self) -> None:
         console = self.console
         console.plot.new()
-        self.wait_for_tlm_init()
 
         console.plot.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
         console.plot.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])

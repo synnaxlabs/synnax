@@ -9,6 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 
+import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
@@ -17,6 +18,7 @@ import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
+import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
@@ -35,7 +37,7 @@ export const SERVICES: Ontology.Services = {
   builtin: createEmptyService("builtin"),
   node: Node.ONTOLOGY_SERVICE,
   group: GroupServices.ONTOLOGY_SERVICE,
-  range: createEmptyService("range"),
+  range: RangeServices.ONTOLOGY_SERVICE,
   workspace: WorkspaceServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
@@ -50,4 +52,5 @@ export const SERVICES: Ontology.Services = {
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status"),
+  arc: ArcServices.ONTOLOGY_SERVICE,
 };

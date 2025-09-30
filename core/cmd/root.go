@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var rootCmd = &cobra.Command{
+var root = &cobra.Command{
 	Use:   "synnax",
 	Short: "The telemetry engine for operating large scale hardware systems with ease.",
 	Long: `Synnax is a distributed telemetry engine designed to acquire and store data
@@ -38,14 +38,14 @@ processing) for high performance analysis.`,
 
 // Execute is the entrypoint for the CLI.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
 	configureRootFlags()
-	bindFlags(rootCmd)
+	bindFlags(root)
 	cobra.OnInitialize(initConfig)
 }
 

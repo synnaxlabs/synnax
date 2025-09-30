@@ -10,7 +10,6 @@
 import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
-import { math } from "@/math";
 import {
   addSamples,
   type CrudeDataType,
@@ -74,13 +73,9 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
   });
 
-  test("constructing from min and max values of int64s", () => {
-    expect(
-      new TimeStamp(math.MIN_INT64).equals(new TimeStamp(math.MIN_INT64_NUMBER)),
-    ).toBe(true);
-    expect(
-      new TimeStamp(math.MAX_INT64).equals(new TimeStamp(math.MAX_INT64_NUMBER)),
-    ).toBe(true);
+  test("constructing from MIN and MAX as numbers", () => {
+    expect(new TimeStamp(TimeStamp.MIN.nanoseconds).equals(TimeStamp.MIN)).toBe(true);
+    expect(new TimeStamp(TimeStamp.MAX.nanoseconds).equals(TimeStamp.MAX)).toBe(true);
   });
 
   test("construct from time string", () => {
@@ -1773,28 +1768,29 @@ describe("DataType", () => {
     });
 
     const testCases = [
-      { input: "int8", expected: "int8" },
-      { input: "int16", expected: "int16" },
-      { input: "int32", expected: "int32" },
-      { input: "int64", expected: "int64" },
-      { input: "uint8", expected: "uint8" },
-      { input: "uint16", expected: "uint16" },
-      { input: "uint32", expected: "uint32" },
-      { input: "uint64", expected: "uint64" },
-      { input: "float32", expected: "float32" },
-      { input: "float64", expected: "float64" },
-      { input: "string", expected: "string" },
-      { input: "boolean", expected: "boolean" },
-      { input: "timestamp", expected: "timestamp" },
-      { input: "uuid", expected: "uuid" },
-      { input: "json", expected: "json" },
+      { input: "int8", expected: "int8", short: "i8" },
+      { input: "int16", expected: "int16", short: "i16" },
+      { input: "int32", expected: "int32", short: "i32" },
+      { input: "int64", expected: "int64", short: "i64" },
+      { input: "uint8", expected: "uint8", short: "u8" },
+      { input: "uint16", expected: "uint16", short: "u16" },
+      { input: "uint32", expected: "uint32", short: "u32" },
+      { input: "uint64", expected: "uint64", short: "u64" },
+      { input: "float32", expected: "float32", short: "f32" },
+      { input: "float64", expected: "float64", short: "f64" },
+      { input: "string", expected: "string", short: "str" },
+      { input: "boolean", expected: "boolean", short: "bool" },
+      { input: "timestamp", expected: "timestamp", short: "ts" },
+      { input: "uuid", expected: "uuid", short: "uuid" },
+      { input: "json", expected: "json", short: "json" },
     ];
 
-    testCases.forEach(({ input, expected }) => {
+    testCases.forEach(({ input, expected, short }) => {
       it(`should parse "${input}" to DataType with value "${expected}"`, () => {
         const dt = DataType.z.parse(input);
         expect(dt).toBeInstanceOf(DataType);
         expect(dt.toString()).toBe(expected);
+        expect(dt.toString(true)).toBe(short);
       });
     });
   });

@@ -9,6 +9,7 @@
 
 import { type Export } from "@/export";
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
@@ -26,6 +27,7 @@ export * from "@/hardware/task/Toolbar";
 
 export const COMMANDS: Palette.Command[] = [
   ...LabJack.Task.COMMANDS,
+  ...Modbus.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
   ...Sequence.COMMANDS,
@@ -33,6 +35,7 @@ export const COMMANDS: Palette.Command[] = [
 
 export const EXTRACTORS: Export.Extractors = {
   ...LabJack.Task.EXTRACTORS,
+  ...Modbus.Task.EXTRACTORS,
   ...NI.Task.EXTRACTORS,
   ...OPC.Task.EXTRACTORS,
   ...Sequence.EXTRACTORS,
@@ -40,6 +43,7 @@ export const EXTRACTORS: Export.Extractors = {
 
 export const FILE_INGESTORS: Import.FileIngestors = {
   ...LabJack.Task.FILE_INGESTORS,
+  ...Modbus.Task.FILE_INGESTORS,
   ...NI.Task.FILE_INGESTORS,
   ...OPC.Task.FILE_INGESTORS,
   ...Sequence.FILE_INGESTORS,
@@ -47,6 +51,7 @@ export const FILE_INGESTORS: Import.FileIngestors = {
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Task.LAYOUTS,
+  ...Modbus.Task.LAYOUTS,
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
   [SELECTOR_LAYOUT_TYPE]: Selector,

@@ -135,7 +135,6 @@ class LatencyABCD(TestCase):
             delta_d_a = np.zeros(1000 * self._manual_timeout)
             idx = 0
 
-            self.wait_for_tlm_init()
             while self.loop.wait() and self.should_continue:
 
                 # Just assume we'll never exceed
