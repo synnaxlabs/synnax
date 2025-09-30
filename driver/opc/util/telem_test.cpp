@@ -52,28 +52,6 @@ TEST(OPCUtilTest, testDataTypeToUA) {
     EXPECT_EQ(util::data_type_to_ua(telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
 }
 
-// TEST(OPCUtilTest, testUADateTimeArrayToSeries) {
-//     // Test DateTime array conversion
-//     UA_Variant dateTimeVar;
-//     UA_Variant_init(&dateTimeVar);
-//     UA_DateTime dates[3] = {1000000000000000, 2000000000000000, 3000000000000000};
-//     UA_Variant_setArray(&dateTimeVar, dates, 3, &UA_TYPES[UA_TYPES_DATETIME]);
-//
-//     auto [dateSeries, dateErr] = util::ua_array_to_series(telem::TIMESTAMP_T,
-//     &dateTimeVar); EXPECT_EQ(dateErr, xerrors::NIL); EXPECT_EQ(dateSeries.size(), 3);
-// }
-//
-// TEST(OPCUtilTest, testUAScalarToSeries) {
-//     // Test scalar (should return error)
-//     UA_Variant scalarVar;
-//     UA_Variant_init(&scalarVar);
-//     UA_Int32 val = 42;
-//     UA_Variant_setScalar(&scalarVar, &val, &UA_TYPES[UA_TYPES_INT32]);
-//
-//     auto [_, err] = util::ua_array_to_series(telem::INT32_T, &scalarVar);
-//     EXPECT_NE(err, xerrors::NIL);
-// }
-
 TEST(OPCUtilTest, testUAFloatArrayToSeries) {
     // Test regular array conversion
     UA_Variant array_v;
