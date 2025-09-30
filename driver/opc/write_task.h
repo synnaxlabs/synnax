@@ -11,12 +11,15 @@
 
 /// external
 #include "open62541/client.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
 
 /// module
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
@@ -89,11 +92,27 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    const std::shared_ptr<UA_Client> client;
+    std::shared_ptr<util::ConnectionPool> pool;
+    util::ConnectionPool::Connection conn;
 
 public:
-    WriteTaskSink(const std::shared_ptr<UA_Client> &client, WriteTaskConfig cfg):
-        Sink(cfg.cmd_keys()), cfg(std::move(cfg)), client(client) {}
+    WriteTaskSink(std::shared_ptr<util::ConnectionPool> pool, WriteTaskConfig cfg):
+        Sink(cfg.cmd_keys()),
+        cfg(std::move(cfg)),
+        pool(std::move(pool)),
+        conn(nullptr, nullptr, "") {}
+
+    xerrors::Error start() override {
+        auto [c, err] = pool->acquire(cfg.conn, "[opc.write] ");
+        if (err) return err;
+        conn = std::move(c);
+        return xerrors::NIL;
+    }
+
+    xerrors::Error stop() override {
+        conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        return xerrors::NIL;
+    }
 
     xerrors::Error write(const synnax::Frame &frame) override {
         UA_WriteRequest req;
@@ -101,29 +120,39 @@ public:
         req.nodesToWrite = static_cast<UA_WriteValue *>(
             UA_Array_new(frame.size(), &UA_TYPES[UA_TYPES_WRITEVALUE])
         );
-        req.nodesToWriteSize = 0;
-        x::defer clear_req([&req] {
-            UA_Array_delete(
-                req.nodesToWrite,
-                req.nodesToWriteSize,
-                &UA_TYPES[UA_TYPES_WRITEVALUE]
-            );
+
+        // Initialize all nodes to ensure proper cleanup
+        for (size_t i = 0; i < frame.size(); ++i) {
+            UA_WriteValue_init(&req.nodesToWrite[i]);
+        }
+
+        size_t actual_writes = 0;
+        const size_t max_size = frame.size();
+        x::defer clear_req([&req, &actual_writes, max_size] {
+            UA_Array_delete(req.nodesToWrite, max_size, &UA_TYPES[UA_TYPES_WRITEVALUE]);
         });
+
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
             const auto &ch = it->second;
-            const auto [val, err] = util::series_to_variant(s);
+            auto [val, err] = util::series_to_variant(s);
             if (err != xerrors::NIL) continue;
-            UA_WriteValue &node = req.nodesToWrite[req.nodesToWriteSize];
+
+            UA_WriteValue &node = req.nodesToWrite[actual_writes];
             node.attributeId = UA_ATTRIBUTEID_VALUE;
             node.nodeId = ch->node;
             node.value.hasValue = true;
             node.value.value = val;
-            req.nodesToWriteSize++;
+
+            // Transfer ownership - zero out val to prevent double-free
+            UA_Variant_init(&val);
+            actual_writes++;
         }
+
+        req.nodesToWriteSize = actual_writes;
         if (req.nodesToWriteSize == 0) return xerrors::NIL;
-        UA_WriteResponse res = UA_Client_Service_write(this->client.get(), req);
+        UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
         auto err = util::parse_error(res.responseHeader.serviceResult);
         UA_WriteResponse_clear(&res);
         return err;

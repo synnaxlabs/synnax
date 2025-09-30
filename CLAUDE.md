@@ -215,3 +215,10 @@ Node A ←→ Aspen Gossip ←→ Node B (metadata sync)
 ### Code Style Guidelines
 
 - All lines in our codebase are 88 characters
+
+### Claude.md Self-Editing
+
+- **Sparing edits** - When provided with useful context from humans that would benefit
+  future interactions, make minimal edits to this file to preserve that context
+- Only add information that is genuinely useful for future development work
+- Keep additions concise and relevant to the codebase or development process

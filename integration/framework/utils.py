@@ -138,22 +138,20 @@ def get_machine_info() -> str:
     elif system == "Windows":
         # Get Windows version info
         result = subprocess.run(
-            ["wmic", "os", "get", "Caption"],
+            [
+                "powershell",
+                "-Command",
+                "(Get-CimInstance Win32_OperatingSystem).Caption",
+            ],
             capture_output=True,
             text=True,
             timeout=5,
         )
         if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) > 1:
-                return lines[1].strip()
-            else:
-                raise RuntimeError(
-                    "Windows wmic command returned unexpected output format"
-                )
+            return result.stdout.strip()
         else:
             raise RuntimeError(
-                f"Failed to get Windows version: wmic command returned {result.returncode}"
+                f"Failed to get Windows version: PowerShell command returned {result.returncode}"
             )
 
     else:
@@ -181,20 +179,21 @@ def get_memory_info() -> str:
                     mem_gb = mem_kb // (1024**2)
                     return f"{mem_gb}GB RAM"
     elif platform.system() == "Windows":
+        # Use PowerShell instead of wmic (deprecated in Win11)
         result = subprocess.run(
-            ["wmic", "computersystem", "get", "TotalPhysicalMemory"],
+            [
+                "powershell",
+                "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",
+            ],
             capture_output=True,
             text=True,
             timeout=5,
         )
         if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            for line in lines[1:]:
-                line = line.strip()
-                if line and line.isdigit():
-                    mem_bytes = int(line)
-                    mem_gb = mem_bytes // (1024**3)
-                    return f"{mem_gb}GB RAM"
+            mem_bytes = int(result.stdout.strip())
+            mem_gb = mem_bytes // (1024**3)
+            return f"{mem_gb}GB RAM"
 
     raise RuntimeError(f"Unable to get memory information for {platform.system()}")
 
