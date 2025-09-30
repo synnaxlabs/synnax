@@ -33,21 +33,22 @@ namespace util {
 struct ConnectionConfig {
     /// @brief the endpoint of the OPC UA server.
     std::string endpoint;
-    /// @brief the username to use for authentication. Not required.
+    /// @brief the username to use for authentication. Optional.
     std::string username;
-    /// @brief the password to use for authentication. Not required.
+    /// @brief the password to use for authentication. Optional.
     std::string password;
     /// @brief the security mode.
     std::string security_mode = "None";
     /// @brief the security policy.
     std::string security_policy = "None";
-    /// @brief the client certificate used to sign and encrypt messages. Only
-    /// required if the security policy is not "None".
+    /// @brief the client certificate used to sign and encrypt messages. Only required
+    /// if the security policy is not "None".
     std::string client_cert;
-    /// @brief the client private key used to sign and encrypt messages. Only
-    /// required if the security policy is not "None".
+    /// @brief the client private key used to sign and encrypt messages. Only required
+    /// if the security policy is not "None".
     std::string client_private_key;
-    /// @brief a trusted server certificate. Only req
+    /// @brief a trusted server certificate. Only required if the security policy is
+    /// not "None".
     std::string server_cert;
 
     ConnectionConfig() = default;
