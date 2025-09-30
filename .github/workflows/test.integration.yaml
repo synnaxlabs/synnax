@@ -25,6 +25,7 @@ on:
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
+      - freighter/py/**
       - go.work
       - go.work.sum
       - integration/**
