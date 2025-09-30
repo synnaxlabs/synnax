@@ -73,7 +73,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     common::ConfigureResult res;
     if (task.type == SCAN_TASK_TYPE)
-        return {std::make_unique<ScanTask>(ctx, task), true};
+        return {std::make_unique<ScanTask>(ctx, task, conn_pool_), true};
     if (task.type == READ_TASK_TYPE) res = configure_read(ctx, task);
     if (task.type == WRITE_TASK_TYPE) res = configure_write(ctx, task);
     return common::handle_config_err(ctx, task, res);

@@ -86,8 +86,7 @@ protected:
             client->channels
                 .create("double_test", telem::FLOAT64_T, this->index_channel.key, false)
         );
-        auto rack = ASSERT_NIL_P(
-            client->hardware.create_rack("opc_read_task_test_rack")
+        auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_read_task_test_rack")
         );
 
         util::ConnectionConfig conn_cfg;

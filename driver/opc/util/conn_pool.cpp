@@ -18,23 +18,29 @@
 namespace util {
 
 std::pair<ConnectionPool::Connection, xerrors::Error>
-ConnectionPool::acquire(const ConnectionConfig& cfg, const std::string& log_prefix) {
+ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
-                           cfg.security_mode + "|" + cfg.security_policy;
+                            cfg.security_mode + "|" + cfg.security_policy;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         auto it = connections_.find(key);
         if (it != connections_.end()) {
-            for (auto& entry : it->second) {
+            for (auto &entry: it->second) {
                 if (!entry.in_use) {
                     UA_SessionState session_state;
                     UA_SecureChannelState channel_state;
-                    UA_Client_getState(entry.client.get(), &channel_state, &session_state, nullptr);
+                    UA_Client_getState(
+                        entry.client.get(),
+                        &channel_state,
+                        &session_state,
+                        nullptr
+                    );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                         entry.in_use = true;
-                        VLOG(2) << log_prefix << "Reusing connection from pool for " << cfg.endpoint;
+                        VLOG(2) << log_prefix << "Reusing connection from pool for "
+                                << cfg.endpoint;
                         return {Connection(entry.client, this, key), xerrors::NIL};
                     } else {
                         VLOG(2) << log_prefix << "Removing stale connection from pool";
@@ -44,17 +50,18 @@ ConnectionPool::acquire(const ConnectionConfig& cfg, const std::string& log_pref
             }
 
             it->second.erase(
-                std::remove_if(it->second.begin(), it->second.end(),
-                              [](const PoolEntry& e) { return !e.client; }),
+                std::remove_if(
+                    it->second.begin(),
+                    it->second.end(),
+                    [](const PoolEntry &e) { return !e.client; }
+                ),
                 it->second.end()
             );
         }
     }
 
     auto [client, err] = connect(cfg, log_prefix);
-    if (err) {
-        return {Connection(nullptr, nullptr, ""), err};
-    }
+    if (err) { return {Connection(nullptr, nullptr, ""), err}; }
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -65,15 +72,16 @@ ConnectionPool::acquire(const ConnectionConfig& cfg, const std::string& log_pref
     return {Connection(client, this, key), xerrors::NIL};
 }
 
-void ConnectionPool::release(const std::string& key, std::shared_ptr<UA_Client> client) {
+void ConnectionPool::release(
+    const std::string &key,
+    std::shared_ptr<UA_Client> client
+) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = connections_.find(key);
-    if (it == connections_.end()) {
-        return;
-    }
+    if (it == connections_.end()) { return; }
 
-    for (auto& entry : it->second) {
+    for (auto &entry: it->second) {
         if (entry.client == client) {
             UA_SessionState session_state;
             UA_SecureChannelState channel_state;
@@ -90,35 +98,34 @@ void ConnectionPool::release(const std::string& key, std::shared_ptr<UA_Client> 
     }
 
     it->second.erase(
-        std::remove_if(it->second.begin(), it->second.end(),
-                      [](const PoolEntry& e) { return !e.client; }),
+        std::remove_if(
+            it->second.begin(),
+            it->second.end(),
+            [](const PoolEntry &e) { return !e.client; }
+        ),
         it->second.end()
     );
 
-    if (it->second.empty()) {
-        connections_.erase(it);
-    }
+    if (it->second.empty()) { connections_.erase(it); }
 }
 
 size_t ConnectionPool::size() const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t total = 0;
-    for (const auto& [_, entries] : connections_) {
+    for (const auto &[_, entries]: connections_) {
         total += entries.size();
     }
     return total;
 }
 
-size_t ConnectionPool::available_count(const std::string& endpoint) const {
+size_t ConnectionPool::available_count(const std::string &endpoint) const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
 
-    for (const auto& [key, entries] : connections_) {
+    for (const auto &[key, entries]: connections_) {
         if (key.find(endpoint) == 0) {
-            for (const auto& entry : entries) {
-                if (!entry.in_use && entry.client) {
-                    count++;
-                }
+            for (const auto &entry: entries) {
+                if (!entry.in_use && entry.client) { count++; }
             }
         }
     }

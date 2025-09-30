@@ -251,8 +251,7 @@ void fetch_endpoint_diagnostic_info(
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(
-                    INFO
+                LOG(INFO
                 ) << "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";

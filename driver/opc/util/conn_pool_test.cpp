@@ -33,9 +33,7 @@ protected:
     }
 
     void TearDown() override {
-        if (server_) {
-            server_->stop();
-        }
+        if (server_) { server_->stop(); }
     }
 
     mock::ServerConfig server_cfg_;
@@ -119,7 +117,7 @@ TEST_F(ConnectionPoolTest, MoveSemantics) {
     auto [conn1, err] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err);
 
-    auto* original_ptr = conn1.get();
+    auto *original_ptr = conn1.get();
 
     ConnectionPool::Connection conn2 = std::move(conn1);
     EXPECT_EQ(conn2.get(), original_ptr);
@@ -150,7 +148,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
         });
     }
 
-    for (auto& t : threads) {
+    for (auto &t: threads) {
         t.join();
     }
 
@@ -164,9 +162,7 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
     ASSERT_FALSE(err1);
     auto client_ptr = conn1.shared();
 
-    {
-        ConnectionPool::Connection temp = std::move(conn1);
-    }
+    { ConnectionPool::Connection temp = std::move(conn1); }
 
     UA_Client_disconnect(client_ptr.get());
 
@@ -189,7 +185,9 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
     auto [conn2, err2] = pool.acquire(cfg_with_user, "[test] ");
     if (err2) {
-        GTEST_SKIP() << "Skipping credentials test - server doesn't support alternate security: " << err2.message();
+        GTEST_SKIP(
+        ) << "Skipping credentials test - server doesn't support alternate security: "
+          << err2.message();
     }
 
     EXPECT_NE(conn1.get(), conn2.get());

@@ -13,8 +13,8 @@
 #include "gtest/gtest.h"
 
 /// module
-#include "x/cpp/xtest/xtest.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/xtest/xtest.h"
 
 /// internal
 #include "driver/opc/mock/server.h"
