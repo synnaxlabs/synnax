@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <thread>
-#include <chrono>
 #include "driver/opc/mock/server.h"
 
 std::atomic<bool> running(true);
@@ -20,7 +20,7 @@ void signal_handler(const int signal) {
     running = false;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     // Set up signal handling for graceful shutdown
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         try {
             port = static_cast<std::uint16_t>(std::stoi(argv[1]));
-        } catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             std::cerr << "Invalid port number: " << argv[1] << std::endl;
             return 1;
         }
@@ -47,13 +47,14 @@ int main(int argc, char* argv[]) {
         mock::Server server(config);
         server.start();
 
-        std::cout << "\nOPC UA Mock Server is running with the following test nodes:" << std::endl;
+        std::cout << "\nOPC UA Mock Server is running with the following test nodes:"
+                  << std::endl;
         std::cout << "Endpoint: opc.tcp://localhost:" << port << std::endl;
         std::cout << "\nAvailable test nodes:" << std::endl;
 
-        for (const auto& node : config.test_nodes) {
-            std::cout << "  ns=" << node.ns << ";s=" << node.node_id
-                      << " (" << node.description << ")" << std::endl;
+        for (const auto &node: config.test_nodes) {
+            std::cout << "  ns=" << node.ns << ";s=" << node.node_id << " ("
+                      << node.description << ")" << std::endl;
         }
 
         std::cout << "\nExample node IDs for testing:" << std::endl;
@@ -73,7 +74,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Stopping OPC UA server..." << std::endl;
         server.stop();
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }

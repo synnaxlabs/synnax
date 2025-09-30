@@ -190,16 +190,46 @@ protected:
         auto fr = synnax::Frame(10);
 
         // Create Series with single values using the value constructor
-        fr.emplace(this->bool_cmd_channel.key, telem::Series(static_cast<uint8_t>(1), telem::UINT8_T)); // bool = true = 1
-        fr.emplace(this->uint16_cmd_channel.key, telem::Series(static_cast<uint16_t>(100), telem::UINT16_T));
-        fr.emplace(this->uint32_cmd_channel.key, telem::Series(static_cast<uint32_t>(12345), telem::UINT32_T));
-        fr.emplace(this->uint64_cmd_channel.key, telem::Series(static_cast<uint64_t>(12345), telem::UINT64_T));
-        fr.emplace(this->int8_cmd_channel.key, telem::Series(static_cast<int8_t>(100), telem::INT8_T));
-        fr.emplace(this->int32_cmd_channel.key, telem::Series(static_cast<int32_t>(54321), telem::INT32_T));
-        fr.emplace(this->int16_cmd_channel.key, telem::Series(static_cast<int16_t>(100), telem::INT16_T));
-        fr.emplace(this->int64_cmd_channel.key, telem::Series(static_cast<int64_t>(12345), telem::INT64_T));
-        fr.emplace(this->float_cmd_channel.key, telem::Series(2.718f, telem::FLOAT32_T));
-        fr.emplace(this->double_cmd_channel.key, telem::Series(3.14159, telem::FLOAT64_T));
+        fr.emplace(
+            this->bool_cmd_channel.key,
+            telem::Series(static_cast<uint8_t>(1), telem::UINT8_T)
+        ); // bool = true = 1
+        fr.emplace(
+            this->uint16_cmd_channel.key,
+            telem::Series(static_cast<uint16_t>(100), telem::UINT16_T)
+        );
+        fr.emplace(
+            this->uint32_cmd_channel.key,
+            telem::Series(static_cast<uint32_t>(12345), telem::UINT32_T)
+        );
+        fr.emplace(
+            this->uint64_cmd_channel.key,
+            telem::Series(static_cast<uint64_t>(12345), telem::UINT64_T)
+        );
+        fr.emplace(
+            this->int8_cmd_channel.key,
+            telem::Series(static_cast<int8_t>(100), telem::INT8_T)
+        );
+        fr.emplace(
+            this->int32_cmd_channel.key,
+            telem::Series(static_cast<int32_t>(54321), telem::INT32_T)
+        );
+        fr.emplace(
+            this->int16_cmd_channel.key,
+            telem::Series(static_cast<int16_t>(100), telem::INT16_T)
+        );
+        fr.emplace(
+            this->int64_cmd_channel.key,
+            telem::Series(static_cast<int64_t>(12345), telem::INT64_T)
+        );
+        fr.emplace(
+            this->float_cmd_channel.key,
+            telem::Series(2.718f, telem::FLOAT32_T)
+        );
+        fr.emplace(
+            this->double_cmd_channel.key,
+            telem::Series(3.14159, telem::FLOAT64_T)
+        );
         reads->push_back(std::move(fr));
 
         mock_factory = pipeline::mock::simple_streamer_factory(
