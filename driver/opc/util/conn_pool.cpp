@@ -39,11 +39,11 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
                     );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                         entry.in_use = true;
-                        VLOG(2) << log_prefix << "Reusing connection from pool for "
+                        VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
                         return {Connection(entry.client, this, key), xerrors::NIL};
                     } else {
-                        VLOG(2) << log_prefix << "Removing stale connection from pool";
+                        VLOG(1) << log_prefix << "Removing stale connection from pool";
                         entry.client.reset();
                     }
                 }
@@ -68,7 +68,7 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
         connections_[key].push_back({client, true});
     }
 
-    VLOG(2) << log_prefix << "Created new connection for " << cfg.endpoint;
+    VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
     return {Connection(client, this, key), xerrors::NIL};
 }
 
@@ -88,10 +88,10 @@ void ConnectionPool::release(
             UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
             if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                 entry.in_use = false;
-                VLOG(2) << "[conn_pool] Returned connection to pool";
+                VLOG(1) << "[conn_pool] Returned connection to pool";
             } else {
                 entry.client.reset();
-                VLOG(2) << "[conn_pool] Discarding disconnected connection";
+                VLOG(1) << "[conn_pool] Discarding disconnected connection";
             }
             break;
         }
