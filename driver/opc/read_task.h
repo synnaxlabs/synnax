@@ -19,6 +19,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
@@ -180,26 +181,47 @@ struct ReadRequest {
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<UA_Client> client;
+    std::shared_ptr<util::ConnectionPool> pool;
+    util::ConnectionPool::Connection conn;
     ReadRequest request;
     loop::Timer timer;
 
     BaseReadTaskSource(
-        const std::shared_ptr<UA_Client> &client,
+        std::shared_ptr<util::ConnectionPool> pool,
         ReadTaskConfig cfg,
         const telem::Rate rate
     ):
-        cfg(std::move(cfg)), client(client), request(this->cfg), timer(rate) {}
+        cfg(std::move(cfg)),
+        pool(std::move(pool)),
+        conn(nullptr, nullptr, ""),
+        request(this->cfg),
+        timer(rate) {}
 
     synnax::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
+    }
+
+    xerrors::Error start() override {
+        auto [c, err] = pool->acquire(cfg.conn, "[opc.read] ");
+        if (err) return err;
+        conn = std::move(c);
+        return xerrors::NIL;
+    }
+
+    xerrors::Error stop() override {
+        conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        return xerrors::NIL;
     }
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
 public:
-    ArrayReadTaskSource(const std::shared_ptr<UA_Client> &client, ReadTaskConfig cfg):
-        BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate / cfg.array_size) {}
+    ArrayReadTaskSource(std::shared_ptr<util::ConnectionPool> pool, ReadTaskConfig cfg):
+        BaseReadTaskSource(
+            std::move(pool),
+            std::move(cfg),
+            cfg.sample_rate / cfg.array_size
+        ) {}
 
     std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -209,7 +231,7 @@ public:
         common::ReadResult res;
         this->timer.wait(breaker);
         UA_ReadResponse ua_res = UA_Client_Service_read(
-            this->client.get(),
+            this->conn.get(),
             this->request.base
         );
         x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
@@ -251,8 +273,8 @@ public:
 
 class UnaryReadTaskSource final : public BaseReadTaskSource {
 public:
-    UnaryReadTaskSource(const std::shared_ptr<UA_Client> &client, ReadTaskConfig cfg):
-        BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate) {}
+    UnaryReadTaskSource(std::shared_ptr<util::ConnectionPool> pool, ReadTaskConfig cfg):
+        BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         common::ReadResult res;
@@ -267,7 +289,7 @@ public:
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = telem::TimeStamp::now();
             UA_ReadResponse ua_res = UA_Client_Service_read(
-                this->client.get(),
+                this->conn.get(),
                 this->request.base
             );
             x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });

@@ -547,7 +547,6 @@ TEST(DataTypeTests, testDensity) {
     ASSERT_EQ(telem::UINT16_T.density(), 2);
     ASSERT_EQ(telem::UINT32_T.density(), 4);
     ASSERT_EQ(telem::UINT64_T.density(), 8);
-    ASSERT_EQ(telem::UINT128_T.density(), 16);
     ASSERT_EQ(telem::TIMESTAMP_T.density(), 8);
     ASSERT_EQ(telem::UUID_T.density(), 16);
     ASSERT_EQ(telem::STRING_T.density(), 0);

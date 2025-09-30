@@ -70,7 +70,6 @@ class LatencyABCD(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
-            time.sleep(2)
             self.subscribe(["t_c"])
 
         elif self.mode == "b":
@@ -80,7 +79,6 @@ class LatencyABCD(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
-            time.sleep(2)
             self.subscribe("t_a")
 
         elif self.mode == "c":
@@ -90,7 +88,6 @@ class LatencyABCD(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
-            time.sleep(2)
             self.subscribe("t_b")
 
         if self.mode == "d":
@@ -98,7 +95,6 @@ class LatencyABCD(TestCase):
             self.add_channel("d_bc", sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_cd", sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_da", sy.DataType.FLOAT64, 0, False)
-            time.sleep(2)
             self.subscribe(["t_a", "t_b", "t_c", "t_d"])
 
     def run(self) -> None:
@@ -106,7 +102,6 @@ class LatencyABCD(TestCase):
         Run the test case.
         """
         self._log_message("Starting run()")
-        time.sleep(1)
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
