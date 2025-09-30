@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -41,6 +42,7 @@ var factories = map[string]Constructor{
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
 	"set_status": createSetStatus,
+	"write":      createChannelSink,
 }
 
 var Resolver = ir.MapResolver{
@@ -57,6 +59,7 @@ var Resolver = ir.MapResolver{
 	"mod":        symbolMod,
 	"constant":   symbolConstant,
 	"on":         symbolChannelSource,
+	"write":      symbolChannelSink,
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
 	"set_status": symbolSetStatus,
@@ -72,6 +75,8 @@ type Config struct {
 	Status      *status.Service
 	ChannelData ChannelData
 	Now         func() telem.TimeStamp
+	Write       func(ctx context.Context, fr core.Frame) error
+	Channel     channel.Readable
 }
 
 func Create(ctx context.Context, cfg Config) (stage.Stage, error) {

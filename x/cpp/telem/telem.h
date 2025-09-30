@@ -648,7 +648,6 @@ const std::string UINT8_T = "uint8";
 const std::string UINT16_T = "uint16";
 const std::string UINT32_T = "uint32";
 const std::string UINT64_T = "uint64";
-const std::string UINT128_T = "uint128";
 const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
@@ -866,7 +865,6 @@ private:
         {_priv::UINT16_T, 2},
         {_priv::UINT32_T, 4},
         {_priv::UINT64_T, 8},
-        {_priv::UINT128_T, 16},
         {_priv::TIMESTAMP_T, 8},
         {_priv::UUID_T, 16},
         {_priv::STRING_T, 0},

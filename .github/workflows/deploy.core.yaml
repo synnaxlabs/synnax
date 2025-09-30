@@ -39,6 +39,7 @@ on:
       - vendor
       - x/cpp/**
       - x/go/**
+      - x/media/**
       - x/ts/**
   pull_request:
     paths:
