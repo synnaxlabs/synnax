@@ -14,26 +14,37 @@
 
 /// module
 #include "x/cpp/xtest/xtest.h"
+#include "client/cpp/synnax.h"
 
 /// internal
 #include "driver/opc/mock/server.h"
 #include "driver/opc/util/util.h"
 
 TEST(ConnTest, testBasicConn) {
-    synnax::Channel ch;
-    ch.data_type = telem::FLOAT32_T;
+    UA_Variant float_val;
+    UA_Variant_init(&float_val);
+    UA_Float float_data = 5.0f;
+    UA_Variant_setScalarCopy(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    mock::ServerChannel server_ch{.ns = 1, .node = "test", .ch = ch};
+    mock::TestNode node{
+        .ns = 1,
+        .node_id = "test",
+        .data_type = &UA_TYPES[UA_TYPES_FLOAT],
+        .initial_value = float_val,
+        .description = "Test Float Node"
+    };
 
-    mock::ServerConfig server_cfg{.channels = {server_ch}};
+    mock::ServerConfig server_cfg;
+    server_cfg.test_nodes = {node};
+    server_cfg.port = 4840;
 
-    mock::Server server{mock::ServerConfig(server_cfg)};
+    mock::Server server(server_cfg);
     server.start();
+
     util::ConnectionConfig cfg;
-    cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    cfg.endpoint = "opc.tcp://localhost:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
-
 
     auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
         util::connect(cfg, "opc"),
@@ -44,5 +55,7 @@ TEST(ConnTest, testBasicConn) {
 
     auto ser = ASSERT_NIL_P(util::simple_read(client, "NS=1;S=test"));
     ASSERT_EQ(ser.data_type(), telem::FLOAT32_T);
-    ASSERT_EQ(ser.at<float>(0), 5);
+    ASSERT_EQ(ser.at<float>(0), 5.0f);
+
+    server.stop();
 }

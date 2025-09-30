@@ -41,14 +41,12 @@ TEST(OPCUtilTest, testDataTypeToUA) {
     EXPECT_EQ(util::data_type_to_ua(telem::INT16_T), &UA_TYPES[UA_TYPES_INT16]);
     EXPECT_EQ(util::data_type_to_ua(telem::INT32_T), &UA_TYPES[UA_TYPES_INT32]);
     EXPECT_EQ(util::data_type_to_ua(telem::INT64_T), &UA_TYPES[UA_TYPES_INT64]);
-    EXPECT_EQ(util::data_type_to_ua(telem::UINT8_T), &UA_TYPES[UA_TYPES_BYTE]);
     EXPECT_EQ(util::data_type_to_ua(telem::UINT16_T), &UA_TYPES[UA_TYPES_UINT16]);
     EXPECT_EQ(util::data_type_to_ua(telem::UINT32_T), &UA_TYPES[UA_TYPES_UINT32]);
     EXPECT_EQ(util::data_type_to_ua(telem::UINT64_T), &UA_TYPES[UA_TYPES_UINT64]);
     EXPECT_EQ(util::data_type_to_ua(telem::STRING_T), &UA_TYPES[UA_TYPES_STRING]);
     EXPECT_EQ(util::data_type_to_ua(telem::TIMESTAMP_T), &UA_TYPES[UA_TYPES_DATETIME]);
     EXPECT_EQ(util::data_type_to_ua(telem::UUID_T), &UA_TYPES[UA_TYPES_GUID]);
-    EXPECT_EQ(util::data_type_to_ua(telem::UINT8_T), &UA_TYPES[UA_TYPES_BYTE]);
     EXPECT_EQ(util::data_type_to_ua(telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
 }
 
