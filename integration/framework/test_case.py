@@ -146,6 +146,7 @@ class TestCase(ABC):
         self.client_thread = None
         self.writer_thread: threading.Thread = threading.Thread()
         self.streamer_thread: threading.Thread = threading.Thread()
+        self._auto_pass: bool = False
         self._should_stop = False
         self.is_running = True
 
@@ -502,6 +503,11 @@ class TestCase(ABC):
         """Load configs, add channels, subscribe to channels, etc."""
         return None
 
+    def auto_pass(self, msg: str) -> None:
+        """Set the auto pass flag. Include reason for passing."""
+        self._log_message(f"AUTO PASS Enabled: {msg}")
+        self._auto_pass = True
+
     @abstractmethod
     def run(self) -> None:
         """
@@ -766,7 +772,8 @@ class TestCase(ABC):
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            self.run()
+            if not self._auto_pass:
+                self.run()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:

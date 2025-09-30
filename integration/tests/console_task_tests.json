@@ -1,0 +1,14 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Console_Tests",
+      "tests": [
+        {
+          "case": "console/ni_channel_types",
+          "parameters": {"headless": false, "slow_mo": 250}
+        }
+      ]
+    }
+  ]
+}
