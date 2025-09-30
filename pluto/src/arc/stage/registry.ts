@@ -10,6 +10,7 @@
 import { Constant } from "@/arc/stage/constant";
 import { Operator } from "@/arc/stage/operator";
 import { Select } from "@/arc/stage/select";
+import { Sink } from "@/arc/stage/sink";
 import { Source } from "@/arc/stage/source";
 import { StableFor } from "@/arc/stage/stable";
 import { Status } from "@/arc/stage/status";
@@ -18,6 +19,7 @@ import { Icon } from "@/icon";
 
 export const REGISTRY: Record<string, Spec<any>> = {
   ...Source.SYMBOLS,
+  ...Sink.SYMBOLS,
   ...Constant.SYMBOLS,
   ...Select.SYMBOLS,
   ...Status.SYMBOLS,
@@ -43,7 +45,7 @@ export const GROUPS: Group[] = [
     key: "telem",
     name: "Telemetry",
     Icon: Icon.Channel,
-    symbols: [...Object.keys(Source.SYMBOLS)],
+    symbols: [...Object.keys(Source.SYMBOLS), ...Object.keys(Sink.SYMBOLS)],
   },
   {
     key: "operator",

@@ -276,6 +276,77 @@ func FromSeries(s telem.Series) []Value {
 	return values
 }
 
+func ToSeries(values []Value, dt telem.DataType) telem.Series {
+	if len(values) == 0 {
+		return telem.Series{}
+	}
+
+	switch dt {
+	case telem.Uint64T:
+		data := make([]uint64, len(values))
+		for i, v := range values {
+			data[i] = v.toUint64()
+		}
+		return telem.NewSeries(data)
+	case telem.Uint32T:
+		data := make([]uint32, len(values))
+		for i, v := range values {
+			data[i] = uint32(v.toUint64())
+		}
+		return telem.NewSeries(data)
+	case telem.Uint16T:
+		data := make([]uint16, len(values))
+		for i, v := range values {
+			data[i] = uint16(v.toUint64())
+		}
+		return telem.NewSeries(data)
+	case telem.Uint8T:
+		data := make([]uint8, len(values))
+		for i, v := range values {
+			data[i] = uint8(v.toUint64())
+		}
+		return telem.NewSeries(data)
+	case telem.Int64T:
+		data := make([]int64, len(values))
+		for i, v := range values {
+			data[i] = v.toInt64()
+		}
+		return telem.NewSeries(data)
+	case telem.Int32T:
+		data := make([]int32, len(values))
+		for i, v := range values {
+			data[i] = v.toInt32()
+		}
+		return telem.NewSeries(data)
+	case telem.Int16T:
+		data := make([]int16, len(values))
+		for i, v := range values {
+			data[i] = v.toInt16()
+		}
+		return telem.NewSeries(data)
+	case telem.Int8T:
+		data := make([]int8, len(values))
+		for i, v := range values {
+			data[i] = v.toInt8()
+		}
+		return telem.NewSeries(data)
+	case telem.Float64T:
+		data := make([]float64, len(values))
+		for i, v := range values {
+			data[i] = v.toFloat64()
+		}
+		return telem.NewSeries(data)
+	case telem.Float32T:
+		data := make([]float32, len(values))
+		for i, v := range values {
+			data[i] = v.toFloat32()
+		}
+		return telem.NewSeries(data)
+	default:
+		return telem.Series{}
+	}
+}
+
 func (v Value) Eq(other Value) bool {
 	return v.compare(other) == 0
 }

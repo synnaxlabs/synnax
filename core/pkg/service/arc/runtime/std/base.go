@@ -31,7 +31,7 @@ func (b *base) Key() string { return b.key }
 
 func (b *base) ReadChannels() []channel.Key { return b.readChannels }
 
-func (b *base) WriteChannels() []channel.Key { return b.readChannels }
+func (b *base) WriteChannels() []channel.Key { return b.writeChannels }
 
 func (b *base) Flow(signal.Context) {}
 
