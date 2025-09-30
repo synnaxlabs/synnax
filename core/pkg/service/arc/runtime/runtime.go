@@ -11,6 +11,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
@@ -26,18 +29,19 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 )
 
 // Config is the configuration for an arc runtime.
 type Config struct {
+	Name string
 	// Module is the compiled arc module that needs to be executed.
 	//
 	// [REQUIRED]
@@ -70,6 +74,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Name = override.String(c.Name, other.Name)
 	return c
 }
 
@@ -83,19 +88,54 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-type Runtime struct {
-	// module is the arc program module
-	module arc.Module
-	// wasm is the webassembly runtime for the program.
-	wasm wazero.Runtime
+type streamerSeg struct {
 	confluence.UnarySink[framer.StreamerResponse]
-	// requests are used to manage the life cycle of the telemetry frame streamer.
+	// requests are used to manage the life cycle of the telemetry frame streamerSeg.
 	requests confluence.Inlet[framer.StreamerRequest]
 	// values are the current telemetry values for each requested channel in the program.
 	mu struct {
 		sync.RWMutex
 		values map[channel.Key]telem.Series
 	}
+}
+
+func (s *streamerSeg) Close() error {
+	s.requests.Close()
+	confluence.Drain(s.In)
+	return nil
+}
+
+type writerSeg struct {
+	confluence.UnarySink[framer.WriterResponse]
+	confluence.AbstractUnarySource[framer.WriterRequest]
+}
+
+func (w *writerSeg) sink(ctx context.Context, res framer.WriterResponse) error {
+	fmt.Println(res)
+	return nil
+}
+
+func (w *writerSeg) Write(ctx context.Context, fr core.Frame) error {
+	return signal.SendUnderContext(
+		ctx,
+		w.Out.Inlet(),
+		framer.WriterRequest{Frame: fr, Command: writer.Write},
+	)
+}
+
+func (w *writerSeg) Close() error {
+	w.Out.Close()
+	confluence.Drain(w.In)
+	return nil
+}
+
+type Runtime struct {
+	// module is the arc program module
+	module arc.Module
+	// wasm is the webassembly runtime for the program.
+	wasm     wazero.Runtime
+	streamer *streamerSeg
+	writer   *writerSeg
 	// nodes are all nodes in the program
 	nodes map[string]stage.Stage
 	// close is a shutdown handler that stops internal processes
@@ -103,15 +143,17 @@ type Runtime struct {
 }
 
 func (r *Runtime) Close() error {
-	r.requests.Close()
-	defer confluence.Drain(r.In)
-	return r.close.Close()
+	c := errors.NewCatcher(errors.WithAggregation())
+	c.Exec(r.streamer.Close)
+	c.Exec(r.writer.Close)
+	c.Exec(r.close.Close)
+	return c.Error()
 }
 
 func (r *Runtime) Get(key channel.Key) telem.Series {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.mu.values[key]
+	r.streamer.mu.RLock()
+	defer r.streamer.mu.RUnlock()
+	return r.streamer.mu.values[key]
 }
 
 func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
@@ -129,7 +171,7 @@ func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse
 		if res.Frame.ShouldExcludeRaw(i) {
 			continue
 		}
-		r.mu.values[res.Frame.RawKeyAt(i)] = ser
+		r.streamer.mu.values[res.Frame.RawKeyAt(i)] = ser
 	}
 	keys := res.Frame.KeysSlice()
 	for _, node := range r.nodes {
@@ -140,14 +182,33 @@ func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse
 	return nil
 }
 
-func retrieveChannels(
+func retrieveReadChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
-	nodes []arc.Node,
+	nodes map[string]stage.Stage,
 ) ([]channel.Channel, error) {
 	keys := make(set.Set[channel.Key])
 	for _, node := range nodes {
-		keys.Add(unsafe.ReinterpretSlice[uint32, channel.Key](node.Channels.Read.Keys())...)
+		keys.Add(node.ReadChannels()...)
+	}
+	channels := make([]channel.Channel, 0, len(keys))
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(keys.Keys()...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return channels, nil
+}
+
+func retrieveWriteChannels(
+	ctx context.Context,
+	channelSvc channel.Readable,
+	nodes map[string]stage.Stage,
+) ([]channel.Channel, error) {
+	keys := make(set.Set[channel.Key])
+	for _, node := range nodes {
+		keys.Add(node.WriteChannels()...)
 	}
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
@@ -160,7 +221,8 @@ func retrieveChannels(
 }
 
 var (
-	streamerAddr address.Address = "streamer"
+	streamerAddr address.Address = "streamerSeg"
+	writerAddr   address.Address = "writer"
 	runtimeAddr  address.Address = "runtime"
 )
 
@@ -179,13 +241,41 @@ func createStreamPipeline(
 		return nil, nil, err
 	}
 	plumber.SetSegment(p, streamerAddr, streamer)
-	r.Sink = r.processOutput
-	plumber.SetSink[framer.StreamerResponse](p, "runtime", r)
+	r.streamer.Sink = r.processOutput
+	plumber.SetSink[framer.StreamerResponse](p, runtimeAddr, r.streamer)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
 	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, runtimeAddr, 10)
 	requests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(requests)
 	return p, requests, nil
+}
+
+func createWritePipeline(
+	ctx context.Context,
+	name string,
+	r *Runtime,
+	frameSvc *framer.Service,
+	writeChannelKeys []channel.Key,
+) (confluence.Flow, error) {
+	p := plumber.New()
+	w, err := frameSvc.NewStreamWriter(
+		ctx,
+		framer.WriterConfig{
+			ControlSubject:   control.Subject{Name: name},
+			Start:            telem.Now(),
+			Keys:             writeChannelKeys,
+			EnableAutoCommit: config.True(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	r.writer.Sink = r.writer.sink
+	plumber.SetSegment(p, writerAddr, w)
+	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
+	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
+	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
+	return p, nil
 }
 
 func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
@@ -197,6 +287,8 @@ func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (sta
 		Node:        arcNode,
 		Status:      cfg.Status,
 		ChannelData: r,
+		Write:       r.writer.Write,
+		Channel:     cfg.Channel,
 	})
 }
 
@@ -209,13 +301,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		module: cfg.Module,
 		nodes:  make(map[string]stage.Stage),
 	}
-	r.mu.values = make(map[channel.Key]telem.Series)
+	r.writer = &writerSeg{}
+	r.streamer = &streamerSeg{}
+	r.streamer.mu.values = make(map[channel.Key]telem.Series)
 	if len(cfg.Module.WASM) != 0 {
 		r.wasm = wazero.NewRuntime(ctx)
-	}
-	readChannels, err := retrieveChannels(ctx, cfg.Channel, cfg.Module.Nodes)
-	if err != nil {
-		return nil, err
 	}
 
 	for _, nodeSpec := range cfg.Module.Nodes {
@@ -226,25 +316,53 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		n.OnOutput(r.createOnOutput(nodeSpec.Key))
 		r.nodes[n.Key()] = n
 	}
-	p, requests, err := createStreamPipeline(
+	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, r.nodes)
+	if err != nil {
+		return nil, err
+	}
+	writeChannels, err := retrieveWriteChannels(ctx, cfg.Channel, r.nodes)
+	if err != nil {
+		return nil, err
+	}
+	streamPipeline, requests, err := createStreamPipeline(
 		ctx,
 		r,
 		cfg.Framer,
 		channel.KeysFromChannels(readChannels),
 	)
-	r.requests = requests
 	if err != nil {
 		return nil, err
+	}
+	r.streamer.requests = requests
+	var writePipeline confluence.Flow
+	if len(writeChannels) > 0 {
+		writePipeline, err = createWritePipeline(
+			ctx,
+			cfg.Name,
+			r,
+			cfg.Framer,
+			channel.KeysFromChannels(writeChannels),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	sCtx, cancel := signal.Isolated()
 	for _, node := range r.nodes {
 		node.Flow(sCtx)
 	}
-	p.Flow(
+	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
+	if writePipeline != nil {
+		writePipeline.Flow(
+			sCtx,
+			confluence.CloseOutputInletsOnExit(),
+			confluence.RecoverWithErrOnPanic(),
+		)
+	}
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)
 	return r, err
 }
