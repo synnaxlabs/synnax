@@ -43,25 +43,15 @@ func translateRangesFromService(ranges []ranger.Range) []Range {
 	return lo.Map(ranges, func(r ranger.Range, _ int) Range { return Range{Range: r} })
 }
 
-func ontologyIDsFromRanges(ranges []Range) []ontology.ID {
-	cap := 0
-	for _, r := range ranges {
-		cap++
-		if r.Parent != nil {
-			cap++
-		}
-		cap += len(r.Labels)
-	}
-	ids := make([]ontology.ID, 0, cap)
+func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
+	ids := make([]ontology.ID, 0, len(ranges))
 	for _, r := range ranges {
 		ids = append(ids, r.OntologyID())
 		if r.Parent != nil {
 			ids = append(ids, r.Parent.OntologyID())
 		}
-		if len(r.Labels) > 0 {
-			labels := label.OntologyIDsFromLabels(r.Labels)
-			ids = append(ids, labels...)
-		}
+		labels := label.OntologyIDsFromLabels(r.Labels)
+		ids = append(ids, labels...)
 	}
 	return ids
 }
@@ -94,7 +84,7 @@ func (s *RangeService) Create(
 	ctx context.Context,
 	req RangeCreateRequest,
 ) (RangeCreateResponse, error) {
-	ids := ontologyIDsFromRanges(req.Ranges)
+	ids := rangeAccessOntologyIDs(req.Ranges)
 	if !req.Parent.IsZero() {
 		ids = append(ids, req.Parent)
 	}
@@ -202,7 +192,7 @@ func (s *RangeService) Retrieve(
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: ontologyIDsFromRanges(apiRanges),
+		Objects: rangeAccessOntologyIDs(apiRanges),
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
 	}

@@ -179,8 +179,8 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
 
-    ASSERT_EQ(cfg->sample_rate, telem::HZ * 10);
-    ASSERT_EQ(cfg->stream_rate, telem::HZ * 5);
+    ASSERT_EQ(cfg->sample_rate, telem::HERTZ * 10);
+    ASSERT_EQ(cfg->stream_rate, telem::HERTZ * 5);
     ASSERT_EQ(cfg->data_saving, true);
     ASSERT_EQ(cfg->channels.size(), 3);
 

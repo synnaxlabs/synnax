@@ -210,6 +210,7 @@ import { CSS } from "@/css";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
+import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
 import { OPC } from "@/icon/OPC";
 import { Process } from "@/icon/Process";
@@ -277,6 +278,7 @@ export const Logo = {
   LabJack,
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
+  Modbus,
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
@@ -373,7 +375,7 @@ export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
 export const Text = wrapSVGIcon(MdTextFields, "text");
-export const Number = wrapSVGIcon(GoNumber, "value");
+export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
@@ -542,7 +544,7 @@ const icons = {
   Tare,
   Rotate,
   Text,
-  Value: Number,
+  Value,
   Calendar,
   Release,
   OpenExternal,

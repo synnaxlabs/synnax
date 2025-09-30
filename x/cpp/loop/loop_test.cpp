@@ -13,7 +13,7 @@
 
 /// @brief it should correctly wait for an expended number of requests.
 TEST(LoopTest, testWaitPrecise) {
-    const auto rate = telem::HZ * 5000;
+    const auto rate = telem::HERTZ * 5000;
     const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
@@ -35,7 +35,7 @@ TEST(LoopTest, testWaitPrecise) {
 }
 
 TEST(LoopTest, testWaitLowRate) {
-    const auto rate = telem::HZ * 10;
+    const auto rate = telem::HERTZ * 10;
     const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
@@ -57,7 +57,7 @@ TEST(LoopTest, testWaitLowRate) {
 }
 
 void runBreaker(breaker::Breaker &brker) {
-    const auto rate = telem::HZ * 1;
+    const auto rate = telem::HERTZ * 1;
     loop::Timer timer{rate};
     timer.wait(brker);
 }

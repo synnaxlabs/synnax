@@ -10,12 +10,14 @@
 package io
 
 import (
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"os"
-	"sync"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Counter", func() {
@@ -23,18 +25,12 @@ var _ = Describe("Counter", func() {
 		"memFS": func() xfs.FS {
 			return xfs.NewMem()
 		},
-		"osFS": func() xfs.FS {
-			s, err := xfs.Default.Sub("./testData")
-			Expect(err).ToNot(HaveOccurred())
-			return s
-		},
+		"osFS": func() xfs.FS { return MustSucceed(xfs.Default.Sub("./testdata")) },
 	}
 
 	for fsName, makeFS := range fileSystems {
 		fsName, makeFS := fsName, makeFS
-		var (
-			fsRoot, fs xfs.FS
-		)
+		var fsRoot, fs xfs.FS
 
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {

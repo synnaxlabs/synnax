@@ -229,8 +229,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ data, client, rollbacks, store }) => {
     const { key, name } = data;
     const dev = await retrieveSingle({ client, store, query: { key } });
-    rollbacks.push(store.devices.set(dev, "payload"));
-    await client.hardware.devices.create({ ...dev, name });
+    const renamed = { ...dev, name };
+    rollbacks.push(store.devices.set(renamed, "payload"));
+    await client.hardware.devices.create(renamed);
     return data;
   },
 });

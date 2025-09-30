@@ -61,6 +61,7 @@ export interface UseObservableBaseRetrieveParams<
   Query extends core.Shape,
   Data extends state.State,
 > {
+  addStatusOnFailure?: boolean;
   beforeRetrieve?: (Params: BeforeRetrieveParams<Query>) => Data | boolean;
   onChange: (result: state.SetArg<Result<Data>>, query: Query) => void;
   scope?: string;
@@ -94,7 +95,7 @@ export interface UseDirectRetrieveParams<
   Data extends state.State,
 > extends Pick<
     UseObservableBaseRetrieveParams<Query, Data>,
-    "scope" | "beforeRetrieve"
+    "scope" | "beforeRetrieve" | "addStatusOnFailure"
   > {
   query: Query;
 }
@@ -113,7 +114,10 @@ export interface UseRetrieveEffectParams<
 export interface UseRetrieve<Query extends core.Shape, Data extends state.State> {
   (
     params: Query,
-    opts?: Pick<UseDirectRetrieveParams<Query, Data>, "beforeRetrieve">,
+    opts?: Pick<
+      UseDirectRetrieveParams<Query, Data>,
+      "beforeRetrieve" | "addStatusOnFailure"
+    >,
   ): UseDirectRetrieveReturn<Data>;
 }
 
@@ -155,12 +159,14 @@ const useStateful = <
   Data extends state.State,
   ScopedStore extends core.Store,
 >(
-  Params: CreateRetrieveParams<Query, Data, ScopedStore>,
+  createParams: CreateRetrieveParams<Query, Data, ScopedStore>,
 ): UseRetrieveStatefulReturn<Query, Data> => {
-  const [state, setState] = useState<Result<Data>>(initialResult<Data>(Params.name));
+  const [state, setState] = useState<Result<Data>>(
+    initialResult<Data>(createParams.name),
+  );
   return {
     ...state,
-    ...useObservableBase({ ...Params, onChange: setState }),
+    ...useObservableBase({ ...createParams, onChange: setState }),
   };
 };
 
@@ -175,6 +181,7 @@ const useObservableBase = <
   onChange,
   scope,
   beforeRetrieve,
+  addStatusOnFailure = true,
 }: UseObservableBaseRetrieveParams<Query, Data> &
   CreateRetrieveParams<
     Query,
@@ -221,20 +228,20 @@ const useObservableBase = <
           return onChange(nullClientResult<Data>(`retrieve ${name}`), query);
         onChange((p) => loadingResult(`retrieving ${name}`, p.data), query);
         if (signal?.aborted) return;
-        const Params = { client, query, store };
-        const value = await retrieve(Params);
-        if (signal?.aborted) return;
+        const params = { client, query, store };
         listeners.cleanup();
-        listeners.set(mountListeners?.({ ...Params, onChange: handleListenerChange }));
+        listeners.set(mountListeners?.({ ...params, onChange: handleListenerChange }));
+        const value = await retrieve(params);
+        if (signal?.aborted) return;
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
         const res = errorResult(`retrieve ${name}`, error);
-        addStatus(res.status);
+        if (addStatusOnFailure) addStatus(res.status);
         onChange(res, query);
       }
     },
-    [client, name, beforeRetrieve],
+    [client, name, beforeRetrieve, addStatusOnFailure, onChange],
   );
   const retrieveSync = useCallback(
     (query: state.SetArg<Query, Partial<Query>>, options?: core.FetchOptions) =>
@@ -286,13 +293,12 @@ const useEffect = <
       [onChange],
     ),
   });
-  const memoquery = useMemoDeepEqual(query);
+  const memoQuery = useMemoDeepEqual(query);
   useAsyncEffect(
     async (signal) => {
-      if (memoquery == null) return;
-      await retrieveAsync(memoquery, { signal });
+      if (memoQuery != null) await retrieveAsync(memoQuery, { signal });
     },
-    [retrieveAsync, memoquery],
+    [retrieveAsync, memoQuery],
   );
 };
 

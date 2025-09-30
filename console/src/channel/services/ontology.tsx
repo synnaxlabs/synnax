@@ -35,8 +35,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
-const canDrop = (): boolean => false;
-
 const handleSelect: Ontology.HandleSelect = ({
   store,
   placeLayout,
@@ -305,7 +303,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   onSelect: handleSelect,
-  canDrop,
   haulItems,
   Item,
   TreeContextMenu,

@@ -21,7 +21,6 @@ class Setpoint(Symbol):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
-
         self._click_symbol()
 
         applied_properties: Dict[str, Any] = {}

@@ -23,23 +23,26 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const store = useStore<RootState>();
   const placeLayout = Layout.usePlacer();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
-    onChange: ({ data, variant, status }) => {
-      if (variant !== "success") {
-        if (variant === "error") addStatus(status);
-        return;
-      }
-      const active = Layout.selectActiveMosaicLayout(store.getState());
-      if (active == null) return;
-      store.dispatch(add({ ranges: fromClientRange(data) }));
-      const names = data.map(({ name }) => name);
-      const keys = data.map(({ key }) => key);
-      placeLayout(
-        createLinePlot({
-          name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-          ranges: { x1: keys, x2: [] },
-        }),
-      );
-    },
+    onChange: useCallback(
+      ({ data, variant, status }) => {
+        if (variant !== "success") {
+          if (variant === "error") addStatus(status);
+          return;
+        }
+        const active = Layout.selectActiveMosaicLayout(store.getState());
+        if (active == null) return;
+        store.dispatch(add({ ranges: fromClientRange(data) }));
+        const names = data.map(({ name }) => name);
+        const keys = data.map(({ key }) => key);
+        placeLayout(
+          createLinePlot({
+            name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
+            ranges: { x1: keys, x2: [] },
+          }),
+        );
+      },
+      [store, placeLayout],
+    ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);
 };

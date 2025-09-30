@@ -60,7 +60,6 @@ class Channel_Lifecycle(ConsoleCase):
 
         index_ch = self.client.channels.retrieve(INDEX_NAME)
         assert index_ch.data_type == sy.DataType.TIMESTAMP
-        self._log_message(f"Created index channel: {INDEX_NAME}")
 
         # Then, create a channel for each data type
         for data_type in data_types:
@@ -104,5 +103,5 @@ class Channel_Lifecycle(ConsoleCase):
         self.console.channels.delete(ch_list)
 
         for ch in ch_list:
-            exists = self.console.channels.existing_channel(ch)
+            exists, _ = self.console.channels.existing_channel(ch)
             assert not exists

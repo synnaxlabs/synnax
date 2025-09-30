@@ -16,7 +16,7 @@ import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 
@@ -121,12 +121,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: "rack",
   icon: <Icon.Rack />,
-  hasChildren: true,
-  canDrop: () => false,
-  onSelect: () => {},
-  haulItems: () => [],
   TreeContextMenu,
   Item,
 };

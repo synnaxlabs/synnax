@@ -65,7 +65,7 @@ enum TransportVariant { UNARY, STREAM };
 /// request or process metadata from an inbound response.
 class Context {
 public:
-    /// @brief unique hash used to retreive sent data.
+    /// @brief unique hash used to retrieve sent data.
     int id;
     /// @brief The protocol used to send the request. Should be set by the
     /// underlying transport implementation.
@@ -203,7 +203,7 @@ public:
     /// @brief Executes the middleware chain.
     /// @param context - contains context information for the request that can be
     /// modified by the middleware prior to it's executing. Middleware key-value
-    /// pairs shouild be sent to the server by the finalizer.
+    /// pairs should be sent to the server by the finalizer.
     /// @param finalizer - A finalizer that represents the last middleware in the
     /// chain, and is responsible for executing the request.
     /// @param req - the request to execute.
@@ -213,7 +213,7 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            int index;
+            std::size_t index;
             const MiddlewareCollector &collector;
             RQ req;
             freighter::Finalizer<RQ, RS> *finalizer;

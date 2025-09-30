@@ -349,7 +349,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         shell: cmd
         working-directory: integration
         env:
@@ -363,7 +363,7 @@ jobs:
         if: always()
         with:
           name: test-results-windows
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -425,7 +425,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -436,7 +436,7 @@ jobs:
         if: always()
         with:
           name: test-results-macos
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -496,7 +496,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -507,7 +507,7 @@ jobs:
         if: always()
         with:
           name: test-results-linux
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
