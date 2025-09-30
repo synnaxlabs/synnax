@@ -11,8 +11,10 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/**
-      - alamos/**
+      - .github/workflows/test.integration.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
       - aspen/**
       - cesium/**
       - client/**
@@ -22,6 +24,7 @@ on:
       - core/**
       - drift/**
       - driver/**
+      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
@@ -36,10 +39,10 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vendor/mbedtls/**
-      - vendor/open62541/**
+      - vendor
       - x/cpp/**
       - x/go/**
+      - x/media/**
       - x/ts/**
 
   workflow_dispatch:
