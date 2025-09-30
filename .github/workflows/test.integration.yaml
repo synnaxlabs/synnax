@@ -8,6 +8,43 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/test.integration.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - freighter/py/**
+      - go.work
+      - go.work.sum
+      - integration/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - vendor
+      - x/cpp/**
+      - x/go/**
+      - x/media/**
+      - x/ts/**
+
   workflow_dispatch:
     inputs:
       RUN_NAME:
