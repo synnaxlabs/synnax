@@ -31,6 +31,7 @@ cc_test(
     name = "util_test",
     srcs = [
         "conn_pool_test.cpp",
+        "conn_pool_keepalive_test.cpp",
         "conn_test.cpp",
         "node_test.cpp",
         "telem_test.cpp",

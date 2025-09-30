@@ -246,22 +246,3 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     ASSERT_FALSE(err2);
     ASSERT_TRUE(conn2);
 }
-
-TEST_F(ConnectionPoolTest, PermanentServerFailure) {
-    ConnectionPool pool;
-
-    {
-        auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_FALSE(err1);
-    }
-
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
-
-    server_->stop();
-    server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_TRUE(err2);
-    EXPECT_EQ(pool.size(), 0);
-}

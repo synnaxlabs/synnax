@@ -50,6 +50,14 @@ struct ConnectionConfig {
     /// @brief a trusted server certificate. Only required if the security policy is
     /// not "None".
     std::string server_cert;
+    /// @brief SecureChannel lifetime in milliseconds. 0 = use default (2 hours).
+    /// For testing, can be set to short values like 10000 (10 seconds).
+    uint32_t secure_channel_lifetime_ms = 0;
+    /// @brief Session timeout in milliseconds. 0 = use default (4 hours).
+    /// For testing, can be set to short values like 20000 (20 seconds).
+    uint32_t session_timeout_ms = 0;
+    /// @brief General client timeout in milliseconds. 0 = use default (2 hours).
+    uint32_t client_timeout_ms = 0;
 
     ConnectionConfig() = default;
 
@@ -61,7 +69,12 @@ struct ConnectionConfig {
         security_policy(parser.optional<std::string>("security_policy", "None")),
         client_cert(parser.optional<std::string>("client_certificate", "")),
         client_private_key(parser.optional<std::string>("client_private_key", "")),
-        server_cert(parser.optional<std::string>("server_certificate", "")) {}
+        server_cert(parser.optional<std::string>("server_certificate", "")),
+        secure_channel_lifetime_ms(
+            parser.optional<uint32_t>("secure_channel_lifetime_ms", 0)
+        ),
+        session_timeout_ms(parser.optional<uint32_t>("session_timeout_ms", 0)),
+        client_timeout_ms(parser.optional<uint32_t>("client_timeout_ms", 0)) {}
 
     json to_json() const {
         return {

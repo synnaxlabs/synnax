@@ -39,6 +39,9 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
                     );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                         entry.in_use = true;
+                        // Perform connection maintenance (token renewal, etc.)
+                        // Timeout=0 means non-blocking, just housekeeping
+                        UA_Client_run_iterate(entry.client.get(), 0);
                         VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
                         return {Connection(entry.client, this, key), xerrors::NIL};
@@ -62,6 +65,9 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
 
     auto [client, err] = connect(cfg, log_prefix);
     if (err) { return {Connection(nullptr, nullptr, ""), err}; }
+
+    // Perform initial connection maintenance
+    UA_Client_run_iterate(client.get(), 0);
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
