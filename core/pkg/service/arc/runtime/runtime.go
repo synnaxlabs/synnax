@@ -124,8 +124,10 @@ func (w *writerSeg) Write(ctx context.Context, fr core.Frame) error {
 }
 
 func (w *writerSeg) Close() error {
-	w.Out.Close()
-	confluence.Drain(w.In)
+	if w.Out != nil {
+		w.Out.Close()
+		confluence.Drain(w.In)
+	}
 	return nil
 }
 

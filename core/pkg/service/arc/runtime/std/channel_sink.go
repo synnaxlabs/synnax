@@ -27,12 +27,12 @@ var symbolChannelSink = ir.Symbol{
 	Kind: ir.KindStage,
 	Type: ir.Stage{
 		Config: ir.NamedTypes{
-			Keys:   []string{"channel"},
-			Values: []ir.Type{ir.Chan{}},
+			Keys:   []string{"channel", "value"},
+			Values: []ir.Type{ir.Chan{}, ir.F32{}},
 		},
 		Params: ir.NamedTypes{
 			Keys:   []string{"input"},
-			Values: []ir.Type{ir.F32{}},
+			Values: []ir.Type{ir.NewTypeVariable("T", nil)},
 		},
 		Return: ir.U8{},
 	},
@@ -41,12 +41,12 @@ var symbolChannelSink = ir.Symbol{
 type channelSink struct {
 	base
 	writeChannel channel.Channel
-	values       ChannelData
+	value        value.Value
 	write        func(ctx context.Context, fr core.Frame) error
 }
 
-func (c *channelSink) Next(ctx context.Context, _ string, v value.Value) {
-	values := value.ToSeries([]value.Value{v}, c.writeChannel.DataType)
+func (c *channelSink) Next(ctx context.Context, _ string, _ value.Value) {
+	values := value.ToSeries([]value.Value{c.value}, c.writeChannel.DataType)
 	baseFrame := core.UnaryFrame(c.writeChannel.Key(), values)
 	if c.writeChannel.Index() != 0 {
 		baseFrame = baseFrame.Append(
@@ -60,8 +60,9 @@ func (c *channelSink) Next(ctx context.Context, _ string, v value.Value) {
 }
 
 func createChannelSink(ctx context.Context, cfg Config) (stage.Stage, error) {
-	sink := &channelSink{base: base{key: cfg.Node.Key}, values: cfg.ChannelData}
+	sink := &channelSink{base: base{key: cfg.Node.Key}}
 	sink.write = cfg.Write
+	sink.value = value.Value{}.Put(cfg.Node.Config["value"])
 	writeChanKeys := unsafe.ReinterpretSlice[uint32, channel.Key](cfg.Node.Channels.Read.Keys())
 	writeChanKey := writeChanKeys[0]
 	if err := cfg.Channel.NewRetrieve().WhereKeys(writeChanKey).Entry(&sink.writeChannel).Exec(ctx, nil); err != nil {

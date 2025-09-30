@@ -9,6 +9,7 @@ export const SPEC: Spec<Config> = {
   Symbol,
   defaultProps: () => ({
     channel: 0,
+    value: 0,
   }),
   Preview: Symbol,
   zIndex: 0,
