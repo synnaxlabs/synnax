@@ -17,24 +17,22 @@
 #include "driver/opc/write_task.h"
 #include "driver/task/common/factory.h"
 
-common::ConfigureResult
-configure_read(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+common::ConfigureResult configure_read(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task,
+    const std::shared_ptr<util::ConnectionPool> &pool
+) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
     if (err) {
         result.error = err;
         return result;
     }
-    auto [client, c_err] = util::connect(cfg.conn, "[opc.read]");
-    if (c_err) {
-        result.error = c_err;
-        return result;
-    }
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
-        s = std::make_unique<opc::ArrayReadTaskSource>(client, std::move(cfg));
+        s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
     else
-        s = std::make_unique<opc::UnaryReadTaskSource>(client, std::move(cfg));
+        s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
@@ -45,22 +43,23 @@ configure_read(const std::shared_ptr<task::Context> &ctx, const synnax::Task &ta
     return result;
 }
 
-common::ConfigureResult
-configure_write(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+common::ConfigureResult configure_write(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task,
+    const std::shared_ptr<util::ConnectionPool> &pool
+) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
     if (err) {
         result.error = err;
         return result;
     }
-    auto [client, c_err] = util::connect(cfg.conn, "[opc.write]");
-    if (c_err) return result;
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         breaker::default_config(task.name),
-        std::make_unique<opc::WriteTaskSink>(client, std::move(cfg))
+        std::make_unique<opc::WriteTaskSink>(pool, std::move(cfg))
     );
     return result;
 }
@@ -73,9 +72,9 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     common::ConfigureResult res;
     if (task.type == SCAN_TASK_TYPE)
-        return {std::make_unique<ScanTask>(ctx, task), true};
-    if (task.type == READ_TASK_TYPE) res = configure_read(ctx, task);
-    if (task.type == WRITE_TASK_TYPE) res = configure_write(ctx, task);
+        return {std::make_unique<ScanTask>(ctx, task, conn_pool_), true};
+    if (task.type == READ_TASK_TYPE) res = configure_read(ctx, task, conn_pool_);
+    if (task.type == WRITE_TASK_TYPE) res = configure_write(ctx, task, conn_pool_);
     return common::handle_config_err(ctx, task, res);
 }
 

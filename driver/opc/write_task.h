@@ -17,6 +17,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
@@ -89,11 +90,27 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    const std::shared_ptr<UA_Client> client;
+    std::shared_ptr<util::ConnectionPool> pool;
+    util::ConnectionPool::Connection conn;
 
 public:
-    WriteTaskSink(const std::shared_ptr<UA_Client> &client, WriteTaskConfig cfg):
-        Sink(cfg.cmd_keys()), cfg(std::move(cfg)), client(client) {}
+    WriteTaskSink(std::shared_ptr<util::ConnectionPool> pool, WriteTaskConfig cfg):
+        Sink(cfg.cmd_keys()),
+        cfg(std::move(cfg)),
+        pool(std::move(pool)),
+        conn(nullptr, nullptr, "") {}
+
+    xerrors::Error start() override {
+        auto [c, err] = pool->acquire(cfg.conn, "[opc.write] ");
+        if (err) return err;
+        conn = std::move(c);
+        return xerrors::NIL;
+    }
+
+    xerrors::Error stop() override {
+        conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        return xerrors::NIL;
+    }
 
     xerrors::Error write(const synnax::Frame &frame) override {
         UA_WriteRequest req;
@@ -123,7 +140,7 @@ public:
             req.nodesToWriteSize++;
         }
         if (req.nodesToWriteSize == 0) return xerrors::NIL;
-        UA_WriteResponse res = UA_Client_Service_write(this->client.get(), req);
+        UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
         auto err = util::parse_error(res.responseHeader.serviceResult);
         UA_WriteResponse_clear(&res);
         return err;

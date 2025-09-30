@@ -13,6 +13,7 @@
 #include <string>
 #include <utility>
 #include "client/cpp/synnax.h"
+#include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/task/task.h"
 #include "nlohmann/json.hpp"
@@ -45,11 +46,12 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 class ScanTask final : public task::Task {
 public:
-    explicit ScanTask(std::shared_ptr<task::Context> ctx, synnax::Task task):
-        ctx(std::move(ctx)), task(std::move(task)) {}
-
-    static std::unique_ptr<task::Task>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    explicit ScanTask(
+        std::shared_ptr<task::Context> ctx,
+        synnax::Task task,
+        std::shared_ptr<util::ConnectionPool> conn_pool
+    ):
+        ctx(std::move(ctx)), task(std::move(task)), conn_pool_(std::move(conn_pool)) {}
 
     std::string name() const override { return task.name; }
 
@@ -60,6 +62,7 @@ public:
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
+    std::shared_ptr<util::ConnectionPool> conn_pool_;
 
     void scan(const task::Command &cmd) const;
 
