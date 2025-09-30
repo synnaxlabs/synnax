@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
+
 from console.case import ConsoleCase
 
 
@@ -27,6 +29,8 @@ class Plot_Abcd(ConsoleCase):
         )
 
     def run(self) -> None:
+
+        sy.sleep(10)
         console = self.console
         console.plot.new()
 
