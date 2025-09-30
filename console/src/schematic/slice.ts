@@ -293,7 +293,8 @@ export const { actions, reducer } = createSlice({
         } as NodeProps;
       else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };
+        if (edge !== -1)
+          schematic.edges[edge].data = { ...schematic.edges[edge].data, ...props };
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
