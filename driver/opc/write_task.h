@@ -129,11 +129,7 @@ public:
         size_t actual_writes = 0;
         const size_t max_size = frame.size();
         x::defer clear_req([&req, &actual_writes, max_size] {
-            UA_Array_delete(
-                req.nodesToWrite,
-                max_size,
-                &UA_TYPES[UA_TYPES_WRITEVALUE]
-            );
+            UA_Array_delete(req.nodesToWrite, max_size, &UA_TYPES[UA_TYPES_WRITEVALUE]);
         });
 
         for (const auto &[key, s]: frame) {
