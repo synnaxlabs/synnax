@@ -30,7 +30,7 @@ class Plot_Abcd(ConsoleCase):
 
     def run(self) -> None:
 
-        sy.sleep(10)
+        sy.sleep(3)
         console = self.console
         console.plot.new()
 
