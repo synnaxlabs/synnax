@@ -11,11 +11,11 @@ package fs_test
 
 import (
 	"os"
-	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -134,7 +134,7 @@ var _ = Describe("FS", func() {
 
 						file := MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
 						Expect(file.Write([]byte("tacocat"))).Error().
-							To(MatchError(syscall.EBADF))
+							To(MatchError(invariants.ErrAccessDenied))
 						Expect(file.Close()).To(Succeed())
 
 						file = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))

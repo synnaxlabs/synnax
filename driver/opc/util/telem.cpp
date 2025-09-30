@@ -43,7 +43,6 @@ UA_DataType *data_type_to_ua(const telem::DataType &data_type) {
     if (data_type == telem::INT16_T) return &UA_TYPES[UA_TYPES_INT16];
     if (data_type == telem::INT32_T) return &UA_TYPES[UA_TYPES_INT32];
     if (data_type == telem::INT64_T) return &UA_TYPES[UA_TYPES_INT64];
-    if (data_type == telem::UINT8_T) return &UA_TYPES[UA_TYPES_BYTE];
     if (data_type == telem::UINT16_T) return &UA_TYPES[UA_TYPES_UINT16];
     if (data_type == telem::UINT32_T) return &UA_TYPES[UA_TYPES_UINT32];
     if (data_type == telem::UINT64_T) return &UA_TYPES[UA_TYPES_UINT64];
