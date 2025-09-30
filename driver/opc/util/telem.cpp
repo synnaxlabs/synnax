@@ -110,7 +110,8 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     UA_Variant v;
     UA_Variant_init(&v);
     const auto dt = data_type_to_ua(s.data_type());
-    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(s.at(-1)), dt);
+    auto sample = s.at(-1);
+    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(sample), dt);
     return {v, parse_error(status)};
 }
 
