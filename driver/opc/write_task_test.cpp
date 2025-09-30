@@ -30,7 +30,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<UA_Client> ua_client;
+    std::shared_ptr<util::ConnectionPool> conn_pool;
 
     // Command channels for different data types
     synnax::Channel bool_cmd_channel;
@@ -246,21 +246,19 @@ protected:
             reads
         );
 
+        conn_pool = std::make_shared<util::ConnectionPool>();
+
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
-        this->ua_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            util::connect(cfg->conn, "opc_ua_write_task_test"),
-            (5 * telem::SECOND).chrono(),
-            (250 * telem::MILLISECOND).chrono()
-        );
         return std::make_unique<common::WriteTask>(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::WriteTaskSink>(ua_client, std::move(*cfg)),
+            std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg)),
             nullptr,
             mock_factory
         );

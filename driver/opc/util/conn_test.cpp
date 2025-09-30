@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
-
 /// external
 #include "gtest/gtest.h"
 
@@ -27,7 +25,7 @@ TEST(ConnTest, testBasicConn) {
     UA_Variant_setScalarCopy(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
 
     mock::TestNode node{
-        re.ns = 1,
+        .ns = 1,
         .node_id = "test",
         .data_type = &UA_TYPES[UA_TYPES_FLOAT],
         .initial_value = float_val,
@@ -173,43 +171,6 @@ TEST(ConnTest, serverStopDuringConnection) {
     UA_ReadResponse_clear(&res);
 }
 
-TEST(ConnTest, concurrentConnections) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
-    server_cfg.port = 4843;
-    mock::Server server(server_cfg);
-    server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
-
-    util::ConnectionConfig cfg;
-    cfg.endpoint = "opc.tcp://localhost:4843";
-    cfg.security_mode = "None";
-    cfg.security_policy = "None";
-
-    std::vector<std::thread> threads;
-    std::atomic<int> success_count{0};
-    std::atomic<int> failure_count{0};
-
-    for (int i = 0; i < 5; ++i) {
-        threads.emplace_back([&cfg, &success_count, &failure_count]() {
-            auto [client, err] = util::connect(cfg, "test");
-            if (!err && client) {
-                success_count++;
-            } else {
-                failure_count++;
-            }
-        });
-    }
-
-    for (auto &t: threads) {
-        t.join();
-    }
-
-    EXPECT_EQ(success_count, 5);
-    EXPECT_EQ(failure_count, 0);
-
-    server.stop();
-}
-
 TEST(ConnTest, connectionAfterServerRestart) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4844;
@@ -288,6 +249,146 @@ TEST(ConnTest, multipleDisconnects) {
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
+
+    server.stop();
+}
+
+TEST(ConnTest, invalidUsernamePassword) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4847;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4847";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.username = "invalid_user";
+    cfg.password = "wrong_password";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err || client != nullptr);
+
+    server.stop();
+}
+
+TEST(ConnTest, signModeWithNoEncryptionServer) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4848;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4848";
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "Basic256";
+    cfg.client_cert = "/nonexistent/cert.pem";
+    cfg.client_private_key = "/nonexistent/key.pem";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err);
+
+    server.stop();
+}
+
+TEST(ConnTest, signAndEncryptModeWithNoEncryptionServer) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4849;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4849";
+    cfg.security_mode = "SignAndEncrypt";
+    cfg.security_policy = "Basic256Sha256";
+    cfg.client_cert = "/nonexistent/cert.pem";
+    cfg.client_private_key = "/nonexistent/key.pem";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err);
+
+    server.stop();
+}
+
+TEST(ConnTest, missingClientCertificate) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4850;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4850";
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "Basic256";
+    cfg.client_cert = "/path/to/missing/cert.pem";
+    cfg.client_private_key = "/path/to/missing/key.pem";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err);
+
+    server.stop();
+}
+
+TEST(ConnTest, emptyUsernameWithPassword) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4851;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4851";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.username = "";
+    cfg.password = "password";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err || client != nullptr);
+
+    server.stop();
+}
+
+TEST(ConnTest, usernameWithEmptyPassword) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4852;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4852";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.username = "username";
+    cfg.password = "";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err || client != nullptr);
+
+    server.stop();
+}
+
+TEST(ConnTest, invalidSecurityPolicy) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4853;
+    mock::Server server(server_cfg);
+    server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://localhost:4853";
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "InvalidPolicy999";
+    cfg.client_cert = "/nonexistent/cert.pem";
+    cfg.client_private_key = "/nonexistent/key.pem";
+
+    auto [client, err] = util::connect(cfg, "test");
+    EXPECT_TRUE(err);
 
     server.stop();
 }

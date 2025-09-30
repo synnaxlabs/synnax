@@ -193,3 +193,75 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
     EXPECT_NE(conn1.get(), conn2.get());
     EXPECT_EQ(pool.size(), 2);
 }
+
+TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
+    ConnectionPool pool;
+    ConnectionConfig bad_cfg = conn_cfg_;
+    bad_cfg.endpoint = "opc.tcp://localhost:9999";
+
+    auto [conn, err] = pool.acquire(bad_cfg, "[test] ");
+    ASSERT_TRUE(err);
+    EXPECT_EQ(pool.size(), 0);
+}
+
+TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
+    ConnectionPool pool;
+
+    auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_FALSE(err1);
+
+    conn1 = ConnectionPool::Connection(nullptr, nullptr, "");
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_FALSE(err2);
+    ASSERT_TRUE(conn2);
+}
+
+TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
+    ConnectionPool pool;
+
+    auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_FALSE(err1);
+
+    conn1 = ConnectionPool::Connection(nullptr, nullptr, "");
+
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_FALSE(err2);
+    ASSERT_TRUE(conn2);
+}
+
+TEST_F(ConnectionPoolTest, PermanentServerFailure) {
+    ConnectionPool pool;
+
+    {
+        auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
+        ASSERT_FALSE(err1);
+    }
+
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_TRUE(err2);
+    EXPECT_EQ(pool.size(), 0);
+}

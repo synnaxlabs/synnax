@@ -24,10 +24,11 @@
 class TestReadTask : public ::testing::Test {
 protected:
     synnax::Task task;
-    std::unique_ptr<opc::ReadTaskConfig> cfg;
+    json task_cfg_json;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
+    std::shared_ptr<util::ConnectionPool> conn_pool;
     synnax::Channel index_channel;
     synnax::Channel bool_channel;
     synnax::Channel uint16_channel;
@@ -202,28 +203,26 @@ protected:
 
         task = synnax::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
 
-        auto p = xjson::Parser(task_cfg);
-        this->cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
-
+        task_cfg_json = task_cfg;
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        conn_pool = std::make_shared<util::ConnectionPool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
-        auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            util::connect(cfg->conn, "opc_read_task_test"),
-            (5 * telem::SECOND).chrono(),
-            (250 * telem::MILLISECOND).chrono()
-        );
+        auto p = xjson::Parser(task_cfg_json);
+        auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+
         return std::make_unique<common::ReadTask>(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::UnaryReadTaskSource>(client, std::move(*cfg)),
+            std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
             mock_factory
         );
     }
@@ -276,4 +275,177 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_NEAR(fr.at<float>(this->float_channel.key, 0), 3.14159f, 0.0001f);
     ASSERT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
     ASSERT_GE(fr.at<telem::TimeStamp>(this->index_channel.key, 0), start);
+}
+
+TEST_F(TestReadTask, testInvalidNodeId) {
+    json bad_task_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         json::array(
+             {{{"key", "NS=2;I=999"},
+               {"name", "nonexistent"},
+               {"node_name", "NonExistent"},
+               {"node_id", "NS=1;S=NonExistentNode"},
+               {"channel", this->float_channel.key},
+               {"enabled", true},
+               {"use_as_index", false},
+               {"data_type", "float32"}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(bad_task_cfg);
+    auto bad_cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+
+    auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    rt->stop("stop_cmd", true);
+
+    ASSERT_GE(ctx->states.size(), 1);
+    bool found_error = false;
+    for (const auto &state: ctx->states) {
+        if (state.variant == status::variant::ERR) {
+            found_error = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_error);
+}
+
+TEST_F(TestReadTask, testServerDisconnectDuringRead) {
+    const auto rt = create_task();
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+
+    server->stop();
+    server.reset();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    rt->stop("stop_cmd", true);
+
+    bool found_error = false;
+    for (const auto &state: ctx->states) {
+        if (state.variant == status::variant::ERR) {
+            found_error = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_error);
+}
+
+TEST_F(TestReadTask, testEmptyChannelList) {
+    json empty_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels", json::array()},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(empty_cfg);
+    auto empty_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    EXPECT_TRUE(p.error());
+}
+
+TEST_F(TestReadTask, testDisabledChannels) {
+    json disabled_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "float_test"},
+               {"node_name", "TestFloat"},
+               {"node_id", "NS=1;S=TestFloat"},
+               {"channel", this->float_channel.key},
+               {"enabled", false},
+               {"use_as_index", false},
+               {"data_type", "float32"}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(disabled_cfg);
+    auto disabled_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    EXPECT_TRUE(p.error());
+}
+
+TEST_F(TestReadTask, testRapidStartStop) {
+    const auto rt = create_task();
+    rt->start("start_cmd");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    rt->stop("stop_cmd", true);
+
+    ASSERT_GE(ctx->states.size(), 2);
+    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+}
+
+TEST_F(TestReadTask, testConnectionPoolReuse) {
+    const std::string endpoint = "opc.tcp://localhost:4840";
+    EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 0);
+
+    {
+        const auto rt1 = create_task();
+        EXPECT_EQ(conn_pool->size(), 0);
+        rt1->start("start1");
+        EXPECT_EQ(conn_pool->size(), 1);
+        EXPECT_EQ(conn_pool->available_count(endpoint), 0);
+        rt1->stop("stop1", true);
+    }
+
+    EXPECT_EQ(conn_pool->size(), 1);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+
+    {
+        const auto rt2 = create_task();
+        EXPECT_EQ(conn_pool->size(), 1);
+        rt2->start("start2");
+        EXPECT_EQ(conn_pool->size(), 1);
+        EXPECT_EQ(conn_pool->available_count(endpoint), 0);
+        rt2->stop("stop2", true);
+    }
+
+    EXPECT_EQ(conn_pool->size(), 1);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+}
+
+TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
+    const std::string endpoint = "opc.tcp://localhost:4840";
+    EXPECT_EQ(conn_pool->size(), 0);
+
+    const auto rt1 = create_task();
+    EXPECT_EQ(conn_pool->size(), 0);
+
+    const auto rt2 = create_task();
+    EXPECT_EQ(conn_pool->size(), 0);
+
+    rt1->start("start1");
+    EXPECT_EQ(conn_pool->size(), 1);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 0);
+
+    rt2->start("start2");
+    EXPECT_EQ(conn_pool->size(), 2);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 0);
+
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
+
+    rt1->stop("stop1", true);
+    rt2->stop("stop2", true);
 }
