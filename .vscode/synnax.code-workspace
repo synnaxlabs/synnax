@@ -1,6 +1,6 @@
 {
   "folders": [
-    { "name": "root", "path": ".." },
+    { "name": "synnax", "path": ".." },
     { "name": "alamos/go", "path": "../alamos/go" },
     { "name": "alamos/py", "path": "../alamos/py" },
     { "name": "alamos/ts", "path": "../alamos/ts" },
