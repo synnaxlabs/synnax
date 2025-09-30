@@ -266,7 +266,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         const spec = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
-        console.log(pos);
         handleAddElement(key.toString(), pos, data);
       });
       return valid;
