@@ -41,7 +41,7 @@ on:
       - x/cpp/**
       - x/go/**
       - x/ts/**
-    
+
   workflow_dispatch:
     inputs:
       RUN_NAME:
