@@ -172,6 +172,7 @@ private:
             }
             node.value.hasValue = true;
             node.value.value = val;
+            // transfer ownership - zero out val to prevent doubel free.
             UA_Variant_init(&val);
             actual_writes++;
         }
