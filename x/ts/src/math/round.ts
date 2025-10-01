@@ -80,8 +80,9 @@ const MIN_SPAN_THRESHOLD = 1e-10;
  * @returns The rounded number.
  */
 export const smartRound = (value: number, b?: bounds.Bounds<number>): number => {
-  if (Number.isNaN(value) || !Number.isFinite(value) || value === 0) return value;
+  if (Number.isNaN(value) || !Number.isFinite(value)) return value;
   const absValue = Math.abs(value);
+  if (absValue === 0) return 0;
   let useSpanBased = false;
   let span = 0;
   if (b != null) {
