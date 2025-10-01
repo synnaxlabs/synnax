@@ -68,9 +68,9 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_current_inputs(device_name)
         #self.validate_force_bridge_table_inputs(device_name)
         #self.validate_force_bridge_two_point_linear_inputs(device_name)
-        self.validate_force_iepe_inputs(device_name)
+        #self.validate_force_iepe_inputs(device_name)
+        self.validate_microphone_inputs(device_name)
 
-        sy.sleep(20)
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
@@ -347,5 +347,38 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             sensitivity_units="mV/N",
+            current_excitation_source="None",
+        )
+
+    def validate_microphone_inputs(self, device_name: str) -> None:
+        """ Validate Microphone inputs """
+        console = self.console
+        type = "Microphone"
+
+        console.task.add_channel(
+            name="Microphone_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="Microphone_2",
+            type=type,
+            device=device_name,
+            sound_pressure_units="Pascals",
+            sensitivity=2.5,
+            max_sound_pressure_level=120.0,
+            current_excitation_source="Internal",
+            current_excitation_value=4.0,
+        )
+        console.task.add_channel(
+            name="Microphone_3",
+            type=type,
+            device=device_name,
+            current_excitation_source="External",
+        )
+        console.task.add_channel(
+            name="Microphone_4",
+            type=type,
+            device=device_name,
             current_excitation_source="None",
         )

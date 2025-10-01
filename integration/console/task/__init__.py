@@ -15,6 +15,7 @@ from .channels.current import Current
 from .channels.force_bridge_table import ForceBridgeTable
 from .channels.force_bridge_two_point_linear import ForceBridgeTwoPointLinear
 from .channels.force_iepe import ForceIEPE
+from .channels.microphone import Microphone
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "Voltage"]
