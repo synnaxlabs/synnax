@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/cluster/services/link";
-export * from "@/cluster/services/ontology";
 export * from "@/cluster/services/palette";

@@ -18,7 +18,7 @@ import {
   Table as PTable,
   Workspace as Core,
 } from "@synnaxlabs/pluto";
-import { array, deep, type record, strings } from "@synnaxlabs/x";
+import { array, deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -98,7 +98,7 @@ const useCreateSchematic = ({
         workspace: workspaceID.key,
         name: "New Schematic",
         snapshot: false,
-        data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
+        data: deep.copy(Schematic.ZERO_STATE),
       }),
     [workspaceID.key],
   );
@@ -280,6 +280,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Divider />
           <Export.MenuItem />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
           <PMenu.Divider />
         </>
       )}
@@ -294,24 +295,17 @@ const handleSelect: Ontology.HandleSelect = ({
   store,
   handleError,
 }) => {
-  client.workspaces
-    .retrieve(selection[0].id.key)
-    .then((workspace) => {
-      store.dispatch(add(workspace));
-      store.dispatch(
-        Layout.setWorkspace({
-          slice: workspace.layout as Layout.SliceState,
-          keepNav: false,
-        }),
-      );
-    })
-    .catch((e) => {
-      const names = strings.naturalLanguageJoin(
-        selection.map(({ name }) => name),
-        "workspace",
-      );
-      handleError(e, `Failed to select ${names}`);
-    });
+  const names = strings.naturalLanguageJoin(
+    selection.map(({ name }) => name),
+    "workspace",
+  );
+  handleError(async () => {
+    const ws = await client.workspaces.retrieve(selection[0].id.key);
+    store.dispatch(add(ws));
+    store.dispatch(
+      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+    );
+  }, `Failed to select ${names}`);
 };
 
 const VALID_CHILDREN: ontology.ResourceType[] = [
