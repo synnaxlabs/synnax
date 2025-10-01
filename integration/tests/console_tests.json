@@ -8,16 +8,16 @@
           "case": "console/channel_lifecycle"
         },
         {
-          "case": "console/snap_pages_to_grid"
+          "case": "console/pages/snap_to_grid"
         },
         {
-          "case": "console/schematic_set_output"
+          "case": "console/schematic/set_output"
         },
         {
-          "case": "console/schematic_edit_symbol_props"
+          "case": "console/schematic/edit_symbol_props"
         },
         {
-          "case": "console/pages_open_close"
+          "case": "console/pages/open_close"
         }
       ]
     }

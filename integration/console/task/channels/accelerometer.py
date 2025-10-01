@@ -6,7 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+import synnax as sy
 from typing import TYPE_CHECKING, Any, Optional, Literal
 
 from console.task.channels.analog import Analog
@@ -44,7 +44,7 @@ class Accelerometer(Analog):
             "V/g",
         ]]=None,
         excitation_source: Optional[Literal[
-        "internal",
+        "Internal",
         "External",
         "None"
         ]] = None,
@@ -55,7 +55,6 @@ class Accelerometer(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
-
             device=device,
             type="Accelerometer",
             **kwargs,
@@ -64,11 +63,19 @@ class Accelerometer(Analog):
         # Accelerometer-specific configurations:
         if sensitivity is not None:
             console.fill_input_field("Sensitivity", str(sensitivity))
+
         if units is not None:
-            console.select_from_dropdown(units)
+            console.page.locator(
+                "button.pluto-dialog__trigger:has-text('V/g')"
+            ).click()
+            console.page.locator(
+                f".pluto-list__item"
+            ).get_by_text(units, exact=True).click()
+
         if excitation_source is not None:
             console.click_btn("Current Excitation Source")
             console.select_from_dropdown(excitation_source)
+
         if current_excitation_value is not None:
             console.fill_input_field(
                 "Current Excitation Value", str(current_excitation_value)

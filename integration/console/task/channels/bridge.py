@@ -63,22 +63,30 @@ class Bridge(Analog):
         super().__init__(
             console=console,
             device=device,
-            type="Accelerometer",
+            type="Bridge",
             **kwargs,
         )
 
-        # Accelerometer-specific configurations:
+        # Bridge-specific configurations:
         if units is not None:
             console.click_btn("Electrical Units")
             console.select_from_dropdown(units)
+
         if configuration is not None:
             console.click_btn("Bridge Configuration")
             console.select_from_dropdown(configuration)
+
         if resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
+            console.fill_input_field(
+                "Nominal Bridge Resistance", str(resistance)
+            )
+
         if excitation_source is not None:
             console.click_btn("Voltage Excitation Source")
             console.select_from_dropdown(excitation_source)
+
         if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
+            console.fill_input_field(
+                "Voltage Excitation Value", str(excitation_value)
+            )
 

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
 from typing import TYPE_CHECKING, Any, Literal, Optional, Type
 
 from playwright.sync_api import Page
@@ -67,7 +68,6 @@ class Task(ConsolePage):
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
             console.click("Add a channel")
-            print('add a chennlclicked \n\n')
         else:
             console.page.locator(
                 "header:has-text('Channels') .pluto-icon--add"
@@ -81,7 +81,7 @@ class Task(ConsolePage):
         console.click_btn("Device")
         console.select_from_dropdown(device)
 
-        print(console.close_all_notifications())
+        console.close_all_notifications()
         if dev_name is None:
             dev_name = name
         # Handle device creation modal if it appears
@@ -154,4 +154,39 @@ class Task(ConsolePage):
         )
 
     def run(self) -> None:
-        self.console.click_btn("Play")
+        sy.sleep(0.5)
+        self.console.page.locator("button .pluto-icon--play").locator("..").click(
+            force=True
+        )
+
+    def status(self) -> dict[str, str]:
+        """
+        Get the current status information from the task status box.
+
+        Returns:
+            Dictionary containing:
+                - text: The status message (e.g., "Task has not been configured")
+                - level: The alert level (e.g., "disabled", "info", "success", "error")
+                - name: Status field name
+                - time: Timestamp if available
+        """
+        sy.sleep(0.5)
+        status_element = self.console.page.locator(
+            ".console-task-state p.pluto-status__text"
+        )
+
+        # status
+        class_attr = status_element.get_attribute("class") or ""
+        level = "unknown"
+        for cls in class_attr.split():
+            if cls.startswith("pluto--status-"):
+                level = cls.replace("pluto--status-", "")
+                break
+
+        msg = status_element.inner_text()
+
+        return {
+            "msg": msg,
+            "level": level,
+        }
+
