@@ -3,9 +3,9 @@ cc_library(
     srcs = [
         "conn.cpp",
         "conn_pool.cpp",
+        "errors.cpp",
         "node.cpp",
         "read.cpp",
-        "status_codes.cpp",
         "telem.cpp",
     ],
     hdrs = [
@@ -33,6 +33,7 @@ cc_test(
         "conn_pool_test.cpp",
         "conn_pool_keepalive_test.cpp",
         "conn_test.cpp",
+        "errors_test.cpp",
         "node_test.cpp",
         "telem_test.cpp",
     ],
