@@ -47,6 +47,7 @@ export const ChannelName = ({
       value={name}
       onChange={handleRename}
       allowDoubleClick={false}
+      overflow="ellipsis"
       {...rest}
     />
   );
