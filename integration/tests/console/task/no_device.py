@@ -25,11 +25,21 @@ class No_Device(ConsoleCase):
         """
         Test Opening and closing pages
         """
-        console = self.console
-        client = self.client
+
+        self._log_message("Creating NI Analog Read Task Page")
+        self.console.task.new()
 
         rack_name = f"TestRack_{random.randint(100, 999)}"
+        self.create_rack(rack_name)
+        self.initial_assertion()
+        self.configure_without_channels()
+        self.nominal_configuration(rack_name)
+
+
+    def create_rack(self, rack_name: str) -> None:
         self._log_message(f"Creating {rack_name} and devices")
+
+        client = self.client
         rack = client.hardware.racks.create(name=rack_name)
         client.hardware.devices.create(
             [
@@ -45,23 +55,10 @@ class No_Device(ConsoleCase):
             ]
         )
 
-        self._log_message("Creating NI Analog Read Task")
-        console.task.new()
-        # Check simple functionality
-        console.task.set_parameters(
-            task_name="Test_task",
-            sample_rate=100,
-            stream_rate=20,
-            data_saving=True,
-            auto_start=False,
-        )
+    def initial_assertion(self) -> None:
+        """ Initial assertion of task status """
+        console = self.console
 
-        # Add channels
-        console.task.add_channel(name="new_channel", type="Voltage", device="USB-6000", dev_name="usb_6000")
-        console.task.add_channel(name="hello", type="Accelerometer", device="USB-6000", dev_name="usb_6000")
-        console.task.add_channel(name="goodbye", type="Bridge", device="USB-6000", dev_name="usb_6000")
-
-        # Status Assertions
         status = console.task.status()
         msg = status['msg']
         level = status['level']
@@ -70,9 +67,42 @@ class No_Device(ConsoleCase):
         msg_expected = 'Task has not been configured'
 
         assert level_expected == level, \
-            f"<{level}> should be <{level_expected}>"
+            f"Task status level <{level}> should be <{level_expected}>"
         assert msg_expected == msg, \
-            f"<{msg}> should be <{msg_expected}>"
+            f"Task status msg <{msg}> should be <{msg_expected}>"
+
+    def configure_without_channels(self) -> None:
+        """ Configure without defining channels """
+        console = self.console
+        console.task.configure()
+
+        # Assert error notification
+        notifications = (self.console.check_for_notifications())
+        msg = notifications[0]["message"]
+        msg_expected = "Failed to update Task"
+        assert msg_expected == msg, \
+            f"Notification msg is <{msg}>, should be <{msg_expected}>"
+        self.console.close_all_notifications()
+
+        # Assert Task error status
+        status = console.task.status()  
+        level = status['level']
+        msg = status['msg']
+        level_expected = 'error'
+        msg_expected = 'Failed to update Task'
+        assert level_expected == level, \
+            f"Task status level <{level}> should be <{level_expected}>"
+        assert msg_expected == msg, \
+            f"Task status msg <{msg}> should be <{msg_expected}>"
+
+    def nominal_configuration(self, rack_name: str) -> None:
+        """ Nominal configuration of task """
+        console = self.console
+
+        # Add channels
+        console.task.add_channel(name="new_channel", type="Voltage", device="USB-6000", dev_name="usb_6000")
+        console.task.add_channel(name="hello", type="Accelerometer", device="USB-6000", dev_name="usb_6000")
+        console.task.add_channel(name="goodbye", type="Bridge", device="USB-6000", dev_name="usb_6000")
 
         self._log_message("Configuring task")
         console.task.configure()
@@ -82,6 +112,7 @@ class No_Device(ConsoleCase):
         # Status assertions
         status = console.task.status()
         level = status['level']
+        msg = status['msg']
 
         while level == 'loading' and self.should_continue:
             sy.sleep(0.1)
@@ -92,7 +123,7 @@ class No_Device(ConsoleCase):
         level_expected = 'warning'
         msg_expected = f"{rack_name} is not running"
 
-        assert level_expected == level, \
-            f"<{level}> should be <{level_expected}>"
         assert msg_expected in msg, \
             f"<{msg}> should be <{msg_expected}>"
+        assert level_expected == level, \
+            f"<{level}> should be <{level_expected}>"

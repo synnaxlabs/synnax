@@ -48,21 +48,7 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         # Talk to NI MAX sim devices
         ###########################
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        rack = client.hardware.racks.create(name=rack_name)
-        client.hardware.devices.create(
-            [
-                sy.Device(
-                    key="130227d9-02aa-47e4-b370-0d590add1bc1",
-                    rack=rack.key,
-                    name="E103",
-                    make="NI",
-                    model="NI 9229",
-                    location="E103",
-                    identifier="E103Mod1",
-                )
-            ]
-        )
-
+        device_name = "E103"
         self._log_message("Creating NI Analog Read Task")
         console.task.new()
 
@@ -75,54 +61,84 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             auto_start=False,
         )
 
-        # Voltage Channels
-        """
+        self.create_test_rack(rack_name, device_name)
+        self.validate_voltage_inputs(device_name)
+        self.validate_accel_inputs(device_name)
+
+        self.configure_and_run_task(rack_name)
+        sy.sleep(20)
+
+    def create_test_rack(self, rack_name: str, device_name: str) -> None:
+        rack = self.client.hardware.racks.create(name=rack_name)
+        self.client.hardware.devices.create(
+            [
+                sy.Device(
+                    key="130227d9-02aa-47e4-b370-0d590add1bc1",
+                    rack=rack.key,
+                    name=device_name,
+                    make="NI",
+                    model="NI 9229",
+                    location=device_name,
+                    identifier=f"{device_name}Mod1",
+                )
+            ]
+        )
+            
+    def validate_voltage_inputs(self, device_name: str) -> None:
+        """ Validate voltage inputs """
+        console = self.console
+        type = "Voltage"
+
         console.task.add_channel(
             name = "v0", 
-            type = "Voltage",
-            device = "E103",
+            type = type,
+            device = device_name,
             terminal_config = "Default",
         )
         console.task.add_channel(
             name = "v1",
-            type = "Voltage",
-            device="E103",
+            type = type,
+            device=device_name,
             terminal_config = "Differential",
             min_val = -0.1,
             max_val = 6.5,
         )
         console.task.add_channel(
             name = "v2",
-            type = "Voltage",
-            device="E103",
+            type = type,
+            device=device_name,
             terminal_config = "Pseudo-Differential",
             min_val = -10,
             max_val = 10,
         )
         console.task.add_channel(
             name = "v3",
-            type = "Voltage",
-            device="E103",
+            type = type,
+            device=device_name,
             terminal_config = "Referenced Single Ended",
         )
         console.task.add_channel(
             name = "v4",
-            type = "Voltage",
-            device="E103",
+            type = type,
+            device=device_name,
             terminal_config = "Non-Referenced Single Ended",
         )
-        """
-        # Validate Accel inputs
+    
+    def validate_accel_inputs(self, device_name: str) -> None:
+        """ Validate accel inputs """
+        console = self.console
+        type = "Accelerometer"
+
         console.task.add_channel(
             name="Accel_1",
-            type="Accelerometer",
-            device="E103",
+            type=type,
+            device=device_name,
         )
 
         console.task.add_channel(
             name="Accel_2",
-            type="Accelerometer",
-            device="E103",
+            type=type,
+            device=device_name,
             sensitivity=0.25,
             units="mV/g",
             excitation_source="Internal",
@@ -130,33 +146,21 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
         console.task.add_channel(
             name="Accel_3",
-            type="Accelerometer",
-            device="E103",
+            type=type,
+            device=device_name,
             units="V/g",
             excitation_source="External",
         )
         console.task.add_channel(
             name="Accel_4",
-            type="Accelerometer",
-            device="E103",
+            type=type,
+            device=device_name,
             excitation_source="None",
         )
-        sy.sleep(20)
         
-        
-
-        # Status Assertions
-        status = console.task.status()
-        msg = status['msg']
-        level = status['level']
-
-        level_expected = 'disabled'
-        msg_expected = 'Task has not been configured'
-
-        assert level_expected == level, \
-            f"Task status level <{level}> should be <{level_expected}>"
-        assert msg_expected == msg, \
-            f"Task status msg <{msg}> should be <{msg_expected}>"
+    def configure_and_run_task(self, rack_name: str) -> None:
+        """ Configure and run task """
+        console = self.console
 
         self._log_message("Configuring task")
         console.task.configure()
