@@ -11,6 +11,7 @@ from .task import Task
 from .channels.analog import Analog
 from .channels.accelerometer import Accelerometer
 from .channels.bridge import Bridge
+from .channels.current import Current
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "Voltage"]

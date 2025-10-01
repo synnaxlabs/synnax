@@ -15,6 +15,7 @@ from playwright.sync_api import Page
 from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
 from console.task.channels.bridge import Bridge
+from console.task.channels.current import Current
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
+    "Current": Current,
     "Voltage": Voltage,
 }
 

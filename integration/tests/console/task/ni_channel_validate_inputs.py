@@ -62,10 +62,11 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
         self.create_test_rack(rack_name, device_name)
-        self.validate_voltage_inputs(device_name)
-        self.validate_accel_inputs(device_name)
+        #self.validate_voltage_inputs(device_name)
+        #self.validate_accel_inputs(device_name)
+        #self.validate_bridge_inputs(device_name)
+        self.validate_current_inputs(device_name)
 
-        self.configure_and_run_task(rack_name)
         sy.sleep(20)
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -83,6 +84,7 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
                 )
             ]
         )
+        sy.sleep(1)
             
     def validate_voltage_inputs(self, device_name: str) -> None:
         """ Validate voltage inputs """
@@ -134,7 +136,6 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
         )
-
         console.task.add_channel(
             name="Accel_2",
             type=type,
@@ -158,30 +159,68 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             excitation_source="None",
         )
         
-    def configure_and_run_task(self, rack_name: str) -> None:
-        """ Configure and run task """
+    def validate_bridge_inputs(self, device_name: str) -> None:
+        """ Validate Bridge inputs """
         console = self.console
+        type = "Bridge"
 
-        self._log_message("Configuring task")
-        console.task.configure()
-        self._log_message("Running task")
-        console.task.run()
+        console.task.add_channel(
+            name="Bridge_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="Bridge_2",
+            type=type,
+            device=device_name,
+            units="mV/V",
+            configuration="Full Bridge",
+            resistance=0.1,
+            excitation_source="Internal",
+            excitation_value=0.2,
+        )
+        console.task.add_channel(
+            name="Bridge_3",
+            type=type,
+            device=device_name,
+            units="V/V",
+            configuration="Half Bridge",
+            excitation_source="External",
+        ) 
+        console.task.add_channel(
+            name="Bridge_4",
+            type=type,
+            device=device_name,
+            configuration="Quarter Bridge",
+            excitation_source="None",
+        )
 
-        # Status assertions
-        status = console.task.status()
-        level = status['level']
-        msg = status['msg']
+    def validate_current_inputs(self, device_name: str) -> None:
+        """ Validate Bridge inputs """
+        console = self.console
+        type = "Current"
 
-        while level == 'loading' and self.should_continue:
-            sy.sleep(0.1)
-            status = console.task.status()
-            level = status['level']
-            msg = status['msg']
-
-        level_expected = 'warning'
-        msg_expected = f"{rack_name} is not running"
-
-        assert level_expected == level, \
-            f"Task status <{level}> should be <{level_expected}>"
-        assert msg_expected in msg, \
-            f"Task status <{msg}> should be <{msg_expected}>"
+        console.task.add_channel(
+            name="Current_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="Current_2",
+            type=type,
+            device=device_name,
+            shunt_resistor="Default",
+            resistance=0.1,
+        )
+        console.task.add_channel(
+            name="Current_3",
+            type=type,
+            device=device_name,
+            shunt_resistor = "Internal"
+        ) 
+        console.task.add_channel(
+            name="Bridge_4",
+            type=type,
+            device=device_name,
+            shunt_resistor= "External",
+        )

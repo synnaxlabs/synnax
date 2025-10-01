@@ -45,9 +45,9 @@ class Bridge(Analog):
             "V/V",
         ]]=None,
         configuration: Optional[Literal[
-        "FullBridge",
-        "HalfBridge",
-        "QuarterBridge",
+        "Full Bridge",
+        "Half Bridge",
+        "Quarter Bridge",
         ]] = None,
         resistance: Optional[float]= None,
         excitation_source: Optional[Literal[
