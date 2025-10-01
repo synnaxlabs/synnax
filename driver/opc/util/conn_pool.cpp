@@ -112,29 +112,24 @@ void ConnectionPool::release(
         it->second.end()
     );
 
-    if (it->second.empty()) { connections_.erase(it); }
+    if (it->second.empty()) connections_.erase(it);
 }
 
 size_t ConnectionPool::size() const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t total = 0;
-    for (const auto &[_, entries]: connections_) {
+    for (const auto &[_, entries]: connections_)
         total += entries.size();
-    }
     return total;
 }
 
 size_t ConnectionPool::available_count(const std::string &endpoint) const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
-
-    for (const auto &[key, entries]: connections_) {
-        if (key.find(endpoint) == 0) {
-            for (const auto &entry: entries) {
-                if (!entry.in_use && entry.client) { count++; }
-            }
-        }
-    }
+    for (const auto &[key, entries]: connections_)
+        if (key.find(endpoint) == 0)
+            for (const auto &entry: entries)
+                if (!entry.in_use && entry.client) count++;
     return count;
 }
 
