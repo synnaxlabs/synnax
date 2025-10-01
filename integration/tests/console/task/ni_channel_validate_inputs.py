@@ -66,7 +66,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_accel_inputs(device_name)
         #self.validate_bridge_inputs(device_name)
         #self.validate_current_inputs(device_name)
-        self.validate_force_bridge_table_inputs(device_name)
+        #self.validate_force_bridge_table_inputs(device_name)
+        self.validate_force_bridge_two_point_linear_inputs(device_name)
 
         sy.sleep(20)
 
@@ -263,5 +264,51 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             force_units="Kilograms",
+            physical_units="Kilograms",
+        )
+
+    def validate_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
+        """ Validate Force Bridge Two Point Linear inputs """
+        console = self.console
+        type = "Force Bridge Two Point Linear"
+
+        console.task.add_channel(
+            name="ForceBridge2Pt_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="ForceBridge2Pt_2",
+            type=type,
+            device=device_name,
+            force_units="Newtons",
+            bridge_configuration="Full Bridge",
+            resistance=350.0,
+            excitation_source="Internal",
+            excitation_value=5.0,
+            physical_units="Newtons",
+            electrical_units="mV/V",
+            physical_value_one=0.0,
+            physical_value_two=100.0,
+            electrical_value_one=0.0,
+            electrical_value_two=2.5,
+        )
+        console.task.add_channel(
+            name="ForceBridge2Pt_3",
+            type=type,
+            device=device_name,
+            force_units="Pounds",
+            bridge_configuration="Half Bridge",
+            excitation_source="External",
+            physical_units="Pounds",
+            electrical_units="V/V",
+        )
+        console.task.add_channel(
+            name="ForceBridge2Pt_4",
+            type=type,
+            device=device_name,
+            force_units="Kilograms",
+            bridge_configuration="Quarter Bridge",
+            excitation_source="None",
             physical_units="Kilograms",
         )
