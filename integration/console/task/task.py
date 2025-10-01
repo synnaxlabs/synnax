@@ -18,6 +18,7 @@ from console.task.channels.bridge import Bridge
 from console.task.channels.current import Current
 from console.task.channels.force_bridge_table import ForceBridgeTable
 from console.task.channels.force_bridge_two_point_linear import ForceBridgeTwoPointLinear
+from console.task.channels.force_iepe import ForceIEPE
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -33,6 +34,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Current": Current,
     "Force Bridge Table": ForceBridgeTable,
     "Force Bridge Two Point Linear": ForceBridgeTwoPointLinear,
+    "Force IEPE": ForceIEPE,
     "Voltage": Voltage,
 }
 

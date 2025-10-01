@@ -67,7 +67,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_bridge_inputs(device_name)
         #self.validate_current_inputs(device_name)
         #self.validate_force_bridge_table_inputs(device_name)
-        self.validate_force_bridge_two_point_linear_inputs(device_name)
+        #self.validate_force_bridge_two_point_linear_inputs(device_name)
+        self.validate_force_iepe_inputs(device_name)
 
         sy.sleep(20)
 
@@ -311,4 +312,40 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             bridge_configuration="Quarter Bridge",
             excitation_source="None",
             physical_units="Kilograms",
+        )
+
+    def validate_force_iepe_inputs(self, device_name: str) -> None:
+        """ Validate Force IEPE inputs """
+        console = self.console
+        type = "Force IEPE"
+
+        console.task.add_channel(
+            name="ForceIEPE_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="ForceIEPE_2",
+            type=type,
+            device=device_name,
+            force_units="Newtons",
+            sensitivity=2.5,
+            sensitivity_units="mV/N",
+            current_excitation_source="Internal",
+            current_excitation_value=4.0,
+        )
+        console.task.add_channel(
+            name="ForceIEPE_3",
+            type=type,
+            device=device_name,
+            force_units="Pounds",
+            sensitivity_units="mV/lb",
+            current_excitation_source="External",
+        )
+        console.task.add_channel(
+            name="ForceIEPE_4",
+            type=type,
+            device=device_name,
+            sensitivity_units="mV/N",
+            current_excitation_source="None",
         )
