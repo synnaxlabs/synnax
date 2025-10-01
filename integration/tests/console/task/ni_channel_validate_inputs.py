@@ -170,6 +170,7 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         # Status assertions
         status = console.task.status()
         level = status['level']
+        msg = status['msg']
 
         while level == 'loading' and self.should_continue:
             sy.sleep(0.1)

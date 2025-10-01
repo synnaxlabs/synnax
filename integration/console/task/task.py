@@ -158,6 +158,7 @@ class Task(ConsolePage):
         )
 
     def run(self) -> None:
+        sy.sleep(0.2)
         self.console.page.locator("button .pluto-icon--play").locator("..").click(
             force=True
         )
