@@ -26,7 +26,7 @@ export const CopyMenuItem = (props: TreeContextMenuProps): ReactElement | null =
   return (
     <Menu.Item itemKey="copyData" size="small" onClick={handleClick}>
       <Icon.Copy />
-      Copy data
+      Copy properties
     </Menu.Item>
   );
 };
