@@ -12,6 +12,7 @@ from .channels.analog import Analog
 from .channels.accelerometer import Accelerometer
 from .channels.bridge import Bridge
 from .channels.current import Current
+from .channels.force_bridge_table import ForceBridgeTable
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "Voltage"]

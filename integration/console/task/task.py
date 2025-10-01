@@ -16,6 +16,7 @@ from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
 from console.task.channels.bridge import Bridge
 from console.task.channels.current import Current
+from console.task.channels.force_bridge_table import ForceBridgeTable
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -29,6 +30,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
+    "Force Bridge Table": ForceBridgeTable,
     "Voltage": Voltage,
 }
 
@@ -85,7 +87,7 @@ class Task(ConsolePage):
         console.select_from_dropdown(device)
 
         if dev_name is None:
-            dev_name = name
+            dev_name = name[:12]
         # Handle device creation modal if it appears
         sy.sleep(0.2) # Give modal time to appear
         if console.check_for_modal():

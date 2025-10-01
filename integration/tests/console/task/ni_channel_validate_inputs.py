@@ -65,7 +65,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_voltage_inputs(device_name)
         #self.validate_accel_inputs(device_name)
         #self.validate_bridge_inputs(device_name)
-        self.validate_current_inputs(device_name)
+        #self.validate_current_inputs(device_name)
+        self.validate_force_bridge_table_inputs(device_name)
 
         sy.sleep(20)
 
@@ -223,4 +224,44 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             shunt_resistor= "External",
+        )
+
+    def validate_force_bridge_table_inputs(self, device_name: str) -> None:
+        """ Validate Force Bridge Table inputs """
+        console = self.console
+        type = "Force Bridge Table"
+
+        console.task.add_channel(
+            name="ForceBridge_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="ForceBridge_2",
+            type=type,
+            device=device_name,
+            force_units="Newtons",
+            bridge_configuration="Full Bridge",
+            resistance=350.0,
+            excitation_source="Internal",
+            excitation_value=5.0,
+            physical_units="Newtons",
+            electrical_units="mV/V",
+        )
+        console.task.add_channel(
+            name="ForceBridge_3",
+            type=type,
+            device=device_name,
+            force_units="Pounds",
+            bridge_configuration="Half Bridge",
+            excitation_source="External",
+            physical_units="Pounds",
+            electrical_units="V/V",
+        ),
+        console.task.add_channel(
+            name="ForceBridge_3",
+            type=type,
+            device=device_name,
+            force_units="Kilograms",
+            physical_units="Kilograms",
         )
