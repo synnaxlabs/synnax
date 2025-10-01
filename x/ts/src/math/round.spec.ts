@@ -1,3 +1,4 @@
+/* eslint-disable no-loss-of-precision */
 // Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -81,7 +82,6 @@ describe("roundBySpan", () => {
 });
 
 interface SmartRoundTestCase {
-  name: string;
   value: number;
   bounds?: bounds.Bounds<number>;
   expected: number;
@@ -205,9 +205,9 @@ describe("smartRound", () => {
     it("span above threshold", () =>
       expect(math.smartRound(1000, { lower: 999, upper: 1000 })).toBe(1000.0));
     it("span below threshold", () =>
-      expect(
-        math.smartRound(1000000, { lower: 1000000, upper: 1000000 + 1e-12 }),
-      ).toBe(1000000.0));
+      expect(math.smartRound(1000000, { lower: 1000000, upper: 1000000 + 1e-12 })).toBe(
+        1000000.0,
+      ));
     it("1000 boundary", () => {
       expect(math.smartRound(999.999)).toBe(999.999);
       expect(math.smartRound(1000.001)).toBe(1000.0);
