@@ -79,12 +79,8 @@ const MIN_SPAN_THRESHOLD = 1e-10;
  * otherwise uses significant figures.
  * @returns The rounded number.
  */
-export const smartRound = (
-  value: number,
-  b?: bounds.Bounds<number>,
-): number => {
-  if (Number.isNaN(value) || !Number.isFinite(value)) return value;
-  if (value === 0) return 0;
+export const smartRound = (value: number, b?: bounds.Bounds<number>): number => {
+  if (Number.isNaN(value) || !Number.isFinite(value) || value === 0) return value;
   const absValue = Math.abs(value);
   let useSpanBased = false;
   let span = 0;
@@ -103,18 +99,17 @@ export const smartRound = (
     }
     const multiplier = 10 ** decimalPlaces;
     return Math.round(value * multiplier) / multiplier;
-  } else {
-    if (absValue >= 1000) {
-      const multiplier = 10 ** LARGE_SPAN_DECIMAL_PLACES;
-      return Math.round(value * multiplier) / multiplier;
-    } else if (absValue >= 1) {
-      const multiplier = 10 ** MEDIUM_SPAN_DECIMAL_PLACES;
-      return Math.round(value * multiplier) / multiplier;
-    } else {
-      const magnitude = Math.floor(Math.log10(absValue));
-      const decimalPlaces = SIGNIFICANT_FIGURES - magnitude - 1;
-      const multiplier = 10 ** decimalPlaces;
-      return Math.round(value * multiplier) / multiplier;
-    }
   }
+  if (absValue >= 1000) {
+    const multiplier = 10 ** LARGE_SPAN_DECIMAL_PLACES;
+    return Math.round(value * multiplier) / multiplier;
+  }
+  if (absValue >= 1) {
+    const multiplier = 10 ** MEDIUM_SPAN_DECIMAL_PLACES;
+    return Math.round(value * multiplier) / multiplier;
+  }
+  const magnitude = Math.floor(Math.log10(absValue));
+  const decimalPlaces = SIGNIFICANT_FIGURES - magnitude - 1;
+  const multiplier = 10 ** decimalPlaces;
+  return Math.round(value * multiplier) / multiplier;
 };
