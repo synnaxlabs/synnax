@@ -171,6 +171,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Export.MenuItem />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
           <PMenu.Divider />
         </>
       )}
