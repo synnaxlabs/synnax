@@ -62,36 +62,7 @@ class Analog:
         self.device = device
 
         # Configure channel type
-        print("clicking channel type\n\n")
-
-        # Diagnostic: Check page state before clicking Channel Type
-        all_lists = console.page.locator(".pluto-list__item:not(.pluto-tree__item)").all_text_contents()
-        print(f"DEBUG: All list items before clicking Channel Type: {all_lists}")
-
-        modals_open = console.check_for_modal()
-        print(f"DEBUG: Modal open before Channel Type click: {modals_open}")
-        if modals_open:
-            self.console.ESCAPE
-        modals_open = console.check_for_modal()
-        print(f"DEBUG: Modal open before Channel Type click: {modals_open}")
-
-        sy.sleep(1)
         console.click_btn("Channel Type")
-        sy.sleep(1)
-
-        # Check state after clicking
-        all_lists_after = console.page.locator(".pluto-list__item:not(.pluto-tree__item)").all_text_contents()
-        print(f"DEBUG: All list items after clicking Channel Type: {all_lists_after}")
-
-        modals_open_after = console.check_for_modal()
-        print(f"DEBUG: Modal open after Channel Type click: {modals_open_after}")
-
-        # Wait for dropdown to actually open before selecting
-        # In headless mode, dropdowns can take longer to render
-        console.page.wait_for_selector(
-            f".pluto-list__item:not(.pluto-tree__item):has-text('{type}')",
-            timeout=3000
-        )
         console.select_from_dropdown(type)
 
         # Optional configurations

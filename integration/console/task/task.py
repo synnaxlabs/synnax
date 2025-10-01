@@ -64,52 +64,38 @@ class Task(ConsolePage):
             The created channel instance
         """
         console = self.console
-        print("closing notifications\n")
         console.close_all_notifications()
-        sy.sleep(0.5)
 
         # Add first channel or subsequent channels
-        print(len(self.channels))
         if len(self.channels) == 0:
             console.click("Add a channel")
         else:
             console.page.locator(
                 "header:has-text('Channels') .pluto-icon--add"
             ).click()
-        
-        print(len(self.channels))
+
         # Click the channel in the list
         idx = len(self.channels)
         console.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
-        print("Clicking device dropdown")
-        print(device,device)
         console.click_btn("Device")
-        sy.sleep(0.5)
-        print("selecting from device")
         console.select_from_dropdown(device)
 
-        
         if dev_name is None:
             dev_name = name
         # Handle device creation modal if it appears
-        sy.sleep(1) # Give modal time to appear
+        sy.sleep(0.2) # Give modal time to appear
         if console.check_for_modal():
-            print("stepping through modal")
             console.close_all_notifications()
-            sy.sleep(0.2)
             console.fill_input_field("Name", dev_name)
-            sy.sleep(0.2)
             console.click_btn("Next")
-            sy.sleep(0.2)
             console.fill_input_field("Identifier", dev_name)
-            sy.sleep(0.2)
             console.click_btn("Save")
-            sy.sleep(0.5)
+            sy.sleep(0.2)
 
-            if console.check_for_modal():
-                raise RuntimeError("Modal did not close")
+        if console.check_for_modal():
+            raise RuntimeError("Blocking modal is open")
 
         # Create channel using registry
         if type not in CHANNEL_TYPES:
@@ -117,9 +103,6 @@ class Task(ConsolePage):
                 f"Unknown channel type: {type}. "
                 f"Available types: {list(CHANNEL_TYPES.keys())}"
             )
-
-        print("creating channel", type)
-        sy.sleep(0.5)
 
         channel_class = CHANNEL_TYPES[type]
         channel = channel_class(
@@ -175,11 +158,10 @@ class Task(ConsolePage):
         )
 
     def run(self) -> None:
-        sy.sleep(0.5)
         self.console.page.locator("button .pluto-icon--play").locator("..").click(
             force=True
         )
-        sy.sleep(0.5)
+        sy.sleep(0.2)
 
     def status(self) -> dict[str, str]:
         """
@@ -192,7 +174,7 @@ class Task(ConsolePage):
                 - name: Status field name
                 - time: Timestamp if available
         """
-        sy.sleep(0.5)
+        sy.sleep(0.2)
         status_element = self.console.page.locator(
             ".console-task-state p.pluto-status__text, .console-task-state p.pluto-text"
         ).first
