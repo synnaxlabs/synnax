@@ -7,23 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 import synnax as sy
 
-from console.console import Console
+if TYPE_CHECKING:
+    from console.console import Console
 
 
 class Analog:
     """Base class for analog channel types in NI tasks."""
 
     name: str
-    console: Console
+    console: "Console"
     device: str
 
     def __init__(
         self,
-        console: Console,
-        name: str,
+        console: "Console",
         device: str,
         type: str,
         port: Optional[int] = None,
@@ -59,23 +59,11 @@ class Analog:
             custom_scale: "None", "Linear", "Map", "Table"
         """
         self.console = console
-        self.name = name
         self.device = device
 
         # Configure channel type
         console.click_btn("Channel Type")
         console.select_from_dropdown(type)
-
-        # Configure device
-        console.click_btn("Device")
-        console.select_from_dropdown(device)
-
-        # Handle device creation modal if it appears
-        if console.check_for_modal():
-            console.fill_input_field("Name", device)
-            console.click_btn("Next")
-            console.fill_input_field("Identifier", device)
-            console.click_btn("Save")
 
         # Optional configurations
         if port is not None:

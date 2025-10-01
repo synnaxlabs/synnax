@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Optional, Literal
 
-from console.console import Console
 from console.task.channels.analog import Analog
+
+if TYPE_CHECKING:
+    from console.console import Console
 
 
 class Accelerometer(Analog):
@@ -34,8 +36,7 @@ class Accelerometer(Analog):
 
     def __init__(
         self,
-        console: Console,
-        name: str,
+        console: "Console",
         device: str,
         sensitivity: float = None,
         units: Optional[Literal[
@@ -54,7 +55,7 @@ class Accelerometer(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
-            name=name,
+
             device=device,
             type="Accelerometer",
             **kwargs,

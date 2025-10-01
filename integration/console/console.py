@@ -20,6 +20,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
+from .task import Task
 
 # Define literal types for page creation
 PageType = Literal[
@@ -56,6 +57,7 @@ class Console:
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)
+        self.task = Task(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
@@ -333,6 +335,16 @@ class Console:
             .first
         )
         button.click(force=True)
+
+    def get_toggle(self, toggle_label: str) -> bool:
+        """Get the value of a toggle by label."""
+        toggle = (
+            self.page.locator(f"text={toggle_label}")
+            .locator("..")
+            .locator("input[type='checkbox']")
+            .first
+        )
+        return toggle.is_checked()
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""

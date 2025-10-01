@@ -10,10 +10,7 @@
 import platform
 import synnax as sy
 
-
 from console.case import ConsoleCase
-
-from console.task.task import Task
 
 
 class Ni_Channel_Types(ConsoleCase):
@@ -34,9 +31,24 @@ class Ni_Channel_Types(ConsoleCase):
         console = self.console
         self._log_message("Creating NI Analog Read Task page")
 
-        task = Task(console, type="NI Analog Read Task")
-        task.add_channel(name="new_channel", type="Voltage", device="E103")
-        task.add_channel(name="hello", type="Accelerometer", device="E103")
-        task.add_channel(name="goodbye", type="Bridge", device="E103")
+        console.task.new()
+        #console.task.move("left")
 
+        console.task.set_parameters(
+            task_name="Test_task",
+            sample_rate=100,
+            stream_rate=20,
+            data_saving=True,
+            auto_start=False,
+        )
 
+        console.task.add_channel(name="new_channel", type="Voltage", device="USB-6000", dev_name="usb_6000")
+        console.task.add_channel(name="hello", type="Accelerometer", device="E103")
+        console.task.add_channel(name="goodbye", type="Bridge", device="E103")
+
+        console.task.configure()
+        self._log_message("selecting configure")
+        sy.sleep(5)
+
+        #console.task.run()
+        sy.sleep(15)

@@ -7,13 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional, Type
+from typing import TYPE_CHECKING, Any, Literal, Optional, Type
 
-from console.console import Console
+from playwright.sync_api import Page
+
 from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
 from console.task.channels.bridge import Bridge
 from console.task.channels.voltage import Voltage
+
+from ..page import ConsolePage
+
+if TYPE_CHECKING:
+    from console.console import Console
 
 
 # Channel type registry for extensible factory pattern
@@ -24,37 +30,24 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
 }
 
 
-class Task:
+class Task(ConsolePage):
     """NI Task automation interface for managing analog channels."""
 
     channels: list[Analog]
-    console: Console
-    name: str
+    task_name: str
 
-    def __init__(
-        self,
-        console: Console,
-        type: Literal[
-            "NI Analog Read Task",
-        ],
-        name: Optional[str] = None,
-    ) -> None:
-        """Initialize a new task in the Console."""
-        self.console = console
+    def __init__(self, page: Page, console: "Console") -> None:
+        super().__init__(page, console)
+        self.page_type = "NI Analog Read Task"
+        self.pluto_label = ".ni_ai_somethingsomething"
         self.channels = []
-
-        page_type = "NI Analog Read Task"
-        if name is None:
-            name = page_type
-
-        _, page_id = console.create_page(page_type, name)
-        self.name = name
 
     def add_channel(
         self,
         name: str,
-        type: Literal[*CHANNEL_TYPES.keys()],
+        type: str,
         device: str,
+        dev_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Analog:
         """
@@ -74,6 +67,7 @@ class Task:
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
             console.click("Add a channel")
+            print('add a chennlclicked \n\n')
         else:
             console.page.locator(
                 "header:has-text('Channels') .pluto-icon--add"
@@ -82,6 +76,22 @@ class Task:
         # Click the channel in the list
         idx = len(self.channels)
         console.page.locator(".pluto-list__item").nth(idx).click()
+
+        # Configure device
+        console.click_btn("Device")
+        console.select_from_dropdown(device)
+
+        print(console.close_all_notifications())
+        if dev_name is None:
+            dev_name = name
+        # Handle device creation modal if it appears
+        if console.check_for_modal():
+            console.close_all_notifications()
+            console.fill_input_field("Name", dev_name)
+            #console.click("Next") # Did not work
+            console.click_btn("Next")
+            console.fill_input_field("Identifier", dev_name)
+            console.click_btn("Save")
 
         # Create channel using registry
         if type not in CHANNEL_TYPES:
@@ -92,8 +102,56 @@ class Task:
 
         channel_class = CHANNEL_TYPES[type]
         channel = channel_class(
-            console=console, name=name, device=device, **kwargs
+            console=console, device=device, **kwargs
         )
 
-        self.channels.append(channel)
+        self.channels.append(name)
         return channel
+
+    def set_parameters(
+        self,
+        task_name: Optional[str] = None,
+        sample_rate: Optional[float] = None,
+        stream_rate: Optional[float] = None,
+        data_saving: Optional[bool] = None,
+        auto_start: Optional[bool] = None,
+    ) -> None:
+        """
+        Set the parameters for the task.
+
+        Args:
+            sample_rate: The sample rate for the task.
+            stream_rate: The stream rate for the task.
+            data_saving: Whether to save data to the core.
+            auto_start: Whether to start the task automatically.
+        """
+        console = self.console
+
+        if task_name is not None:
+            console.fill_input_field("Name", task_name)
+            console.ENTER
+
+        if sample_rate is not None:
+            console.fill_input_field("Sample Rate", str(sample_rate))
+
+        if stream_rate is not None:
+            console.fill_input_field("Stream Rate", str(stream_rate))
+        
+        if data_saving is not None:
+            if data_saving != console.get_toggle("Data Saving"):
+                console.click_checkbox("Data Saving")
+
+        if auto_start is not None:
+            if auto_start != console.get_toggle("Auto Start"):
+                console.click_checkbox("Auto Start")
+
+    def configure(self) -> None:
+        # Notifications will block the configure channel.
+        # Another mitigation is to snap the task page left.
+        self.console.close_all_notifications()
+        self.console.page.get_by_role("button", name="Configure", exact=True).click(
+            force=True
+        )
+
+    def run(self) -> None:
+        self.console.click_btn("Play")
