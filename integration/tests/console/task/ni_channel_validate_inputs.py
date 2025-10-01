@@ -69,7 +69,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_force_bridge_table_inputs(device_name)
         #self.validate_force_bridge_two_point_linear_inputs(device_name)
         #self.validate_force_iepe_inputs(device_name)
-        self.validate_microphone_inputs(device_name)
+        #self.validate_microphone_inputs(device_name)
+        self.validate_pressure_bridge_table_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -381,4 +382,45 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             current_excitation_source="None",
+        )
+
+    def validate_pressure_bridge_table_inputs(self, device_name: str) -> None:
+        """ Validate Pressure Bridge Table inputs """
+        console = self.console
+        type = "Pressure Bridge Table"
+
+        console.task.add_channel(
+            name="PressureBridge_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="PressureBridge_2",
+            type=type,
+            device=device_name,
+            pressure_units="Pascals",
+            bridge_configuration="Full Bridge",
+            resistance=350.0,
+            excitation_source="Internal",
+            excitation_value=5.0,
+            physical_units="Pascals",
+            electrical_units="mV/V",
+        )
+        console.task.add_channel(
+            name="PressureBridge_3",
+            type=type,
+            device=device_name,
+            pressure_units="PSI",
+            bridge_configuration="Half Bridge",
+            excitation_source="External",
+            physical_units="PSI",
+            electrical_units="V/V",
+        )
+        console.task.add_channel(
+            name="PressureBridge_4",
+            type=type,
+            device=device_name,
+            bridge_configuration="Quarter Bridge",
+            excitation_source="None",
+            electrical_units="mV/V",
         )
