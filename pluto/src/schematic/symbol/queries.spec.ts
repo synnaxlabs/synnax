@@ -267,14 +267,12 @@ describe("Symbol queries", () => {
         name: "test-symbol-create",
       });
 
-      const { result } = renderHook(
-        () => Symbol.useForm({ query: { parent: group.ontologyID(parent.key) } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Symbol.useForm({ query: {} }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "created-symbol");
         result.current.form.set("data.svg", "<svg>created</svg>");
+        result.current.form.set("parent", group.ontologyID(parent.key));
         result.current.save();
       });
 
@@ -290,6 +288,13 @@ describe("Symbol queries", () => {
       });
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
+
+      const children = await client.ontology.retrieveChildren(
+        group.ontologyID(parent.key),
+      );
+      expect(children.length).toBe(1);
+      expect(children[0].id.key).toBe(retrieved.key);
+      expect(children[0].name).toBe("created-symbol");
     });
 
     it("should update an existing symbol", async () => {
@@ -314,13 +319,17 @@ describe("Symbol queries", () => {
       const { result } = renderHook(
         () =>
           Symbol.useForm({
-            query: { key: symbol.key, parent: group.ontologyID(parent.key) },
+            query: { key: symbol.key },
           }),
         { wrapper },
       );
 
       await waitFor(() => {
         expect(result.current.form.get("name").value).toBe("original-name");
+        expect(result.current.form.get("parent").value).toEqual(
+          group.ontologyID(parent.key),
+        );
+        expect(result.current.form.get("data.svg").value).toBe("<svg>original</svg>");
       });
 
       await act(async () => {

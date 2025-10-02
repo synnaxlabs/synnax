@@ -72,8 +72,8 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 const DEFAULT_REGION_KEY = "default";
 
 export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const query = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const isCreate = query.key == null;
+  const { key, parent } = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const isCreate = key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (unsavedChanges: boolean) => {
@@ -84,12 +84,12 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
 
   const theme = Theming.use();
   const { form, save } = Schematic.Symbol.useForm({
-    query,
+    query: { key },
     onHasTouched: handleUnsavedChanges,
     initialValues: {
       version: 1,
       name: "",
-      parent: ontology.ROOT_ID,
+      parent: parent ?? ontology.ROOT_ID,
       data: {
         svg: "",
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
