@@ -9,6 +9,7 @@
 
 import platform
 import random
+
 import synnax as sy
 
 from console.case import ConsoleCase
@@ -16,24 +17,23 @@ from console.case import ConsoleCase
 
 class Ni_Channel_Validate_Inputs(ConsoleCase):
     """
-    Test the input selection for each channel type. Not running the tasks here. 
-    Only veryifying that each input type (dropdown/int/float) can be 
+    Test the input selection for each channel type. Not running the tasks here.
+    Only veryifying that each input type (dropdown/int/float) can be
     appropriately selected.
     """
 
     # TODO:
-    # - Validate bad inputs for alll types
+    # - Validate bad inputs for all types
     # - Validate custom scale inputs
-    # - And basically all tasks
     # - Step through each pre-configured channel and get info
     #
-    # - "name" will be used to rename channels AFTER we have 
+    # - "name" will be used to rename channels AFTER we have
     #   created a task. (not for this test)
 
     def setup(self) -> None:
         if platform.system() != "Windows":
-           #self.auto_pass(msg="Requires DAQmx drivers")
-           print('autopass goes here')
+            # self.auto_pass(msg="Requires DAQmx drivers")
+            print("autopass goes here")
         super().setup()
 
     def run(self) -> None:
@@ -62,25 +62,24 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
         self.create_test_rack(rack_name, device_name)
-        #self.validate_voltage_inputs(device_name)
-        #self.validate_accel_inputs(device_name)
-        #self.validate_bridge_inputs(device_name)
-        #self.validate_current_inputs(device_name)
-        #self.validate_force_bridge_table_inputs(device_name)
-        #self.validate_force_bridge_two_point_linear_inputs(device_name)
-        #self.validate_force_iepe_inputs(device_name)
-        #self.validate_microphone_inputs(device_name)
-        #self.validate_pressure_bridge_table_inputs(device_name)
-        #self.validate_pressure_bridge_two_point_linear_inputs(device_name)
-        #self.validate_resistance_inputs(device_name)
-        #self.validate_rtd_inputs(device_name)
-        #self.validate_strain_gauge_inputs(device_name)
-        #self.validate_temperature_built_in_sensor_inputs(device_name)
-        #self.validate_thermocouple_inputs(device_name)
-        #self.validate_torque_bridge_table_inputs(device_name)
-        #self.validate_torque_bridge_two_point_linear_inputs(device_name)
+        self.validate_voltage_inputs(device_name)
+        self.validate_accel_inputs(device_name)
+        self.validate_bridge_inputs(device_name)
+        self.validate_current_inputs(device_name)
+        self.validate_force_bridge_table_inputs(device_name)
+        self.validate_force_bridge_two_point_linear_inputs(device_name)
+        self.validate_force_iepe_inputs(device_name)
+        self.validate_microphone_inputs(device_name)
+        self.validate_pressure_bridge_table_inputs(device_name)
+        self.validate_pressure_bridge_two_point_linear_inputs(device_name)
+        self.validate_resistance_inputs(device_name)
+        self.validate_rtd_inputs(device_name)
+        self.validate_strain_gauge_inputs(device_name)
+        self.validate_temperature_built_in_sensor_inputs(device_name)
+        self.validate_thermocouple_inputs(device_name)
+        self.validate_torque_bridge_table_inputs(device_name)
+        self.validate_torque_bridge_two_point_linear_inputs(device_name)
         self.validate_velocity_iepe_inputs(device_name)
-
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
@@ -98,49 +97,51 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             ]
         )
         sy.sleep(1)
-            
+
     def validate_voltage_inputs(self, device_name: str) -> None:
-        """ Validate voltage inputs """
+        """Validate voltage inputs"""
+        self._log_message("Configuring channels of type Voltage")
         console = self.console
         type = "Voltage"
 
         console.task.add_channel(
-            name = "v0", 
-            type = type,
-            device = device_name,
-            terminal_config = "Default",
+            name="v0",
+            type=type,
+            device=device_name,
+            terminal_config="Default",
         )
         console.task.add_channel(
-            name = "v1",
-            type = type,
+            name="v1",
+            type=type,
             device=device_name,
-            terminal_config = "Differential",
-            min_val = -0.1,
-            max_val = 6.5,
+            terminal_config="Differential",
+            min_val=-0.1,
+            max_val=6.5,
         )
         console.task.add_channel(
-            name = "v2",
-            type = type,
+            name="v2",
+            type=type,
             device=device_name,
-            terminal_config = "Pseudo-Differential",
-            min_val = -10,
-            max_val = 10,
+            terminal_config="Pseudo-Differential",
+            min_val=-10,
+            max_val=10,
         )
         console.task.add_channel(
-            name = "v3",
-            type = type,
+            name="v3",
+            type=type,
             device=device_name,
-            terminal_config = "Referenced Single Ended",
+            terminal_config="Referenced Single Ended",
         )
         console.task.add_channel(
-            name = "v4",
-            type = type,
+            name="v4",
+            type=type,
             device=device_name,
-            terminal_config = "Non-Referenced Single Ended",
+            terminal_config="Non-Referenced Single Ended",
         )
-    
+
     def validate_accel_inputs(self, device_name: str) -> None:
-        """ Validate accel inputs """
+        """Validate accel inputs"""
+        self._log_message("Configuring channels of type Accelerometer")
         console = self.console
         type = "Accelerometer"
 
@@ -156,7 +157,7 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             sensitivity=0.25,
             units="mV/g",
             excitation_source="Internal",
-            current_excitation_value=0.1
+            current_excitation_value=0.1,
         )
         console.task.add_channel(
             name="Accel_3",
@@ -171,9 +172,10 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             device=device_name,
             excitation_source="None",
         )
-        
+
     def validate_bridge_inputs(self, device_name: str) -> None:
-        """ Validate Bridge inputs """
+        """Validate Bridge inputs"""
+        self._log_message("Configuring channels of type Bridge")
         console = self.console
         type = "Bridge"
 
@@ -199,7 +201,7 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             units="V/V",
             configuration="Half Bridge",
             excitation_source="External",
-        ) 
+        )
         console.task.add_channel(
             name="Bridge_4",
             type=type,
@@ -209,7 +211,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_current_inputs(self, device_name: str) -> None:
-        """ Validate Bridge inputs """
+        """Validate Bridge inputs"""
+        self._log_message("Configuring channels of type Current")
         console = self.console
         type = "Current"
 
@@ -226,20 +229,18 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             resistance=0.1,
         )
         console.task.add_channel(
-            name="Current_3",
-            type=type,
-            device=device_name,
-            shunt_resistor = "Internal"
-        ) 
+            name="Current_3", type=type, device=device_name, shunt_resistor="Internal"
+        )
         console.task.add_channel(
             name="Bridge_4",
             type=type,
             device=device_name,
-            shunt_resistor= "External",
+            shunt_resistor="External",
         )
 
     def validate_force_bridge_table_inputs(self, device_name: str) -> None:
-        """ Validate Force Bridge Table inputs """
+        """Validate Force Bridge Table inputs"""
+        self._log_message("Configuring channels of type Force Bridge Table")
         console = self.console
         type = "Force Bridge Table"
 
@@ -279,7 +280,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
-        """ Validate Force Bridge Two Point Linear inputs """
+        """Validate Force Bridge Two Point Linear inputs"""
+        self._log_message("Configuring channels of type Force Bridge Two Point Linear")
         console = self.console
         type = "Force Bridge Two Point Linear"
 
@@ -325,7 +327,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_force_iepe_inputs(self, device_name: str) -> None:
-        """ Validate Force IEPE inputs """
+        """Validate Force IEPE inputs"""
+        self._log_message("Configuring channels of type Force IEPE")
         console = self.console
         type = "Force IEPE"
 
@@ -361,7 +364,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_microphone_inputs(self, device_name: str) -> None:
-        """ Validate Microphone inputs """
+        """Validate Microphone inputs"""
+        self._log_message("Configuring channels of type Microphone")
         console = self.console
         type = "Microphone"
 
@@ -394,7 +398,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_pressure_bridge_table_inputs(self, device_name: str) -> None:
-        """ Validate Pressure Bridge Table inputs """
+        """Validate Pressure Bridge Table inputs"""
+        self._log_message("Configuring channels of type Pressure Bridge Table")
         console = self.console
         type = "Pressure Bridge Table"
 
@@ -434,8 +439,13 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             electrical_units="mV/V",
         )
 
-    def validate_pressure_bridge_two_point_linear_inputs(self, device_name: str) -> None:
-        """ Validate Pressure Bridge Two-Point Linear inputs """
+    def validate_pressure_bridge_two_point_linear_inputs(
+        self, device_name: str
+    ) -> None:
+        """Validate Pressure Bridge Two-Point Linear inputs"""
+        self._log_message(
+            "Configuring channels of type Pressure Bridge Two-Point Linear"
+        )
         console = self.console
         type = "Pressure Bridge Two-Point Linear"
 
@@ -479,7 +489,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_resistance_inputs(self, device_name: str) -> None:
-        """ Validate Resistance inputs """
+        """Validate Resistance inputs"""
+        self._log_message("Configuring channels of type Resistance")
         console = self.console
         type = "Resistance"
 
@@ -512,7 +523,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_rtd_inputs(self, device_name: str) -> None:
-        """ Validate RTD inputs """
+        """Validate RTD inputs"""
+        self._log_message("Configuring channels of type RTD")
         console = self.console
         type = "RTD"
 
@@ -552,7 +564,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_strain_gauge_inputs(self, device_name: str) -> None:
-        """ Validate Strain Gauge inputs """
+        """Validate Strain Gauge inputs"""
+        self._log_message("Configuring channels of type Strain Gauge")
         console = self.console
         type = "Strain Gauge"
 
@@ -596,7 +609,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_temperature_built_in_sensor_inputs(self, device_name: str) -> None:
-        """ Validate Temperature Built-In Sensor inputs """
+        """Validate Temperature Built-In Sensor inputs"""
+        self._log_message("Configuring channels of type Temperature Built-In Sensor")
         console = self.console
         type = "Temperature Built-In Sensor"
 
@@ -631,7 +645,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_thermocouple_inputs(self, device_name: str) -> None:
-        """ Validate Thermocouple inputs """
+        """Validate Thermocouple inputs"""
+        self._log_message("Configuring channels of type Thermocouple")
         console = self.console
         type = "Thermocouple"
 
@@ -666,7 +681,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_torque_bridge_table_inputs(self, device_name: str) -> None:
-        """ Validate Torque Bridge Table inputs """
+        """Validate Torque Bridge Table inputs"""
+        self._log_message("Configuring channels of type Torque Bridge Table")
         console = self.console
         type = "Torque Bridge Table"
 
@@ -708,7 +724,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_torque_bridge_two_point_linear_inputs(self, device_name: str) -> None:
-        """ Validate Torque Bridge Two-Point Linear inputs """
+        """Validate Torque Bridge Two-Point Linear inputs"""
+        self._log_message("Configuring channels of type Torque Bridge Two-Point Linear")
         console = self.console
         type = "Torque Bridge Two-Point Linear"
 
@@ -755,7 +772,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         )
 
     def validate_velocity_iepe_inputs(self, device_name: str) -> None:
-        """ Validate Velocity IEPE inputs """
+        """Validate Velocity IEPE inputs"""
+        self._log_message("Configuring channels of type Velocity IEPE")
         console = self.console
         type = "Velocity IEPE"
 

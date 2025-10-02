@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class Microphone(Analog):
-
     """
     Microphone channel type for NI analog read tasks.
 
@@ -39,16 +38,16 @@ class Microphone(Analog):
         self,
         console: "Console",
         device: str,
-        sound_pressure_units: Optional[Literal[
-            "Pascals",
-        ]] = None,
+        sound_pressure_units: Optional[Literal["Pascals",]] = None,
         sensitivity: Optional[float] = None,
         max_sound_pressure_level: Optional[float] = None,
-        current_excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        current_excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         current_excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
@@ -70,7 +69,9 @@ class Microphone(Analog):
             console.fill_input_field("Microphone Sensitivity", str(sensitivity))
 
         if max_sound_pressure_level is not None:
-            console.fill_input_field("Max Sound Pressure Level", str(max_sound_pressure_level))
+            console.fill_input_field(
+                "Max Sound Pressure Level", str(max_sound_pressure_level)
+            )
 
         if current_excitation_source is not None:
             console.click_btn("Current Excitation Source")

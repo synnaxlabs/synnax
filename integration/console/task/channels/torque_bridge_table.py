@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, Optional, Any
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -31,32 +31,42 @@ class TorqueBridgeTable(Analog):
         self,
         console: "Console",
         device: str,
-        torque_units: Optional[Literal[
-            "Newton Meters",
-            "Inch Ounces",
-            "Foot Pounds",
-        ]] = None,
-        bridge_configuration: Optional[Literal[
-            "Full Bridge",
-            "Half Bridge",
-            "Quarter Bridge",
-        ]] = None,
+        torque_units: Optional[
+            Literal[
+                "Newton Meters",
+                "Inch Ounces",
+                "Foot Pounds",
+            ]
+        ] = None,
+        bridge_configuration: Optional[
+            Literal[
+                "Full Bridge",
+                "Half Bridge",
+                "Quarter Bridge",
+            ]
+        ] = None,
         nominal_bridge_resistance: Optional[float] = None,
-        voltage_excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        voltage_excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         voltage_excitation_value: Optional[float] = None,
-        physical_units: Optional[Literal[
-            "Newton Meters",
-            "Inch Ounces",
-            "Foot Pounds",
-        ]] = None,
-        electrical_units: Optional[Literal[
-            "mV/V",
-            "V/V",
-        ]] = None,
+        physical_units: Optional[
+            Literal[
+                "Newton Meters",
+                "Inch Ounces",
+                "Foot Pounds",
+            ]
+        ] = None,
+        electrical_units: Optional[
+            Literal[
+                "mV/V",
+                "V/V",
+            ]
+        ] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -75,14 +85,18 @@ class TorqueBridgeTable(Analog):
             console.select_from_dropdown(bridge_configuration)
 
         if nominal_bridge_resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(nominal_bridge_resistance))
+            console.fill_input_field(
+                "Nominal Bridge Resistance", str(nominal_bridge_resistance)
+            )
 
         if voltage_excitation_source is not None:
             console.click_btn("Voltage Excitation Source")
             console.select_from_dropdown(voltage_excitation_source)
 
         if voltage_excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(voltage_excitation_value))
+            console.fill_input_field(
+                "Voltage Excitation Value", str(voltage_excitation_value)
+            )
 
         if physical_units is not None:
             console.click_btn("Physical Units")

@@ -6,8 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+from typing import TYPE_CHECKING, Any, Literal, Optional
+
 import synnax as sy
-from typing import TYPE_CHECKING, Any, Optional, Literal
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
 
 
 class Accelerometer(Analog):
-
     """
     Accelerometer channel type for NI analog read tasks.
 
@@ -38,17 +38,15 @@ class Accelerometer(Analog):
         self,
         console: "Console",
         device: str,
-        sensitivity: float = None,
-        units: Optional[Literal[
-            "mV/g",
-            "V/g",
-        ]]=None,
-        excitation_source: Optional[Literal[
-        "Internal",
-        "External",
-        "None"
-        ]] = None,
-        current_excitation_value: Optional[float]= None,
+        sensitivity: Optional[float] = None,
+        units: Optional[
+            Literal[
+                "mV/g",
+                "V/g",
+            ]
+        ] = None,
+        excitation_source: Optional[Literal["Internal", "External", "None"]] = None,
+        current_excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
 
@@ -65,12 +63,10 @@ class Accelerometer(Analog):
             console.fill_input_field("Sensitivity", str(sensitivity))
 
         if units is not None:
-            console.page.locator(
-                "button.pluto-dialog__trigger:has-text('V/g')"
+            console.page.locator("button.pluto-dialog__trigger:has-text('V/g')").click()
+            console.page.locator(f".pluto-list__item").get_by_text(
+                units, exact=True
             ).click()
-            console.page.locator(
-                f".pluto-list__item"
-            ).get_by_text(units, exact=True).click()
 
         if excitation_source is not None:
             console.click_btn("Current Excitation Source")

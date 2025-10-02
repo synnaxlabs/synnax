@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from typing import TYPE_CHECKING, Literal, Optional
+
 import synnax as sy
 
 if TYPE_CHECKING:
@@ -27,21 +28,25 @@ class Analog:
         device: str,
         type: str,
         port: Optional[int] = None,
-        terminal_config: Optional[Literal[
-            "Default",
-            "Differential",
-            "Pseudo-Differential",
-            "Referenced Single Ended",
-            "Non-Referenced Single Ended",
-        ]] = None,
+        terminal_config: Optional[
+            Literal[
+                "Default",
+                "Differential",
+                "Pseudo-Differential",
+                "Referenced Single Ended",
+                "Non-Referenced Single Ended",
+            ]
+        ] = None,
         min_val: Optional[float] = None,
         max_val: Optional[float] = None,
-        custom_scale: Optional[Literal[
-            "None",
-            "Linear",
-            "Map",
-            "Table",
-        ]] = None,
+        custom_scale: Optional[
+            Literal[
+                "None",
+                "Linear",
+                "Map",
+                "Table",
+            ]
+        ] = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.

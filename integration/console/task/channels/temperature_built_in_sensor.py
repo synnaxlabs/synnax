@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class TemperatureBuiltInSensor(Analog):
-
     """
     Temperature Built-In Sensor channel type for NI analog read tasks.
 
@@ -35,12 +34,14 @@ class TemperatureBuiltInSensor(Analog):
         self,
         console: "Console",
         device: str,
-        temperature_units: Optional[Literal[
-            "Celsius",
-            "Fahrenheit",
-            "Kelvin",
-            "Rankine",
-        ]] = None,
+        temperature_units: Optional[
+            Literal[
+                "Celsius",
+                "Fahrenheit",
+                "Kelvin",
+                "Rankine",
+            ]
+        ] = None,
         **kwargs: Any,
     ) -> None:
 

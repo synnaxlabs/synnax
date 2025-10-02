@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, Optional, Any
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -29,20 +29,26 @@ class VelocityIEPE(Analog):
         self,
         console: "Console",
         device: str,
-        velocity_units: Optional[Literal[
-            "m/s",
-            "in/s",
-        ]] = None,
+        velocity_units: Optional[
+            Literal[
+                "m/s",
+                "in/s",
+            ]
+        ] = None,
         sensitivity: Optional[float] = None,
-        sensitivity_units: Optional[Literal[
-            "mV/mm/s",
-            "mV/in/s",
-        ]] = None,
-        current_excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        sensitivity_units: Optional[
+            Literal[
+                "mV/mm/s",
+                "mV/in/s",
+            ]
+        ] = None,
+        current_excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         current_excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
@@ -61,16 +67,16 @@ class VelocityIEPE(Analog):
             console.fill_input_field("Sensitivity", str(sensitivity))
 
         if sensitivity_units is not None:
-            console.page.locator(
-                "button.pluto-dialog__trigger:has-text('mV/')"
+            console.page.locator("button.pluto-dialog__trigger:has-text('mV/')").click()
+            console.page.locator(f".pluto-list__item").get_by_text(
+                sensitivity_units, exact=True
             ).click()
-            console.page.locator(
-                f".pluto-list__item"
-            ).get_by_text(sensitivity_units, exact=True).click()
 
         if current_excitation_source is not None:
             console.click_btn("Current Excitation Source")
             console.select_from_dropdown(current_excitation_source)
 
         if current_excitation_value is not None:
-            console.fill_input_field("Current Excitation Value", str(current_excitation_value))
+            console.fill_input_field(
+                "Current Excitation Value", str(current_excitation_value)
+            )

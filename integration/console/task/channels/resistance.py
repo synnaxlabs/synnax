@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class Resistance(Analog):
-
     """
     Resistance channel type for NI analog read tasks.
 
@@ -37,16 +36,20 @@ class Resistance(Analog):
         self,
         console: "Console",
         device: str,
-        resistance_configuration: Optional[Literal[
-            "2-Wire",
-            "3-Wire",
-            "4-Wire",
-        ]] = None,
-        current_excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        resistance_configuration: Optional[
+            Literal[
+                "2-Wire",
+                "3-Wire",
+                "4-Wire",
+            ]
+        ] = None,
+        current_excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         current_excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:

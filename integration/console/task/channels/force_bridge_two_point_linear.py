@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class ForceBridgeTwoPointLinear(Analog):
-
     """
     Force Bridge Two Point Linear channel type for NI analog read tasks.
 
@@ -44,32 +43,42 @@ class ForceBridgeTwoPointLinear(Analog):
         self,
         console: "Console",
         device: str,
-        force_units: Optional[Literal[
-            "Newtons",
-            "Pounds",
-            "Kilograms",
-        ]] = None,
-        bridge_configuration: Optional[Literal[
-            "Full Bridge",
-            "Half Bridge",
-            "Quarter Bridge",
-        ]] = None,
+        force_units: Optional[
+            Literal[
+                "Newtons",
+                "Pounds",
+                "Kilograms",
+            ]
+        ] = None,
+        bridge_configuration: Optional[
+            Literal[
+                "Full Bridge",
+                "Half Bridge",
+                "Quarter Bridge",
+            ]
+        ] = None,
         resistance: Optional[float] = None,
-        excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         excitation_value: Optional[float] = None,
-        physical_units: Optional[Literal[
-            "Newtons",
-            "Pounds",
-            "Kilograms",
-        ]] = None,
-        electrical_units: Optional[Literal[
-            "mV/V",
-            "V/V",
-        ]] = None,
+        physical_units: Optional[
+            Literal[
+                "Newtons",
+                "Pounds",
+                "Kilograms",
+            ]
+        ] = None,
+        electrical_units: Optional[
+            Literal[
+                "mV/V",
+                "V/V",
+            ]
+        ] = None,
         physical_value_one: Optional[float] = None,
         physical_value_two: Optional[float] = None,
         electrical_value_one: Optional[float] = None,
@@ -95,18 +104,14 @@ class ForceBridgeTwoPointLinear(Analog):
             console.select_from_dropdown(bridge_configuration)
 
         if resistance is not None:
-            console.fill_input_field(
-                "Nominal Bridge Resistance", str(resistance)
-            )
+            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
 
         if excitation_source is not None:
             console.click_btn("Voltage Excitation Source")
             console.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field(
-                "Voltage Excitation Value", str(excitation_value)
-            )
+            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
 
         if physical_units is not None:
             console.click_btn("Physical Units")
@@ -117,21 +122,13 @@ class ForceBridgeTwoPointLinear(Analog):
             console.select_from_dropdown(electrical_units)
 
         if physical_value_one is not None:
-            console.fill_input_field(
-                "Physical Value One", str(physical_value_one)
-            )
+            console.fill_input_field("Physical Value One", str(physical_value_one))
 
         if physical_value_two is not None:
-            console.fill_input_field(
-                "Physical Value Two", str(physical_value_two)
-            )
+            console.fill_input_field("Physical Value Two", str(physical_value_two))
 
         if electrical_value_one is not None:
-            console.fill_input_field(
-                "Electrical Value One", str(electrical_value_one)
-            )
+            console.fill_input_field("Electrical Value One", str(electrical_value_one))
 
         if electrical_value_two is not None:
-            console.fill_input_field(
-                "Electrical Value Two", str(electrical_value_two)
-            )
+            console.fill_input_field("Electrical Value Two", str(electrical_value_two))

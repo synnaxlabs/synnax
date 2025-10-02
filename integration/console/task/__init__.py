@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .task import Task
-from .channels.analog import Analog
 from .channels.accelerometer import Accelerometer
+from .channels.analog import Analog
 from .channels.bridge import Bridge
 from .channels.current import Current
 from .channels.force_bridge_table import ForceBridgeTable
@@ -27,5 +26,27 @@ from .channels.torque_bridge_table import TorqueBridgeTable
 from .channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
 from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
+from .task import Task
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "TemperatureBuiltInSensor", "Thermocouple", "TorqueBridgeTable", "TorqueBridgeTwoPointLinear", "VelocityIEPE", "Voltage"]
+__all__ = [
+    "Task",
+    "Analog",
+    "Accelerometer",
+    "Bridge",
+    "Current",
+    "ForceBridgeTable",
+    "ForceBridgeTwoPointLinear",
+    "ForceIEPE",
+    "Microphone",
+    "PressureBridgeTable",
+    "PressureBridgeTwoPointLinear",
+    "Resistance",
+    "RTD",
+    "StrainGauge",
+    "TemperatureBuiltInSensor",
+    "Thermocouple",
+    "TorqueBridgeTable",
+    "TorqueBridgeTwoPointLinear",
+    "VelocityIEPE",
+    "Voltage",
+]

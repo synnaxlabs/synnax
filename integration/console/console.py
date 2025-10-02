@@ -382,6 +382,9 @@ class Console:
 
     def check_for_modal(self) -> bool:
         """Check for a modal"""
-        return self.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-            ).count() > 0
+        return (
+            self.page.locator(
+                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+            ).count()
+            > 0
+        )

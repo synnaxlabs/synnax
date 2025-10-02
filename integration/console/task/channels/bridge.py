@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class Bridge(Analog):
-
     """
     Bridge channel type for NI analog read tasks.
 
@@ -35,27 +34,32 @@ class Bridge(Analog):
         custom_scale (str): "None", "Linear", "Map", "Table"
     """
 
-
     def __init__(
         self,
         console: "Console",
         device: str,
-        units: Optional[Literal[
-            "mV/V",
-            "V/V",
-        ]]=None,
-        configuration: Optional[Literal[
-        "Full Bridge",
-        "Half Bridge",
-        "Quarter Bridge",
-        ]] = None,
-        resistance: Optional[float]= None,
-        excitation_source: Optional[Literal[
-        "Internal",
-        "External",
-        "None",
-        ]] = None,
-        excitation_value: Optional[float]= None,
+        units: Optional[
+            Literal[
+                "mV/V",
+                "V/V",
+            ]
+        ] = None,
+        configuration: Optional[
+            Literal[
+                "Full Bridge",
+                "Half Bridge",
+                "Quarter Bridge",
+            ]
+        ] = None,
+        resistance: Optional[float] = None,
+        excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
+        excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
 
@@ -77,16 +81,11 @@ class Bridge(Analog):
             console.select_from_dropdown(configuration)
 
         if resistance is not None:
-            console.fill_input_field(
-                "Nominal Bridge Resistance", str(resistance)
-            )
+            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
 
         if excitation_source is not None:
             console.click_btn("Voltage Excitation Source")
             console.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field(
-                "Voltage Excitation Value", str(excitation_value)
-            )
-
+            console.fill_input_field("Voltage Excitation Value", str(excitation_value))

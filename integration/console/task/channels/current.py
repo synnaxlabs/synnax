@@ -6,8 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+from typing import TYPE_CHECKING, Any, Literal, Optional
+
 import synnax as sy
-from typing import TYPE_CHECKING, Any, Optional, Literal
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
 
 
 class Current(Analog):
-
     """
     Current channel type for NI analog read tasks.
 
@@ -36,12 +36,13 @@ class Current(Analog):
         self,
         console: "Console",
         device: str,
-        shunt_resistor: Optional[Literal[
-        "Default"
-        "Internal",
-        "External",
-        ]] = None,
-        resistance: Optional[float]= None,
+        shunt_resistor: Optional[
+            Literal[
+                "Default" "Internal",
+                "External",
+            ]
+        ] = None,
+        resistance: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
 
@@ -58,6 +59,4 @@ class Current(Analog):
             console.select_from_dropdown(shunt_resistor)
 
         if resistance is not None:
-            console.fill_input_field(
-                "Shunt Resistance", str(resistance)
-            )
+            console.fill_input_field("Shunt Resistance", str(resistance))

@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from typing import TYPE_CHECKING, Any, Literal, Optional, Type
 
+import synnax as sy
 from playwright.sync_api import Page
 
 from console.task.channels.accelerometer import Accelerometer
@@ -17,18 +17,24 @@ from console.task.channels.analog import Analog
 from console.task.channels.bridge import Bridge
 from console.task.channels.current import Current
 from console.task.channels.force_bridge_table import ForceBridgeTable
-from console.task.channels.force_bridge_two_point_linear import ForceBridgeTwoPointLinear
+from console.task.channels.force_bridge_two_point_linear import (
+    ForceBridgeTwoPointLinear,
+)
 from console.task.channels.force_iepe import ForceIEPE
 from console.task.channels.microphone import Microphone
 from console.task.channels.pressure_bridge_table import PressureBridgeTable
-from console.task.channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
+from console.task.channels.pressure_bridge_two_point_linear import (
+    PressureBridgeTwoPointLinear,
+)
 from console.task.channels.resistance import Resistance
 from console.task.channels.rtd import RTD
 from console.task.channels.strain_gauge import StrainGauge
 from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
 from console.task.channels.thermocouple import Thermocouple
 from console.task.channels.torque_bridge_table import TorqueBridgeTable
-from console.task.channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
+from console.task.channels.torque_bridge_two_point_linear import (
+    TorqueBridgeTwoPointLinear,
+)
 from console.task.channels.velocity_iepe import VelocityIEPE
 from console.task.channels.voltage import Voltage
 
@@ -100,9 +106,7 @@ class Task(ConsolePage):
         if len(self.channels) == 0:
             console.click("Add a channel")
         else:
-            console.page.locator(
-                "header:has-text('Channels') .pluto-icon--add"
-            ).click()
+            console.page.locator("header:has-text('Channels') .pluto-icon--add").click()
 
         # Click the channel in the list
         idx = len(self.channels)
@@ -115,7 +119,7 @@ class Task(ConsolePage):
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
-        sy.sleep(0.2) # Give modal time to appear
+        sy.sleep(0.2)  # Give modal time to appear
         if console.check_for_modal():
             console.close_all_notifications()
             console.fill_input_field("Name", dev_name)
@@ -135,11 +139,9 @@ class Task(ConsolePage):
             )
 
         channel_class = CHANNEL_TYPES[type]
-        channel = channel_class(
-            console=console, device=device, **kwargs
-        )
+        channel = channel_class(console=console, device=device, **kwargs)
 
-        self.channels.append(name)
+        self.channels.append(channel)
         return channel
 
     def set_parameters(
@@ -170,7 +172,7 @@ class Task(ConsolePage):
 
         if stream_rate is not None:
             console.fill_input_field("Stream Rate", str(stream_rate))
-        
+
         if data_saving is not None:
             if data_saving != console.get_toggle("Data Saving"):
                 console.click_checkbox("Data Saving")
@@ -224,4 +226,3 @@ class Task(ConsolePage):
             "msg": msg,
             "level": level,
         }
-

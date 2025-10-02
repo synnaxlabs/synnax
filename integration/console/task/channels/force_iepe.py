@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class ForceIEPE(Analog):
-
     """
     Force IEPE channel type for NI analog read tasks.
 
@@ -39,20 +38,26 @@ class ForceIEPE(Analog):
         self,
         console: "Console",
         device: str,
-        force_units: Optional[Literal[
-            "Newtons",
-            "Pounds",
-        ]] = None,
+        force_units: Optional[
+            Literal[
+                "Newtons",
+                "Pounds",
+            ]
+        ] = None,
         sensitivity: Optional[float] = None,
-        sensitivity_units: Optional[Literal[
-            "mV/N",
-            "mV/lb",
-        ]] = None,
-        current_excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        sensitivity_units: Optional[
+            Literal[
+                "mV/N",
+                "mV/lb",
+            ]
+        ] = None,
+        current_excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         current_excitation_value: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
@@ -75,15 +80,13 @@ class ForceIEPE(Analog):
 
         if sensitivity_units is not None:
 
-            console.page.locator(
-                "button.pluto-dialog__trigger:has-text('V/')"
+            console.page.locator("button.pluto-dialog__trigger:has-text('V/')").click()
+            console.page.locator(f".pluto-list__item").get_by_text(
+                sensitivity_units, exact=True
             ).click()
-            console.page.locator(
-                f".pluto-list__item"
-            ).get_by_text(sensitivity_units, exact=True).click()
 
-            #console.click_btn("Sensitivity")
-            #console.select_from_dropdown(sensitivity_units)
+            # console.click_btn("Sensitivity")
+            # console.select_from_dropdown(sensitivity_units)
 
         if current_excitation_source is not None:
             console.click_btn("Current Excitation Source")

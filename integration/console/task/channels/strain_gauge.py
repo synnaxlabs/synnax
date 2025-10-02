@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from console.task.channels.analog import Analog
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class StrainGauge(Analog):
-
     """
     Strain Gauge channel type for NI analog read tasks.
 
@@ -42,19 +41,23 @@ class StrainGauge(Analog):
         self,
         console: "Console",
         device: str,
-        strain_configuration: Optional[Literal[
-            "Full Bridge I",
-            "Full Bridge II",
-            "Full Bridge III",
-            "Half Bridge I",
-            "Half Bridge II",
-            "Quarter Bridge I",
-        ]] = None,
-        excitation_source: Optional[Literal[
-            "Internal",
-            "External",
-            "None",
-        ]] = None,
+        strain_configuration: Optional[
+            Literal[
+                "Full Bridge I",
+                "Full Bridge II",
+                "Full Bridge III",
+                "Half Bridge I",
+                "Half Bridge II",
+                "Quarter Bridge I",
+            ]
+        ] = None,
+        excitation_source: Optional[
+            Literal[
+                "Internal",
+                "External",
+                "None",
+            ]
+        ] = None,
         excitation_value: Optional[float] = None,
         gage_factor: Optional[float] = None,
         initial_bridge_voltage: Optional[float] = None,
@@ -82,9 +85,7 @@ class StrainGauge(Analog):
             console.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field(
-                "Voltage Excitation Value", str(excitation_value)
-            )
+            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
 
         if gage_factor is not None:
             console.fill_input_field("Gage Factor", str(gage_factor))
@@ -103,6 +104,4 @@ class StrainGauge(Analog):
             console.fill_input_field("Poisson's Ratio", str(poisson_ratio))
 
         if lead_wire_resistance is not None:
-            console.fill_input_field(
-                "Lead Wire Resistance", str(lead_wire_resistance)
-            )
+            console.fill_input_field("Lead Wire Resistance", str(lead_wire_resistance))
