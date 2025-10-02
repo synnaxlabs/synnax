@@ -27,6 +27,7 @@ from console.task.channels.rtd import RTD
 from console.task.channels.strain_gauge import StrainGauge
 from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
 from console.task.channels.thermocouple import Thermocouple
+from console.task.channels.torque_bridge_table import TorqueBridgeTable
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -51,6 +52,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Strain Gauge": StrainGauge,
     "Temperature Built-In Sensor": TemperatureBuiltInSensor,
     "Thermocouple": Thermocouple,
+    "Torque Bridge Table": TorqueBridgeTable,
     "Voltage": Voltage,
 }
 

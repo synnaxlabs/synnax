@@ -76,7 +76,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_rtd_inputs(device_name)
         #self.validate_strain_gauge_inputs(device_name)
         #self.validate_temperature_built_in_sensor_inputs(device_name)
-        self.validate_thermocouple_inputs(device_name)
+        #self.validate_thermocouple_inputs(device_name)
+        self.validate_torque_bridge_table_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -660,4 +661,50 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             device=device_name,
             temperature_units="Rankine",
             thermocouple_type="E",
+        )
+
+    def validate_torque_bridge_table_inputs(self, device_name: str) -> None:
+        """ Validate Torque Bridge Table inputs """
+        console = self.console
+        type = "Torque Bridge Table"
+
+        console.task.add_channel(
+            name="TorqueBridgeTable_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="TorqueBridgeTable_2",
+            type=type,
+            device=device_name,
+            torque_units="Newton Meters",
+            bridge_configuration="Full Bridge",
+            nominal_bridge_resistance=350.0,
+            voltage_excitation_source="Internal",
+            voltage_excitation_value=5.0,
+            physical_units="Newton Meters",
+            electrical_units="mV/V",
+        )
+        console.task.add_channel(
+            name="TorqueBridgeTable_3",
+            type=type,
+            device=device_name,
+            torque_units="Foot Pounds",
+            bridge_configuration="Half Bridge",
+            nominal_bridge_resistance=120.0,
+            voltage_excitation_source="External",
+            voltage_excitation_value=10.0,
+            physical_units="Foot Pounds",
+            electrical_units="V/V",
+        )
+        console.task.add_channel(
+            name="TorqueBridgeTable_4",
+            type=type,
+            device=device_name,
+            torque_units="Inch Ounces",
+            bridge_configuration="Quarter Bridge",
+            nominal_bridge_resistance=1000.0,
+            voltage_excitation_source="None",
+            physical_units="Inch Ounces",
+            electrical_units="mV/V",
         )
