@@ -20,6 +20,7 @@ from .channels.pressure_bridge_table import PressureBridgeTable
 from .channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
 from .channels.resistance import Resistance
 from .channels.rtd import RTD
+from .channels.strain_gauge import StrainGauge
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "Voltage"]

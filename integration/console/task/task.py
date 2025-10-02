@@ -24,6 +24,7 @@ from console.task.channels.pressure_bridge_table import PressureBridgeTable
 from console.task.channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
 from console.task.channels.resistance import Resistance
 from console.task.channels.rtd import RTD
+from console.task.channels.strain_gauge import StrainGauge
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -45,6 +46,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,
     "Resistance": Resistance,
     "RTD": RTD,
+    "Strain Gauge": StrainGauge,
     "Voltage": Voltage,
 }
 

@@ -73,7 +73,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_pressure_bridge_table_inputs(device_name)
         #self.validate_pressure_bridge_two_point_linear_inputs(device_name)
         #self.validate_resistance_inputs(device_name)
-        self.validate_rtd_inputs(device_name)
+        #self.validate_rtd_inputs(device_name)
+        self.validate_strain_gauge_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -543,4 +544,48 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             rtd_type="Pt3928",
             resistance_configuration="4-Wire",
             current_excitation_source="None",
+        )
+
+    def validate_strain_gauge_inputs(self, device_name: str) -> None:
+        """ Validate Strain Gauge inputs """
+        console = self.console
+        type = "Strain Gauge"
+
+        console.task.add_channel(
+            name="StrainGauge_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="StrainGauge_2",
+            type=type,
+            device=device_name,
+            strain_configuration="Full Bridge I",
+            excitation_source="Internal",
+            excitation_value=2.5,
+            gage_factor=2.0,
+            initial_bridge_voltage=0.0,
+            nominal_gage_resistance=120.0,
+            poisson_ratio=0.3,
+            lead_wire_resistance=0.0,
+        )
+        console.task.add_channel(
+            name="StrainGauge_3",
+            type=type,
+            device=device_name,
+            strain_configuration="Half Bridge I",
+            excitation_source="External",
+        )
+        console.task.add_channel(
+            name="StrainGauge_4",
+            type=type,
+            device=device_name,
+            strain_configuration="Full Bridge III",
+            excitation_source="None",
+        )
+        console.task.add_channel(
+            name="StrainGauge_5",
+            type=type,
+            device=device_name,
+            strain_configuration="Quarter Bridge I",
         )
