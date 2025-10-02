@@ -75,7 +75,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_resistance_inputs(device_name)
         #self.validate_rtd_inputs(device_name)
         #self.validate_strain_gauge_inputs(device_name)
-        self.validate_temperature_built_in_sensor_inputs(device_name)
+        #self.validate_temperature_built_in_sensor_inputs(device_name)
+        self.validate_thermocouple_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -624,4 +625,39 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             temperature_units="Rankine",
+        )
+
+    def validate_thermocouple_inputs(self, device_name: str) -> None:
+        """ Validate Thermocouple inputs """
+        console = self.console
+        type = "Thermocouple"
+
+        console.task.add_channel(
+            name="Thermocouple_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="Thermocouple_2",
+            type=type,
+            device=device_name,
+            temperature_units="Celsius",
+            thermocouple_type="J",
+            cjc_source="Built In",
+        )
+        console.task.add_channel(
+            name="Thermocouple_3",
+            type=type,
+            device=device_name,
+            temperature_units="Fahrenheit",
+            thermocouple_type="K",
+            cjc_source="Constant Value",
+            cjc_value=25.0,
+        )
+        console.task.add_channel(
+            name="Thermocouple_4",
+            type=type,
+            device=device_name,
+            temperature_units="Rankine",
+            thermocouple_type="E",
         )

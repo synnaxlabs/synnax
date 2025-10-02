@@ -22,6 +22,7 @@ from .channels.resistance import Resistance
 from .channels.rtd import RTD
 from .channels.strain_gauge import StrainGauge
 from .channels.temperature_built_in_sensor import TemperatureBuiltInSensor
+from .channels.thermocouple import Thermocouple
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "TemperatureBuiltInSensor", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "TemperatureBuiltInSensor", "Thermocouple", "Voltage"]
