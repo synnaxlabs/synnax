@@ -70,7 +70,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_force_bridge_two_point_linear_inputs(device_name)
         #self.validate_force_iepe_inputs(device_name)
         #self.validate_microphone_inputs(device_name)
-        self.validate_pressure_bridge_table_inputs(device_name)
+        #self.validate_pressure_bridge_table_inputs(device_name)
+        self.validate_pressure_bridge_two_point_linear_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -423,4 +424,48 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             bridge_configuration="Quarter Bridge",
             excitation_source="None",
             electrical_units="mV/V",
+        )
+
+    def validate_pressure_bridge_two_point_linear_inputs(self, device_name: str) -> None:
+        """ Validate Pressure Bridge Two-Point Linear inputs """
+        console = self.console
+        type = "Pressure Bridge Two-Point Linear"
+
+        console.task.add_channel(
+            name="PressureBridge2Pt_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="PressureBridge2Pt_2",
+            type=type,
+            device=device_name,
+            pressure_units="Pascals",
+            bridge_configuration="Full Bridge",
+            resistance=350.0,
+            excitation_source="Internal",
+            excitation_value=5.0,
+            physical_units="Pascals",
+            electrical_units="mV/V",
+            physical_value_one=0.0,
+            physical_value_two=100.0,
+            electrical_value_one=0.0,
+            electrical_value_two=2.5,
+        )
+        console.task.add_channel(
+            name="PressureBridge2Pt_3",
+            type=type,
+            device=device_name,
+            pressure_units="PSI",
+            bridge_configuration="Half Bridge",
+            excitation_source="External",
+            physical_units="PSI",
+            electrical_units="V/V",
+        )
+        console.task.add_channel(
+            name="PressureBridge2Pt_4",
+            type=type,
+            device=device_name,
+            bridge_configuration="Quarter Bridge",
+            excitation_source="None",
         )
