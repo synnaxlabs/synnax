@@ -122,11 +122,13 @@ class Task(ConsolePage):
         sy.sleep(0.2)  # Give modal time to appear
         if console.check_for_modal():
             console.close_all_notifications()
+            sy.sleep(0.3)
             console.fill_input_field("Name", dev_name)
             console.click_btn("Next")
+            sy.sleep(0.3)
             console.fill_input_field("Identifier", dev_name)
             console.click_btn("Save")
-            sy.sleep(0.2)
+            sy.sleep(0.3)
 
         if console.check_for_modal():
             raise RuntimeError("Blocking modal is open")
