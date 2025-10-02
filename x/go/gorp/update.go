@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -23,7 +24,7 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) Where(filter func(*E) bool) Update[K, E] {
+func (u Update[K, E]) Where(filter FilterFunc[K, E]) Update[K, E] {
 	u.retrieve = u.retrieve.Where(filter)
 	return u
 }

@@ -69,14 +69,14 @@ var _ = Describe("update", Ordered, func() {
 	Describe("Where", func() {
 		It("Should correctly update a set of entries based on a where filter function", func() {
 			Expect(gorp.NewUpdate[int, entry]().
-				Where(func(e *entry) bool { return e.ID < 5 }).
+				Where(func(ctx gorp.FilterContext, e *entry) (bool, error) { return e.ID < 5, nil }).
 				Change(func(e entry) entry {
 					e.Data = "new data"
 					return e
 				}).Exec(ctx, tx)).To(Succeed())
 			var res []entry
 			Expect(gorp.NewRetrieve[int, entry]().
-				Where(func(e *entry) bool { return e.ID < 5 }).
+				Where(func(ctx gorp.FilterContext, e *entry) (bool, error) { return e.ID < 5, nil }).
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 			for i := range res {

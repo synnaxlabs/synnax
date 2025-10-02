@@ -61,8 +61,8 @@ func newLeaseProxy(
 	var externalNonVirtualChannels []Channel
 	if err := gorp.
 		NewRetrieve[Key, Channel]().
-		Where(func(c *Channel) bool {
-			return !c.Internal && !c.Virtual
+		Where(func(ctx gorp.FilterContext, c *Channel) (bool, error) {
+			return !c.Internal && !c.Virtual, nil
 		}).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.ClusterDB); err != nil {
@@ -272,7 +272,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = gorp.NewRetrieve[Key, Channel]().Where(func(c *Channel) bool {
+		if err = gorp.NewRetrieve[Key, Channel]().Where(func(fCtx gorp.FilterContext, c *Channel) (bool, error) {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
 			if exists {
@@ -283,7 +283,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 					incCounterBy--
 				}
 			}
-			return exists
+			return exists, nil
 		}).Exec(ctx, tx); err != nil {
 			return
 		}
@@ -317,7 +317,7 @@ func (lp *leaseProxy) deleteOverwritten(
 ) error {
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := gorp.NewDelete[Key, Channel]().
-		Where(func(c *Channel) bool {
+		Where(func(fCtx gorp.FilterContext, c *Channel) (bool, error) {
 			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
 				return ch.Name == c.Name && ch.Key() != c.Key()
 			})
@@ -329,7 +329,7 @@ func (lp *leaseProxy) deleteOverwritten(
 			if equal {
 				(*channels)[i] = *c
 			}
-			return shouldDelete
+			return shouldDelete, nil
 		}).Exec(ctx, tx); err != nil {
 		return err
 	}
@@ -428,8 +428,8 @@ func (lp *leaseProxy) createRemote(
 
 func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(c *Channel) bool {
-		return lo.Contains(names, c.Name)
+	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(ctx gorp.FilterContext, c *Channel) (bool, error) {
+		return lo.Contains(names, c.Name), nil
 	}).Exec(ctx, tx); err != nil {
 		return err
 	}
@@ -443,7 +443,9 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		if err := gorp.
 			NewRetrieve[Key, Channel]().
 			WhereKeys(keys...).
-			Where(func(c *Channel) bool { return c.Internal }).
+			Where(func(ctx gorp.FilterContext, c *Channel) (bool, error) {
+				return c.Internal, nil
+			}).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
 			return err
