@@ -22,6 +22,8 @@ from console.task.channels.force_iepe import ForceIEPE
 from console.task.channels.microphone import Microphone
 from console.task.channels.pressure_bridge_table import PressureBridgeTable
 from console.task.channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
+from console.task.channels.resistance import Resistance
+from console.task.channels.rtd import RTD
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -41,6 +43,8 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Microphone": Microphone,
     "Pressure Bridge Table": PressureBridgeTable,
     "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,
+    "Resistance": Resistance,
+    "RTD": RTD,
     "Voltage": Voltage,
 }
 

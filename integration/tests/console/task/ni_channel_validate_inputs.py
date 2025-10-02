@@ -71,7 +71,9 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_force_iepe_inputs(device_name)
         #self.validate_microphone_inputs(device_name)
         #self.validate_pressure_bridge_table_inputs(device_name)
-        self.validate_pressure_bridge_two_point_linear_inputs(device_name)
+        #self.validate_pressure_bridge_two_point_linear_inputs(device_name)
+        #self.validate_resistance_inputs(device_name)
+        self.validate_rtd_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -468,4 +470,77 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             device=device_name,
             bridge_configuration="Quarter Bridge",
             excitation_source="None",
+        )
+
+    def validate_resistance_inputs(self, device_name: str) -> None:
+        """ Validate Resistance inputs """
+        console = self.console
+        type = "Resistance"
+
+        console.task.add_channel(
+            name="Resistance_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="Resistance_2",
+            type=type,
+            device=device_name,
+            resistance_configuration="2-Wire",
+            current_excitation_source="Internal",
+            current_excitation_value=1.0,
+        )
+        console.task.add_channel(
+            name="Resistance_3",
+            type=type,
+            device=device_name,
+            resistance_configuration="3-Wire",
+            current_excitation_source="External",
+        )
+        console.task.add_channel(
+            name="Resistance_4",
+            type=type,
+            device=device_name,
+            resistance_configuration="4-Wire",
+            current_excitation_source="None",
+        )
+
+    def validate_rtd_inputs(self, device_name: str) -> None:
+        """ Validate RTD inputs """
+        console = self.console
+        type = "RTD"
+
+        console.task.add_channel(
+            name="RTD_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="RTD_2",
+            type=type,
+            device=device_name,
+            temperature_units="Celsius",
+            rtd_type="Pt3750",
+            resistance_configuration="2-Wire",
+            current_excitation_source="Internal",
+            current_excitation_value=1.0,
+            r0_resistance=100.0,
+        )
+        console.task.add_channel(
+            name="RTD_3",
+            type=type,
+            device=device_name,
+            temperature_units="Fahrenheit",
+            rtd_type="Pt3851",
+            resistance_configuration="3-Wire",
+            current_excitation_source="External",
+        )
+        console.task.add_channel(
+            name="RTD_4",
+            type=type,
+            device=device_name,
+            temperature_units="Kelvin",
+            rtd_type="Pt3928",
+            resistance_configuration="4-Wire",
+            current_excitation_source="None",
         )
