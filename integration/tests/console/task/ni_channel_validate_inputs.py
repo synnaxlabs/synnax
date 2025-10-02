@@ -74,7 +74,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_pressure_bridge_two_point_linear_inputs(device_name)
         #self.validate_resistance_inputs(device_name)
         #self.validate_rtd_inputs(device_name)
-        self.validate_strain_gauge_inputs(device_name)
+        #self.validate_strain_gauge_inputs(device_name)
+        self.validate_temperature_built_in_sensor_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -588,4 +589,39 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             type=type,
             device=device_name,
             strain_configuration="Quarter Bridge I",
+        )
+
+    def validate_temperature_built_in_sensor_inputs(self, device_name: str) -> None:
+        """ Validate Temperature Built-In Sensor inputs """
+        console = self.console
+        type = "Temperature Built-In Sensor"
+
+        console.task.add_channel(
+            name="TempBuiltIn_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="TempBuiltIn_2",
+            type=type,
+            device=device_name,
+            temperature_units="Celsius",
+        )
+        console.task.add_channel(
+            name="TempBuiltIn_3",
+            type=type,
+            device=device_name,
+            temperature_units="Fahrenheit",
+        )
+        console.task.add_channel(
+            name="TempBuiltIn_4",
+            type=type,
+            device=device_name,
+            temperature_units="Kelvin",
+        )
+        console.task.add_channel(
+            name="TempBuiltIn_5",
+            type=type,
+            device=device_name,
+            temperature_units="Rankine",
         )

@@ -25,6 +25,7 @@ from console.task.channels.pressure_bridge_two_point_linear import PressureBridg
 from console.task.channels.resistance import Resistance
 from console.task.channels.rtd import RTD
 from console.task.channels.strain_gauge import StrainGauge
+from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -47,6 +48,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Resistance": Resistance,
     "RTD": RTD,
     "Strain Gauge": StrainGauge,
+    "Temperature Built-In Sensor": TemperatureBuiltInSensor,
     "Voltage": Voltage,
 }
 
