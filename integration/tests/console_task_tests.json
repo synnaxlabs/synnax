@@ -5,7 +5,8 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
-          "case": "console/task/ni_channel_validate_inputs"
+          "case": "console/task/ni_channel_validate_inputs",
+          "parameters": {"headless": false}
         },
         {
           "case": "console/task/no_device"
