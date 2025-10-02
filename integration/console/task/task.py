@@ -29,6 +29,7 @@ from console.task.channels.temperature_built_in_sensor import TemperatureBuiltIn
 from console.task.channels.thermocouple import Thermocouple
 from console.task.channels.torque_bridge_table import TorqueBridgeTable
 from console.task.channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
+from console.task.channels.velocity_iepe import VelocityIEPE
 from console.task.channels.voltage import Voltage
 
 from ..page import ConsolePage
@@ -55,6 +56,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Thermocouple": Thermocouple,
     "Torque Bridge Table": TorqueBridgeTable,
     "Torque Bridge Two-Point Linear": TorqueBridgeTwoPointLinear,
+    "Velocity IEPE": VelocityIEPE,
     "Voltage": Voltage,
 }
 

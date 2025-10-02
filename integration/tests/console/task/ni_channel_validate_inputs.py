@@ -78,7 +78,8 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
         #self.validate_temperature_built_in_sensor_inputs(device_name)
         #self.validate_thermocouple_inputs(device_name)
         #self.validate_torque_bridge_table_inputs(device_name)
-        self.validate_torque_bridge_two_point_linear_inputs(device_name)
+        #self.validate_torque_bridge_two_point_linear_inputs(device_name)
+        self.validate_velocity_iepe_inputs(device_name)
 
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
@@ -751,4 +752,40 @@ class Ni_Channel_Validate_Inputs(ConsoleCase):
             voltage_excitation_source="None",
             physical_units="Inch Ounces",
             electrical_units="mV/V",
+        )
+
+    def validate_velocity_iepe_inputs(self, device_name: str) -> None:
+        """ Validate Velocity IEPE inputs """
+        console = self.console
+        type = "Velocity IEPE"
+
+        console.task.add_channel(
+            name="VelocityIEPE_1",
+            type=type,
+            device=device_name,
+        )
+        console.task.add_channel(
+            name="VelocityIEPE_2",
+            type=type,
+            device=device_name,
+            velocity_units="m/s",
+            sensitivity=10.0,
+            sensitivity_units="mV/mm/s",
+            current_excitation_source="Internal",
+            current_excitation_value=4.0,
+        )
+        console.task.add_channel(
+            name="VelocityIEPE_3",
+            type=type,
+            device=device_name,
+            velocity_units="in/s",
+            sensitivity_units="mV/in/s",
+        )
+        console.task.add_channel(
+            name="VelocityIEPE_4",
+            type=type,
+            device=device_name,
+            velocity_units="m/s",
+            sensitivity_units="mV/mm/s",
+            current_excitation_source="None",
         )

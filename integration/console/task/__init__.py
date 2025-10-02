@@ -25,6 +25,7 @@ from .channels.temperature_built_in_sensor import TemperatureBuiltInSensor
 from .channels.thermocouple import Thermocouple
 from .channels.torque_bridge_table import TorqueBridgeTable
 from .channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
+from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
 
-__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "TemperatureBuiltInSensor", "Thermocouple", "TorqueBridgeTable", "TorqueBridgeTwoPointLinear", "Voltage"]
+__all__ = ["Task", "Analog", "Accelerometer", "Bridge", "Current", "ForceBridgeTable", "ForceBridgeTwoPointLinear", "ForceIEPE", "Microphone", "PressureBridgeTable", "PressureBridgeTwoPointLinear", "Resistance", "RTD", "StrainGauge", "TemperatureBuiltInSensor", "Thermocouple", "TorqueBridgeTable", "TorqueBridgeTwoPointLinear", "VelocityIEPE", "Voltage"]
