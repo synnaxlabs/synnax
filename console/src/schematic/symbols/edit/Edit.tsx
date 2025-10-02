@@ -39,6 +39,7 @@ import { Triggers } from "@/triggers";
 export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
 export interface CreateLayoutArgs extends Schematic.Symbol.FormQuery {
+  parent?: ontology.ID;
   scale?: number;
 }
 
