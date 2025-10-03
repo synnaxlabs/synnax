@@ -26,10 +26,12 @@ from .channels.torque_bridge_table import TorqueBridgeTable
 from .channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
 from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
+from .ni_ai import NiAi
 from .task import Task
 
 __all__ = [
     "Task",
+    "NiAi",
     "Analog",
     "Accelerometer",
     "Bridge",

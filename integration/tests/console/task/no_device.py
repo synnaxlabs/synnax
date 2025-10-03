@@ -28,7 +28,7 @@ class No_Device(ConsoleCase):
         """
 
         self._log_message("Creating NI Analog Read Task Page")
-        self.console.task.new()
+        self.console.ni_ai.new()
 
         rand_int = random.randint(100, 999)
         rack_name = f"TestRack_{rand_int}"

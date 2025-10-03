@@ -76,8 +76,6 @@ class Task(ConsolePage):
 
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
-        self.page_type = "NI Analog Read Task"
-        self.pluto_label = ".ni_ai_somethingsomething"
         self.channels = []
         self.channels_by_name = []
 
@@ -172,8 +170,6 @@ class Task(ConsolePage):
     def set_parameters(
         self,
         task_name: Optional[str] = None,
-        sample_rate: Optional[float] = None,
-        stream_rate: Optional[float] = None,
         data_saving: Optional[bool] = None,
         auto_start: Optional[bool] = None,
     ) -> None:
@@ -191,12 +187,6 @@ class Task(ConsolePage):
         if task_name is not None:
             console.fill_input_field("Name", task_name)
             console.ENTER
-
-        if sample_rate is not None:
-            console.fill_input_field("Sample Rate", str(sample_rate))
-
-        if stream_rate is not None:
-            console.fill_input_field("Stream Rate", str(stream_rate))
 
         if data_saving is not None:
             if data_saving != console.get_toggle("Data Saving"):

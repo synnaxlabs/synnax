@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import Task
+from .task import NiAi, Task
 
 # Define literal types for page creation
 PageType = Literal[
@@ -45,6 +45,7 @@ class Console:
     Parallel to synnax client structure.
     """
 
+    # SY-3078
     console_pages: list[ConsolePage]
     channels: ChannelClient
 
@@ -57,6 +58,7 @@ class Console:
         self.plot = Plot(page, self)
         self.log = Log(page, self)
         self.task = Task(page, self)
+        self.ni_ai = NiAi(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""

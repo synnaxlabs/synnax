@@ -34,7 +34,7 @@ class Ni_Ai_Forms(ConsoleCase):
         device_name = f"{mode}_E103"
         sy.sleep(5)
         self._log_message("Creating NI Analog Read Task")
-        console.task.new()
+        console.ni_ai.new()
 
         # Check simple functionality
         console.task.set_parameters(
