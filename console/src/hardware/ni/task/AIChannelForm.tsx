@@ -958,6 +958,22 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
+  ai_frequency_voltage: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <Form.NumericField
+          path={`${prefix}.thresholdLevel`}
+          label="Threshold Level"
+          grow
+        />
+        <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
 };
 
 export interface AIChannelFormProps {
