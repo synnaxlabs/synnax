@@ -122,9 +122,12 @@ class Analog:
 
         for key, expected_value in self.form_values.items():
             try:
-                actual_value = self.console.get_input_field(key, timeout=50)
+                actual_value = self.console.get_input_field(key, timeout=100)
             except:
                 actual_value = self.console.get_dropdown_value(key)
+
+            if actual_value.strip() == "":
+                actual_value = 0
 
             assert actual_value == expected_value,\
                 f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"

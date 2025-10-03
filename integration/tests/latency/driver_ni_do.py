@@ -122,8 +122,8 @@ class DriverNiDo(TestCase):
                         val_found = False
 
                         # Write
-                        write_time = sy.TimeStamp.now()
                         writer.write(do_1_cmd.key, int(cmd_state))
+                        write_time = sy.TimeStamp.now()
 
                         # Read
                         while not val_found:

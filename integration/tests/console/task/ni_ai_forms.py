@@ -71,6 +71,7 @@ class Ni_Ai_Forms(ConsoleCase):
             self.verify_torque_bridge_two_point_linear_inputs(device_name)
             self.verify_velocity_iepe_inputs(device_name)
 
+        # Assert the set values with form state
         ch_names = console.task.channels_by_name.copy()
         random.shuffle(ch_names)
         total = len(ch_names)

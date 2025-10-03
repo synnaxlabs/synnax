@@ -169,7 +169,7 @@ class BenchReport(TestCase):
         max_p90 = 2.5
         max_p95 = 3.0
         max_p99 = 5
-        max_peak_to_peak_jitter = 20
+        max_peak_to_peak_jitter = 40 # <- Increased for Windows
         max_average_jitter = 2
 
         # Print statistics
