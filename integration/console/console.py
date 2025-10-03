@@ -288,6 +288,7 @@ class Console:
 
             if close_button.count() > 0:
                 close_button.click()
+                self.page.wait_for_timeout(100)  # Wait for notification to close
                 return True
             return False
 

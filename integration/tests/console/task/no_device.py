@@ -30,13 +30,15 @@ class No_Device(ConsoleCase):
         self._log_message("Creating NI Analog Read Task Page")
         self.console.task.new()
 
-        rack_name = f"TestRack_{random.randint(100, 999)}"
-        self.create_rack(rack_name)
+        rand_int = random.randint(100, 999)
+        rack_name = f"TestRack_{rand_int}"
+        dev_name = f"USB-6000_{rand_int}"
+        self.create_rack(rack_name, dev_name)
         self.initial_assertion()
         self.configure_without_channels()
-        self.nominal_configuration(rack_name)
+        self.nominal_configuration(rack_name, dev_name)
 
-    def create_rack(self, rack_name: str) -> None:
+    def create_rack(self, rack_name: str, dev_name: str) -> None:
         self._log_message(f"Creating {rack_name} and devices")
 
         client = self.client
@@ -46,9 +48,9 @@ class No_Device(ConsoleCase):
                 sy.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
                     rack=rack.key,
-                    name="USB-6000",
+                    name=dev_name,
                     make="NI",
-                    model="USB-6000",
+                    model=dev_name,
                     location="dev3",
                     identifier="dev3",
                 ),
@@ -100,19 +102,19 @@ class No_Device(ConsoleCase):
             msg_expected == msg
         ), f"Task status msg <{msg}> should be <{msg_expected}>"
 
-    def nominal_configuration(self, rack_name: str) -> None:
+    def nominal_configuration(self, rack_name: str, dev_name: str) -> None:
         """Nominal configuration of task"""
         console = self.console
 
         # Add channels
         console.task.add_channel(
-            name="new_channel", type="Voltage", device="USB-6000", dev_name="usb_6000"
+            name="new_channel", type="Voltage", device=dev_name, dev_name="usb_6000"
         )
         console.task.add_channel(
-            name="hello", type="Accelerometer", device="USB-6000", dev_name="usb_6000"
+            name="hello", type="Accelerometer", device=dev_name, dev_name="usb_6000"
         )
         console.task.add_channel(
-            name="goodbye", type="Bridge", device="USB-6000", dev_name="usb_6000"
+            name="goodbye", type="Bridge", device=dev_name, dev_name="usb_6000"
         )
 
         self._log_message("Configuring task")

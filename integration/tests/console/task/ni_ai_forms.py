@@ -29,18 +29,11 @@ class Ni_Ai_Forms(ConsoleCase):
     # - "name" will be used to rename channels AFTER we have
     #   created a task. (not for this test)
 
-    def setup(self) -> None:
-        if platform.system() != "Windows":
-            # self.auto_pass(msg="Requires DAQmx drivers")
-            print("autopass goes here")
-        super().setup()
-
     def run(self) -> None:
         """
         Test Opening and closing pages
         """
         console = self.console
-        client = self.client
 
         #
         # Remove the following when ready to
@@ -61,24 +54,24 @@ class Ni_Ai_Forms(ConsoleCase):
         )
 
         self.create_test_rack(rack_name, device_name)
-        self.validate_voltage_inputs(device_name)
-        self.validate_accel_inputs(device_name)
-        self.validate_bridge_inputs(device_name)
-        self.validate_current_inputs(device_name)
-        self.validate_force_bridge_table_inputs(device_name)
-        self.validate_force_bridge_two_point_linear_inputs(device_name)
-        self.validate_force_iepe_inputs(device_name)
-        self.validate_microphone_inputs(device_name)
-        self.validate_pressure_bridge_table_inputs(device_name)
-        self.validate_pressure_bridge_two_point_linear_inputs(device_name)
-        self.validate_resistance_inputs(device_name)
-        self.validate_rtd_inputs(device_name)
-        self.validate_strain_gauge_inputs(device_name)
-        self.validate_temperature_built_in_sensor_inputs(device_name)
-        self.validate_thermocouple_inputs(device_name)
-        self.validate_torque_bridge_table_inputs(device_name)
-        self.validate_torque_bridge_two_point_linear_inputs(device_name)
-        self.validate_velocity_iepe_inputs(device_name)
+        self.verify_voltage_inputs(device_name)
+        self.verify_accel_inputs(device_name)
+        self.verify_bridge_inputs(device_name)
+        self.verify_current_inputs(device_name)
+        self.verify_force_bridge_table_inputs(device_name)
+        self.verify_force_bridge_two_point_linear_inputs(device_name)
+        self.verify_force_iepe_inputs(device_name)
+        self.verify_microphone_inputs(device_name)
+        self.verify_pressure_bridge_table_inputs(device_name)
+        self.verify_pressure_bridge_two_point_linear_inputs(device_name)
+        self.verify_resistance_inputs(device_name)
+        self.verify_rtd_inputs(device_name)
+        self.verify_strain_gauge_inputs(device_name)
+        self.verify_temperature_built_in_sensor_inputs(device_name)
+        self.verify_thermocouple_inputs(device_name)
+        self.verify_torque_bridge_table_inputs(device_name)
+        self.verify_torque_bridge_two_point_linear_inputs(device_name)
+        self.verify_velocity_iepe_inputs(device_name)
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
@@ -97,7 +90,7 @@ class Ni_Ai_Forms(ConsoleCase):
         )
         sy.sleep(1)
 
-    def validate_voltage_inputs(self, device_name: str) -> None:
+    def verify_voltage_inputs(self, device_name: str) -> None:
         """Validate voltage inputs"""
         self._log_message("Configuring channels of type Voltage")
         console = self.console
@@ -138,7 +131,7 @@ class Ni_Ai_Forms(ConsoleCase):
             terminal_config="Non-Referenced Single Ended",
         )
 
-    def validate_accel_inputs(self, device_name: str) -> None:
+    def verify_accel_inputs(self, device_name: str) -> None:
         """Validate accel inputs"""
         self._log_message("Configuring channels of type Accelerometer")
         console = self.console
@@ -172,7 +165,7 @@ class Ni_Ai_Forms(ConsoleCase):
             excitation_source="None",
         )
 
-    def validate_bridge_inputs(self, device_name: str) -> None:
+    def verify_bridge_inputs(self, device_name: str) -> None:
         """Validate Bridge inputs"""
         self._log_message("Configuring channels of type Bridge")
         console = self.console
@@ -209,7 +202,7 @@ class Ni_Ai_Forms(ConsoleCase):
             excitation_source="None",
         )
 
-    def validate_current_inputs(self, device_name: str) -> None:
+    def verify_current_inputs(self, device_name: str) -> None:
         """Validate Bridge inputs"""
         self._log_message("Configuring channels of type Current")
         console = self.console
@@ -237,7 +230,7 @@ class Ni_Ai_Forms(ConsoleCase):
             shunt_resistor="External",
         )
 
-    def validate_force_bridge_table_inputs(self, device_name: str) -> None:
+    def verify_force_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Force Bridge Table inputs"""
         self._log_message("Configuring channels of type Force Bridge Table")
         console = self.console
@@ -278,7 +271,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Kilograms",
         )
 
-    def validate_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
+    def verify_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Force Bridge Two Point Linear inputs"""
         self._log_message("Configuring channels of type Force Bridge Two Point Linear")
         console = self.console
@@ -325,7 +318,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Kilograms",
         )
 
-    def validate_force_iepe_inputs(self, device_name: str) -> None:
+    def verify_force_iepe_inputs(self, device_name: str) -> None:
         """Validate Force IEPE inputs"""
         self._log_message("Configuring channels of type Force IEPE")
         console = self.console
@@ -362,7 +355,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="None",
         )
 
-    def validate_microphone_inputs(self, device_name: str) -> None:
+    def verify_microphone_inputs(self, device_name: str) -> None:
         """Validate Microphone inputs"""
         self._log_message("Configuring channels of type Microphone")
         console = self.console
@@ -396,7 +389,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="None",
         )
 
-    def validate_pressure_bridge_table_inputs(self, device_name: str) -> None:
+    def verify_pressure_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Pressure Bridge Table inputs"""
         self._log_message("Configuring channels of type Pressure Bridge Table")
         console = self.console
@@ -438,7 +431,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_units="mV/V",
         )
 
-    def validate_pressure_bridge_two_point_linear_inputs(
+    def verify_pressure_bridge_two_point_linear_inputs(
         self, device_name: str
     ) -> None:
         """Validate Pressure Bridge Two-Point Linear inputs"""
@@ -487,7 +480,7 @@ class Ni_Ai_Forms(ConsoleCase):
             excitation_source="None",
         )
 
-    def validate_resistance_inputs(self, device_name: str) -> None:
+    def verify_resistance_inputs(self, device_name: str) -> None:
         """Validate Resistance inputs"""
         self._log_message("Configuring channels of type Resistance")
         console = self.console
@@ -521,7 +514,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="None",
         )
 
-    def validate_rtd_inputs(self, device_name: str) -> None:
+    def verify_rtd_inputs(self, device_name: str) -> None:
         """Validate RTD inputs"""
         self._log_message("Configuring channels of type RTD")
         console = self.console
@@ -562,7 +555,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="None",
         )
 
-    def validate_strain_gauge_inputs(self, device_name: str) -> None:
+    def verify_strain_gauge_inputs(self, device_name: str) -> None:
         """Validate Strain Gauge inputs"""
         self._log_message("Configuring channels of type Strain Gauge")
         console = self.console
@@ -607,7 +600,7 @@ class Ni_Ai_Forms(ConsoleCase):
             strain_configuration="Quarter Bridge I",
         )
 
-    def validate_temperature_built_in_sensor_inputs(self, device_name: str) -> None:
+    def verify_temperature_built_in_sensor_inputs(self, device_name: str) -> None:
         """Validate Temperature Built-In Sensor inputs"""
         self._log_message("Configuring channels of type Temperature Built-In Sensor")
         console = self.console
@@ -643,7 +636,7 @@ class Ni_Ai_Forms(ConsoleCase):
             temperature_units="Rankine",
         )
 
-    def validate_thermocouple_inputs(self, device_name: str) -> None:
+    def verify_thermocouple_inputs(self, device_name: str) -> None:
         """Validate Thermocouple inputs"""
         self._log_message("Configuring channels of type Thermocouple")
         console = self.console
@@ -679,7 +672,7 @@ class Ni_Ai_Forms(ConsoleCase):
             thermocouple_type="E",
         )
 
-    def validate_torque_bridge_table_inputs(self, device_name: str) -> None:
+    def verify_torque_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Torque Bridge Table inputs"""
         self._log_message("Configuring channels of type Torque Bridge Table")
         console = self.console
@@ -722,7 +715,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_units="mV/V",
         )
 
-    def validate_torque_bridge_two_point_linear_inputs(self, device_name: str) -> None:
+    def verify_torque_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Torque Bridge Two-Point Linear inputs"""
         self._log_message("Configuring channels of type Torque Bridge Two-Point Linear")
         console = self.console
@@ -770,7 +763,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_units="mV/V",
         )
 
-    def validate_velocity_iepe_inputs(self, device_name: str) -> None:
+    def verify_velocity_iepe_inputs(self, device_name: str) -> None:
         """Validate Velocity IEPE inputs"""
         self._log_message("Configuring channels of type Velocity IEPE")
         console = self.console

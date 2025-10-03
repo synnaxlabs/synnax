@@ -100,7 +100,6 @@ class Task(ConsolePage):
             The created channel instance
         """
         console = self.console
-        console.close_all_notifications()
 
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
@@ -119,19 +118,21 @@ class Task(ConsolePage):
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
+        # Notifications will block the modal.
+        console.close_all_notifications()
         sy.sleep(0.2)  # Give modal time to appear
         if console.check_for_modal():
             console.close_all_notifications()
-            sy.sleep(0.3)
+            sy.sleep(0.2)
             console.fill_input_field("Name", dev_name)
             console.click_btn("Next")
-            sy.sleep(0.3)
+            sy.sleep(0.2)
             console.fill_input_field("Identifier", dev_name)
             console.click_btn("Save")
-            sy.sleep(0.3)
+            sy.sleep(0.2)
 
         if console.check_for_modal():
-            raise RuntimeError("Blocking modal is open")
+            raise RuntimeError("Blocking modal is still open")
 
         # Create channel using registry
         if type not in CHANNEL_TYPES:
