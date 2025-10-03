@@ -18,6 +18,12 @@ import synnax as sy
 from synnax.hardware import ni
 
 from framework.test_case import TestCase
+from framework.utils import (
+    get_cpu_cores,
+    get_machine_info,
+    get_memory_info,
+    get_synnax_version,
+)
 
 matplotlib.use("Agg")  # Use non-interactive backend
 
@@ -377,12 +383,31 @@ class DriverNiDo(TestCase):
         ax5.legend()
         ax5.grid(True, alpha=0.3)
 
+        # Get machine information
+        machine_name = get_machine_info()
+        memory_info = get_memory_info()
+        cpu_cores = get_cpu_cores()
+
+        machine_desc = f"Machine: {machine_name}"
+        if cpu_cores:
+            machine_desc += f", {cpu_cores}"
+        if memory_info:
+            machine_desc += f", {memory_info}"
+
         plt.suptitle(
             "NI Digital Output Latency Analysis - Core vs Loop-back",
             fontsize=14,
-            y=0.995,
+            y=0.98,
+        )
+        plt.figtext(
+            0.5,
+            0.92,
+            f"{machine_desc} | Platform Version: {get_synnax_version()}",
+            fontsize=10,
+            ha="center",
         )
         plt.tight_layout()
+        plt.subplots_adjust(top=0.85)
 
         # Save the plot
         os.makedirs("tests/results", exist_ok=True)

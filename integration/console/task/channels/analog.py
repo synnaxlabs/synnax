@@ -92,7 +92,9 @@ class Analog:
             values["Terminal Configuration"] = terminal_config
         else:
             try:
-                values["Terminal Configuration"] = console.get_dropdown_value("Terminal Configuration", timeout=25)
+                values["Terminal Configuration"] = console.get_dropdown_value(
+                    "Terminal Configuration"
+                )
             except:
                 # Many AI types do not have a terminal config option.
                 pass
@@ -127,7 +129,8 @@ class Analog:
                 actual_value = self.console.get_dropdown_value(key)
 
             if actual_value.strip() == "":
-                actual_value = 0
+                actual_value = "0"
 
-            assert actual_value == expected_value,\
-                f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+            assert (
+                actual_value == expected_value
+            ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"

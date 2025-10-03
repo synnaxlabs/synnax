@@ -150,10 +150,7 @@ class Task(ConsolePage):
         self.channels_by_name.append(name)
         return channel
 
-    def assert_channel(
-        self,
-        name: str | list[str]
-    ) -> None:
+    def assert_channel(self, name: str | list[str]) -> None:
         """
         Assert a channel form is set correctly
 

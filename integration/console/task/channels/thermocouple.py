@@ -37,7 +37,7 @@ class Thermocouple(Analog):
     def __init__(
         self,
         console: "Console",
-        name:str,
+        name: str,
         device: str,
         port: Optional[int] = None,
         temperature_units: Optional[

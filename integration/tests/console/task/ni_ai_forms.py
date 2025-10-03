@@ -22,7 +22,6 @@ class Ni_Ai_Forms(ConsoleCase):
     appropriately selected. Tasks are not configured/run.
     """
 
-
     def run(self) -> None:
         """
         Test Opening and closing pages
@@ -45,7 +44,7 @@ class Ni_Ai_Forms(ConsoleCase):
             data_saving=True,
             auto_start=False,
         )
-        
+
         self.create_test_rack(rack_name, device_name, mode)
 
         if mode == "a":
@@ -79,7 +78,7 @@ class Ni_Ai_Forms(ConsoleCase):
         for ch in ch_names:
             console.task.assert_channel(ch)
 
-    def create_test_rack(self, rack_name: str, device_name: str, mode:str) -> None:
+    def create_test_rack(self, rack_name: str, device_name: str, mode: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
         self.client.hardware.devices.create(
             [
@@ -437,9 +436,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_units="mV/V",
         )
 
-    def verify_pressure_bridge_two_point_linear_inputs(
-        self, device_name: str
-    ) -> None:
+    def verify_pressure_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Pressure Bridge Two-Point Linear inputs"""
         self._log_message(
             "Configuring channels of type Pressure Bridge Two-Point Linear"
