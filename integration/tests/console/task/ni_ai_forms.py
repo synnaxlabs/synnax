@@ -15,15 +15,14 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Ni_Channel_Validate_Inputs(ConsoleCase):
+class Ni_Ai_Forms(ConsoleCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
-    Only veryifying that each input type (dropdown/int/float) can be
-    appropriately selected.
+    Only verify that each input type (dropdown/int/float) can be
+    appropriately selected. Tasks are not configured/run.
     """
 
     # TODO:
-    # - Validate bad inputs for all types
     # - Validate custom scale inputs
     # - Step through each pre-configured channel and get info
     #
