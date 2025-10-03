@@ -886,6 +886,27 @@ export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   units: VOLTS,
 };
 
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html
+export const AI_FREQUENCY_VOLTAGE_CHAN_TYPE = "ai_frequency_voltage";
+export const aiFrequencyVoltageChanZ = baseAIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(AI_FREQUENCY_VOLTAGE_CHAN_TYPE),
+  units: z.literal(HZ),
+  thresholdLevel: z.number(),
+  hysteresis: z.number(),
+});
+export interface AIFrequencyVoltageChan extends z.infer<typeof aiFrequencyVoltageChanZ> {}
+export const ZERO_AI_FREQUENCY_VOLTAGE_CHAN: AIFrequencyVoltageChan = {
+  ...ZERO_BASE_AI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: AI_FREQUENCY_VOLTAGE_CHAN_TYPE,
+  units: HZ,
+  thresholdLevel: 0,
+  hysteresis: 0,
+};
+
 const aiChannelZ = z.union([
   aiAccelChanZ,
   aiBridgeChanZ,
@@ -893,6 +914,7 @@ const aiChannelZ = z.union([
   aiForceBridgeTableChanZ,
   aiForceBridgeTwoPointLinChanZ,
   aiForceIEPEChanZ,
+  aiFrequencyVoltageChanZ,
   aiMicrophoneChanZ,
   aiPressureBridgeTableChanZ,
   aiPressureBridgeTwoPointLinChanZ,
@@ -917,6 +939,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: "Force Bridge Table",
   [AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: "Force Bridge Two-Point Linear",
   [AI_FORCE_IEPE_CHAN_TYPE]: "Force IEPE",
+  [AI_FREQUENCY_VOLTAGE_CHAN_TYPE]: "Frequency Voltage",
   [AI_MICROPHONE_CHAN_TYPE]: "Microphone",
   [AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: "Pressure Bridge Table",
   [AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: "Pressure Bridge Two-Point Linear",
@@ -938,6 +961,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: Icon.Units.Force,
   [AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: Icon.Units.Force,
   [AI_FORCE_IEPE_CHAN_TYPE]: Icon.Units.Force,
+  [AI_FREQUENCY_VOLTAGE_CHAN_TYPE]: Icon.Wave.Sine,
   [AI_MICROPHONE_CHAN_TYPE]: Icon.Sound,
   [AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: Icon.Units.Pressure,
   [AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: Icon.Units.Pressure,

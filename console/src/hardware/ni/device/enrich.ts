@@ -17,6 +17,7 @@ interface PickedEnrichedProperties
     Properties,
     | "analogInput"
     | "analogOutput"
+    | "counter"
     | "digitalInputOutput"
     | "digitalInput"
     | "digitalOutput"
@@ -26,5 +27,13 @@ export const enrich = (model: string, properties: Properties): Properties => {
   const enriched = (data as record.Unknown)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
-  return { ...deep.copy(ZERO_PROPERTIES), ...enriched?.estimatedPinout, ...properties };
+  const merged = { ...deep.copy(ZERO_PROPERTIES), ...enriched?.estimatedPinout, ...properties };
+
+  // Migration: If counter property doesn't exist or has 0 ports, default to 2
+  // (most NI DAQ devices have at least 2 counters)
+  if (merged.counter.portCount === 0 && merged.analogInput.portCount > 0) 
+    merged.counter.portCount = 2;
+  
+
+  return merged;
 };

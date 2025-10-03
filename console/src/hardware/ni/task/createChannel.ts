@@ -37,6 +37,11 @@ export const createDIChannel = (channels: DIChannel[]): DIChannel =>
 export const createDOChannel = (channels: DOChannel[]): DOChannel =>
   createDigitalChannel<DOChannel>(channels, ZERO_DO_CHANNEL);
 
+const getChannelPortNamespace = (channel: AnalogChannel): string => {
+  if ("type" in channel && channel.type === "ai_frequency_voltage") return "ctr";
+  return "ai";
+};
+
 const createAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
   zeroChannel: C,
@@ -52,9 +57,17 @@ const createAnalogChannel = <C extends AnalogChannel>(
     if (channel == null) return { ...deep.copy(zeroChannel), key };
     template = deep.copy(channel);
   }
-  const existingPorts = new Set(channels.map(({ port }) => port));
+
+  // Find next available port in the same namespace
+  const templateNamespace = getChannelPortNamespace(template);
+  const existingPortsInNamespace = new Set(
+    channels
+      .filter((ch) => getChannelPortNamespace(ch) === templateNamespace)
+      .map(({ port }) => port),
+  );
   let port = 0;
-  while (existingPorts.has(port)) port++;
+  while (existingPortsInNamespace.has(port)) port++;
+
   return { ...template, key, port, ...override };
 };
 

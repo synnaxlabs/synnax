@@ -13,24 +13,37 @@ import { z } from "zod";
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
 
-type PortToIndexMap = Map<number, number>;
+const getPortNamespace = (type: v0.AIChannelType): string => {
+  // AI Frequency Voltage uses counter ports (ctr0, ctr1, etc.)
+  if (type === "ai_frequency_voltage") return "ctr";
+  // All other AI channels use analog input ports (ai0, ai1, etc.)
+  return "ai";
+};
 
 const validateAnalogPorts = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
-  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-  channels.forEach(({ device, port }, i) => {
+}: z.core.ParsePayload<AIChannel[]>) => {
+  // Map structure: device -> namespace:port -> index
+  const deviceToPortMap = new Map<device.Key, Map<string, number>>();
+  channels.forEach((channel, i) => {
+    const { device, port, type } = channel;
+    const namespace = getPortNamespace(type);
+    const key = `${namespace}:${port}`;
+
     if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
-    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
+    const portMap = deviceToPortMap.get(device) as Map<string, number>;
+
+    if (!portMap.has(key)) {
+      portMap.set(key, i);
       return;
     }
-    const index = portToIndexMap.get(port) as number;
+
+    const conflictIndex = portMap.get(key) as number;
     const code = "custom";
-    const message = `Port ${port} has already been used on another channel on the same device`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
+    const portType = namespace === "ctr" ? "Counter" : "Analog Input";
+    const message = `${portType} port ${port} has already been used on another channel on the same device`;
+    issues.push({ path: [conflictIndex, "port"], code, message, input: channels });
     issues.push({ path: [i, "port"], code, message, input: channels });
   });
 };
@@ -174,6 +187,13 @@ const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
+const aiFrequencyVoltageChanZ = v0.aiFrequencyVoltageChanZ.extend(aiChanExtensionShape);
+interface AIFrequencyVoltageChan extends z.infer<typeof aiFrequencyVoltageChanZ> {}
+const ZERO_AI_FREQUENCY_VOLTAGE_CHAN: AIFrequencyVoltageChan = {
+  ...v0.ZERO_AI_FREQUENCY_VOLTAGE_CHAN,
+  ...ZERO_AI_CHAN_EXTENSION,
+};
+
 const aiChannelZ = z.union([
   aiAccelChanZ,
   aiBridgeChanZ,
@@ -181,6 +201,7 @@ const aiChannelZ = z.union([
   aiForceBridgeTableChanZ,
   aiForceBridgeTwoPointLinChanZ,
   aiForceIEPEChanZ,
+  aiFrequencyVoltageChanZ,
   aiMicrophoneChanZ,
   aiPressureBridgeTableChanZ,
   aiPressureBridgeTwoPointLinChanZ,
@@ -203,6 +224,7 @@ export const AI_CHANNEL_SCHEMAS: Record<v0.AIChannelType, z.ZodType<AIChannel>> 
   [v0.AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: aiForceBridgeTableChanZ,
   [v0.AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: aiForceBridgeTwoPointLinChanZ,
   [v0.AI_FORCE_IEPE_CHAN_TYPE]: aiForceIEPEChanZ,
+  [v0.AI_FREQUENCY_VOLTAGE_CHAN_TYPE]: aiFrequencyVoltageChanZ,
   [v0.AI_MICROPHONE_CHAN_TYPE]: aiMicrophoneChanZ,
   [v0.AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: aiPressureBridgeTableChanZ,
   [v0.AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: aiPressureBridgeTwoPointLinChanZ,
@@ -224,6 +246,7 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
   [v0.AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: ZERO_AI_FORCE_BRIDGE_TABLE_CHAN,
   [v0.AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN,
   [v0.AI_FORCE_IEPE_CHAN_TYPE]: ZERO_AI_FORCE_IEPE_CHAN,
+  [v0.AI_FREQUENCY_VOLTAGE_CHAN_TYPE]: ZERO_AI_FREQUENCY_VOLTAGE_CHAN,
   [v0.AI_MICROPHONE_CHAN_TYPE]: ZERO_AI_MICROPHONE_CHAN,
   [v0.AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN,
   [v0.AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]:

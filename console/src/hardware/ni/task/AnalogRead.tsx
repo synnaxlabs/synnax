@@ -166,6 +166,8 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
     dev.properties = Device.enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
+
+    // Initialize shared index for both AI and counter channels
     let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
     if (!shouldCreateIndex)
       try {
@@ -184,24 +186,38 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       dev.properties.analogInput.index = aiIndex.key;
       dev.properties.analogInput.channels = {};
     }
-    const toCreate: AIChannel[] = [];
+
+    // Separate channels by namespace (ai vs counter)
+    const aiChannelsToCreate: AIChannel[] = [];
+    const counterChannelsToCreate: AIChannel[] = [];
+
     for (const channel of config.channels) {
       if (channel.device !== dev.key) continue;
-      // check if the channel is in properties
-      const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-      if (primitive.isZero(exKey)) toCreate.push(channel);
-      else
+      const isCounterChannel = channel.type === "ai_frequency_voltage";
+      const channelsMap = isCounterChannel
+        ? dev.properties.counter.channels
+        : dev.properties.analogInput.channels;
+      const exKey = channelsMap[channel.port.toString()];
+
+      if (primitive.isZero(exKey)) 
+        if (isCounterChannel) counterChannelsToCreate.push(channel);
+        else aiChannelsToCreate.push(channel);
+       else
         try {
           await client.channels.retrieve(exKey.toString());
         } catch (e) {
-          if (QueryError.matches(e)) toCreate.push(channel);
-          else throw e;
+          if (QueryError.matches(e)) 
+            if (isCounterChannel) counterChannelsToCreate.push(channel);
+            else aiChannelsToCreate.push(channel);
+           else throw e;
         }
     }
-    if (toCreate.length > 0) {
+
+    // Create analog input channels
+    if (aiChannelsToCreate.length > 0) {
       modified = true;
       const channels = await client.channels.create(
-        toCreate.map((c) => ({
+        aiChannelsToCreate.map((c) => ({
           name: `${dev.properties.identifier}_ai_${c.port}`,
           dataType: "float32",
           index: dev.properties.analogInput.index,
@@ -209,13 +225,38 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       );
       channels.forEach(
         (c, i) =>
-          (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
+          (dev.properties.analogInput.channels[aiChannelsToCreate[i].port.toString()] =
+            c.key),
       );
     }
+
+    // Create counter channels (using same index as AI)
+    if (counterChannelsToCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        counterChannelsToCreate.map((c) => ({
+          name: `${dev.properties.identifier}_ctr_${c.port}`,
+          dataType: "float32",
+          index: dev.properties.analogInput.index,
+        })),
+      );
+      channels.forEach(
+        (c, i) =>
+          (dev.properties.counter.channels[counterChannelsToCreate[i].port.toString()] =
+            c.key),
+      );
+    }
+
     if (modified) await client.hardware.devices.create(dev);
+
+    // Map config channels to their Synnax channel keys
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
-      c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      const isCounterChannel = c.type === "ai_frequency_voltage";
+      const channelsMap = isCounterChannel
+        ? dev.properties.counter.channels
+        : dev.properties.analogInput.channels;
+      c.channel = channelsMap[c.port.toString()];
     });
   }
   if (rackKey == null) throw new Error("No devices selected in task configuration");
