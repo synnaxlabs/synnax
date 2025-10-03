@@ -62,8 +62,8 @@
                 border-radius: 1rem;
                 top: -0.25rem;
 
-                /* add an after pseudo-element that is
-            a small triangle to indicate the stop */
+                /* add an after pseudo-element that is a small triangle to indicate the
+                   stop */
                 &::after {
                     content: "";
                     position: absolute;
