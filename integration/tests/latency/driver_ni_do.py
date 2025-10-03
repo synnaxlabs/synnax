@@ -102,7 +102,7 @@ class DriverNiDo(TestCase):
         )
         tsk = client.hardware.tasks.configure(tsk)
 
-        # Run Task
+        # Run NI DO Task
         with tsk.run():
             with client.open_streamer([do_1_state.key, do_state_time.key]) as stream:
                 with client.open_writer(
@@ -152,7 +152,14 @@ class DriverNiDo(TestCase):
         latencies_core_ms = np.array(latencies_core)
         latencies_loop_ms = np.array(latencies_loop)
 
-        def calculate_stats(latencies_ms, name):
+        stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
+        stats_loop = self.calculate_stats(latencies_loop_ms, "Loop Latency (Python timestamp)")
+
+        self.plot_latencies(latencies_core_ms, latencies_loop_ms, stats_core, stats_loop)
+
+        self.check_results(stats_core, stats_loop)
+
+    def calculate_stats(self, latencies_ms: np.ndarray, name: str) -> dict[str, float]:
             """Calculate and print statistics for a latency dataset"""
             mean = np.mean(latencies_ms)
             median = np.median(latencies_ms)
@@ -187,10 +194,33 @@ class DriverNiDo(TestCase):
                 'peak_to_peak': peak_to_peak, 'jitter': jitter, 'avg_jitter': avg_jitter
             }
 
-        stats_core = calculate_stats(latencies_core_ms, "Driver Latency")
-        stats_loop = calculate_stats(latencies_loop_ms, "Loop Latency (Python timestamp)")
+    def check_results(self, stats_driver: dict, stats_loop: dict[str, float]) -> None:
 
-        # Create visualization
+        assert stats_driver['mean'] <= 4, "Driver mean latency is greater than 4 ms"
+        assert stats_loop['mean'] <= 4, "Loop mean latency is greater than 4 ms"
+
+        assert stats_driver['median'] <= 4, "Driver median latency is greater than 4 ms"
+        assert stats_loop['median'] <= 4, "Loop median latency is greater than 4 ms"
+
+        assert stats_driver['std'] <= 4, "Driver std latency is greater than 4 ms"
+        assert stats_loop['std'] <= 4, "Loop std latency is greater than 4 ms"
+
+        assert stats_driver['p90'] <= 6, "Driver p90 latency is greater than 6 ms"
+        assert stats_loop['p90'] <= 6, "Loop p90 latency is greater than 6 ms"
+
+        assert stats_driver['p95'] <= 8, "Driver p95 latency is greater than 8 ms"
+        assert stats_loop['p95'] <= 8, "Loop p95 latency is greater than 8 ms"
+
+        assert stats_driver['p99'] <= 10, "Driver p99 latency is greater than 10 ms"
+        assert stats_loop['p99'] <= 10, "Loop p99 latency is greater than 10 ms"
+
+        assert stats_driver['peak_to_peak'] < 40, "Driver peak-to-peak latency is greater than 10 ms"
+        assert stats_loop['peak_to_peak'] < 40, "Loop peak-to-peak latency is greater than 10 ms"
+
+        assert stats_driver['avg_jitter'] < 4, "Driver avg jitter is greater than 4 ms"
+        assert stats_loop['avg_jitter'] < 4, "Loop avg jitter is greater than 4 ms"
+    
+    def plot_latencies(self, latencies_core_ms: np.ndarray, latencies_loop_ms: np.ndarray, stats_core: dict, stats_loop: dict) -> None:
         fig = plt.figure(figsize=(10, 8))
         gs = fig.add_gridspec(3, 2, height_ratios=[2, 1, 1])
 
