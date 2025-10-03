@@ -48,6 +48,7 @@ class Console:
     # SY-3078
     console_pages: list[ConsolePage]
     channels: ChannelClient
+    page: Page
 
     def __init__(self, page: Page):
 
@@ -369,7 +370,7 @@ class Console:
         )
         input_field.fill(value)
 
-    def get_input_field(self, input_label: str, timeout: Optional[int] = 100) -> str:
+    def get_input_field(self, input_label: str, timeout: Optional[int] = 300) -> str:
         """Get the value of an input field by label."""
         input_field = (
             self.page.locator(f"text={input_label}")
