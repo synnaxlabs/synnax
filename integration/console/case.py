@@ -72,7 +72,7 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page)
 
         # Toggle theme
-        self.page.wait_for_timeout(1000)
+        self.page.wait_for_timeout(3000)
         self.console.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:
