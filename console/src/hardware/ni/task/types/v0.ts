@@ -896,7 +896,8 @@ export const aiFrequencyVoltageChanZ = baseAIChanZ.extend({
   thresholdLevel: z.number(),
   hysteresis: z.number(),
 });
-export interface AIFrequencyVoltageChan extends z.infer<typeof aiFrequencyVoltageChanZ> {}
+export interface AIFrequencyVoltageChan
+  extends z.infer<typeof aiFrequencyVoltageChanZ> {}
 export const ZERO_AI_FREQUENCY_VOLTAGE_CHAN: AIFrequencyVoltageChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,

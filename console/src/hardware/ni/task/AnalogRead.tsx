@@ -199,17 +199,17 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
         : dev.properties.analogInput.channels;
       const exKey = channelsMap[channel.port.toString()];
 
-      if (primitive.isZero(exKey)) 
+      if (primitive.isZero(exKey))
         if (isCounterChannel) counterChannelsToCreate.push(channel);
         else aiChannelsToCreate.push(channel);
-       else
+      else
         try {
           await client.channels.retrieve(exKey.toString());
         } catch (e) {
-          if (QueryError.matches(e)) 
+          if (QueryError.matches(e))
             if (isCounterChannel) counterChannelsToCreate.push(channel);
             else aiChannelsToCreate.push(channel);
-           else throw e;
+          else throw e;
         }
     }
 
