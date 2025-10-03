@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import NiAi, Task
+from .task import NiAi, NiAo, Task
 
 # Define literal types for page creation
 PageType = Literal[
@@ -59,6 +59,7 @@ class Console:
         self.log = Log(page, self)
         self.task = Task(page, self)
         self.ni_ai = NiAi(page, self)
+        self.ni_ao = NiAo(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
@@ -387,6 +388,19 @@ class Console:
             .first
         )
         return dropdown_button.inner_text().strip()
+
+    def get_selected_button(self, button_options: list[str]) -> str:
+        """Get the currently selected button from a button group (no label)."""
+        for option in button_options:
+            try:
+                button = self.page.get_by_text(option).first
+                if button.count() > 0:
+                    class_name = button.get_attribute("class") or ""
+                    if "pluto-btn--filled" in class_name:
+                        return option
+            except:
+                continue
+        raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
         """Wait for and click a selector (by text)"""

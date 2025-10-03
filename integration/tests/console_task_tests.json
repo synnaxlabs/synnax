@@ -2,7 +2,15 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Form Input Verification",
+      "sequence_name": "NI AO Form Input Verification",
+      "tests": [
+        {
+          "case": "console/task/ni_ao_forms"
+        }
+      ]
+    },
+    {
+      "sequence_name": "NI AI Form Input Verification",
       "sequence_order": "asynchronous",
       "tests": [
         {

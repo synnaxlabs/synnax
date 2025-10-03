@@ -37,7 +37,7 @@ class Ni_Ai_Forms(ConsoleCase):
         console.ni_ai.new()
 
         # Check simple functionality
-        console.task.set_parameters(
+        console.ni_ai.set_parameters(
             task_name="Test_task",
             sample_rate=100,
             stream_rate=20,
@@ -71,12 +71,12 @@ class Ni_Ai_Forms(ConsoleCase):
             self.verify_velocity_iepe_inputs(device_name)
 
         # Assert the set values with form state
-        ch_names = console.task.channels_by_name.copy()
+        ch_names = console.ni_ai.channels_by_name.copy()
         random.shuffle(ch_names)
         total = len(ch_names)
         self._log_message(f"Asserting {total} channel forms in random order")
         for ch in ch_names:
-            console.task.assert_channel(ch)
+            console.ni_ai.assert_channel(ch)
 
     def create_test_rack(self, rack_name: str, device_name: str, mode: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
@@ -101,13 +101,13 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Voltage"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="v0",
             type=type,
             device=device_name,
             terminal_config="Default",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="v1",
             type=type,
             device=device_name,
@@ -115,7 +115,7 @@ class Ni_Ai_Forms(ConsoleCase):
             min_val=-0.1,
             max_val=6.5,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="v2",
             type=type,
             device=device_name,
@@ -123,13 +123,13 @@ class Ni_Ai_Forms(ConsoleCase):
             min_val=-10,
             max_val=10,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="v3",
             type=type,
             device=device_name,
             terminal_config="Referenced Single Ended",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="v4",
             type=type,
             device=device_name,
@@ -142,12 +142,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Accelerometer"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Accel_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Accel_2",
             type=type,
             device=device_name,
@@ -156,14 +156,14 @@ class Ni_Ai_Forms(ConsoleCase):
             excitation_source="Internal",
             current_excitation_value=0.1,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Accel_3",
             type=type,
             device=device_name,
             units="V/g",
             excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Accel_4",
             type=type,
             device=device_name,
@@ -176,12 +176,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Bridge"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Bridge_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Bridge_2",
             type=type,
             device=device_name,
@@ -191,7 +191,7 @@ class Ni_Ai_Forms(ConsoleCase):
             excitation_source="Internal",
             excitation_value=0.2,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Bridge_3",
             type=type,
             device=device_name,
@@ -199,7 +199,7 @@ class Ni_Ai_Forms(ConsoleCase):
             configuration="Half Bridge",
             excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Bridge_4",
             type=type,
             device=device_name,
@@ -213,23 +213,23 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Current"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Current_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Current_2",
             type=type,
             device=device_name,
             shunt_resistor="Default",
             resistance=0.1,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Current_3", type=type, device=device_name, shunt_resistor="Internal"
         )
-        console.task.add_channel(
-            name="Bridge_4",
+        console.ni_ai.add_channel(
+            name="Current_4",
             type=type,
             device=device_name,
             shunt_resistor="External",
@@ -241,12 +241,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Force Bridge Table"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge_2",
             type=type,
             device=device_name,
@@ -258,7 +258,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Newtons",
             electrical_units="mV/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge_3",
             type=type,
             device=device_name,
@@ -268,7 +268,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Pounds",
             electrical_units="V/V",
         ),
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge_3",
             type=type,
             device=device_name,
@@ -282,12 +282,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Force Bridge Two Point Linear"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge2Pt_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge2Pt_2",
             type=type,
             device=device_name,
@@ -303,7 +303,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_value_one=0.0,
             electrical_value_two=2.5,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge2Pt_3",
             type=type,
             device=device_name,
@@ -313,7 +313,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Pounds",
             electrical_units="V/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceBridge2Pt_4",
             type=type,
             device=device_name,
@@ -329,12 +329,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Force IEPE"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceIEPE_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceIEPE_2",
             type=type,
             device=device_name,
@@ -344,7 +344,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="Internal",
             current_excitation_value=4.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceIEPE_3",
             type=type,
             device=device_name,
@@ -352,7 +352,7 @@ class Ni_Ai_Forms(ConsoleCase):
             sensitivity_units="mV/lb",
             current_excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="ForceIEPE_4",
             type=type,
             device=device_name,
@@ -366,12 +366,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Microphone"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Microphone_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Microphone_2",
             type=type,
             device=device_name,
@@ -381,13 +381,13 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="Internal",
             current_excitation_value=4.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Microphone_3",
             type=type,
             device=device_name,
             current_excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Microphone_4",
             type=type,
             device=device_name,
@@ -400,12 +400,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Pressure Bridge Table"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge_2",
             type=type,
             device=device_name,
@@ -417,7 +417,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Pascals",
             electrical_units="mV/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge_3",
             type=type,
             device=device_name,
@@ -427,7 +427,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="PSI",
             electrical_units="V/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge_4",
             type=type,
             device=device_name,
@@ -444,12 +444,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Pressure Bridge Two-Point Linear"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge2Pt_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge2Pt_2",
             type=type,
             device=device_name,
@@ -465,7 +465,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_value_one=0.0,
             electrical_value_two=2.5,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge2Pt_3",
             type=type,
             device=device_name,
@@ -475,7 +475,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="PSI",
             electrical_units="V/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="PressureBridge2Pt_4",
             type=type,
             device=device_name,
@@ -489,12 +489,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Resistance"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Resistance_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Resistance_2",
             type=type,
             device=device_name,
@@ -502,14 +502,14 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="Internal",
             current_excitation_value=1.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Resistance_3",
             type=type,
             device=device_name,
             resistance_configuration="3-Wire",
             current_excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Resistance_4",
             type=type,
             device=device_name,
@@ -523,12 +523,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "RTD"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="RTD_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="RTD_2",
             type=type,
             device=device_name,
@@ -539,7 +539,7 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_value=1.0,
             r0_resistance=100.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="RTD_3",
             type=type,
             device=device_name,
@@ -548,7 +548,7 @@ class Ni_Ai_Forms(ConsoleCase):
             resistance_configuration="3-Wire",
             current_excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="RTD_4",
             type=type,
             device=device_name,
@@ -564,12 +564,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Strain Gauge"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="StrainGauge_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="StrainGauge_2",
             type=type,
             device=device_name,
@@ -582,21 +582,21 @@ class Ni_Ai_Forms(ConsoleCase):
             poisson_ratio=0.3,
             lead_wire_resistance=0.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="StrainGauge_3",
             type=type,
             device=device_name,
             strain_configuration="Half Bridge I",
             excitation_source="External",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="StrainGauge_4",
             type=type,
             device=device_name,
             strain_configuration="Full Bridge III",
             excitation_source="None",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="StrainGauge_5",
             type=type,
             device=device_name,
@@ -609,30 +609,30 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Temperature Built-In Sensor"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TempBuiltIn_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TempBuiltIn_2",
             type=type,
             device=device_name,
             temperature_units="Celsius",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TempBuiltIn_3",
             type=type,
             device=device_name,
             temperature_units="Fahrenheit",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TempBuiltIn_4",
             type=type,
             device=device_name,
             temperature_units="Kelvin",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TempBuiltIn_5",
             type=type,
             device=device_name,
@@ -645,12 +645,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Thermocouple"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Thermocouple_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Thermocouple_2",
             type=type,
             device=device_name,
@@ -658,7 +658,7 @@ class Ni_Ai_Forms(ConsoleCase):
             thermocouple_type="J",
             cjc_source="Built In",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Thermocouple_3",
             type=type,
             device=device_name,
@@ -667,7 +667,7 @@ class Ni_Ai_Forms(ConsoleCase):
             cjc_source="Constant Value",
             cjc_value=25.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="Thermocouple_4",
             type=type,
             device=device_name,
@@ -681,12 +681,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Torque Bridge Table"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridgeTable_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridgeTable_2",
             type=type,
             device=device_name,
@@ -697,7 +697,7 @@ class Ni_Ai_Forms(ConsoleCase):
             voltage_excitation_value=5.0,
             physical_units="Newton Meters",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridgeTable_3",
             type=type,
             device=device_name,
@@ -707,7 +707,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Foot Pounds",
             electrical_units="V/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridgeTable_4",
             type=type,
             device=device_name,
@@ -724,12 +724,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Torque Bridge Two-Point Linear"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridge2Pt_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridge2Pt_2",
             type=type,
             device=device_name,
@@ -745,7 +745,7 @@ class Ni_Ai_Forms(ConsoleCase):
             electrical_value_one=0.0,
             electrical_value_two=2.5,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridge2Pt_3",
             type=type,
             device=device_name,
@@ -755,7 +755,7 @@ class Ni_Ai_Forms(ConsoleCase):
             physical_units="Foot Pounds",
             electrical_units="V/V",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="TorqueBridge2Pt_4",
             type=type,
             device=device_name,
@@ -772,12 +772,12 @@ class Ni_Ai_Forms(ConsoleCase):
         console = self.console
         type = "Velocity IEPE"
 
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="VelocityIEPE_1",
             type=type,
             device=device_name,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="VelocityIEPE_2",
             type=type,
             device=device_name,
@@ -787,14 +787,14 @@ class Ni_Ai_Forms(ConsoleCase):
             current_excitation_source="Internal",
             current_excitation_value=4.0,
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="VelocityIEPE_3",
             type=type,
             device=device_name,
             velocity_units="in/s",
             sensitivity_units="mV/in/s",
         )
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="VelocityIEPE_4",
             type=type,
             device=device_name,
