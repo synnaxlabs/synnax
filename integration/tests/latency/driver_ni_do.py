@@ -19,20 +19,27 @@ import synnax as sy
 from synnax.hardware import ni
 from framework.test_case import TestCase
 
-class NiDoLatency(TestCase):
+class DriverNiDo(TestCase):
     """ 
     Send a command to an NI DO channel and measure the latency between the
     core and loop-back (python) timestamp.
     """
 
     def setup(self) -> None:
-        if platform.system() != "Windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
+        #if platform.system() != "Windows":
+        #    self.auto_pass(msg="Windows DAQmx drivers required")
         super().setup()
 
     def run(self) -> None:
 
-        client = self.client
+        #client = self.client
+        client = sy.Synnax(
+            host="ec2-54-167-39-63.compute-1.amazonaws.com",
+            port=9090,
+            username="synnax",
+            password="seldon",
+            secure=False,
+        )
 
         latencies_core: deque[float] = deque()
         latencies_loop: deque[float] = deque()
@@ -137,10 +144,9 @@ class NiDoLatency(TestCase):
                     
                     # Set back to 0
                     writer.write(do_1_cmd.key, int(False))
-        
+                    frame = stream.read(timeout=1)
 
-        print(f"\n=== Statistical Analysis ===")
-        print(f"Total samples: {len(latencies_core)}")
+        self._log_message(f"Total samples: {len(latencies_core)}")
 
         # Convert to numpy arrays and milliseconds
         latencies_core_ms = np.array(latencies_core)
@@ -161,18 +167,18 @@ class NiDoLatency(TestCase):
             jitter = np.abs(np.diff(latencies_ms))
             avg_jitter = np.mean(jitter)
 
-            print(f"\n{name}:")
-            print(f"  Mean: {mean:.2f} ms")
-            print(f"  Median: {median:.2f} ms")
-            print(f"  Std: {std:.2f} ms")
-            print(f"  Min: {min_lat:.2f} ms")
-            print(f"  Max: {max_lat:.2f} ms")
-            print(f"  P50: {p50:.2f} ms")
-            print(f"  P90: {p90:.2f} ms")
-            print(f"  P95: {p95:.2f} ms")
-            print(f"  P99: {p99:.2f} ms")
-            print(f"  Peak-to-peak jitter: {peak_to_peak:.2f} ms")
-            print(f"  Avg jitter: {avg_jitter:.2f} ms")
+            self._log_message(f"=== {name} ===")
+            self._log_message(f"Mean: {mean:.2f} ms")
+            self._log_message(f"Median: {median:.2f} ms")
+            self._log_message(f"Std: {std:.2f} ms")
+            self._log_message(f"Min: {min_lat:.2f} ms")
+            self._log_message(f"Max: {max_lat:.2f} ms")
+            self._log_message(f"P50: {p50:.2f} ms")
+            self._log_message(f"P90: {p90:.2f} ms")
+            self._log_message(f"P95: {p95:.2f} ms")
+            self._log_message(f"P99: {p99:.2f} ms")
+            self._log_message(f"Peak-to-peak jitter: {peak_to_peak:.2f} ms")
+            self._log_message(f"Avg jitter: {avg_jitter:.2f} ms")
 
             return {
                 'mean': mean, 'median': median, 'std': std,
@@ -181,7 +187,7 @@ class NiDoLatency(TestCase):
                 'peak_to_peak': peak_to_peak, 'jitter': jitter, 'avg_jitter': avg_jitter
             }
 
-        stats_core = calculate_stats(latencies_core_ms, "Core Latency (Hardware timestamp)")
+        stats_core = calculate_stats(latencies_core_ms, "Driver Latency")
         stats_loop = calculate_stats(latencies_loop_ms, "Loop Latency (Python timestamp)")
 
         # Create visualization
@@ -251,5 +257,5 @@ class NiDoLatency(TestCase):
         os.makedirs("results", exist_ok=True)
         output_path = "results/ni_do_latency_analysis.png"
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
-        print(f"\nPlot saved to: {os.path.abspath(output_path)}")
+        self._log_message(f"Plot saved to: {os.path.abspath(output_path)}")
         plt.close(fig)
