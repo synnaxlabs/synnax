@@ -37,6 +37,7 @@ class Microphone(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         sound_pressure_units: Optional[Literal["Pascals",]] = None,
         sensitivity: Optional[float] = None,
@@ -55,6 +56,7 @@ class Microphone(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Microphone",
             **kwargs,

@@ -37,6 +37,7 @@ class ForceIEPE(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         force_units: Optional[
             Literal[
@@ -65,6 +66,7 @@ class ForceIEPE(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Force IEPE",
             **kwargs,

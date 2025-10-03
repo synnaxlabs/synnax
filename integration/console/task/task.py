@@ -71,6 +71,7 @@ class Task(ConsolePage):
     """NI Task automation interface for managing analog channels."""
 
     channels: list[Analog]
+    channels_by_name: list[str]
     task_name: str
 
     def __init__(self, page: Page, console: "Console") -> None:
@@ -78,6 +79,7 @@ class Task(ConsolePage):
         self.page_type = "NI Analog Read Task"
         self.pluto_label = ".ni_ai_somethingsomething"
         self.channels = []
+        self.channels_by_name = []
 
     def add_channel(
         self,
@@ -142,10 +144,33 @@ class Task(ConsolePage):
             )
 
         channel_class = CHANNEL_TYPES[type]
-        channel = channel_class(console=console, device=device, **kwargs)
+        channel = channel_class(console=console, name=name, device=device, **kwargs)
 
         self.channels.append(channel)
+        self.channels_by_name.append(name)
         return channel
+
+    def assert_channel(
+        self,
+        name: str | list[str]
+    ) -> None:
+        """
+        Assert a channel form is set correctly
+
+        Args:
+            name: Channel name or list of channel names to assert
+
+        Returns: None
+        """
+        console = self.console
+        names = [name] if isinstance(name, str) else name
+
+        for channel_name in names:
+            idx = self.channels_by_name.index(channel_name)
+            console.page.locator(".pluto-list__item").nth(idx).click()
+            channel = self.channels[idx]
+            sy.sleep(0.1)
+            channel.assert_form()
 
     def set_parameters(
         self,

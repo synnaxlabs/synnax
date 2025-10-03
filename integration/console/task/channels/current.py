@@ -35,6 +35,7 @@ class Current(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         shunt_resistor: Optional[
             Literal[
@@ -49,6 +50,7 @@ class Current(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Current",
             **kwargs,

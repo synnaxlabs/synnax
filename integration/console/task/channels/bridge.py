@@ -37,6 +37,7 @@ class Bridge(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         units: Optional[
             Literal[
@@ -66,6 +67,7 @@ class Bridge(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Bridge",
             **kwargs,

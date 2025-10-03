@@ -40,6 +40,7 @@ class StrainGauge(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         strain_configuration: Optional[
             Literal[
@@ -70,6 +71,7 @@ class StrainGauge(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Strain Gauge",
             **kwargs,

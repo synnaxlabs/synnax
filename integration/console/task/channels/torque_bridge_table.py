@@ -30,6 +30,7 @@ class TorqueBridgeTable(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         torque_units: Optional[
             Literal[
@@ -71,6 +72,7 @@ class TorqueBridgeTable(Analog):
     ) -> None:
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Torque Bridge Table",
             **kwargs,

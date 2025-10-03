@@ -37,7 +37,9 @@ class Thermocouple(Analog):
     def __init__(
         self,
         console: "Console",
+        name:str,
         device: str,
+        port: Optional[int] = None,
         temperature_units: Optional[
             Literal[
                 "Celsius",
@@ -70,13 +72,28 @@ class Thermocouple(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
-        super().__init__(
-            console=console,
-            device=device,
-            type="Thermocouple",
-            **kwargs,
-        )
+        # Does not call super()
+
+        self.console = console
+        self.device = device
+        self.name = name
+
+        values = {}
+
+        # Configure channel type
+        console.click_btn("Channel Type")
+        console.select_from_dropdown("Thermocouple")
+        values["Channel Type"] = "Thermocouple"
+
+        # Get device (set by task.add_channel)
+        values["Device"] = console.get_dropdown_value("Device")
+
+        # Optional configurations
+        if port is not None:
+            console.fill_input_field("Port", str(port))
+            values["Port"] = str(port)
+        else:
+            values["Port"] = console.get_input_field("Port")
 
         # Thermocouple-specific configurations:
         if temperature_units is not None:
@@ -96,3 +113,5 @@ class Thermocouple(Analog):
 
         if cjc_port is not None and cjc_source == "Channel":
             console.fill_input_field("CJC Port", str(cjc_port))
+
+        self.form_values = values

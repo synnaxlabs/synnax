@@ -42,6 +42,7 @@ class ForceBridgeTwoPointLinear(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         force_units: Optional[
             Literal[
@@ -89,6 +90,7 @@ class ForceBridgeTwoPointLinear(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Force Bridge Two-Point Linear",
             **kwargs,

@@ -37,6 +37,7 @@ class Accelerometer(Analog):
     def __init__(
         self,
         console: "Console",
+        name:str,
         device: str,
         sensitivity: Optional[float] = None,
         units: Optional[
@@ -53,6 +54,7 @@ class Accelerometer(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name = name,
             device=device,
             type="Accelerometer",
             **kwargs,

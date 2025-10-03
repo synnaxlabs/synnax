@@ -33,7 +33,9 @@ class TemperatureBuiltInSensor(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
+        port: Optional[int] = None,
         temperature_units: Optional[
             Literal[
                 "Celsius",
@@ -45,15 +47,31 @@ class TemperatureBuiltInSensor(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
-        super().__init__(
-            console=console,
-            device=device,
-            type="Temperature Built-In Sensor",
-            **kwargs,
-        )
+        # Does not call super()
+
+        self.console = console
+        self.device = device
+
+        values = {}
+
+        # Configure channel type
+        console.click_btn("Channel Type")
+        console.select_from_dropdown("Temperature Built-In Sensor")
+        values["Channel Type"] = "Temperature Built-In Sensor"
+
+        # Get device (set by task.add_channel)
+        values["Device"] = console.get_dropdown_value("Device")
+
+        # Optional configurations
+        if port is not None:
+            console.fill_input_field("Port", str(port))
+            values["Port"] = str(port)
+        else:
+            values["Port"] = console.get_input_field("Port")
 
         # Temperature Built-In Sensor-specific configurations:
         if temperature_units is not None:
             console.click_btn("Temperature Units")
             console.select_from_dropdown(temperature_units)
+
+        self.form_values = values

@@ -34,6 +34,7 @@ class TorqueBridgeTwoPointLinear(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         torque_units: Optional[
             Literal[
@@ -79,6 +80,7 @@ class TorqueBridgeTwoPointLinear(Analog):
     ) -> None:
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Torque Bridge Two-Point Linear",
             **kwargs,

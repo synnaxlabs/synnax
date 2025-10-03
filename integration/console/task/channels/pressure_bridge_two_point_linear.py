@@ -43,6 +43,7 @@ class PressureBridgeTwoPointLinear(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         pressure_units: Optional[
             Literal[
@@ -88,6 +89,7 @@ class PressureBridgeTwoPointLinear(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Pressure Bridge Two-Point Linear",
             **kwargs,

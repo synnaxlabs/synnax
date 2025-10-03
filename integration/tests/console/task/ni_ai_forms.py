@@ -22,25 +22,18 @@ class Ni_Ai_Forms(ConsoleCase):
     appropriately selected. Tasks are not configured/run.
     """
 
-    # TODO:
-    # - Validate custom scale inputs
-    # - Step through each pre-configured channel and get info
-    #
-    # - "name" will be used to rename channels AFTER we have
-    #   created a task. (not for this test)
 
     def run(self) -> None:
         """
         Test Opening and closing pages
         """
         console = self.console
+        mode = self.name[-1]  # A, B, C, D
 
-        #
-        # Remove the following when ready to
-        # Talk to NI MAX sim devices
-        ###########################
+        # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = "E103"
+        device_name = f"{mode}_E103"
+        sy.sleep(5)
         self._log_message("Creating NI Analog Read Task")
         console.task.new()
 
@@ -52,33 +45,45 @@ class Ni_Ai_Forms(ConsoleCase):
             data_saving=True,
             auto_start=False,
         )
+        
+        self.create_test_rack(rack_name, device_name, mode)
 
-        self.create_test_rack(rack_name, device_name)
-        self.verify_voltage_inputs(device_name)
-        self.verify_accel_inputs(device_name)
-        self.verify_bridge_inputs(device_name)
-        self.verify_current_inputs(device_name)
-        self.verify_force_bridge_table_inputs(device_name)
-        self.verify_force_bridge_two_point_linear_inputs(device_name)
-        self.verify_force_iepe_inputs(device_name)
-        self.verify_microphone_inputs(device_name)
-        self.verify_pressure_bridge_table_inputs(device_name)
-        self.verify_pressure_bridge_two_point_linear_inputs(device_name)
-        self.verify_resistance_inputs(device_name)
-        self.verify_rtd_inputs(device_name)
-        self.verify_strain_gauge_inputs(device_name)
-        self.verify_temperature_built_in_sensor_inputs(device_name)
-        self.verify_thermocouple_inputs(device_name)
-        self.verify_torque_bridge_table_inputs(device_name)
-        self.verify_torque_bridge_two_point_linear_inputs(device_name)
-        self.verify_velocity_iepe_inputs(device_name)
+        if mode == "a":
+            self.verify_voltage_inputs(device_name)
+            self.verify_accel_inputs(device_name)
+            self.verify_bridge_inputs(device_name)
+            self.verify_current_inputs(device_name)
+            self.verify_force_bridge_table_inputs(device_name)
+        if mode == "b":
+            self.verify_force_bridge_two_point_linear_inputs(device_name)
+            self.verify_force_iepe_inputs(device_name)
+            self.verify_microphone_inputs(device_name)
+            self.verify_pressure_bridge_table_inputs(device_name)
+            self.verify_pressure_bridge_two_point_linear_inputs(device_name)
+        if mode == "c":
+            self.verify_resistance_inputs(device_name)
+            self.verify_rtd_inputs(device_name)
+            self.verify_strain_gauge_inputs(device_name)
+            self.verify_temperature_built_in_sensor_inputs(device_name)
+        if mode == "d":
+            self.verify_thermocouple_inputs(device_name)
+            self.verify_torque_bridge_table_inputs(device_name)
+            self.verify_torque_bridge_two_point_linear_inputs(device_name)
+            self.verify_velocity_iepe_inputs(device_name)
 
-    def create_test_rack(self, rack_name: str, device_name: str) -> None:
+        ch_names = console.task.channels_by_name.copy()
+        random.shuffle(ch_names)
+        total = len(ch_names)
+        self._log_message(f"Asserting {total} channel forms in random order")
+        for ch in ch_names:
+            console.task.assert_channel(ch)
+
+    def create_test_rack(self, rack_name: str, device_name: str, mode:str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
         self.client.hardware.devices.create(
             [
                 sy.Device(
-                    key="130227d9-02aa-47e4-b370-0d590add1bc1",
+                    key=f"130227d9-02aa-47e4-b370-0d590add1bc{mode}",
                     rack=rack.key,
                     name=device_name,
                     make="NI",

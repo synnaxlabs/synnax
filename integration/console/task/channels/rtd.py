@@ -38,6 +38,7 @@ class RTD(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         temperature_units: Optional[
             Literal[
@@ -79,6 +80,7 @@ class RTD(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="RTD",
             **kwargs,

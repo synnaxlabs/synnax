@@ -30,12 +30,14 @@ class Voltage(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         **kwargs: Any,
     ) -> None:
         """Initialize voltage channel with configuration."""
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Voltage",
             **kwargs,

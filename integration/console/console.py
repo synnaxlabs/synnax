@@ -366,7 +366,7 @@ class Console:
         )
         input_field.fill(value)
 
-    def get_input_field(self, input_label: str) -> str:
+    def get_input_field(self, input_label: str, timeout: Optional[int] = 100) -> str:
         """Get the value of an input field by label."""
         input_field = (
             self.page.locator(f"text={input_label}")
@@ -374,7 +374,17 @@ class Console:
             .locator("input")
             .first
         )
-        return input_field.input_value()
+        return input_field.input_value(timeout=timeout)
+
+    def get_dropdown_value(self, dropdown_label: str) -> str:
+        """Get the current value of a dropdown by label."""
+        dropdown_button = (
+            self.page.locator(f"text={dropdown_label}")
+            .locator("..")
+            .locator("button")
+            .first
+        )
+        return dropdown_button.inner_text().strip()
 
     def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
         """Wait for and click a selector (by text)"""

@@ -2,11 +2,30 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console_Tests",
+      "sequence_name": "Form Input Verification",
+      "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/task/ni_ai_forms"
+          "case": "console/task/ni_ai_forms",
+          "name": "a"
         },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "b"
+        },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "c"
+        },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "d"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Task Status Verification",
+      "tests": [
         {
           "case": "console/task/no_device"
         }

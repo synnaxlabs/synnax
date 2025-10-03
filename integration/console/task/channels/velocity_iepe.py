@@ -28,6 +28,7 @@ class VelocityIEPE(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         velocity_units: Optional[
             Literal[
@@ -54,6 +55,7 @@ class VelocityIEPE(Analog):
     ) -> None:
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Velocity IEPE",
             **kwargs,

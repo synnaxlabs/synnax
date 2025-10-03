@@ -35,6 +35,7 @@ class Resistance(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         resistance_configuration: Optional[
             Literal[
@@ -57,6 +58,7 @@ class Resistance(Analog):
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             console=console,
+            name=name,
             device=device,
             type="Resistance",
             **kwargs,
