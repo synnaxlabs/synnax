@@ -73,7 +73,11 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   setNodes([...nextNodes]);
   setSelection([ontology.idToString(newID)]);
   const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
-  if (!renamed) return false;
+  if (!renamed) {
+    setNodes(prevNodes);
+    return false;
+  }
+
   return { ...data, prevNodes, group: { ...data.group, name: groupName } };
 };
 
