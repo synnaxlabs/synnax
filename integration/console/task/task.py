@@ -122,7 +122,7 @@ class Task(ConsolePage):
         # Handle device creation modal if it appears
         # Notifications will block the modal.
         console.close_all_notifications()
-        sy.sleep(0.2)  # Give modal time to appear
+        sy.sleep(0.3)  # Give modal time to appear
         if console.check_for_modal():
             console.close_all_notifications()
             sy.sleep(0.2)

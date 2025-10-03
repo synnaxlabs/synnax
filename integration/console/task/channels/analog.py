@@ -78,6 +78,7 @@ class Analog:
 
         # Get device (set by task.add_channel)
         values["Device"] = console.get_dropdown_value("Device")
+        sy.sleep(0.3)
 
         # Optional configurations
         if port is not None:
