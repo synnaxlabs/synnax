@@ -50,19 +50,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     TAGS=""; \
     if [ "$DRIVER_ENABLED" = "true" ]; then \
-        TAGS="${TAGS}driver"; \
+    TAGS="${TAGS}driver"; \
     fi; \
     if [ "$CONSOLE_ENABLED" = "true" ]; then \
-        if [ -n "$TAGS" ]; then TAGS="${TAGS},"; fi; \
-        TAGS="${TAGS}console"; \
+    if [ -n "$TAGS" ]; then TAGS="${TAGS},"; fi; \
+    TAGS="${TAGS}console"; \
     fi; \
     LDFLAGS="-w -s -X github.com/synnaxlabs/synnax/pkg/version.Version=${VERSION} -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${GIT_COMMIT} -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=${BUILD_DATE}"; \
     if [ -n "$TAGS" ]; then \
-        CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-        go build -trimpath -tags "$TAGS" -ldflags="${LDFLAGS}" -o synnax .; \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -tags "$TAGS" -ldflags="${LDFLAGS}" -o synnax .; \
     else \
-        CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-        go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
     fi
 
 # Stage 3: Minimal runtime image
