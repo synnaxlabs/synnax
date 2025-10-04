@@ -110,11 +110,15 @@ COPY --from=builder --chown=65532:65532 /synnax /synnax
 
 WORKDIR /synnax
 
-# Copy binary from builder
+# Copy binary and entrypoint script from builder
 COPY --from=builder /workspace/core/synnax /synnax/synnax
+COPY --from=builder /workspace/core/docker-entrypoint.sh /docker-entrypoint.sh
 
-# Use non-root user for security
-USER nonroot:nonroot
+# Install gosu for dropping privileges
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/* && \
+    chmod +x /docker-entrypoint.sh
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090
@@ -122,4 +126,4 @@ EXPOSE 9090
 # Use SIGTERM for graceful shutdown
 STOPSIGNAL SIGTERM
 
-ENTRYPOINT ["/synnax/synnax", "start"]
+ENTRYPOINT ["/docker-entrypoint.sh", "/synnax/synnax", "start"]
