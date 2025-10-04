@@ -76,8 +76,8 @@ RUN mkdir -p /usr/local/synnax \
     /home/nonroot/.cache \
     /synnax
 
-# Stage 3: Minimal runtime image
-FROM gcr.io/distroless/static-debian12:nonroot
+# Stage 3: Minimal runtime image with glibc for driver support
+FROM debian:12-slim
 
 # Pass build args to final stage
 ARG VERSION=
@@ -96,6 +96,13 @@ LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
+# Install minimal dependencies and create nonroot user
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 65532 nonroot && \
+    useradd -u 65532 -g nonroot -s /bin/false -m nonroot
+
 # Copy writable directories with proper permissions before setting up the rest
 COPY --from=builder --chown=65532:65532 /usr/local/synnax /usr/local/synnax
 COPY --from=builder --chown=65532:65532 /home/nonroot/.cache /home/nonroot/.cache
@@ -107,7 +114,7 @@ WORKDIR /synnax
 COPY --from=builder /workspace/core/synnax /synnax/synnax
 
 # Use non-root user for security
-USER 65532:65532
+USER nonroot:nonroot
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090
