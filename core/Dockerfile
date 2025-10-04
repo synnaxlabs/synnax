@@ -77,7 +77,7 @@ RUN mkdir -p /usr/local/synnax \
     /synnax
 
 # Stage 3: Minimal runtime image with glibc for driver support
-FROM debian:12-slim
+FROM ubuntu:24.04
 
 # Pass build args to final stage
 ARG VERSION=
