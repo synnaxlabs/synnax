@@ -20,6 +20,7 @@
 
 /// internal
 #include "driver/ni/channel/channels.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
 #include "driver/task/common/read_task.h"
@@ -46,6 +47,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the amount of sample skew needed to trigger a warning that the Synnax
     /// cannot keep up with the amount of clock skew.
     size_t skew_warn_on_count;
+    /// @brief the device resource name(s) used for DAQmx API calls. For single device
+    /// tasks this will have one entry, for cross-device tasks it will have multiple.
+    std::vector<std::string> device_resource_names;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -56,7 +60,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        skew_warn_on_count(other.skew_warn_on_count) {}
+        skew_warn_on_count(other.skew_warn_on_count),
+        device_resource_names(std::move(other.device_resource_names)) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -122,6 +127,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices[device.key] = device;
+            // Extract resource_name from device properties
+            try {
+                auto props = nlohmann::json::parse(device.properties);
+                if (props.contains("resource_name")) {
+                    this->device_resource_names.push_back(props["resource_name"].get<std::string>());
+                }
+            } catch (const std::exception &e) {
+                // Properties JSON parsing failed, skip resource name extraction
+            }
         } else {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
@@ -135,6 +149,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices = map_device_keys(devices_vec);
+            // Extract resource_names from all devices
+            for (const auto &dev: devices_vec) {
+                try {
+                    auto props = nlohmann::json::parse(dev.properties);
+                    if (props.contains("resource_name")) {
+                        this->device_resource_names.push_back(props["resource_name"].get<std::string>());
+                    }
+                } catch (const std::exception &e) {
+                    // Properties JSON parsing failed, skip resource name extraction
+                }
+            }
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
@@ -172,6 +197,26 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
+
+        // Validate sample rate against device minimum(s)
+        for (const auto &resource_name: this->device_resource_names) {
+            float64 min_rate = 0.0;
+            if (!dmx->GetDeviceAttributeDouble(
+                    resource_name.c_str(),
+                    DAQmx_Dev_AI_MinRate,
+                    &min_rate
+                )) {
+                if (this->sample_rate.hz() < min_rate) {
+                    return xerrors::Error(
+                        "ni.sample_rate_too_low",
+                        "configured sample rate (" + std::to_string(this->sample_rate.hz()) +
+                        " Hz) is below device minimum (" + std::to_string(min_rate) +
+                        " Hz) for " + resource_name
+                    );
+                }
+            }
+        }
+
         return dmx->CfgSampClkTiming(
             handle,
             this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
