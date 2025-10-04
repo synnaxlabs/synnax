@@ -1042,6 +1042,53 @@ describe("list", () => {
       });
     });
 
+    it("should accept a keyed record as the argument to onChange", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieve } = Flux.createList<
+            {},
+            ranger.Key,
+            ranger.Payload,
+            FluxStore
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            mountListeners: ({ store, onChange }) => store.ranges.onSet(onChange),
+          })();
+          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieve, value };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range 2");
+      });
+    });
+
     it("should correctly remove a list item when it gets deleted", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -1061,8 +1108,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onDelete }) =>
-              store.ranges.onDelete(async (changed) => onDelete(changed)),
+            mountListeners: ({ store, onDelete }) => store.ranges.onDelete(onDelete),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
