@@ -10,7 +10,7 @@
 import "@/lineplot/LinePlot.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel, ranger } from "@synnaxlabs/client";
+import { type channel, type lineplot, ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Annotation,

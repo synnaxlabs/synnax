@@ -82,9 +82,7 @@ export class Client {
     return isMany ? res.annotations : res.annotations[0];
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,

@@ -19,7 +19,6 @@ export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   bordered?: boolean;
-  padded?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
   padded?: boolean;
 }
@@ -47,7 +46,6 @@ export const Header = ({
   className,
   level = "p",
   divided = false,
-  padded,
   bordered = true,
   padded = false,
   ...rest

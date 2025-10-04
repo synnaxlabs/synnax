@@ -18,11 +18,12 @@ import {
   Button,
   Dialog,
   Flex,
+  type Flux,
   Form,
   Icon,
   List,
   Menu,
-  Ranger,
+  Telem,
   Text,
   User as PUser,
 } from "@synnaxlabs/pluto";
@@ -63,7 +64,7 @@ export const Item = ({
     [initialValues],
   );
   const { form, save } = Annotation.useForm({
-    params: {},
+    query: {},
     initialValues: values,
     sync: !isCreate,
     afterSave: ({ reset }) => {
@@ -71,9 +72,8 @@ export const Item = ({
       else setEdit(false);
     },
   });
-  const { data: creator } = PUser.retrieveCreator.useDirect({
-    params: { id: annotation.ontologyID(itemKey) },
-  });
+  const otgID = annotation.ontologyID(itemKey);
+  const { data: creator } = PUser.useRetrieveCreator({ id: otgID });
 
   const menuProps = Menu.useContextMenu();
 
@@ -92,15 +92,19 @@ export const Item = ({
     type: "Annotation",
   });
 
-  const { update: del } = Annotation.useDelete({ params: { key: itemKey } });
-
-  const handleDelete = useCallback(() => {
-    confirmDelete({
-      name: "This annotation",
-    })
-      .then((confirmed) => confirmed && del())
-      .catch(console.error);
-  }, [confirmDelete, del]);
+  const { update: del } = Annotation.useDelete({
+    beforeUpdate: useCallback(
+      async ({ data }: Flux.BeforeUpdateParams<PUser.DeleteParams>) => {
+        const confirmed = await confirmDelete({
+          name: "This annotation",
+        });
+        if (!confirmed) return false;
+        return data;
+      },
+      [],
+    ),
+  });
+  const handleDelete = useCallback(() => del(itemKey), [itemKey, del]);
 
   const username = creator?.username ?? currentUser.username;
 
@@ -132,14 +136,15 @@ export const Item = ({
         </Flex.Box>
         <Flex.Box x gap="small">
           {initialValues?.timeRange && (
-            <Ranger.TimeRangeChip
+            <Telem.Text.TimeRange
               level="small"
-              timeRange={initialValues.timeRange}
-              collapseZero
-              offsetFrom={parentStart}
-              showAgo
-              variant="outlined"
-            />
+              // collapseZero
+              // offsetFrom={parentStart}
+              // showAgo
+              // variant="outlined"
+            >
+              {initialValues.timeRange}
+            </Telem.Text.TimeRange>
           )}
           {!edit && (
             <Dialog.Frame

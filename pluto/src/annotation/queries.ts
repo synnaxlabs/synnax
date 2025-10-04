@@ -13,26 +13,29 @@ import z from "zod";
 import { type annotation as aetherAnnotation } from "@/annotation/aether";
 import { Flux } from "@/flux";
 
-export interface UseListParams extends annotation.RetrieveRequest {
+const RESOURCE_NAME = "Annotation";
+const PLURAL_RESOURCE_NAME = "Annotations";
+
+export interface ListQuery extends annotation.RetrieveRequest {
   parent?: ontology.ID;
 }
 
 export const useList = Flux.createList<
-  UseListParams,
+  ListQuery,
   annotation.Key,
   annotation.Annotation,
   aetherAnnotation.SubStore
 >({
-  name: "Annotations",
-  retrieve: async ({ params, client }) => {
-    if (params.parent == null) return [];
-    const children = await client.ontology.retrieveChildren(params.parent, {
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ query, client }) => {
+    if (query.parent == null) return [];
+    const children = await client.ontology.retrieveChildren(query.parent, {
       types: ["annotation"],
     });
     return await client.annotations.retrieve({ keys: children.map((c) => c.id.key) });
   },
   retrieveByKey: async ({ key, client }) => await client.annotations.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, params: { parent } }) => [
+  mountListeners: ({ store, onChange, onDelete, query: { parent } }) => [
     store.annotations.onSet(async (changed) => {
       onChange(changed.key, (prev) => {
         if (prev == null) return null;
@@ -75,11 +78,11 @@ const ZERO_FORM_VALUES = {
   parent: undefined,
 };
 
-interface UseFormParams {
+interface FormQuery {
   key?: annotation.Key;
 }
 
-const annotationToFormValues = (
+const toFormValues = (
   annotation: annotation.Annotation,
 ): z.output<typeof formSchema> => ({
   key: annotation.key,
@@ -89,44 +92,39 @@ const annotationToFormValues = (
 });
 
 export const useForm = Flux.createForm<
-  UseFormParams,
+  FormQuery,
   typeof formSchema,
   aetherAnnotation.SubStore
 >({
-  name: "Annotation",
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params: { key }, ...form }) => {
+  retrieve: async ({ client, query: { key }, ...form }) => {
     if (key == null) return undefined;
     const annotation = await client.annotations.retrieve({ key });
-    form.reset(annotationToFormValues(annotation));
+    form.reset(toFormValues(annotation));
   },
-  update: async ({ params, client, store, ...form }) => {
-    const value = form.value();
-    if (value.parent == null) return;
-    let timeRange = TimeRange.z.parse(value.timeRange);
+  update: async ({ client, store, ...form }) => {
+    const { key, message, parent, ...rest } = form.value();
+    if (parent == null) return;
+    let timeRange = TimeRange.z.parse(rest.timeRange);
     if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);
     const annotation = await client.annotations.create(
-      {
-        key: params.key ?? value.key,
-        message: value.message,
-        timeRange,
-      },
-      value.parent,
+      { key, message, timeRange },
+      parent,
     );
     store.annotations.set(annotation.key, annotation);
   },
 });
 
-export interface UseDeleteParams {
-  key: annotation.Key;
-}
-
-export const useDelete = Flux.createUpdate<
-  UseDeleteParams,
-  void,
+export const { useUpdate: useDelete } = Flux.createUpdate<
+  annotation.Key | annotation.Key[],
   aetherAnnotation.SubStore
 >({
-  name: "Annotation",
-  update: async ({ params, client }) => await client.annotations.delete(params.key),
-}).useDirect;
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ data, client }) => {
+    await client.annotations.delete(data);
+    return data;
+  },
+});

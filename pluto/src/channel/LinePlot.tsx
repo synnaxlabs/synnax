@@ -25,10 +25,7 @@ import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
-import { LinePlot as Core } from "@/vis/lineplot";
 import { Annotation } from "@/vis/lineplot/annotation";
-import { Range } from "@/vis/lineplot/range";
-import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
 

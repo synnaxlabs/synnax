@@ -43,6 +43,7 @@ export const resourceTypeZ = z.enum([
   "arc",
   "schematic_symbol",
   "status",
+  "annotation",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
@@ -110,6 +111,7 @@ export const relationshipToString = (relationship: Relationship) =>
   `${idToString(relationship.from)}->${relationship.type}->${idToString(relationship.to)}`;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
+export const CREATOR_RELATIONSHIP_TYPE = "creator";
 
 export interface MatchRelationshipArgs {
   from?: Partial<ID>;

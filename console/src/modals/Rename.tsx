@@ -79,7 +79,6 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             variant="text"
             value={name}
             onChange={setName}
-            selectOnFocus
           />
         </Input.Item>
       </ModalContentLayout>

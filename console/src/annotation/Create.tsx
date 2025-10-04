@@ -64,7 +64,7 @@ export const Create: Layout.Renderer = (props) => {
   const clientExists = client != null;
 
   const { form, save, variant } = Annotation.useForm({
-    params: { key: args?.key },
+    query: { key: args?.key },
     autoSave: false,
     initialValues: {
       key: uuid.create(),
@@ -101,8 +101,8 @@ export const Create: Layout.Renderer = (props) => {
             </Form.Field>
             <Form.Field<ontology.ID> path="parent" label="Parent Range">
               {({ onChange, value }) => (
-                <Ranger.SelectSingle
-                  style={{ width: "100%" }}
+                <Ranger.Select
+                  full="x"
                   value={value?.key}
                   onChange={(v: ranger.Key) => {
                     if (v == null) return;

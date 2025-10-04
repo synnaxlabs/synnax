@@ -11,16 +11,9 @@ import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { annotation } from "@/lineplot/annotation/aether";
 import { range } from "@/lineplot/range/aether";
 import { type FindResult } from "@/vis/line/aether/line";
-import {
-  type AxisRenderProps,
-  CoreAxis,
-  coreAxisStateZ,
-} from "@/vis/lineplot/aether/axis";
-import { YAxis } from "@/vis/lineplot/aether/YAxis";
-import { annotation } from "@/vis/lineplot/annotation/aether";
-import { range } from "@/vis/lineplot/range/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
 

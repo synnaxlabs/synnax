@@ -16,7 +16,7 @@ import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
-export type UseDeleteArgs = user.Key | user.Key[];
+export type DeleteParams = user.Key | user.Key[];
 
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
@@ -31,13 +31,11 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   listeners: [],
 };
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Ontology.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
@@ -132,7 +130,7 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
 };
 
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
-  name: "User",
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key }, reset, store }) => {
@@ -142,5 +140,21 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   },
   update: async ({ client, value }) => {
     await client.users.create(value());
+  },
+});
+
+interface RetrieveCreatoryQuery {
+  id: ontology.ID;
+}
+
+export const { useRetrieve: useRetrieveCreator } = Flux.createRetrieve<
+  RetrieveCreatoryQuery,
+  user.User,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async (params) => {
+    const userOtgID = await Ontology.retrieveCreatorID(params);
+    return await retrieveSingle({ ...params, query: { key: userOtgID.key } });
   },
 });

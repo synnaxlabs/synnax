@@ -17,7 +17,7 @@ export interface AnnotationsProps {
 }
 
 export const Annotations = ({ rangeKey }: AnnotationsProps) => {
-  const range = Ranger.useRetrieve({ params: { key: rangeKey } });
+  const range = Ranger.useRetrieve({ key: rangeKey });
   return (
     <Flex.Box y>
       <Header.Header level="h4" borderColor={5} padded>

@@ -13,7 +13,7 @@ export interface AnnotationListProps {
 
 export const List = ({ parent, parentStart }: AnnotationListProps) => {
   const { data, getItem, retrieve, subscribe } = Annotation.useList({
-    initialParams: { parent },
+    initialQuery: { parent },
   });
   const { fetchMore } = PList.usePager({ retrieve });
 

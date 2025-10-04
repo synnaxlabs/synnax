@@ -223,10 +223,3 @@ export class LinePlot extends aether.Composite<
     });
   }
 }
-
-export const REGISTRY: aether.ComponentRegistry = {
-  [LinePlot.TYPE]: LinePlot,
-  [XAxis.TYPE]: XAxis,
-  [YAxis.TYPE]: YAxis,
-  [BoundQuerier.TYPE]: BoundQuerier,
-};

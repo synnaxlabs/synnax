@@ -177,6 +177,42 @@ export const retrieveParentID = async ({
   return res[0].id;
 };
 
+export interface RetrieveCreatorIDQuery {
+  id: ontology.ID;
+}
+
+const retrieveCachedCreatorID = (
+  store: FluxSubStore,
+  id: ontology.ID,
+): ontology.ID | null => {
+  const rel = store.relationships.get(
+    ontology.relationshipToString({
+      from: id,
+      type: ontology.CREATOR_RELATIONSHIP_TYPE,
+      to: id,
+    }),
+  );
+  return rel?.from ?? null;
+};
+
+export const retrieveCreatorID = async ({
+  client,
+  query: { id },
+  store,
+}: Flux.RetrieveParams<RetrieveCreatorIDQuery, FluxSubStore>): Promise<ontology.ID> => {
+  const cached = retrieveCachedCreatorID(store, id);
+  if (cached != null) return cached;
+  const res = await client.ontology.retrieve({ ids: [id], creator: true });
+  store.resources.set(res);
+  const rel: ontology.Relationship = {
+    from: res[0].id,
+    type: ontology.CREATOR_RELATIONSHIP_TYPE,
+    to: id,
+  };
+  store.relationships.set(ontology.relationshipToString(rel), rel);
+  return res[0].id;
+};
+
 export const filterRelationshipsThatHaveIDs =
   (resources: ontology.ID[]) => (rel: ontology.Relationship) =>
     resources.some(

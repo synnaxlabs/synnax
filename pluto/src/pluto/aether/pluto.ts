@@ -14,10 +14,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { flux } from "@/flux/aether";
-import { ontology } from "@/ontology/aether";
 import { lineplot } from "@/lineplot/aether";
-import { range } from "@/lineplot/range/aether";
-import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
@@ -34,11 +31,6 @@ import { eraser } from "@/vis/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
-import { lineplot } from "@/vis/lineplot/aether";
-import { annotation } from "@/vis/lineplot/annotation/aether";
-import { range } from "@/vis/lineplot/range/aether";
-import { tooltip } from "@/vis/lineplot/tooltip/aether";
-import { log } from "@/vis/log/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
@@ -53,8 +45,8 @@ const STORE_CONFIG: flux.StoreConfig<{
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
-  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
-  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
 };
 
 export const render = (): void => {
@@ -72,9 +64,7 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
-    ...annotation.REGISTRY,
     ...measure.REGISTRY,
-    ...range.REGISTRY,
     ...rule.REGISTRY,
     ...setpoint.REGISTRY,
     ...status.REGISTRY,
@@ -82,7 +72,6 @@ export const render = (): void => {
     ...telem.REGISTRY,
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
-    ...tooltip.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
