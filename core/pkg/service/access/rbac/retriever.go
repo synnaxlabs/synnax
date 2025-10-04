@@ -24,20 +24,20 @@ type Retriever struct {
 }
 
 func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
-	r.gorp = r.gorp.Where(func(p *Policy) bool {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, p *Policy) (bool, error) {
 		for _, subject := range p.Subjects {
 			if lo.Contains(subjects, subject) {
-				return true
+				return true, nil
 			}
 			if subject.IsType() {
 				for _, s := range subjects {
 					if s.Type == subject.Type {
-						return true
+						return true, nil
 					}
 				}
 			}
 		}
-		return false
+		return false, nil
 	})
 	return r
 }

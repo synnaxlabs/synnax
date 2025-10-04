@@ -170,7 +170,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 	return gorp.NewUpdate[uuid.UUID, Group]().
 		WhereKeys(key).
-		Change(func(g Group) Group {
+		Change(func(_ gorp.Context, g Group) Group {
 			g.Name = name
 			return g
 		}).

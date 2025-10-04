@@ -393,14 +393,14 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			Expect(r.SetKV(ctx, "key1", "value1")).To(Succeed())
 			Expect(r.SetKV(ctx, "key2", "value2")).To(Succeed())
-			meta, err := r.ListKV()
+			meta, err := r.ListKV(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta).To(Equal([]ranger.KVPair{
 				{Range: r.Key, Key: "key1", Value: "value1"},
 				{Range: r.Key, Key: "key2", Value: "value2"},
 			}))
 			Expect(r.DeleteKV(ctx, "key1")).To(Succeed())
-			meta, err = r.ListKV()
+			meta, err = r.ListKV(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta).To(Equal([]ranger.KVPair{
 				{Range: r.Key, Key: "key2", Value: "value2"},

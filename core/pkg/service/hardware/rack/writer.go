@@ -61,8 +61,8 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 }
 
 // DeleteGuard deletes the rack with the given key if the provided guard function returns nil.
-func (w Writer) DeleteGuard(ctx context.Context, key Key, filter func(Rack) error) error {
-	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(filter).Exec(ctx, w.tx)
+func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[Key, Rack]) error {
+	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(guard).Exec(ctx, w.tx)
 }
 
 // NewTaskKey returns a new, unique key for the task on the provided rack.
