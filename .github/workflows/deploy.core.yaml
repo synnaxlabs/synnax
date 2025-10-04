@@ -348,10 +348,12 @@ jobs:
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Build
         working-directory: core
