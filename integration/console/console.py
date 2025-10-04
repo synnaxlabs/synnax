@@ -342,7 +342,7 @@ class Console:
             .locator("button")
             .first
         )
-        button.wait_for(state="attached", timeout=5000)
+        button.wait_for(state="attached", timeout=500)
         button.click(force=True)
 
     def get_toggle(self, toggle_label: str) -> bool:
@@ -363,7 +363,7 @@ class Console:
             .locator("input[type='checkbox']")
             .first
         )
-        checkbox.wait_for(state="attached", timeout=5000)
+        checkbox.wait_for(state="attached", timeout=500)
         checkbox.click()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
@@ -374,7 +374,7 @@ class Console:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=5000)
+        input_field.wait_for(state="attached", timeout=500)
         input_field.fill(value)
 
     def get_input_field(self, input_label: str) -> str:
@@ -385,8 +385,8 @@ class Console:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=300)
-        return input_field.input_value(timeout=100)
+        input_field.wait_for(state="attached", timeout=500)
+        return input_field.input_value(timeout=500)
 
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
@@ -396,7 +396,7 @@ class Console:
             .locator("button")
             .first
         )
-        dropdown_button.wait_for(state="attached", timeout=5000)
+        dropdown_button.wait_for(state="attached", timeout=500)
         return dropdown_button.inner_text().strip()
 
     def get_selected_button(self, button_options: list[str]) -> str:
@@ -405,7 +405,7 @@ class Console:
             try:
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
-                    button.wait_for(state="attached", timeout=5000)
+                    button.wait_for(state="attached", timeout=500)
                     class_name = button.get_attribute("class") or ""
                     if "pluto-btn--filled" in class_name:
                         return option
@@ -417,7 +417,7 @@ class Console:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         element = self.page.get_by_text(selector, exact=True).first
-        element.wait_for(state="attached", timeout=5000)
+        element.wait_for(state="attached", timeout=500)
         element.click()
 
     def check_for_modal(self) -> bool:
