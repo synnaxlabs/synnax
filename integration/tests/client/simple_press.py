@@ -47,7 +47,6 @@ class Simple_Press(TestCase):
             write=[PRESS_VALVE, VENT_VALVE, END_TEST_CMD],
             read=[PRESSURE],
         ) as ctrl:
-
             target_pressure = 20
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False

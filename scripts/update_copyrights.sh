@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # Find git repository root
-GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
 # Get search path: git_root + optional subdirectory argument
 SUBDIR="${1:-}"
@@ -27,7 +27,7 @@ fi
 CURRENT_YEAR=$(date +%Y)
 
 # Define copyright headers for different comment styles
-read -r -d '' HEADER_SLASHES <<'EOF' || true
+read -r -d '' HEADER_SLASHES << 'EOF' || true
 // Copyright YEAR Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -39,7 +39,7 @@ read -r -d '' HEADER_SLASHES <<'EOF' || true
 
 EOF
 
-read -r -d '' HEADER_HASH <<'EOF' || true
+read -r -d '' HEADER_HASH << 'EOF' || true
 #  Copyright YEAR Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
@@ -51,7 +51,7 @@ read -r -d '' HEADER_HASH <<'EOF' || true
 
 EOF
 
-read -r -d '' HEADER_C_STYLE <<'EOF' || true
+read -r -d '' HEADER_C_STYLE << 'EOF' || true
 /*
  * Copyright YEAR Synnax Labs, Inc.
  *
@@ -105,12 +105,12 @@ update_file() {
 
     # Read the first lines to check for existing copyright
     local first_line
-    first_line=$(head -n 1 "$file" 2>/dev/null || true)
+    first_line=$(head -n 1 "$file" 2> /dev/null || true)
 
     # Check if file already has correct copyright
     if [ "$ext" = "css" ]; then
         local second_line
-        second_line=$(head -n 2 "$file" 2>/dev/null | tail -n 1 || true)
+        second_line=$(head -n 2 "$file" 2> /dev/null | tail -n 1 || true)
 
         if [[ "$second_line" =~ Copyright.*$CURRENT_YEAR.*Synnax\ Labs ]]; then
             # Check if full header is correct
@@ -153,7 +153,7 @@ update_file() {
         # Replace existing header
         # Check if the old header has a blank line after it (line 9 for most, line 11 for CSS)
         local line_after_header_no_blank
-        line_after_header_no_blank=$(sed -n "$((header_lines_without_blank + 1))p" "$file" 2>/dev/null || true)
+        line_after_header_no_blank=$(sed -n "$((header_lines_without_blank + 1))p" "$file" 2> /dev/null || true)
 
         # Write new header to temp file
         printf "%s\n\n" "$new_header" > "$temp_file"
@@ -207,7 +207,7 @@ done < <(find "$SEARCH_PATH" \
     -path "*/generated" -prune -o \
     -path "*/.tauri" -prune -o \
     -path "*/binaries" -prune -o \
-    -type f \( -name '*.go' -o -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.cxx' -o -name '*.css' \) -print0 2>/dev/null)
+    -type f \( -name '*.go' -o -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.cxx' -o -name '*.css' \) -print0 2> /dev/null)
 
 # Print results
 echo "Processed $TOTAL_FILES files"

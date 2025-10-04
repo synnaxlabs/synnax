@@ -35,7 +35,6 @@ class Plot(ConsolePage):
     def add_Y(
         self, axis: Literal["Y1", "Y2"], channel_ids: Union[str, List[str]]
     ) -> None:
-
         channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
 
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
