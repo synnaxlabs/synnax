@@ -229,7 +229,6 @@ class Console:
         Check for notifications in the bottom right corner.
         Returns a list of notification dictionaries with details.
         """
-        self.page.wait_for_timeout(55)  # <- Hope to remove
 
         notifications = []
         notification_elements = self.page.locator(".pluto-notification").all()
@@ -295,7 +294,7 @@ class Console:
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
-                close_button.wait_for(state="attached", timeout=5000)
+                close_button.wait_for(state="attached", timeout=500)
                 close_button.click()
                 return True
             return False
@@ -342,7 +341,7 @@ class Console:
             .locator("button")
             .first
         )
-        button.wait_for(state="attached", timeout=500)
+        button.wait_for(state="attached", timeout=300)
         button.click(force=True)
 
     def get_toggle(self, toggle_label: str) -> bool:
@@ -363,7 +362,7 @@ class Console:
             .locator("input[type='checkbox']")
             .first
         )
-        checkbox.wait_for(state="attached", timeout=500)
+        checkbox.wait_for(state="attached", timeout=300)
         checkbox.click()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
@@ -374,7 +373,7 @@ class Console:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=500)
+        input_field.wait_for(state="attached", timeout=300)
         input_field.fill(value)
 
     def get_input_field(self, input_label: str) -> str:
@@ -385,8 +384,8 @@ class Console:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=500)
-        return input_field.input_value(timeout=500)
+        input_field.wait_for(state="attached", timeout=300)
+        return input_field.input_value(timeout=300)
 
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
@@ -396,7 +395,7 @@ class Console:
             .locator("button")
             .first
         )
-        dropdown_button.wait_for(state="attached", timeout=500)
+        dropdown_button.wait_for(state="attached", timeout=300)
         return dropdown_button.inner_text().strip()
 
     def get_selected_button(self, button_options: list[str]) -> str:
@@ -405,7 +404,7 @@ class Console:
             try:
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
-                    button.wait_for(state="attached", timeout=500)
+                    button.wait_for(state="attached", timeout=300)
                     class_name = button.get_attribute("class") or ""
                     if "pluto-btn--filled" in class_name:
                         return option
@@ -417,7 +416,7 @@ class Console:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         element = self.page.get_by_text(selector, exact=True).first
-        element.wait_for(state="attached", timeout=500)
+        element.wait_for(state="attached", timeout=300)
         element.click()
 
     def check_for_modal(self) -> bool:
