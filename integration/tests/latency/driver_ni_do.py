@@ -167,6 +167,45 @@ class DriverNiDo(TestCase):
         latencies_core_ms = np.array(latencies_core)
         latencies_loop_ms = np.array(latencies_loop)
 
+        # Get statistics
+        stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
+        stats_loop = self.calculate_stats(
+            latencies_loop_ms, "Loop Latency (Python timestamp)"
+        )
+
+        # Create range for the latency benchmark
+        self._log_message("Creating latency_benchmark range")
+        latency_range = client.ranges.create(
+            name="Latency Benchmark: NI DO Driver Loop-back",
+            time_range=sy.TimeRange(time_index[0], time_index[-1]),
+        )
+
+        # Add metadata to the range
+        self._log_message("Adding metadata to range")
+        machine_name = get_machine_info()
+        memory_info = get_memory_info()
+        cpu_cores = get_cpu_cores()
+
+        latency_range.meta_data.set(
+            {
+                "machine": machine_name,
+                "memory": memory_info if memory_info else "",
+                "cpu_cores": cpu_cores if cpu_cores else "",
+                "driver_mean_ms": round(stats_core["mean"], 3),
+                "driver_median_ms": round(stats_core["median"], 3),
+                "driver_std_ms": round(stats_core["std"], 3),
+                "driver_p90_ms": round(stats_core["p90"], 3),
+                "driver_p95_ms": round(stats_core["p95"], 3),
+                "driver_p99_ms": round(stats_core["p99"], 3),
+                "loopback_mean_ms": round(stats_loop["mean"], 3),
+                "loopback_median_ms": round(stats_loop["median"], 3),
+                "loopback_std_ms": round(stats_loop["std"], 3),
+                "loopback_p90_ms": round(stats_loop["p90"], 3),
+                "loopback_p95_ms": round(stats_loop["p95"], 3),
+                "loopback_p99_ms": round(stats_loop["p99"], 3),
+            }
+        )
+
         # Create latency channels and publish to Synnax
         latency_time = client.channels.create(
             name="latency_time",
@@ -200,12 +239,6 @@ class DriverNiDo(TestCase):
                     latency_loop_ch.key: latencies_loop_ms,
                 }
             )
-
-        # Get statistics
-        stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
-        stats_loop = self.calculate_stats(
-            latencies_loop_ms, "Loop Latency (Python timestamp)"
-        )
 
         self.plot_latencies(
             latencies_core_ms, latencies_loop_ms, stats_core, stats_loop
