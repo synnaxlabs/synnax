@@ -355,6 +355,7 @@ jobs:
 
       - name: Build
         working-directory: core
+        shell: bash
         run: |
           go build -tags console,driver \
             -ldflags="-w -s \
