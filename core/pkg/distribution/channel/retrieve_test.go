@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -159,25 +161,26 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG-----222",
+					Name:     "YXG-----222",
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG-----223",
+					Name:     "catalina",
 				},
 			}
 			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
+			time.Sleep(5 * time.Millisecond)
 			var resChannels []channel.Channel
 			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Search("SG-----222").
+				Search("catalina").
 				Entries(&resChannels).
 				Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resChannels)).To(BeNumerically(">", 0))
-			Expect(resChannels[0].Name).To(Equal("SG-----222"))
+			Expect(resChannels[0].Name).To(Equal("catalina"))
 
 		})
 	})

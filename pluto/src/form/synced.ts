@@ -17,7 +17,7 @@ import { type OnChangeArgs, use, type UseArgs, type UseReturn } from "@/form/use
 import { useAsyncEffect } from "@/hooks";
 import { useMemoPrimitiveArray } from "@/memo";
 import { Observe } from "@/observe";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
 interface QueryFnProps {

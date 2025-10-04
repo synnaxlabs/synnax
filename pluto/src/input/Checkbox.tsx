@@ -26,5 +26,5 @@ export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {}
  * @default "medium"
  */
 export const Checkbox = (props: CheckboxProps): ReactElement => (
-  <Boolean inputType="checkbox" {...props} />
+  <Boolean {...props} inputType="checkbox" />
 );

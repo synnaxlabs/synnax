@@ -14,13 +14,16 @@ import { z } from "zod";
 export const VERSION = "0.0.0";
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.variantZ,
+  key: Schematic.Symbol.variantZ,
   color: color.crudeZ.optional(),
   label: z.looseObject({ label: z.string().optional() }).optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
-export const edgePropsZ = Diagram.edgeZ.pick({ color: true, variant: true });
+export const edgePropsZ = z.object({
+  color: color.crudeZ.optional(),
+  variant: Schematic.edgeTypeZ.optional(),
+});
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
 export const stateZ = z.object({
@@ -77,9 +80,15 @@ const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props
 export const toolbarTabZ = z.enum(["symbols", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
+export const toolbarStateZ = z.object({
+  activeTab: toolbarTabZ,
+  selectedSymbolGroup: z.string().optional().default("general"),
+});
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
-export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "symbols" };
+export const ZERO_TOOLBAR_STATE: ToolbarState = {
+  activeTab: "symbols",
+  selectedSymbolGroup: "general",
+};
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),

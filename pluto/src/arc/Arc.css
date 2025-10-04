@@ -1,0 +1,58 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-arc {
+    .react-flow__handle {
+        width: round(1.25rem, 1px);
+        height: round(1.25rem, 1px);
+        background: transparent !important;
+        &.react-flow__handle-right {
+            transform: translate(0%, -50%) !important;
+        }
+        &.react-flow__handle-left {
+            transform: translate(-10%, -50%) !important;
+        }
+    }
+    .react-flow__edge-path {
+        stroke-width: 1.5px !important;
+        stroke: var(--pluto-gray-l8) !important;
+    }
+
+    .react-flow__node.selected .pluto-arc__stage > div {
+        border-color: var(--pluto-primary-z);
+    }
+
+    &.pluto--editable {
+        .react-flow__handle {
+            &::after {
+                content: "";
+                position: absolute;
+                top: -20%;
+                width: 100%;
+                height: 100%;
+                border-radius: 30% !important;
+                background: var(--pluto-gray-l0) !important;
+            }
+            &.react-flow__handle-right::after {
+                left: 50%;
+            }
+            &.react-flow__handle-left::after {
+                right: 50%;
+            }
+            &.source::after {
+                border: 1px solid var(--pluto-primary-z-80) !important;
+            }
+            &.target::after {
+                border: 1px solid var(--pluto-secondary-z-80) !important;
+            }
+        }
+    }
+}

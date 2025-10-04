@@ -12,6 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,
   keyZ,
@@ -29,14 +30,26 @@ const RENAME_ENDPOINT = "/workspace/log/rename";
 const SET_DATA_ENDPOINT = "/workspace/log/set-data";
 const DELETE_ENDPOINT = "/workspace/log/delete";
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
-const createReqZ = z.object({ workspace: workspaceKeyZ, logs: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ logs: logZ.array() });
+const retrieveReqZ = z.object({ keys: keyZ.array() });
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+
+const retrieveResZ = z.object({ logs: array.nullableZ(logZ) });
+
+const createReqZ = z.object({ workspace: workspaceKeyZ, logs: newZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
+
 const emptyResZ = z.object({});
 
 export class Client {
@@ -80,22 +93,23 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Log>;
-  async retrieve(keys: Key[]): Promise<Log[]>;
-  async retrieve(keys: Params): Promise<Log | Log[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: RetrieveSingleParams): Promise<Log>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Log[]>;
+  async retrieve(
+    args: RetrieveSingleParams | RetrieveMultipleParams,
+  ): Promise<Log | Log[]> {
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.logs : res.logs[0];
+    checkForMultipleOrNoResults("Log", args, res.logs, isSingle);
+    return isSingle ? res.logs[0] : res.logs;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,

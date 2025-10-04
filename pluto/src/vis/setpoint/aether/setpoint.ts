@@ -14,7 +14,7 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
-export const setpointStateZ = z.object({
+export const stateZ = z.object({
   trigger: z.number(),
   command: z.number().optional(),
   value: z.number(),
@@ -22,7 +22,7 @@ export const setpointStateZ = z.object({
   source: telem.numberSourceSpecZ.optional().default(telem.noopNumericSourceSpec),
 });
 
-export type SetpointState = z.input<typeof setpointStateZ>;
+export type SetpointState = z.input<typeof stateZ>;
 
 interface InternalState {
   source: telem.NumberSource;
@@ -32,44 +32,42 @@ interface InternalState {
 }
 
 // Setpoint is a component that acts as a switch, commanding a boolean telemetry sink to
-// change its value when clicked. It also listens to a boolean telemetry source to update
-// its setpoint state.
+// change its value when clicked. It also listens to a boolean telemetry source to
+// update its setpoint state.
 export class Setpoint
-  extends aether.Leaf<typeof setpointStateZ, InternalState>
+  extends aether.Leaf<typeof stateZ, InternalState>
   implements diagram.Element
 {
   static readonly TYPE = "Setpoint";
 
-  schema = setpointStateZ;
+  schema = stateZ;
 
   afterUpdate(ctx: aether.Context): void {
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
-    void (async () => {
-      this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
-      i.sink = telem.useSink(ctx, sinkProps, i.sink);
+    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+    i.sink = telem.useSink(ctx, sinkProps, i.sink);
 
-      const prevTrigger = i.prevTrigger;
-      i.prevTrigger = trigger;
+    const prevTrigger = i.prevTrigger;
+    i.prevTrigger = trigger;
 
-      if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
+    if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
 
-      this.updateValue();
-      i.stopListening?.();
-      i.stopListening = i.source.onChange(() => this.updateValue());
-    })();
+    this.updateValue();
+    i.stopListening?.();
+    i.stopListening = i.source.onChange(() => this.updateValue());
   }
 
   private updateValue(): void {
     const nextValue = this.internal.source.value();
-    if (nextValue === this.state.value) return;
+    if (nextValue === this.state.value || isNaN(nextValue)) return;
     this.setState((p) => ({ ...p, value: nextValue, triggered: false }));
   }
 
   afterDelete(): void {
     const { internal: i } = this;
-    i.stopListening();
+    i.stopListening?.();
     i.source.cleanup?.();
     i.sink.cleanup?.();
   }

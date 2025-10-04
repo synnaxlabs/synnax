@@ -18,7 +18,6 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
-import { type ChipStatusDetails } from "@/telem/control/aether/chip";
 import { Text } from "@/text";
 
 export interface ChipProps
@@ -32,7 +31,9 @@ interface ChipStyle {
   disabled?: boolean;
 }
 
-const tooltipMessage = (status: status.Status<ChipStatusDetails>): ChipStyle => {
+const tooltipMessage = (
+  status: status.Status<typeof control.chipStatusDetailsZ>,
+): ChipStyle => {
   switch (status.variant) {
     case "disabled":
       if (status.details?.valid === true)

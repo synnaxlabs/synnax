@@ -1,9 +1,9 @@
 # 12 - Live Telemetry
 
-**Feature Name**: Live Telemetry <br />
-**Start Date** 2023-05-01 <br />
-**Authors**: Emiliano Bonilla <br />
-**Status**: Draft <br />
+- **Feature Name**: Live Telemetry
+- **Start Date** 2023-05-01
+- **Authors**: Emiliano Bonilla
+- **Status**: Draft
 
 # 0 - Summary
 
@@ -33,8 +33,8 @@ software while still providing our users with sufficient flexibility to meet the
 needs.
 
 This approach is not novel, and, most notably, has played a major role in the simplicity
-of Cesium's storage architecture. As we extend our storage and distribution systems,
-we need to keep leveraging these fundamentals to our advantage.
+of Cesium's storage architecture. As we extend our storage and distribution systems, we
+need to keep leveraging these fundamentals to our advantage.
 
 I've decided these are so important that they deserve a page of their own,
 [here](/docs/tech/telemetry.md).
@@ -47,8 +47,8 @@ I've decided these are so important that they deserve a page of their own,
 
 ## 5.1 - Event Channels
 
-Event channels are built for two workloads: highly irregular, low volume telemetry
-and multi-writer scenarios. The former allows us to support
+Event channels are built for two workloads: highly irregular, low volume telemetry and
+multi-writer scenarios. The former allows us to support
 [supervisory](/docs/tech/telemetry.md#33---supervisory-commands) control, and the latter
 enables [real-time](/docs/tech/telemetry.md#32---real-time-commands) control by multiple
 clients. Supporting this use case is critical for allowing human and auto-sequence
@@ -128,14 +128,14 @@ pipeline if the channel buffer fills completely.
 Solving this problem depends heavily on the delivery guarantees we're trying to satisfy:
 Is it ok to drop frames or close hanging sockets to maintain a fixed capacity buffer
 while making sure the write pipeline never gets clogged? Or should we allow for infinite
-(within reason) buffering to give slow subscribers extensive leeway? The first
-is, in principle, the less fault-tolerant and forgiving approach at the cost of
-performance and missing subtle leaks.
+(within reason) buffering to give slow subscribers extensive leeway? The first is, in
+principle, the less fault-tolerant and forgiving approach at the cost of performance and
+missing subtle leaks.
 
 A practical implementation for the first method would resemble the following:
 
 ```go
-package irrelivant
+package irrelevant
 
 func main() {
     // Relatively large buffer.
@@ -152,7 +152,7 @@ goroutine that we use to explicitly cancel a send operation after a certain amou
 time.
 
 ```go
-package irrelivant
+package irrelevant
 
 import (
     "log"
@@ -187,16 +187,15 @@ may be executing at several kilohertz for extended periods of time.
 The distribution layer extends the storage layer to relay telemetry from other nodes. It
 leverages similar routing functionality to both the `framer.iterator` and
 `framer.writer` services, using channel keys to resolve leaseholders and open streaming
-connections.
-It's interface exposes a cluster-wide monolithic relay that allows callers in the
-service and API layers to access live channel data without being aware of the cluster
-topology.
+connections. It's interface exposes a cluster-wide monolithic relay that allows callers
+in the service and API layers to access live channel data without being aware of the
+cluster topology.
 
 The distribution layer relay has one crucial difference from the two services mentioned
 above: it multiplexes requests for live telemetry across a single stream. Unlike writers
-or iterators, relay reads have no-cross node state to maintain, and all consumers of
-the relay are accessing filtered views of the same data. Instead of opening a socket
-for each reader that needs to consume from the relay, we keep track of the channels each
+or iterators, relay reads have no-cross node state to maintain, and all consumers of the
+relay are accessing filtered views of the same data. Instead of opening a socket for
+each reader that needs to consume from the relay, we keep track of the channels each
 reader wants to receive data for. These channels are called demands. When a new reader
 wants to consume frames, it sends the relay a demand request. The gateway relay
 normalizes the demands from each reader, and opens a new socket to a peer relay or the
@@ -212,7 +211,6 @@ where they are filtered only for the channels that the reader requested.
     <h5 align="middle">Distribution Relay</h5>
 </p>
 
-
 The impetus is that the **number of telemetry readers is much larger than the number of
 writers**. With this approach we can drastically reduce read amplification between peers
 in the cluster, and hopefully minimize congestion in the storage layer write pipeline as
@@ -223,10 +221,11 @@ well.
 ## 6.0 - Framing Flight Protocol
 
 Profiling Synnax in production since the `v0.1.0` release has shown that
-serialization/deserialization has the greates impact on frame read and write
+serialization/deserialization has the greatest impact on frame read and write
 performance. Telemetry streaming leads to many more, considerably smaller frames than
 post-processed writes and bulk ingestion. Implementing an efficient flight protocol for
-telemetry frames is a priority for achieving high throughput and efficient resource utilization.
+telemetry frames is a priority for achieving high throughput and efficient resource
+utilization.
 
 ## 6.1 - Anti-Jitter
 

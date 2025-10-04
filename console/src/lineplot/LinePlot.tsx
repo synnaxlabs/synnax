@@ -39,7 +39,6 @@ import {
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import {
   type ReactElement,
   useCallback,
@@ -52,7 +51,7 @@ import { useDispatch } from "react-redux";
 
 import { Annotation as AnnotationServices } from "@/annotation";
 import { Menu } from "@/components";
-import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   type AxisKey,
@@ -98,27 +97,17 @@ import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
 import { Workspace } from "@/workspace";
 
-interface SyncPayload {
-  key?: string;
-}
-
-const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "Line Plot",
-    layoutKey,
-    async (ws, store, client) => {
-      const s = store.getState();
-      const data = select(s, layoutKey);
-      if (data == null) return;
-      const la = Layout.selectRequired(s, layoutKey);
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.linePlot.create(ws, {
-        key: layoutKey,
-        name: la.name,
-        data,
-      });
-    },
-  );
+const useSyncComponent = Workspace.createSyncComponent(
+  "Line Plot",
+  async ({ key, workspace, store, client }) => {
+    const s = store.getState();
+    const data = select(s, key);
+    if (data == null) return;
+    const la = Layout.selectRequired(s, key);
+    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+    await client.workspaces.lineplots.create(workspace, { key, name: la.name, data });
+  },
+);
 
 const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
   iso: "Failed to copy ISO time range",
@@ -142,7 +131,7 @@ const RangeAnnotationContextMenu = ({
   const handleDownloadAsCSV = () =>
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
-  const handleOpenInNewPlot = () => addRangeToNewPlot(range.key);
+  const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
   const placeLayout = Layout.usePlacer();
   const handleViewDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
@@ -246,33 +235,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [syncDispatch, layoutKey],
   );
 
-  const xAxisChannelChange = useMutation<
-    void,
-    Error,
-    Omit<Channel.AxisProps, "location">
-  >({
-    mutationFn: async (axis) => {
-      const key = vis.channels[axis.key as XAxisKey];
-      const prevKey = prevVis?.channels[axis.key as XAxisKey];
-      if (client == null || key === prevKey) return;
-      let newType: axis.TickType = "time";
-      if (primitive.isNonZero(key)) {
-        const ch = await client.channels.retrieve(key);
-        if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
-      }
-      if (axis.type === newType) return;
-      syncDispatch(
-        setAxis({
-          key: layoutKey,
-          axisKey: axis.key as AxisKey,
-          axis: { ...(axis as AxisState), type: newType },
-          triggerRender: true,
-        }),
-      );
-    },
-  });
-  useEffect(() => {
-    xAxisChannelChange.mutate(vis.axes.axes.x1);
+  useAsyncEffect(async () => {
+    const axis = vis.axes.axes.x1;
+    const axisKey = axis.key as XAxisKey;
+    const key = vis.channels[axisKey];
+    const prevKey = prevVis?.channels[axisKey];
+    if (client == null || key === prevKey) return;
+    let newType: axis.TickType = "time";
+    if (primitive.isNonZero(key)) {
+      const ch = await client.channels.retrieve(key);
+      if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
+    }
+    if (axis.type === newType) return;
+    syncDispatch(
+      setAxis({
+        key: layoutKey,
+        axisKey,
+        axis: { ...(axis as AxisState), type: newType },
+        triggerRender: true,
+      }),
+    );
   }, [vis.channels.x1]);
 
   const propsLines = buildLines(vis, ranges);
@@ -389,7 +371,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         switch (key) {
           case "iso":
             await navigator.clipboard.writeText(
-              `${tr.start.fString("ISO")} - ${tr.end.fString("ISO")}`,
+              `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
             );
             break;
           case "python":
@@ -537,18 +519,15 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
       }),
     );
 
+const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
+  useRetrieve: Core.useRetrieveObservable,
+  targetVersion: ZERO_STATE.version,
+  useSelectVersion,
+  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+});
+
 export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const linePlot = useLoadRemote({
-    name: "Line Plot",
-    targetVersion: ZERO_STATE.version,
-    layoutKey,
-    useSelectVersion,
-    fetcher: async (client, layoutKey) => {
-      const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-      return data as State;
-    },
-    actionCreator: internalCreate,
-  });
+  const linePlot = useLoadRemote(layoutKey);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };

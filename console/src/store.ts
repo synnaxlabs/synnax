@@ -18,6 +18,7 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
+import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
@@ -39,35 +40,37 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 ];
 
 const ZERO_STATE: RootState = {
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
-  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
-  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
-  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
-  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
-  [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
+  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
+  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
+  [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
-  [Drift.SLICE_NAME]: Drift.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
-  [Range.SLICE_NAME]: Range.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
+  [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
-  [Permissions.SLICE_NAME]: Permissions.reducer,
-  [User.SLICE_NAME]: User.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Range.SLICE_NAME]: Range.reducer,
+  [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
+  [Version.SLICE_NAME]: Version.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Arc.SLICE_NAME]: Arc.reducer,
+  [User.SLICE_NAME]: User.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -84,6 +87,7 @@ export interface RootState {
   [User.SLICE_NAME]: User.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
 export type RootAction =
@@ -99,7 +103,8 @@ export type RootAction =
   | Table.Action
   | User.Action
   | Version.Action
-  | Workspace.Action;
+  | Workspace.Action
+  | Arc.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -121,6 +126,7 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
   const user = User.migrateSlice(prev.user);
+  const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -135,6 +141,7 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     permissions,
     user,
+    arc,
   };
 };
 
@@ -161,9 +168,10 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 };
 
 const BASE_MIDDLEWARE = [
-  ...LinePlot.MIDDLEWARE,
   ...Layout.MIDDLEWARE,
+  ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
+  ...Arc.MIDDLEWARE,
 ];
 
 const createStore = async (): Promise<RootStore> => {
@@ -173,7 +181,7 @@ const createStore = async (): Promise<RootStore> => {
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
-    enablePrerender: false,
+    enablePrerender: !IS_DEV,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

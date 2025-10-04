@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional } from "@synnaxlabs/x";
+import { type Optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Flex } from "@/flex";
@@ -47,6 +47,14 @@ export interface InputShowcaseCheckboxProps
 export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Checkbox {...props} value={value} onChange={setValue} />;
+};
+
+export interface InputShowcaseDateTimeProps
+  extends Optional<Input.DateTimeProps, "value" | "onChange"> {}
+
+export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
+  return <Input.DateTime {...props} value={value} onChange={setValue} />;
 };
 
 const INPUT_PLACEHOLDER = (
@@ -134,11 +142,11 @@ export const InputShowcase = () => (
             <Text.Text level="small" weight={500}>
               With End Content
             </Text.Text>
-            <InputShowcaseText endContent={"m/s"} size="huge" />
-            <InputShowcaseText endContent={"m/s"} size="large" />
-            <InputShowcaseText endContent={"m/s"} size="medium" />
-            <InputShowcaseText endContent={"m/s"} size="small" />
-            <InputShowcaseText endContent={"m/s"} size="tiny" />
+            <InputShowcaseText endContent="m/s" size="huge" />
+            <InputShowcaseText endContent="m/s" size="large" />
+            <InputShowcaseText endContent="m/s" size="medium" />
+            <InputShowcaseText endContent="m/s" size="small" />
+            <InputShowcaseText endContent="m/s" size="tiny" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -200,7 +208,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">On</Text.Text>
-              <InputShowcaseSwitch value={true} />
+              <InputShowcaseSwitch value />
             </Flex.Box>
           </Flex.Box>
           <Text.Text level="small" weight={500}>
@@ -213,7 +221,7 @@ export const InputShowcase = () => (
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">True</Text.Text>
-              <InputShowcaseSwitch value={true} variant="preview" />
+              <InputShowcaseSwitch value variant="preview" />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
@@ -262,7 +270,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Checked</Text.Text>
-                <InputShowcaseCheckbox value={true} />
+                <InputShowcaseCheckbox value />
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Disabled</Text.Text>
@@ -281,7 +289,7 @@ export const InputShowcase = () => (
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">True</Text.Text>
-                <InputShowcaseCheckbox value={true} variant="preview" />
+                <InputShowcaseCheckbox value variant="preview" />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>
@@ -336,8 +344,8 @@ export const InputShowcase = () => (
       description="Inputs with custom colors and different background contrast levels"
     >
       <Flex.Box x gap="large">
-        <InputShowcaseText placeholder="Catalyst" color={"#00FF00"} />
-        <InputShowcaseNumeric placeholder="Catalyst" color={"#00FF00"} />
+        <InputShowcaseText placeholder="Catalyst" color="#00FF00" />
+        <InputShowcaseNumeric placeholder="Catalyst" color="#00FF00" />
       </Flex.Box>
     </SubcategorySection>
 
@@ -364,6 +372,15 @@ export const InputShowcase = () => (
     >
       <Flex.Box x gap="large">
         <InputShowcaseText placeholder="Catalyst" area />
+      </Flex.Box>
+    </SubcategorySection>
+
+    <SubcategorySection
+      title="Text Area"
+      description="Text area component with different sizes and variants"
+    >
+      <Flex.Box x gap="large">
+        <InputShowcaseDateTime placeholder="Catalyst" />
       </Flex.Box>
     </SubcategorySection>
   </Flex.Box>

@@ -39,24 +39,34 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {dev, err};
     dev.is_simulated = is_simulated;
+    VLOG(1) << "Processing device resource: " << resource;
+    VLOG(1) << "Device Rack: " << dev.rack;
 
     if (!is_simulated) {
+        VLOG(1) << "Physical device detected";
         if (const auto err = this->syscfg->GetResourceProperty(
                 resource,
                 NISysCfgResourcePropertySerialNumber,
                 property_value_buf
-            ))
-            return {Device(), err};
+            )) {
+            LOG(WARNING) << "Physical device missing serial number, skipping: "
+                         << err.message();
+            return {Device(), SKIP_DEVICE_ERR};
+        }
         dev.key = property_value_buf;
+        VLOG(1) << "Physical device serial number: " << dev.key;
+    } else {
+        VLOG(1) << "Simulated device detected";
     }
 
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyProductName,
             property_value_buf
-        ))
-        return {Device(), err};
-    dev.model = property_value_buf;
+        )) {
+        LOG(WARNING) << "Device missing product name, skipping: " << err.message();
+        return {Device(), SKIP_DEVICE_ERR};
+    }
     dev.model = property_value_buf;
     if (dev.model.size() > 3) dev.model = dev.model.substr(3);
     dev.name = MAKE + " " + dev.model;
@@ -66,8 +76,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             NISysCfgIndexedPropertyExpertUserAlias,
             0,
             property_value_buf
-        ))
-        return {Device(), err};
+        )) {
+        LOG(WARNING) << "Device missing user alias, using empty location: "
+                     << err.message();
+        return {Device(), SKIP_DEVICE_ERR};
+    }
     dev.location = property_value_buf;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
@@ -75,8 +88,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             NISysCfgIndexedPropertyExpertResourceName,
             0,
             property_value_buf
-        ))
-        return {dev, err};
+        )) {
+        LOG(WARNING) << "Device missing resource name, skipping: " << err.message();
+        return {Device(), SKIP_DEVICE_ERR};
+    }
+    VLOG(1) << "Resource name: " << property_value_buf;
     dev.resource_name = property_value_buf;
     if (dev.resource_name.size() > 2)
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
@@ -94,7 +110,14 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     };
 
     auto err = xerrors::NIL;
-    if (this->cfg.should_ignore(dev.model)) err = SKIP_DEVICE_ERR;
+    if (this->cfg.should_ignore(dev.model)) {
+        LOG(WARNING) << "Device ignored by filter: " << dev.key
+                     << " (model: " << dev.model << ")";
+        err = SKIP_DEVICE_ERR;
+    } else {
+        VLOG(1) << "Device validated successfully: " << dev.key
+                << " (model: " << dev.model << ")";
+    }
     return {dev, err};
 }
 

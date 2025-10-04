@@ -2,14 +2,19 @@ cc_library(
     name = "util",
     srcs = [
         "conn.cpp",
+        "conn_pool.cpp",
+        "errors.cpp",
         "node.cpp",
         "read.cpp",
-        "status_codes.cpp",
         "telem.cpp",
     ],
-    hdrs = ["util.h"],
+    hdrs = [
+        "util.h",
+        "conn_pool.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp:synnax",
         "//driver/errors",
         "//driver/task",
         "//vendor/mbedtls",
@@ -25,7 +30,10 @@ cc_library(
 cc_test(
     name = "util_test",
     srcs = [
+        "conn_pool_test.cpp",
+        "conn_pool_keepalive_test.cpp",
         "conn_test.cpp",
+        "errors_test.cpp",
         "node_test.cpp",
         "telem_test.cpp",
     ],

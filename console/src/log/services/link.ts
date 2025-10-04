@@ -11,6 +11,6 @@ import { type Link } from "@/link";
 import { Log } from "@/log";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const log = await client.workspaces.log.retrieve(key);
+  const log = await client.workspaces.logs.retrieve({ key });
   placeLayout(Log.create({ ...log.data, ...log }));
 };

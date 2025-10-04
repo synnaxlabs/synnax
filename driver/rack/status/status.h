@@ -25,7 +25,7 @@ const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
-const auto EMISSION_RATE = telem::HZ * 1;
+const auto EMISSION_RATE = telem::HERTZ * 1;
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.

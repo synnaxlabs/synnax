@@ -9,10 +9,9 @@
 
 import "@/hardware/device/ontology.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { device, type ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -26,23 +25,18 @@ import {
   hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
-import { useRename } from "@/modals/Rename";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
-
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    const device = await client.hardware.devices.retrieve({ key: id.key });
-    await client.hardware.devices.create({ ...device, name });
-  },
-};
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 
 const handleConfigure = ({
-  selection: { resourceIDs },
+  selection: { ids },
   state: { getResource },
   placeLayout,
   handleError,
 }: Ontology.TreeContextMenuProps) => {
-  const resource = getResource(resourceIDs[0]);
+  const resource = getResource(ids[0]);
   try {
     const make = makeZ.parse(resource.data?.make);
     placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
@@ -52,14 +46,14 @@ const handleConfigure = ({
 };
 
 const useHandleChangeIdentifier = () => {
-  const rename = useRename();
+  const rename = Modals.useRename();
   return ({
-    selection: { resourceIDs },
+    selection: { ids },
     state: { getResource },
     handleError,
     client,
   }: Ontology.TreeContextMenuProps) => {
-    const resource = getResource(resourceIDs[0]);
+    const resource = getResource(ids[0]);
     handleError(async () => {
       const device = await client.hardware.devices.retrieve({ key: resource.id.key });
       const identifier =
@@ -87,50 +81,34 @@ const useHandleChangeIdentifier = () => {
   };
 };
 
-const useDelete = () => {
-  const confirm = Ontology.useConfirmDelete({ type: "Device" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes },
-      selection: { resourceIDs },
-      state: { getResource },
-    }) => {
-      const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(resourceIDs);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ selection: { resourceIDs }, client }) =>
-      await client.hardware.devices.delete(resourceIDs.map((id) => id.key)),
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (errors.Canceled.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, `Failed to delete devices`);
-    },
-  }).mutate;
-};
+const useDelete = createUseDelete({
+  type: "Device",
+  query: Device.useDelete,
+  convertKey: String,
+});
+
+const useRename = createUseRename({
+  query: Device.useRename,
+  ontologyID: device.ontologyID,
+  convertKey: String,
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const singleResource = resourceIDs.length === 1;
-  const first = getResource(resourceIDs[0]);
-  const handleDelete = useDelete();
+  const singleResource = ids.length === 1;
+  const first = getResource(ids[0]);
+  const handleDelete = useDelete(props);
+  const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleChangeIdentifier = useHandleChangeIdentifier();
-  if (resourceIDs.length === 0) return null;
+  if (ids.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
-    delete: () => handleDelete(props),
-    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
+    delete: handleDelete,
+    rename,
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),
   };
@@ -143,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     hasIdentifier(getMake(first.data?.make));
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       {singleResource && (
         <>
           <Menu.RenameItem />
@@ -174,6 +152,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <PMenu.Divider />
+      {singleResource && (
+        <>
+          <Ontology.CopyMenuItem {...props} />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
@@ -181,16 +165,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item = ({
-  id,
-  resource,
-  className,
-  onRename,
-  ...rest
-}: Ontology.TreeItemProps) => {
+const Item = ({ id, resource, className, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.retrieve().useDirect({ params: { key: id.key } }).data
-    ?.status;
+  const devStatus = Device.useRetrieve({ key: id.key }).data?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
@@ -200,7 +177,7 @@ const Item = ({
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}
-          onChange={onRename}
+          onChange
           overflow="ellipsis"
         />
         <Text.Text
@@ -222,8 +199,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "device",
   icon,
   hasChildren: false,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
   Item,
 };

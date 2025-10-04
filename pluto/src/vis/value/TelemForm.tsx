@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { color, type notation, primitive } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -36,6 +36,7 @@ export interface TelemFormProps {
 }
 
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
+  const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -48,9 +49,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     sourceP.segments.rollingAverage.props,
   );
 
-  const handleChange = (
-    segments: telem.SourcePipelineProps["segments"],
-  ): void => {
+  const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {
     const t = telem.sourcePipeline("string", {
       connections: VALUE_CONNECTIONS,
       segments: {
@@ -69,8 +68,16 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const handleSourceChange = (v: channel.Key | null): void =>
-    handleChange({ valueStream: telem.streamChannelValue({ channel: v ?? 0 }) });
+  const { retrieve } = Channel.useRetrieveObservable({
+    onChange: useCallback(
+      ({ data }) => data != null && set(`${path}.tooltip`, [data.name]),
+      [set, path],
+    ),
+  });
+  const handleSourceChange = (key: channel.Key | null): void => {
+    if (primitive.isNonZero(key)) retrieve({ key });
+    handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
+  };
 
   const handleNotationChange = (notation: notation.Notation): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });
@@ -83,16 +90,12 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to Value.TelemForm");
+  const channelKey = source.channel;
 
-  const { data } = Channel.retrieve.useDirect({ params: { key: source.channel } });
-  useEffect(() => {
-    if (data == null) return;
-    onChange({ ...value, tooltip: [data.name] });
-  }, [data?.name, onChange]);
   return (
     <>
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+        <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
         <Input.Item label="Notation">
@@ -117,7 +120,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Form.Field<color.Crude>
           hideIfNull
-          label="Color"
+          label="Stale Color"
           align="start"
           path="stalenessColor"
         >
@@ -131,9 +134,9 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Form.Field>
         <Form.NumericField
           path="stalenessTimeout"
-          label="Staleness Timeout"
+          label="Stale Timeout"
           inputProps={{
-            bounds: { lower: 0, upper: Infinity },
+            bounds: { lower: 1, upper: Infinity },
             endContent: "s",
           }}
         />

@@ -15,6 +15,11 @@ import { alamos } from "@/alamos/aether";
 import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { flux } from "@/flux/aether";
 import { ontology } from "@/ontology/aether";
+import { lineplot } from "@/lineplot/aether";
+import { range } from "@/lineplot/range/aether";
+import { tooltip } from "@/lineplot/tooltip/aether";
+import { log } from "@/log/aether";
+import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -26,6 +31,7 @@ import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
+import { gauge } from "@/vis/gauge/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -80,6 +86,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
+    ...gauge.REGISTRY,
     ...flux.createRegistry({ storeConfig: STORE_CONFIG }),
   };
 

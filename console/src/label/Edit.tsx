@@ -47,11 +47,17 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    params: {},
+    query: {},
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+      ({
+        reset,
+      }: Flux.AfterSaveParams<
+        Flux.Shape,
+        typeof Label.formSchema,
+        Label.FluxSubStore
+      >) => {
         onClose?.();
         if (isCreate) reset({ name: "", color: "#000000" });
       },
@@ -60,7 +66,7 @@ const LabelListItem = ({
     sync: true,
   });
   const inputRef = useRef<HTMLInputElement>(null);
-  const { update: handleDelete } = Label.useDelete({ params: { key: itemKey } });
+  const { update: handleDelete } = Label.useDelete();
   useEffect(() => {
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
@@ -90,7 +96,7 @@ const LabelListItem = ({
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
-            path={`color`}
+            path="color"
             padHelpText={false}
             showLabel={false}
           >
@@ -101,7 +107,7 @@ const LabelListItem = ({
           <Form.TextField
             showLabel={false}
             hideIfNull
-            path={`name`}
+            path="name"
             showHelpText={false}
             padHelpText={false}
             inputProps={{
@@ -134,7 +140,7 @@ const LabelListItem = ({
         <Button.Button
           variant="outlined"
           size="small"
-          onClick={() => handleDelete()}
+          onClick={() => handleDelete(itemKey)}
           className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />

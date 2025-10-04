@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
@@ -18,10 +19,14 @@ export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/Toolbar";
 export * from "@/hardware/device/useListenForChanges";
 
-export const COMMANDS: Palette.Command[] = OPC.Device.COMMANDS;
+export const COMMANDS: Palette.Command[] = [
+  ...Modbus.Device.COMMANDS,
+  ...OPC.Device.COMMANDS,
+];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Device.LAYOUTS,
+  ...Modbus.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,
 };

@@ -15,7 +15,10 @@ import { type FC } from "react";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
+import {
+  DigitalChannelList,
+  type DigitalNameComponentProps,
+} from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
@@ -54,8 +57,14 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ channel, key }: DIChannel) => (
-  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
+interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
+
+const NameComponent = ({ channel, itemKey }: NameComponentProps) => (
+  <Common.Task.ChannelName
+    channel={channel}
+    id={Common.Task.getChannelNameID(itemKey)}
+    level="p"
+  />
 );
 
 const name = Component.renderProp(NameComponent);

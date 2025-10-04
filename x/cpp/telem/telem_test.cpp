@@ -547,7 +547,6 @@ TEST(DataTypeTests, testDensity) {
     ASSERT_EQ(telem::UINT16_T.density(), 2);
     ASSERT_EQ(telem::UINT32_T.density(), 4);
     ASSERT_EQ(telem::UINT64_T.density(), 8);
-    ASSERT_EQ(telem::UINT128_T.density(), 16);
     ASSERT_EQ(telem::TIMESTAMP_T.density(), 8);
     ASSERT_EQ(telem::UUID_T.density(), 16);
     ASSERT_EQ(telem::STRING_T.density(), 0);
@@ -629,5 +628,108 @@ TEST(AlignmentTests, testUint64Equality) {
     ASSERT_FALSE(a != 4294967298);
     ASSERT_FALSE(a == 4294967292);
     ASSERT_TRUE(a != 4294967294);
+}
+
+////////////////////////////////////////////////////////////
+// to_string Tests
+////////////////////////////////////////////////////////////
+
+TEST(ToStringTests, testDoubleConversion) {
+    const SampleValue value = 123.456;
+    ASSERT_EQ(to_string(value), "123.456000");
+}
+
+TEST(ToStringTests, testFloatConversion) {
+    const SampleValue value = 123.456f;
+    ASSERT_EQ(to_string(value), "123.456001");
+}
+
+TEST(ToStringTests, testInt64Conversion) {
+    const SampleValue value = static_cast<int64_t>(123456789);
+    ASSERT_EQ(to_string(value), "123456789");
+}
+
+TEST(ToStringTests, testInt32Conversion) {
+    const SampleValue value = static_cast<int32_t>(123456);
+    ASSERT_EQ(to_string(value), "123456");
+}
+
+TEST(ToStringTests, testInt16Conversion) {
+    const SampleValue value = static_cast<int16_t>(12345);
+    ASSERT_EQ(to_string(value), "12345");
+}
+
+TEST(ToStringTests, testInt8Conversion) {
+    const SampleValue value = static_cast<int8_t>(123);
+    ASSERT_EQ(to_string(value), "123");
+}
+
+TEST(ToStringTests, testUint64Conversion) {
+    const SampleValue value = static_cast<uint64_t>(123456789);
+    ASSERT_EQ(to_string(value), "123456789");
+}
+
+TEST(ToStringTests, testUint32Conversion) {
+    const SampleValue value = static_cast<uint32_t>(123456);
+    ASSERT_EQ(to_string(value), "123456");
+}
+
+TEST(ToStringTests, testUint16Conversion) {
+    const SampleValue value = static_cast<uint16_t>(12345);
+    ASSERT_EQ(to_string(value), "12345");
+}
+
+TEST(ToStringTests, testUint8Conversion) {
+    const SampleValue value = static_cast<uint8_t>(123);
+    ASSERT_EQ(to_string(value), "123");
+}
+
+TEST(ToStringTests, testTimeStampConversion) {
+    const SampleValue value = TimeStamp(1234567890123456789);
+    ASSERT_EQ(to_string(value), "1234567890123456789");
+}
+
+TEST(ToStringTests, testStringConversion) {
+    const SampleValue value = std::string("hello world");
+    ASSERT_EQ(to_string(value), "hello world");
+}
+
+TEST(ToStringTests, testNegativeNumbers) {
+    const SampleValue neg_int64 = static_cast<int64_t>(-123456789);
+    ASSERT_EQ(to_string(neg_int64), "-123456789");
+
+    const SampleValue neg_int32 = static_cast<int32_t>(-123456);
+    ASSERT_EQ(to_string(neg_int32), "-123456");
+
+    const SampleValue neg_int16 = static_cast<int16_t>(-12345);
+    ASSERT_EQ(to_string(neg_int16), "-12345");
+
+    const SampleValue neg_int8 = static_cast<int8_t>(-123);
+    ASSERT_EQ(to_string(neg_int8), "-123");
+
+    const SampleValue neg_double = -123.456;
+    ASSERT_EQ(to_string(neg_double), "-123.456000");
+
+    const SampleValue neg_float = -123.456f;
+    ASSERT_EQ(to_string(neg_float), "-123.456001");
+}
+
+TEST(ToStringTests, testZeroValues) {
+    const SampleValue zero_int64 = static_cast<int64_t>(0);
+    ASSERT_EQ(to_string(zero_int64), "0");
+
+    const SampleValue zero_double = 0.0;
+    ASSERT_EQ(to_string(zero_double), "0.000000");
+
+    const SampleValue zero_float = 0.0f;
+    ASSERT_EQ(to_string(zero_float), "0.000000");
+
+    const SampleValue zero_timestamp = TimeStamp(0);
+    ASSERT_EQ(to_string(zero_timestamp), "0");
+}
+
+TEST(ToStringTests, testEmptyString) {
+    const SampleValue value = std::string("");
+    ASSERT_EQ(to_string(value), "");
 }
 }

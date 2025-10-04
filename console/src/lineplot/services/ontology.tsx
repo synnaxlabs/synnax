@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
-import { errors, strings } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { lineplot, ontology } from "@synnaxlabs/client";
+import { Icon, LinePlot as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
+import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -20,57 +19,49 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "LinePlot" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      selection,
-      removeLayout,
-      state: { nodes, setNodes, getResource },
-    }) => {
-      if (!(await confirm(getResource(selection.resourceIDs))))
-        throw new errors.Canceled();
-      const ids = ontology.parseIDs(selection.resourceIDs);
-      const keys = ids.map((id) => id.key);
-      removeLayout(...keys);
-      const prevNodes = Tree.deepCopy(nodes);
-      const next = Tree.removeNode({
-        tree: nodes,
-        keys: ids.map((id) => ontology.idToString(id)),
-      });
-      setNodes([...next]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.resourceIDs);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.linePlot.delete(ids.map((id) => id.key));
-    },
-    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(err)) return;
-      handleError(err, "Failed to delete line plot");
-    },
-  }).mutate;
-};
+const useDelete = createUseDelete({
+  type: "Line Plot",
+  icon: "LinePlot",
+  query: Core.useDelete,
+  convertKey: String,
+  beforeUpdate: async ({ data, removeLayout, store }) => {
+    removeLayout(...data);
+    store.dispatch(LinePlot.remove({ keys: array.toArray(data) }));
+    return data;
+  },
+});
+
+const useRename = createUseRename({
+  query: Core.useRename,
+  ontologyID: lineplot.ontologyID,
+  convertKey: String,
+  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
+    const { key, name } = data;
+    store.dispatch(Layout.rename({ key, name }));
+    rollbacks.push(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    return { ...data, name };
+  },
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const del = useDelete();
+  const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = LinePlot.useExport();
+  const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const firstID = resourceIDs[0];
-  const isSingle = resourceIDs.length === 1;
+  const firstID = ids[0];
+  const isSingle = ids.length === 1;
   const first = getResource(firstID);
   const onSelect = {
-    delete: () => del(props),
-    rename: () => Text.edit(ontology.idToString(firstID)),
+    delete: handleDelete,
+    rename,
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
     export: () => handleExport(first.id.key),
     group: () => group(props),
@@ -83,7 +74,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Item itemKey="delete">
         <Icon.Delete />
         Delete
@@ -93,6 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Export.MenuItem />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
           <PMenu.Divider />
         </>
       )}
@@ -101,46 +93,36 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ store, id, name }) => store.dispatch(Layout.rename({ key: id.key, name })),
-  execute: async ({ client, id, name }) =>
-    await client.workspaces.linePlot.rename(id.key, name),
-  rollback: ({ store, id }, prevName) =>
-    store.dispatch(Layout.rename({ key: id.key, name: prevName })),
-};
-
 const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
   handleError,
 }) => {
-  client.workspaces.linePlot
-    .retrieve(selection[0].id.key)
-    .then((linePlot) => {
-      placeLayout(
-        LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
-      );
-    })
-    .catch((e) => {
-      const names = strings.naturalLanguageJoin(
-        selection.map(({ name }) => name),
-        "line plot",
-      );
-      handleError(e, `Failed to select ${names}`);
+  const names = strings.naturalLanguageJoin(
+    selection.map(({ name }) => name),
+    "line plot",
+  );
+  handleError(async () => {
+    const linePlot = await client.workspaces.lineplots.retrieve({
+      key: selection[0].id.key,
     });
+    placeLayout(
+      LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
+    );
+  }, `Failed to select ${names}`);
 };
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
-  id,
+  id: { key },
   location,
   nodeKey,
   placeLayout,
   handleError,
 }): void =>
   handleError(async () => {
-    const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+    const linePlot = await client.workspaces.lineplots.retrieve({ key });
     placeLayout(
       LinePlot.create({
         ...linePlot.data,
@@ -161,8 +143,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems: ({ id }) => [
     { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
   ],
-  allowRename: () => true,
-  onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

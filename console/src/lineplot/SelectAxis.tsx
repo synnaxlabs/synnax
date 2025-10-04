@@ -12,6 +12,7 @@ import { Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
+import { Range } from "@/range";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<Input.ItemProps, "onChange" | "children"> {
@@ -33,18 +34,24 @@ export const SelectMultipleAxesInputItem = ({
   value,
   selectProps,
   ...rest
-}: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item x label={axisLabel(axis)} {...rest}>
-    <Channel.SelectMultiple
-      value={value}
-      initialParams={SEARCH_OPTIONS}
-      onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
-      full="x"
-      location="top"
-      {...selectProps}
-    />
-  </Input.Item>
-);
+}: SelectMultipleAxesInputItemProps): ReactElement => {
+  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  return (
+    <Input.Item x label={axisLabel(axis)} {...rest}>
+      <Channel.SelectMultiple
+        value={value}
+        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        onChange={useCallback(
+          (v: channel.Key[]) => onChange(axis, v),
+          [onChange, axis],
+        )}
+        full="x"
+        location="top"
+        {...selectProps}
+      />
+    </Input.Item>
+  );
+};
 
 export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
@@ -59,14 +66,17 @@ export const SelectAxisInputItem = ({
   value,
   selectProps,
   ...rest
-}: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item x label={axisLabel(axis)} {...rest} grow>
-    <Channel.SelectSingle
-      onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
-      value={value}
-      allowNone
-      initialParams={SEARCH_OPTIONS}
-      {...selectProps}
-    />
-  </Input.Item>
-);
+}: SelectAxisInputItemProps): ReactElement => {
+  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  return (
+    <Input.Item x label={axisLabel(axis)} {...rest} grow>
+      <Channel.SelectSingle
+        onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
+        value={value}
+        allowNone
+        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        {...selectProps}
+      />
+    </Input.Item>
+  );
+};

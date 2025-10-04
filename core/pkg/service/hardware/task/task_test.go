@@ -85,14 +85,14 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 2)))
 			Expect(m.Name).To(Equal("Test Task"))
 			m = &task.Task{
 				Key:  task.NewKey(rack_.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 3)))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 	})
@@ -105,11 +105,11 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 4)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t, err := w.Copy(ctx, m.Key, "Copied Task", false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 5)))
 		})
 
 		It("Should create a snapshot of an existing task", func() {
@@ -118,11 +118,11 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 6)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t, err := w.Copy(ctx, m.Key, "Snapshotted Task", true)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 7)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
 
@@ -135,7 +135,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 8)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -150,7 +150,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 9)))
 			Expect(m.Name).To(Equal("Test Task"))
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))

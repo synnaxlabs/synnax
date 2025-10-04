@@ -12,7 +12,7 @@ import "@/input/DateTime.css";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
-import { type FC, type ReactElement, useState } from "react";
+import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
@@ -26,6 +26,7 @@ import { type Control } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Select } from "@/select";
+import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -48,7 +49,6 @@ export const DateTime = ({
   ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
-  const { close } = Dialog.useContext();
 
   const handleChange = (next: string | number, override: boolean = false): void => {
     let nextStr = next.toString();
@@ -59,12 +59,9 @@ export const DateTime = ({
 
     nextTS = applyTimezoneOffset(nextTS);
     let ok = false;
-    try {
-      const str = nextTS.fString("ISO", "local");
-      ok = str.slice(0, -1) === nextStr;
-    } catch (e) {
-      console.error(e);
-    }
+    const str = nextTS.toString("ISO", "local");
+    ok = str.slice(0, -1) === nextStr;
+
     if (ok && !onlyChangeOnBlur) {
       onChange(Number(nextTS.valueOf()));
       setTempValue(null);
@@ -82,7 +79,7 @@ export const DateTime = ({
   };
 
   const tsValue = new TimeStamp(value, "UTC");
-  const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
+  const parsedValue = tsValue.toString("ISO", "local").slice(0, -1);
 
   const [visible, setVisible] = useState(false);
 
@@ -111,7 +108,6 @@ export const DateTime = ({
       <DateTimeModal
         value={tsValue}
         onChange={(next) => onChange(Number(next.valueOf()))}
-        close={close}
       />
     </Dialog.Frame>
   );
@@ -122,46 +118,44 @@ const nlp = compromise.extend(compromiseDates);
 interface DateTimeModalProps {
   value: TimeStamp;
   onChange: (next: TimeStamp) => void;
-  close: () => void;
 }
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-const DateTimeModal = ({
-  value,
-  onChange,
-  close,
-}: DateTimeModalProps): ReactElement => (
-  <Dialog.Dialog>
-    <Flex.Box className={CSS.B("datetime-modal")} empty>
-      <Flex.Box className={CSS.B("datetime-modal-container")}>
-        <Flex.Box x className={CSS.B("header")}>
-          <Text.DateTime level="h3" format="preciseDate">
-            {value}
-          </Text.DateTime>
-        </Flex.Box>
-        <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
-          <Icon.Close />
-        </Button.Button>
-        <Flex.Box x className={CSS.B("content")}>
-          <AISelector value={value} onChange={onChange} close={close} />
-          <Calendar value={value} onChange={onChange} />
-        </Flex.Box>
-      </Flex.Box>
-      <Nav.Bar location="bottom" size="7rem">
-        <Nav.Bar.Start gap="small">
-          <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text level="small">To Finish</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button onClick={close} variant="outlined">
-            Done
+const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement => {
+  const { close } = Dialog.useContext();
+  return (
+    <Dialog.Dialog>
+      <Flex.Box className={CSS.B("datetime-modal")} empty>
+        <Flex.Box className={CSS.B("datetime-modal-container")}>
+          <Flex.Box x className={CSS.B("header")}>
+            <TelemText.TimeStamp level="h3" format="preciseDate">
+              {value}
+            </TelemText.TimeStamp>
+          </Flex.Box>
+          <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
+            <Icon.Close />
           </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
-    </Flex.Box>
-  </Dialog.Dialog>
-);
+          <Flex.Box x className={CSS.B("content")}>
+            <AISelector value={value} onChange={onChange} close={close} />
+            <Calendar value={value} onChange={onChange} />
+          </Flex.Box>
+        </Flex.Box>
+        <Nav.Bar location="bottom" size="7rem">
+          <Nav.Bar.Start gap="small">
+            <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
+            <Text.Text level="small">To Finish</Text.Text>
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button onClick={close} variant="outlined">
+              Done
+            </Button.Button>
+          </Nav.Bar.End>
+        </Nav.Bar>
+      </Flex.Box>
+    </Dialog.Dialog>
+  );
+};
 
 interface AISuggestion {
   key: string;
@@ -204,7 +198,7 @@ const AISelector = ({
         const nextTS = applyTimezoneOffset(new TimeStamp(d.start, "UTC"));
         return {
           key: d.start,
-          name: nextTS.fString("preciseDate", "local"),
+          name: nextTS.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(nextTS);
             close();
@@ -225,7 +219,7 @@ const AISelector = ({
         const next = applyTimezoneOffset(pValue.add(span));
         return {
           key: next.valueOf().toString(),
-          name: next.fString("preciseDate", "local"),
+          name: next.toString("preciseDate", "local"),
           onSelect: () => {
             onChange(next);
             close();
@@ -255,6 +249,7 @@ const AISelector = ({
           className={CSS.B("ai-list")}
           bordered
           borderColor={5}
+          full="y"
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
@@ -314,7 +309,7 @@ interface CalendarProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
+const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const month = value.month;
   const year = value.year;
   const day = value.day;
@@ -379,9 +374,17 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
+const TIME_LIST_ITEM_STYLE: CSSProperties = {
+  padding: "0rem",
+  paddingLeft: "2rem",
+  height: "4rem",
+  minHeight: "4rem",
+  maxHeight: "4rem",
+};
+
 const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => (
-  <Select.ListItem {...props} style={{ padding: "0rem", paddingLeft: "2rem" }}>
-    {props.index + 1}
+  <Select.ListItem {...props} style={TIME_LIST_ITEM_STYLE}>
+    {props.index}
   </Select.ListItem>
 );
 
@@ -392,7 +395,7 @@ interface TimeListProps {
 
 const timeListItem = renderProp(TimeListItem);
 
-export const createTimeList = (count: number): FC<TimeListProps> => {
+const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
@@ -419,9 +422,9 @@ interface TimeSelectorProps {
   onChange: (next: TimeStamp) => void;
 }
 
-export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
+const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
   <Flex.Box pack y className={CSS.B("time-selector")}>
-    <Flex.Box pack x grow>
+    <Flex.Box pack x grow className={CSS.B("time-selector-list")}>
       <HoursList
         value={value.hour}
         onChange={(next) => onChange(value.setHour(next))}

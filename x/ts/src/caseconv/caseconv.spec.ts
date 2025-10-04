@@ -120,10 +120,42 @@ describe("caseconv", () => {
       ["foo.bar", "foo.bar"],
       ["foo.bar.baz", "foo.bar.baz"],
       ["Foo Bar", "foo-bar"],
+      ["foo_bar", "foo-bar"],
+      ["foo_bar_baz", "foo-bar-baz"],
     ];
     SPECS.forEach(([input, expected]) => {
       it(`should convert ${input} to ${expected}`, () => {
         expect(caseconv.toKebab(input)).toBe(expected);
+      });
+    });
+  });
+  describe("toProperNoun", () => {
+    const SPECS: [string, string][] = [
+      ["fooBar", "Foo Bar"],
+      ["foo_bar", "Foo Bar"],
+      ["foo-bar", "Foo Bar"],
+      ["FooBar", "Foo Bar"],
+      ["foo_bar_baz", "Foo Bar Baz"],
+      ["fooBarBaz", "Foo Bar Baz"],
+      ["foo-bar-baz", "Foo Bar Baz"],
+      ["XMLParser", "XML Parser"],
+      ["parseXMLDocument", "Parse XML Document"],
+      ["IODevice", "IO Device"],
+      ["temperature_sensor", "Temperature Sensor"],
+      ["pressure-gauge", "Pressure Gauge"],
+      ["flowMeter", "Flow Meter"],
+      ["my_custom_symbol", "My Custom Symbol"],
+      ["valve-actuator-v2", "Valve Actuator V2"],
+      ["PIDController", "PID Controller"],
+      ["", ""],
+      ["a", "A"],
+      ["ABC", "ABC"],
+      ["test123value", "Test123value"],
+      ["test_123_value", "Test 123 Value"],
+    ];
+    SPECS.forEach(([input, expected]) => {
+      it(`should convert ${input} to ${expected}`, () => {
+        expect(caseconv.toProperNoun(input)).toBe(expected);
       });
     });
   });

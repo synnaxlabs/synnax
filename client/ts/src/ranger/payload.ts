@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { math } from "@synnaxlabs/x";
 import { TimeRange } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -20,16 +21,21 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
-export const STAGES = ["to_do", "in_progress", "completed"];
-export const stageZ = z.enum(STAGES);
-
-export type Stage = z.infer<typeof stageZ>;
-
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
-  timeRange: TimeRange.z,
-  stage: stageZ.optional().default("to_do"),
+  timeRange: TimeRange.z
+    .refine(({ isValid }) => isValid, {
+      error: "Time range start time must be before or equal to time range end time",
+    })
+    .refine(({ end }) => end.valueOf() <= math.MAX_INT64, {
+      error:
+        "Time range end time must be less than or equal to the maximum value of an int64",
+    })
+    .refine(({ start }) => start.valueOf() >= math.MIN_INT64, {
+      error:
+        "Time range start time must be greater than or equal to the minimum value of an int64",
+    }),
   color: z.string().optional(),
   labels: label.labelZ
     .array()

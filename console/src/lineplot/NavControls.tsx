@@ -35,7 +35,7 @@ export interface NavControlsProps {
 
 export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
-  const vis = Layout.useSelectActiveMosaicTabKey();
+  const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode(layoutKey);
   const dispatch = useDispatch();
 

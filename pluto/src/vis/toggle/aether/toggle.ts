@@ -63,7 +63,7 @@ export class Toggle
   }
 
   afterDelete(): void {
-    this.internal.stopListening();
+    this.internal.stopListening?.();
     this.internal.source.cleanup?.();
     this.internal.sink.cleanup?.();
   }

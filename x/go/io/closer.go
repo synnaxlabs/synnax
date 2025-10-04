@@ -10,8 +10,9 @@
 package io
 
 import (
-	"github.com/synnaxlabs/x/errors"
 	"io"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // CloserFunc allows a function to implement the io.Closer interface.

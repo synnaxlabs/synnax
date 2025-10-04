@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// ReSharper disable CppUseStructuredBinding
-
 /// std
 #include <utility>
 
@@ -219,21 +217,17 @@ protected:
     void parse_config() {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
 
-        auto idx_err = sy->channels.create(index_channel);
-        ASSERT_FALSE(idx_err) << idx_err;
+        ASSERT_NIL(sy->channels.create(index_channel));
 
         data_channel.index = index_channel.key;
-        auto data_err = sy->channels.create(data_channel);
-        ASSERT_FALSE(data_err) << data_err;
+        ASSERT_NIL(sy->channels.create(data_channel));
 
-        auto [rack, rack_err] = sy->hardware.create_rack("cat");
-        ASSERT_FALSE(rack_err) << rack_err;
+        auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
 
         synnax::Device
             dev("opcua123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
 
-        auto dev_err = sy->hardware.create_device(dev);
-        ASSERT_FALSE(dev_err) << dev_err;
+        ASSERT_NIL(sy->hardware.create_device(dev));
 
         task = synnax::Task(rack.key, "my_task", "ni_analog_read", "");
 
@@ -264,7 +258,7 @@ protected:
 
         auto p = xjson::Parser(j);
         cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
-        ASSERT_FALSE(p.error()) << p.error();
+        ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(sy);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();

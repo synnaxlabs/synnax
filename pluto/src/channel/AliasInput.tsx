@@ -14,40 +14,35 @@ import { Button } from "@/button";
 import { Channel } from "@/channel";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { Text } from "@/text";
 
 export interface AliasInputProps extends Input.TextProps {
-  channelKey: channel.Key;
-  rangeKey?: string;
+  channel: channel.Key;
+  range?: string;
   shadow?: boolean;
 }
 
 export const AliasInput = ({
-  channelKey,
-  rangeKey,
+  channel,
+  range,
   shadow,
   className,
   ...rest
 }: AliasInputProps): ReactElement => {
   const { value, onChange } = rest;
   const [loading, setLoading] = useState(false);
-  const { update } = Channel.updateAlias.useDirect({
-    params: { rangeKey, channelKey },
-  });
-  const { data } = Channel.retrieve.useDirect({
-    params: { key: channelKey, rangeKey },
-  });
+  const { update } = Channel.useUpdateAlias();
+  const { data } = Channel.useRetrieve({ key: channel, rangeKey: range });
   const setAlias = async (value: string) => {
-    update(value);
+    update({ alias: value, range, channel });
   };
   const alias = data?.alias;
   const name = data?.alias ?? data?.name;
   let icon = <Icon.Rename />;
   if (loading) icon = <Icon.Loading />;
   else if (alias === value) icon = <Icon.Check />;
-  const canSetAlias =
-    setAlias != null && !loading && alias !== value && channelKey !== 0;
+  const canSetAlias = setAlias != null && !loading && alias !== value && channel !== 0;
   const handleError = Status.useErrorHandler();
   const handleSetAlias = (): void => {
     if (!canSetAlias) return;
@@ -69,7 +64,7 @@ export const AliasInput = ({
   };
 
   const setAliasTooltip =
-    channelKey === 0 ? (
+    channel === 0 ? (
       <Text.Text level="small">
         Select a channel to enable alias syncing with this label
       </Text.Text>

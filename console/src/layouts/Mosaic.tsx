@@ -31,7 +31,7 @@ import {
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -114,7 +114,11 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      <Dialog.Dialog passthrough full className={CSS.B("mosaic-modal")}>
+      <Dialog.Dialog
+        passthrough
+        full
+        className={CSS(CSS.B(caseconv.toKebab(layout.type)), CSS.B("mosaic-modal"))}
+      >
         <PNav.Bar
           location="top"
           size="5rem"
@@ -181,7 +185,7 @@ Mosaic.displayName = "Mosaic";
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore<RootState>();
-  const activeTab = Layout.useSelectActiveMosaicTabKey();
+  const activeTab = Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
@@ -318,7 +322,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         emptyContent={<EmptyContent />}
         onRename={handleRename}
         onCreate={handleCreate}
-        activeTab={activeTab ?? undefined}
+        activeTab={activeTab.layoutKey ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"
         className={CSS.B("mosaic")}

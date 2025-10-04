@@ -44,6 +44,11 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeStamp.MIN)).toBe(true);
   });
 
+  test("construct from CrudeValueExtension", () => {
+    const ts = new TimeStamp({ value: 1000n });
+    expect(ts.equals(1000)).toBe(true);
+  });
+
   test("toString", () => {
     const ts = new TimeStamp(TimeSpan.days(90))
       .add(TimeSpan.minutes(20))
@@ -66,6 +71,11 @@ describe("TimeStamp", () => {
   test("construct from local TimeZone", () => {
     const ts = new TimeStamp(TimeSpan.microseconds(10), "local");
     expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
+  });
+
+  test("constructing from MIN and MAX as numbers", () => {
+    expect(new TimeStamp(TimeStamp.MIN.nanoseconds).equals(TimeStamp.MIN)).toBe(true);
+    expect(new TimeStamp(TimeStamp.MAX.nanoseconds).equals(TimeStamp.MAX)).toBe(true);
   });
 
   test("construct from time string", () => {
@@ -107,6 +117,166 @@ describe("TimeStamp", () => {
       Number(TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()),
     );
     expect(ts2.date().getUTCMinutes()).toEqual(0);
+  });
+
+  describe("equals", () => {
+    it("should return true when comparing two equal TimeStamps", () => {
+      const ts1 = new TimeStamp(1000);
+      const ts2 = new TimeStamp(1000);
+      expect(ts1.equals(ts2)).toBe(true);
+    });
+
+    it("should handle an object with a 'value' property", () => {
+      const ts1 = new TimeStamp(1000);
+      const ts2 = { value: 1000n };
+      expect(ts1.equals(ts2)).toBe(true);
+    });
+
+    it("should return false when comparing two different TimeStamps", () => {
+      const ts1 = new TimeStamp(1000);
+      const ts2 = new TimeStamp(2000);
+      expect(ts1.equals(ts2)).toBe(false);
+    });
+
+    it("should handle comparison with bigint values", () => {
+      const ts = new TimeStamp(1000n);
+      expect(ts.equals(1000n)).toBe(true);
+      expect(ts.equals(2000n)).toBe(false);
+    });
+
+    it("should handle comparison with number values", () => {
+      const ts = new TimeStamp(1000);
+      expect(ts.equals(1000)).toBe(true);
+      expect(ts.equals(2000)).toBe(false);
+    });
+
+    it("should handle comparison with TimeSpan values", () => {
+      const ts = new TimeStamp(TimeSpan.microseconds(500));
+      expect(ts.equals(TimeSpan.microseconds(500))).toBe(true);
+      expect(ts.equals(TimeSpan.microseconds(600))).toBe(false);
+    });
+
+    it("should handle comparison with another TimeStamp instance", () => {
+      const ts1 = new TimeStamp(TimeSpan.seconds(10));
+      const ts2 = new TimeStamp(TimeSpan.seconds(10));
+      const ts3 = new TimeStamp(TimeSpan.seconds(20));
+      expect(ts1.equals(ts2)).toBe(true);
+      expect(ts1.equals(ts3)).toBe(false);
+    });
+
+    it("should handle comparison with Date objects", () => {
+      const date = new Date("2024-01-15T10:30:00.000Z");
+      const ts = new TimeStamp(date);
+      expect(ts.equals(date)).toBe(true);
+
+      const differentDate = new Date("2024-01-16T10:30:00.000Z");
+      expect(ts.equals(differentDate)).toBe(false);
+    });
+
+    it("should handle comparison with DateComponents arrays", () => {
+      const ts = new TimeStamp([2024, 3, 15], "UTC");
+      const sameComponents: [number, number, number] = [2024, 3, 15];
+      const differentComponents: [number, number, number] = [2024, 3, 16];
+
+      expect(ts.equals(new TimeStamp(sameComponents, "UTC"))).toBe(true);
+      expect(ts.equals(new TimeStamp(differentComponents, "UTC"))).toBe(false);
+    });
+
+    it("should handle comparison with string representations", () => {
+      const ts = new TimeStamp("2021-01-01T00:00:00.000Z", "UTC");
+      const sameString = "2021-01-01T00:00:00.000Z";
+      const differentString = "2021-01-02T00:00:00.000Z";
+
+      expect(ts.equals(new TimeStamp(sameString, "UTC"))).toBe(true);
+      expect(ts.equals(new TimeStamp(differentString, "UTC"))).toBe(false);
+    });
+
+    it("should handle edge case comparisons", () => {
+      // Zero values
+      const zeroTs = new TimeStamp(0);
+      expect(zeroTs.equals(0)).toBe(true);
+      expect(zeroTs.equals(TimeStamp.ZERO)).toBe(true);
+      expect(zeroTs.equals(0n)).toBe(true);
+
+      // MAX values
+      const maxTs = TimeStamp.MAX;
+      expect(maxTs.equals(TimeStamp.MAX)).toBe(true);
+      expect(maxTs.equals(new TimeStamp(Infinity))).toBe(true);
+
+      // MIN values
+      const minTs = TimeStamp.MIN;
+      expect(minTs.equals(TimeStamp.MIN)).toBe(true);
+      expect(minTs.equals(new TimeStamp(-Infinity))).toBe(true);
+    });
+
+    it("should handle NaN values", () => {
+      const nanTs = new TimeStamp(NaN);
+      expect(nanTs.equals(0)).toBe(true); // NaN is converted to zero
+      expect(nanTs.equals(TimeStamp.ZERO)).toBe(true);
+    });
+
+    it("should handle negative values", () => {
+      const negativeTs = new TimeStamp(-1000);
+      expect(negativeTs.equals(-1000)).toBe(true);
+      expect(negativeTs.equals(-1000n)).toBe(true);
+      expect(negativeTs.equals(new TimeStamp(-1000))).toBe(true);
+      expect(negativeTs.equals(1000)).toBe(false);
+    });
+
+    it("should handle large bigint values", () => {
+      const largeValue = 9007199254740992n; // Larger than MAX_SAFE_INTEGER
+      const ts = new TimeStamp(largeValue);
+      expect(ts.equals(largeValue)).toBe(true);
+      expect(ts.equals(largeValue + 1n)).toBe(false);
+    });
+
+    it("should handle mixed precision comparisons", () => {
+      // TimeStamp created from milliseconds vs microseconds
+      const msTs = new TimeStamp(TimeSpan.milliseconds(1));
+      const usTs = new TimeStamp(TimeSpan.microseconds(1000));
+      expect(msTs.equals(usTs)).toBe(true);
+
+      const differentUsTs = new TimeStamp(TimeSpan.microseconds(999));
+      expect(msTs.equals(differentUsTs)).toBe(false);
+    });
+
+    it("should maintain transitivity", () => {
+      // If a.equals(b) and b.equals(c), then a.equals(c)
+      const a = new TimeStamp(1000);
+      const b = new TimeStamp(TimeSpan.nanoseconds(1000));
+      const c = new TimeStamp(1000n);
+
+      expect(a.equals(b)).toBe(true);
+      expect(b.equals(c)).toBe(true);
+      expect(a.equals(c)).toBe(true);
+    });
+
+    it("should maintain reflexivity", () => {
+      // a.equals(a) should always be true
+      const ts = new TimeStamp(TimeSpan.seconds(42));
+      expect(ts.equals(ts)).toBe(true);
+    });
+
+    it("should maintain symmetry", () => {
+      // If a.equals(b), then b.equals(a)
+      const ts1 = new TimeStamp(1000);
+      const ts2 = new TimeStamp(1000);
+
+      expect(ts1.equals(ts2)).toBe(true);
+      expect(ts2.equals(ts1)).toBe(true);
+
+      const ts3 = new TimeStamp(2000);
+      expect(ts1.equals(ts3)).toBe(false);
+      expect(ts3.equals(ts1)).toBe(false);
+    });
+
+    it("should handle comparison with complex TimeSpan arithmetic", () => {
+      const ts = new TimeStamp(
+        TimeSpan.hours(1).add(TimeSpan.minutes(30)).add(TimeSpan.seconds(45)),
+      );
+      const equivalentSpan = TimeSpan.seconds(5445); // 1h 30m 45s = 5445s
+      expect(ts.equals(equivalentSpan)).toBe(true);
+    });
   });
 
   describe("schema", () => {
@@ -295,7 +465,7 @@ describe("TimeStamp", () => {
     });
   });
 
-  describe("fString", () => {
+  describe("toString with formats", () => {
     const ts = new TimeStamp([2022, 12, 15], "UTC")
       .add(TimeSpan.hours(12))
       .add(TimeSpan.minutes(20))
@@ -314,7 +484,7 @@ describe("TimeStamp", () => {
 
     FORMAT_TESTS.forEach(([format, expected]) => {
       test(`should format timestamp as ${format}`, () => {
-        expect(ts.fString(format, "UTC")).toEqual(expected);
+        expect(ts.toString(format, "UTC")).toEqual(expected);
       });
     });
   });
@@ -446,6 +616,69 @@ describe("TimeStamp", () => {
       expect(updated.month).toEqual(ts.month);
       expect(updated.day).toEqual(ts.day);
     });
+
+    test("localHour", () => {
+      const ts = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(10));
+      const localHour = ts.localHour;
+      const expectedLocalHour = ts.date().getHours();
+      expect(localHour).toEqual(expectedLocalHour);
+      const utcHour = ts.hour;
+      const tzOffsetHours = new Date().getTimezoneOffset() / 60;
+      if (tzOffsetHours !== 0) expect(localHour).not.toEqual(utcHour);
+    });
+
+    test("setLocalHour", () => {
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30))
+        .add(TimeSpan.seconds(20));
+      const targetLocalHour = 15;
+      const updated = ts.setLocalHour(targetLocalHour);
+      expect(updated.localHour).toEqual(targetLocalHour);
+      expect(updated.date().getMinutes()).toEqual(ts.date().getMinutes());
+      expect(updated.date().getSeconds()).toEqual(ts.date().getSeconds());
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setLocalHour edge cases", () => {
+      // Test setting hour to 0 (midnight)
+      const ts1 = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(12));
+      const midnight = ts1.setLocalHour(0);
+      expect(midnight.localHour).toEqual(0);
+
+      // Test setting hour to 23 (11 PM)
+      const ts2 = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(12));
+      const elevenPM = ts2.setLocalHour(23);
+      expect(elevenPM.localHour).toEqual(23);
+
+      // Test that setting local hour might change the day in UTC
+      const ts3 = new TimeStamp([2022, 12, 15]);
+      const updated = ts3.setLocalHour(23);
+      // Depending on timezone, this might be a different day in UTC
+      expect(updated.localHour).toEqual(23);
+    });
+
+    test("localHour and setLocalHour round trip", () => {
+      // Test that getting and setting local hour is consistent
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30));
+
+      const originalLocalHour = ts.localHour;
+      const roundTrip = ts.setLocalHour(originalLocalHour);
+
+      // The timestamp should remain effectively the same
+      expect(roundTrip.localHour).toEqual(originalLocalHour);
+      expect(roundTrip.date().getMinutes()).toEqual(ts.date().getMinutes());
+      expect(roundTrip.date().getSeconds()).toEqual(ts.date().getSeconds());
+
+      // The valueOf() might differ slightly due to milliseconds precision
+      // but should be within 1 second
+      const diff = Math.abs(Number(roundTrip.valueOf() - ts.valueOf()));
+      expect(diff).toBeLessThan(1000000000); // Less than 1 second in nanoseconds
+    });
   });
 
   describe("remainder", () => {
@@ -511,6 +744,11 @@ describe("TimeSpan", () => {
     expect(TimeSpan.seconds(1).equals(1e9)).toBe(true);
     expect(TimeSpan.minutes(1).equals(6e10)).toBe(true);
     expect(TimeSpan.hours(1).equals(36e11)).toBe(true);
+  });
+
+  test("construct from CrudeValueExtension", () => {
+    const ts = new TimeSpan({ value: 1000n });
+    expect(ts.equals(1000)).toBe(true);
   });
 
   describe("fromMilliseconds", () => {
@@ -689,6 +927,137 @@ describe("TimeSpan", () => {
   test("toString", () => {
     TO_STRING_TESTS.forEach(([ts, expected]) => {
       expect(ts.toString()).toEqual(expected);
+    });
+  });
+
+  describe("toString with semantic format", () => {
+    const TESTS: [TimeSpan, string][] = [
+      // Sub-second durations
+      [TimeSpan.ZERO, "0s"],
+      [TimeSpan.nanoseconds(50), "< 1s"],
+      [TimeSpan.microseconds(50), "< 1s"],
+      [TimeSpan.milliseconds(50), "< 1s"],
+      [TimeSpan.milliseconds(999), "< 1s"],
+
+      // Seconds
+      [TimeSpan.seconds(1), "1s"],
+      [TimeSpan.seconds(30), "30s"],
+      [TimeSpan.seconds(59), "59s"],
+
+      // Minutes with seconds (< 5 minutes)
+      [TimeSpan.seconds(60), "1m"],
+      [TimeSpan.seconds(90), "1m 30s"],
+      [TimeSpan.seconds(119), "1m 59s"],
+      [TimeSpan.seconds(120), "2m"],
+      [TimeSpan.seconds(150), "2m 30s"],
+      [TimeSpan.seconds(240), "4m"],
+      [TimeSpan.seconds(270), "4m 30s"],
+
+      // Minutes without seconds (>= 5 minutes)
+      [TimeSpan.seconds(300), "5m"],
+      [TimeSpan.seconds(330), "5m"], // seconds dropped
+      [TimeSpan.minutes(30), "30m"],
+      [TimeSpan.minutes(59), "59m"],
+
+      // Hours with minutes (< 3 hours)
+      [TimeSpan.minutes(60), "1h"],
+      [TimeSpan.minutes(90), "1h 30m"],
+      [TimeSpan.minutes(119), "1h 59m"],
+      [TimeSpan.minutes(120), "2h"],
+      [TimeSpan.minutes(150), "2h 30m"],
+      [TimeSpan.minutes(179), "2h 59m"],
+
+      // Hours without minutes (>= 3 hours)
+      [TimeSpan.minutes(180), "3h"],
+      [TimeSpan.minutes(195), "3h"], // minutes dropped
+      [TimeSpan.hours(12), "12h"],
+      [TimeSpan.hours(23), "23h"],
+
+      // Days with hours (< 2 days)
+      [TimeSpan.hours(24), "1d"],
+      [TimeSpan.hours(25), "1d 1h"],
+      [TimeSpan.hours(36), "1d 12h"],
+      [TimeSpan.hours(47), "1d 23h"],
+
+      // Days without hours (>= 2 days)
+      [TimeSpan.hours(48), "2d"],
+      [TimeSpan.hours(50), "2d"], // hours dropped
+      [TimeSpan.days(3), "3d"],
+      [TimeSpan.days(6), "6d"],
+
+      // Weeks with days (< 2 weeks)
+      [TimeSpan.days(7), "1w"],
+      [TimeSpan.days(8), "1w 1d"],
+      [TimeSpan.days(10), "1w 3d"],
+      [TimeSpan.days(13), "1w 6d"],
+
+      // Weeks without days (>= 2 weeks)
+      [TimeSpan.days(14), "2w"],
+      [TimeSpan.days(15), "2w"], // days dropped
+      [TimeSpan.days(21), "3w"],
+      [TimeSpan.days(28), "4w"],
+
+      // Months with days (< 3 months)
+      [TimeSpan.days(30), "1mo"],
+      [TimeSpan.days(35), "1mo 5d"],
+      [TimeSpan.days(45), "1mo 15d"],
+      [TimeSpan.days(60), "2mo"],
+      [TimeSpan.days(75), "2mo 15d"],
+
+      // Months without days (>= 3 months)
+      [TimeSpan.days(90), "3mo"],
+      [TimeSpan.days(95), "3mo"], // days dropped
+      [TimeSpan.days(180), "6mo"],
+      [TimeSpan.days(330), "11mo"],
+
+      // Years with months (< 2 years)
+      [TimeSpan.days(364), "12mo"],
+      [TimeSpan.days(365), "1y"],
+      [TimeSpan.days(395), "1y 1mo"],
+      [TimeSpan.days(500), "1y 4mo"],
+      [TimeSpan.days(700), "1y 11mo"],
+
+      // Years without months (>= 2 years)
+      [TimeSpan.days(730), "2y"],
+      [TimeSpan.days(750), "2y"], // months dropped
+      [TimeSpan.days(1095), "3y"],
+      [TimeSpan.days(3650), "10y"],
+
+      // Complex durations
+      [TimeSpan.seconds(3661), "1h 1m"],
+      [TimeSpan.minutes(1441), "1d"], // 24h 1m, but minutes are dropped at day level
+      [TimeSpan.minutes(1500), "1d 1h"], // 25h exactly
+      [TimeSpan.hours(169), "1w 1h"],
+
+      // Negative durations
+      [TimeSpan.seconds(-30), "-30s"],
+      [TimeSpan.minutes(-90), "-1h 30m"],
+      [TimeSpan.hours(-25), "-1d 1h"],
+      [TimeSpan.days(-8), "-1w 1d"],
+      [TimeSpan.days(-400), "-1y 1mo"],
+    ];
+
+    TESTS.forEach(([ts, expected]) => {
+      test(`${ts.valueOf()} => ${expected}`, () => {
+        expect(ts.toString("semantic")).toEqual(expected);
+      });
+    });
+  });
+
+  describe("toString with format", () => {
+    test("toString with semantic format", () => {
+      const ts = TimeSpan.hours(25);
+      expect(ts.toString("semantic")).toEqual("1d 1h");
+    });
+
+    test("toString with default format", () => {
+      const ts = TimeSpan.hours(25);
+      expect(ts.toString()).toEqual("1d 1h");
+    });
+
+    test("toString with full format", () => {
+      const ts = TimeSpan.hours(25).add(TimeSpan.minutes(30)).add(TimeSpan.seconds(15));
+      expect(ts.toString("full")).toEqual("1d 1h 30m 15s");
     });
   });
 
@@ -1156,6 +1525,23 @@ describe("TimeRange", () => {
 });
 
 describe("Density", () => {
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const density = new Density({ value: 8 });
+      expect(density.valueOf()).toBe(8);
+    });
+
+    test("construct from number", () => {
+      const density = new Density(8);
+      expect(density.valueOf()).toBe(8);
+    });
+
+    test("construct from Density", () => {
+      const density = new Density(8);
+      expect(density.valueOf()).toBe(8);
+    });
+  });
+
   describe("schema", () => {
     it("should parse number", () => {
       const density = Density.z.parse(8);
@@ -1258,6 +1644,42 @@ describe("DataType", () => {
     });
   });
 
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const dt = new DataType({ value: "int32" });
+      expect(dt.toString()).toBe("int32");
+    });
+
+    [
+      [new Int32Array(), DataType.INT32],
+      [new Int8Array(), DataType.INT8],
+      [new Uint8Array(), DataType.UINT8],
+      [new Uint16Array(), DataType.UINT16],
+      [new Uint32Array(), DataType.UINT32],
+      [new BigInt64Array(), DataType.INT64],
+      [new BigUint64Array(), DataType.UINT64],
+      [new Float32Array(), DataType.FLOAT32],
+      [new Float64Array(), DataType.FLOAT64],
+      [new BigInt64Array(), DataType.INT64],
+      [new BigUint64Array(), DataType.UINT64],
+    ].forEach(([array, expected]) => {
+      test(`construct from ${array.constructor.name} to ${expected.toString()}`, () => {
+        const dt = new DataType(array);
+        expect(dt.toString()).toBe(expected.toString());
+      });
+    });
+
+    test("from data type", () => {
+      const dt = new DataType(DataType.INT32);
+      expect(dt.toString()).toBe(DataType.INT32.toString());
+    });
+
+    test("from string", () => {
+      const dt = new DataType("int32");
+      expect(dt.toString()).toBe("int32");
+    });
+  });
+
   describe("canSafelyCastTo", () => {
     const TESTS: [DataType, DataType, boolean][] = [
       [DataType.INT32, DataType.INT32, true],
@@ -1346,34 +1768,51 @@ describe("DataType", () => {
     });
 
     const testCases = [
-      { input: "int8", expected: "int8" },
-      { input: "int16", expected: "int16" },
-      { input: "int32", expected: "int32" },
-      { input: "int64", expected: "int64" },
-      { input: "uint8", expected: "uint8" },
-      { input: "uint16", expected: "uint16" },
-      { input: "uint32", expected: "uint32" },
-      { input: "uint64", expected: "uint64" },
-      { input: "float32", expected: "float32" },
-      { input: "float64", expected: "float64" },
-      { input: "string", expected: "string" },
-      { input: "boolean", expected: "boolean" },
-      { input: "timestamp", expected: "timestamp" },
-      { input: "uuid", expected: "uuid" },
-      { input: "json", expected: "json" },
+      { input: "int8", expected: "int8", short: "i8" },
+      { input: "int16", expected: "int16", short: "i16" },
+      { input: "int32", expected: "int32", short: "i32" },
+      { input: "int64", expected: "int64", short: "i64" },
+      { input: "uint8", expected: "uint8", short: "u8" },
+      { input: "uint16", expected: "uint16", short: "u16" },
+      { input: "uint32", expected: "uint32", short: "u32" },
+      { input: "uint64", expected: "uint64", short: "u64" },
+      { input: "float32", expected: "float32", short: "f32" },
+      { input: "float64", expected: "float64", short: "f64" },
+      { input: "string", expected: "string", short: "str" },
+      { input: "boolean", expected: "boolean", short: "bool" },
+      { input: "timestamp", expected: "timestamp", short: "ts" },
+      { input: "uuid", expected: "uuid", short: "uuid" },
+      { input: "json", expected: "json", short: "json" },
     ];
 
-    testCases.forEach(({ input, expected }) => {
+    testCases.forEach(({ input, expected, short }) => {
       it(`should parse "${input}" to DataType with value "${expected}"`, () => {
         const dt = DataType.z.parse(input);
         expect(dt).toBeInstanceOf(DataType);
         expect(dt.toString()).toBe(expected);
+        expect(dt.toString(true)).toBe(short);
       });
     });
   });
 });
 
 describe("Size", () => {
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const size = new Size({ value: 1024 });
+      expect(size.valueOf()).toBe(1024);
+    });
+
+    test("construct from number", () => {
+      const size = new Size(1024);
+      expect(size.valueOf()).toBe(1024);
+    });
+
+    test("construct from Size", () => {
+      const size = new Size(1024);
+      expect(size.valueOf()).toBe(1024);
+    });
+  });
   const TO_STRING_TESTS = [
     [Size.bytes(1), "1B"],
     [Size.kilobytes(1), "1KB"],

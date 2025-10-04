@@ -59,6 +59,31 @@
     color: var(--pluto-primary-z);
 }
 
+.pluto-icon--in-progress {
+    color: var(--pluto-warning-z);
+}
+
+.pluto-icon--completed {
+    color: var(--pluto-primary-z);
+}
+
+.pluto-icon--logo-opc {
+    transform: translateY(1px) scale(1.25);
+}
+
+.pluto-icon--csv {
+    transform: scale(1.25);
+}
+
+.pluto-icon--fitting {
+    --pluto-base-scale: 1.8;
+    transform: scale(var(--pluto-base-scale));
+}
+
+.pluto-icon--reset {
+    fill: var(--pluto-gray-l11);
+}
+
 .pluto-icon--boolean {
     fill: currentColor;
 }
@@ -69,12 +94,4 @@
 
 .pluto-icon--false {
     color: var(--pluto-error-z);
-}
-
-.pluto-icon--logo-opc {
-    transform: translateY(1px) scale(1.25);
-}
-
-.pluto-icon--csv {
-    transform: scale(1.25);
 }

@@ -66,8 +66,8 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.RangeKVDelete = fhttp.UnaryServer[api.RangeKVDeleteRequest, types.Nil](router, "/api/v1/range/kv/delete")
 	t.RangeAliasSet = fhttp.UnaryServer[api.RangeAliasSetRequest, types.Nil](router, "/api/v1/range/alias/set")
 	t.RangeAliasResolve = fhttp.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, "/api/v1/range/alias/resolve")
-	t.RangeAliasList = fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list")
 	t.RangeAliasRetrieve = fhttp.UnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse](router, "/api/v1/range/alias/retrieve")
+	t.RangeAliasList = fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list")
 	t.RangeAliasDelete = fhttp.UnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete")
 
 	// WORKSPACE
@@ -84,6 +84,13 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.SchematicRename = fhttp.UnaryServer[api.SchematicRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/rename")
 	t.SchematicSetData = fhttp.UnaryServer[api.SchematicSetDataRequest, types.Nil](router, "/api/v1/workspace/schematic/set-data")
 	t.SchematicCopy = fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/workspace/schematic/copy")
+
+	// SCHEMATIC SYMBOL
+	t.SchematicSymbolCreate = fhttp.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse](router, "/api/v1/workspace/schematic/symbol/create")
+	t.SchematicSymbolRetrieve = fhttp.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse](router, "/api/v1/workspace/schematic/symbol/retrieve")
+	t.SchematicSymbolDelete = fhttp.UnaryServer[api.SymbolDeleteRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete")
+	t.SchematicSymbolRename = fhttp.UnaryServer[api.SymbolRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename")
+	t.SchematicSymbolRetrieveGroup = fhttp.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group")
 
 	// LINE PLOT
 	t.LinePlotCreate = fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create")
@@ -134,6 +141,16 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.AnnotationCreate = fhttp.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse](router, "/api/v1/annotation/create")
 	t.AnnotationDelete = fhttp.UnaryServer[api.AnnotationDeleteRequest, types.Nil](router, "/api/v1/annotation/delete")
 	t.AnnotationRetrieve = fhttp.UnaryServer[api.AnnotationRetrieveRequest, api.AnnotationRetrieveResponse](router, "/api/v1/annotation/retrieve")
+
+	// arc
+	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create")
+	t.ArcDelete = fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
+	t.ArcRetrieve = fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve")
+
+	// STATUS
+	t.StatusSet = fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set")
+	t.StatusRetrieve = fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve")
+	t.StatusDelete = fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete")
 
 	return t
 }

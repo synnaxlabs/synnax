@@ -27,11 +27,9 @@ export interface DividerProps extends Flex.BoxProps {
  * @param props.direction - The direction to render the divider in.
  */
 export const Divider = ({
-  direction,
   className,
   padded = false,
   color,
-  style,
   ...rest
 }: DividerProps): ReactElement => {
   if (padded === true) padded = "center";
@@ -44,6 +42,7 @@ export const Divider = ({
         className,
       )}
       borderColor={color}
+      color={color}
       {...rest}
     />
   );

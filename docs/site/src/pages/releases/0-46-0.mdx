@@ -1,0 +1,69 @@
+---
+title: "Version 0.46 Release Notes"
+---
+
+import { Flex } from "@synnaxlabs/pluto";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Image } from "@/components/Media";
+
+<Release
+    version="0.46.0"
+    date="Sep 29, 2025"
+    title="Arc Beta"
+>
+<Image client:only="react" id="releases/0-46-0/thumbnail" themed={false} />
+
+Synnax v0.46 introduces the first release of our new automation language, Arc. We've
+also redesigned the browsing experience for Ranges in the console, added a new gauge
+component, and, as always, introduced a number of bug fixes and performance
+improvements.
+
+### Arc
+
+Arc is the first iteration of our long term plan to build a unified automation language
+for Synnax. Arc is a hybrid language that allows for building programs using both a
+visual and a text-based representation. Today, we're releasing the first version of the
+visual language for implementing alarms within Synnax.
+
+### Range Explorer
+
+<Image client:only="react" id="releases/0-46-0/range-explorer" themed={false} />
+
+We've redesigned the way you browse ranges in the Console. We've removed the unwieldy
+resources toolbar and replaced it with an intuitive range explorer. The explorer let's
+you search for ranges, filter by their labels, and favorite ranges for easy access and
+visualization.
+
+We've also added a new status indicator that shows the progress state of a range: to-do,
+in-progress, and complete. These indicators make it easy to see which operations are
+active and which have been completed.
+
+### Gauge Symbol
+
+<Flex.Box x justify="center">
+  <Image
+    client:only="react"
+    id="releases/0-46-0/gauge"
+    themed={false}
+    style={{ width: 350 }}
+  />
+</Flex.Box>
+
+Our new Schematic gauge symbol is a great way to display a bar-indicator representing
+the value of a gauge. To use it, simply drag and drop it into a schematic.
+
+### Bug Fixes and Other Improvements
+
+- Fixed an issue where OPC UA nodes with periods in their names were not displayed
+  correctly inside of the Read Task configuration dialog.
+- Improved the performance of the Console telemetry streaming infrastructure by using a
+  new and improved telemetry frame encoding mechanism.
+- Improved the smoothness of toolbar actions (opening, renaming, deleting, etc.) by
+  implementing more efficient caching mechanisms.
+- Reduced the number of logs produced by the core that were not useful for debugging
+  purposes.
+- Significantly improved core storage engine performance by increasing meta-data cache
+  sizes.
+
+</Release>

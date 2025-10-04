@@ -12,7 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,
   keyZ,
@@ -30,13 +30,26 @@ const RENAME_ENDPOINT = "/workspace/lineplot/rename";
 const SET_DATA_ENDPOINT = "/workspace/lineplot/set-data";
 const DELETE_ENDPOINT = "/workspace/lineplot/delete";
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
-const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const retrieveResZ = z.object({ linePlots: nullableArrayZ(linePlotZ) });
+
+const retrieveReqZ = z.object({ keys: keyZ.array() });
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+
+const retrieveResZ = z.object({ linePlots: array.nullableZ(linePlotZ) });
+
+const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
+
 const emptyResZ = z.object({});
 
 export class Client {
@@ -83,22 +96,23 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<LinePlot>;
-  async retrieve(keys: Key[]): Promise<LinePlot[]>;
-  async retrieve(keys: Params): Promise<LinePlot | LinePlot[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;
+  async retrieve(args: RetrieveMultipleParams): Promise<LinePlot[]>;
+  async retrieve(
+    args: RetrieveSingleParams | RetrieveMultipleParams,
+  ): Promise<LinePlot | LinePlot[]> {
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.linePlots : res.linePlots[0];
+    checkForMultipleOrNoResults("LinePlot", args, res.linePlots, isSingle);
+    return isSingle ? res.linePlots[0] : res.linePlots;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,

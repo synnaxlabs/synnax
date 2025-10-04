@@ -15,6 +15,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
+  type RefObject,
   useCallback,
   useMemo,
   useRef,
@@ -30,12 +31,35 @@ import { useRequiredContext, useSyncedRef } from "@/hooks";
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined> {
-  /** Get a single item by key, returns undefined if not found */
+export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
+  extends GetSingleItem<K, E>,
+    GetMultipleItems<K, E> {}
+
+export interface GetSingleItem<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
   (key: K): E | undefined;
-  /** Get multiple items by an array of keys */
+}
+
+export interface GetMultipleItems<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
   (keys: K[]): E[];
 }
+
+export const createGetItem = <
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+>(
+  first: GetSingleItem<K, E>,
+  second: GetMultipleItems<K, E>,
+): GetItem<K, E> =>
+  ((key: K | K[]) => {
+    if (Array.isArray(key)) return second(key);
+    return first(key);
+  }) as GetItem<K, E>;
 
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
@@ -89,7 +113,7 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
   "scrollToIndex"
 > => {
   const { scrollToIndex } = useUtilContext();
-  return { scrollToIndex };
+  return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
 
 export const useItem = <
@@ -117,16 +141,38 @@ export const useData = <
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
   const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
   const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
-  return {
-    data,
-    getItems,
-    getTotalSize,
-    ref,
-    getItem,
-    scrollToIndex,
-    subscribe,
-    itemHeight,
-  };
+  return useMemo(
+    () => ({
+      data,
+      getItems,
+      getTotalSize,
+      ref,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+    }),
+    [data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe, itemHeight],
+  );
+};
+
+const useFetchMoreRefCallback = (
+  elRef: RefObject<HTMLDivElement | null>,
+  hasData: boolean,
+  onFetchMore?: () => void,
+) => {
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const { visible } = Dialog.useContext();
+  const initialFetchCalledRef = useRef(false);
+  return useCallback(
+    (el: HTMLDivElement) => {
+      elRef.current = el;
+      if (elRef.current == null || initialFetchCalledRef.current) return;
+      initialFetchCalledRef.current = true;
+      onFetchMoreRef.current?.();
+    },
+    [onFetchMoreRef, visible, hasData],
+  );
 };
 
 const VirtualFrame = <
@@ -142,17 +188,8 @@ const VirtualFrame = <
   itemHeight = 36,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
-  const onFetchMoreRef = useSyncedRef(onFetchMore);
-  const { visible } = Dialog.useContext();
   const hasData = data.length > 0;
-  const refCallback = useCallback(
-    (el: HTMLDivElement) => {
-      ref.current = el;
-      if (ref.current == null || hasData) return;
-      onFetchMoreRef.current?.();
-    },
-    [onFetchMoreRef, visible, hasData],
-  );
+  const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -218,8 +255,6 @@ const StaticFrame = <
   itemHeight,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
-  const { visible } = Dialog.useContext();
-  const onFetchMoreRef = useSyncedRef(onFetchMore);
   const hasData = data.length > 0;
   const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
     const container = ref.current?.children[0];
@@ -235,14 +270,8 @@ const StaticFrame = <
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
 
-  const refCallback = useCallback(
-    (el: HTMLDivElement) => {
-      ref.current = el;
-      if (ref.current == null || hasData) return;
-      onFetchMoreRef.current?.();
-    },
-    [onFetchMoreRef, visible, hasData],
-  );
+  const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+
   const items = data.map((key, index) => ({ key, index }));
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
