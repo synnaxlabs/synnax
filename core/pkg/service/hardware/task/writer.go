@@ -36,10 +36,9 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	t.Status = nil
 	if err = gorp.NewCreate[Key, Task]().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
-			if !existing.Snapshot {
-				return creating, nil
+			if existing.Snapshot {
+				creating.Config = existing.Config
 			}
-			creating.Config = existing.Config
 			return creating, nil
 		}).
 		Entry(t).
