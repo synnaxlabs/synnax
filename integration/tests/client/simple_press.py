@@ -48,7 +48,7 @@ class Simple_Press(TestCase):
             read=[PRESSURE],
         ) as ctrl:
 
-            target_pressure = 20
+            target_pressure = 30
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False
 
@@ -68,7 +68,8 @@ class Simple_Press(TestCase):
                     )
                     ctrl[PRESS_VALVE] = False
                     self.assert_states(press_state=0, vent_state=0)
-                    target_pressure += 20
+                    target_pressure += 30
+                    sy.sleep(1)  # Give "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
                     return

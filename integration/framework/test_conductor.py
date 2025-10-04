@@ -993,7 +993,6 @@ def monitor_test_execution(conductor: TestConductor) -> None:
 
 def main() -> None:
     """Main entry point for the test conductor."""
-    gc.disable()
 
     parser = argparse.ArgumentParser(description="Run test sequences")
     parser.add_argument("--name", default="tc", help="Test conductor name")
@@ -1066,7 +1065,6 @@ def main() -> None:
         # Ranges must be created last for the test_conductor to be available as a parent.
         conductor.create_ranges()
         conductor.log_message(f"Fin.")
-        gc.enable()
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 

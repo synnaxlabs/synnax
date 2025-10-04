@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Schematic_Set_Output(ConsoleCase):
+class Set_Output(ConsoleCase):
     """
     Add a value component and edit its properties
     """

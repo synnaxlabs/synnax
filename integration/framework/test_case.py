@@ -13,6 +13,7 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
+import gc
 import logging
 import sys
 import threading
@@ -146,6 +147,7 @@ class TestCase(ABC):
         self.client_thread = None
         self.writer_thread: threading.Thread = threading.Thread()
         self.streamer_thread: threading.Thread = threading.Thread()
+        self._auto_pass: bool = False
         self._should_stop = False
         self.is_running = True
 
@@ -502,6 +504,11 @@ class TestCase(ABC):
         """Load configs, add channels, subscribe to channels, etc."""
         return None
 
+    def auto_pass(self, msg: str) -> None:
+        """Set the auto pass flag. Include reason for passing."""
+        self._log_message(f"AUTO PASS Enabled: {msg}")
+        self._auto_pass = True
+
     @abstractmethod
     def run(self) -> None:
         """
@@ -755,8 +762,9 @@ class TestCase(ABC):
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
+            gc.disable()
 
-            # Set STATUSat the top level as opposed to within
+            # Set STATUS at the top level as opposed to within
             # the override methods. Ensures that the status is set
             # Even if the child classes don't call super()
 
@@ -766,7 +774,8 @@ class TestCase(ABC):
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            self.run()
+            if not self._auto_pass:
+                self.run()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
@@ -783,6 +792,7 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self._log_message(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
+            gc.enable()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
