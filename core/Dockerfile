@@ -40,7 +40,7 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG DRIVER_ENABLED=false
 ARG CONSOLE_ENABLED=false
-ARG VERSION=dev
+ARG VERSION=
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 
@@ -67,20 +67,20 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Create writable directories for nonroot user (UID:GID = 65532:65532)
 RUN mkdir -p /usr/local/synnax \
-             /home/nonroot/.cache \
-             /synnax && \
+    /home/nonroot/.cache \
+    /synnax && \
     chown -R 65532:65532 /usr/local/synnax \
-                         /home/nonroot/.cache \
-                         /synnax && \
+    /home/nonroot/.cache \
+    /synnax && \
     chmod -R 755 /usr/local/synnax \
-                 /home/nonroot/.cache \
-                 /synnax
+    /home/nonroot/.cache \
+    /synnax
 
 # Stage 3: Minimal runtime image
 FROM gcr.io/distroless/static-debian12:nonroot
 
 # Pass build args to final stage
-ARG VERSION=dev
+ARG VERSION=
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 
