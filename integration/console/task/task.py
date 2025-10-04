@@ -51,7 +51,7 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Bridge": Bridge,
     "Current": Current,
     "Force Bridge Table": ForceBridgeTable,
-    "Force Bridge Two Point Linear": ForceBridgeTwoPointLinear,
+    "Force Bridge Two-Point Linear": ForceBridgeTwoPointLinear,
     "Force IEPE": ForceIEPE,
     "Function Generator": FunctionGenerator,
     "Microphone": Microphone,

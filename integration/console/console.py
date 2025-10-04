@@ -65,6 +65,7 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.wait_for_timeout(100)
         self.click(command)
 
     @property
@@ -102,13 +103,16 @@ class Console:
         if placeholder is not None:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
             if search_input.count() > 0:
+                search_input.wait_for(state="attached", timeout=5000)
                 search_input.fill(text)
                 self.page.wait_for_timeout(100)
 
         for attempt in range(10):
             try:
                 self.page.wait_for_selector(target_item, timeout=100)
-                self.page.locator(target_item).first.click()
+                item = self.page.locator(target_item).first
+                item.wait_for(state="attached", timeout=5000)
+                item.click()
                 return
             except Exception:
                 continue
@@ -213,8 +217,8 @@ class Console:
             self.page.get_by_role("button", name="Confirm").click()
 
     def check_for_error_screen(self) -> None:
-        self.page.wait_for_timeout(300)
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
+        self.page.wait_for_timeout(300)
         if self.page.get_by_text("Something went wrong").is_visible():
             self.page.wait_for_timeout(200)
             self.page.get_by_text("Try again").click()
@@ -225,7 +229,7 @@ class Console:
         Check for notifications in the bottom right corner.
         Returns a list of notification dictionaries with details.
         """
-        self.page.wait_for_timeout(100)
+        self.page.wait_for_timeout(55)  # <- Hope to remove
 
         notifications = []
         notification_elements = self.page.locator(".pluto-notification").all()
@@ -291,8 +295,8 @@ class Console:
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
+                close_button.wait_for(state="attached", timeout=5000)
                 close_button.click()
-                self.page.wait_for_timeout(100)  # Wait for notification to close
                 return True
             return False
 
@@ -338,6 +342,7 @@ class Console:
             .locator("button")
             .first
         )
+        button.wait_for(state="attached", timeout=5000)
         button.click(force=True)
 
     def get_toggle(self, toggle_label: str) -> bool:
@@ -358,6 +363,7 @@ class Console:
             .locator("input[type='checkbox']")
             .first
         )
+        checkbox.wait_for(state="attached", timeout=5000)
         checkbox.click()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
@@ -368,9 +374,10 @@ class Console:
             .locator("input")
             .first
         )
+        input_field.wait_for(state="attached", timeout=5000)
         input_field.fill(value)
 
-    def get_input_field(self, input_label: str, timeout: Optional[int] = 300) -> str:
+    def get_input_field(self, input_label: str) -> str:
         """Get the value of an input field by label."""
         input_field = (
             self.page.locator(f"text={input_label}")
@@ -378,7 +385,8 @@ class Console:
             .locator("input")
             .first
         )
-        return input_field.input_value(timeout=timeout)
+        input_field.wait_for(state="attached", timeout=300)
+        return input_field.input_value(timeout=100)
 
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
@@ -388,6 +396,7 @@ class Console:
             .locator("button")
             .first
         )
+        dropdown_button.wait_for(state="attached", timeout=5000)
         return dropdown_button.inner_text().strip()
 
     def get_selected_button(self, button_options: list[str]) -> str:
@@ -396,6 +405,7 @@ class Console:
             try:
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
+                    button.wait_for(state="attached", timeout=5000)
                     class_name = button.get_attribute("class") or ""
                     if "pluto-btn--filled" in class_name:
                         return option
@@ -403,10 +413,12 @@ class Console:
                 continue
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
+    def click(self, selector: str, timeout: Optional[int] = 5000) -> None:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
-        self.page.get_by_text(selector, exact=True).first.click()
+        element = self.page.get_by_text(selector, exact=True).first
+        element.wait_for(state="attached", timeout=5000)
+        element.click()
 
     def check_for_modal(self) -> bool:
         """Check for a modal"""

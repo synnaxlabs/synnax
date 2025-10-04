@@ -2,32 +2,41 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "NI AO Form Input Verification",
+      "sequence_name": "NI Form Input Verification 1",
+      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/task/ni_ao_forms"
+        },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "ni_ai_forms_a"
+        },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "ni_ai_forms_b"
+        },
+        {
+          "case": "console/task/ni_ai_forms",
+          "name": "ni_ai_forms_c"
         }
       ]
     },
     {
-      "sequence_name": "NI AI Form Input Verification",
+      "sequence_name": "NI Form Input Verification 2",
       "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/task/ni_ai_forms",
-          "name": "a"
+          "name": "ni_ai_forms_d"
         },
         {
           "case": "console/task/ni_ai_forms",
-          "name": "b"
+          "name": "ni_ai_forms_e"
         },
         {
           "case": "console/task/ni_ai_forms",
-          "name": "c"
-        },
-        {
-          "case": "console/task/ni_ai_forms",
-          "name": "d"
+          "name": "ni_ai_forms_f"
         }
       ]
     },

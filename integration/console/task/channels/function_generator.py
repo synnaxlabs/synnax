@@ -111,12 +111,9 @@ class FunctionGenerator(Analog):
             else:
                 # Handle normally
                 try:
-                    actual_value = self.console.get_input_field(key, timeout=100)
+                    actual_value = self.console.get_input_field(key)
                 except:
                     actual_value = self.console.get_dropdown_value(key)
-
-                if actual_value.strip() == "":
-                    actual_value = "0"
 
             assert (
                 actual_value == expected_value

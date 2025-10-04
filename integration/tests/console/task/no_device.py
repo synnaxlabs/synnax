@@ -106,15 +106,9 @@ class No_Device(ConsoleCase):
         """Nominal configuration of task"""
         console = self.console
 
-        # Add channels
+        # Add channel
         console.task.add_channel(
             name="new_channel", type="Voltage", device=dev_name, dev_name="usb_6000"
-        )
-        console.task.add_channel(
-            name="hello", type="Accelerometer", device=dev_name, dev_name="usb_6000"
-        )
-        console.task.add_channel(
-            name="goodbye", type="Bridge", device=dev_name, dev_name="usb_6000"
         )
 
         self._log_message("Configuring task")

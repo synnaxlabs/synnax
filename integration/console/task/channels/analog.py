@@ -78,7 +78,6 @@ class Analog:
 
         # Get device (set by task.add_channel)
         values["Device"] = console.get_dropdown_value("Device")
-        sy.sleep(0.3)
 
         # Optional configurations
         if port is not None:
@@ -125,12 +124,9 @@ class Analog:
 
         for key, expected_value in self.form_values.items():
             try:
-                actual_value = self.console.get_input_field(key, timeout=100)
+                actual_value = self.console.get_input_field(key)
             except:
                 actual_value = self.console.get_dropdown_value(key)
-
-            if actual_value.strip() == "":
-                actual_value = "0"
 
             assert (
                 actual_value == expected_value

@@ -176,7 +176,7 @@ class ChannelClient:
                     channel_name_element.click()
                     channel_name_element.fill(new_name)
                     self.page.keyboard.press("Enter")
-                    self.page.wait_for_timeout(200)
+                    self.page.wait_for_timeout(100)
                     break
         self.hide_channels()
 

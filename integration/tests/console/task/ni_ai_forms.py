@@ -51,21 +51,23 @@ class Ni_Ai_Forms(ConsoleCase):
             self.verify_voltage_inputs(device_name)
             self.verify_accel_inputs(device_name)
             self.verify_bridge_inputs(device_name)
+        if mode == "b":
             self.verify_current_inputs(device_name)
             self.verify_force_bridge_table_inputs(device_name)
-        if mode == "b":
             self.verify_force_bridge_two_point_linear_inputs(device_name)
+        if mode == "c":
             self.verify_force_iepe_inputs(device_name)
             self.verify_microphone_inputs(device_name)
             self.verify_pressure_bridge_table_inputs(device_name)
+        if mode == "d":
             self.verify_pressure_bridge_two_point_linear_inputs(device_name)
-        if mode == "c":
             self.verify_resistance_inputs(device_name)
             self.verify_rtd_inputs(device_name)
+        if mode == "e":
             self.verify_strain_gauge_inputs(device_name)
             self.verify_temperature_built_in_sensor_inputs(device_name)
-        if mode == "d":
             self.verify_thermocouple_inputs(device_name)
+        if mode == "f":
             self.verify_torque_bridge_table_inputs(device_name)
             self.verify_torque_bridge_two_point_linear_inputs(device_name)
             self.verify_velocity_iepe_inputs(device_name)
@@ -278,9 +280,9 @@ class Ni_Ai_Forms(ConsoleCase):
 
     def verify_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Force Bridge Two Point Linear inputs"""
-        self._log_message("Configuring channels of type Force Bridge Two Point Linear")
+        self._log_message("Configuring channels of type Force Bridge Two-Point Linear")
         console = self.console
-        type = "Force Bridge Two Point Linear"
+        type = "Force Bridge Two-Point Linear"
 
         console.ni_ai.add_channel(
             name="ForceBridge2Pt_1",
