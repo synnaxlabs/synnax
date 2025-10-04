@@ -43,6 +43,7 @@ class DriverNiDo(TestCase):
 
         client = self.client
 
+        time_index: deque[sy.TimeStamp] = deque()
         latencies_core: deque[float] = deque()
         latencies_loop: deque[float] = deque()
 
@@ -152,6 +153,7 @@ class DriverNiDo(TestCase):
                         ).milliseconds
 
                         # Store
+                        time_index.append(write_time)
                         latencies_core.append(latency_core)
                         latencies_loop.append(latency_loop)
 
@@ -165,6 +167,41 @@ class DriverNiDo(TestCase):
         latencies_core_ms = np.array(latencies_core)
         latencies_loop_ms = np.array(latencies_loop)
 
+        # Create latency channels and publish to Synnax
+        latency_time = client.channels.create(
+            name="latency_time",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+            retrieve_if_name_exists=True,
+        )
+        latency_core_ch = client.channels.create(
+            name="latency_core",
+            data_type=sy.DataType.FLOAT32,
+            index=latency_time.key,
+            retrieve_if_name_exists=True,
+        )
+        latency_loop_ch = client.channels.create(
+            name="latency_loopback",
+            data_type=sy.DataType.FLOAT32,
+            index=latency_time.key,
+            retrieve_if_name_exists=True,
+        )
+
+        # Write latency data to Synnax
+        self._log_message("Writing latency data to Synnax")
+        with client.open_writer(
+            start=sy.TimeStamp.now(),
+            channels=[latency_time.key, latency_core_ch.key, latency_loop_ch.key],
+        ) as writer:
+            writer.write(
+                {
+                    latency_time.key: list(time_index),
+                    latency_core_ch.key: latencies_core_ms,
+                    latency_loop_ch.key: latencies_loop_ms,
+                }
+            )
+
+        # Get statistics
         stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
         stats_loop = self.calculate_stats(
             latencies_loop_ms, "Loop Latency (Python timestamp)"

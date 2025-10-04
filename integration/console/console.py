@@ -384,8 +384,8 @@ class Console:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=300)
-        return input_field.input_value(timeout=300)
+        input_field.wait_for(state="attached", timeout=400)
+        return input_field.input_value(timeout=200)
 
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
