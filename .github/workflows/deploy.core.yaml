@@ -415,11 +415,11 @@ jobs:
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Set up QEMU
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        if: matrix.os == 'ubuntu-latest'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        if: matrix.os == 'ubuntu-latest'
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
@@ -430,7 +430,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        if: matrix.os == 'ubuntu-latest'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -438,27 +438,28 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Images
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        if: matrix.os == 'ubuntu-latest'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./core/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: |
-            ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-            synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ github.event_name != 'pull_request' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
             ${{ github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
             ${{ github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
             ${{ github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
             ${{ github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
           cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
           cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
-          sbom: true
-          provenance: mode=max
+          sbom: ${{ github.event_name != 'pull_request' }}
+          provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}
           build-args: |
             DRIVER_ENABLED=true
             CONSOLE_ENABLED=true
-            VERSION=${{ needs.setup.outputs.VERSION }}
+            VERSION=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
