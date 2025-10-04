@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"strings"
+	"time"
 )
 
 //go:embed VERSION
@@ -74,6 +75,20 @@ func Date() string {
 		return BuildDate
 	}
 	return unknown
+}
+
+// Time returns the build date as a time.Time.
+// Returns zero time if BuildDate is not set or cannot be parsed.
+func Time() time.Time {
+	if BuildDate == "" || BuildDate == unknown {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, BuildDate)
+	if err != nil {
+		zap.S().Errorw("failed to parse build date", "error", err, "date", BuildDate)
+		return time.Time{}
+	}
+	return t
 }
 
 // Full returns the full version string with commit and build date.

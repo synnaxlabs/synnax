@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"strings"
+	"time"
 )
 
 var _ = Describe("Version", func() {
@@ -37,6 +38,13 @@ var _ = Describe("Version", func() {
 		It("Should return unknown when not set via ldflags", func() {
 			// When built without ldflags, should return unknown
 			Expect(version.Date()).To(Equal("unknown"))
+		})
+	})
+
+	Describe("Time", func() {
+		It("Should return zero time when not set via ldflags", func() {
+			// When built without ldflags, should return zero time
+			Expect(version.Time()).To(Equal(time.Time{}))
 		})
 	})
 

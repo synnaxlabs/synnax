@@ -27,7 +27,6 @@ WORKDIR /workspace
 
 # Copy source code from all modules
 COPY freighter/go ./freighter/go
-COPY freighter/integration ./freighter/integration
 COPY alamos/go ./alamos/go
 COPY x/go ./x/go
 COPY cesium ./cesium
@@ -65,17 +64,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
     fi
 
-# Create writable directories for nonroot user (UID:GID = 65532:65532)
-RUN mkdir -p /usr/local/synnax \
-    /home/nonroot/.cache \
-    /synnax && \
-    chown -R 65532:65532 /usr/local/synnax \
-    /home/nonroot/.cache \
-    /synnax && \
-    chmod -R 755 /usr/local/synnax \
-    /home/nonroot/.cache \
-    /synnax
-
 # Stage 3: Minimal runtime image with glibc for driver support
 FROM ubuntu:24.04
 
@@ -96,17 +84,9 @@ LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
-# Install minimal dependencies and create nonroot user
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
-    rm -rf /var/lib/apt/lists/* && \
-    groupadd -g 65532 nonroot && \
+# Create nonroot user
+RUN groupadd -g 65532 nonroot && \
     useradd -u 65532 -g nonroot -s /bin/false -m nonroot
-
-# Copy writable directories with proper permissions before setting up the rest
-COPY --from=builder --chown=65532:65532 /usr/local/synnax /usr/local/synnax
-COPY --from=builder --chown=65532:65532 /home/nonroot/.cache /home/nonroot/.cache
-COPY --from=builder --chown=65532:65532 /synnax /synnax
 
 WORKDIR /synnax
 
