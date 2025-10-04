@@ -354,7 +354,12 @@ jobs:
       - name: Build
         working-directory: core
         run: |
-          go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags console,driver \
+            -ldflags="-w -s \
+              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
         if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -409,11 +414,13 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Download Latest Earthly
+      - name: Set up QEMU
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
@@ -430,32 +437,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Image
+      - name: Build and Push Docker Images
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
-        working-directory: core
-
-      - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
-            docker push ghcr.io/synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
-            docker push ghcr.io/synnaxlabs/synnax:rc
-          fi
-
-      - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
-            docker push synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
-            docker push synnaxlabs/synnax:rc
-          fi
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+            synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            DRIVER_ENABLED=true
+            CONSOLE_ENABLED=true
+            VERSION=${{ needs.setup.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
