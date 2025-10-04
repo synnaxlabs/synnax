@@ -65,6 +65,17 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
     fi
 
+# Create writable directories for nonroot user (UID:GID = 65532:65532)
+RUN mkdir -p /usr/local/synnax \
+             /home/nonroot/.cache \
+             /synnax && \
+    chown -R 65532:65532 /usr/local/synnax \
+                         /home/nonroot/.cache \
+                         /synnax && \
+    chmod -R 755 /usr/local/synnax \
+                 /home/nonroot/.cache \
+                 /synnax
+
 # Stage 3: Minimal runtime image
 FROM gcr.io/distroless/static-debian12:nonroot
 
@@ -85,13 +96,18 @@ LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
+# Copy writable directories with proper permissions before setting up the rest
+COPY --from=builder --chown=65532:65532 /usr/local/synnax /usr/local/synnax
+COPY --from=builder --chown=65532:65532 /home/nonroot/.cache /home/nonroot/.cache
+COPY --from=builder --chown=65532:65532 /synnax /synnax
+
 WORKDIR /synnax
 
 # Copy binary from builder
 COPY --from=builder /workspace/core/synnax /synnax/synnax
 
 # Use non-root user for security
-USER nonroot:nonroot
+USER 65532:65532
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090

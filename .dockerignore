@@ -9,7 +9,6 @@ external
 
 # Build outputs
 **/build
-**/dist
 **/.bazel
 **/*-bazel
 **/*.blaze
