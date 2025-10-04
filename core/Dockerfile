@@ -125,7 +125,7 @@ EXPOSE 9090
 
 # Health check - verify connectivity endpoint responds
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f -X POST http://localhost:9090/api/v1/connectivity/check || exit 1
+    CMD curl -f -X POST http://localhost:9090/api/v1/connectivity/check -H "Content-Type: application/json" -d '{}' || exit 1
 
 # Use SIGTERM for graceful shutdown
 STOPSIGNAL SIGTERM
