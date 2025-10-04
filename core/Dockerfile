@@ -114,14 +114,18 @@ WORKDIR /synnax
 COPY --from=builder /workspace/core/synnax /synnax/synnax
 COPY --from=builder /workspace/core/docker-entrypoint.sh /docker-entrypoint.sh
 
-# Install gosu for dropping privileges
+# Install gosu for dropping privileges and curl for health checks
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gosu && \
+    apt-get install -y --no-install-recommends gosu curl && \
     rm -rf /var/lib/apt/lists/* && \
     chmod +x /docker-entrypoint.sh
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090
+
+# Health check - verify connectivity endpoint responds
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f -X POST http://localhost:9090/api/v1/connectivity/check || exit 1
 
 # Use SIGTERM for graceful shutdown
 STOPSIGNAL SIGTERM
