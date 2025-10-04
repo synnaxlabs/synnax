@@ -267,6 +267,9 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}

@@ -638,7 +638,7 @@ export const useList = Flux.createList<
           });
         });
       }),
-      store.ranges.onDelete(async (key) => onDelete(key)),
+      store.ranges.onDelete(onDelete),
       store.relationships.onSet(async (rel) => {
         await handleListParentRelationshipSet(rel, onChange, client, store);
         await handleListLabelRelationshipSet(rel, onChange, client, store);

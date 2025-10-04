@@ -133,6 +133,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:

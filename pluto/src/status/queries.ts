@@ -75,7 +75,7 @@ export const useList = Flux.createList<
         if (keysSet != null && !keysSet.has(status.key)) return;
         onChange(status.key, status, { mode: "prepend" });
       }),
-      store.statuses.onDelete(async (key) => onDelete(key)),
+      store.statuses.onDelete(onDelete),
     ];
   },
 });
