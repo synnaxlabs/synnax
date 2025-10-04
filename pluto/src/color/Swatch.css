@@ -48,3 +48,9 @@
         height: 5rem;
     }
 }
+
+.pluto-color-swatch__dropdown {
+    display: inline-block;
+    min-width: 1px;
+    min-height: 1px;
+}

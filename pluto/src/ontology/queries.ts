@@ -141,7 +141,10 @@ export const useResourceList = Flux.createList<
   ],
 });
 
-export const retrieveCachedParentID = (store: FluxSubStore, id: ontology.ID) => {
+export const retrieveCachedParentID = (
+  store: FluxSubStore,
+  id: ontology.ID,
+): ontology.ID | null => {
   const res = store.relationships.get((r) =>
     ontology.matchRelationship(r, {
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -149,7 +152,29 @@ export const retrieveCachedParentID = (store: FluxSubStore, id: ontology.ID) => 
     }),
   );
   if (res.length === 0) return null;
-  return res[0].from.key;
+  return res[0].from;
+};
+
+export interface RetrieveParentIDQuery {
+  id: ontology.ID;
+}
+
+export const retrieveParentID = async ({
+  client,
+  query: { id },
+  store,
+}: Flux.RetrieveParams<RetrieveParentIDQuery, FluxSubStore>): Promise<ontology.ID> => {
+  const cached = retrieveCachedParentID(store, id);
+  if (cached != null) return cached;
+  const res = await client.ontology.retrieveParents(id);
+  store.resources.set(res);
+  const rel: ontology.Relationship = {
+    from: res[0].id,
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: id,
+  };
+  store.relationships.set(ontology.relationshipToString(rel), rel);
+  return res[0].id;
 };
 
 export const filterRelationshipsThatHaveIDs =
@@ -158,49 +183,6 @@ export const filterRelationshipsThatHaveIDs =
       (resource) =>
         ontology.idsEqual(rel.to, resource) || ontology.idsEqual(rel.from, resource),
     );
-
-export interface RetrieveParentIDQuery {
-  id: ontology.ID;
-  type?: ontology.ResourceType;
-}
-
-export const retrieveParentID = Flux.createRetrieve<
-  RetrieveParentIDQuery,
-  ontology.ID | null,
-  FluxSubStore
->({
-  name: RESOURCE_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => {
-    const res = await client.ontology.retrieveParents(query.id);
-    if (query.type == null) return res[0].id;
-    const parent = res.find(({ id }) => id.type === query.type);
-    if (parent == null) return null;
-    return parent.id;
-  },
-  mountListeners: ({ store, onChange, client, query: { id } }) => [
-    store.relationships.onSet(async (relationship) => {
-      if (
-        ontology.matchRelationship(relationship, {
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: id,
-        })
-      ) {
-        const parent = await client.ontology.retrieve(relationship.from);
-        onChange(parent.id);
-      } else onChange(null);
-    }),
-    store.relationships.onDelete(async (relationship) => {
-      const rel = ontology.relationshipZ.parse(relationship);
-      if (
-        ontology.matchRelationship(rel, {
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: id,
-        })
-      )
-        onChange(null);
-    }),
-  ],
-});
 
 export interface MoveChildrenParams {
   source: ontology.ID;

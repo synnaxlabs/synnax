@@ -10,7 +10,7 @@
 import { type group, ontology, schematic } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "schematicSymbols";
@@ -20,9 +20,8 @@ const RESOURCE_NAME = "Schematic Symbol";
 export interface FluxStore
   extends Flux.UnaryStore<schematic.symbol.Key, schematic.symbol.Symbol> {}
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Ontology.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
 const SET_SYMBOL_LISTENER: Flux.ChannelListener<
@@ -154,7 +153,6 @@ export const useList = Flux.createList<
 
 export interface FormQuery {
   key?: string;
-  parent?: ontology.ID;
 }
 
 export const formSchema = schematic.symbol.symbolZ
@@ -178,15 +176,14 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, query: { key, parent }, reset, store }) => {
+  retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
     const symbol = await retrieveSingle({ client, store, query: { key } });
-    if (parent == null) {
-      const parents = await client.ontology.retrieveParents(
-        schematic.symbol.ontologyID(key),
-      );
-      parent = parents[0].id;
-    }
+    const parent = await Ontology.retrieveParentID({
+      client,
+      query: { id: schematic.symbol.ontologyID(key) },
+      store,
+    });
     reset({
       version: 1,
       name: symbol.name,
@@ -195,12 +192,21 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
       parent,
     });
   },
-  update: async ({ client, value, reset }) => {
+  update: async ({ client, value, reset, store, rollbacks }) => {
     const payload = value();
     const created = await client.workspaces.schematics.symbols.create(payload);
+    const newRel: ontology.Relationship = {
+      from: payload.parent,
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: schematic.symbol.ontologyID(created.key),
+    };
+    rollbacks.push(store.schematicSymbols.set(created.key, created));
+    rollbacks.push(
+      store.relationships.set(ontology.relationshipToString(newRel), newRel),
+    );
     reset({ ...created, parent: payload.parent });
   },
-  mountListeners: ({ store, query: { parent, key }, reset, get }) => {
+  mountListeners: ({ store, query: { key }, reset, get }) => {
     if (key == null) return [];
     return [
       store.schematicSymbols.onSet(
@@ -208,9 +214,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
           reset({
             ...symbol,
             parent:
-              parent ??
-              get<ontology.ID>("parent", { optional: true })?.value ??
-              ontology.ROOT_ID,
+              get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
           }),
         key,
       ),
