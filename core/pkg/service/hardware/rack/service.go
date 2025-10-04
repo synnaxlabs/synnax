@@ -183,7 +183,7 @@ func (s *Service) newKey() (Key, error) {
 func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
-	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(rackKey).Change(func(r Rack) Rack {
+	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
 		r.TaskCounter += 1
 		next = r.TaskCounter
 		return r

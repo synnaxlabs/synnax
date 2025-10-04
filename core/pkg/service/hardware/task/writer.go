@@ -78,7 +78,7 @@ func (w Writer) Copy(
 	}
 	newKey := NewKey(key.Rack(), localKey)
 	var res Task
-	if err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
+	if err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(_ gorp.Context, t Task) Task {
 		t.Key = newKey
 		t.Name = name
 		t.Snapshot = snapshot

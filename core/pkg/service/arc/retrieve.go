@@ -40,7 +40,7 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	if len(names) == 0 {
 		return r
 	}
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, a *Arc) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, a *Arc) (bool, error) {
 		return lo.Contains(names, a.Name), nil
 	})
 	return r

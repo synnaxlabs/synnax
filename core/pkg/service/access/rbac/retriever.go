@@ -24,7 +24,7 @@ type Retriever struct {
 }
 
 func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, p *Policy) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, p *Policy) (bool, error) {
 		for _, subject := range p.Subjects {
 			if lo.Contains(subjects, subject) {
 				return true, nil

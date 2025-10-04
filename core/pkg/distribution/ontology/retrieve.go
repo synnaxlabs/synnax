@@ -53,7 +53,7 @@ func (r Retrieve) Where(filter gorp.FilterFunc[ID, Resource]) Retrieve {
 }
 
 func (r Retrieve) WhereTypes(types ...Type) Retrieve {
-	r.query.Current().Where(func(ctx gorp.FilterContext, r *Resource) (bool, error) {
+	r.query.Current().Where(func(ctx gorp.Context, r *Resource) (bool, error) {
 		return lo.Contains(types, r.ID.Type), nil
 	})
 	return r
@@ -233,7 +233,7 @@ func (r Retrieve) traverse(
 ) ([]ID, error) {
 	var nextIDs []ID
 	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
-		Where(func(fCtx gorp.FilterContext, rel *Relationship) (bool, error) {
+		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 			for _, resource := range resources {
 				if traverse.Filter(&resource, rel) {
 					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))

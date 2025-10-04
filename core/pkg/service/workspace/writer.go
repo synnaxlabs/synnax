@@ -63,10 +63,12 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().WhereKeys(key).Change(func(ws Workspace) Workspace {
-		ws.Name = name
-		return ws
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Workspace]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, ws Workspace) Workspace {
+			ws.Name = name
+			return ws
+		}).Exec(ctx, w.tx)
 }
 
 func (w Writer) SetLayout(
@@ -74,10 +76,12 @@ func (w Writer) SetLayout(
 	key uuid.UUID,
 	layout string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().WhereKeys(key).Change(func(ws Workspace) Workspace {
-		ws.Layout = layout
-		return ws
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Workspace]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, ws Workspace) Workspace {
+			ws.Layout = layout
+			return ws
+		}).Exec(ctx, w.tx)
 }
 
 func (w Writer) Delete(

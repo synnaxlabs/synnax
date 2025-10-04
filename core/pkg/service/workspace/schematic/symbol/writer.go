@@ -68,7 +68,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Symbol]().WhereKeys(key).Change(func(s Symbol) Symbol {
+	return gorp.NewUpdate[uuid.UUID, Symbol]().WhereKeys(key).Change(func(_ gorp.Context, s Symbol) Symbol {
 		s.Name = name
 		return s
 	}).Exec(ctx, w.tx)

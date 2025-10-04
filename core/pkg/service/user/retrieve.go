@@ -47,7 +47,7 @@ func (r Retrieve) Entries(users *[]User) Retrieve {
 
 // WhereUsernames filters the query to only include users with the given usernames.
 func (r Retrieve) WhereUsernames(usernames ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, u *User) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, u *User) (bool, error) {
 		return slices.Contains(usernames, u.Username), nil
 	})
 	return r

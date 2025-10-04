@@ -43,7 +43,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // WhereNames filters racks by their names.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, rack *Rack) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return lo.Contains(names, rack.Name), nil
 	})
 	return r
@@ -51,7 +51,7 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 
 // WhereEmbedded filters for racks that are embedded within the Synnax server.
 func (r Retrieve) WhereEmbedded(embedded bool, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, rack *Rack) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return rack.Embedded == embedded, nil
 	}, opts...)
 	return r
@@ -60,7 +60,7 @@ func (r Retrieve) WhereEmbedded(embedded bool, opts ...gorp.FilterOption) Retrie
 // WhereNodeIsHost filters for racks that are bound to the provided node and are
 // a gateway.
 func (r Retrieve) WhereNodeIsHost(opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, rack *Rack) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return rack.Key.Node() == r.hostProvider.HostKey(), nil
 	}, opts...)
 	return r
@@ -94,7 +94,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 
 // WhereNode filters for racks that are embedded within the provided node.
 func (r Retrieve) WhereNode(node cluster.NodeKey, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, rack *Rack) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return rack.Key.Node() == node, nil
 	}, opts...)
 	return r

@@ -36,35 +36,35 @@ func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 }
 
 func (r Retrieve) WhereRacks(racks ...rack.Key) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(racks, d.Rack), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereMakes(make ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(make, d.Make), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereLocations(locations ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(locations, d.Location), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereModels(models ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(models, d.Model), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.FilterContext, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(names, d.Name), nil
 	})
 	return r

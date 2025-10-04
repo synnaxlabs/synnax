@@ -54,7 +54,7 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 
 // WhereNames filters for ranges whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(ctx gorp.FilterContext, rng *Range) (bool, error) {
+	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
 		return lo.Contains(names, rng.Name), nil
 	})
 	return r
@@ -62,16 +62,16 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 
 // WhereOverlapsWith filters for ranges whose TimeRange overlaps with the
 func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
-	r.gorp.Where(func(ctx gorp.FilterContext, rng *Range) (bool, error) {
+	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
 		return rng.TimeRange.OverlapsWith(tr), nil
 	})
 	return r
 }
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
-	r.gorp.Where(func(fCtx gorp.FilterContext, rng *Range) (bool, error) {
-		oRng := rng.UseTx(r.baseTX).setLabel(r.label).setOntology(r.otg)
-		labels, err := oRng.RetrieveLabels(fCtx)
+	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
+		oRng := rng.UseTx(ctx.Tx).setLabel(r.label).setOntology(r.otg)
+		labels, err := oRng.RetrieveLabels(ctx)
 		if err != nil {
 			return false, err
 		}

@@ -38,12 +38,7 @@ func Required() FilterOption {
 	return func(o *filterOptions) { o.required = true }
 }
 
-type FilterContext struct {
-	context.Context
-	Tx Tx
-}
-
-type FilterFunc[K Key, E Entry[K]] = func(ctx FilterContext, e *E) (bool, error)
+type FilterFunc[K Key, E Entry[K]] = func(ctx Context, e *E) (bool, error)
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
@@ -140,7 +135,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		match, err := f.exec(FilterContext{
+		match, err := f.exec(Context{
 			Context: ctx,
 			Tx:      tx,
 		}, iter.Value(ctx))
@@ -163,7 +158,7 @@ type filter[K Key, E Entry[K]] struct {
 
 type filters[K Key, E Entry[K]] []filter[K, E]
 
-func (f filters[K, E]) exec(ctx FilterContext, entry *E) (bool, error) {
+func (f filters[K, E]) exec(ctx Context, entry *E) (bool, error) {
 	if len(f) == 0 {
 		return true, nil
 	}
@@ -270,25 +265,25 @@ func setWherePrefix(q query.Parameters, prefix []byte) {
 }
 
 func getWherePrefix(q query.Parameters) (r []byte) {
-	prefix, ok := q.Get(wherePrefixKey)
+	p, ok := q.Get(wherePrefixKey)
 	if !ok {
 		return
 	}
-	return prefix.(wherePrefix).prefix
+	return p.(wherePrefix).prefix
 }
 
 func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Parameters, reader Tx) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
-		SetEntries[K](q, &entries)
-		if err := keysRetrieve[K, E](ctx, q, reader); err != nil && !errors.Is(err, query.NotFound) {
+		SetEntries(q, &entries)
+		if err := keysRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
-	SetEntries[K](q, &entries)
-	if err := filterRetrieve[K, E](ctx, q, reader); err != nil && !errors.Is(err, query.NotFound) {
+	SetEntries(q, &entries)
+	if err := filterRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
 		return false, err
 	}
 	return len(entries) > 0, nil
@@ -310,7 +305,7 @@ func keysRetrieve[K Key, E Entry[K]](
 		validCount      int
 	)
 	for _, e := range keysResult {
-		match, err := f.exec(FilterContext{Context: ctx, Tx: tx}, &e)
+		match, err := f.exec(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err
 		}
@@ -351,7 +346,7 @@ func filterRetrieve[K Key, E Entry[K]](
 		if iter.Error() != nil {
 			return iter.Error()
 		}
-		match, err := f.exec(FilterContext{Context: ctx, Tx: tx}, v)
+		match, err := f.exec(Context{Context: ctx, Tx: tx}, v)
 		if err != nil {
 			return err
 		}

@@ -49,8 +49,8 @@ func (r Retrieve) Entries(s *[]Status) Retrieve { r.gorp.Entries(s); return r }
 func (r Retrieve) WhereKeys(keys ...string) Retrieve { r.gorp.WhereKeys(keys...); return r }
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
-	r.gorp.Where(func(fCtx gorp.FilterContext, s *Status) (bool, error) {
-		labels, err := r.label.RetrieveFor(fCtx, OntologyID(s.Key), r.baseTX)
+	r.gorp.Where(func(ctx gorp.Context, s *Status) (bool, error) {
+		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
