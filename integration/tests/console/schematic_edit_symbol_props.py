@@ -18,7 +18,6 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
     """
 
     def run(self) -> None:
-
         self.console.schematic.new()
         self.test_value_props()
         self.test_button_props()
