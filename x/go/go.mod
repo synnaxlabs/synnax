@@ -11,7 +11,6 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/samber/lo v1.51.0
 	github.com/stretchr/testify v1.11.1
-	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/uptrace/uptrace-go v1.37.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yuin/gopher-lua v1.1.1
@@ -22,8 +21,6 @@ require (
 	golang.org/x/sys v0.36.0
 	google.golang.org/protobuf v1.36.9
 )
-
-replace github.com/synnaxlabs/alamos => ../../alamos/go
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
