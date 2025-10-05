@@ -189,26 +189,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
 
-        // Helper lambda to format sample rate without trailing zeros
-        auto format_rate = [](float64 rate) -> std::string {
-            std::ostringstream oss;
-            oss << std::fixed << std::setprecision(6) << rate;
-            std::string rate_str = oss.str();
-            // Remove trailing zeros after decimal point
-            size_t decimal_pos = rate_str.find('.');
-            if (decimal_pos != std::string::npos) {
-                size_t last_nonzero = rate_str.find_last_not_of('0');
-                if (last_nonzero != std::string::npos && last_nonzero > decimal_pos) {
-                    rate_str = rate_str.substr(0, last_nonzero + 1);
-                }
-                // Remove decimal point if no fractional part remains
-                if (rate_str.back() == '.') {
-                    rate_str.pop_back();
-                }
-            }
-            return rate_str;
-        };
-
         // Validate sample rate against device minimum(s)
         VLOG(1) << "[ni.read_task] validating sample rate for " << this->device_resource_names.size() << " device(s)";
         for (const auto &[location, model]: this->device_resource_names) {
@@ -224,12 +204,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             }
             VLOG(1) << "[ni.read_task] device " << location << " (" << model << ") min_rate: " << min_rate << " Hz, configured: " << this->sample_rate.hz() << " Hz";
             if (this->sample_rate.hz() < min_rate) {
-                return xerrors::Error(
-                    "ni.sample_rate_too_low",
-                    "configured sample rate (" + format_rate(this->sample_rate.hz()) +
-                    " Hz) is below device minimum (" + format_rate(min_rate) +
-                    " Hz) for " + location + " (" + model + ")"
-                );
+                std::ostringstream msg;
+                msg << "configured sample rate (" << this->sample_rate.hz()
+                    << " Hz) is below device minimum (" << min_rate
+                    << " Hz) for " << location << " (" << model << ")";
+                return xerrors::Error("ni.sample_rate_too_low", msg.str());
             }
         }
 
