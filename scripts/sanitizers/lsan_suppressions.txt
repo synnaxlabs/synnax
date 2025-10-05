@@ -1,0 +1,59 @@
+# LeakSanitizer Suppression File
+# Format: leak:<pattern>
+# Pattern can match function names or library names
+# See: https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
+
+# ===== External Hardware SDKs =====
+
+# LabJack LJM SDK - Known leaks in vendor library
+leak:libLabJackM
+leak:LJM_*
+
+# National Instruments DAQmx - Known leaks in vendor library
+leak:libnidaqmx
+leak:libnicaiu
+leak:DAQmx*
+
+# ===== Third-Party Libraries =====
+
+# gRPC - Known arena allocator patterns that appear as leaks
+leak:grpc::
+leak:grpc_*
+
+# open62541 OPC UA library
+leak:UA_Server_run
+leak:UA_Client_*
+leak:open62541::
+
+# Protocol Buffers
+leak:google::protobuf::
+
+# libmodbus
+leak:libmodbus.so
+leak:modbus_*
+
+# mbedTLS
+leak:libmbedtls
+leak:mbedx509
+leak:mbedcrypto
+
+# ===== Standard Library / System =====
+
+# macOS dyld (dynamic linker) - false positives on macOS
+leak:dyld*
+leak:libdyld.dylib
+
+# glibc internals
+leak:__libc_*
+leak:_dl_*
+
+# pthread library
+leak:libpthread
+leak:pthread_*
+
+# ===== Known Issues (Temporary - Link to GitHub issues) =====
+
+# Add temporary suppressions here with issue links
+# Example:
+# leak:driver::pipeline::Source::allocate
+# Issue: https://github.com/synnaxlabs/synnax/issues/XXXX

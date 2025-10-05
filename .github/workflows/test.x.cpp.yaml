@@ -71,4 +71,10 @@ jobs:
         run: scripts/check_clang_format.sh x/cpp
 
       - name: Test
-        run: bazel test --test_output=all //x/cpp/... --nocache_test_results
+        run: |
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            bazel test --config=sanitize --test_output=all //x/cpp/... --nocache_test_results
+          else
+            bazel test --test_output=all //x/cpp/... --nocache_test_results
+          fi
+        shell: bash
