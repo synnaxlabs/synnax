@@ -81,6 +81,7 @@ func collectLocals(scope *ir.Scope) []wasm.ValueType {
 			locals = append(locals, wasm.ConvertType(child.Type))
 		case ir.KindBlock:
 			locals = append(locals, collectLocals(child)...)
+		default:
 		}
 	}
 	return locals
