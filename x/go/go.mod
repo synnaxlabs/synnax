@@ -86,5 +86,3 @@ require (
 	google.golang.org/grpc v1.75.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250908214217-97024824d090
