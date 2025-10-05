@@ -75,7 +75,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	if err != nil && !errors.Is(err, kv.NotFound) {
 		return nil, err
 	}
-	c.Store.SetState(ctx, state)
+	c.SetState(ctx, state)
 
 	c.gossip, err = gossip.New(c.Gossip)
 	if err != nil {
@@ -89,7 +89,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.
 		c.L.Info("existing cluster found in storage. restarting activities")
-		host := c.Store.GetHost()
+		host := c.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(ctx, host)
 		c.Pledge.ClusterKey = c.Key()
@@ -143,33 +143,33 @@ type Cluster struct {
 
 // Key implements the Cluster interface.
 func (c *Cluster) Key() uuid.UUID {
-	s, release := c.Store.PeekState()
+	s, release := c.PeekState()
 	defer release()
 	return s.ClusterKey
 }
 
 // Host implements the Cluster interface.
 func (c *Cluster) Host() node.Node {
-	return c.Store.GetHost()
+	return c.GetHost()
 }
 
 // HostKey implements the Cluster interface.
 func (c *Cluster) HostKey() node.Key {
-	s, release := c.Store.PeekState()
+	s, release := c.PeekState()
 	defer release()
 	return s.HostKey
 }
 
 // Nodes implements the Cluster interface.
 func (c *Cluster) Nodes() node.Group {
-	s, release := c.Store.PeekState()
+	s, release := c.PeekState()
 	defer release()
 	return s.Nodes
 }
 
 // Node implements the Cluster interface.
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
-	n, ok := c.Store.GetNode(key)
+	n, ok := c.GetNode(key)
 	if !ok {
 		return n, nodeNotFoundErr(key)
 	}
@@ -212,7 +212,7 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 			Store:       c.Storage,
 			Encoder:     c.Codec,
 		}
-		flush.FlushSync(sCtx, c.Store.CopyState())
+		flush.FlushSync(sCtx, c.CopyState())
 		c.OnChange(func(_ context.Context, change Change) {
 			select {
 			case <-sCtx.Done():
@@ -223,7 +223,7 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 		})
 		sCtx.Go(func(ctx context.Context) error {
 			<-ctx.Done()
-			flush.FlushSync(ctx, c.Store.CopyState())
+			flush.FlushSync(ctx, c.CopyState())
 			return ctx.Err()
 		},
 			signal.WithKey("flush"),
@@ -256,7 +256,7 @@ func newConfig(ctx context.Context, configs []Config) (Config, error) {
 	store_ := store.New(ctx)
 	cfg.Gossip.Store = store_
 	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
-	cfg.Gossip.Instrumentation = cfg.Instrumentation.Child("gossip")
-	cfg.Pledge.Instrumentation = cfg.Instrumentation.Child("pledge")
+	cfg.Gossip.Instrumentation = cfg.Child("gossip")
+	cfg.Pledge.Instrumentation = cfg.Child("pledge")
 	return cfg, nil
 }

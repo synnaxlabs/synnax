@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Open", func() {
@@ -22,8 +23,7 @@ var _ = Describe("Open", func() {
 		db2 *aspen.DB
 	)
 	BeforeEach(func() {
-		var err error
-		db1, err = aspen.Open(
+		db1 = MustSucceed(aspen.Open(
 			ctx,
 			"",
 			"localhost:22646",
@@ -31,17 +31,15 @@ var _ = Describe("Open", func() {
 			aspen.Bootstrap(),
 			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
-		)
-		Expect(err).ToNot(HaveOccurred())
-		db2, err = aspen.Open(
+		))
+		db2 = MustSucceed(aspen.Open(
 			ctx,
 			"",
 			"localhost:22647",
 			[]address.Address{"localhost:22646"},
 			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
-		)
-
+		))
 	})
 	AfterEach(func() {
 		Expect(db1.Close()).To(Succeed())

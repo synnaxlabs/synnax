@@ -97,7 +97,7 @@ func (r *recoveryServer) recoverPeer(
 }
 
 func runRecovery(ctx context.Context, cfg Config) error {
-	cfg.Instrumentation = cfg.Instrumentation.Child("recovery")
+	cfg.Instrumentation = cfg.Child("recovery")
 	nodes := cfg.Cluster.Nodes()
 	sCtx := signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
 	cfg.L.Info("recovering lost key-value operations", zap.Int("peer_node_count", len(nodes)-1))
