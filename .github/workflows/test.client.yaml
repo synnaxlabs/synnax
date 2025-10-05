@@ -33,6 +33,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -72,6 +73,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -212,7 +214,7 @@ jobs:
         run: scripts/check_clang_format.sh client/cpp
 
       - name: Test
-        run: bazel test --test_output=all //client/cpp/... --nocache_test_results
+        run: bazel test --config=sanitize --test_output=all //client/cpp/... --nocache_test_results
 
   py:
     name: Test - Python

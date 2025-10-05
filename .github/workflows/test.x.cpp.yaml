@@ -11,6 +11,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   push:
@@ -26,6 +27,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   workflow_dispatch:
