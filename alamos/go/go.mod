@@ -34,5 +34,3 @@ require (
 	golang.org/x/tools v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
-
-replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250908214217-97024824d090
