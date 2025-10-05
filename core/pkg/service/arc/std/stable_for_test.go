@@ -124,7 +124,7 @@ var _ = Describe("StableFor", func() {
 					mockTime = telem.TimeStamp(telem.TimeSpan(i) * telem.Second)
 					v := value.Value{Type: ir.I32{}}.PutInt32(int32(i))
 					stage.Load("input", v)
-				stage.Next(ctx)
+					stage.Next(ctx)
 				}
 				Expect(outputs).To(HaveLen(0))
 
@@ -281,10 +281,10 @@ var _ = Describe("StableFor", func() {
 					mockTime = telem.TimeStamp(telem.TimeSpan(i) * telem.Second)
 					if i%2 == 0 {
 						stage.Load("input", v1)
-				stage.Next(ctx)
+						stage.Next(ctx)
 					} else {
 						stage.Load("input", v2)
-				stage.Next(ctx)
+						stage.Next(ctx)
 					}
 				}
 				Expect(outputs).To(HaveLen(0))

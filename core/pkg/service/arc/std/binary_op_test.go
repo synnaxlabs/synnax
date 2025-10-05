@@ -430,7 +430,7 @@ var _ = Describe("BinaryOp", func() {
 
 			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 			stage.Load("b", v2)
-				stage.Next(ctx)
+			stage.Next(ctx)
 
 			// Now should output
 			Expect(outputCalled).To(BeTrue())

@@ -211,7 +211,7 @@ var _ = Describe("Select", func() {
 				for _, test := range values {
 					v := value.Value{Type: ir.I32{}}.PutInt32(test.val)
 					stage.Load("input", v)
-				stage.Next(ctx)
+					stage.Next(ctx)
 				}
 
 				Expect(outputs).To(HaveLen(6))
