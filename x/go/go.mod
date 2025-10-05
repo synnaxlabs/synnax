@@ -87,9 +87,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-exclude (
-	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
-	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
-)
-
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250908214217-97024824d090
