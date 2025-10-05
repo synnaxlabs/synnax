@@ -12,13 +12,13 @@ package std
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/maps"
 	xstatus "github.com/synnaxlabs/x/status"

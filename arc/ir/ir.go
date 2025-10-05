@@ -91,6 +91,38 @@ type ConstraintSystem interface {
 	ApplySubstitutions(t Type) Type
 }
 
+// Strata represents the execution stratification of a dataflow graph.
+// Each node is assigned a stratum (execution level) based on its dependencies.
+// Stratification enables single-pass, glitch-free reactive execution.
+type Strata struct {
+	// Nodes maps node keys to their stratum level (0, 1, 2, ...)
+	Nodes map[string]int `json:"nodes"`
+	// Max is the highest stratum level in the graph
+	Max int `json:"max"`
+}
+
+// Get returns the stratum for a node, or 0 if not found
+func (s Strata) Get(nodeKey string) int {
+	if level, ok := s.Nodes[nodeKey]; ok {
+		return level
+	}
+	return 0
+}
+
+// Has returns true if the node has a stratum assignment
+func (s Strata) Has(nodeKey string) bool {
+	_, ok := s.Nodes[nodeKey]
+	return ok
+}
+
+// NewStrata creates a new empty Strata
+func NewStrata() Strata {
+	return Strata{
+		Nodes: make(map[string]int),
+		Max:   0,
+	}
+}
+
 type IR struct {
 	Stages      []Stage          `json:"stages"`
 	Functions   []Function       `json:"functions"`
@@ -100,7 +132,7 @@ type IR struct {
 	Constraints ConstraintSystem `json:"-"`
 	// Strata maps node keys to their execution stratum (level).
 	// Computed during analysis for stratified reactive execution.
-	Strata map[string]int `json:"strata"`
+	Strata Strata `json:"-"`
 }
 
 func (ir IR) GetStage(key string) (Stage, bool) {

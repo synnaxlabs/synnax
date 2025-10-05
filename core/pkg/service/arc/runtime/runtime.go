@@ -7,23 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package archive
+package runtime
 
 import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -36,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/tetratelabs/wazero"
 )
 
 // Config is the configuration for an arc runtime.
@@ -92,11 +86,6 @@ type streamerSeg struct {
 	confluence.UnarySink[framer.StreamerResponse]
 	// requests are used to manage the life cycle of the telemetry frame streamerSeg.
 	requests confluence.Inlet[framer.StreamerRequest]
-	// values are the current telemetry values for each requested channel in the program.
-	mu struct {
-		sync.RWMutex
-		values map[channel.Key]telem.Series
-	}
 }
 
 func (s *streamerSeg) Close() error {
@@ -115,7 +104,7 @@ func (w *writerSeg) sink(ctx context.Context, res framer.WriterResponse) error {
 	return nil
 }
 
-func (w *writerSeg) Write(ctx context.Context, fr core.Frame) error {
+func (w *writerSeg) Write(ctx context.Context, fr framer.Frame) error {
 	return signal.SendUnderContext(
 		ctx,
 		w.Out.Inlet(),
@@ -132,14 +121,9 @@ func (w *writerSeg) Close() error {
 }
 
 type Runtime struct {
-	// module is the arc program module
-	module arc.Module
-	// wasm is the webassembly runtime for the program.
-	wasm     wazero.Runtime
+	core     *Core
 	streamer *streamerSeg
 	writer   *writerSeg
-	// nodes are all nodes in the program
-	nodes map[string]stage.Node
 	// close is a shutdown handler that stops internal processes
 	close io.Closer
 }
@@ -152,35 +136,8 @@ func (r *Runtime) Close() error {
 	return c.Error()
 }
 
-func (r *Runtime) Get(key channel.Key) telem.Series {
-	r.streamer.mu.RLock()
-	defer r.streamer.mu.RUnlock()
-	return r.streamer.mu.values[key]
-}
-
-func (r *Runtime) createOnOutput(nodeKey string) stage.OutputHandler {
-	return func(ctx context.Context, sourceParam string, value value.Value) {
-		for _, edge := range r.module.Edges {
-			if edge.Source.Node == nodeKey && edge.Source.Param == sourceParam {
-				r.nodes[edge.Target.Node].Next(ctx, edge.Target.Param, value)
-			}
-		}
-	}
-}
-
-func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse) error {
-	for i, ser := range res.Frame.RawSeries() {
-		if res.Frame.ShouldExcludeRaw(i) {
-			continue
-		}
-		r.streamer.mu.values[res.Frame.RawKeyAt(i)] = ser
-	}
-	keys := res.Frame.KeysSlice()
-	for _, node := range r.nodes {
-		if len(lo.Intersect(node.ReadChannels(), keys)) > 0 {
-			node.Next(ctx, "", value.Value{})
-		}
-	}
+func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
+	r.core.Next(ctx, res.Frame)
 	return nil
 }
 
@@ -243,7 +200,7 @@ func createStreamPipeline(
 		return nil, nil, err
 	}
 	plumber.SetSegment(p, streamerAddr, streamer)
-	r.streamer.Sink = r.processOutput
+	r.streamer.Sink = r.processFrame
 	plumber.SetSink[framer.StreamerResponse](p, runtimeAddr, r.streamer)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
 	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, runtimeAddr, 10)
@@ -280,49 +237,26 @@ func createWritePipeline(
 	return p, nil
 }
 
-func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Node, error) {
-	_, ok := cfg.Module.GetStage(arcNode.Type)
-	if ok {
-		return nil, errors.Newf("unsupported module type: %s", arcNode.Type)
-	}
-	return std.Create(ctx, std.Config{
-		Node:        arcNode,
-		Status:      cfg.Status,
-		ChannelData: r,
-		Write:       r.writer.Write,
-		Channel:     cfg.Channel,
-	})
-}
-
 func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	r := &Runtime{
-		module: cfg.Module,
-		nodes:  make(map[string]stage.Node),
-	}
-	r.writer = &writerSeg{}
-	r.streamer = &streamerSeg{}
-	r.streamer.mu.values = make(map[channel.Key]telem.Series)
-	if len(cfg.Module.WASM) != 0 {
-		r.wasm = wazero.NewRuntime(ctx)
-	}
-
-	for _, nodeSpec := range cfg.Module.Nodes {
-		n, err := r.create(ctx, cfg, nodeSpec)
-		if err != nil {
-			return nil, err
-		}
-		n.OnOutput(r.createOnOutput(nodeSpec.Key))
-		r.nodes[n.Key()] = n
-	}
-	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, r.nodes)
+	core, err := NewCore(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	writeChannels, err := retrieveWriteChannels(ctx, cfg.Channel, r.nodes)
+	r := &Runtime{
+		core:     core,
+		writer:   &writerSeg{},
+		streamer: &streamerSeg{},
+	}
+
+	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, core.nodes)
+	if err != nil {
+		return nil, err
+	}
+	writeChannels, err := retrieveWriteChannels(ctx, cfg.Channel, core.nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -350,9 +284,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		}
 	}
 	sCtx, cancel := signal.Isolated()
-	for _, node := range r.nodes {
-		node.Flow(sCtx)
-	}
+	core.Flow(sCtx)
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

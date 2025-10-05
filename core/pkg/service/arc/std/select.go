@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
 	"github.com/synnaxlabs/x/maps"
 )
 

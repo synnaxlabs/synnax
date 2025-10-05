@@ -25,30 +25,33 @@ import (
 //  2. Iteratively assign strata: if node A depends on node B, then stratum(A) = max(stratum(A), stratum(B) + 1)
 //  3. Detect cycles: if iteration count exceeds node count, a cycle exists
 //
-// Returns a map from node key to stratum level, or false if a cycle is detected.
+// Returns stratification data, or false if a cycle is detected.
 // Cycle errors are added to the diagnostics.
 func Stratify(
 	ctx context.Context,
 	nodes []ir.Node,
 	edges []ir.Edge,
 	diag *diagnostics.Diagnostics,
-) (map[string]int, bool) {
-	if len(nodes) == 0 {
-		return make(map[string]int), true
-	}
+) (ir.Strata, bool) {
+
 	var (
-		strata        = make(map[string]int)
+		strata        = ir.NewStrata()
 		iterations    = 0
 		maxIterations = len(nodes) // Upper bound for DAG
 		changed       = true
 	)
+	// Handle empty graph
+	if len(nodes) == 0 {
+		return strata, true
+	}
+
 	// Step 1: Initialize ALL nodes to stratum 0
 	for _, node := range nodes {
-		strata[node.Key] = 0
+		strata.Nodes[node.Key] = 0
 	}
+
 	// Step 2: Iterative deepening based on dependencies
 	// If a node depends on another, it must be in a higher stratum
-
 	for changed {
 		changed = false
 		iterations++
@@ -57,19 +60,26 @@ func Stratify(
 			// Cycle detected - find and report it
 			cycle := findCycle(nodes, edges)
 			diag.AddError(
-				errors.Newf("cycle detected: %v", cycle),
+				errors.Newf("cycle detected in dataflow graph: %v", cycle),
 				nil,
 			)
-			return nil, false
+			return ir.Strata{}, false
 		}
 
 		for _, edge := range edges {
-			sourceStratum := strata[edge.Source.Node]
-			targetStratum := strata[edge.Target.Node]
+			sourceStratum := strata.Nodes[edge.Source.Node]
+			targetStratum := strata.Nodes[edge.Target.Node]
 
 			// If source stratum >= target stratum, we need to bump target up
 			if sourceStratum >= targetStratum {
-				strata[edge.Target.Node] = sourceStratum + 1
+				newStratum := sourceStratum + 1
+				strata.Nodes[edge.Target.Node] = newStratum
+
+				// Track maximum stratum
+				if newStratum > strata.Max {
+					strata.Max = newStratum
+				}
+
 				changed = true
 			}
 		}

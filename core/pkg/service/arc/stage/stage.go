@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
 	"github.com/synnaxlabs/x/signal"
 )
 

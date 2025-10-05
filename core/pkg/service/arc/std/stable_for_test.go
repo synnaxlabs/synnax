@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/std"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
 	"github.com/synnaxlabs/x/telem"
 )
 

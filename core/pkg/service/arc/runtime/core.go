@@ -15,66 +15,90 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/stage"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/stage"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/std"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Core implements stratified reactive execution for Arc dataflow graphs.
-// Stratification enables single-pass, glitch-free evaluation with predictable performance.
 type Core struct {
-	module     arc.Module
-	nodes      map[string]stage.Node
-	strata     map[string]int               // Pre-computed from analyzer
-	maxStratum int                          // Maximum stratum level
-	values     map[channel.Key]telem.Series // Channel value cache (ambient state)
+	module arc.Module
+	nodes  map[string]stage.Node
+	values map[channel.Key]telem.Series
 }
 
-// Flow starts all node goroutines and executes the initial evaluation.
-// Constants emit during this phase, then we run a complete stratified pass.
+func (c *Core) Get(key channel.Key) telem.Series {
+	return c.values[key]
+}
+
+func NewCore(ctx context.Context, cfgs ...Config) (*Core, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	c := &Core{
+		module: cfg.Module,
+		nodes:  make(map[string]stage.Node),
+		values: make(map[channel.Key]telem.Series),
+	}
+	create := func(arcNode arc.Node) (stage.Node, error) {
+		_, ok := cfg.Module.GetStage(arcNode.Type)
+		if ok {
+			return nil, errors.Newf("unsupported module type: %s", arcNode.Type)
+		}
+		return std.Create(ctx, std.Config{
+			Node:        arcNode,
+			Status:      cfg.Status,
+			ChannelData: c,
+			//Write:       r.writer.Write,
+			Channel: cfg.Channel,
+		})
+	}
+	for _, nodeSpec := range c.module.Nodes {
+		n, err := create(nodeSpec)
+		if err != nil {
+			return nil, err
+		}
+		n.OnOutput(c.createOutputHandler(nodeSpec.Key))
+		c.nodes[n.Key()] = n
+	}
+	return c, nil
+}
+
 func (c *Core) Flow(ctx signal.Context) {
-	// Start all node goroutines (constants will emit immediately)
 	for _, node := range c.nodes {
 		node.Flow(ctx)
 	}
-
-	// Execute initial stratified pass (propagate constants)
 	c.evaluateStrata(ctx)
 }
 
-// Next processes a new telemetry frame and executes stratified evaluation.
 func (c *Core) Next(ctx context.Context, fr core.Frame) {
-	// Update channel cache (ambient state)
-	for key, series := range fr.Entries() {
-		c.values[key] = series
+	for rawI, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		c.values[key] = fr.RawSeriesAt(rawI)
 	}
-
-	// Execute complete stratified pass
 	c.evaluateStrata(ctx)
 }
 
-// evaluateStrata executes all nodes in stratified order (single pass).
-// Each node evaluates exactly once per frame in dependency order.
 func (c *Core) evaluateStrata(ctx context.Context) {
-	// Evaluate by stratum: 0, 1, 2, ..., maxStratum
-	for stratum := 0; stratum <= c.maxStratum; stratum++ {
+	for stratum := 0; stratum <= c.module.Strata.Max; stratum++ {
 		for nodeKey, node := range c.nodes {
-			if c.strata[nodeKey] == stratum {
+			if c.module.Strata.Nodes[nodeKey] == stratum {
 				node.Next(ctx)
 			}
 		}
 	}
 }
 
-// createOutputHandler creates the output handler for a node.
-// When a node produces output, this handler propagates it to downstream nodes via Load().
 func (c *Core) createOutputHandler(nodeKey string) stage.OutputHandler {
 	return func(ctx context.Context, sourceParam string, val value.Value) {
-		// Find all outgoing edges from this node's parameter
 		for _, edge := range c.module.Edges {
 			if edge.Source.Node == nodeKey && edge.Source.Param == sourceParam {
-				// Load value into target node's parameter
 				targetNode := c.nodes[edge.Target.Node]
 				targetNode.Load(edge.Target.Param, val)
 			}

@@ -15,19 +15,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/value"
+	std2 "github.com/synnaxlabs/synnax/pkg/service/arc/std"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/value"
 )
 
 var _ = Describe("BinaryOp", func() {
 	var (
 		ctx context.Context
-		cfg std.Config
+		cfg std2.Config
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		cfg = std.Config{
+		cfg = std2.Config{
 			Node: ir.Node{
 				Key: "test_op",
 			},
@@ -37,7 +37,7 @@ var _ = Describe("BinaryOp", func() {
 	Describe("Comparison Operators", func() {
 		Context("EQ operator", func() {
 			It("Should return 1 when values are equal", func() {
-				stage, err := std.EQFactory(ctx, cfg)
+				stage, err := std2.EQFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -55,7 +55,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should return 0 when values are not equal", func() {
-				stage, err := std.EQFactory(ctx, cfg)
+				stage, err := std2.EQFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -73,7 +73,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should handle mixed types with coercion", func() {
-				stage, err := std.EQFactory(ctx, cfg)
+				stage, err := std2.EQFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -93,7 +93,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("NE operator", func() {
 			It("Should return 1 when values are not equal", func() {
-				stage, err := std.NEFactory(ctx, cfg)
+				stage, err := std2.NEFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -113,7 +113,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("GT operator", func() {
 			It("Should return 1 when a > b", func() {
-				stage, err := std.GTFactory(ctx, cfg)
+				stage, err := std2.GTFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -131,7 +131,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should return 0 when a <= b", func() {
-				stage, err := std.GTFactory(ctx, cfg)
+				stage, err := std2.GTFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -151,7 +151,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("GE operator", func() {
 			It("Should return 1 when a >= b", func() {
-				stage, err := std.GEFactory(ctx, cfg)
+				stage, err := std2.GEFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -171,7 +171,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("LT operator", func() {
 			It("Should return 1 when a < b", func() {
-				stage, err := std.LTFactory(ctx, cfg)
+				stage, err := std2.LTFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -191,7 +191,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("LE operator", func() {
 			It("Should return 1 when a <= b", func() {
-				stage, err := std.LEFactory(ctx, cfg)
+				stage, err := std2.LEFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -213,7 +213,7 @@ var _ = Describe("BinaryOp", func() {
 	Describe("Arithmetic Operators", func() {
 		Context("Add operator", func() {
 			It("Should add two integers", func() {
-				stage, err := std.AddFactory(ctx, cfg)
+				stage, err := std2.AddFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -232,7 +232,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should add two floats", func() {
-				stage, err := std.AddFactory(ctx, cfg)
+				stage, err := std2.AddFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -251,7 +251,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should handle mixed types", func() {
-				stage, err := std.AddFactory(ctx, cfg)
+				stage, err := std2.AddFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -272,7 +272,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("Sub operator", func() {
 			It("Should subtract two integers", func() {
-				stage, err := std.SubFactory(ctx, cfg)
+				stage, err := std2.SubFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -292,7 +292,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("Mul operator", func() {
 			It("Should multiply two integers", func() {
-				stage, err := std.MulFactory(ctx, cfg)
+				stage, err := std2.MulFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -312,7 +312,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("Div operator", func() {
 			It("Should divide two integers", func() {
-				stage, err := std.DivFactory(ctx, cfg)
+				stage, err := std2.DivFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -330,7 +330,7 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			It("Should handle division by zero", func() {
-				stage, err := std.DivFactory(ctx, cfg)
+				stage, err := std2.DivFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -350,7 +350,7 @@ var _ = Describe("BinaryOp", func() {
 
 		Context("Mod operator", func() {
 			It("Should calculate modulo", func() {
-				stage, err := std.ModFactory(ctx, cfg)
+				stage, err := std2.ModFactory(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				var output value.Value
@@ -371,7 +371,7 @@ var _ = Describe("BinaryOp", func() {
 
 	Describe("State Management", func() {
 		It("Should not reset state after outputting", func() {
-			stage, err := std.EQFactory(ctx, cfg)
+			stage, err := std2.EQFactory(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			outputCount := 0
@@ -395,7 +395,7 @@ var _ = Describe("BinaryOp", func() {
 		})
 
 		It("Should only output when both values are present", func() {
-			stage, err := std.EQFactory(ctx, cfg)
+			stage, err := std2.EQFactory(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			outputCalled := false
