@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
-	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
 	github.com/samber/lo v1.51.0
 )
