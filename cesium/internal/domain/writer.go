@@ -168,7 +168,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	db.resourceCount.Add(1)
 	w := &Writer{
 		WriterConfig:     cfg,
-		Instrumentation:  db.cfg.Instrumentation.Child("writer"),
+		Instrumentation:  db.cfg.Child("writer"),
 		fileKey:          key,
 		fc:               db.fc,
 		fileSize:         telem.Size(size),
@@ -225,7 +225,7 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 		now = telem.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
 		// not met yet.
-		shouldPersist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
+		shouldPersist = !*w.EnableAutoCommit || w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {

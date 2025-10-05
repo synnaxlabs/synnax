@@ -94,7 +94,7 @@ func (fc *fileController) realFileSizeCap() telem.Size {
 func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 	unopened := make(set.Set[uint16])
 	for i := 1; i <= int(fc.counter.Value()); i++ {
-		e, err := fc.Config.FS.Exists(fileKeyToName(uint16(i)))
+		e, err := fc.FS.Exists(fileKeyToName(uint16(i)))
 		if err != nil {
 			return unopened, err
 		}
@@ -102,7 +102,7 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 			continue
 		}
 
-		s, err := fc.Config.FS.Stat(fileKeyToName(uint16(i)))
+		s, err := fc.FS.Stat(fileKeyToName(uint16(i)))
 		if err != nil {
 			return unopened, err
 		}
@@ -470,7 +470,7 @@ type controlledWriter struct {
 func (c *controlledWriter) tryAcquire() bool {
 	acquired := c.controllerEntry.tryAcquire()
 	if acquired {
-		c.TrackedWriteCloser.Reset()
+		c.Reset()
 	}
 	return acquired
 }

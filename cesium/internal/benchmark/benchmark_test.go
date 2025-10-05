@@ -293,7 +293,7 @@ func BenchRead(
 	}
 
 	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
-		ControlSubject: control.Subject{Key: fmt.Sprintf("bench_reader")},
+		ControlSubject: control.Subject{Key: "bench_reader"},
 		Start:          1 * telem.SecondTS,
 		Channels:       keys,
 	})

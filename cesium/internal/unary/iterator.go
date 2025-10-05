@@ -209,7 +209,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	endApprox, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
-		i.IteratorConfig.AutoChunkSize,
+		i.AutoChunkSize,
 		index.AllowDiscontinuous,
 	)
 	if err != nil {
@@ -222,7 +222,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.End = endApprox.Lower
 	i.reset(i.view.BoundBy(i.bounds))
 
-	nRemaining := i.IteratorConfig.AutoChunkSize
+	nRemaining := i.AutoChunkSize
 	for {
 		if !i.internal.TimeRange().OverlapsWith(i.view) {
 			if !i.internal.Next() {
@@ -265,7 +265,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 	startApprox, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
-		-i.IteratorConfig.AutoChunkSize,
+		-i.AutoChunkSize,
 		index.AllowDiscontinuous,
 	)
 	if err != nil {
@@ -277,7 +277,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 	}
 	i.view.Start = startApprox.Lower + 1
 	i.reset(i.view.BoundBy(i.bounds))
-	nRemaining := i.IteratorConfig.AutoChunkSize
+	nRemaining := i.AutoChunkSize
 	for {
 		if !i.internal.TimeRange().OverlapsWith(i.view) {
 			if !i.internal.Prev() {
@@ -295,9 +295,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
 		}
 		bytesToRead := i.Channel.DataType.Density().Size(nRemaining)
-		startOffset := endOffset - bytesToRead
-		if startOffset < 0 {
-			startOffset = 0
+		if (endOffset - bytesToRead) < 0 {
 			bytesToRead = endOffset
 		}
 		series, err := i.read(
