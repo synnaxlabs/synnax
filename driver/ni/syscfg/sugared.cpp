@@ -52,7 +52,13 @@ xerrors::Error SugaredAPI::SetFilterProperty(
     ...
 ) {
     va_list args;
+    // Note: Enum types undergo default argument promotion to int in varargs.
+    // This is a known limitation of C varargs but is how the NI API is designed.
+    // Suppressing the warning to maintain semantic type safety of the enum.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvarargs"
     va_start(args, propertyID);
+#pragma clang diagnostic pop
     auto status = syscfg->SetFilterPropertyV(filterHandle, propertyID, args);
     va_end(args);
     return process_error(status);
