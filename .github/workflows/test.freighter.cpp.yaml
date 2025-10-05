@@ -77,7 +77,7 @@ jobs:
       - name: Test
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            bazel test --config=sanitize --test_output=all //freighter/cpp/... --nocache_test_results
+            bazel test --config=asan-leak --test_output=all //freighter/cpp/... --nocache_test_results
           else
             bazel test --test_output=all //freighter/cpp/... --nocache_test_results
           fi

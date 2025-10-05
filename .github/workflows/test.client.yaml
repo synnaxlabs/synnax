@@ -214,7 +214,7 @@ jobs:
         run: scripts/check_clang_format.sh client/cpp
 
       - name: Test
-        run: bazel test --config=sanitize --test_output=all //client/cpp/... --nocache_test_results
+        run: bazel test --config=asan-leak --test_output=all //client/cpp/... --nocache_test_results
 
   py:
     name: Test - Python
