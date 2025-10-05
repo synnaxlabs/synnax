@@ -12,7 +12,6 @@ package arc
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
@@ -68,8 +67,7 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics.Error()
 	}
-	bytes, err := compiler.Compile(ctx, inter)
-	return Module{IR: inter, WASM: bytes}, nil
+	return Module{IR: inter}, nil
 }
 
 func ConvertTextToGraph(text Text, opts ...Option) (Graph, error) {
