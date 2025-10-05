@@ -148,3 +148,30 @@ var (
 	DivFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Div(b) })
 	ModFactory = createArithmeticOpFactory(func(a, b value.Value) value.Value { return a.Mod(b) })
 )
+
+// createLogicalSymbol creates a logical operator symbol (AND, OR)
+func createLogicalSymbol(name string) ir.Symbol {
+	params := maps.Ordered[string, ir.Type]{}
+	params.Put("a", ir.U8{})
+	params.Put("b", ir.U8{})
+	return ir.Symbol{
+		Name: name,
+		Kind: ir.KindStage,
+		Type: ir.Stage{Params: params, Return: ir.U8{}},
+	}
+}
+
+var (
+	symbolAnd = createLogicalSymbol("and")
+	symbolOr  = createLogicalSymbol("or")
+)
+
+// Logical operator factories
+var (
+	AndFactory = createBinaryOpFactory(func(a, b value.Value) bool {
+		return a.GetUint64() != 0 && b.GetUint64() != 0
+	})
+	OrFactory = createBinaryOpFactory(func(a, b value.Value) bool {
+		return a.GetUint64() != 0 || b.GetUint64() != 0
+	})
+)

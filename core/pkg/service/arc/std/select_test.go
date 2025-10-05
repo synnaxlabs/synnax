@@ -50,7 +50,8 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(0)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(outputParam).To(Equal("false"))
 				Expect(output.GetInt32()).To(Equal(int32(0)))
@@ -69,7 +70,8 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(42)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(42)))
@@ -90,11 +92,13 @@ var _ = Describe("Select", func() {
 				})
 
 				v1 := value.Value{Type: ir.F64{}}.PutFloat64(0.0)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputParams[0]).To(Equal("false"))
 
 				v2 := value.Value{Type: ir.F64{}}.PutFloat64(3.14)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputParams[1]).To(Equal("true"))
 			})
 
@@ -110,11 +114,13 @@ var _ = Describe("Select", func() {
 				})
 
 				v1 := value.Value{Type: ir.U64{}}.PutUint64(0)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputParams[0]).To(Equal("false"))
 
 				v2 := value.Value{Type: ir.U64{}}.PutUint64(100)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputParams[1]).To(Equal("true"))
 			})
 
@@ -130,7 +136,8 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(-10)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetInt32()).To(Equal(int32(-10)))
@@ -150,7 +157,8 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{Type: ir.U8{}}.PutUint8(1)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(outputParam).To(Equal("true"))
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
@@ -168,7 +176,8 @@ var _ = Describe("Select", func() {
 				})
 
 				v := value.Value{Type: ir.U8{}}.PutUint8(0)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(outputParam).To(Equal("false"))
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
@@ -201,7 +210,8 @@ var _ = Describe("Select", func() {
 
 				for _, test := range values {
 					v := value.Value{Type: ir.I32{}}.PutInt32(test.val)
-					stage.Next(ctx, "input", v)
+					stage.Load("input", v)
+				stage.Next(ctx)
 				}
 
 				Expect(outputs).To(HaveLen(6))
@@ -227,7 +237,8 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				eqStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
-					selectStage.Next(ctx, "input", val)
+					selectStage.Load("input", val)
+					selectStage.Next(ctx)
 				})
 
 				var selectOutput value.Value
@@ -239,16 +250,18 @@ var _ = Describe("Select", func() {
 
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				eqStage.Next(ctx, "a", v1)
-				eqStage.Next(ctx, "b", v2)
+				eqStage.Load("a", v1)
+				eqStage.Load("b", v2)
+				eqStage.Next(ctx)
 
 				Expect(selectParam).To(Equal("true"))
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(1)))
 
 				v3 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v4 := value.Value{Type: ir.I32{}}.PutInt32(20)
-				eqStage.Next(ctx, "a", v3)
-				eqStage.Next(ctx, "b", v4)
+				eqStage.Load("a", v3)
+				eqStage.Load("b", v4)
+				eqStage.Next(ctx)
 
 				Expect(selectParam).To(Equal("false"))
 				Expect(selectOutput.GetUint8()).To(Equal(uint8(0)))
@@ -271,7 +284,8 @@ var _ = Describe("Select", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				constStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
-					selectStage.Next(ctx, "input", val)
+					selectStage.Load("input", val)
+					selectStage.Next(ctx)
 				})
 
 				var selectOutput value.Value
@@ -307,7 +321,8 @@ var _ = Describe("Select", func() {
 					Type: ir.F32{},
 				}.PutFloat32(123.456)
 
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				Expect(output.Type).To(Equal(ir.F32{}))
 				Expect(output.GetFloat32()).To(BeNumerically("~", float32(123.456), 0.001))

@@ -48,8 +48,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -66,8 +67,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
@@ -84,8 +86,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.F32{}}.PutFloat32(10.0)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -104,8 +107,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -124,8 +128,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(20)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -142,8 +147,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(0)))
 			})
@@ -162,8 +168,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -182,8 +189,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -202,8 +210,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetUint8()).To(Equal(uint8(1)))
 			})
@@ -224,8 +233,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(30)))
 				Expect(output.Type).To(Equal(ir.I32{}))
@@ -243,8 +253,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.F64{}}.PutFloat64(10.5)
 				v2 := value.Value{Type: ir.F64{}}.PutFloat64(20.5)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetFloat64()).To(Equal(31.0))
 				Expect(output.Type).To(Equal(ir.F64{}))
@@ -262,8 +273,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.F32{}}.PutFloat32(10.5)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetFloat32()).To(Equal(float32(30.5)))
 				Expect(output.Type).To(Equal(ir.F32{}))
@@ -283,8 +295,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(10)))
 			})
@@ -303,8 +316,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(3)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(30)))
 			})
@@ -323,8 +337,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(3)))
 			})
@@ -341,8 +356,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(30)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(0)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(0)))
 			})
@@ -361,8 +377,9 @@ var _ = Describe("BinaryOp", func() {
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(3)
 
-				stage.Next(ctx, "a", v1)
-				stage.Next(ctx, "b", v2)
+				stage.Load("a", v1)
+				stage.Load("b", v2)
+				stage.Next(ctx)
 
 				Expect(output.GetInt32()).To(Equal(int32(1)))
 			})
@@ -381,17 +398,19 @@ var _ = Describe("BinaryOp", func() {
 
 			v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
 			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, "a", v1)
-			stage.Next(ctx, "b", v2)
+			stage.Load("a", v1)
+			stage.Load("b", v2)
+			stage.Next(ctx)
 
 			Expect(outputCount).To(Equal(1))
 
 			v3 := value.Value{Type: ir.I32{}}.PutInt32(20)
 			v4 := value.Value{Type: ir.I32{}}.PutInt32(20)
-			stage.Next(ctx, "a", v3)
-			stage.Next(ctx, "b", v4)
+			stage.Load("a", v3)
+			stage.Load("b", v4)
+			stage.Next(ctx)
 
-			Expect(outputCount).To(Equal(3))
+			Expect(outputCount).To(Equal(2))
 		})
 
 		It("Should only output when both values are present", func() {
@@ -404,13 +423,14 @@ var _ = Describe("BinaryOp", func() {
 			})
 
 			v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, "a", v1)
+			stage.Load("a", v1)
 
 			// Should not output yet
 			Expect(outputCalled).To(BeFalse())
 
 			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
-			stage.Next(ctx, "b", v2)
+			stage.Load("b", v2)
+				stage.Next(ctx)
 
 			// Now should output
 			Expect(outputCalled).To(BeTrue())

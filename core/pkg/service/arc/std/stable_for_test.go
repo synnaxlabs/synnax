@@ -58,15 +58,18 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(3 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 				Expect(outputs[0].GetInt32()).To(Equal(int32(10)))
 			})
@@ -81,22 +84,27 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(4 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(8 * telem.Second)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(9 * telem.Second)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 				Expect(outputs[0].GetInt32()).To(Equal(int32(20)))
 			})
@@ -115,18 +123,21 @@ var _ = Describe("StableFor", func() {
 				for i := 0; i < 10; i++ {
 					mockTime = telem.TimeStamp(telem.TimeSpan(i) * telem.Second)
 					v := value.Value{Type: ir.I32{}}.PutInt32(int32(i))
-					stage.Next(ctx, "input", v)
+					stage.Load("input", v)
+				stage.Next(ctx)
 				}
 				Expect(outputs).To(HaveLen(0))
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(9)
 
 				mockTime = telem.TimeStamp(12 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(14 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 				Expect(outputs[0].GetInt32()).To(Equal(int32(9)))
 			})
@@ -141,23 +152,28 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 
 				mockTime = telem.TimeStamp(10 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 
 				mockTime = telem.TimeStamp(11 * telem.Second)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(20)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 
 				mockTime = telem.TimeStamp(16 * telem.Second)
-				stage.Next(ctx, "input", v2)
+				stage.Load("input", v2)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(2))
 				Expect(outputs[1].GetInt32()).To(Equal(int32(20)))
 			})
@@ -175,10 +191,12 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.F64{}}.PutFloat64(3.14)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(100 * telem.Millisecond)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(output.GetFloat64()).To(Equal(3.14))
 			})
 
@@ -193,14 +211,17 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(42)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(59 * telem.Minute)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(telem.Hour)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 			})
 		})
@@ -216,10 +237,12 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(0)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(output.GetInt32()).To(Equal(int32(0)))
 			})
 
@@ -233,10 +256,12 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(-100)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(output.GetInt32()).To(Equal(int32(-100)))
 			})
 
@@ -255,18 +280,22 @@ var _ = Describe("StableFor", func() {
 				for i := 0; i < 10; i++ {
 					mockTime = telem.TimeStamp(telem.TimeSpan(i) * telem.Second)
 					if i%2 == 0 {
-						stage.Next(ctx, "input", v1)
+						stage.Load("input", v1)
+				stage.Next(ctx)
 					} else {
-						stage.Next(ctx, "input", v2)
+						stage.Load("input", v2)
+				stage.Next(ctx)
 					}
 				}
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(10 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(15 * telem.Second)
-				stage.Next(ctx, "input", v1)
+				stage.Load("input", v1)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 				Expect(outputs[0].GetInt32()).To(Equal(int32(1)))
 			})
@@ -287,7 +316,8 @@ var _ = Describe("StableFor", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				gtStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
-					stage.Next(ctx, "input", val)
+					stage.Load("input", val)
+					stage.Next(ctx)
 				})
 
 				var stableOutput value.Value
@@ -299,16 +329,19 @@ var _ = Describe("StableFor", func() {
 
 				v1 := value.Value{Type: ir.I32{}}.PutInt32(20)
 				v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				gtStage.Next(ctx, "a", v1)
-				gtStage.Next(ctx, "b", v2)
+				gtStage.Load("a", v1)
+				gtStage.Load("b", v2)
+				gtStage.Next(ctx)
 
 				mockTime = telem.TimeStamp(2 * telem.Second)
-				gtStage.Next(ctx, "a", v1)
-				gtStage.Next(ctx, "b", v2)
+				gtStage.Load("a", v1)
+				gtStage.Load("b", v2)
+				gtStage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				gtStage.Next(ctx, "a", v1)
-				gtStage.Next(ctx, "b", v2)
+				gtStage.Load("a", v1)
+				gtStage.Load("b", v2)
+				gtStage.Next(ctx)
 
 				Expect(outputCount).To(Equal(1))
 				Expect(stableOutput.GetUint8()).To(Equal(uint8(1)))
@@ -316,12 +349,14 @@ var _ = Describe("StableFor", func() {
 				mockTime = telem.TimeStamp(6 * telem.Second)
 				v3 := value.Value{Type: ir.I32{}}.PutInt32(5)
 				v4 := value.Value{Type: ir.I32{}}.PutInt32(10)
-				gtStage.Next(ctx, "a", v3)
-				gtStage.Next(ctx, "b", v4)
+				gtStage.Load("a", v3)
+				gtStage.Load("b", v4)
+				gtStage.Next(ctx)
 
 				mockTime = telem.TimeStamp(11 * telem.Second)
-				gtStage.Next(ctx, "a", v3)
-				gtStage.Next(ctx, "b", v4)
+				gtStage.Load("a", v3)
+				gtStage.Load("b", v4)
+				gtStage.Next(ctx)
 
 				Expect(outputCount).To(Equal(2))
 				Expect(stableOutput.GetUint8()).To(Equal(uint8(0)))
@@ -339,10 +374,12 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.F64{}}.PutFloat64(3.14159)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(output.GetFloat64()).To(BeNumerically("~", 3.14159, 0.00001))
 			})
 
@@ -356,10 +393,12 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.U64{}}.PutUint64(uint64(1 << 40))
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(output.GetUint64()).To(Equal(uint64(1 << 40)))
 			})
 		})
@@ -375,14 +414,17 @@ var _ = Describe("StableFor", func() {
 				})
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(100)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(5*telem.Second - 1)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(5 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 			})
 
@@ -397,14 +439,17 @@ var _ = Describe("StableFor", func() {
 
 				v := value.Value{Type: ir.I32{}}.PutInt32(50)
 				mockTime = telem.TimeStamp(2 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 
 				mockTime = telem.TimeStamp(1 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(0))
 
 				mockTime = telem.TimeStamp(7 * telem.Second)
-				stage.Next(ctx, "input", v)
+				stage.Load("input", v)
+				stage.Next(ctx)
 				Expect(outputs).To(HaveLen(1))
 			})
 		})

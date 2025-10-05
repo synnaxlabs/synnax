@@ -216,7 +216,7 @@ var _ = Describe("Constant", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			constStage.OnOutput(func(ctx context.Context, param string, val value.Value) {
-				eqStage.Next(ctx, "a", val)
+				eqStage.Load("a", val)
 			})
 
 			var eqOutput value.Value
@@ -229,7 +229,8 @@ var _ = Describe("Constant", func() {
 			constStage.Flow(sCtx)
 
 			v2 := value.Value{Type: ir.I32{}}.PutInt32(10)
-			eqStage.Next(ctx, "b", v2)
+			eqStage.Load("b", v2)
+			eqStage.Next(ctx)
 
 			Expect(eqOutput.GetUint8()).To(Equal(uint8(1)))
 		})
