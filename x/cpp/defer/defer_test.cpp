@@ -46,8 +46,7 @@ TEST(DeferTests, EarlyReturn) {
     {
         auto test_function = [](const bool early_return, bool &called_after) -> bool {
             x::defer d([&called_after] { called_after = true; });
-            if (early_return) return false;
-            return true;
+            return !early_return;
         };
         test_function(true, called_after_early_return);
     }
@@ -55,8 +54,7 @@ TEST(DeferTests, EarlyReturn) {
     {
         auto test_function = [](bool early_return, bool &called_after) -> bool {
             x::defer d([&called_after] { called_after = true; });
-            if (early_return) return false;
-            return true;
+            return !early_return;
         };
 
         test_function(false, called_after_normal_return);
@@ -72,8 +70,9 @@ TEST(DeferTests, ExceptionHandling) {
     try {
         x::defer d([&called] { called = true; });
         throw std::runtime_error("Test exception");
+        // NOLINTNEXTLINE(bugprone-empty-catch)
     } catch (const std::exception &) {
-        // Exception caught
+        // Intentionally catch and ignore - testing defer executes during stack unwinding
     }
     ASSERT_TRUE(called);
 }

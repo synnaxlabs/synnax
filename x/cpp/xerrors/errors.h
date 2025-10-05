@@ -35,21 +35,21 @@ public:
     std::string data;
 
     /// @brief constructs the default version fo the error with TYPE_NIL.
-    Error(): type(TYPE_NIL) {}
+    Error() noexcept: type(TYPE_NIL) {}
 
     /// @brief constructs the error from a particular string data and data.
-    Error(std::string type, std::string data):
+    Error(std::string type, std::string data) noexcept:
         type(std::move(type)), data(std::move(data)) {}
 
     /// @brief constructs the error from a particular string freighter:Error and
     /// data.
-    Error(const xerrors::Error &err, std::string data):
+    Error(const xerrors::Error &err, std::string data) noexcept:
         type(err.type), data(std::move(data)) {}
 
     /// @brief constructs the provided error from a string. If the string is of the
     /// form "type---data", the type and data will be extracted from the string.
     /// Otherwise, the string is assumed to be the type.
-    explicit Error(const std::string &err_or_type): type(err_or_type) {
+    explicit Error(const std::string &err_or_type) noexcept: type(err_or_type) {
         const size_t pos = err_or_type.find("---");
         if (pos == std::string::npos) return;
         type = err_or_type.substr(0, pos);
@@ -57,20 +57,20 @@ public:
     }
 
     /// @brief constructs the error from its protobuf representation.
-    explicit Error(const errors::PBPayload &err): type(err.type()), data(err.data()) {}
+    explicit Error(const errors::PBPayload &err) noexcept: type(err.type()), data(err.data()) {}
 
-    [[nodiscard]] xerrors::Error sub(const std::string &type_extension) const {
+    [[nodiscard]] xerrors::Error sub(const std::string &type_extension) const noexcept {
         return xerrors::Error(type + "." + type_extension);
     }
 
-    [[nodiscard]] xerrors::Error reparent(const xerrors::Error &parent) const {
+    [[nodiscard]] xerrors::Error reparent(const xerrors::Error &parent) const noexcept {
         const auto pos = type.rfind('.');
         if (pos == std::string::npos) return *this;
         return {parent.type + type.substr(pos), this->data};
     }
 
     /// @brief copy constructor.
-    Error(const Error &other) = default;
+    Error(const Error &other) noexcept = default;
 
     /// @returns true if the error if of TYPE_NIL, and false otherwise.
     [[nodiscard]] bool ok() const { return type == TYPE_NIL; }

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
 
 namespace x {
 /**
@@ -33,6 +34,7 @@ namespace x {
  *
  * Keep in mind that this function CANNOT be used to modify return values.
  */
+// NOLINTBEGIN(readability-identifier-naming)
 class defer {
     std::function<void()> fn;
 
@@ -40,7 +42,15 @@ public:
     /**
      * @brief Destructor that executes the deferred function.
      */
-    ~defer() { fn(); }
+    ~defer() noexcept {
+        try {
+            fn();
+        } catch (const std::exception &e) {
+            std::cerr << "Exception in deferred function: " << e.what() << '\n';
+        } catch (...) {
+            std::cerr << "Unknown exception in deferred function\n";
+        }
+    }
 
     /**
      * @brief Constructs a defer object with the function to be executed on
@@ -54,4 +64,5 @@ public:
     defer(const defer &) = delete;
     defer &operator=(const defer &) = delete;
 };
+// NOLINTEND(readability-identifier-naming)
 }

@@ -4,8 +4,10 @@
 // licenses/BSL.txt.
 
 /// std
+#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <string>
+#include <ios>
 #include <vector>
 
 /// external
@@ -63,8 +65,8 @@ TEST(BinaryWriter, testRawWrite) {
     std::vector<uint8_t> buffer;
     binary::Writer writer(buffer, 5);
 
-    const uint8_t data[] = {0x12, 0x34, 0x56, 0x78, 0x90};
-    writer.write(data, 5);
+    constexpr std::array<uint8_t, 5> data = {0x12, 0x34, 0x56, 0x78, 0x90};
+    writer.write(data.data(), data.size());
 
     ASSERT_EQ(buffer.size(), 5);
     ASSERT_EQ(buffer[0], 0x12);
@@ -81,8 +83,8 @@ TEST(BinaryWriter, testMultipleWrites) {
     writer.uint8(0x01);
     writer.uint32(0x12345678);
 
-    constexpr uint8_t data[] = {0xAA, 0xBB, 0xCC};
-    writer.write(data, 3);
+    constexpr std::array<uint8_t, 3> data = {0xAA, 0xBB, 0xCC};
+    writer.write(data.data(), data.size());
 
     writer.uint64(0x1122334455667788);
 
@@ -125,7 +127,7 @@ TEST(BinaryWriter, testStartingOffset) {
 }
 
 TEST(BinaryReader, testUint8Read) {
-    std::vector<uint8_t> buffer = {0x12, 0x34, 0x56};
+    const std::vector<uint8_t> buffer = {0x12, 0x34, 0x56};
     binary::Reader reader(buffer);
 
     ASSERT_EQ(reader.uint8(), 0x12);
@@ -134,25 +136,25 @@ TEST(BinaryReader, testUint8Read) {
 }
 
 TEST(BinaryReader, testUint32Read) {
-    std::vector<uint8_t> buffer = {0x78, 0x56, 0x34, 0x12, 0x00};
+    const std::vector<uint8_t> buffer = {0x78, 0x56, 0x34, 0x12, 0x00};
     binary::Reader reader(buffer);
 
     ASSERT_EQ(reader.uint32(), 0x12345678);
 }
 
 TEST(BinaryReader, testUint64Read) {
-    std::vector<uint8_t> buffer = {0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12};
+    const std::vector<uint8_t> buffer = {0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12};
     binary::Reader reader(buffer);
 
     ASSERT_EQ(reader.uint64(), 0x1234567890ABCDEF);
 }
 
 TEST(BinaryReader, testRawRead) {
-    std::vector<uint8_t> buffer = {0x12, 0x34, 0x56, 0x78, 0x90};
+    const std::vector<uint8_t> buffer = {0x12, 0x34, 0x56, 0x78, 0x90};
     binary::Reader reader(buffer);
 
-    uint8_t data[5] = {};
-    reader.read(data, 5);
+    std::array<uint8_t, 5> data = {};
+    reader.read(data.data(), data.size());
 
     ASSERT_EQ(data[0], 0x12);
     ASSERT_EQ(data[1], 0x34);
@@ -162,7 +164,7 @@ TEST(BinaryReader, testRawRead) {
 }
 
 TEST(BinaryReader, testMultipleReads) {
-    std::vector<uint8_t> buffer = {
+    const std::vector<uint8_t> buffer = {
         0x01, // uint8
         0x78,
         0x56,
@@ -186,8 +188,8 @@ TEST(BinaryReader, testMultipleReads) {
     ASSERT_EQ(reader.uint8(), 0x01);
     ASSERT_EQ(reader.uint32(), 0x12345678);
 
-    uint8_t data[3] = {};
-    reader.read(data, 3);
+    std::array<uint8_t, 3> data = {};
+    reader.read(data.data(), data.size());
     ASSERT_EQ(data[0], 0xAA);
     ASSERT_EQ(data[1], 0xBB);
     ASSERT_EQ(data[2], 0xCC);
@@ -196,7 +198,7 @@ TEST(BinaryReader, testMultipleReads) {
 }
 
 TEST(BinaryReader, testStartingOffset) {
-    std::vector<uint8_t> buffer = {
+    const std::vector<uint8_t> buffer = {
         0x01,
         0x02,
         0x03, // initial bytes to skip
@@ -224,8 +226,8 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
     writer.uint32(0x12345678);
     writer.uint64(0x1122334455667788);
 
-    constexpr uint8_t raw_data[] = {0xAA, 0xBB, 0xCC, 0xDD};
-    writer.write(raw_data, 4);
+    constexpr std::array<uint8_t, 4> raw_data = {0xAA, 0xBB, 0xCC, 0xDD};
+    writer.write(raw_data.data(), raw_data.size());
 
     binary::Reader reader(buffer);
 
@@ -233,8 +235,8 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
     ASSERT_EQ(reader.uint32(), 0x12345678);
     ASSERT_EQ(reader.uint64(), 0x1122334455667788);
 
-    uint8_t read_raw_data[4] = {};
-    reader.read(read_raw_data, 4);
+    std::array<uint8_t, 4> read_raw_data = {};
+    reader.read(read_raw_data.data(), read_raw_data.size());
 
     ASSERT_EQ(read_raw_data[0], 0xAA);
     ASSERT_EQ(read_raw_data[1], 0xBB);
@@ -243,7 +245,7 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
 }
 
 TEST(BitUtils, testGetBit) {
-    uint8_t byte = 0b10101010;
+    const uint8_t byte = 0b10101010;
 
     ASSERT_FALSE(binary::get_bit(byte, 0));
     ASSERT_TRUE(binary::get_bit(byte, 1));
@@ -275,7 +277,7 @@ TEST(BitUtils, testSetBit) {
 }
 
 TEST(BitUtils, testSetBitNoChangeWhenSameValue) {
-    uint8_t byte = 0b10101010;
+    const uint8_t byte = 0b10101010;
 
     uint8_t result = binary::set_bit(byte, 0, false);
     ASSERT_EQ(result, byte);
@@ -285,7 +287,7 @@ TEST(BitUtils, testSetBitNoChangeWhenSameValue) {
 }
 
 TEST(BitUtils, testFlipAllBits) {
-    uint8_t original = 0b10101010;
+    const uint8_t original = 0b10101010;
     uint8_t flipped = original;
     for (uint8_t i = 0; i < 8; i++)
         flipped = binary::set_bit(flipped, i, !binary::get_bit(flipped, i));
@@ -294,7 +296,7 @@ TEST(BitUtils, testFlipAllBits) {
 
 // This test stresses the encoding/decoding of different byte patterns
 TEST(BinaryStressTest, testVariousBytePatterns) {
-    constexpr uint64_t test_values[] = {
+    constexpr std::array<uint64_t, 9> test_values = {
         0,
         1,
         0xFF,
@@ -312,7 +314,7 @@ TEST(BinaryStressTest, testVariousBytePatterns) {
         writer.uint64(value);
 
         binary::Reader reader(buffer);
-        uint64_t decoded = reader.uint64();
+        const uint64_t decoded = reader.uint64();
 
         ASSERT_EQ(decoded, value) << "Failed for value 0x" << std::hex << value;
     }

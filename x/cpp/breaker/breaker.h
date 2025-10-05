@@ -95,7 +95,7 @@ public:
         // Very important that we do not use GLOG here, as it can cause problems
         // in destructors.
         std::cerr << "breaker " << this->config.name
-                  << " was not stopped before destruction" << std::endl;
+                  << " was not stopped before destruction" << '\n';
         assert(false && "breaker was not stopped before destruction");
     }
 

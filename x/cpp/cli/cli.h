@@ -10,6 +10,7 @@
 #pragma once
 
 /// std
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -71,7 +72,7 @@ confirm(const std::string &message, std::optional<bool> default_value = std::nul
                 : std::nullopt
         );
         if (input.empty() || input.size() > 1) continue;
-        const char response = std::toupper(input[0]);
+        const char response = static_cast<char>(std::toupper(static_cast<unsigned char>(input[0])));
         if (response == 'Y') return true;
         if (response == 'N') return false;
         std::cout << "Please enter Y or N" << std::endl;
@@ -101,10 +102,10 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
                 return std::stof(input);
             else if constexpr (std::is_same_v<T, double>)
                 return std::stod(input);
-            else if constexpr (std::is_same_v<T, long>)
-                return std::stol(input);
-            else if constexpr (std::is_same_v<T, unsigned short>)
-                return static_cast<unsigned short>(std::stoul(input));
+            else if constexpr (std::is_same_v<T, int64_t>)
+                return std::stoll(input);
+            else if constexpr (std::is_same_v<T, uint16_t>)
+                return static_cast<uint16_t>(std::stoul(input));
             else
                 static_assert(sizeof(T) == 0, "Unsupported numeric type");
         } catch (const std::exception &) {
