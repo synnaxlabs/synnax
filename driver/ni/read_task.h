@@ -127,15 +127,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices[device.key] = device;
-            // Extract resource_name from device properties
-            try {
-                auto props = nlohmann::json::parse(device.properties);
-                if (props.contains("resource_name")) {
-                    this->device_resource_names.push_back(props["resource_name"].get<std::string>());
-                }
-            } catch (const std::exception &e) {
-                // Properties JSON parsing failed, skip resource name extraction
-            }
+            // Store the DAQmx device location (e.g., "Dev1", "cDAQ1Mod1")
+            this->device_resource_names.push_back(device.location);
+            VLOG(1) << "[ni.read_task] using device location for validation: " << device.location;
         } else {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
@@ -149,16 +143,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices = map_device_keys(devices_vec);
-            // Extract resource_names from all devices
+            // Store DAQmx device locations for all devices
             for (const auto &dev: devices_vec) {
-                try {
-                    auto props = nlohmann::json::parse(dev.properties);
-                    if (props.contains("resource_name")) {
-                        this->device_resource_names.push_back(props["resource_name"].get<std::string>());
-                    }
-                } catch (const std::exception &e) {
-                    // Properties JSON parsing failed, skip resource name extraction
-                }
+                this->device_resource_names.push_back(dev.location);
+                VLOG(1) << "[ni.read_task] using device location for validation: " << dev.location;
             }
         }
         for (auto &ch: this->channels) {
@@ -199,21 +187,26 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (this->software_timed) return xerrors::NIL;
 
         // Validate sample rate against device minimum(s)
+        VLOG(1) << "[ni.read_task] validating sample rate for " << this->device_resource_names.size() << " device(s)";
         for (const auto &resource_name: this->device_resource_names) {
             float64 min_rate = 0.0;
-            if (!dmx->GetDeviceAttributeDouble(
-                    resource_name.c_str(),
-                    DAQmx_Dev_AI_MinRate,
-                    &min_rate
-                )) {
-                if (this->sample_rate.hz() < min_rate) {
-                    return xerrors::Error(
-                        "ni.sample_rate_too_low",
-                        "configured sample rate (" + std::to_string(this->sample_rate.hz()) +
-                        " Hz) is below device minimum (" + std::to_string(min_rate) +
-                        " Hz) for " + resource_name
-                    );
-                }
+            auto err = dmx->GetDeviceAttributeDouble(
+                resource_name.c_str(),
+                DAQmx_Dev_AI_MinRate,
+                &min_rate
+            );
+            if (err) {
+                LOG(WARNING) << "[ni.read_task] failed to query min rate for device " << resource_name << ": " << err.message();
+                continue;
+            }
+            VLOG(1) << "[ni.read_task] device " << resource_name << " min_rate: " << min_rate << " Hz, configured: " << this->sample_rate.hz() << " Hz";
+            if (this->sample_rate.hz() < min_rate) {
+                return xerrors::Error(
+                    "ni.sample_rate_too_low",
+                    "configured sample rate (" + std::to_string(this->sample_rate.hz()) +
+                    " Hz) is below device minimum (" + std::to_string(min_rate) +
+                    " Hz) for " + resource_name
+                );
             }
         }
 
