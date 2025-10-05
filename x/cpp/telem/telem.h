@@ -273,7 +273,7 @@ public:
     }
 
     /// @brief a zero nanosecond timespan.
-    static TimeSpan ZERO() { return TimeSpan(0); }
+    static TimeSpan zero() { return TimeSpan(0); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -460,7 +460,9 @@ public:
 
     Rate operator*(const Rate &other) const { return Rate(value * other.value); }
 
-    size_t operator/(const Rate &other) const { return value / other.value; }
+    size_t operator/(const Rate &other) const {
+        return static_cast<size_t>(value / other.value);
+    }
 
 
     friend Rate operator+(const float &lhs, const Rate &rhs) {
@@ -519,7 +521,7 @@ inline const TimeSpan DAY = HOUR * 24;
 
 #define ASSERT_TYPE_SIZE(type, size)                                                   \
     static_assert(                                                                     \
-        sizeof(type) == size,                                                          \
+        sizeof(type) == (size),                                                        \
         "synnax only supports compilation environments with " #size " bit " #type "s"  \
     )
 
@@ -560,11 +562,11 @@ template<typename T>
         return std::visit(
             []<typename IT>(IT &&arg) -> std::string {
                 if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
-                    return arg;
+                    return std::forward<IT>(arg);
                 else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>)
-                    return std::to_string(arg.nanoseconds());
+                    return std::to_string(std::forward<IT>(arg).nanoseconds());
                 else
-                    return std::to_string(arg);
+                    return std::to_string(std::forward<IT>(arg));
             },
             value
         );
@@ -573,10 +575,10 @@ template<typename T>
         return std::visit(
             []<typename IT>(IT &&arg) -> TimeStamp {
                 if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
-                    return TimeStamp(static_cast<std::int64_t>(arg));
+                    return TimeStamp(static_cast<std::int64_t>(std::forward<IT>(arg)));
                 } else if constexpr (std::is_same_v<std::decay_t<IT>, std::string>) {
                     try {
-                        return TimeStamp(std::stoll(arg));
+                        return TimeStamp(std::stoll(std::forward<IT>(arg)));
                     } catch (...) {
                         throw std::runtime_error("failed to convert string to TimeStamp"
                         );
@@ -609,20 +611,20 @@ template<typename T>
         []<typename IT>(IT &&arg) -> T {
             if constexpr (std::is_arithmetic_v<T> &&
                           std::is_arithmetic_v<std::decay_t<IT>>)
-                return static_cast<T>(arg);
+                return static_cast<T>(std::forward<IT>(arg));
             throw std::runtime_error("invalid type conversion");
         },
         value
     );
 }
 
-[[nodiscard]] inline void *cast_to_void_ptr(const SampleValue &value) {
+[[nodiscard]] inline const void *cast_to_void_ptr(const SampleValue &value) {
     return std::visit(
-        []<typename T>(const T &arg) -> void * {
+        []<typename T>(const T &arg) -> const void * {
             if constexpr (std::is_same_v<T, std::string>)
-                return const_cast<void *>(static_cast<const void *>(arg.data()));
+                return static_cast<const void *>(arg.data());
             else
-                return const_cast<void *>(static_cast<const void *>(&arg));
+                return static_cast<const void *>(&arg);
         },
         value
     );
@@ -656,16 +658,16 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
-    size_t density_ = 0;
+    size_t density = 0;
 
 public:
     DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
-        const auto cached_density_iter = DENSITIES.find(value);
+        const auto cached_density_iter = densities.find(value);
         if (cached_density_iter != DENSITIES.end())
-            this->density_ = cached_density_iter->second;
+            this->density = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -720,7 +722,7 @@ public:
     [[nodiscard]] std::string name() const { return value; }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return this->density_; }
+    [[nodiscard]] size_t density() const { return this->density; }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(internal::VARIABLE_TYPES);
@@ -853,7 +855,7 @@ public:
     friend struct std::hash<telem::DataType>;
 
 private:
-    inline static std::unordered_map<std::string, size_t> DENSITIES = {
+    inline static std::unordered_map<std::string, size_t> densities = {
         {internal::FLOAT64_T, 8},
         {internal::FLOAT32_T, 4},
         {internal::INT8_T, 1},
@@ -872,28 +874,28 @@ private:
 
     /// @brief stores a map of C++ type indexes to their corresponding synnax data
     /// type identifiers.
-    inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
+    inline static std::unordered_map<std::type_index, std::string> type_indexes = {
         {std::type_index(typeid(float)), internal::FLOAT32_T},
         {std::type_index(typeid(double)), internal::FLOAT64_T},
         {std::type_index(typeid(char)), internal::INT8_T},
         {std::type_index(typeid(std::int8_t)), internal::INT8_T},
-        {std::type_index(typeid(short)), internal::INT16_T},
+        {std::type_index(typeid(short)), internal::INT16_T}, // NOLINT
         {std::type_index(typeid(std::int16_t)), internal::INT16_T},
         {std::type_index(typeid(int)), internal::INT32_T},
         {std::type_index(typeid(std::int32_t)), internal::INT32_T},
-        {std::type_index(typeid(long)),
+        {std::type_index(typeid(long)), // NOLINT
          sizeof(long) == 8 ? internal::INT64_T : internal::INT32_T},
-        {std::type_index(typeid(long long)), internal::INT64_T},
+        {std::type_index(typeid(long long)), internal::INT64_T}, // NOLINT
         {std::type_index(typeid(std::int64_t)), internal::INT64_T},
         {std::type_index(typeid(unsigned char)), internal::UINT8_T},
         {std::type_index(typeid(std::uint8_t)), internal::UINT8_T},
-        {std::type_index(typeid(unsigned short)), internal::UINT16_T},
+        {std::type_index(typeid(unsigned short)), internal::UINT16_T}, // NOLINT
         {std::type_index(typeid(std::uint16_t)), internal::UINT16_T},
         {std::type_index(typeid(unsigned int)), internal::UINT32_T},
         {std::type_index(typeid(std::uint32_t)), internal::UINT32_T},
-        {std::type_index(typeid(unsigned long)),
+        {std::type_index(typeid(unsigned long)), // NOLINT
          sizeof(unsigned long) == 8 ? internal::UINT64_T : internal::UINT32_T},
-        {std::type_index(typeid(unsigned long long)), internal::UINT64_T},
+        {std::type_index(typeid(unsigned long long)), internal::UINT64_T}, // NOLINT
         {std::type_index(typeid(std::uint64_t)), internal::UINT64_T},
         {std::type_index(typeid(std::string)), internal::STRING_T},
         {std::type_index(typeid(TimeStamp)), internal::TIMESTAMP_T},
