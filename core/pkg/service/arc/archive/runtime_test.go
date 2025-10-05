@@ -1,4 +1,13 @@
-package runtime_test
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package archive_test
 
 import (
 	"time"
@@ -11,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/archive"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -58,7 +68,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-			cfg := runtime.Config{
+			cfg := archive.Config{
 				Channel: dist.Channel,
 				Framer:  dist.Framer,
 				Status:  statusSvc,
@@ -146,7 +156,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(cfg.Module.Nodes).To(HaveLen(7))
 			Expect(cfg.Module.Edges).To(HaveLen(6))
 
-			r := MustSucceed(runtime.Open(ctx, cfg))
+			r := MustSucceed(archive.Open(ctx, cfg))
 			time.Sleep(time.Millisecond * 20)
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{

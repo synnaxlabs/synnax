@@ -36,7 +36,7 @@ type channelSource struct {
 	values ChannelData
 }
 
-func (c *channelSource) Next(ctx context.Context, _ string, _ value.Value) {
+func (c *channelSource) Next(ctx context.Context) {
 	key := c.readChannels[0]
 	values := value.FromSeries(c.values.Get(key))
 	for _, v := range values {
@@ -44,7 +44,7 @@ func (c *channelSource) Next(ctx context.Context, _ string, _ value.Value) {
 	}
 }
 
-func createChannelSource(_ context.Context, cfg Config) (stage.Stage, error) {
+func createChannelSource(_ context.Context, cfg Config) (stage.Node, error) {
 	source := &channelSource{base: base{key: cfg.Node.Key}, values: cfg.ChannelData}
 	source.readChannels = unsafe.ReinterpretSlice[uint32, channel.Key](cfg.Node.Channels.Read.Keys())
 	return source, nil

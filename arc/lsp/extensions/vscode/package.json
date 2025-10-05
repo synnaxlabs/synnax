@@ -1,0 +1,73 @@
+{
+  "name": "synnax-arc",
+  "displayName": "Arc Language Support",
+  "description": "Language support for Arc programming language",
+  "version": "0.44.4",
+  "repository": "github.com/synnaxlabs/synnax",
+  "publisher": "synnaxlabs",
+  "engines": {
+    "vscode": "^1.103.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:arc",
+    "workspaceContains:**/*.arc"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "arc",
+        "aliases": [
+          "Arc",
+          "arc"
+        ],
+        "extensions": [
+          ".arc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "arc",
+        "scopeName": "source.arc",
+        "path": "./syntaxes/arc.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Arc",
+      "properties": {
+        "arc.lsp.path": {
+          "type": "string",
+          "default": "arc",
+          "description": "Path to the Arc CLI executable"
+        },
+        "arc.lsp.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging for the Arc LSP"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/minimatch": "^3.0.5",
+    "@types/node": "^20.19.11",
+    "@types/semver": "^7.3.10",
+    "@types/vscode": "^1.103.0",
+    "@vscode/vsce": "^2.32.0",
+    "typescript": "^5.8.3"
+  }
+}

@@ -20,7 +20,7 @@ rm -f ./lsp/extensions/vscode/bin/arc
 
 # Step 1: Compile arc
 echo "Step 1: Compiling Arc..."
-go build -o arc main.go
+go build -o arc ./cmd/arc
 
 # Step 2: Embed arc into bin directory
 echo "Step 2: Embedding Arc into bin directory..."
@@ -40,7 +40,7 @@ cp lsp/extensions/vscode/synnax-arc-*.vsix cmd/arc-language.vsix
 
 # Step 5: Rebuild arc again (final build with embedded VSIX)
 echo "Step 5: Final Arc build with embedded VSIX..."
-go build -o arc main.go
+go build -o arc ./cmd/arc
 
 echo "=== Compilation pipeline complete ==="
 echo "VSIX extension available at: lsp/extensions/vscode/synnax-arc-*.vsix"

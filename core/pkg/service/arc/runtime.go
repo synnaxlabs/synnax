@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/archive"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,7 +25,7 @@ import (
 )
 
 type entry struct {
-	runtime *runtime.Runtime
+	runtime *archive.Runtime
 }
 
 func (s *Service) handleChange(
@@ -83,7 +83,7 @@ func (s *Service) handleChange(
 		baseCfg := s.cfg.baseRuntimeConfig()
 		baseCfg.Module = mod
 		baseCfg.Name = a.Name
-		r, err := runtime.Open(ctx, baseCfg)
+		r, err := archive.Open(ctx, baseCfg)
 		if err != nil {
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,

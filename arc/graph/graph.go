@@ -20,6 +20,7 @@ import (
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -288,15 +289,23 @@ func Analyze(
 		}
 	}
 
-	// Step 6: Return the IR
+	// Step 6: Compute stratification for reactive execution
+	nodes := lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
+		return item.Node
+	})
+	strata, ok := stratifier.Stratify(ctx, nodes, g.Edges, ctx.Diagnostics)
+	if !ok {
+		return ir.IR{}, *ctx.Diagnostics
+	}
+
+	// Step 7: Return the IR
 	return ir.IR{
-		Symbols:   ctx.Scope,
-		Stages:    g.Stages,
-		Edges:     g.Edges,
-		Functions: g.Functions,
-		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
-			return item.Node
-		}),
+		Symbols:     ctx.Scope,
+		Stages:      g.Stages,
+		Edges:       g.Edges,
+		Functions:   g.Functions,
+		Nodes:       nodes,
 		Constraints: ctx.Constraints,
+		Strata:      strata,
 	}, *ctx.Diagnostics
 }

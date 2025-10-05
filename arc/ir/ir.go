@@ -98,6 +98,9 @@ type IR struct {
 	Edges       []Edge           `json:"edges"`
 	Symbols     *Scope           `json:"-"`
 	Constraints ConstraintSystem `json:"-"`
+	// Strata maps node keys to their execution stratum (level).
+	// Computed during analysis for stratified reactive execution.
+	Strata map[string]int `json:"strata"`
 }
 
 func (ir IR) GetStage(key string) (Stage, bool) {

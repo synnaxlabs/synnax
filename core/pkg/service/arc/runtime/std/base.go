@@ -25,7 +25,7 @@ type base struct {
 	writeChannels []channel.Key
 }
 
-var _ stage.Stage = (*base)(nil)
+var _ stage.Node = (*base)(nil)
 
 func (b *base) Key() string { return b.key }
 
@@ -35,7 +35,9 @@ func (b *base) WriteChannels() []channel.Key { return b.writeChannels }
 
 func (b *base) Flow(signal.Context) {}
 
-func (b *base) Next(context.Context, string, value.Value) {}
+func (b *base) Load(param string, v value.Value) {}
+
+func (b *base) Next(context.Context) {}
 
 func (b *base) OnOutput(handler stage.OutputHandler) {
 	b.outputHandler = handler

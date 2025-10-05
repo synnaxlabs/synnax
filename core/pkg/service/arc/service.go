@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/archive"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -90,8 +91,8 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
-	return runtime.Config{Channel: c.Channel, Framer: c.Framer, Status: c.Status}
+func (c ServiceConfig) baseRuntimeConfig() archive.Config {
+	return archive.Config{Channel: c.Channel, Framer: c.Framer, Status: c.Status}
 }
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.

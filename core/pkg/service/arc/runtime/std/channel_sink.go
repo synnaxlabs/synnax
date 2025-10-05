@@ -42,11 +42,22 @@ type channelSink struct {
 	base
 	writeChannel channel.Channel
 	value        value.Value
+	input        *value.Value
 	write        func(ctx context.Context, fr core.Frame) error
 }
 
-func (c *channelSink) Next(ctx context.Context, _ string, _ value.Value) {
-	values := value.ToSeries([]value.Value{c.value}, c.writeChannel.DataType)
+func (c *channelSink) Load(param string, val value.Value) {
+	if param == "input" {
+		c.input = &val
+	}
+}
+
+func (c *channelSink) Next(ctx context.Context) {
+	if c.input == nil {
+		return
+	}
+
+	values := value.ToSeries([]value.Value{*c.input}, c.writeChannel.DataType)
 	baseFrame := core.UnaryFrame(c.writeChannel.Key(), values)
 	if c.writeChannel.Index() != 0 {
 		baseFrame = baseFrame.Append(
@@ -59,7 +70,7 @@ func (c *channelSink) Next(ctx context.Context, _ string, _ value.Value) {
 	}
 }
 
-func createChannelSink(ctx context.Context, cfg Config) (stage.Stage, error) {
+func createChannelSink(ctx context.Context, cfg Config) (stage.Node, error) {
 	sink := &channelSink{base: base{key: cfg.Node.Key}}
 	sink.write = cfg.Write
 	sink.value = value.Value{}.Put(cfg.Node.Config["value"])

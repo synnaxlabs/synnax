@@ -40,7 +40,7 @@ func (c *constant) Flow(ctx signal.Context) {
 	c.outputHandler(ctx, "output", c.value)
 }
 
-func newConstant(_ context.Context, cfg Config) (stage.Stage, error) {
+func newConstant(_ context.Context, cfg Config) (stage.Node, error) {
 	// The actual type will be determined by the graph analysis
 	// For runtime, we just store the value
 	c := &constant{

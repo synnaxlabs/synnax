@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package archive
 
 import (
 	"context"
@@ -139,7 +139,7 @@ type Runtime struct {
 	streamer *streamerSeg
 	writer   *writerSeg
 	// nodes are all nodes in the program
-	nodes map[string]stage.Stage
+	nodes map[string]stage.Node
 	// close is a shutdown handler that stops internal processes
 	close io.Closer
 }
@@ -187,7 +187,7 @@ func (r *Runtime) processOutput(ctx context.Context, res framer.StreamerResponse
 func retrieveReadChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
-	nodes map[string]stage.Stage,
+	nodes map[string]stage.Node,
 ) ([]channel.Channel, error) {
 	keys := make(set.Set[channel.Key])
 	for _, node := range nodes {
@@ -206,7 +206,7 @@ func retrieveReadChannels(
 func retrieveWriteChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
-	nodes map[string]stage.Stage,
+	nodes map[string]stage.Node,
 ) ([]channel.Channel, error) {
 	keys := make(set.Set[channel.Key])
 	for _, node := range nodes {
@@ -280,7 +280,7 @@ func createWritePipeline(
 	return p, nil
 }
 
-func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Stage, error) {
+func (r *Runtime) create(ctx context.Context, cfg Config, arcNode arc.Node) (stage.Node, error) {
 	_, ok := cfg.Module.GetStage(arcNode.Type)
 	if ok {
 		return nil, errors.Newf("unsupported module type: %s", arcNode.Type)
@@ -301,7 +301,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	r := &Runtime{
 		module: cfg.Module,
-		nodes:  make(map[string]stage.Stage),
+		nodes:  make(map[string]stage.Node),
 	}
 	r.writer = &writerSeg{}
 	r.streamer = &streamerSeg{}

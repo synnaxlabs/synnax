@@ -19,11 +19,29 @@ import (
 
 type OutputHandler = func(ctx context.Context, param string, val value.Value)
 
-type Stage interface {
+// Node is the core data processing structure of a reactive arc program. A stage
+// performs a specific piece of functionality (such as an addition or accumulation),
+// and then emits a value that can be used to trigger a downstream stage.
+//
+// An instantiation of a stage is called a node.
+type Node interface {
+	// Key is a unique key identifying the instantiated stage within the arc program.
 	Key() string
+	// WriteChannels are the keys of the channels that the stage needs to write to
+	// in order to operate.
 	WriteChannels() []channel.Key
+	// ReadChannels are the keys of the channels that the stage needs to read from
+	// in order to operate.
 	ReadChannels() []channel.Key
+	// Flow is used to start any go-routines that the stage may need.
 	Flow(signal.Context)
-	Next(ctx context.Context, param string, value value.Value)
+	// Load loads the next value with the target param n into the stage. This parameter
+	// should be used in the next evaluation through Next.
+	Load(param string, value value.Value)
+	// OnOutput binds an output handler that will be called when one of the output
+	// parameters of the stage changes.
 	OnOutput(OutputHandler)
+	// Next executes the next 'step' in the stage to read parameters and conditionally
+	// call the output handler.
+	Next(ctx context.Context)
 }

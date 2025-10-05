@@ -44,25 +44,30 @@ type operator struct {
 	a, b    *value.Value
 }
 
-func (n *operator) Next(ctx context.Context, param string, val value.Value) {
+func (n *operator) Load(param string, val value.Value) {
 	if param == "a" {
 		n.a = &val
 	} else {
 		n.b = &val
 	}
-	if n.a != nil && n.b != nil {
-		var result uint8
-		if n.compare(*n.a, *n.b) {
-			result = 1
-		} else {
-			result = 0
-		}
-		n.outputHandler(ctx, "output", value.Value{Type: ir.U8{}}.PutUint8(result))
+}
+
+func (n *operator) Next(ctx context.Context) {
+	if n.a == nil || n.b == nil {
+		return
 	}
+
+	var result uint8
+	if n.compare(*n.a, *n.b) {
+		result = 1
+	} else {
+		result = 0
+	}
+	n.outputHandler(ctx, "output", value.Value{Type: ir.U8{}}.PutUint8(result))
 }
 
 func createBinaryOpFactory(compare func(a, b value.Value) bool) Constructor {
-	return func(_ context.Context, cfg Config) (stage.Stage, error) {
+	return func(_ context.Context, cfg Config) (stage.Node, error) {
 		o := &operator{compare: compare}
 		o.key = cfg.Node.Key
 		return o, nil
@@ -85,20 +90,25 @@ type arithmeticOperator struct {
 	a, b    *value.Value
 }
 
-func (n *arithmeticOperator) Next(ctx context.Context, param string, val value.Value) {
+func (n *arithmeticOperator) Load(param string, val value.Value) {
 	if param == "a" {
 		n.a = &val
 	} else {
 		n.b = &val
 	}
-	if n.a != nil && n.b != nil {
-		result := n.operate(*n.a, *n.b)
-		n.outputHandler(ctx, "output", result)
+}
+
+func (n *arithmeticOperator) Next(ctx context.Context) {
+	if n.a == nil || n.b == nil {
+		return
 	}
+
+	result := n.operate(*n.a, *n.b)
+	n.outputHandler(ctx, "output", result)
 }
 
 func createArithmeticOpFactory(operate func(a, b value.Value) value.Value) Constructor {
-	return func(_ context.Context, cfg Config) (stage.Stage, error) {
+	return func(_ context.Context, cfg Config) (stage.Node, error) {
 		o := &arithmeticOperator{operate: operate}
 		o.key = cfg.Node.Key
 		return o, nil

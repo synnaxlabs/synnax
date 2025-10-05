@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/archive"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime/std"
 	"github.com/synnaxlabs/x/config"
 )
@@ -46,8 +47,8 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	}, nil
 }
 
-func CreateResolver(cfgs ...Config) (arc.SymbolResolver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func CreateResolver(cfgs ...archive.Config) (arc.SymbolResolver, error) {
+	cfg, err := config.New(archive.DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

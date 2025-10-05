@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Constructor = func(ctx context.Context, cfg Config) (stage.Stage, error)
+type Constructor = func(ctx context.Context, cfg Config) (stage.Node, error)
 
 var factories = map[string]Constructor{
 	"ge":         GEFactory,
@@ -79,7 +79,7 @@ type Config struct {
 	Channel     channel.Readable
 }
 
-func Create(ctx context.Context, cfg Config) (stage.Stage, error) {
+func Create(ctx context.Context, cfg Config) (stage.Node, error) {
 	v, ok := factories[cfg.Node.Type]
 	if !ok {
 		return nil, errors.Wrapf(query.NotFound, "std. lib stage with type %s not found", cfg.Node.Type)

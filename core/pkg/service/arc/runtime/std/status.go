@@ -42,11 +42,12 @@ var symbolSetStatus = ir.Symbol{
 
 type setStatus struct {
 	base
-	cfg  Config
-	stat status.Status
+	cfg   Config
+	stat  status.Status
+	input *value.Value
 }
 
-func createSetStatus(ctx context.Context, cfg Config) (stage.Stage, error) {
+func createSetStatus(ctx context.Context, cfg Config) (stage.Node, error) {
 	key := cfg.Node.Config["status_key"].(string)
 	var stat status.Status
 	if err := cfg.Status.NewRetrieve().
@@ -63,7 +64,17 @@ func createSetStatus(ctx context.Context, cfg Config) (stage.Stage, error) {
 	return stg, nil
 }
 
-func (s *setStatus) Next(ctx context.Context, _ string, _ value.Value) {
+func (s *setStatus) Load(param string, val value.Value) {
+	if param == "input" {
+		s.input = &val
+	}
+}
+
+func (s *setStatus) Next(ctx context.Context) {
+	if s.input == nil {
+		return
+	}
+
 	s.stat.Time = telem.Now()
 	if err := s.cfg.Status.NewWriter(nil).Set(ctx, &s.stat); err != nil {
 		s.cfg.L.Error("error setting status", zap.Error(err))

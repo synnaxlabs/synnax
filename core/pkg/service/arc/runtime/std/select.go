@@ -31,12 +31,25 @@ var symbolSelect = ir.Symbol{
 	},
 }
 
-type selectStage struct{ base }
-
-func (s *selectStage) Next(ctx context.Context, _ string, val value.Value) {
-	s.outputHandler(ctx, lo.Ternary(val.Value == 0, "false", "true"), val)
+type selectStage struct {
+	base
+	input *value.Value
 }
 
-func createSelect(_ context.Context, cfg Config) (stage.Stage, error) {
+func (s *selectStage) Load(param string, val value.Value) {
+	if param == "input" {
+		s.input = &val
+	}
+}
+
+func (s *selectStage) Next(ctx context.Context) {
+	if s.input == nil {
+		return
+	}
+
+	s.outputHandler(ctx, lo.Ternary(s.input.Value == 0, "false", "true"), *s.input)
+}
+
+func createSelect(_ context.Context, cfg Config) (stage.Node, error) {
 	return &selectStage{base: base{key: cfg.Node.Key}}, nil
 }

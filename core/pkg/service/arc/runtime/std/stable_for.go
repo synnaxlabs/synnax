@@ -39,26 +39,37 @@ type stableFor struct {
 	base
 	duration    telem.TimeSpan
 	value       uint64
+	input       *value.Value
 	lastSent    *uint64
 	lastChanged telem.TimeStamp
 	now         func() telem.TimeStamp
 }
 
-var _ stage.Stage = (*stableFor)(nil)
+var _ stage.Node = (*stableFor)(nil)
 
-func (s *stableFor) Next(ctx context.Context, _ string, val value.Value) {
-	if val.Value != s.value {
-		s.value = val.Value
+func (s *stableFor) Load(param string, val value.Value) {
+	if param == "input" {
+		s.input = &val
+	}
+}
+
+func (s *stableFor) Next(ctx context.Context) {
+	if s.input == nil {
+		return
+	}
+
+	if s.input.Value != s.value {
+		s.value = s.input.Value
 		s.lastChanged = s.now()
 	}
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration && (s.lastSent == nil || *s.lastSent != s.value) {
 		v := s.value
 		s.lastSent = &v
-		s.outputHandler(ctx, "output", val)
+		s.outputHandler(ctx, "output", *s.input)
 	}
 }
 
-func createStableFor(_ context.Context, cfg Config) (stage.Stage, error) {
+func createStableFor(_ context.Context, cfg Config) (stage.Node, error) {
 	// Handle both int and float64 for duration
 	var duration telem.TimeSpan
 	switch v := cfg.Node.Config["duration"].(type) {
