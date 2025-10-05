@@ -131,7 +131,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             devices[device.key] = device;
             // Store the DAQmx device location and model
             this->device_resource_names.push_back({device.location, device.model});
-            VLOG(1) << "[ni.read_task] using device for validation: " << device.location << " (" << device.model << ")";
+            VLOG(1) << "[ni.read_task] using device for validation: " << device.location
+                    << " (" << device.model << ")";
         } else {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
@@ -148,7 +149,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             // Store DAQmx device locations and models for all devices
             for (const auto &dev: devices_vec) {
                 this->device_resource_names.push_back({dev.location, dev.model});
-                VLOG(1) << "[ni.read_task] using device for validation: " << dev.location << " (" << dev.model << ")";
+                VLOG(1) << "[ni.read_task] using device for validation: "
+                        << dev.location << " (" << dev.model << ")";
             }
         }
         for (auto &ch: this->channels) {
@@ -189,7 +191,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (this->software_timed) return xerrors::NIL;
 
         // Validate sample rate against device minimum(s)
-        VLOG(1) << "[ni.read_task] validating sample rate for " << this->device_resource_names.size() << " device(s)";
+        VLOG(1) << "[ni.read_task] validating sample rate for "
+                << this->device_resource_names.size() << " device(s)";
         for (const auto &[location, model]: this->device_resource_names) {
             float64 min_rate = 0.0;
             auto err = dmx->GetDeviceAttributeDouble(
@@ -198,15 +201,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 &min_rate
             );
             if (err) {
-                LOG(WARNING) << "[ni.read_task] failed to query min rate for device " << location << ": " << err.message();
+                LOG(WARNING) << "[ni.read_task] failed to query min rate for device "
+                             << location << ": " << err.message();
                 continue;
             }
-            VLOG(1) << "[ni.read_task] device " << location << " (" << model << ") min_rate: " << min_rate << " Hz, configured: " << this->sample_rate.hz() << " Hz";
+            VLOG(1) << "[ni.read_task] device " << location << " (" << model
+                    << ") min_rate: " << min_rate
+                    << " Hz, configured: " << this->sample_rate.hz() << " Hz";
             if (this->sample_rate.hz() < min_rate) {
                 std::ostringstream msg;
                 msg << "configured sample rate (" << this->sample_rate.hz()
-                    << " Hz) is below device minimum (" << min_rate
-                    << " Hz) for " << location << " (" << model << ")";
+                    << " Hz) is below device minimum (" << min_rate << " Hz) for "
+                    << location << " (" << model << ")";
                 return xerrors::Error("ni.sample_rate_too_low", msg.str());
             }
         }
