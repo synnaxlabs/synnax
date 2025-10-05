@@ -14,6 +14,9 @@
 /// external
 #include "open62541/types.h"
 
+/// internal
+#include "driver/opc/util/util.h"
+
 namespace util {
 static const std::unordered_map<uint32_t, std::string>
     STATUS_CODE_DESCRIPTIONS =
@@ -387,5 +390,26 @@ std::string status_code_description(UA_StatusCode code) {
     auto it = STATUS_CODE_DESCRIPTIONS.find(code);
     if (it != STATUS_CODE_DESCRIPTIONS.end()) return it->second;
     return "";
+}
+
+static bool is_connection_status_code(const UA_StatusCode &status) {
+    return status == UA_STATUSCODE_BADTIMEOUT ||
+           status == UA_STATUSCODE_BADNOTCONNECTED ||
+           status == UA_STATUSCODE_BADSECURECHANNELCLOSED ||
+           status == UA_STATUSCODE_BADSESSIONIDINVALID ||
+           status == UA_STATUSCODE_BADSESSIONCLOSED ||
+           status == UA_STATUSCODE_BADSESSIONNOTACTIVATED ||
+           status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
+           status == UA_STATUSCODE_BADDISCONNECT ||
+           status == UA_STATUSCODE_BADCONNECTIONCLOSED;
+}
+
+xerrors::Error parse_error(const UA_StatusCode &status) {
+    if (status == UA_STATUSCODE_GOOD) return xerrors::NIL;
+    const std::string status_name = UA_StatusCode_name(status);
+    const std::string message = status_code_description(status);
+    if (is_connection_status_code(status))
+        return {UNREACHABLE_ERROR.sub(status_name), message};
+    return {CRITICAL_ERROR.sub(status_name), message};
 }
 }

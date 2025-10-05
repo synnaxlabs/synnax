@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -351,16 +351,8 @@ describe("queries", () => {
       await act(async () => {
         await result.current.updateAsync(ws.key);
       });
-      const { result: retrieveResult } = renderHook(
-        () => Workspace.useRetrieve({ key: ws.key }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(retrieveResult.current.variant).toEqual("error");
-        expect(retrieveResult.current.status.message).toEqual(
-          "Failed to retrieve Workspace",
-        );
-        expect(retrieveResult.current.status.description).toContain("not found");
+      await waitFor(async () => {
+        await expect(client.workspaces.retrieve(ws.key)).rejects.toThrow(NotFoundError);
       });
     });
   });

@@ -16,7 +16,7 @@
 /// internal
 #include "driver/opc/util/util.h"
 
-TEST(OPCUtilTest, testUAToDataType) {
+TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(util::ua_to_data_type(&UA_TYPES[UA_TYPES_FLOAT]), telem::FLOAT32_T);
     EXPECT_EQ(util::ua_to_data_type(&UA_TYPES[UA_TYPES_DOUBLE]), telem::FLOAT64_T);
     EXPECT_EQ(util::ua_to_data_type(&UA_TYPES[UA_TYPES_SBYTE]), telem::INT8_T);
@@ -34,7 +34,7 @@ TEST(OPCUtilTest, testUAToDataType) {
     EXPECT_EQ(util::ua_to_data_type(nullptr), telem::UNKNOWN_T);
 }
 
-TEST(OPCUtilTest, testDataTypeToUA) {
+TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(util::data_type_to_ua(telem::FLOAT32_T), &UA_TYPES[UA_TYPES_FLOAT]);
     EXPECT_EQ(util::data_type_to_ua(telem::FLOAT64_T), &UA_TYPES[UA_TYPES_DOUBLE]);
     EXPECT_EQ(util::data_type_to_ua(telem::INT8_T), &UA_TYPES[UA_TYPES_SBYTE]);
@@ -50,7 +50,7 @@ TEST(OPCUtilTest, testDataTypeToUA) {
     EXPECT_EQ(util::data_type_to_ua(telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
 }
 
-TEST(OPCUtilTest, testUAFloatArrayToSeries) {
+TEST(TelemTest, testUAFloatArrayToSeries) {
     // Test regular array conversion
     UA_Variant array_v;
     UA_Variant_init(&array_v);
@@ -77,7 +77,7 @@ TEST(OPCUtilTest, testUAFloatArrayToSeries) {
     EXPECT_EQ(s2.at<double>(2), 3.0);
 }
 
-TEST(OPCUtilTest, testWriteToSeries) {
+TEST(TelemTest, testWriteToSeries) {
     auto series = telem::Series(telem::FLOAT32_T, 10);
 
     UA_Variant v;
@@ -99,7 +99,7 @@ TEST(OPCUtilTest, testWriteToSeries) {
     EXPECT_EQ(series.at<float>(1), 43.0f);
 }
 
-TEST(OPCUtilTest, testSeriesToVariant) {
+TEST(TelemTest, testSeriesToVariant) {
     // Create a series with a single value
     auto series = telem::Series(telem::FLOAT32_T, 1);
     float val = 42.0f;

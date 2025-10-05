@@ -82,6 +82,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       {isSingle && (
         <>
+          <Ontology.CopyMenuItem {...props} />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

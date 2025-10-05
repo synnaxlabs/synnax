@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Bazel build outputs (at root level)
+bazel-*
+external
+
+# Build outputs
+**/build
+**/.bazel
+**/*-bazel
+**/*.blaze
+**/target
+
+# Dependencies
+node_modules
+**/node_modules
+**/vendor
+**/.venv
+**/__pycache__
+**/*.pyc
+
+# IDE
+**/.idea
+**/.vscode
+**/.vs
+**/*.swp
+**/*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+**/*.md
+!README.md
+
+# CI/CD
+/.github
+.earthly
+
+# Temp files
+**/.cache
+**/coverage
+**/tmp
+**/.tmp
+**/.turbo
+
+# Exclude everything not needed for core Go build
+/console
+/pluto
+/docs
+/scripts
+/integration
+/deploy
+/drift
+/driver
+/client
+/synnax-logs
+
+# Config files not needed in build
+*.yaml
+*.yml
+!go.work
+!go.work.sum
+*.json
+!package.json
+*.toml
+*.lock
+!go.sum
+Earthfile
+.dockerignore
+Dockerfile
+
+# Keep only what we need for the Go build:
+# - core/ (included)
+# - freighter/go (included)
+# - alamos/go (included)
+# - x/go (included)
+# - cesium (included)
+# - aspen (included)
+# - arc (included)
+# - go.mod, go.sum, go.work, go.work.sum (included)
