@@ -10,7 +10,9 @@
 #pragma once
 
 /// std
+#include <iomanip>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -49,7 +51,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t skew_warn_on_count;
     /// @brief the device resource name(s) used for DAQmx API calls. For single device
     /// tasks this will have one entry, for cross-device tasks it will have multiple.
-    std::vector<std::string> device_resource_names;
+    /// Stored as pairs of (location, model) e.g., ("E103Mod1", "NI 9229").
+    std::vector<std::pair<std::string, std::string>> device_resource_names;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -127,9 +130,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices[device.key] = device;
-            // Store the DAQmx device location (e.g., "Dev1", "cDAQ1Mod1")
-            this->device_resource_names.push_back(device.location);
-            VLOG(1) << "[ni.read_task] using device location for validation: " << device.location;
+            // Store the DAQmx device location and model
+            this->device_resource_names.push_back({device.location, device.model});
+            VLOG(1) << "[ni.read_task] using device for validation: " << device.location << " (" << device.model << ")";
         } else {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
@@ -143,10 +146,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices = map_device_keys(devices_vec);
-            // Store DAQmx device locations for all devices
+            // Store DAQmx device locations and models for all devices
             for (const auto &dev: devices_vec) {
-                this->device_resource_names.push_back(dev.location);
-                VLOG(1) << "[ni.read_task] using device location for validation: " << dev.location;
+                this->device_resource_names.push_back({dev.location, dev.model});
+                VLOG(1) << "[ni.read_task] using device for validation: " << dev.location << " (" << dev.model << ")";
             }
         }
         for (auto &ch: this->channels) {
@@ -186,26 +189,46 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
 
+        // Helper lambda to format sample rate without trailing zeros
+        auto format_rate = [](float64 rate) -> std::string {
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(6) << rate;
+            std::string rate_str = oss.str();
+            // Remove trailing zeros after decimal point
+            size_t decimal_pos = rate_str.find('.');
+            if (decimal_pos != std::string::npos) {
+                size_t last_nonzero = rate_str.find_last_not_of('0');
+                if (last_nonzero != std::string::npos && last_nonzero > decimal_pos) {
+                    rate_str = rate_str.substr(0, last_nonzero + 1);
+                }
+                // Remove decimal point if no fractional part remains
+                if (rate_str.back() == '.') {
+                    rate_str.pop_back();
+                }
+            }
+            return rate_str;
+        };
+
         // Validate sample rate against device minimum(s)
         VLOG(1) << "[ni.read_task] validating sample rate for " << this->device_resource_names.size() << " device(s)";
-        for (const auto &resource_name: this->device_resource_names) {
+        for (const auto &[location, model]: this->device_resource_names) {
             float64 min_rate = 0.0;
             auto err = dmx->GetDeviceAttributeDouble(
-                resource_name.c_str(),
+                location.c_str(),
                 DAQmx_Dev_AI_MinRate,
                 &min_rate
             );
             if (err) {
-                LOG(WARNING) << "[ni.read_task] failed to query min rate for device " << resource_name << ": " << err.message();
+                LOG(WARNING) << "[ni.read_task] failed to query min rate for device " << location << ": " << err.message();
                 continue;
             }
-            VLOG(1) << "[ni.read_task] device " << resource_name << " min_rate: " << min_rate << " Hz, configured: " << this->sample_rate.hz() << " Hz";
+            VLOG(1) << "[ni.read_task] device " << location << " (" << model << ") min_rate: " << min_rate << " Hz, configured: " << this->sample_rate.hz() << " Hz";
             if (this->sample_rate.hz() < min_rate) {
                 return xerrors::Error(
                     "ni.sample_rate_too_low",
-                    "configured sample rate (" + std::to_string(this->sample_rate.hz()) +
-                    " Hz) is below device minimum (" + std::to_string(min_rate) +
-                    " Hz) for " + resource_name
+                    "configured sample rate (" + format_rate(this->sample_rate.hz()) +
+                    " Hz) is below device minimum (" + format_rate(min_rate) +
+                    " Hz) for " + location + " (" + model + ")"
                 );
             }
         }
