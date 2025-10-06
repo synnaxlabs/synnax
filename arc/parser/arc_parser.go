@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import (
 	"fmt"
 	"strconv"
