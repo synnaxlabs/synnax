@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/synnaxlabs/arc/parser"
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -74,7 +74,7 @@ func (s Series) String() string { return "series " + s.ValueType.String() }
 
 type Body struct {
 	Raw string
-	AST parser.IBlockContext
+	AST antlr.ParserRuleContext // Can be IBlockContext or IExpressionContext
 }
 
 type Function struct {

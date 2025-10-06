@@ -12,6 +12,7 @@ package statement
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/errors"
@@ -131,9 +132,87 @@ func compileAssignment(
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
+	case ir.KindOutput:
+		// Named output - needs special handling for multi-output routing
+		if err := compileOutputAssignment(ctx, name, scope); err != nil {
+			return err
+		}
 	default:
 		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
 	}
+
+	return nil
+}
+
+// compileOutputAssignment handles assignment to named outputs in multi-output stages/functions
+// Memory layout at OutputMemoryBase:
+//   [0:8]   dirty_flags (i64 bitmap)
+//   [8:..] output values in declaration order
+func compileOutputAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	outputName string,
+	scope *ir.Scope,
+) error {
+	// Value is already on stack from expression compilation
+
+	// Step 1: Store in local variable
+	ctx.Writer.WriteLocalSet(scope.ID)
+
+	// Step 2: Find the output index
+	outputIndex := -1
+	for i, key := range ctx.Outputs.Keys {
+		if key == outputName {
+			outputIndex = i
+			break
+		}
+	}
+	if outputIndex == -1 {
+		return errors.Newf("output '%s' not found in outputs list", outputName)
+	}
+
+	// Step 3: Calculate memory offset for this output
+	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
+	for i := 0; i < outputIndex; i++ {
+		offset += wasm.SizeOf(ctx.Outputs.Values[i])
+	}
+
+	// Step 4: Write value to output memory
+	// Store instruction needs: [address, value]
+	ctx.Writer.WriteI32Const(int32(offset))
+	ctx.Writer.WriteLocalGet(scope.ID)
+	// Stack: [address, value]
+
+	// Write the appropriate store instruction based on type
+	switch scope.Type {
+	case ir.I8{}, ir.U8{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
+	case ir.I16{}, ir.U16{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
+	case ir.I32{}, ir.U32{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
+	case ir.I64{}, ir.U64{}, ir.TimeStamp{}, ir.TimeSpan{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
+	case ir.F32{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
+	case ir.F64{}:
+		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
+	default:
+		return errors.Newf("unsupported output type %v", scope.Type)
+	}
+
+	// Step 5: Set the dirty flag bit
+	// dirty_flags |= (1 << outputIndex)
+	// Store instruction needs: [address, value]
+	ctx.Writer.WriteI32Const(int32(ctx.OutputMemoryBase))
+	// Load current flags, compute new value, store
+	ctx.Writer.WriteI32Const(int32(ctx.OutputMemoryBase))
+	ctx.Writer.WriteMemoryOp(wasm.OpI64Load, 3, 0)
+	ctx.Writer.WriteI64Const(1)
+	ctx.Writer.WriteI64Const(int64(outputIndex))
+	ctx.Writer.WriteOpcode(wasm.OpI64Shl)
+	ctx.Writer.WriteOpcode(wasm.OpI64Or)
+	// Stack: [address, new_value]
+	ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 
 	return nil
 }

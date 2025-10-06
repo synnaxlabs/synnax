@@ -41,6 +41,10 @@ func compileBlock(source string) []byte {
 }
 
 var _ = Describe("Statement Compiler", func() {
+	// NOTE: Output assignment tests (ir.KindOutput) are not included here because they
+	// require a fully configured multi-output context (Outputs, OutputMemoryBase).
+	// Output assignment compilation is tested via integration tests in the main compiler suite.
+
 	DescribeTable("Single Statement Bytecode Values", func(source string, instructions ...any) {
 		Expect(compile(source)).To(Equal(WASM(instructions...)))
 	},

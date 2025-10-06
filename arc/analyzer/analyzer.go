@@ -145,6 +145,9 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 			}
 		}
 	}
+	if block := ctx.AST.Block(); block != nil {
+		fnType.Body = ir.Body{AST: block}
+	}
 	fnScope.Type = fnType
 	if block := ctx.AST.Block(); block != nil {
 		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(fnScope)) {
@@ -380,6 +383,9 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 				}
 			}
 		}
+	}
+	if block := ctx.AST.Block(); block != nil {
+		stageType.Body = ir.Body{AST: block}
 	}
 	stageScope.Type = stageType
 	if block := ctx.AST.Block(); block != nil {

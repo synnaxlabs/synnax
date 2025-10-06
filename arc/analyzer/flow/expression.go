@@ -68,6 +68,8 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	if !expression.Analyze(ctx.WithScope(blockScope)) {
 		return false
 	}
+	// Store the expression AST in Body for compilation
+	t.Body = ir.Body{AST: ctx.AST}
 	stageScope.Type = t
 	return true
 }

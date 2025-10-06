@@ -27,17 +27,22 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Module  *wasm.Module
 	AST     ASTNode
 	Hint    ir.Type
+	// Outputs and OutputMemoryBase are set for multi-output stages/functions
+	Outputs          ir.NamedTypes
+	OutputMemoryBase uint32
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
 	return Context[ASTNode]{
-		Context: ctx.Context,
-		Imports: ctx.Imports,
-		Scope:   ctx.Scope,
-		Writer:  ctx.Writer,
-		Module:  ctx.Module,
-		AST:     node,
-		Hint:    ctx.Hint,
+		Context:          ctx.Context,
+		Imports:          ctx.Imports,
+		Scope:            ctx.Scope,
+		Writer:           ctx.Writer,
+		Module:           ctx.Module,
+		AST:              node,
+		Hint:             ctx.Hint,
+		Outputs:          ctx.Outputs,
+		OutputMemoryBase: ctx.OutputMemoryBase,
 	}
 }
 func (c Context[AstNode]) WithHint(hint ir.Type) Context[AstNode] {

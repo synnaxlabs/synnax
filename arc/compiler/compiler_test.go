@@ -25,6 +25,11 @@ import (
 func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
+	if !diag.Ok() {
+		for _, d := range diag {
+			println("Analyzer error:", d.Message)
+		}
+	}
 	Expect(diag.Ok()).To(BeTrue())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
@@ -203,6 +208,175 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(readAndDouble.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(1))) // 42 * 2
+		})
+	})
+
+	Describe("Named Output Routing", func() {
+		It("Should compile a basic multi-output stage", func() {
+			wasmBytes := MustSucceed(compile(`
+			stage classifier(value i64) {
+				high i64
+				low i64
+			} {
+				if value > 50 {
+					high = value
+				} else {
+					low = value
+				}
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			classifier := mod.ExportedFunction("classifier")
+			Expect(classifier).ToNot(BeNil())
+
+			// Call with value > 50 - should set high output
+			MustSucceed(classifier.Call(ctx, 75))
+
+			// Read memory to check outputs
+			// Memory layout: [dirty_flags:i64][high:i64][low:i64]
+			mem := mod.Memory()
+			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags).To(Equal(uint64(1))) // Bit 0 set (high output)
+
+			highValue, ok := mem.ReadUint64Le(0x1008)
+			Expect(ok).To(BeTrue())
+			Expect(highValue).To(Equal(uint64(75)))
+
+			// Call with value <= 50 - should set low output
+			MustSucceed(classifier.Call(ctx, 25))
+
+			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags).To(Equal(uint64(2))) // Bit 1 set (low output)
+
+			lowValue, ok := mem.ReadUint64Le(0x1010)
+			Expect(ok).To(BeTrue())
+			Expect(lowValue).To(Equal(uint64(25)))
+		})
+
+		It("Should handle conditional output routing", func() {
+			wasmBytes := MustSucceed(compile(`
+			stage router(x i64, y i64) {
+				sum i64
+				diff i64
+				both i64
+			} {
+				if x > y {
+					diff = x - y
+				} else if x < y {
+					diff = y - x
+				} else {
+					both = x + y
+				}
+				sum = x + y
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			router := mod.ExportedFunction("router")
+			Expect(router).ToNot(BeNil())
+
+			// Test x > y case
+			MustSucceed(router.Call(ctx, 10, 3))
+
+			mem := mod.Memory()
+			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags & 1).To(Equal(uint64(1)))    // sum set
+			Expect(dirtyFlags & 2).To(Equal(uint64(2)))    // diff set
+			Expect(dirtyFlags & 4).To(Equal(uint64(0)))    // both not set
+
+			sumValue, ok := mem.ReadUint64Le(0x1008)
+			Expect(ok).To(BeTrue())
+			Expect(sumValue).To(Equal(uint64(13)))
+
+			diffValue, ok := mem.ReadUint64Le(0x1010)
+			Expect(ok).To(BeTrue())
+			Expect(diffValue).To(Equal(uint64(7)))
+
+			// Test x == y case
+			MustSucceed(router.Call(ctx, 5, 5))
+
+			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags & 1).To(Equal(uint64(1)))    // sum set
+			Expect(dirtyFlags & 2).To(Equal(uint64(0)))    // diff not set
+			Expect(dirtyFlags & 4).To(Equal(uint64(4)))    // both set
+
+			bothValue, ok := mem.ReadUint64Le(0x1018)
+			Expect(ok).To(BeTrue())
+			Expect(bothValue).To(Equal(uint64(10)))
+		})
+
+		It("Should support mixed output types", func() {
+			wasmBytes := MustSucceed(compile(`
+			stage converter(value i64) {
+				asFloat f64
+				asInt i32
+				original i64
+			} {
+				asFloat = 3.14
+				asInt = i32(42)
+				original = value
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			converter := mod.ExportedFunction("converter")
+			Expect(converter).ToNot(BeNil())
+
+			MustSucceed(converter.Call(ctx, 100))
+
+			mem := mod.Memory()
+			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags).To(Equal(uint64(7))) // All 3 outputs set (bits 0,1,2)
+
+			// Memory layout: [dirty_flags:i64][asFloat:f64][asInt:i32][original:i64]
+			floatValue, ok := mem.ReadFloat64Le(0x1008)
+			Expect(ok).To(BeTrue())
+			Expect(floatValue).To(BeNumerically("~", 3.14, 0.01))
+
+			intValue, ok := mem.ReadUint32Le(0x1010)
+			Expect(ok).To(BeTrue())
+			Expect(intValue).To(Equal(uint32(42)))
+
+			originalValue, ok := mem.ReadUint64Le(0x1014)
+			Expect(ok).To(BeTrue())
+			Expect(originalValue).To(Equal(uint64(100)))
+		})
+
+		It("Should support multi-output functions", func() {
+			wasmBytes := MustSucceed(compile(`
+			func divmod(a i64, b i64) {
+				quotient i64
+				remainder i64
+			} {
+				quotient = a / b
+				remainder = a % b
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			divmod := mod.ExportedFunction("divmod")
+			Expect(divmod).ToNot(BeNil())
+
+			MustSucceed(divmod.Call(ctx, 17, 5))
+
+			mem := mod.Memory()
+			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags).To(Equal(uint64(3))) // Both outputs set (bits 0,1)
+
+			quotient, ok := mem.ReadUint64Le(0x1008)
+			Expect(ok).To(BeTrue())
+			Expect(quotient).To(Equal(uint64(3)))
+
+			remainder, ok := mem.ReadUint64Le(0x1010)
+			Expect(ok).To(BeTrue())
+			Expect(remainder).To(Equal(uint64(2)))
 		})
 	})
 })

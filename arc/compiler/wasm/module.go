@@ -98,6 +98,11 @@ func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
 	})
 }
 
+// Debug returns debug info about the module
+func (m *Module) Debug() (types, functions, exports int) {
+	return len(m.types), len(m.functions), len(m.exports)
+}
+
 // EnableMemory enables memory for the module
 func (m *Module) EnableMemory() {
 	m.memory = true

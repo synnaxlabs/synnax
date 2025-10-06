@@ -74,6 +74,23 @@ func ConvertParams(params maps.Ordered[string, ir.Type]) []ValueType {
 	return wasmParams
 }
 
+// SizeOf returns the size in bytes of an IR type when stored in linear memory
+func SizeOf(t ir.Type) uint32 {
+	switch t {
+	case ir.I8{}, ir.U8{}:
+		return 1
+	case ir.I16{}, ir.U16{}:
+		return 2
+	case ir.I32{}, ir.U32{}, ir.F32{}:
+		return 4
+	case ir.I64{}, ir.U64{}, ir.F64{}, ir.TimeStamp{}, ir.TimeSpan{}:
+		return 8
+	default:
+		// Default to 4 bytes for unknown types
+		return 4
+	}
+}
+
 func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 	isFloat := ir.IsFloat(t)
 	is64bit := ir.Is64Bit(t)
