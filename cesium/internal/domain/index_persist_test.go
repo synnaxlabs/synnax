@@ -86,6 +86,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf).To(Equal([]byte{15}))
 					Expect(r.Close()).To(Succeed())
 
@@ -93,6 +94,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 4)
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf).To(Equal([]byte{20, 21, 22, 23}))
 					Expect(r.Close()).To(Succeed())
 
@@ -100,6 +102,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf).To(Equal([]byte{26}))
 					Expect(r.Close()).To(Succeed())
 
@@ -107,6 +110,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf).To(Equal([]byte{30}))
 					Expect(r.Close()).To(Succeed())
 
@@ -114,7 +118,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 3)
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					_, err = r.ReadAt(buf, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf).To(Equal([]byte{40, 41, 42}))
 					Expect(r.Close()).To(Succeed())
 

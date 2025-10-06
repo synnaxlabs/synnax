@@ -134,7 +134,7 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{svc: s, tx: s.DB.OverrideTx(tx)}
+	return writer{svc: s, tx: s.OverrideTx(tx)}
 }
 
 func (s *service) Group() group.Group { return s.group }

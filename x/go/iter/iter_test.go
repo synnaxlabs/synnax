@@ -10,6 +10,8 @@
 package iter_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/iter"
@@ -22,9 +24,10 @@ var _ = Describe("Iter", func() {
 			n := 5
 			values := make([]int, n)
 			i := iter.Endlessly(values)
+			ctx := context.Background()
 			for range iterations {
 				for k := range n {
-					v, ok := i.Next(nil)
+					v, ok := i.Next(ctx)
 					Expect(ok).To(BeTrue())
 					Expect(v).To(Equal(values[k]))
 				}
@@ -36,12 +39,13 @@ var _ = Describe("Iter", func() {
 			n := 5
 			values := make([]int, n)
 			i := iter.All(values)
+			ctx := context.Background()
 			for j := range n {
-				v, ok := i.Next(nil)
+				v, ok := i.Next(ctx)
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal(values[j]))
 			}
-			v, ok := i.Next(nil)
+			v, ok := i.Next(ctx)
 			Expect(ok).To(BeFalse())
 			Expect(v).To(Equal(0))
 		})

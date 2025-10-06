@@ -33,7 +33,7 @@ var _ = Describe("Falamos", func() {
 				},
 				freighter.NopFinalizer,
 			))
-			_, ok := oCtx.Params.Get("alamos-traceparent")
+			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 
 			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
@@ -48,7 +48,7 @@ var _ = Describe("Falamos", func() {
 				},
 				freighter.NopFinalizer,
 			))
-			_, ok = oCtx.Params.Get("alamos-traceparent")
+			_, ok = oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 		})
 	})

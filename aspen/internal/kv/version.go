@@ -107,10 +107,6 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	return v, err
 }
 
-func (va *versionAssigner) currentVersion() version.Counter {
-	return version.Counter(va.counter.Value())
-}
-
 func (va *versionAssigner) assign(_ context.Context, br TxRequest) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(int64(br.size())); err != nil {

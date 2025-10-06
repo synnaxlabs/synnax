@@ -74,6 +74,7 @@ var _ = Describe("Sender", func() {
 				Expect(v).To(Equal(1))
 				senderStream.Inlet() <- 2
 				v = <-receiverStream.Outlet()
+				Expect(v).To(Equal(2))
 				cancel()
 				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 				_, ok := <-receiverStream.Outlet()

@@ -9,7 +9,7 @@
 
 package testutil
 
-import . "github.com/onsi/gomega"
+import "github.com/onsi/gomega"
 
 func MustSucceed[T any](value T, err error) T {
 	return MustSucceedWithOffset[T](1)(value, err)
@@ -17,22 +17,22 @@ func MustSucceed[T any](value T, err error) T {
 
 func MustSucceedWithOffset[T any](offset int) func(value T, err error) T {
 	return func(value T, err error) T {
-		ExpectWithOffset(offset+1, err).ToNot(HaveOccurred())
+		gomega.ExpectWithOffset(offset+1, err).ToNot(gomega.HaveOccurred())
 		return value
 	}
 }
 
 func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	return a, b
 }
 
 func MustSucceed3[A, B, C any](a A, b B, c C, err error) (A, B, C) {
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	return a, b, c
 }
 
 func MustSucceed4[A, B, C, D any](a A, b B, c C, d D, err error) (A, B, C, D) {
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	return a, b, c, d
 }
