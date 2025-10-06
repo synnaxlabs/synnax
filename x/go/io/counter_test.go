@@ -51,7 +51,7 @@ var _ = Describe("Counter", func() {
 				Expect(c.Value()).To(Equal(int32(0)))
 				Expect(f.Close()).To(Succeed())
 			})
-			It("Should read the existing value when the file does exist", Focus, func() {
+			It("Should read the existing value when the file does exist", func() {
 				f := MustSucceed(
 					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
 				)
