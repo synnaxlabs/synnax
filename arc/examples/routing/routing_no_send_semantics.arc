@@ -47,9 +47,9 @@ stage demux_v1{threshold f64} (value f32) {
 // - Doesn't work for all types (what's sentinel for string?)
 
 // Example problem:
-sensor -> demux_v1{threshold: 100} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux_v1{threshold: 100} -> {;
+    high -> alarm{},;
+    low -> logger{};
 }
 
 // If sensor reads 0.0, logger receives 0.0
@@ -88,9 +88,9 @@ stage demux_v2{threshold f64} (value f32) {
 // - Static analysis: ensure all paths assign something?
 
 // Example:
-sensor -> demux_v2{threshold: 100} -> {
-    high -> alarm{},     // Executes only when value > 100
-    low -> logger{}      // Executes only when value <= 100
+sensor -> demux_v2{threshold: 100} -> {;
+    high -> alarm{},     // Executes only when value > 100;
+    low -> logger{}      // Executes only when value <= 100;
 }
 
 // ============================================================================
@@ -123,9 +123,9 @@ stage demux_v3{threshold f64} (value f32) {
 // - Performance: allocate memory for optional wrapper?
 
 // Example:
-sensor -> demux_v3{threshold: 100} -> {
-    high -> alarm{},     // alarm receives optional, must unwrap
-    low -> logger{}      // logger receives optional, must unwrap
+sensor -> demux_v3{threshold: 100} -> {;
+    high -> alarm{},     // alarm receives optional, must unwrap;
+    low -> logger{}      // logger receives optional, must unwrap;
 }
 
 // Downstream stage must handle:
@@ -238,11 +238,11 @@ stage demux_v7{threshold f64} (value f32) {
 }
 
 // Downstream checks enabled flag:
-sensor -> demux_v7{threshold: 100} -> {
-    high -> gate{} -> alarm{},
-    high_enabled -> gate{},
-    low -> gate{} -> logger{},
-    low_enabled -> gate{}
+sensor -> demux_v7{threshold: 100} -> {;
+    high -> gate{} -> alarm{},;
+    high_enabled -> gate{},;
+    low -> gate{} -> logger{},;
+    low_enabled -> gate{};
 }
 
 stage gate{} (value f32, enabled u8) f32 {
@@ -323,10 +323,10 @@ stage fan_out{} (value f32) {
     squared = value * value
 }
 
-sensor -> fan_out{} -> {
-    raw -> logger{},
-    doubled -> display{},
-    squared -> analyzer{}
+sensor -> fan_out{} -> {;
+    raw -> logger{},;
+    doubled -> display{},;
+    squared -> analyzer{};
 }
 
 // All three downstream stages execute every time
@@ -369,15 +369,15 @@ stage accumulator{} (value f32, reset u8) {
 // };
 //
 // void demux_execute(demux_outputs* out, f32 value, f64 threshold) {
-//     out->high_dirty = false;
-//     out->low_dirty = false;
+//     out->high_dirty = false;;
+//     out->low_dirty = false;;
 //
 //     if (value > (f32)threshold) {
-//         out->high = value;
-//         out->high_dirty = true;
+//         out->high = value;;
+//         out->high_dirty = true;;
 //     } else {
-//         out->low = value;
-//         out->low_dirty = true;
+//         out->low = value;;
+//         out->low_dirty = true;;
 //     }
 // }
 //

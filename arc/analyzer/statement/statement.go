@@ -347,10 +347,10 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	var expectedReturnType ir.Type
 	if enclosingScope.Kind == ir.KindFunction {
 		fnType := enclosingScope.Type.(ir.Function)
-		expectedReturnType = fnType.Return
+		expectedReturnType, _ = fnType.Outputs.Get("output")
 	} else if enclosingScope.Kind == ir.KindStage {
 		stageType := enclosingScope.Type.(ir.Stage)
-		expectedReturnType = stageType.Return
+		expectedReturnType, _ = stageType.Outputs.Get("output")
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {

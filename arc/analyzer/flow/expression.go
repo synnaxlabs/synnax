@@ -28,7 +28,9 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	if chanType, ok := exprType.(ir.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := ir.Stage{Return: exprType, Channels: ir.NewChannels()}
+	outputs := ir.NamedTypes{}
+	outputs.Put("output", exprType)
+	t := ir.Stage{Outputs: outputs, Channels: ir.NewChannels()}
 	stageScope, err := ctx.Scope.Root().Add(ctx, ir.Symbol{
 		Name:       "",
 		Kind:       ir.KindStage,

@@ -24,9 +24,9 @@ stage demux{
 // Text Representation
 // ============================================================================
 
-sensor -> demux{threshold: 100.0} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux{threshold: 100.0} -> {;
+    high -> alarm{},;
+    low -> logger{};
 }
 
 // ============================================================================
@@ -121,17 +121,17 @@ stage safety_check{} (value f32) {
 }
 
 // Text:
-sensor -> state_router{} -> {
-    idle_out -> logger{},
-    active_out -> safety_check{} -> {
-        safe_out -> normal_control{},
-        warning_out -> cautious_control{},
-        danger_out -> emergency_shutdown{}
+sensor -> state_router{} -> {;
+    idle_out -> logger{},;
+    active_out -> safety_check{} -> {;
+        safe_out -> normal_control{},;
+        warning_out -> cautious_control{},;
+        danger_out -> emergency_shutdown{};
     },
-    error_out -> fault_handler{}
+    error_out -> fault_handler{};
 }
 
-system_state -> state_router{}
+system_state -> state_router{};
 
 // Graph (Multi-Port Nodes):
 //
@@ -222,7 +222,7 @@ system_state -> state_router{}
 // ============================================================================
 
 // Text → Graph (Forward):
-// 1. Parse: sensor -> demux{threshold: 100} -> {high -> alarm, low -> logger}
+// 1. Parse: sensor -> demux{threshold: 100} -> {high -> alarm, low -> logger};
 // 2. Create nodes: [sensor, demux_1, alarm_1, logger_1]
 // 3. Create edges: [sensor→demux_1.value, demux_1.high→alarm_1, demux_1.low→logger_1]
 // 4. Layout: Auto-position nodes or use saved positions
@@ -230,20 +230,20 @@ system_state -> state_router{}
 // Graph → Text (Reverse):
 // 1. Detect multi-output node with multiple edges from different ports
 // 2. Group edges by source port
-// 3. Generate: stage{} -> {port1 -> target1, port2 -> target2}
+// 3. Generate: stage{} -> {port1 -> target1, port2 -> target2};
 // 4. For single outputs, omit named routing syntax
 
 // Graph → Text preservation:
 // Original:
-sensor -> demux{threshold: 100} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux{threshold: 100} -> {;
+    high -> alarm{},;
+    low -> logger{};
 }
 
 // After round-trip, should preserve structure
 // NOT convert to:
-sensor -> demux{threshold: 100} -> high -> alarm{}
-sensor -> demux{threshold: 100} -> low -> logger{}
+sensor -> demux{threshold: 100} -> high -> alarm{};
+sensor -> demux{threshold: 100} -> low -> logger{};
 
 // ============================================================================
 // Recommendation: Named Output Syntax Required

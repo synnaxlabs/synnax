@@ -108,7 +108,8 @@ var _ = Describe("Expression Stage Conversion", func() {
 			Expect(stage.Key).To(Equal("__expr_0"))
 			Expect(stage.Config.Keys).To(BeEmpty())
 			Expect(stage.Params.Keys).To(BeEmpty())
-			Expect(stage.Return).To(Equal(ir.U8{}))
+			output, _ := stage.Outputs.Get("output")
+			Expect(output).To(Equal(ir.U8{}))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -124,7 +125,8 @@ var _ = Describe("Expression Stage Conversion", func() {
 			stageType, ok := synthTask.Type.(ir.Stage)
 			Expect(ok).To(BeTrue())
 			// Return type should be F64 (result of arithmetic)
-			Expect(stageType.Return).To(Equal(ir.F64{}))
+			output, _ := stageType.Outputs.Get("output")
+			Expect(output).To(Equal(ir.F64{}))
 		})
 	})
 

@@ -163,7 +163,7 @@ func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]boo
 		return ir.Series{ValueType: s.applySubstitutionsWithVisited(series.ValueType, visited)}
 	}
 
-	// Handle Stage type - resolve type variables in params, config, and return
+	// Handle Stage type - resolve type variables in params, config, and outputs
 	if stage, ok := t.(ir.Stage); ok {
 		// Create new maps for config and params with resolved types
 		newConfig := &maps.Ordered[string, ir.Type]{}
@@ -176,29 +176,39 @@ func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]boo
 			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
 
+		newOutputs := &maps.Ordered[string, ir.Type]{}
+		for k, v := range stage.Outputs.Iter() {
+			newOutputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
+		}
+
 		return ir.Stage{
 			Key:               stage.Key,
 			Config:            *newConfig,
 			Params:            *newParams,
-			Return:            s.applySubstitutionsWithVisited(stage.Return, visited),
+			Outputs:           *newOutputs,
 			StatefulVariables: stage.StatefulVariables,
 			Channels:          stage.Channels,
 			Body:              stage.Body,
 		}
 	}
 
-	// Handle Function type - resolve type variables in params and return
+	// Handle Function type - resolve type variables in params and outputs
 	if fn, ok := t.(ir.Function); ok {
 		newParams := &maps.Ordered[string, ir.Type]{}
 		for k, v := range fn.Params.Iter() {
 			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
 
+		newOutputs := &maps.Ordered[string, ir.Type]{}
+		for k, v := range fn.Outputs.Iter() {
+			newOutputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
+		}
+
 		return ir.Function{
-			Key:    fn.Key,
-			Params: *newParams,
-			Return: s.applySubstitutionsWithVisited(fn.Return, visited),
-			Body:   fn.Body,
+			Key:     fn.Key,
+			Params:  *newParams,
+			Outputs: *newOutputs,
+			Body:    fn.Body,
 		}
 	}
 

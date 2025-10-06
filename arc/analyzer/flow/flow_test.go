@@ -117,9 +117,9 @@ var _ = Describe("Flow Statements", func() {
 
 			// This should work - types match
 			sensor_chan -> controller{
-				setpoint: 100.0,
-				input: sensor_chan,
-				output: output_chan
+				setpoint=100.0,
+				input=sensor_chan,
+				output=output_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -141,7 +141,7 @@ var _ = Describe("Flow Statements", func() {
 
 			// Missing 'threshold' and 'output' parameters
 			sensor_chan -> filter{
-				input: sensor_chan
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -164,8 +164,8 @@ var _ = Describe("Flow Statements", func() {
 
 			// 'extra' is not a valid config parameter for 'simple'
 			sensor_chan -> simple{
-				input: sensor_chan,
-				extra: 42.0
+				input=sensor_chan,
+				extra=42.0
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -193,10 +193,10 @@ var _ = Describe("Flow Statements", func() {
 			// - count should be u32, but given f64
 			// - message should be string, but given number
 			sensor_chan -> typed_task{
-				threshold: "not a number",
-				count: 3.14,
-				message: 42,
-				input: sensor_chan
+				threshold="not a number",
+				count=3.14,
+				message=42,
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -230,10 +230,10 @@ var _ = Describe("Flow Statements", func() {
 
 			// All types match correctly
 			sensor_chan -> typed_task{
-				threshold: 100.5,
-				count: u32(42),
-				message: "hello",
-				input: sensor_chan
+				threshold=100.5,
+				count=u32(42),
+				message="hello",
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -253,8 +253,8 @@ var _ = Describe("Flow Statements", func() {
 
 			// Channel as source -> stage -> channel as target
 			temp_sensor -> process{
-				input: temp_sensor,
-				output: valve_cmd
+				input=temp_sensor,
+				output=valve_cmd
 			}
 
 			// Direct channel to channel piping (no stage)
@@ -263,8 +263,8 @@ var _ = Describe("Flow Statements", func() {
 
 			// Channel as source in multi-stage flow
 			sensor_chan -> process{
-				input: sensor_chan,
-				output: output_chan
+				input=sensor_chan,
+				output=output_chan
 			} -> valve_cmd
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -292,10 +292,10 @@ var _ = Describe("Flow Statements", func() {
 
 			// Channel pass-through - these trigger tasks on channel updates
 			// The channel IS the implicit first parameter to the stage
-			temperature -> controller{temp: temperature, setpoint: 100.0}
+			temperature -> controller{temp=temperature, setpoint=100.0}
 
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
-			sensor_chan -> logger{value: sensor_chan}
+			sensor_chan -> logger{value=sensor_chan}
 
 			// Even simpler - if stage has single channel input, it can be implicit
 			// (though this might not be implemented yet)
@@ -315,10 +315,10 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// This channel as source:
-			sensor_chan -> display{input: sensor_chan}
+			sensor_chan -> display{input=sensor_chan}
 
 			// Is implicitly converted to:
-			// on{channel: sensor_chan} -> display{input: sensor_chan}
+			// on{channel=sensor_chan} -> display{input=sensor_chan}
 			// Where "on" is a stdlib stage that triggers when the channel receives a value
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -346,7 +346,7 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// This should fail because "on" stage is not available
-			sensor_chan -> display{input: sensor_chan}
+			sensor_chan -> display{input=sensor_chan}
 			`))
 
 			ctx := context.CreateRoot(bCtx, ast, noOnResolver)
@@ -425,14 +425,18 @@ sensor_chan > threshold -> alarm{}
 			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
 			Expect(err).To(BeNil())
 			demuxStage := demuxSymbol.Type.(ir.Stage)
-			Expect(demuxStage.HasNamedOutputs()).To(BeTrue())
+			hasNamedOutputs := demuxStage.Outputs.Count() > 1 || (demuxStage.Outputs.Count() == 1 && func() bool {
+				_, exists := demuxStage.Outputs.Get("output")
+				return !exists
+			}())
+			Expect(hasNamedOutputs).To(BeTrue())
 			Expect(demuxStage.Outputs.Count()).To(Equal(2))
 
-			highType, exists := demuxStage.GetOutput("high")
+			highType, exists := demuxStage.Outputs.Get("high")
 			Expect(exists).To(BeTrue())
 			Expect(highType).To(Equal(ir.F32{}))
 
-			lowType, exists := demuxStage.GetOutput("low")
+			lowType, exists := demuxStage.Outputs.Get("low")
 			Expect(exists).To(BeTrue())
 			Expect(lowType).To(Equal(ir.F32{}))
 		})
@@ -455,9 +459,9 @@ sensor_chan > threshold -> alarm{}
 			stage alarm{} (value f64) {}
 			stage logger{} (value f64) {}
 
-			sensor_chan -> demux{threshold: 100.0} -> {
-				high -> alarm{},
-				low -> logger{}
+			sensor_chan -> demux{threshold=100.0} -> {
+				high: alarm{},
+				low: logger{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -473,7 +477,7 @@ sensor_chan > threshold -> alarm{}
 			stage target{} (value f64) {}
 
 			sensor_chan -> simple{} -> {
-				output -> target{}
+				output: target{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -498,8 +502,8 @@ sensor_chan > threshold -> alarm{}
 			stage target{} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-				high -> target{},
-				medium -> target{}
+				high: target{},
+				medium: target{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -524,7 +528,7 @@ sensor_chan > threshold -> alarm{}
 			stage u32_target{} (value u32) {}
 
 			sensor_chan -> demux{} -> {
-				high -> u32_target{}
+				high: u32_target{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -554,8 +558,8 @@ sensor_chan > threshold -> alarm{}
 			stage logger{} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-				high -> multiplier{} -> alarm{},
-				low -> logger{}
+				high: multiplier{} -> alarm{},
+				low: logger{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -576,8 +580,8 @@ sensor_chan > threshold -> alarm{}
 			}
 
 			sensor_chan -> demux{} -> {
-				high -> output_chan,
-				low -> temp_sensor
+				high: output_chan,
+				low: temp_sensor
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -622,8 +626,8 @@ sensor_chan > threshold -> alarm{}
 			} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-				high -> configurable{threshold: 50.0},
-				low -> configurable{}
+				high: configurable{threshold=50.0},
+				low: configurable{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -631,6 +635,147 @@ sensor_chan > threshold -> alarm{}
 			// Should fail because 'low' route is missing required config parameter
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required config parameter"))
+		})
+
+		It("Should analyze routing table with parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage combiner{} (a f64, b f64) f64 {
+				return a + b
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: a,
+				low: temp_sensor: b
+			} -> combiner{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should detect invalid parameter name in routing table", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage doubler{} (a f64) f64 {
+				return a * 2.0
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: invalid_param
+			} -> doubler{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have parameter 'invalid_param'"))
+		})
+
+		It("Should type-check parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage multiplier{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			stage converter{} (a f32) f64 {
+				return f64(a) + 1.0
+			}
+
+			sensor_chan -> demux{} -> {
+				high: multiplier{}: a
+			} -> converter{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should analyze routing table with chained processing and parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage filter{} (value f64) f64 {
+				return value
+			}
+
+			stage amplifier{} (value f64) f64 {
+				return value * 10.0
+			}
+
+			stage scaler{} (input f64, scale f64) f64 {
+				return input * scale
+			}
+
+			sensor_chan -> demux{} -> {
+				high: filter{} -> amplifier{}: input,
+				low: output_chan: scale
+			} -> scaler{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should require next stage when using parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: a
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a stage after the routing table"))
 		})
 	})
 })

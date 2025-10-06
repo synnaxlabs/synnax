@@ -68,7 +68,7 @@ configParameter
 // =============================================================================
 
 flowStatement
-    : flowNode (ARROW (flowNode | routingTable))+ SEMICOLON?
+    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
     ;
 
 routingTable
@@ -76,7 +76,7 @@ routingTable
     ;
 
 routingEntry
-    : IDENTIFIER ARROW flowNode (ARROW flowNode)*
+    : IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
     ;
 
 flowNode
@@ -104,7 +104,7 @@ namedConfigValues
     ;
 
 namedConfigValue
-    : IDENTIFIER COLON expression
+    : IDENTIFIER ASSIGN expression
     ;
 
 anonymousConfigValues

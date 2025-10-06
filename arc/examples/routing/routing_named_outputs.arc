@@ -29,19 +29,19 @@ stage valve_controller{
 }
 
 // Named output routing with table syntax
-sensor -> valve_controller{setpoint: 100.0} -> {
-    command -> actuator{},
-    status -> display{},
-    diagnostics -> logger{}
+sensor -> valve_controller{setpoint: 100.0} -> {;
+    command -> actuator{},;
+    status -> display{},;
+    diagnostics -> logger{};
 }
 
 // Alternative: Binding syntax
-sensor -> valve_controller{setpoint: 100.0} as vc
+sensor -> valve_controller{setpoint: 100.0} as vc;
 
-vc.command -> actuator{}
-vc.status -> display{}
-vc.diagnostics -> logger{}
-vc.diagnostics -> trend_plot{}
+vc.command -> actuator{};
+vc.status -> display{};
+vc.diagnostics -> logger{};
+vc.diagnostics -> trend_plot{};
 
 // Stage with conditional outputs
 stage splitter{
@@ -60,9 +60,9 @@ stage splitter{
 }
 
 // Routing different outputs to different targets
-ox_pressure -> splitter{threshold: 500.0} -> {
-    high -> [alarm{}, emergency_shutdown{}],
-    low -> [logger{}, normal_display{}]
+ox_pressure -> splitter{threshold: 500.0} -> {;
+    high -> [alarm{}, emergency_shutdown{}],;
+    low -> [logger{}, normal_display{}];
 }
 
 // Multi-stage pipeline with named routing
@@ -74,22 +74,22 @@ stage signal_analyzer{} (input f32) {
     // ... analysis logic ...
 }
 
-sensor -> signal_analyzer{} -> {
-    mean -> baseline_tracker{},
-    peak -> alarm_checker{threshold: 100.0},
-    rms -> power_monitor{}
+sensor -> signal_analyzer{} -> {;
+    mean -> baseline_tracker{},;
+    peak -> alarm_checker{threshold: 100.0},;
+    rms -> power_monitor{};
 }
 
 // Combining named outputs with fan-out
-sensor -> signal_analyzer{} as sa
+sensor -> signal_analyzer{} as sa;
 
-sa.mean -> trend_logger{}
-sa.mean -> display_panel{}
+sa.mean -> trend_logger{};
+sa.mean -> display_panel{};
 
-sa.peak -> alarm_high{}
-sa.peak -> data_archive{}
+sa.peak -> alarm_high{};
+sa.peak -> data_archive{};
 
-sa.rms -> power_calculation{}
+sa.rms -> power_calculation{};
 
 // This maps cleanly to IR Handles:
 // {

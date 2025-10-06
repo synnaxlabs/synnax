@@ -325,9 +325,9 @@ stage doubler{
 		It("Should parse stage invocation with named config", func() {
 			prog := parseProgram(`
 controller{
-    setpoint: 100,
-    sensor: temp_sensor,
-    interval: 100ms
+    setpoint=100,
+    sensor=temp_sensor,
+    interval=100ms
 }(1) -> output`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
@@ -939,9 +939,9 @@ stage simple{} (value f32) f32 {
 		Context("Routing Tables", func() {
 			It("Should parse simple routing table", func() {
 				prog := parseProgram(`
-sensor -> demux{threshold: 100} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux{threshold=100} -> {
+    high: alarm{},
+    low: logger{}
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -961,15 +961,15 @@ sensor -> demux{threshold: 100} -> {
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: high -> alarm{}
-				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("high"))
-				Expect(entries[0].AllARROW()).To(HaveLen(1))
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
+				Expect(entries[0].AllARROW()).To(HaveLen(0))
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
 				Expect(highTargets[0].StageInvocation()).NotTo(BeNil())
 				Expect(highTargets[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("alarm"))
 
 				// Second entry: low -> logger{}
-				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("low"))
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("low"))
 				lowTargets := entries[1].AllFlowNode()
 				Expect(lowTargets).To(HaveLen(1))
 				Expect(lowTargets[0].StageInvocation()).NotTo(BeNil())
@@ -979,9 +979,9 @@ sensor -> demux{threshold: 100} -> {
 			It("Should parse routing table with three outputs", func() {
 				prog := parseProgram(`
 sensor -> range_classifier{} -> {
-    below_range -> low_alarm{},
-    in_range -> controller{},
-    above_range -> high_alarm{}
+    below_range: low_alarm{},
+    in_range: controller{},
+    above_range: high_alarm{}
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -992,16 +992,16 @@ sensor -> range_classifier{} -> {
 				entries := routingTable.AllRoutingEntry()
 
 				Expect(entries).To(HaveLen(3))
-				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("below_range"))
-				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("in_range"))
-				Expect(entries[2].IDENTIFIER().GetText()).To(Equal("above_range"))
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("below_range"))
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("in_range"))
+				Expect(entries[2].IDENTIFIER(0).GetText()).To(Equal("above_range"))
 			})
 
 			It("Should parse routing table to channels", func() {
 				prog := parseProgram(`
 processor -> splitter{} -> {
-    output_a -> channel_a,
-    output_b -> channel_b
+    output_a: channel_a,
+    output_b: channel_b
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1033,8 +1033,8 @@ processor -> splitter{} -> {
 			It("Should parse routing table with chained nodes", func() {
 				prog := parseProgram(`
 sensor -> state_router{} -> {
-    idle_out -> processor{} -> idle_display{},
-    active_out -> controller{} -> actuator
+    idle_out: processor{} -> idle_display{},
+    active_out: controller{} -> actuator
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1046,22 +1046,86 @@ sensor -> state_router{} -> {
 
 				Expect(entries).To(HaveLen(2))
 
-				// First entry: idle_out -> processor{} -> idle_display{}
-				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("idle_out"))
+				// First entry: idle_out: processor{} -> idle_display{}
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
 				entry0Nodes := entries[0].AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2))
-				Expect(entries[0].AllARROW()).To(HaveLen(2))
+				Expect(entries[0].AllARROW()).To(HaveLen(1))
 				Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("processor"))
 				Expect(entry0Nodes[1].StageInvocation().IDENTIFIER().GetText()).To(Equal("idle_display"))
 
-				// Second entry: active_out -> controller{} -> actuator
-				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("active_out"))
+				// Second entry: active_out: controller{} -> actuator
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
 				entry1Nodes := entries[1].AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
-				Expect(entries[1].AllARROW()).To(HaveLen(2))
+				Expect(entries[1].AllARROW()).To(HaveLen(1))
 				Expect(entry1Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
 				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 			})
+
+		It("Should parse routing table with parameter mapping", func() {
+			prog := parseProgram(`
+first{} -> {
+    outputA: processor{}: paramC,
+    outputB: paramD
+} -> second{}`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			allRoutingTables := flow.AllRoutingTable()
+			Expect(allRoutingTables).To(HaveLen(1))
+
+			routingTable := allRoutingTables[0]
+			entries := routingTable.AllRoutingEntry()
+			Expect(entries).To(HaveLen(2))
+
+			// First entry: outputA: processor{}: paramC
+			entry0 := entries[0]
+			Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("outputA"))
+			entry0Nodes := entry0.AllFlowNode()
+			Expect(entry0Nodes).To(HaveLen(1))
+			Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("processor"))
+			// Check trailing parameter name
+			Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+			Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("paramC"))
+
+			// Second entry: outputB: paramD (no trailing parameter)
+			entry1 := entries[1]
+			Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("outputB"))
+			entry1Nodes := entry1.AllFlowNode()
+			Expect(entry1Nodes).To(HaveLen(1))
+			Expect(entry1Nodes[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("paramD"))
+			// No trailing parameter
+			Expect(entry1.AllIDENTIFIER()).To(HaveLen(1))
+		})
+
+		It("Should parse routing table with chained processing and parameter mapping", func() {
+			prog := parseProgram(`
+stage1{} -> {
+    out1: filter{} -> amplifier{}: input,
+    out2: processor{} -> converter{}: value
+} -> stage2{}`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			routingTable := flow.AllRoutingTable()[0]
+			entries := routingTable.AllRoutingEntry()
+			Expect(entries).To(HaveLen(2))
+
+			// First entry: out1: filter{} -> amplifier{}: input
+			entry0 := entries[0]
+			Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+			Expect(entry0.AllFlowNode()).To(HaveLen(2))
+			Expect(entry0.AllARROW()).To(HaveLen(1))
+			Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+			Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+
+			// Second entry: out2: processor{} -> converter{}: value
+			entry1 := entries[1]
+			Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+			Expect(entry1.AllFlowNode()).To(HaveLen(2))
+			Expect(entry1.AllARROW()).To(HaveLen(1))
+			Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
+			Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+		})
 		})
 
 		Context("Combined Multi-Output and Routing", func() {
@@ -1080,9 +1144,9 @@ stage demux{
     }
 }
 
-sensor -> demux{threshold: 100.0} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux{threshold=100.0} -> {
+    high: alarm{},
+    low: logger{}
 }`)
 
 				// Check stage declaration
@@ -1099,6 +1163,75 @@ sensor -> demux{threshold: 100.0} -> {
 				allRoutingTables := flow.AllRoutingTable()
 				Expect(allRoutingTables).To(HaveLen(1))
 				Expect(allRoutingTables[0].AllRoutingEntry()).To(HaveLen(2))
+			})
+		})
+
+		Context("Input Routing Tables", func() {
+			It("Should parse simple input routing table", func() {
+				prog := parseProgram(`
+{
+    sensor1: a,
+    sensor2: b
+} -> add{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				Expect(flow).NotTo(BeNil())
+
+				// Check routing table exists at start
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: sensor1 -> a
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				entry0Targets := entries[0].AllFlowNode()
+				Expect(entry0Targets).To(HaveLen(1))
+				Expect(entry0Targets[0].ChannelIdentifier()).NotTo(BeNil())
+				Expect(entry0Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+
+				// Second entry: sensor2 -> b
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				entry1Targets := entries[1].AllFlowNode()
+				Expect(entry1Targets).To(HaveLen(1))
+				Expect(entry1Targets[0].ChannelIdentifier()).NotTo(BeNil())
+				Expect(entry1Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
+			})
+
+			It("Should parse input routing with flow chains", func() {
+				prog := parseProgram(`
+{
+    sensor1: lowpass{cutoff=0.5} -> a,
+    sensor2: scale{factor=2.0} -> b
+} -> add{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: sensor1 -> lowpass{cutoff=0.5} -> a
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				Expect(entry0.AllARROW()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
+				entry0Nodes := entry0.AllFlowNode()
+				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
+				Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("lowpass"))
+				Expect(entry0Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+
+				// Second entry: sensor2 -> scale{factor=2.0} -> b
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				Expect(entry1.AllARROW()).To(HaveLen(1))
+				entry1Nodes := entry1.AllFlowNode()
+				Expect(entry1Nodes).To(HaveLen(2))
+				Expect(entry1Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("scale"))
+				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
 			})
 		})
 	})

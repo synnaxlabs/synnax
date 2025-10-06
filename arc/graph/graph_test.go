@@ -22,7 +22,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"a", "b"},
 							Values: []ir.Type{ir.I64{}, ir.I64{}},
 						},
-						Return: ir.I64{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						Body: ir.Body{Raw: `{
 							return a + b
 						}`},
@@ -42,7 +45,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"a", "b"},
 							Values: []ir.Type{ir.I64{}, ir.I64{}},
 						},
-						Return: ir.I64{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						Body: ir.Body{Raw: `{
 							return a + b
 						}`},
@@ -64,7 +70,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"a", "b"},
 							Values: []ir.Type{ir.I64{}, ir.I64{}},
 						},
-						Return: ir.I64{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						Body: ir.Body{Raw: `{
 							return a + b
 						}`},
@@ -94,7 +103,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"a", "b"},
 							Values: []ir.Type{ir.I64{}, ir.I64{}},
 						},
-						Return: ir.I64{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						Body: ir.Body{Raw: `{
 							return a + b
 						}`},
@@ -123,6 +135,10 @@ var _ = Describe("Graph", func() {
 						Config: ir.NamedTypes{
 							Keys:   []string{"channel"},
 							Values: []ir.Type{ir.Chan{}},
+						},
+						Outputs: ir.NamedTypes{
+							Keys:   []string{"output"},
+							Values: []ir.Type{ir.F32{}},
 						},
 					},
 					{
@@ -181,11 +197,17 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"a", "b"},
 								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+					},
 						},
 						{
 							Key:    "f32_source",
-							Return: ir.F32{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F32{}},
+					},
 						},
 					},
 					Nodes: []graph.Node{
@@ -228,7 +250,8 @@ var _ = Describe("Graph", func() {
 				Expect(resolvedB).To(Equal(ir.F32{}))
 
 				// Check that return type resolves to F32
-				resolvedReturn := inter.Constraints.ApplySubstitutions(stageType.Return)
+				returnType, _ := stageType.Outputs.Get("output")
+				resolvedReturn := inter.Constraints.ApplySubstitutions(returnType)
 				Expect(resolvedReturn).To(Equal(ir.F32{}))
 			})
 
@@ -241,11 +264,17 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"x", "y"},
 								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+					},
 						},
 						{
 							Key:    "i64_source",
-							Return: ir.I64{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						},
 					},
 					Nodes: []graph.Node{
@@ -280,7 +309,8 @@ var _ = Describe("Graph", func() {
 				resolvedY := inter.Constraints.ApplySubstitutions(yType)
 				Expect(resolvedY).To(Equal(ir.I64{}))
 
-				resolvedReturn := inter.Constraints.ApplySubstitutions(stageType.Return)
+				returnType, _ := stageType.Outputs.Get("output")
+				resolvedReturn := inter.Constraints.ApplySubstitutions(returnType)
 				Expect(resolvedReturn).To(Equal(ir.I64{}))
 			})
 
@@ -293,7 +323,10 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"a", "b"},
 								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+					},
 						},
 						{
 							Key: "poly_scale",
@@ -301,11 +334,17 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"input"},
 								Values: []ir.Type{ir.NewTypeVariable("U", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("U", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("U", ir.NumericConstraint{})},
+					},
 						},
 						{
 							Key:    "f64_source",
-							Return: ir.F64{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F64{}},
+					},
 						},
 					},
 					Nodes: []graph.Node{
@@ -336,7 +375,8 @@ var _ = Describe("Graph", func() {
 				// Both stages should resolve to F64
 				addStage := MustSucceed(inter.Symbols.Resolve(ctx, "poly_add"))
 				addType := addStage.Type.(ir.Stage)
-				resolvedAddReturn := inter.Constraints.ApplySubstitutions(addType.Return)
+				addReturnType, _ := addType.Outputs.Get("output")
+				resolvedAddReturn := inter.Constraints.ApplySubstitutions(addReturnType)
 				Expect(resolvedAddReturn).To(Equal(ir.F64{}))
 
 				scaleStage := MustSucceed(inter.Symbols.Resolve(ctx, "poly_scale"))
@@ -351,11 +391,17 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "f32_source",
-							Return: ir.F32{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F32{}},
+					},
 						},
 						{
 							Key:    "i64_source",
-							Return: ir.I64{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.I64{}},
+					},
 						},
 						{
 							Key: "poly_add",
@@ -363,7 +409,10 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"a", "b"},
 								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+					},
 						},
 					},
 					Nodes: []graph.Node{
@@ -394,7 +443,10 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "string_source",
-							Return: ir.String{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.String{}},
+					},
 						},
 						{
 							Key: "poly_numeric",
@@ -402,7 +454,10 @@ var _ = Describe("Graph", func() {
 								Keys:   []string{"value"},
 								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 							},
-							Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+					},
 						},
 					},
 					Nodes: []graph.Node{
@@ -428,7 +483,10 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "source",
-							Return: ir.F32{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F32{}},
+					},
 						},
 						{
 							Key: "sink",
@@ -460,7 +518,10 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "source",
-							Return: ir.F32{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F32{}},
+					},
 						},
 						{
 							Key: "sink",
@@ -492,7 +553,10 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "string_source",
-							Return: ir.String{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.String{}},
+					},
 						},
 						{
 							Key: "number_sink",
@@ -524,7 +588,10 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key:    "source",
-							Return: ir.F32{},
+							Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F32{}},
+					},
 						},
 						{
 							Key: "sink_with_no_params",
@@ -638,7 +705,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"channel"},
 							Values: []ir.Type{ir.U32{}},
 						},
-						Return: ir.F64{}, // Returns sensor reading
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.F64{}},
+					}, // Returns sensor reading
 					},
 					{
 						Key: "constant",
@@ -646,7 +716,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"value"},
 							Values: []ir.Type{ir.NewTypeVariable("A", ir.NumericConstraint{})},
 						},
-						Return: ir.NewTypeVariable("A", ir.NumericConstraint{}),
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("A", ir.NumericConstraint{})},
+					},
 					},
 					{
 						Key: "ge",
@@ -657,7 +730,10 @@ var _ = Describe("Graph", func() {
 								ir.NewTypeVariable("B", ir.NumericConstraint{}),
 							},
 						},
-						Return: ir.U8{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.U8{}},
+					},
 					},
 					{
 						Key: "stable_for",
@@ -669,7 +745,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"input"},
 							Values: []ir.Type{ir.NewTypeVariable("C", nil)},
 						},
-						Return: ir.NewTypeVariable("C", nil),
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.NewTypeVariable("C", nil)},
+					},
 					},
 					{
 						Key: "select",
@@ -677,7 +756,10 @@ var _ = Describe("Graph", func() {
 							Keys:   []string{"input", "false", "true"},
 							Values: []ir.Type{ir.U8{}, ir.U8{}, ir.U8{}},
 						},
-						Return: ir.U8{},
+						Outputs: ir.NamedTypes{
+						Keys:   []string{"output"},
+						Values: []ir.Type{ir.U8{}},
+					},
 					},
 					{
 						Key: "set_status",
@@ -745,7 +827,8 @@ var _ = Describe("Graph", func() {
 				constantType := constantStage.Type.(ir.Stage)
 				// The return type should be resolved to F64 after unification
 				// (since "constant" connects to "ge" which receives F64 from "on")
-				resolvedConstantReturn := inter.Constraints.ApplySubstitutions(constantType.Return)
+				constantReturnType, _ := constantType.Outputs.Get("output")
+				resolvedConstantReturn := inter.Constraints.ApplySubstitutions(constantReturnType)
 				Expect(resolvedConstantReturn).To(Equal(ir.F64{}))
 
 				// The ge stage should have its type variables resolved to F64
@@ -766,7 +849,8 @@ var _ = Describe("Graph", func() {
 				inputType, _ := stableType.Params.Get("input")
 				resolvedInput := inter.Constraints.ApplySubstitutions(inputType)
 				Expect(resolvedInput).To(Equal(ir.U8{}))
-				resolvedStableReturn := inter.Constraints.ApplySubstitutions(stableType.Return)
+				stableReturnType, _ := stableType.Outputs.Get("output")
+				resolvedStableReturn := inter.Constraints.ApplySubstitutions(stableReturnType)
 				Expect(resolvedStableReturn).To(Equal(ir.U8{}))
 			})
 		})

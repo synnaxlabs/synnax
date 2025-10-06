@@ -137,7 +137,12 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 		if stage.Body.Raw != "" {
-			if !analyzer.AnalyzeBlock(acontext.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
+			blockCtx, ok := stage.Body.AST.(parser.IBlockContext)
+			if !ok {
+				ctx.Diagnostics.AddError(errors.New("stage body must be a block"), stage.Body.AST)
+				return ir.IR{}, *ctx.Diagnostics
+			}
+			if !analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(stageScope)) {
 				return ir.IR{}, *ctx.Diagnostics
 			}
 		}
@@ -148,7 +153,12 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(acontext.Child(ctx, fn.Body.AST).WithScope(funcScope)) {
+		blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
+		if !ok {
+			ctx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		if !analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(funcScope)) {
 			return ir.IR{}, *ctx.Diagnostics
 		}
 	}
@@ -219,21 +229,32 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 
-		// Get source output type (from return or specific param)
+		// Get source output type (from Outputs or Params)
 		var sourceType ir.Type
 		if edge.Source.Param == "output" {
-			// Using the stage's return type
-			sourceType = sourceStage.Return
-		} else {
-			// Using a specific output parameter
-			sourceType, ok = sourceStage.Params.Get(edge.Source.Param)
+			// Using the stage's output type - check Outputs first
+			sourceType, ok = sourceStage.Outputs.Get("output")
 			if !ok {
 				ctx.Diagnostics.AddError(
-					errors.Newf("source param '%s' not found in node '%s'",
-						edge.Source.Param, edge.Source.Node),
+					errors.Newf("node '%s' has no output", edge.Source.Node),
 					nil,
 				)
 				return ir.IR{}, *ctx.Diagnostics
+			}
+		} else {
+			// Using a named output parameter
+			sourceType, ok = sourceStage.Outputs.Get(edge.Source.Param)
+			if !ok {
+				// Also check Params for backwards compatibility
+				sourceType, ok = sourceStage.Params.Get(edge.Source.Param)
+				if !ok {
+					ctx.Diagnostics.AddError(
+						errors.Newf("source param '%s' not found in node '%s'",
+							edge.Source.Param, edge.Source.Node),
+						nil,
+					)
+					return ir.IR{}, *ctx.Diagnostics
+				}
 			}
 		}
 

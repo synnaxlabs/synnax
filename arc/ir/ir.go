@@ -46,11 +46,9 @@ type Stage struct {
 	Config NamedTypes `json:"config"`
 	// Params are the names and type of the function parameters for the stage.
 	Params NamedTypes `json:"params"`
-	// Return is the single return type (for backward compatibility).
-	// Use Outputs for multi-output stages.
-	Return Type `json:"return,omitempty"`
-	// Outputs are the names and types of named return values for multi-output stages.
-	// If this is non-empty, it takes precedence over Return.
+	// Outputs are the names and types of return values for the stage.
+	// Single anonymous returns create an output named "output".
+	// Multi-output stages have explicit names.
 	Outputs NamedTypes `json:"outputs,omitempty"`
 	// StatefulVariables are names and types for the stateful variables on
 	// the stage.
@@ -62,25 +60,6 @@ type Stage struct {
 }
 
 func (s Stage) String() string { return "stage" }
-
-// HasNamedOutputs returns true if the stage has multiple named outputs
-func (s Stage) HasNamedOutputs() bool {
-	return s.Outputs.Count() > 0
-}
-
-// GetOutput returns the type of a named output, or nil if not found
-func (s Stage) GetOutput(name string) (Type, bool) {
-	return s.Outputs.Get(name)
-}
-
-// GetSingleReturn returns the single return type if the stage has one,
-// or nil if it has named outputs
-func (s Stage) GetSingleReturn() Type {
-	if s.HasNamedOutputs() {
-		return nil
-	}
-	return s.Return
-}
 
 var _ Type = (*Stage)(nil)
 

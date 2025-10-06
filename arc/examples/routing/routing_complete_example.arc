@@ -111,77 +111,77 @@ stage adaptive_logger{} (value f32, critical_mode u8) {
 // ============================================================================
 
 // Oxidizer pressure monitoring
-ox_pressure_1 -> sensor_selector{}
-ox_pressure_2 -> sensor_selector{}
-ox_pressure_3 -> sensor_selector{}
-ox_health_monitor{} -> health_1 -> sensor_selector{}
-ox_health_monitor{} -> health_2 -> sensor_selector{}
-ox_health_monitor{} -> health_3 -> sensor_selector{}
+ox_pressure_1 -> sensor_selector{};
+ox_pressure_2 -> sensor_selector{};
+ox_pressure_3 -> sensor_selector{};
+ox_health_monitor{} -> health_1 -> sensor_selector{};
+ox_health_monitor{} -> health_2 -> sensor_selector{};
+ox_health_monitor{} -> health_3 -> sensor_selector{};
 
-sensor_selector{} -> {
-    selected -> ox_validated,
-    fault_detected -> sensor_fault_alarm{}
+sensor_selector{} -> {;
+    selected -> ox_validated,;
+    fault_detected -> sensor_fault_alarm{};
 }
 
 // State-dependent routing for oxidizer pressure
-ox_validated -> state_router{} -> {
-    idle_out -> [
+ox_validated -> state_router{} -> {;
+    idle_out -> [;
         idle_monitor{rate: 1hz},
         idle_display{}
     ],
-    prestart_out -> [
+    prestart_out -> [;
         prestart_monitor{rate: 10hz},
         prestart_safety_check{}
     ],
-    running_out -> [
+    running_out -> [;
         running_logger{rate: 1khz},
         running_controller{},
         running_safety{}
     ],
-    shutdown_out -> [
+    shutdown_out -> [;
         shutdown_sequence{},
         shutdown_logger{rate: 100hz}
     ],
-    fault_out -> [
+    fault_out -> [;
         emergency_shutdown{},
         fault_logger{},
         fault_alarm{}
     ]
 }
 
-engine_state{} -> state_router{}
+engine_state{} -> state_router{};
 
 // Fuel pressure with range-based alarm
-fuel_pressure -> range_classifier{low: 50.0, high: 500.0} -> {
-    below_range -> [
+fuel_pressure -> range_classifier{low: 50.0, high: 500.0} -> {;
+    below_range -> [;
         low_pressure_alarm{severity: 2},
         low_pressure_log{}
     ],
-    in_range -> [
+    in_range -> [;
         normal_controller{},
         normal_display{}
     ],
-    above_range -> [
+    above_range -> [;
         high_pressure_alarm{severity: 3},
         emergency_vent{}
     ]
 }
 
 // Chamber temperature with adaptive logging
-chamber_temp -> adaptive_logger{} -> {
-    high_rate_out -> critical_logger{rate: 10khz},
-    low_rate_out -> normal_logger{rate: 10hz}
+chamber_temp -> adaptive_logger{} -> {;
+    high_rate_out -> critical_logger{rate: 10khz},;
+    low_rate_out -> normal_logger{rate: 10hz};
 }
 
-critical_mode_flag{} -> adaptive_logger{}
+critical_mode_flag{} -> adaptive_logger{};
 
 // Thrust with threshold monitoring
-thrust_sensor -> threshold_demux{threshold: 1000.0} -> {
-    above -> [
+thrust_sensor -> threshold_demux{threshold: 1000.0} -> {;
+    above -> [;
         nominal_display{},
         performance_logger{}
     ],
-    below -> [
+    below -> [;
         low_thrust_alarm{},
         thrust_correction{}
     ]
@@ -294,10 +294,10 @@ stage fan_out{} (value f32) {
 // ============================================================================
 
 // Text:
-sensor -> state_router{} -> {
-    idle_out -> idle_handler{},
-    running_out -> running_handler{},
-    fault_out -> fault_handler{}
+sensor -> state_router{} -> {;
+    idle_out -> idle_handler{},;
+    running_out -> running_handler{},;
+    fault_out -> fault_handler{};
 }
 
 // Graph:
@@ -334,9 +334,9 @@ stage my_stage{} (input f32) {
 }
 
 // Named output routing:
-source -> my_stage{} -> {
-    output_1 -> target_1{},
-    output_2 -> target_2{}
+source -> my_stage{} -> {;
+    output_1 -> target_1{},;
+    output_2 -> target_2{};
 }
 
 // Reactive semantics:

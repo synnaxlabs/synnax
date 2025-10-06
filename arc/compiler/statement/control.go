@@ -96,10 +96,10 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	var returnType ir.Type
 	if enclosingScope.Kind == ir.KindFunction {
 		fType := enclosingScope.Type.(ir.Function)
-		returnType = fType.Return
+		returnType, _ = fType.Outputs.Get("output")
 	} else if enclosingScope.Kind == ir.KindStage {
 		fType := enclosingScope.Type.(ir.Stage)
-		returnType = fType.Return
+		returnType, _ = fType.Outputs.Get("output")
 	}
 	if returnType != exprType {
 		return expression.EmitCast(ctx, exprType, returnType)

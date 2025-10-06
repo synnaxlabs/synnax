@@ -30,12 +30,12 @@ stage mode_router{} (value f32, mode u8) {
 // ============================================================================
 
 // Explicit but verbose
-sensor -> mode_router{}
-mode_signal -> mode_router{}
+sensor -> mode_router{};
+mode_signal -> mode_router{};
 
-mode_router{} -> startup_out -> startup_handler{}
-mode_router{} -> normal_out -> normal_handler{}
-mode_router{} -> shutdown_out -> shutdown_handler{}
+mode_router{} -> startup_out -> startup_handler{};
+mode_router{} -> normal_out -> normal_handler{};
+mode_router{} -> shutdown_out -> shutdown_handler{};
 
 // PROS:
 // - Each path clearly listed
@@ -51,13 +51,13 @@ mode_router{} -> shutdown_out -> shutdown_handler{}
 // OPTION 2: Named Output Routing (Current Recommendation)
 // ============================================================================
 
-sensor -> mode_router{} -> {
-    startup_out -> startup_handler{},
-    normal_out -> normal_handler{},
-    shutdown_out -> shutdown_handler{}
+sensor -> mode_router{} -> {;
+    startup_out -> startup_handler{},;
+    normal_out -> normal_handler{},;
+    shutdown_out -> shutdown_handler{};
 }
 
-mode_signal -> mode_router{}
+mode_signal -> mode_router{};
 
 // PROS:
 // - Clear semantic mapping: output name → handler
@@ -74,13 +74,13 @@ mode_signal -> mode_router{}
 // ============================================================================
 
 // When multiple stages consume same conditional output
-sensor -> mode_router{} -> {
-    startup_out -> [startup_logger{}, startup_monitor{}],
-    normal_out -> [normal_controller{}, normal_logger{}],
-    shutdown_out -> [shutdown_sequence{}, shutdown_log{}]
+sensor -> mode_router{} -> {;
+    startup_out -> [startup_logger{}, startup_monitor{}],;
+    normal_out -> [normal_controller{}, normal_logger{}],;
+    shutdown_out -> [shutdown_sequence{}, shutdown_log{}];
 }
 
-mode_signal -> mode_router{}
+mode_signal -> mode_router{};
 
 // PROS:
 // - Combines benefits: semantic names + concise fan-out
@@ -98,7 +98,7 @@ mode_signal -> mode_router{}
 // Tee doesn't make decisions - it broadcasts to ALL outputs
 // Wrong pattern for conditional routing
 
-sensor -> mode_router{} -> tee{
+sensor -> mode_router{} -> tee{;
     startup_handler{},
     normal_handler{},
     shutdown_handler{}
@@ -107,10 +107,10 @@ sensor -> mode_router{} -> tee{
 // PROBLEM: All handlers receive data from ALL outputs!
 // This would require filter stages after tee:
 
-sensor -> mode_router{} -> tee{
-    filter{output: startup} -> startup_handler{},
-    filter{output: normal} -> normal_handler{},
-    filter{output: shutdown} -> shutdown_handler{}
+sensor -> mode_router{} -> tee{;
+    filter{output: startup} -> startup_handler{},;
+    filter{output: normal} -> normal_handler{},;
+    filter{output: shutdown} -> shutdown_handler{};
 }
 
 // This is verbose and error-prone
@@ -140,35 +140,35 @@ stage priority_router{} (value f32, priority u8, enabled u8) {
 }
 
 // With named outputs - clear structure
-sensor -> priority_router{} -> {
-    high_priority_out -> [
+sensor -> priority_router{} -> {;
+    high_priority_out -> [;
         critical_alarm{},
         immediate_log{},
         emergency_shutdown{}
     ],
-    low_priority_out -> [
+    low_priority_out -> [;
         normal_log{},
         trend_monitor{}
     ],
-    disabled_out -> [
+    disabled_out -> [;
         diagnostic_only{}
     ]
 }
 
-priority_signal -> priority_router{}
-enabled_signal -> priority_router{}
+priority_signal -> priority_router{};
+enabled_signal -> priority_router{};
 
 // With multiple statements - structure lost
-sensor -> priority_router{}
-priority_signal -> priority_router{}
-enabled_signal -> priority_router{}
+sensor -> priority_router{};
+priority_signal -> priority_router{};
+enabled_signal -> priority_router{};
 
-priority_router{} -> high_priority_out -> critical_alarm{}
-priority_router{} -> high_priority_out -> immediate_log{}
-priority_router{} -> high_priority_out -> emergency_shutdown{}
-priority_router{} -> low_priority_out -> normal_log{}
-priority_router{} -> low_priority_out -> trend_monitor{}
-priority_router{} -> disabled_out -> diagnostic_only{}
+priority_router{} -> high_priority_out -> critical_alarm{};
+priority_router{} -> high_priority_out -> immediate_log{};
+priority_router{} -> high_priority_out -> emergency_shutdown{};
+priority_router{} -> low_priority_out -> normal_log{};
+priority_router{} -> low_priority_out -> trend_monitor{};
+priority_router{} -> disabled_out -> diagnostic_only{};
 
 // Hard to see groupings!
 
@@ -227,17 +227,17 @@ stage valve_controller{} (
 }
 
 // Named outputs make this readable
-pressure_sensor -> valve_controller{}
-flow_sensor -> valve_controller{}
-override_open_button -> valve_controller{}
-override_close_button -> valve_controller{}
-auto_mode_switch -> valve_controller{}
+pressure_sensor -> valve_controller{};
+flow_sensor -> valve_controller{};
+override_open_button -> valve_controller{};
+override_close_button -> valve_controller{};
+auto_mode_switch -> valve_controller{};
 
-valve_controller{} -> {
-    open_command -> valve_actuator{direction: open},
-    close_command -> valve_actuator{direction: close},
-    hold_command -> valve_actuator{direction: hold},
-    fault_command -> [
+valve_controller{} -> {;
+    open_command -> valve_actuator{direction: open},;
+    close_command -> valve_actuator{direction: close},;
+    hold_command -> valve_actuator{direction: hold},;
+    fault_command -> [;
         emergency_shutdown{},
         alarm_panel{},
         fault_logger{}

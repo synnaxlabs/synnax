@@ -47,6 +47,18 @@ stage le{} (a f32, b f32) u8 {
     return a <= b
 } 
 
-stage eq{} (a f32, b f32) u8 {
-    return a == b
+stage select{} (cond f32) {
+    if_true f32
+    if_false f32
+} {
+    if (cond > 10) {
+        if_true = cond
+    } else {
+        if_false = cond
+    }
+}
+
+select{} -> {
+    if_true -> ge{},
+    if_false -> le{}
 }

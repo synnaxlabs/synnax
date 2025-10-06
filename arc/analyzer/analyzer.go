@@ -114,8 +114,15 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 	// Parse return type (single or multi-output)
 	if retType := ctx.AST.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
-			// Single return type
-			fnType.Return, _ = atypes.InferFromTypeContext(typeCtx)
+			// Single return type - create "output" entry
+			outputType, _ := atypes.InferFromTypeContext(typeCtx)
+			if !fnType.Outputs.Put("output", outputType) {
+				ctx.Diagnostics.AddError(
+					errors.New("failed to add output"),
+					retType,
+				)
+				return false
+			}
 		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
 			// Multiple named outputs
 			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
@@ -154,9 +161,9 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 			return false
 		}
 		// Check if the function has a return type and if all paths return
-		if fnType.Return != nil && !blockAlwaysReturns(block) {
+		if outputType, hasOutput := fnType.Outputs.Get("output"); hasOutput && outputType != nil && !blockAlwaysReturns(block) {
 			ctx.Diagnostics.AddError(
-				errors.Newf("function '%s' must return a value of type %s on all paths", name, fnType.Return),
+				errors.Newf("function '%s' must return a value of type %s on all paths", name, outputType),
 				ctx.AST,
 			)
 			return false
@@ -353,8 +360,15 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 	// Parse return type (single or multi-output)
 	if retType := ctx.AST.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
-			// Single return type
-			stageType.Return, _ = atypes.InferFromTypeContext(typeCtx)
+			// Single return type - create "output" entry
+			outputType, _ := atypes.InferFromTypeContext(typeCtx)
+			if !stageType.Outputs.Put("output", outputType) {
+				ctx.Diagnostics.AddError(
+					errors.New("failed to add output"),
+					retType,
+				)
+				return false
+			}
 		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
 			// Multiple named outputs
 			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
@@ -406,24 +420,26 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 			return false
 		}
 
-		// Check if the stage has a return type and if all paths return
-		if stageType.Return != nil && !blockAlwaysReturns(block) {
+		// Check if the stage has a single return type and if all paths return
+		if outputType, hasOutput := stageType.Outputs.Get("output"); hasOutput && outputType != nil && !blockAlwaysReturns(block) {
 			ctx.Diagnostics.AddError(
-				errors.Newf("stage '%s' must return a value of type %s on all paths", name, stageType.Return),
+				errors.Newf("stage '%s' must return a value of type %s on all paths", name, outputType),
 				ctx.AST,
 			)
 			return false
 		}
 
-		// Check for unassigned named outputs
-		if stageType.HasNamedOutputs() {
-			for outputName := range stageType.Outputs.Iter() {
-				if !checkOutputAssignedInBlock(block, outputName) {
-					ctx.Diagnostics.AddWarning(
-						errors.Newf("output '%s' is never assigned in stage '%s'", outputName, name),
-						ctx.AST,
-					)
-				}
+		// Check for unassigned named outputs (skip "output" for single returns with return statement)
+		for outputName := range stageType.Outputs.Iter() {
+			// Skip "output" - it's populated by return statement
+			if outputName == "output" {
+				continue
+			}
+			if !checkOutputAssignedInBlock(block, outputName) {
+				ctx.Diagnostics.AddWarning(
+					errors.Newf("output '%s' is never assigned in stage '%s'", outputName, name),
+					ctx.AST,
+				)
 			}
 		}
 	}

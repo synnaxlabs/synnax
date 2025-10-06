@@ -9,7 +9,7 @@ stage select{} (value u8) {
     }
 }
 
-ox_pt_1 > 10 -> select{} -> [
-    if_true -> ox_pt_1_high,
-    if_false -> ox_pt_1_low
+ox_pt_1 > 10 -> select{} -> [;
+    if_true -> ox_pt_1_high,;
+    if_false -> ox_pt_1_low;
 ]

@@ -26,32 +26,39 @@ import (
 // Compile generates a compiled WASM module from the provided IR.
 //
 // Compilation strategy for multi-output stages:
-// - Stages/functions with single return types compile to WASM functions with return values
-// - Stages/functions with named outputs compile to void WASM functions
-// - Named outputs become local variables in the function body
-// - Multi-output stages write to a reserved memory region:
-//   [base_addr + 0]: dirty_flags (i64 bitmap)
-//   [base_addr + 8]: output0 value
-//   [base_addr + 8 + sizeof(output0)]: output1 value
-//   ...
-// - Each multi-output stage/function gets its own memory region
-func Compile(ctx_ context.Context, ir ir.IR, opts ...Option) ([]byte, error) {
+//   - Stages/functions with single return types compile to WASM functions with return values
+//   - Stages/functions with named outputs compile to void WASM functions
+//   - Named outputs become local variables in the function body
+//   - Multi-output stages write to a reserved memory region:
+//     [base_addr + 0]: dirty_flags (i64 bitmap)
+//     [base_addr + 8]: output0 value
+//     [base_addr + 8 + sizeof(output0)]: output1 value
+//     ...
+//   - Each multi-output stage/function gets its own memory region
+func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
-	ctx := ccontext.CreateRoot(ctx_, ir.Symbols, o.disableHostImports)
+	ctx := ccontext.CreateRoot(ctx_, program.Symbols, o.disableHostImports)
 
 	// Output memory counter - starts at 0x1000
 	outputMemoryCounter := uint32(0x1000)
 	hasMultiOutput := false
 
-	for _, i := range ir.Stages {
+	for _, i := range program.Stages {
 		params := slices.Concat(i.Config.Values, i.Params.Values)
-		returnType := i.GetSingleReturn()
+		// Get return type - check for single "output" vs multi-output
+		var returnType ir.Type
+		_, hasDefaultOutput := i.Outputs.Get("output")
+		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
+		if !hasNamedOutputs {
+			// Single output case
+			returnType, _ = i.Outputs.Get("output")
+		}
 
 		var outputMemoryBase uint32
-		if i.HasNamedOutputs() {
+		if hasNamedOutputs {
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
 			// Calculate size: 8 bytes for dirty flags + size of all outputs
@@ -67,11 +74,18 @@ func Compile(ctx_ context.Context, ir ir.IR, opts ...Option) ([]byte, error) {
 		}
 	}
 
-	for _, i := range ir.Functions {
-		returnType := i.GetSingleReturn()
+	for _, i := range program.Functions {
+		// Get return type - check for single "output" vs multi-output
+		var returnType ir.Type
+		_, hasDefaultOutput := i.Outputs.Get("output")
+		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
+		if !hasNamedOutputs {
+			// Single output case
+			returnType, _ = i.Outputs.Get("output")
+		}
 
 		var outputMemoryBase uint32
-		if i.HasNamedOutputs() {
+		if hasNamedOutputs {
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
 			// Calculate size: 8 bytes for dirty flags + size of all outputs
@@ -125,7 +139,7 @@ func compileItem(
 	typeIdx := ctx.Module.AddType(funcT)
 
 	// Clear dirty flags at start of multi-output functions
-	if len(outputs.Keys) > 0 {
+	if outputMemoryBase > 0 {
 		ctx.Writer.WriteI32Const(int32(outputMemoryBase))
 		ctx.Writer.WriteI64Const(0)
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)

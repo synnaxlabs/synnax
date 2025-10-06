@@ -32,12 +32,12 @@ stage adaptive_logger{} (value f32, state u8) {
     }
 }
 
-chamber_pressure -> adaptive_logger{} -> {
-    high_rate_out -> logger{rate: 1khz},
-    low_rate_out -> logger{rate: 10hz}
+chamber_pressure -> adaptive_logger{} -> {;
+    high_rate_out -> logger{rate: 1khz},;
+    low_rate_out -> logger{rate: 10hz};
 }
 
-engine_state{} -> adaptive_logger{}
+engine_state{} -> adaptive_logger{};
 
 // ============================================================================
 // Pattern: Safety Thresholds Change with State
@@ -78,13 +78,13 @@ stage state_aware_alarm{} (value f32, state u8) {
     }
 }
 
-ox_pressure -> state_aware_alarm{} -> {
-    safe_range_alarm -> immediate_shutdown{},
-    startup_alarm -> abort_sequence{},
-    steady_alarm -> controlled_shutdown{}
+ox_pressure -> state_aware_alarm{} -> {;
+    safe_range_alarm -> immediate_shutdown{},;
+    startup_alarm -> abort_sequence{},;
+    steady_alarm -> controlled_shutdown{};
 }
 
-engine_state{} -> state_aware_alarm{}
+engine_state{} -> state_aware_alarm{};
 
 // ============================================================================
 // Pattern: Sensor Selection Based on Operating Range
@@ -106,10 +106,10 @@ stage sensor_selector{} (
     }
 }
 
-low_range_sensor -> sensor_selector{}
-mid_range_sensor -> sensor_selector{}
-high_range_sensor -> sensor_selector{}
-engine_state{} -> sensor_selector{} -> controller{}
+low_range_sensor -> sensor_selector{};
+mid_range_sensor -> sensor_selector{};
+high_range_sensor -> sensor_selector{};
+engine_state{} -> sensor_selector{} -> controller{};
 
 // ============================================================================
 // Pattern: Abort Condition Router
@@ -152,13 +152,13 @@ stage abort_router{} (
     }
 }
 
-ox_line_pressure -> abort_router{}
-fuel_line_pressure -> abort_router{}
-chamber_temperature -> abort_router{}
-engine_state{} -> abort_router{} -> {
-    immediate_abort -> emergency_shutdown{},
-    graceful_abort -> controlled_shutdown{},
-    continue_normal -> normal_operation{}
+ox_line_pressure -> abort_router{};
+fuel_line_pressure -> abort_router{};
+chamber_temperature -> abort_router{};
+engine_state{} -> abort_router{} -> {;
+    immediate_abort -> emergency_shutdown{},;
+    graceful_abort -> controlled_shutdown{},;
+    continue_normal -> normal_operation{};
 }
 
 // ============================================================================
@@ -186,14 +186,14 @@ stage redundant_selector{} (
     }
 }
 
-chamber_temp_1 -> redundant_selector{}
-chamber_temp_2 -> redundant_selector{}
-chamber_temp_3 -> redundant_selector{}
-health_monitor{} -> sensor_1_healthy -> redundant_selector{}
-health_monitor{} -> sensor_2_healthy -> redundant_selector{}
-health_monitor{} -> sensor_3_healthy -> redundant_selector{}
+chamber_temp_1 -> redundant_selector{};
+chamber_temp_2 -> redundant_selector{};
+chamber_temp_3 -> redundant_selector{};
+health_monitor{} -> sensor_1_healthy -> redundant_selector{};
+health_monitor{} -> sensor_2_healthy -> redundant_selector{};
+health_monitor{} -> sensor_3_healthy -> redundant_selector{};
 
-redundant_selector{} -> temperature_controller{}
+redundant_selector{} -> temperature_controller{};
 
 // ============================================================================
 // Pattern: Time-based Routing
@@ -214,12 +214,12 @@ stage time_gated_router{} (value f32, elapsed_time timestamp) {
     }
 }
 
-sensor -> time_gated_router{} -> {
-    warmup_out -> warmup_monitor{},
-    active_out -> active_controller{}
+sensor -> time_gated_router{} -> {;
+    warmup_out -> warmup_monitor{},;
+    active_out -> active_controller{};
 }
 
-interval{period: 100ms} -> elapsed_timer{} -> time_gated_router{}
+interval{period: 100ms} -> elapsed_timer{} -> time_gated_router{};
 
 // ============================================================================
 // Pattern: Multi-Condition Gating
@@ -238,11 +238,11 @@ stage multi_gate{} (
     return 0.0
 }
 
-sensor -> multi_gate{} -> critical_actuator{}
+sensor -> multi_gate{} -> critical_actuator{};
 
-enable_switch -> multi_gate{}
-range_checker{} -> multi_gate{}
-startup_complete{} -> multi_gate{}
+enable_switch -> multi_gate{};
+range_checker{} -> multi_gate{};
+startup_complete{} -> multi_gate{};
 
 // ============================================================================
 // How Routing Syntax Affects Conditional Code
@@ -251,33 +251,33 @@ startup_complete{} -> multi_gate{}
 // NAMED OUTPUTS = MOST NATURAL FOR CONDITIONALS
 // Each output has semantic meaning matching the condition
 
-sensor -> state_router{} -> {
-    idle_out -> idle_handler{},      // Clear which path for which state
-    active_out -> active_handler{},
-    error_out -> error_handler{}
+sensor -> state_router{} -> {;
+    idle_out -> idle_handler{},      // Clear which path for which state;
+    active_out -> active_handler{},;
+    error_out -> error_handler{};
 }
 
 // MULTIPLE STATEMENTS = WORKS BUT LESS CLEAR
 // Relationship between paths not obvious
 
-sensor -> state_router{} -> idle -> idle_handler{}
-sensor -> state_router{} -> active -> active_handler{}
-sensor -> state_router{} -> error -> error_handler{}
+sensor -> state_router{} -> idle -> idle_handler{};
+sensor -> state_router{} -> active -> active_handler{};
+sensor -> state_router{} -> error -> error_handler{};
 
 // BRACKETS = COULD GROUP RELATED PATHS
 // Useful when multiple stages consume same conditional output
 
-sensor -> state_router{} -> {
-    idle_out -> [logger{}, display{}],
-    active_out -> [controller{}, alarm_check{}]
+sensor -> state_router{} -> {;
+    idle_out -> [logger{}, display{}],;
+    active_out -> [controller{}, alarm_check{}];
 }
 
 // EXPLICIT TEE = WRONG TOOL FOR CONDITIONALS
 // Tee broadcasts to all, doesn't make decisions
 // Would need separate filter stages after tee
 
-sensor -> tee{
-    filter{condition: idle} -> idle_handler{},
-    filter{condition: active} -> active_handler{}
+sensor -> tee{;
+    filter{condition: idle} -> idle_handler{},;
+    filter{condition: active} -> active_handler{};
 }
 // This works but is awkward - the filtering should happen once, not per path

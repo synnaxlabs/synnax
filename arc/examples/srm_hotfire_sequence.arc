@@ -97,29 +97,29 @@ stage abort_sequence {} (abort_signal f64) {
 // =============================================================================
 
 // Main test state machine
-test_control_signal -> test_sequencer{
-    ignition_delay_ms: 10000,
-    burn_duration_ms: 5000
-} -> {
-    idle -> data_acquisition{},
-    armed -> valve_sequencer{} -> {
-        open_pressurant -> pressurant_valve{},
-        open_purge -> purge_valve{},
-        close_all -> pressurant_valve{} -> purge_valve{}
+test_control_signal -> test_sequencer{;
+    ignition_delay_ms=10000,
+    burn_duration_ms=5000
+} -> {;
+    idle -> data_acquisition{},;
+    armed -> valve_sequencer{} -> {;
+        open_pressurant -> pressurant_valve{},;
+        open_purge -> purge_valve{},;
+        close_all -> pressurant_valve{} -> purge_valve{};
     },
-    t_minus_10 -> data_acquisition{},
-    ignition -> ignition_sequencer{} -> {
-        prime_igniters -> pyro_controller{},
-        fire_primary -> pyro_controller{},
-        fire_secondary -> pyro_controller{}
+    t_minus_10 -> data_acquisition{},;
+    ignition -> ignition_sequencer{} -> {;
+        prime_igniters -> pyro_controller{},;
+        fire_primary -> pyro_controller{},;
+        fire_secondary -> pyro_controller{};
     },
-    burning -> data_acquisition{},
-    shutdown -> valve_sequencer{} -> {
-        close_all -> pressurant_valve{} -> purge_valve{}
+    burning -> data_acquisition{},;
+    shutdown -> valve_sequencer{} -> {;
+        close_all -> pressurant_valve{} -> purge_valve{};
     }
 }
 
 // Abort handling
-abort_button -> abort_sequence{} -> valve_sequencer{} -> {
-    close_all -> pressurant_valve{} -> purge_valve{}
+abort_button -> abort_sequence{} -> valve_sequencer{} -> {;
+    close_all -> pressurant_valve{} -> purge_valve{};
 }

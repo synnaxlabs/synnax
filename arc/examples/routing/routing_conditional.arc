@@ -11,9 +11,9 @@
 
 // This means we can't write:
 //   if (condition) {
-//       sensor -> path_a{}
+//       sensor -> path_a{};
 //   } else {
-//       sensor -> path_b{}
+//       sensor -> path_b{};
 //   }
 // Because flow statements aren't inside control flow!
 
@@ -34,8 +34,8 @@ stage filter_high{
 }
 
 // Static topology, dynamic flow
-sensor -> filter_high{threshold: 100.0} -> alarm{}
-sensor -> filter_low{threshold: 50.0} -> normal_display{}
+sensor -> filter_high{threshold: 100.0} -> alarm{};
+sensor -> filter_low{threshold: 50.0} -> normal_display{};
 
 // Data flows to alarm ONLY when sensor > 100
 // Data flows to normal_display ONLY when sensor < 50
@@ -60,9 +60,9 @@ stage demux{
 }
 
 // Route to different paths based on condition
-sensor -> demux{threshold: 100.0} -> {
-    high -> emergency_path{},
-    low -> normal_path{}
+sensor -> demux{threshold: 100.0} -> {;
+    high -> emergency_path{},;
+    low -> normal_path{};
 }
 
 // Both paths exist in graph, but only one receives non-zero data
@@ -99,13 +99,13 @@ stage route_by_mode{} (value f32, mode u8) {
 }
 
 // Static graph, dynamic routing
-sensor -> route_by_mode{} -> {
-    startup_out -> startup_handler{},
-    normal_out -> normal_handler{},
-    shutdown_out -> shutdown_handler{}
+sensor -> route_by_mode{} -> {;
+    startup_out -> startup_handler{},;
+    normal_out -> normal_handler{},;
+    shutdown_out -> shutdown_handler{};
 }
 
-system_mode{} -> route_by_mode{}
+system_mode{} -> route_by_mode{};
 
 // Only ONE handler receives non-zero data at a time
 
@@ -121,8 +121,8 @@ stage gate{} (value f32, enable u8) f32 {
 }
 
 // Control which paths are active
-sensor -> gate{} -> critical_processor{}
-enable_signal -> gate{}
+sensor -> gate{} -> critical_processor{};
+enable_signal -> gate{};
 
 // When enable_signal is 0, critical_processor doesn't receive data
 
@@ -138,9 +138,9 @@ stage select_source{} (primary f32, backup f32, use_backup u8) f32 {
 }
 
 // Choose between redundant sensors
-primary_sensor -> select_source{}
-backup_sensor -> select_source{}
-fault_detected -> select_source{} -> controller{}
+primary_sensor -> select_source{};
+backup_sensor -> select_source{};
+fault_detected -> select_source{} -> controller{};
 
 // ============================================================================
 // Pattern 6: Conditional Fan-out (Enable Multiple Paths)
@@ -163,13 +163,13 @@ stage conditional_broadcast{} (value f32, log_enabled u8, display_enabled u8) {
     }
 }
 
-sensor -> conditional_broadcast{} -> {
-    log_out -> logger{},
-    display_out -> display{}
+sensor -> conditional_broadcast{} -> {;
+    log_out -> logger{},;
+    display_out -> display{};
 }
 
-logging_enabled -> conditional_broadcast{}
-display_enabled -> conditional_broadcast{}
+logging_enabled -> conditional_broadcast{};
+display_enabled -> conditional_broadcast{};
 
 // ============================================================================
 // Pattern 7: State Machine Router
@@ -196,13 +196,13 @@ stage state_router{} (input f32, state u8) {
     }
 }
 
-sensor -> state_router{} -> {
-    idle_out -> idle_handler{},
-    active_out -> active_handler{},
-    error_out -> error_handler{}
+sensor -> state_router{} -> {;
+    idle_out -> idle_handler{},;
+    active_out -> active_handler{},;
+    error_out -> error_handler{};
 }
 
-system_state -> state_router{}
+system_state -> state_router{};
 
 // ============================================================================
 // Comparison: How Routing Syntax Affects Conditional Logic
@@ -211,31 +211,31 @@ system_state -> state_router{}
 // MULTIPLE STATEMENTS:
 // - Each path explicitly listed
 // - Conditional logic in stages
-sensor -> demux{threshold: 100} -> high -> alarm{}
-sensor -> demux{threshold: 100} -> low -> logger{}
+sensor -> demux{threshold: 100} -> high -> alarm{};
+sensor -> demux{threshold: 100} -> low -> logger{};
 
 // BRACKETS (if supported):
 // - Still need demux stage for logic
 // - Brackets just group the static topology
-sensor -> demux{threshold: 100} -> {
-    high -> [alarm{}, emergency_log{}],
-    low -> [logger{}, normal_display{}]
+sensor -> demux{threshold: 100} -> {;
+    high -> [alarm{}, emergency_log{}],;
+    low -> [logger{}, normal_display{}];
 }
 
 // NAMED OUTPUTS:
 // - Most natural for conditional routing
 // - Each output has semantic meaning
-sensor -> demux{threshold: 100} -> {
-    high -> alarm{},
-    low -> logger{}
+sensor -> demux{threshold: 100} -> {;
+    high -> alarm{},;
+    low -> logger{};
 }
 
 // EXPLICIT TEE:
 // - Tee doesn't make decisions, always broadcasts
 // - Need filter stages after tee
-sensor -> tee{
-    gate{enable: emergency} -> alarm{},
-    gate{enable: normal} -> logger{}
+sensor -> tee{;
+    gate{enable: emergency} -> alarm{},;
+    gate{enable: normal} -> logger{};
 }
 
 // ============================================================================
@@ -267,11 +267,11 @@ stage two_level_router{} (value f32, primary_mode u8, secondary_mode u8) {
     }
 }
 
-sensor -> two_level_router{} -> {
-    path_a -> handler_a{},
-    path_b -> handler_b{},
-    path_c -> handler_c{},
-    path_d -> handler_d{}
+sensor -> two_level_router{} -> {;
+    path_a -> handler_a{},;
+    path_b -> handler_b{},;
+    path_c -> handler_c{},;
+    path_d -> handler_d{};
 }
 
 // ============================================================================
@@ -316,9 +316,9 @@ stage switch_u8{} (value f32, selector u8) {
 }
 
 // Usage:
-sensor -> demux_bool{} -> {
-    when_true -> critical_path{},
-    when_false -> normal_path{}
+sensor -> demux_bool{} -> {;
+    when_true -> critical_path{},;
+    when_false -> normal_path{};
 }
 
-condition_signal -> demux_bool{}
+condition_signal -> demux_bool{};

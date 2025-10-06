@@ -6,9 +6,9 @@
 // ============================================================================
 
 // Text:
-sensor -> controller{}
-sensor -> logger{}
-sensor -> display{}
+sensor -> controller{};
+sensor -> logger{};
+sensor -> display{};
 
 // IR Edges:
 // [
@@ -35,7 +35,7 @@ sensor -> display{}
 // ============================================================================
 
 // Text:
-sensor -> [controller{}, logger{}, display{}]
+sensor -> [controller{}, logger{}, display{}];
 
 // IR Edges (desugared):
 // [
@@ -63,7 +63,7 @@ sensor -> [controller{}, logger{}, display{}]
 // ============================================================================
 
 // Text:
-sensor -> [controller{}, logger{}, display{}]
+sensor -> [controller{}, logger{}, display{}];
 
 // IR Edges (with implicit tee):
 // [
@@ -101,9 +101,9 @@ stage analyzer{} (input f32) {
 }
 
 // Text:
-sensor -> analyzer{} -> {
-    mean -> logger{},
-    peak -> alarm{}
+sensor -> analyzer{} -> {;
+    mean -> logger{},;
+    peak -> alarm{};
 }
 
 // IR Edges:
@@ -132,7 +132,7 @@ sensor -> analyzer{} -> {
 // ============================================================================
 
 // Text:
-sensor -> tee{controller{}, logger{}, display{}}
+sensor -> tee{controller{}, logger{}, display{}};
 
 // IR Edges:
 // [
@@ -258,7 +258,7 @@ sensor -> tee{controller{}, logger{}, display{}}
 
 // CONSIDER LATER:
 // 4. Bracket syntax as pure desugar (syntactic sugar only)
-//    sensor -> [a, b, c]  =>  sensor->a; sensor->b; sensor->c
+//    sensor -> [a, b, c]  =>  sensor->a; sensor->b; sensor->c;
 
 // AVOID:
 // - Implicit tee creation (confusing, hidden nodes)

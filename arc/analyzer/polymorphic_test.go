@@ -31,7 +31,10 @@ func NewMockPolymorphicResolver() ir.SymbolResolver {
 			Type: ir.Stage{
 				Key:    "simple",
 				Params: *simpleParams,
-				Return: ir.NewTypeVariable("T", ir.NumericConstraint{}),
+				Outputs: ir.NamedTypes{
+					Keys:   []string{"output"},
+					Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+				},
 			},
 		},
 		"sensor_f32": {
@@ -66,7 +69,8 @@ var _ = Describe("Polymorphic Stage Analysis", func() {
 			Expect(ok).To(BeTrue())
 
 			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
-			resolvedReturn := ctx.Constraints.ApplySubstitutions(simpleStage.Return)
+			returnType, _ := simpleStage.Outputs.Get("output")
+			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
 
 			Expect(resolvedParam).To(Equal(ir.F32{}))
 			Expect(resolvedReturn).To(Equal(ir.F32{}))
@@ -94,7 +98,8 @@ var _ = Describe("Polymorphic Stage Analysis", func() {
 
 			// Apply substitutions to get concrete types for this specific use
 			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
-			resolvedReturn := ctx.Constraints.ApplySubstitutions(simpleStage.Return)
+			returnType, _ := simpleStage.Outputs.Get("output")
+			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
 
 			Expect(resolvedParam).To(Equal(ir.F32{}))
 			Expect(resolvedReturn).To(Equal(ir.F32{}))

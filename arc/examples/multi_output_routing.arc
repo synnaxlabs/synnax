@@ -48,7 +48,7 @@ stage data_processor {} (value f64) f64 {
 }
 
 // Example 1: Simple routing table
-temperature_sensor -> threshold_demux{threshold: 100.0} -> {
+temperature_sensor -> threshold_demux{threshold=100.0} -> {
     high -> high_alarm{},
     low -> low_alarm{}
 }
@@ -61,13 +61,13 @@ pressure_sensor -> range_classifier{} -> {
 }
 
 // Example 3: Routing with chained processing
-flow_sensor -> threshold_demux{threshold: 50.0} -> {
+flow_sensor -> threshold_demux{threshold=50.0} -> {
     high -> data_processor{} -> high_alarm{},
     low -> normal_logger{}
 }
 
 // Example 4: Routing to channels
-voltage_sensor -> threshold_demux{threshold: 12.0} -> {
+voltage_sensor -> threshold_demux{threshold=12.0} -> {
     high -> overvoltage_channel,
     low -> normal_voltage_channel
 }

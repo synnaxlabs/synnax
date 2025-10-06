@@ -41,7 +41,7 @@ stage temperature_safety_check {
 // Thrust Measurement - Convert load cell reading to thrust
 // =============================================================================
 stage thrust_calculator {} (load_cell_volts f64) f64 {
-    // Simple calibration: 1000 lbf per volt
+    // Simple calibration=1000 lbf per volt
     return load_cell_volts * 1000.0
 }
 
@@ -76,22 +76,22 @@ stage valve_controller {} (command f64) {
 // =============================================================================
 
 // Pressure monitoring with safety checks
-chamber_pressure -> pressure_safety_check{
-    max_pressure: 1000.0,  // psi
-    min_pressure: 0.0
-} -> {
-    safe -> safe_data_logger{},
-    high_abort -> abort_logger{} -> alarm_trigger{},
-    low_abort -> abort_logger{} -> alarm_trigger{}
+chamber_pressure -> pressure_safety_check{;
+    max_pressure=1000.0,  // psi
+    min_pressure=0.0
+} -> {;
+    safe -> safe_data_logger{},;
+    high_abort -> abort_logger{} -> alarm_trigger{},;
+    low_abort -> abort_logger{} -> alarm_trigger{};
 }
 
 // Temperature monitoring
-nozzle_temperature -> temperature_safety_check{
-    max_temp: 3500.0  // °F
-} -> {
-    safe -> safe_data_logger{},
-    abort -> abort_logger{} -> alarm_trigger{}
+nozzle_temperature -> temperature_safety_check{;
+    max_temp=3500.0  // °F
+} -> {;
+    safe -> safe_data_logger{},;
+    abort -> abort_logger{} -> alarm_trigger{};
 }
 
 // Thrust measurement and logging
-load_cell -> thrust_calculator{} -> safe_data_logger{}
+load_cell -> thrust_calculator{} -> safe_data_logger{};
