@@ -10,8 +10,8 @@
 package testutil
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
 )
 
@@ -21,8 +21,8 @@ import (
 // correctly shut down and not leaked.
 func ShouldNotLeakGoroutines() {
 	grs := gleak.Goroutines()
-	DeferCleanup(func() {
-		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(grs))
+	ginkgo.DeferCleanup(func() {
+		gomega.Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(grs))
 	})
 }
 
@@ -32,7 +32,7 @@ func ShouldNotLeakGoroutines() {
 // in that it takes into account goroutines forked in BeforeEach blocks contained
 // within the same container spec.
 func ShouldNotLeakGoroutinesBeforeEach() {
-	BeforeEach(func() { ShouldNotLeakGoroutines() })
+	ginkgo.BeforeEach(func() { ShouldNotLeakGoroutines() })
 }
 
 // ShouldNotLeakRoutinesJustBeforeEach asserts that no goroutines are leaked
@@ -41,5 +41,5 @@ func ShouldNotLeakGoroutinesBeforeEach() {
 // after all BeforeEach blocks have run, meaning that goroutines forked in
 // BeforeEach blocks are ignored.
 func ShouldNotLeakRoutinesJustBeforeEach() {
-	JustBeforeEach(func() { ShouldNotLeakGoroutines() })
+	ginkgo.JustBeforeEach(func() { ShouldNotLeakGoroutines() })
 }
