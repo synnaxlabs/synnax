@@ -198,11 +198,11 @@ func parseResponseCtx(c *http.Response, target address.Address) freighter.Contex
 
 func parseQueryString(c *fiber.Ctx) map[string]string {
 	data := make(map[string]string)
-	c.Context().QueryArgs().VisitAll(func(key, val []byte) {
+	for key, val := range c.Context().QueryArgs().All() {
 		k := utils.UnsafeString(key)
 		v := utils.UnsafeString(val)
 		data[k] = v
-	})
+	}
 	return data
 }
 
