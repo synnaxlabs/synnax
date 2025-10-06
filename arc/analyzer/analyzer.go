@@ -111,9 +111,38 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 	) {
 		return false
 	}
+	// Parse return type (single or multi-output)
 	if retType := ctx.AST.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
+			// Single return type
 			fnType.Return, _ = atypes.InferFromTypeContext(typeCtx)
+		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
+			// Multiple named outputs
+			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
+				outputName := namedOutput.IDENTIFIER().GetText()
+				var outputType ir.Type
+				if typeCtx := namedOutput.Type_(); typeCtx != nil {
+					outputType, _ = atypes.InferFromTypeContext(typeCtx)
+				}
+				if !fnType.Outputs.Put(outputName, outputType) {
+					ctx.Diagnostics.AddError(
+						errors.Newf("duplicate output %s", outputName),
+						namedOutput,
+					)
+					return false
+				}
+
+				// Also add to scope for use within function body
+				if _, err := fnScope.Add(ctx, ir.Symbol{
+					Name:       outputName,
+					Kind:       ir.KindOutput,
+					Type:       outputType,
+					ParserRule: namedOutput,
+				}); err != nil {
+					ctx.Diagnostics.AddError(err, namedOutput)
+					return false
+				}
+			}
 		}
 	}
 	fnScope.Type = fnType
@@ -131,6 +160,44 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 		}
 	}
 	return true
+}
+
+// checkOutputAssignedInBlock checks if an output variable is assigned in the given block
+func checkOutputAssignedInBlock(block parser.IBlockContext, outputName string) bool {
+	if block == nil {
+		return false
+	}
+
+	for _, stmt := range block.AllStatement() {
+		// Check if it's an assignment to the output
+		if assignment := stmt.Assignment(); assignment != nil {
+			if assignment.IDENTIFIER().GetText() == outputName {
+				return true
+			}
+		}
+
+		// Check if statements
+		if ifStmt := stmt.IfStatement(); ifStmt != nil {
+			// Check main if block
+			if checkOutputAssignedInBlock(ifStmt.Block(), outputName) {
+				return true
+			}
+			// Check else-if blocks
+			for _, elseIf := range ifStmt.AllElseIfClause() {
+				if checkOutputAssignedInBlock(elseIf.Block(), outputName) {
+					return true
+				}
+			}
+			// Check else block
+			if elseClause := ifStmt.ElseClause(); elseClause != nil {
+				if checkOutputAssignedInBlock(elseClause.Block(), outputName) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func analyzeParams(
@@ -280,17 +347,52 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 		return false
 	}
 
-	// Parse return type
+	// Parse return type (single or multi-output)
 	if retType := ctx.AST.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
+			// Single return type
 			stageType.Return, _ = atypes.InferFromTypeContext(typeCtx)
+		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
+			// Multiple named outputs
+			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
+				outputName := namedOutput.IDENTIFIER().GetText()
+				var outputType ir.Type
+				if typeCtx := namedOutput.Type_(); typeCtx != nil {
+					outputType, _ = atypes.InferFromTypeContext(typeCtx)
+				}
+				if !stageType.Outputs.Put(outputName, outputType) {
+					ctx.Diagnostics.AddError(
+						errors.Newf("duplicate output %s", outputName),
+						namedOutput,
+					)
+					return false
+				}
+
+				// Also add to scope for use within stage body
+				if _, err := stageScope.Add(ctx, ir.Symbol{
+					Name:       outputName,
+					Kind:       ir.KindOutput,
+					Type:       outputType,
+					ParserRule: namedOutput,
+				}); err != nil {
+					ctx.Diagnostics.AddError(err, namedOutput)
+					return false
+				}
+			}
 		}
 	}
 	stageScope.Type = stageType
 	if block := ctx.AST.Block(); block != nil {
+		// Track output assignments
+		outputAssignments := make(map[string]bool)
+
 		stageScope.OnResolve = func(ctx context2.Context, s *ir.Scope) error {
 			if s.Kind == ir.KindChannel {
 				stageType.Channels.Read.Add(uint32(s.ID))
+			}
+			// Track assignments to outputs
+			if s.Kind == ir.KindOutput {
+				outputAssignments[s.Name] = true
 			}
 			return nil
 		}
@@ -305,6 +407,18 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 				ctx.AST,
 			)
 			return false
+		}
+
+		// Check for unassigned named outputs
+		if stageType.HasNamedOutputs() {
+			for outputName := range stageType.Outputs.Iter() {
+				if !checkOutputAssignedInBlock(block, outputName) {
+					ctx.Diagnostics.AddWarning(
+						errors.Newf("output '%s' is never assigned in stage '%s'", outputName, name),
+						ctx.AST,
+					)
+				}
+			}
 		}
 	}
 	return true

@@ -20,6 +20,7 @@ import (
 
 // Analyze processes a flow statement and returns true if successful
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
+	// First analyze all flow nodes
 	for i, node := range ctx.AST.AllFlowNode() {
 		var prevNode parser.IFlowNodeContext
 		if i != 0 {
@@ -29,6 +30,14 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 			return false
 		}
 	}
+
+	// Then analyze routing tables
+	for _, routingTable := range ctx.AST.AllRoutingTable() {
+		if !analyzeRoutingTable(context.Child(ctx, routingTable)) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -237,5 +246,210 @@ func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool 
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
+	return true
+}
+
+func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool {
+	// Find the parent flow statement
+	flowStmt, ok := ctx.AST.GetParent().(parser.IFlowStatementContext)
+	if !ok {
+		ctx.Diagnostics.AddError(errors.New("routing table must be part of a flow statement"), ctx.AST)
+		return false
+	}
+
+	// Find the stage invocation that precedes this routing table
+	// The routing table should come after a stage invocation with named outputs
+	nodes := flowStmt.AllFlowNode()
+	if len(nodes) == 0 {
+		ctx.Diagnostics.AddError(errors.New("routing table must follow a stage invocation"), ctx.AST)
+		return false
+	}
+
+	// Find the last stage invocation before the routing table
+	var prevStage parser.IStageInvocationContext
+	for i := len(nodes) - 1; i >= 0; i-- {
+		if stageInv := nodes[i].StageInvocation(); stageInv != nil {
+			prevStage = stageInv
+			break
+		}
+	}
+
+	if prevStage == nil {
+		ctx.Diagnostics.AddError(errors.New("routing table must follow a stage invocation"), ctx.AST)
+		return false
+	}
+
+	// Get the stage type
+	stageName := prevStage.IDENTIFIER().GetText()
+	stageScope, err := ctx.Scope.Resolve(ctx, stageName)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return false
+	}
+
+	stageType, ok := stageScope.Type.(ir.Stage)
+	if !ok {
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
+		return false
+	}
+
+	// Verify the stage has named outputs
+	if !stageType.HasNamedOutputs() {
+		ctx.Diagnostics.AddError(
+			errors.Newf("stage '%s' does not have named outputs, cannot use routing table", stageName),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// Analyze each routing entry
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		outputName := entry.IDENTIFIER().GetText()
+
+		// Verify the output exists in the stage
+		outputType, exists := stageType.GetOutput(outputName)
+		if !exists {
+			ctx.Diagnostics.AddError(
+				errors.Newf("stage '%s' does not have output '%s'", stageName, outputName),
+				entry,
+			)
+			return false
+		}
+
+		// Analyze each flow node in the routing entry chain
+		for _, flowNode := range entry.AllFlowNode() {
+			if !analyzeRoutingTarget(context.Child(ctx, flowNode), outputType) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func analyzeRoutingTarget(ctx context.Context[parser.IFlowNodeContext], sourceType ir.Type) bool {
+	// Handle stage invocation target
+	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
+		stageName := stageInv.IDENTIFIER().GetText()
+		stageScope, err := ctx.Scope.Resolve(ctx, stageName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+
+		if stageScope.Kind != ir.KindStage {
+			ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
+			return false
+		}
+
+		stageType := stageScope.Type.(ir.Stage)
+
+		// Validate configuration parameters (same as parseStageInvocation)
+		configParams := make(map[string]bool)
+		if configBlock := stageInv.ConfigValues(); configBlock != nil {
+			if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
+				for _, configVal := range namedVals.AllNamedConfigValue() {
+					key := configVal.IDENTIFIER().GetText()
+					configParams[key] = true
+					expectedType, exists := stageType.Config.Get(key)
+					if !exists {
+						ctx.Diagnostics.AddError(
+							errors.Newf("unknown config parameter '%s' for stage '%s'", key, stageName),
+							configVal,
+						)
+						return false
+					}
+					if expr := configVal.Expression(); expr != nil {
+						childCtx := context.Child(ctx, expr)
+						if !expression.Analyze(childCtx) {
+							return false
+						}
+						exprType := atypes.InferFromExpression(childCtx)
+						if exprType != nil && expectedType != nil {
+							if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
+								"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
+								if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
+									ctx.Diagnostics.AddError(
+										errors.Newf(
+											"type mismatch: config parameter '%s' expects %s but got %s",
+											key,
+											expectedType,
+											exprType,
+										),
+										configVal,
+									)
+									return false
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Check for missing required config parameters
+		for paramName := range stageType.Config.Iter() {
+			if !configParams[paramName] {
+				ctx.Diagnostics.AddError(
+					errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, stageName),
+					stageInv,
+				)
+				return false
+			}
+		}
+
+		// Type-check: sourceType should match the stage's first parameter
+		if stageType.Params.Count() > 0 {
+			_, paramType := stageType.Params.At(0)
+			if err := atypes.CheckEqual(ctx.Constraints, sourceType, paramType, ctx.AST,
+				"routing table output to stage parameter"); err != nil {
+				if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(paramType) {
+					ctx.Diagnostics.AddError(errors.Newf(
+						"type mismatch: output type %s does not match stage %s parameter type %s",
+						sourceType,
+						stageName,
+						paramType,
+					), ctx.AST)
+					return false
+				}
+			}
+		}
+	} else if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
+		// Handle channel target
+		channelName := channelID.IDENTIFIER().GetText()
+		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+
+		if channelSym.Kind != ir.KindChannel {
+			ctx.Diagnostics.AddError(
+				errors.Newf("%s is not a channel", channelName),
+				ctx.AST,
+			)
+			return false
+		}
+
+		chanType := channelSym.Type.(ir.Chan)
+		if err := atypes.CheckEqual(ctx.Constraints, sourceType, chanType.ValueType, ctx.AST,
+			"routing table output to channel"); err != nil {
+			if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(chanType.ValueType) {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"type mismatch: output type %s does not match channel %s value type %s",
+					sourceType,
+					channelName,
+					chanType.ValueType,
+				), ctx.AST)
+				return false
+			}
+		}
+	} else if expr := ctx.AST.Expression(); expr != nil {
+		// Handle expression target (shouldn't normally happen in routing tables, but allow it)
+		if !analyzeExpression(context.Child(ctx, expr)) {
+			return false
+		}
+	}
+
 	return true
 }

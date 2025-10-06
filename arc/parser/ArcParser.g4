@@ -35,7 +35,16 @@ parameter
     ;
 
 returnType
-    : type
+    : type                      // Single return (existing)
+    | multiOutputBlock          // Multiple named outputs (NEW)
+    ;
+
+multiOutputBlock
+    : LBRACE namedOutput* RBRACE
+    ;
+
+namedOutput
+    : IDENTIFIER type
     ;
 
 // =============================================================================
@@ -59,7 +68,15 @@ configParameter
 // =============================================================================
 
 flowStatement
-    : flowNode (ARROW flowNode)+ SEMICOLON?
+    : flowNode (ARROW (flowNode | routingTable))+ SEMICOLON?
+    ;
+
+routingTable
+    : LBRACE routingEntry (COMMA routingEntry)* RBRACE
+    ;
+
+routingEntry
+    : IDENTIFIER ARROW flowNode (ARROW flowNode)*
     ;
 
 flowNode

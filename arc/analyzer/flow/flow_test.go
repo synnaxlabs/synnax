@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/maps"
@@ -398,6 +399,238 @@ sensor_chan > threshold -> alarm{}
 				}
 			}
 			Expect(foundError).To(BeTrue(), "Expected error about undefined symbol 'threshold'")
+		})
+	})
+
+	Describe("Multi-Output Stages and Routing Tables", func() {
+		It("Should analyze stage with multiple named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{
+				threshold f64
+			} (value f32) {
+				high f32
+				low f32
+			} {
+				if (value > f32(threshold)) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+
+			// Verify the stage has named outputs
+			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
+			Expect(err).To(BeNil())
+			demuxStage := demuxSymbol.Type.(ir.Stage)
+			Expect(demuxStage.HasNamedOutputs()).To(BeTrue())
+			Expect(demuxStage.Outputs.Count()).To(Equal(2))
+
+			highType, exists := demuxStage.GetOutput("high")
+			Expect(exists).To(BeTrue())
+			Expect(highType).To(Equal(ir.F32{}))
+
+			lowType, exists := demuxStage.GetOutput("low")
+			Expect(exists).To(BeTrue())
+			Expect(lowType).To(Equal(ir.F32{}))
+		})
+
+		It("Should analyze routing table with named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{
+				threshold f64
+			} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > threshold) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage alarm{} (value f64) {}
+			stage logger{} (value f64) {}
+
+			sensor_chan -> demux{threshold: 100.0} -> {
+				high -> alarm{},
+				low -> logger{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should detect when routing table is used with stage without named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage simple{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			stage target{} (value f64) {}
+
+			sensor_chan -> simple{} -> {
+				output -> target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have named outputs"))
+		})
+
+		It("Should detect when routing to non-existent output", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage target{} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high -> target{},
+				medium -> target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have output 'medium'"))
+		})
+
+		It("Should type-check routing table targets", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage u32_target{} (value u32) {}
+
+			sensor_chan -> demux{} -> {
+				high -> u32_target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should analyze routing table with chained nodes", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage multiplier{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			stage alarm{} (value f64) {}
+			stage logger{} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high -> multiplier{} -> alarm{},
+				low -> logger{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should route to channels in routing table", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			sensor_chan -> demux{} -> {
+				high -> output_chan,
+				low -> temp_sensor
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should warn about unassigned outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage incomplete{} (value f32) {
+				high f32
+				low f32
+			} {
+				if (value > 100.0) {
+					high = value
+				}
+				// 'low' is never assigned
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			// Should have warning about unassigned output
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Warning))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
+		})
+
+		It("Should validate config parameters in routing table targets", func() {
+			ast := MustSucceed(parser.Parse(`
+			stage demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			stage configurable{
+				threshold f64
+			} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high -> configurable{threshold: 50.0},
+				low -> configurable{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			// Should fail because 'low' route is missing required config parameter
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required config parameter"))
 		})
 	})
 })

@@ -1,6 +1,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -56,6 +57,18 @@ func (s *BaseArcParserListener) EnterReturnType(ctx *ReturnTypeContext) {}
 // ExitReturnType is called when production returnType is exited.
 func (s *BaseArcParserListener) ExitReturnType(ctx *ReturnTypeContext) {}
 
+// EnterMultiOutputBlock is called when production multiOutputBlock is entered.
+func (s *BaseArcParserListener) EnterMultiOutputBlock(ctx *MultiOutputBlockContext) {}
+
+// ExitMultiOutputBlock is called when production multiOutputBlock is exited.
+func (s *BaseArcParserListener) ExitMultiOutputBlock(ctx *MultiOutputBlockContext) {}
+
+// EnterNamedOutput is called when production namedOutput is entered.
+func (s *BaseArcParserListener) EnterNamedOutput(ctx *NamedOutputContext) {}
+
+// ExitNamedOutput is called when production namedOutput is exited.
+func (s *BaseArcParserListener) ExitNamedOutput(ctx *NamedOutputContext) {}
+
 // EnterStageDeclaration is called when production stageDeclaration is entered.
 func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
 
@@ -79,6 +92,18 @@ func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
 
 // ExitFlowStatement is called when production flowStatement is exited.
 func (s *BaseArcParserListener) ExitFlowStatement(ctx *FlowStatementContext) {}
+
+// EnterRoutingTable is called when production routingTable is entered.
+func (s *BaseArcParserListener) EnterRoutingTable(ctx *RoutingTableContext) {}
+
+// ExitRoutingTable is called when production routingTable is exited.
+func (s *BaseArcParserListener) ExitRoutingTable(ctx *RoutingTableContext) {}
+
+// EnterRoutingEntry is called when production routingEntry is entered.
+func (s *BaseArcParserListener) EnterRoutingEntry(ctx *RoutingEntryContext) {}
+
+// ExitRoutingEntry is called when production routingEntry is exited.
+func (s *BaseArcParserListener) ExitRoutingEntry(ctx *RoutingEntryContext) {}
 
 // EnterFlowNode is called when production flowNode is entered.
 func (s *BaseArcParserListener) EnterFlowNode(ctx *FlowNodeContext) {}

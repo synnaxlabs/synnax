@@ -1,6 +1,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -25,6 +26,12 @@ type ArcParserListener interface {
 	// EnterReturnType is called when entering the returnType production.
 	EnterReturnType(c *ReturnTypeContext)
 
+	// EnterMultiOutputBlock is called when entering the multiOutputBlock production.
+	EnterMultiOutputBlock(c *MultiOutputBlockContext)
+
+	// EnterNamedOutput is called when entering the namedOutput production.
+	EnterNamedOutput(c *NamedOutputContext)
+
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
 
@@ -36,6 +43,12 @@ type ArcParserListener interface {
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
+
+	// EnterRoutingTable is called when entering the routingTable production.
+	EnterRoutingTable(c *RoutingTableContext)
+
+	// EnterRoutingEntry is called when entering the routingEntry production.
+	EnterRoutingEntry(c *RoutingEntryContext)
 
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
@@ -217,6 +230,12 @@ type ArcParserListener interface {
 	// ExitReturnType is called when exiting the returnType production.
 	ExitReturnType(c *ReturnTypeContext)
 
+	// ExitMultiOutputBlock is called when exiting the multiOutputBlock production.
+	ExitMultiOutputBlock(c *MultiOutputBlockContext)
+
+	// ExitNamedOutput is called when exiting the namedOutput production.
+	ExitNamedOutput(c *NamedOutputContext)
+
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)
 
@@ -228,6 +247,12 @@ type ArcParserListener interface {
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
+
+	// ExitRoutingTable is called when exiting the routingTable production.
+	ExitRoutingTable(c *RoutingTableContext)
+
+	// ExitRoutingEntry is called when exiting the routingEntry production.
+	ExitRoutingEntry(c *RoutingEntryContext)
 
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)

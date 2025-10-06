@@ -25,11 +25,12 @@ func _() {
 	_ = x[KindChannel-5]
 	_ = x[KindConfigParam-6]
 	_ = x[KindBlock-7]
+	_ = x[KindOutput-8]
 }
 
-const _Kind_name = "KindVariableKindStatefulVariableKindParamKindFunctionKindTaskKindChannelKindConfigParamKindBlock"
+const _Kind_name = "KindVariableKindStatefulVariableKindParamKindFunctionKindStageKindChannelKindConfigParamKindBlockKindOutput"
 
-var _Kind_index = [...]uint8{0, 12, 32, 41, 53, 61, 72, 87, 96}
+var _Kind_index = [...]uint8{0, 12, 32, 41, 53, 62, 73, 88, 97, 107}
 
 func (i Kind) String() string {
 	if i < 0 || i >= Kind(len(_Kind_index)-1) {

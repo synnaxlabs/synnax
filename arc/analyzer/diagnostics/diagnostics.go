@@ -76,6 +76,51 @@ func (d *Diagnostics) AddError(
 	*d = append(*d, diag)
 }
 
+func (d *Diagnostics) AddWarning(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{
+		Severity: Warning,
+		Message:  err.Error(),
+	}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+func (d *Diagnostics) AddInfo(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{
+		Severity: Info,
+		Message:  err.Error(),
+	}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+func (d *Diagnostics) AddHint(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{
+		Severity: Hint,
+		Message:  err.Error(),
+	}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"

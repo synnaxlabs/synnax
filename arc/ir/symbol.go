@@ -25,6 +25,7 @@ const (
 	KindChannel
 	KindConfigParam
 	KindBlock
+	KindOutput
 )
 
 type Symbol struct {

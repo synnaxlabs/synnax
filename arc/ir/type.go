@@ -80,11 +80,35 @@ type Body struct {
 type Function struct {
 	Key    string
 	Params NamedTypes
+	// Return is the single return type (for backward compatibility).
+	// Use Outputs for multi-output functions.
 	Return Type
-	Body   Body
+	// Outputs are the names and types of named return values for multi-output functions.
+	// If this is non-empty, it takes precedence over Return.
+	Outputs NamedTypes
+	Body    Body
 }
 
 func (f Function) String() string { return "function" }
+
+// HasNamedOutputs returns true if the function has multiple named outputs
+func (f Function) HasNamedOutputs() bool {
+	return f.Outputs.Count() > 0
+}
+
+// GetOutput returns the type of a named output, or nil if not found
+func (f Function) GetOutput(name string) (Type, bool) {
+	return f.Outputs.Get(name)
+}
+
+// GetSingleReturn returns the single return type if the function has one,
+// or nil if it has named outputs
+func (f Function) GetSingleReturn() Type {
+	if f.HasNamedOutputs() {
+		return nil
+	}
+	return f.Return
+}
 
 type Chan struct {
 	ValueType Type
