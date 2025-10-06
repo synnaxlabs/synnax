@@ -25,11 +25,6 @@ import (
 func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
-	if !diag.Ok() {
-		for _, d := range diag {
-			println("Analyzer error:", d.Message)
-		}
-	}
 	Expect(diag.Ok()).To(BeTrue())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
@@ -212,6 +207,31 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Named Output Routing", func() {
+		It("Should compile a debug multi-param stage", func() {
+			wasmBytes := MustSucceed(compile(`
+			stage debug(x i64, y i64) {
+				out i64
+			} {
+				out = x + y
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			debug := mod.ExportedFunction("debug")
+			Expect(debug).ToNot(BeNil())
+
+			MustSucceed(debug.Call(ctx, 10, 3))
+
+			mem := mod.Memory()
+			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
+			Expect(ok).To(BeTrue())
+			Expect(dirtyFlags).To(Equal(uint64(1)))
+
+			outValue, ok := mem.ReadUint64Le(0x1008)
+			Expect(ok).To(BeTrue())
+			Expect(outValue).To(Equal(uint64(13))) // Should be 10 + 3
+		})
+
 		It("Should compile a basic multi-output stage", func() {
 			wasmBytes := MustSucceed(compile(`
 			stage classifier(value i64) {

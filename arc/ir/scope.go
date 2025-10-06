@@ -94,7 +94,8 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindParam ||
-		sym.Kind == KindConfigParam {
+		sym.Kind == KindConfigParam ||
+		sym.Kind == KindOutput {
 		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)
