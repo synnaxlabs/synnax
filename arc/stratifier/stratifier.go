@@ -22,7 +22,8 @@ import (
 //
 // Algorithm:
 //  1. Initialize all nodes to stratum 0
-//  2. Iteratively assign strata: if node A depends on node B, then stratum(A) = max(stratum(A), stratum(B) + 1)
+//  2. Iteratively assign strata: if node A depends on node B, then
+//     stratum(A) = max(stratum(A), stratum(B) + 1)
 //  3. Detect cycles: if iteration count exceeds node count, a cycle exists
 //
 // Returns stratification data, or false if a cycle is detected.
