@@ -17,24 +17,25 @@ import numpy as np
 import synnax as sy
 from synnax.hardware import ni
 
-from framework.test_case import TestCase
 from framework.utils import (
     get_cpu_cores,
     get_machine_info,
     get_memory_info,
     get_synnax_version,
 )
+from tests.latency.latency import Latency
 
 matplotlib.use("Agg")  # Use non-interactive backend
 
 
-class DriverNiDo(TestCase):
+class Driver_Ni_Do(Latency):
     """
     Send a command to an NI DO channel and measure the latency between the
     core and loop-back (python) timestamp.
     """
 
     def setup(self) -> None:
+        super().setup()
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
         super().setup()

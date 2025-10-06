@@ -13,12 +13,13 @@ from time import time as now
 
 import synnax as sy
 
-from framework.test_case import TestCase
+from tests.latency.latency import Latency
 
 
-class BenchResponse(TestCase):
+class Bench_Response(Latency):
 
     def setup(self) -> None:
+        super().setup()
 
         self.set_manual_timeout(10)
 

@@ -13,7 +13,6 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-import gc
 import logging
 import sys
 import threading
@@ -512,10 +511,9 @@ class TestCase(ABC):
     @abstractmethod
     def run(self) -> None:
         """
-        Main test logic method.
-        This method must be implemented by all subclasses.
+        Main test logic.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement the run() method")
 
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""
@@ -762,7 +760,6 @@ class TestCase(ABC):
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
-            gc.disable()
 
             # Set STATUS at the top level as opposed to within
             # the override methods. Ensures that the status is set
@@ -792,7 +789,6 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self._log_message(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
-            gc.enable()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()

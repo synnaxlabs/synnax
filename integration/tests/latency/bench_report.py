@@ -10,7 +10,6 @@
 import os
 import platform
 from collections import deque
-from re import S
 
 import matplotlib
 
@@ -19,13 +18,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
 
-from framework.test_case import TestCase
 from framework.utils import get_machine_info, get_memory_info, get_synnax_version
 
+from tests.latency.latency import Latency
 
-class BenchReport(TestCase):
+class Bench_Report(Latency):
 
     def setup(self) -> None:
+        super().setup()
 
         self.set_manual_timeout(10)
 
