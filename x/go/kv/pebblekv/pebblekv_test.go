@@ -177,7 +177,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 			UpperBound: []byte{4},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		defer iter.Close()
 
 		values := make([]byte, 0, 3)
 		for iter.First(); iter.Valid(); iter.Next() {
@@ -190,6 +189,7 @@ var _ = Describe("Pebblekv", Ordered, func() {
 			values = append(values, iter.Value()[0])
 		}
 		Expect(values).To(Equal([]byte{13, 12, 11}))
+		Expect(iter.Close()).To(Succeed())
 	})
 
 	It("Should respect NoSync write options", func() {

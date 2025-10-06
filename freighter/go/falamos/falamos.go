@@ -131,12 +131,12 @@ func (c carrier) Get(key string) string {
 }
 
 // Set implements TextMapCarrier.
-func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
+func (c carrier) Set(key, value string) { c.Params.Set(keyF(key), value) }
 
 // Keys implements TextMapCarrier.
 func (c carrier) Keys() []string {
-	keys := make([]string, 0, len(c.Context.Params))
-	for k := range c.Context.Params {
+	keys := make([]string, 0, len(c.Params))
+	for k := range c.Params {
 		if strings.HasPrefix(k, keyPrefix) {
 			keys = append(keys, strings.TrimPrefix(k, keyPrefix+"-"))
 		}

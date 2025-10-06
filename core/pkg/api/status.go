@@ -73,7 +73,7 @@ type StatusSetResponse struct {
 func statusAccessOntologyIDs(statuses []Status) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, r := range statuses {
-		ids = append(ids, r.Status.OntologyID())
+		ids = append(ids, r.OntologyID())
 		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
 	}
 	return ids

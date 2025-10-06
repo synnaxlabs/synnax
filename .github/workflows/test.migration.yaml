@@ -49,8 +49,7 @@ jobs:
       - name: Start Main Server
         id: start_main
         run:
-          docker run -d --name synnax-main -p 9090:9090 -v data:/usr/local/synnax/data
-          -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e
+          docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e
           SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
           SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
           ghcr.io/synnaxlabs/synnax:latest
@@ -94,25 +93,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earthly
-        uses: earthly/actions-setup@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Current Server Image
+        uses: docker/build-push-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Current Server Image
-        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: core
-
-      - name: Push Current Server Image to Github Container Registry
-        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          cache-from: type=gha,scope=test-migration
+          cache-to: type=gha,mode=max,scope=test-migration
+          build-args: |
+            DRIVER_ENABLED=false
 
       - name: Start Current Server
         id: start_current
         run:
-          docker run -d --name synnax-current -p 9090:9090 -v
-          data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e
-          SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e
-          SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
+          docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
+          -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
+          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
           ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Set up Python

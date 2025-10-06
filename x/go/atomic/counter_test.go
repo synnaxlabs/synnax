@@ -26,14 +26,8 @@ var _ = Describe("Counter", func() {
 			for range 10 {
 				go func() {
 					defer wg.Done()
-					for i := range 1000 {
-						if i == 0 {
-							c.Add(1)
-						} else if i == 1 {
-							c.Add(1)
-						} else {
-							c.Add(1)
-						}
+					for range 1000 {
+						c.Add(1)
 					}
 				}()
 			}

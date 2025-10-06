@@ -104,7 +104,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == change.Set {
-			v, closer, err := b.Tx.Get(ctx, dig.Key)
+			v, closer, err := b.Get(ctx, dig.Key)
 			if errors.Is(err, xkv.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
@@ -152,14 +152,6 @@ type TxRequest struct {
 func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
 
 func (tr TxRequest) size() int { return len(tr.Operations) }
-
-func (tr TxRequest) logFields() []zap.Field {
-	return []zap.Field{
-		zap.Int("size", tr.size()),
-		zap.Uint64("leaseholder", uint64(tr.Leaseholder)),
-		zap.Uint64("sender", uint64(tr.Sender)),
-	}
-}
 
 func (tr TxRequest) commitTo(db xkv.Atomic) (err error) {
 	b := db.OpenTx()

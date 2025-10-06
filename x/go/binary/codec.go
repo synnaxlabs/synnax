@@ -123,22 +123,11 @@ func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error
 }
 
 // JSONCodec is a JSON implementation of Codec.
-type JSONCodec struct {
-	// Pretty indicates whether the JSON should be pretty printed.
-	Pretty bool
-}
+type JSONCodec struct{}
 
 // Encode implements the Encoder interface.
 func (j *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		b   []byte
-		err error
-	)
-	if j.Pretty {
-		b, err = json.MarshalIndent(value, "", "  ")
-	} else {
-		b, err = json.Marshal(value)
-	}
+	b, err := json.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
@@ -161,16 +150,11 @@ func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) erro
 
 // EncodeStream implements the Encoder interface.
 func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	var err error
-	if j.Pretty {
-		err = json.NewEncoder(w).Encode(value)
-	} else {
-		b, err := j.Encode(ctx, value)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(b)
+	b, err := j.Encode(ctx, value)
+	if err != nil {
+		return err
 	}
+	_, err = w.Write(b)
 	return sugarEncodingErr(value, err)
 }
 

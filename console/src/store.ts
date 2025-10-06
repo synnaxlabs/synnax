@@ -174,7 +174,7 @@ const createStore = async (): Promise<RootStore> => {
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
-    enablePrerender: false,
+    enablePrerender: !IS_DEV,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

@@ -14,10 +14,6 @@ func (c customNamed) CustomTypeName() string { return "CustomName" }
 
 type regularType struct{}
 type yEndingType struct{}
-type boxType struct{}
-type classType struct{}
-type bushType struct{}
-type catchType struct{}
 
 type box struct{}
 type class struct{}

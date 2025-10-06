@@ -84,7 +84,7 @@ func New(ctx context.Context) Store {
 		Store:     store.New(_copy),
 		Transform: transform,
 	}))}
-	c.Observable.SetState(ctx, State{Nodes: make(node.Group)})
+	c.SetState(ctx, State{Nodes: make(node.Group)})
 	return c
 }
 
@@ -105,7 +105,7 @@ type core struct {
 
 // ClusterKey implements Store.
 func (c *core) ClusterKey() uuid.UUID {
-	s, release := c.Observable.PeekState()
+	s, release := c.PeekState()
 	ck := s.ClusterKey
 	release()
 	return ck
@@ -113,14 +113,14 @@ func (c *core) ClusterKey() uuid.UUID {
 
 // SetClusterKey implements Store.
 func (c *core) SetClusterKey(ctx context.Context, key uuid.UUID) {
-	s := c.Observable.CopyState()
+	s := c.CopyState()
 	s.ClusterKey = key
-	c.Observable.SetState(ctx, s)
+	c.SetState(ctx, s)
 }
 
 // GetNode implements Store.
 func (c *core) GetNode(key node.Key) (node.Node, bool) {
-	state, release := c.Observable.PeekState()
+	state, release := c.PeekState()
 	defer release()
 	n, ok := state.Nodes[key]
 	return n, ok
@@ -128,7 +128,7 @@ func (c *core) GetNode(key node.Key) (node.Node, bool) {
 
 // GetHost implements Store.
 func (c *core) GetHost() node.Node {
-	state, release := c.Observable.PeekState()
+	state, release := c.PeekState()
 	h := state.HostKey
 	release()
 	n, _ := c.GetNode(h)
@@ -137,27 +137,27 @@ func (c *core) GetHost() node.Node {
 
 // SetHost implements Store.
 func (c *core) SetHost(ctx context.Context, n node.Node) {
-	snap := c.Observable.CopyState()
+	snap := c.CopyState()
 	snap.Nodes[n.Key] = n
 	snap.HostKey = n.Key
-	c.Observable.SetState(ctx, snap)
+	c.SetState(ctx, snap)
 }
 
 // SetNode implements Store.
 func (c *core) SetNode(ctx context.Context, n node.Node) {
-	snap := c.Observable.CopyState()
+	snap := c.CopyState()
 	snap.Nodes[n.Key] = n
-	c.Observable.SetState(ctx, snap)
+	c.SetState(ctx, snap)
 }
 
 // Merge implements Store.
 func (c *core) Merge(ctx context.Context, other node.Group) {
-	snap := c.Observable.CopyState()
+	snap := c.CopyState()
 	for _, n := range other {
 		in, ok := snap.Nodes[n.Key]
 		if !ok || n.Heartbeat.OlderThan(in.Heartbeat) {
 			snap.Nodes[n.Key] = n
 		}
 	}
-	c.Observable.SetState(ctx, snap)
+	c.SetState(ctx, snap)
 }

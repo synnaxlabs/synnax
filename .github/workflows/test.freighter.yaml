@@ -117,14 +117,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earthly
-        uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build Image
-        run: earthly --push +docker
-        working-directory: freighter/integration
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./freighter/integration/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/freighter-go-integration:latest
+          cache-from: type=gha,scope=test-freighter
+          cache-to: type=gha,mode=max,scope=test-freighter
 
   integration:
     name: Test - Integration
@@ -139,10 +144,17 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Check Formatting
         run: scripts/check_gofmt.sh freighter/integration
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: freighter/integration
 
   py:
     name: Test - Python
@@ -195,6 +207,9 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest

@@ -47,6 +47,8 @@ jobs:
     name: Test (${{ matrix.os }})
     env:
       NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
