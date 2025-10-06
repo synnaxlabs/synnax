@@ -174,7 +174,7 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.sendClosed {
 		return freighter.StreamClosed
 	}
-	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
+	s.peerCloseErr = s.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
 	return s.peerCloseErr
 }
 
@@ -192,12 +192,12 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 		return nil
 	}
 	s.sendClosed = true
-	return s.streamCore.send(WSMessage[RQ]{Type: WSMessageTypeClose})
+	return s.send(WSMessage[RQ]{Type: WSMessageTypeClose})
 }
 
 // Send implements the freighter.ServerStream interface.
 func (s *serverStream[RQ, RS]) Send(res RS) error {
-	return s.streamCore.send(WSMessage[RS]{Payload: res, Type: WSMessageTypeData})
+	return s.send(WSMessage[RS]{Payload: res, Type: WSMessageTypeData})
 }
 
 func (s *serverStream[RQ, RS]) close(err error) error {
@@ -281,11 +281,11 @@ func (s *streamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], err error) {
-	_, err = s.MiddlewareCollector.Exec(
+	_, err = s.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,
-			Protocol: s.Reporter.Protocol,
+			Protocol: s.Protocol,
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
@@ -366,7 +366,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// stream stops processing values, we need to use the underlying server ctx as the
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
-	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := s.codecResolver(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we send
@@ -389,7 +389,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	// Register the stream with the server so it gets gracefully shut down.
 	s.wg.Add(1)
 	defer s.wg.Done()
-	_, handlerErr := s.MiddlewareCollector.Exec(
+	_, handlerErr := s.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := ctx

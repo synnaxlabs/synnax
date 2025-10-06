@@ -284,3 +284,122 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 }
+
+TEST_F(TestWriteTask, testWriteValuesArePersisted) {
+    // Save connection config before moving cfg
+    auto conn_cfg = cfg->conn;
+
+    auto wt = create_task();
+    wt->start("start_cmd");
+    x::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
+    ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
+
+    // Give the write task time to process the frame
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Connect and read back the values to verify they were written
+    auto [client, conn_err] = util::connect(conn_cfg, "[test.write_verification] ");
+    ASSERT_FALSE(conn_err) << conn_err;
+
+    // Verify boolean value (should be 1)
+    auto [bool_result, bool_err] = util::simple_read(client, "NS=1;S=TestBoolean");
+    ASSERT_FALSE(bool_err) << bool_err;
+    EXPECT_EQ(bool_result.at<uint8_t>(0), 1);
+
+    // Verify uint32 value (should be 12345)
+    auto [uint32_result, uint32_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    ASSERT_FALSE(uint32_err) << uint32_err;
+    EXPECT_EQ(uint32_result.at<uint32_t>(0), 12345);
+
+    // Verify float value (should be 2.718f)
+    auto [float_result, float_err] = util::simple_read(client, "NS=1;S=TestFloat");
+    ASSERT_FALSE(float_err) << float_err;
+    EXPECT_FLOAT_EQ(float_result.at<float>(0), 2.718f);
+}
+
+TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
+    // Save connection config before moving cfg
+    auto conn_cfg = cfg->conn;
+
+    auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
+    ASSERT_FALSE(sink->start());
+
+    // First write should succeed
+    auto fr1 = synnax::Frame(1);
+    fr1.emplace(
+        this->uint32_cmd_channel.key,
+        telem::Series(static_cast<uint32_t>(11111), telem::UINT32_T)
+    );
+    auto write_err1 = sink->write(fr1);
+    EXPECT_FALSE(write_err1) << write_err1;
+
+    // Stop the server to simulate connection loss
+    server->stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Write while server is down - should fail
+    auto fr2 = synnax::Frame(1);
+    fr2.emplace(
+        this->uint32_cmd_channel.key,
+        telem::Series(static_cast<uint32_t>(22222), telem::UINT32_T)
+    );
+    auto write_err2 = sink->write(fr2);
+    EXPECT_TRUE(write_err2) << "Write should fail when server is down";
+    EXPECT_TRUE(write_err2.matches(util::UNREACHABLE_ERROR))
+        << "Error should be UNREACHABLE_ERROR, got: " << write_err2;
+
+    // Restart the server
+    server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Write after server restart - should trigger reconnect and succeed
+    auto fr3 = synnax::Frame(1);
+    fr3.emplace(
+        this->uint32_cmd_channel.key,
+        telem::Series(static_cast<uint32_t>(33333), telem::UINT32_T)
+    );
+    auto write_err3 = sink->write(fr3);
+    EXPECT_FALSE(write_err3) << "Write after reconnect should succeed: " << write_err3;
+
+    // Verify the third value was written
+    auto [client, conn_err] = util::connect(conn_cfg, "[test.reconnect] ");
+    ASSERT_FALSE(conn_err) << conn_err;
+
+    auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    ASSERT_FALSE(read_err) << read_err;
+    EXPECT_EQ(result.at<uint32_t>(0), 33333);
+
+    ASSERT_FALSE(sink->stop());
+}
+
+TEST_F(TestWriteTask, testMultipleSequentialWrites) {
+    // Save connection config before moving cfg
+    auto conn_cfg = cfg->conn;
+
+    auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
+    ASSERT_FALSE(sink->start());
+
+    // Perform multiple writes with different values
+    for (int i = 0; i < 5; i++) {
+        auto fr = synnax::Frame(1);
+        fr.emplace(
+            this->uint32_cmd_channel.key,
+            telem::Series(static_cast<uint32_t>(i * 1000), telem::UINT32_T)
+        );
+
+        auto write_err = sink->write(fr);
+        EXPECT_FALSE(write_err) << "Write " << i << " failed: " << write_err;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // Verify the final value
+    auto [client, conn_err] = util::connect(conn_cfg, "[test.multi_write] ");
+    ASSERT_FALSE(conn_err) << conn_err;
+
+    auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    ASSERT_FALSE(read_err) << read_err;
+    EXPECT_EQ(result.at<uint32_t>(0), 4000);
+
+    ASSERT_FALSE(sink->stop());
+}

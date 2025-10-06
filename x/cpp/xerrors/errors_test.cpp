@@ -132,6 +132,21 @@ TEST(testXErrors, testMatchesString) {
     ASSERT_FALSE(err.matches("other"));
 }
 
+TEST(testXErrors, testNilMatchesBehavior) {
+    const auto nil_err = xerrors::NIL;
+    const auto specific_err = xerrors::Error("test.specific.error", "");
+
+    ASSERT_FALSE(nil_err.matches(specific_err));
+    ASSERT_FALSE(nil_err.matches("test"));
+    ASSERT_FALSE(nil_err.matches("test.specific.error"));
+
+    ASSERT_FALSE(specific_err.matches(nil_err));
+    ASSERT_FALSE(specific_err.matches(xerrors::TYPE_NIL));
+
+    ASSERT_TRUE(nil_err.matches(xerrors::NIL));
+    ASSERT_TRUE(nil_err.matches(xerrors::TYPE_NIL));
+}
+
 TEST(testXErrors, testMatchesVectorStrings) {
     const auto err = xerrors::Error("test.specific.error", "");
     const std::vector<std::string> types = {"wrong", "test.specific", "another"};

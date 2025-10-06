@@ -13,5 +13,8 @@
 .console-task-configure--opc_write {
     .console-channel-list {
         max-width: 100% !important;
+        & .console-channel-name__container {
+            max-width: calc(100% - 10rem);
+        }
     }
 }

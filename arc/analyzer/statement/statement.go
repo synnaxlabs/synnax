@@ -345,10 +345,11 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		}
 	}
 	var expectedReturnType ir.Type
-	if enclosingScope.Kind == ir.KindFunction {
+	switch enclosingScope.Kind {
+	case ir.KindFunction:
 		fnType := enclosingScope.Type.(ir.Function)
 		expectedReturnType = fnType.Return
-	} else if enclosingScope.Kind == ir.KindStage {
+	case ir.KindStage:
 		stageType := enclosingScope.Type.(ir.Stage)
 		expectedReturnType = stageType.Return
 	}
@@ -575,7 +576,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	if varScope.Type == nil {
 		return true
 	}
-	varType := varScope.Type.(ir.Type)
+	varType := varScope.Type
 	if atypes.Compatible(varType, exprType) {
 		return true
 	}

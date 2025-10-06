@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -169,19 +167,17 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(5 * time.Millisecond)
-			var resChannels []channel.Channel
-			err = mockCluster.Nodes[1].Channel.
-				NewRetrieve().
-				Search("catalina").
-				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resChannels)).To(BeNumerically(">", 0))
-			Expect(resChannels[0].Name).To(Equal("catalina"))
-
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var resChannels []channel.Channel
+				g.Expect(mockCluster.Nodes[1].Channel.
+					NewRetrieve().
+					Search("catalina").
+					Entries(&resChannels).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(len(resChannels)).To(BeNumerically(">", 0))
+				g.Expect(resChannels[0].Name).To(Equal("catalina"))
+			}).Should(Succeed())
 		})
 	})
 	Describe("Exists", func() {
