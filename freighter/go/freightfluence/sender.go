@@ -14,9 +14,8 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -24,12 +23,12 @@ import (
 // interface for sending messages over a network freighter.
 type Sender[M freighter.Payload] struct {
 	Sender freighter.StreamSenderCloser[M]
-	UnarySink[M]
+	confluence.UnarySink[M]
 }
 
 // Flow implements Flow.
-func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(s.send, NewOptions(opts).Signal...)
+func (s *Sender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	ctx.Go(s.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (s *Sender[M]) send(ctx context.Context) error {
@@ -42,7 +41,7 @@ func (s *Sender[M]) send(ctx context.Context) error {
 		case <-ctx.Done():
 			err = ctx.Err()
 			return err
-		case res, ok := <-s.UnarySink.In.Outlet():
+		case res, ok := <-s.In.Outlet():
 			if !ok {
 				return nil
 			}
@@ -58,15 +57,15 @@ func (s *Sender[M]) send(ctx context.Context) error {
 // a transform function to the Sender. This is particularly useful in cases
 // where network message types are different from the message types used by the
 // rest of a program.
-type TransformSender[I Value, M freighter.Payload] struct {
+type TransformSender[I confluence.Value, M freighter.Payload] struct {
 	Sender    freighter.StreamSenderCloser[M]
-	Transform TransformFunc[I, M]
-	UnarySink[I]
+	Transform confluence.TransformFunc[I, M]
+	confluence.UnarySink[I]
 }
 
 // Flow implements the Flow interface.
-func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(s.send, NewOptions(opts).Signal...)
+func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	ctx.Go(s.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (s *TransformSender[I, M]) send(ctx context.Context) error {
@@ -80,14 +79,17 @@ o:
 		case <-ctx.Done():
 			err = ctx.Err()
 			break o
-		case res, ok := <-s.UnarySink.In.Outlet():
+		case res, ok := <-s.In.Outlet():
 			if !ok {
 				break o
 			}
-			tRes, ok, tErr := s.Transform(ctx, res)
+			tRes, shouldSend, tErr := s.Transform(ctx, res)
 			if tErr != nil {
 				err = tErr
 				break o
+			}
+			if !shouldSend {
+				continue o
 			}
 			if sErr := s.Sender.Send(tRes); sErr != nil {
 				err = sErr
@@ -103,12 +105,12 @@ o:
 // sends a copy of each message received from the Outlet.
 type MultiSender[M freighter.Payload] struct {
 	Senders []freighter.StreamSenderCloser[M]
-	UnarySink[M]
+	confluence.UnarySink[M]
 }
 
 // Flow implements the Flow interface.
-func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(m.send, NewOptions(opts).Signal...)
+func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	ctx.Go(m.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (m *MultiSender[M]) send(ctx context.Context) error {
@@ -122,7 +124,7 @@ o:
 		case <-ctx.Done():
 			err = ctx.Err()
 			break o
-		case res, ok := <-m.UnarySink.In.Outlet():
+		case res, ok := <-m.In.Outlet():
 			if !ok {
 				break o
 			}
@@ -138,7 +140,7 @@ o:
 }
 
 func (m *MultiSender[M]) closeSenders() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}
@@ -156,7 +158,7 @@ func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, ms
 }
 
 func (s MapTargetedSender[M]) Close() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range s {
 		c.Exec(s.CloseSend)
 	}
@@ -198,12 +200,12 @@ func (c ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address.A
 // on its merry way.
 type SwitchSender[M freighter.Payload] struct {
 	Sender TargetedSender[M]
-	Switch SwitchFunc[M]
-	UnarySink[M]
+	Switch confluence.SwitchFunc[M]
+	confluence.UnarySink[M]
 }
 
-func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(sw.send, NewOptions(opts).Signal...)
+func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	ctx.Go(sw.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (sw *SwitchSender[M]) send(ctx context.Context) error {
@@ -241,8 +243,8 @@ o:
 // and sends them on their merry way.
 type BatchSwitchSender[I, O freighter.Payload] struct {
 	Senders TargetedSender[O]
-	Switch  BatchSwitchFunc[I, O]
-	UnarySink[I]
+	Switch  confluence.BatchSwitchFunc[I, O]
+	confluence.UnarySink[I]
 }
 
 type TargetedSender[M freighter.Payload] interface {
@@ -250,8 +252,11 @@ type TargetedSender[M freighter.Payload] interface {
 	Close() error
 }
 
-func (bsw *BatchSwitchSender[I, O]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(bsw.send, NewOptions(opts).Signal...)
+func (bsw *BatchSwitchSender[I, O]) Flow(
+	ctx signal.Context,
+	opts ...confluence.Option,
+) {
+	ctx.Go(bsw.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (bsw *BatchSwitchSender[I, O]) send(ctx context.Context) error {
@@ -289,15 +294,18 @@ o:
 // MultiTransformSender wraps a slice of freighter.StreamSender(s) to provide a confluence
 // compatible interface for sending transformed messages over a network freighter.
 // MultiTransformSender transforms each input message and sends a copy to each sender.
-type MultiTransformSender[I Value, M freighter.Payload] struct {
+type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
 	Senders   []freighter.StreamSenderCloser[M]
-	Transform TransformFunc[I, M]
-	UnarySink[I]
+	Transform confluence.TransformFunc[I, M]
+	confluence.UnarySink[I]
 }
 
 // Flow implements the Flow interface.
-func (m *MultiTransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(m.send, NewOptions(opts).Signal...)
+func (m *MultiTransformSender[I, M]) Flow(
+	ctx signal.Context,
+	opts ...confluence.Option,
+) {
+	ctx.Go(m.send, confluence.NewOptions(opts).Signal...)
 }
 
 func (m *MultiTransformSender[I, M]) send(ctx context.Context) error {
@@ -311,7 +319,7 @@ o:
 		case <-ctx.Done():
 			err = ctx.Err()
 			break o
-		case res, ok := <-m.UnarySink.In.Outlet():
+		case res, ok := <-m.In.Outlet():
 			if !ok {
 				break o
 			}
@@ -337,7 +345,7 @@ o:
 }
 
 func (m *MultiTransformSender[I, M]) closeSenders() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}
