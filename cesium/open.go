@@ -50,7 +50,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db.mu.virtualDBs = make(map[core.ChannelKey]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
-			db.options.L.Warn(fmt.Sprintf(
+			db.L.Warn(fmt.Sprintf(
 				"found unknown file %s in database root directory",
 				i.Name(),
 			))
@@ -58,7 +58,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		}
 		key, err := strconv.Atoi(i.Name())
 		if err != nil {
-			db.options.L.Error(fmt.Sprintf(
+			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
 				i.Name()),
 				zap.Error(err),
@@ -72,7 +72,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	db.relay = openRelay(sCtx, o.Instrumentation, db.options.streamingConfig)
+	db.relay = openRelay(sCtx, o.Instrumentation, db.streamingConfig)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	return db, nil
@@ -86,7 +86,7 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs xfs.FS) error {
 		MetaCodec:       db.metaCodec,
 		FS:              fs,
 		Channel:         ch,
-		Instrumentation: db.options.Instrumentation,
+		Instrumentation: db.Instrumentation,
 	})
 	if err != nil {
 		return err
@@ -103,9 +103,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 		FS:              fs,
 		MetaCodec:       db.metaCodec,
 		Channel:         ch,
-		Instrumentation: db.options.Instrumentation,
-		FileSize:        db.options.fileSize,
-		GCThreshold:     db.options.gcCfg.Threshold,
+		Instrumentation: db.Instrumentation,
+		FileSize:        db.fileSize,
+		GCThreshold:     db.gcCfg.Threshold,
 	})
 	if err != nil {
 		return err

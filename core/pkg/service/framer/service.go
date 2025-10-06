@@ -116,7 +116,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Instrumentation.Child("calculated"),
+		Instrumentation:   cfg.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		ChannelObservable: cfg.Channel.NewObservable(),
@@ -125,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
-		Instrumentation: cfg.Instrumentation.Child("streamer"),
+		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,

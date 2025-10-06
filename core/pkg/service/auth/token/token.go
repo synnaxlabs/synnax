@@ -159,7 +159,7 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.RegisteredClaims, erro
 }
 
 func (s *Service) isCloseToExpired(claims *jwt.RegisteredClaims) bool {
-	expiration := claims.ExpiresAt.Time.UTC()
+	expiration := claims.ExpiresAt.UTC()
 	currentTime := s.cfg.Now().UTC()
 	if expiration.Sub(currentTime) < 0 {
 		return false
@@ -189,13 +189,13 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 
 func (s *Service) publicKey() any {
 	key := s.cfg.KeyProvider.NodePrivate()
-	switch key.(type) {
+	switch key := key.(type) {
 	case *rsa.PrivateKey:
-		return key.(*rsa.PrivateKey).Public()
+		return key.Public()
 	case *ecdsa.PrivateKey:
-		return key.(*ecdsa.PrivateKey).Public()
+		return key.Public()
 	case *ed25519.PrivateKey:
-		return key.(*ed25519.PrivateKey).Public()
+		return key.Public()
 	}
 	panic("unsupported key type")
 }

@@ -231,8 +231,10 @@ func (y *MemFS) Stat(name string) (os.FileInfo, error) {
 		}
 		return nil, err
 	}
-	defer f.Close()
-	return f.Stat()
+	defer func() { err = errors.Combine(err, f.Close()) }()
+	var stats os.FileInfo
+	stats, err = f.Stat()
+	return stats, err
 }
 
 // memNode holds a file's data or a directory's children, and implements os.FileInfo.

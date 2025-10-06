@@ -132,7 +132,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		return nil, err
 	}
 
-	if *o.Config.EnableSearch {
+	if *o.EnableSearch {
 		if o.search.Index, err = search.New(
 			search.Config{Instrumentation: cfg.Instrumentation},
 		); err != nil {
@@ -225,10 +225,10 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 }
 
 func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, error) {
-	if !*o.Config.EnableSearch {
+	if !*o.EnableSearch {
 		return nil, errors.New("[ontology] - search is not enabled")
 	}
-	return o.search.Index.Search(ctx, req)
+	return o.search.Search(ctx, req)
 }
 
 // NewWriter opens a new Writer using the provided transaction. Panics if the
@@ -260,17 +260,17 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 	}
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
-	if *o.Config.EnableSearch {
+	if *o.EnableSearch {
 		for _, svc := range o.registrar {
 			o.search.Register(ctx, svc.Type(), svc.Schema())
 		}
 	}
 	for _, svc := range o.registrar {
-		if !*o.Config.EnableSearch {
+		if !*o.EnableSearch {
 			continue
 		}
 		disconnect := svc.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
-			err := o.search.Index.WithTx(func(tx search.Tx) error {
+			err := o.search.WithTx(func(tx search.Tx) error {
 				for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
 					o.L.Debug(
 						"updating search index",
@@ -298,7 +298,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			err = o.search.Index.WithTx(func(tx search.Tx) error {
+			err = o.search.WithTx(func(tx search.Tx) error {
 				for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
 					if err = tx.Index(r); err != nil {
 						return err

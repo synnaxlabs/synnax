@@ -176,16 +176,3 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 		}).
 		Exec(ctx, w.tx)
 }
-
-func (w Writer) validateNoChildrenWithName(ctx context.Context, name string, parent ontology.ID) error {
-	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().WhereIDs(parent).TraverseTo(ontology.Children).Entries(&children).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, child := range children {
-		if child.Name == name {
-			return errors.New("[group] - a child of the parent exists with the same name")
-		}
-	}
-	return nil
-}

@@ -151,6 +151,11 @@ jobs:
       - name: Check Formatting
         run: scripts/check_gofmt.sh freighter/integration
 
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: freighter/integration
+
   py:
     name: Test - Python
     needs: [changes, server]

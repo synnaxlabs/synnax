@@ -132,7 +132,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s.mu.closer = closer
 	s.mu.entries = make(map[uuid.UUID]*entry)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
@@ -144,6 +143,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	obs := gorp.Observe[uuid.UUID, Arc](cfg.DB)
 	closer = append(closer, xio.NopCloserFunc(obs.OnChange(s.handleChange)))
+	s.mu.closer = closer
 	return s, nil
 }
 

@@ -13,16 +13,14 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx  gorp.Tx
+	otg ontology.Writer
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If

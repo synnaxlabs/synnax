@@ -37,7 +37,7 @@ func (f *Filter[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) > 2 || len(inlets) == 0 {
 		panic("[confluence.Filter] - provide at most two and at least one inlet")
 	}
-	if len(inlets) == 1 && f.AbstractLinear.Out != nil {
+	if len(inlets) == 1 && f.Out != nil {
 		f.Rejects = inlets[0]
 		return
 	}

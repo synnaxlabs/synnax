@@ -11,9 +11,10 @@ package fmock
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"go/types"
 )
 
 var (
@@ -50,7 +51,7 @@ func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS,
 }
 
 func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD freighter.Context, err error) {
-	oMD, err = u.MiddlewareCollector.Exec(
+	oMD, err = u.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			res, err = u.Handler(ctx, req)
@@ -82,8 +83,8 @@ func (u *UnaryClient[RQ, RS]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	_, err = u.MiddlewareCollector.Exec(
-		freighter.Context{Context: ctx, Target: target, Protocol: u.Reporter.Protocol},
+	_, err = u.Exec(
+		freighter.Context{Context: ctx, Target: target, Protocol: u.Protocol},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var (
 				handler func(freighter.Context, RQ) (RS, freighter.Context, error)
