@@ -45,7 +45,7 @@ var factories = map[string]Constructor{
 	"on":         createChannelSource,
 	"stable_for": createStableFor,
 	"set_status": createSetStatus,
-	"write":      createChannelSink,
+	"writer":     createChannelSink,
 }
 
 var Resolver = ir.MapResolver{
@@ -65,7 +65,7 @@ var Resolver = ir.MapResolver{
 	"not":        symbolNot,
 	"constant":   symbolConstant,
 	"on":         symbolChannelSource,
-	"write":      symbolChannelSink,
+	"writer":     symbolChannelSink,
 	"select":     symbolSelect,
 	"stable_for": symbolStableFor,
 	"set_status": symbolSetStatus,
@@ -75,14 +75,18 @@ type ChannelData interface {
 	Get(key channel.Key) telem.Series
 }
 
+type ChannelWriter interface {
+	Write(ctx context.Context, fr core.Frame) error
+}
+
 type Config struct {
 	alamos.Instrumentation
-	Node        ir.Node
-	Status      *status.Service
-	ChannelData ChannelData
-	Now         func() telem.TimeStamp
-	Write       func(ctx context.Context, fr core.Frame) error
-	Channel     channel.Readable
+	Node          ir.Node
+	Status        *status.Service
+	ChannelData   ChannelData
+	Now           func() telem.TimeStamp
+	ChannelWriter ChannelWriter
+	Channel       channel.Readable
 }
 
 func Create(ctx context.Context, cfg Config) (stage.Node, error) {

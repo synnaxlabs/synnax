@@ -251,7 +251,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		writer:   &writerSeg{},
 		streamer: &streamerSeg{},
 	}
-
+	core.OnWrite(r.writer.Write)
 	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, core.nodes)
 	if err != nil {
 		return nil, err

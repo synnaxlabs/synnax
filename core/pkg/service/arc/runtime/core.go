@@ -25,9 +25,10 @@ import (
 )
 
 type Core struct {
-	module arc.Module
-	nodes  map[string]stage.Node
-	values map[channel.Key]telem.Series
+	module    arc.Module
+	nodes     map[string]stage.Node
+	values    map[channel.Key]telem.Series
+	writeFunc func(ctx context.Context, fr core.Frame) error
 }
 
 func (c *Core) Get(key channel.Key) telem.Series {
@@ -50,11 +51,11 @@ func NewCore(ctx context.Context, cfgs ...Config) (*Core, error) {
 			return nil, errors.Newf("unsupported module type: %s", arcNode.Type)
 		}
 		return std.Create(ctx, std.Config{
-			Node:        arcNode,
-			Status:      cfg.Status,
-			ChannelData: c,
-			//Write:       r.writer.Write,
-			Channel: cfg.Channel,
+			Node:          arcNode,
+			Status:        cfg.Status,
+			ChannelData:   c,
+			ChannelWriter: c,
+			Channel:       cfg.Channel,
 		})
 	}
 	for _, nodeSpec := range c.module.Nodes {
@@ -83,6 +84,14 @@ func (c *Core) Next(ctx context.Context, fr core.Frame) {
 		c.values[key] = fr.RawSeriesAt(rawI)
 	}
 	c.evaluateStrata(ctx)
+}
+
+func (c *Core) Write(ctx context.Context, fr core.Frame) error {
+	return c.writeFunc(ctx, fr)
+}
+
+func (c *Core) OnWrite(write func(ctx context.Context, fr core.Frame) error) {
+	c.writeFunc = write
 }
 
 func (c *Core) evaluateStrata(ctx context.Context) {

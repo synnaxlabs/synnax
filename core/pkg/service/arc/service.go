@@ -149,7 +149,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 // NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// will execute the operations directly on the underlyinu gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),

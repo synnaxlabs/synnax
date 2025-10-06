@@ -23,7 +23,7 @@ import (
 )
 
 var symbolChannelSink = ir.Symbol{
-	Name: "write",
+	Name: "writer",
 	Kind: ir.KindStage,
 	Type: ir.Stage{
 		Config: ir.NamedTypes{
@@ -43,7 +43,7 @@ type channelSink struct {
 	writeChannel channel.Channel
 	value        value.Value
 	input        *value.Value
-	write        func(ctx context.Context, fr core.Frame) error
+	writer       ChannelWriter
 }
 
 func (c *channelSink) Load(param string, val value.Value) {
@@ -65,14 +65,14 @@ func (c *channelSink) Next(ctx context.Context) {
 			telem.NewSeriesV[telem.TimeStamp](telem.Now()),
 		)
 	}
-	if err := c.write(ctx, baseFrame); err != nil {
-		fmt.Println("failed to write to channel")
+	if err := c.writer.Write(ctx, baseFrame); err != nil {
+		fmt.Println("failed to writer to channel")
 	}
 }
 
 func createChannelSink(ctx context.Context, cfg Config) (stage.Node, error) {
 	sink := &channelSink{base: base{key: cfg.Node.Key}}
-	sink.write = cfg.Write
+	sink.writer = cfg.ChannelWriter
 	sink.value = value.Value{}.Put(cfg.Node.Config["value"])
 	writeChanKeys := unsafe.ReinterpretSlice[uint32, channel.Key](cfg.Node.Channels.Read.Keys())
 	writeChanKey := writeChanKeys[0]
