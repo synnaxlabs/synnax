@@ -247,6 +247,12 @@ public:
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
             s.clear();
+            // Skip empty arrays (e.g., PLC buffer not ready)
+            if (result.value.arrayLength == 0) {
+                LOG(WARNING) << "[opc.read] empty array received for channel "
+                             << ch->ch.name << ", skipping sample";
+                continue;
+            }
             auto [written, err] = util::ua_array_write_to_series(
                 s,
                 &result.value,
