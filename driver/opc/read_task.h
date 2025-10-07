@@ -196,7 +196,6 @@ protected:
         conn(nullptr, nullptr, ""),
         request(this->cfg),
         timer(rate) {
-        LOG(INFO) << "[opc.read] BaseReadTaskSource constructor completed";
     }
 
     synnax::WriterConfig writer_config() const override {
@@ -204,15 +203,9 @@ protected:
     }
 
     xerrors::Error start() override {
-        LOG(INFO) << "[opc.read] start: acquiring connection from pool";
         auto [c, err] = pool->acquire(cfg.conn, "[opc.read] ");
-        if (err) {
-            LOG(ERROR) << "[opc.read] start: pool->acquire failed - " << err.message();
-            return err;
-        }
-        LOG(INFO) << "[opc.read] start: connection acquired, moving to conn member";
+        if (err) return err;
         conn = std::move(c);
-        LOG(INFO) << "[opc.read] start: completed successfully";
         return xerrors::NIL;
     }
 
@@ -236,27 +229,20 @@ public:
     }
 
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        LOG(INFO) << "[opc.read.array] read: starting";
         common::ReadResult res;
-        LOG(INFO) << "[opc.read.array] read: waiting on timer";
         this->timer.wait(breaker);
-        LOG(INFO) << "[opc.read.array] read: calling UA_Client_Service_read";
         UA_ReadResponse ua_res = UA_Client_Service_read(
             this->conn.get(),
             this->request.base
         );
-        LOG(INFO) << "[opc.read.array] read: UA_Client_Service_read completed";
         x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
-        LOG(INFO) << "[opc.read.array] read: initializing frame";
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.array_size
         );
-        LOG(INFO) << "[opc.read.array] read: processing " << ua_res.resultsSize << " results";
         for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
-            LOG(INFO) << "[opc.read.array] read: processing result " << i;
             auto &result = ua_res.results[i];
             if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
@@ -277,7 +263,6 @@ public:
             res.error = err;
             if (res.error) return res;
         }
-        LOG(INFO) << "[opc.read.array] read: generating index data";
         auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
         common::generate_index_data(
@@ -289,7 +274,6 @@ public:
             this->cfg.channels.size(),
             true
         );
-        LOG(INFO) << "[opc.read.array] read: completed successfully";
         return res;
     }
 };
@@ -300,49 +284,36 @@ public:
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        LOG(INFO) << "[opc.read.unary] read: starting";
         common::ReadResult res;
-        LOG(INFO) << "[opc.read.unary] read: initializing frame";
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.samples_per_chan
         );
-        LOG(INFO) << "[opc.read.unary] read: clearing frame series";
         for (auto [k, s]: fr)
             s.clear();
-        LOG(INFO) << "[opc.read.unary] read: reading " << this->cfg.samples_per_chan << " samples";
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
-            LOG(INFO) << "[opc.read.unary] read: sample " << i << " starting";
             const auto start = telem::TimeStamp::now();
-            LOG(INFO) << "[opc.read.unary] read: calling UA_Client_Service_read, conn=" << this->conn.get();
             UA_ReadResponse ua_res = UA_Client_Service_read(
                 this->conn.get(),
                 this->request.base
             );
-            LOG(INFO) << "[opc.read.unary] read: UA_Client_Service_read completed, resultsSize=" << ua_res.resultsSize;
             x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
             if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
                 res.error)
                 return res;
-            LOG(INFO) << "[opc.read.unary] read: processing " << ua_res.resultsSize << " results";
             for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
-                LOG(INFO) << "[opc.read.unary] read: processing result index " << j;
                 UA_DataValue &result = ua_res.results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
-                LOG(INFO) << "[opc.read.unary] read: calling write_to_series for index " << j;
                 util::write_to_series(fr.series->at(j), result.value);
-                LOG(INFO) << "[opc.read.unary] read: write_to_series completed for index " << j;
             }
             const auto end = telem::TimeStamp::now();
             const auto ts = telem::TimeStamp::midpoint(start, end);
             for (std::size_t j = this->cfg.channels.size(); j < fr.size(); j++)
                 fr.series->at(j).write(ts);
-            LOG(INFO) << "[opc.read.unary] read: waiting on timer";
             this->timer.wait(breaker);
         }
-        LOG(INFO) << "[opc.read.unary] read: completed successfully";
         return res;
     }
 

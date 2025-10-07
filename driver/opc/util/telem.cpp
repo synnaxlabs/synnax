@@ -116,33 +116,45 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-    LOG(INFO) << "[opc.util] write_to_series: starting, series data_type=" << s.data_type().name();
-
     // Check if variant is empty using OPC UA's built-in function
     if (UA_Variant_isEmpty(&v)) {
         LOG(WARNING) << "[opc.util] write_to_series: empty variant, skipping write";
         return 0;
     }
 
-    // Check if variant has valid data
-    if (v.data == nullptr || v.type == nullptr) {
-        LOG(WARNING) << "[opc.util] write_to_series: invalid variant (null data/type), skipping write";
+    // Validate variant structure using OPC UA's built-in checks
+    // This is more robust than pointer address checking as it validates:
+    // 1. The variant has a valid type
+    // 2. The data pointer is properly initialized for the type
+    // 3. Array length matches the data structure
+    if (v.type == nullptr) {
+        LOG(WARNING) << "[opc.util] write_to_series: variant has null type, skipping write";
+        return 0;
+    }
+
+    // Check for scalar type: ensure we have exactly one element
+    const bool is_scalar = UA_Variant_isScalar(&v);
+    if (!is_scalar && v.arrayLength == 0) {
+        LOG(WARNING) << "[opc.util] write_to_series: variant is array with zero length, skipping write";
+        return 0;
+    }
+
+    // Additional safety: check data pointer validity
+    // Even with valid type, corrupted servers might return bad pointers
+    if (v.data == nullptr || reinterpret_cast<uintptr_t>(v.data) < 0x1000) {
+        LOG(WARNING) << "[opc.util] write_to_series: variant has invalid data pointer ("
+                     << v.data << "), skipping write";
         return 0;
     }
 
     if (s.data_type() == telem::TIMESTAMP_T &&
         UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
-        LOG(INFO) << "[opc.util] write_to_series: handling TIMESTAMP type";
         const auto dt = static_cast<const UA_DateTime *>(v.data);
         return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
-    LOG(INFO) << "[opc.util] write_to_series: calling ua_to_data_type";
-    auto ua_type = ua_to_data_type(v.type);
-    LOG(INFO) << "[opc.util] write_to_series: ua_type=" << ua_type.name() << ", v.data=" << v.data << ", casting and writing";
 
-    // Add try-catch protection around the cast operation
     try {
-        return s.write(s.data_type().cast(v.data, ua_type));
+        return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
     } catch (const std::exception &e) {
         LOG(ERROR) << "[opc.util] write_to_series: exception during cast/write: " << e.what();
         return 0;

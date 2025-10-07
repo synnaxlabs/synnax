@@ -22,25 +22,18 @@ common::ConfigureResult configure_read(
     const synnax::Task &task,
     const std::shared_ptr<util::ConnectionPool> &pool
 ) {
-    LOG(INFO) << "[opc.factory] configure_read: starting for task " << task.name;
     common::ConfigureResult result;
-    LOG(INFO) << "[opc.factory] configure_read: parsing config";
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
     if (err) {
-        LOG(ERROR) << "[opc.factory] configure_read: parse error - " << err.message();
         result.error = err;
         return result;
     }
-    LOG(INFO) << "[opc.factory] configure_read: array_size=" << cfg.array_size;
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1) {
-        LOG(INFO) << "[opc.factory] configure_read: creating ArrayReadTaskSource";
         s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
     } else {
-        LOG(INFO) << "[opc.factory] configure_read: creating UnaryReadTaskSource";
         s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
     }
-    LOG(INFO) << "[opc.factory] configure_read: creating ReadTask wrapper";
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
@@ -48,7 +41,6 @@ common::ConfigureResult configure_read(
         breaker::default_config(task.name),
         std::move(s)
     );
-    LOG(INFO) << "[opc.factory] configure_read: completed successfully";
     return result;
 }
 
