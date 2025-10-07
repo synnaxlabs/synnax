@@ -23,6 +23,9 @@ class BadActor(ConsoleCase):
         """
         Test the "create a channel" modal for all data types
         """
+        console = self.console
+        client = self.client
+
         channels_to_delete = [
             "press_pt",
             "press_vlv_cmd",
@@ -32,8 +35,13 @@ class BadActor(ConsoleCase):
         self.subscribe(channels_to_delete)
         for ch in channels_to_delete:
             try:
-                self.console.channels.delete(ch)
-                self.fail(f"Channel '{ch}' improperly deleted.")
+                console.channels.delete(ch)
+
+                # Not getting an error immediately does not mean
+                # the channel was deleted. Check the channels list.
+                exists, _ = console.channels.existing_channel(ch)
+                if not exists:
+                    self.fail(f"Channel '{ch}' improperly deleted.")
 
             except RuntimeError as rte:
                 if "Failed to delete Channel" in str(rte):
@@ -41,3 +49,6 @@ class BadActor(ConsoleCase):
 
             except Exception as e:
                 self.fail(f"Unexpected error while deleting '{ch}': {e}")
+
+            channel = client.channels.retrieve(ch)
+            self.log(f"{ch} still exists")

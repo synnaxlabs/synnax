@@ -63,17 +63,7 @@ class NIAnalogWrite(Task):
 
         Returns:
             The created channel instance
-
-        Raises:
-            ValueError: If channel type is not supported for AO tasks
         """
-        # Validate channel type
-        if type not in AO_CHANNEL_TYPES:
-            raise ValueError(
-                f"NI Analog Output only supports {list(AO_CHANNEL_TYPES.keys())}. "
-                f"Got: {type}"
-            )
-
         # Remove parameters not supported for AO tasks
         kwargs.pop("terminal_config", None)
         kwargs.pop("shunt_resistor", None)

@@ -27,6 +27,12 @@ class NIAnalogReadForms(ConsoleCase):
         Test Opening and closing pages
         """
         console = self.console
+
+        # Mode is used so that we can break this test into smaller
+        # chunks to run concurrently. The split is arbitrary. However,
+        # there is a balance between small (and fast) chunks and
+        # initializing multiple, resource-intensive playwright instances
+
         mode = self.name[-1]  # A, B, C, D
 
         # Talks to NI MAX sim devices

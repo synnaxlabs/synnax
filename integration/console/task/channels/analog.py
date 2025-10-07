@@ -86,28 +86,14 @@ class Analog:
         else:
             values["Port"] = console.get_input_field("Port")
 
-        # Check if terminal_config dropdown is available
-        try:
-            dropdown_button = (
-                console.page.locator("text=Terminal Configuration")
-                .locator("..")
-                .locator("button")
-                .first
-            )
-            terminal_config_available = dropdown_button.count() > 0
-        except:
-            terminal_config_available = False
-
         if terminal_config is not None:
             console.click_btn("Terminal Configuration")
             console.select_from_dropdown(terminal_config)
             values["Terminal Configuration"] = terminal_config
-        else:
-            if terminal_config_available:
-                values["Terminal Configuration"] = console.get_dropdown_value(
-                    "Terminal Configuration"
-                )
-            # Many AI types do not have a terminal config option.
+        elif self.has_terminal_config():
+            values["Terminal Configuration"] = console.get_dropdown_value(
+                "Terminal Configuration"
+            )
 
         if min_val is not None:
             console.fill_input_field("Minimum Value", str(min_val))
@@ -141,3 +127,15 @@ class Analog:
             assert (
                 actual_value == expected_value
             ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+
+    def has_terminal_config(self) -> bool:
+        try:
+            return (
+                self.console.page.locator("text=Terminal Configuration")
+                .locator("..")
+                .locator("button")
+                .first.count()
+                > 0
+            )
+        except:
+            return False
