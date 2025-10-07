@@ -12,7 +12,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Setpoint_Press_Auto(TestCase):
+class SetpointPressAuto(TestCase):
     """
     Reads a setpoint and opens or closes a valve based on the value.
     """

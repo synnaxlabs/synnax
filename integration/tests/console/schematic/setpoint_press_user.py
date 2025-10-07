@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Setpoint_Press_User(ConsoleCase):
+class SetpointPressUser(ConsoleCase):
     """
     Test the setpoint symbol. A separate case will
     read the setpoints and determine whether to

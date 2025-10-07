@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Simple_Press_Valves(ConsoleCase):
+class SimplePressValves(ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """

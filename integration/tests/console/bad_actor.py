@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Bad_Actor(ConsoleCase):
+class BadActor(ConsoleCase):
     """
     Attempt to delete channels that are being controlled
     by another process. Test will PASS if channels could

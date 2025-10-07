@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Edit_Symbol_Props(ConsoleCase):
+class EditSymbolProps(ConsoleCase):
     """
     Add a value component and edit its properties
     """

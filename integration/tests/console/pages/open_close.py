@@ -11,7 +11,7 @@ from console.case import ConsoleCase
 from console.console import PageType
 
 
-class Open_Close(ConsoleCase):
+class OpenClose(ConsoleCase):
     """
     Test creating and closing pages
     """

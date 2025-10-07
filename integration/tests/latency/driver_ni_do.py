@@ -28,7 +28,7 @@ from tests.latency.latency import Latency
 matplotlib.use("Agg")  # Use non-interactive backend
 
 
-class Driver_Ni_Do(Latency):
+class DriverNiDo(Latency):
     """
     Send a command to an NI DO channel and measure the latency between the
     core and loop-back (python) timestamp.

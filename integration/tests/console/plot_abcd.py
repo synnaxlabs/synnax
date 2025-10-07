@@ -10,7 +10,7 @@
 from console.case import ConsoleCase
 
 
-class Plot_Abcd(ConsoleCase):
+class PlotAbcd(ConsoleCase):
     """
     Simple plot test
 

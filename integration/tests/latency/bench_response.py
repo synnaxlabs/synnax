@@ -16,7 +16,7 @@ import synnax as sy
 from tests.latency.latency import Latency
 
 
-class Bench_Response(Latency):
+class BenchResponse(Latency):
 
     def setup(self) -> None:
         super().setup()

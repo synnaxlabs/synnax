@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Ni_Ai_Forms(ConsoleCase):
+class NiAiForms(ConsoleCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be

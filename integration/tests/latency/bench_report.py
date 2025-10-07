@@ -22,7 +22,7 @@ from framework.utils import get_machine_info, get_memory_info, get_synnax_versio
 
 from tests.latency.latency import Latency
 
-class Bench_Report(Latency):
+class BenchReport(Latency):
 
     def setup(self) -> None:
         super().setup()

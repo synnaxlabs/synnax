@@ -600,9 +600,9 @@ class TestConductor:
             # Extract the module name from the path (last part before .py)
             module_name = case_path.split("/")[-1]
 
-            # Convert module_name to PascalCase class name with underscores
-            # "pages_open_close" -> "Pages_Open_Close"
-            class_name = "_".join(word.capitalize() for word in module_name.split("_"))
+            # Convert module_name to PascalCase class name
+            # "pages_open_close" -> "PagesOpenClose"
+            class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
             # Try different possible file paths
             current_dir = os.getcwd()

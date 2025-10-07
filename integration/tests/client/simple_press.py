@@ -12,7 +12,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Simple_Press(TestCase):
+class SimplePress(TestCase):
     """
     Test a basic press control sequence
     """

@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class No_Device(ConsoleCase):
+class NoDevice(ConsoleCase):
     """
     Verify status message/level when attempting to
     configure and run a task with selected devices
