@@ -54,7 +54,10 @@ const EmptyContent = () => {
   );
 };
 
-const filter = (task: task.Task) => !task.internal && !task.snapshot;
+const INITIAL_QUERY: Task.ListQuery = {
+  internal: false,
+  snapshot: false,
+};
 
 const Content = () => {
   const client = Synnax.use();
@@ -64,8 +67,10 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { data, getItem, subscribe, retrieve } = Task.useList({ filter });
-  const { fetchMore } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, retrieve } = Task.useList({
+    initialQuery: INITIAL_QUERY,
+  });
+  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: rename } = Task.useRename({
     beforeUpdate: useCallback(
