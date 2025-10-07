@@ -29,6 +29,8 @@ func FromSlice[T comparable](values []T) Set[T] {
 	return s
 }
 
+func (s Mapped[T, V]) Reset() { clear(s) }
+
 // Add inserts the provided values into the set.
 // If a value already exists in the set, it will not be duplicated.
 func (s Mapped[T, V]) Add(values ...T) Mapped[T, V] {

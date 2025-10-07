@@ -194,7 +194,7 @@ var _ = Describe("Compiler", func() {
 			}
 
 			// Compile with host imports enabled
-			wasmBytes := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message: "dog"}`, resolver))
+			wasmBytes := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message = "dog"}`, resolver))
 
 			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
 			readAndDouble := mod.ExportedFunction("__expr_0")

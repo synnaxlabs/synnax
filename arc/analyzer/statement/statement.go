@@ -38,18 +38,19 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 
 // Analyze analyzes a statement
 func Analyze(ctx context.Context[parser.IStatementContext]) bool {
-	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
-		return analyzeVariableDeclaration(context.Child(ctx, varDecl))
-	} else if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
-		return analyzeIfStatement(context.Child(ctx, ifStmt))
-	} else if returnStmt := ctx.AST.ReturnStatement(); returnStmt != nil {
-		return analyzeReturnStatement(context.Child(ctx, returnStmt))
-	} else if channelOp := ctx.AST.ChannelOperation(); channelOp != nil {
-		return analyzeChannelOperation(context.Child(ctx, channelOp))
-	} else if assignment := ctx.AST.Assignment(); assignment != nil {
-		return analyzeAssignment(context.Child(ctx, assignment))
-	} else if expr := ctx.AST.Expression(); expr != nil {
-		return expression.Analyze(context.Child(ctx, expr))
+	switch {
+	case ctx.AST.VariableDeclaration() != nil:
+		return analyzeVariableDeclaration(context.Child(ctx, ctx.AST.VariableDeclaration()))
+	case ctx.AST.IfStatement() != nil:
+		return analyzeIfStatement(context.Child(ctx, ctx.AST.IfStatement()))
+	case ctx.AST.ReturnStatement() != nil:
+		return analyzeReturnStatement(context.Child(ctx, ctx.AST.ReturnStatement()))
+	case ctx.AST.ChannelOperation() != nil:
+		return analyzeChannelOperation(context.Child(ctx, ctx.AST.ChannelOperation()))
+	case ctx.AST.Assignment() != nil:
+		return analyzeAssignment(context.Child(ctx, ctx.AST.Assignment()))
+	case ctx.AST.Expression() != nil:
+		return expression.Analyze(context.Child(ctx, ctx.AST.Expression()))
 	}
 	return true
 }
@@ -57,7 +58,8 @@ func Analyze(ctx context.Context[parser.IStatementContext]) bool {
 func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) bool {
 	if local := ctx.AST.LocalVariable(); local != nil {
 		return analyzeLocalVariable(context.Child(ctx, local))
-	} else if stateful := ctx.AST.StatefulVariable(); stateful != nil {
+	}
+	if stateful := ctx.AST.StatefulVariable(); stateful != nil {
 		return analyzeStatefulVariable(context.Child(ctx, stateful))
 	}
 	return true
@@ -105,38 +107,49 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	return nil, false
 }
 
-// isLiteralExpression checks if an expression is a literal value (number, string, bool)
+func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
+	if expr == nil {
+		return nil
+	}
+	logicalOr := expr.LogicalOrExpression()
+	if logicalOr == nil || len(logicalOr.AllLogicalAndExpression()) != 1 {
+		return nil
+	}
+	ands := logicalOr.AllLogicalAndExpression()[0]
+	if len(ands.AllEqualityExpression()) != 1 {
+		return nil
+	}
+	eq := ands.AllEqualityExpression()[0]
+	if len(eq.AllRelationalExpression()) != 1 {
+		return nil
+	}
+	rel := eq.AllRelationalExpression()[0]
+	if len(rel.AllAdditiveExpression()) != 1 {
+		return nil
+	}
+	add := rel.AllAdditiveExpression()[0]
+	if len(add.AllMultiplicativeExpression()) != 1 {
+		return nil
+	}
+	mult := add.AllMultiplicativeExpression()[0]
+	if len(mult.AllPowerExpression()) != 1 {
+		return nil
+	}
+	pow := mult.AllPowerExpression()[0]
+	unary := pow.UnaryExpression()
+	if unary == nil {
+		return nil
+	}
+	postfix := unary.PostfixExpression()
+	if postfix == nil {
+		return nil
+	}
+	return postfix.PrimaryExpression()
+}
+
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
-	if ctx.AST == nil {
-		return false
-	}
-
-	// Check if the expression is a simple literal
-	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		// Navigate down through the expression hierarchy to find literals
-		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
-			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
-				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
-					if additives := relationals[0].AllAdditiveExpression(); len(additives) == 1 {
-						if multiplicatives := additives[0].AllMultiplicativeExpression(); len(multiplicatives) == 1 {
-							if powers := multiplicatives[0].AllPowerExpression(); len(powers) == 1 {
-								if unary := powers[0].UnaryExpression(); unary != nil {
-									if postfix := unary.PostfixExpression(); postfix != nil {
-										if primary := postfix.PrimaryExpression(); primary != nil {
-											// Check if it's a literal
-											return primary.Literal() != nil
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return false
+	primary := getPrimaryExpression(ctx.AST)
+	return primary != nil && primary.Literal() != nil
 }
 
 // analyzeLocalVariable analyzes a local variable declaration
@@ -194,71 +207,33 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 	return true
 }
 
-// isChannelIdentifier checks if an expression is a simple identifier that refers to a channel
 func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
-	// Navigate through the expression tree to find an identifier
-	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
-			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
-				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
-					if additives := relationals[0].AllAdditiveExpression(); len(additives) == 1 {
-						if multiplicatives := additives[0].AllMultiplicativeExpression(); len(multiplicatives) == 1 {
-							if powers := multiplicatives[0].AllPowerExpression(); len(powers) == 1 {
-								if unary := powers[0].UnaryExpression(); unary != nil {
-									if postfix := unary.PostfixExpression(); postfix != nil {
-										if primary := postfix.PrimaryExpression(); primary != nil {
-											if id := primary.IDENTIFIER(); id != nil {
-												// Check if this identifier refers to a channel
-												if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
-													if _, ok := sym.Type.(ir.Chan); ok {
-														return true
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	primary := getPrimaryExpression(ctx.AST)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return false
 	}
-	return false
+	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return false
+	}
+	_, ok := sym.Type.(ir.Chan)
+	return ok
 }
 
-// getChannelType retrieves the channel type from an expression that is a channel identifier
 func getChannelType(ctx context.Context[parser.IExpressionContext]) *ir.Chan {
-	// Navigate through the expression tree to find the identifier and get its type
-	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
-			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
-				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
-					if additives := relationals[0].AllAdditiveExpression(); len(additives) == 1 {
-						if multiplicatives := additives[0].AllMultiplicativeExpression(); len(multiplicatives) == 1 {
-							if powers := multiplicatives[0].AllPowerExpression(); len(powers) == 1 {
-								if unary := powers[0].UnaryExpression(); unary != nil {
-									if postfix := unary.PostfixExpression(); postfix != nil {
-										if primary := postfix.PrimaryExpression(); primary != nil {
-											if id := primary.IDENTIFIER(); id != nil {
-												if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
-													if chanType, ok := sym.Type.(ir.Chan); ok {
-														return &chanType
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	primary := getPrimaryExpression(ctx.AST)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil
 	}
-	return nil
+	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil
+	}
+	chanType, ok := sym.Type.(ir.Chan)
+	if !ok {
+		return nil
+	}
+	return &chanType
 }
 
 // analyzeStatefulVariable analyzes a stateful variable declaration
@@ -397,7 +372,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 func analyzeChannelOperation(ctx context.Context[parser.IChannelOperationContext]) bool {
 	if write := ctx.AST.ChannelWrite(); write != nil {
 		return analyzeChannelWrite(context.Child(ctx, write))
-	} else if read := ctx.AST.ChannelRead(); read != nil {
+	}
+	if read := ctx.AST.ChannelRead(); read != nil {
 		return analyzeChannelRead(context.Child(ctx, read))
 	}
 	return true
@@ -458,99 +434,48 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 func analyzeChannelRead(ctx context.Context[parser.IChannelReadContext]) bool {
 	if blocking := ctx.AST.BlockingRead(); blocking != nil {
 		return analyzeBlockingRead(context.Child(ctx, blocking))
-	} else if nonBlocking := ctx.AST.NonBlockingRead(); nonBlocking != nil {
+	}
+	if nonBlocking := ctx.AST.NonBlockingRead(); nonBlocking != nil {
 		return analyzeNonBlockingRead(context.Child(ctx, nonBlocking))
 	}
 	return true
 }
 
 func analyzeBlockingRead(ctx context.Context[parser.IBlockingReadContext]) bool {
-	// Format: varName := <-channelName
 	ids := ctx.AST.AllIDENTIFIER()
 	if len(ids) != 2 {
 		return false
 	}
-
-	varName := ids[0].GetText()
-	channelName := ids[1].GetText()
-
-	// Resolve the channel
-	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
-	if err != nil {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(err, "undefined channel: %s", channelName),
-			ctx.AST,
-		)
-		return false
-	}
-
-	// Check it's a channel type
-	chanType, ok := channelSym.Type.(ir.Chan)
-	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Newf("%s is not a channel", channelName),
-			ctx.AST,
-		)
-		return false
-	}
-
-	// Add the variable with the channel's value type
-	_, err = ctx.Scope.Add(ctx, ir.Symbol{
-		Name:       varName,
-		Kind:       ir.KindVariable,
-		Type:       chanType.ValueType,
-		ParserRule: ctx.AST,
-	})
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	}
-
-	return true
+	return createChannelReadVariable(ctx, ids[0].GetText(), ids[1].GetText())
 }
 
 func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext]) bool {
-	// Format: varName := channelName
 	ids := ctx.AST.AllIDENTIFIER()
 	if len(ids) != 2 {
 		return false
 	}
+	return createChannelReadVariable(ctx, ids[0].GetText(), ids[1].GetText())
+}
 
-	varName := ids[0].GetText()
-	channelName := ids[1].GetText()
-
-	// Resolve the channel
+func createChannelReadVariable[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	varName, channelName string,
+) bool {
 	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(err, "undefined channel: %s", channelName),
-			ctx.AST,
-		)
+		ctx.Diagnostics.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx.AST)
 		return false
 	}
-
-	// Check it's a channel type
 	chanType, ok := channelSym.Type.(ir.Chan)
 	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Newf("%s is not a channel", channelName),
-			ctx.AST,
-		)
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a channel", channelName), ctx.AST)
 		return false
 	}
-
-	// Add the variable with the channel's value type
-	_, err = ctx.Scope.Add(ctx, ir.Symbol{
-		Name:       varName,
-		Kind:       ir.KindVariable,
-		Type:       chanType.ValueType,
-		ParserRule: ctx.AST,
-	})
+	_, err = ctx.Scope.Add(ctx, ir.Symbol{Name: varName, Kind: ir.KindVariable, Type: chanType.ValueType, ParserRule: ctx.AST})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-
 	return true
 }
 

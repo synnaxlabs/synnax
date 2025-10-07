@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/text"
 )
 
@@ -28,16 +29,8 @@ type (
 	Symbol         = ir.Symbol
 	Graph          = graph.Graph
 	Text           = text.Text
+	Module         = module.Module
 )
-
-type Module struct {
-	ir.IR
-	WASM []byte
-}
-
-func (m Module) IsZero() bool {
-	return len(m.Nodes) == 0 && len(m.Stages) == 0 && len(m.Functions) == 0 && len(m.Edges) == 0 && len(m.WASM) == 0 && m.Symbols == nil
-}
 
 type options struct {
 	resolver SymbolResolver

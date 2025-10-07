@@ -10,6 +10,7 @@
 package flow
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -56,77 +57,14 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 }
 
 func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], prevNode parser.IFlowNodeContext) bool {
-	// Step 1: Check that a symbol for the stage exists and it has the right type
 	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	} else if sym.Kind != ir.KindStage {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", name), ctx.AST)
+	_, stageType, ok := resolveStage(ctx, name)
+	if !ok {
 		return false
 	}
 
-	// Step 2: Validate configuration parameters
-	var stageType ir.Stage
-	if sym.Type != nil {
-		stageType, _ = sym.Type.(ir.Stage)
-	}
-	configParams := make(map[string]bool)
-	// Step 2A: Check for mismatch
-	if configBlock := ctx.AST.ConfigValues(); configBlock != nil {
-		if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
-			for _, configVal := range namedVals.AllNamedConfigValue() {
-				key := configVal.IDENTIFIER().GetText()
-				configParams[key] = true
-				expectedType, exists := stageType.Config.Get(key)
-				if !exists {
-					ctx.Diagnostics.AddError(errors.Newf("unknown config parameter '%s' for stage '%s'", key, name), configVal)
-					return false
-				}
-				if expr := configVal.Expression(); expr != nil {
-					childCtx := context.Child(ctx, expr)
-					if !expression.Analyze(childCtx) {
-						return false
-					}
-					exprType := atypes.InferFromExpression(childCtx)
-					if exprType != nil && expectedType != nil {
-						// Use constraint-based checking for type variables
-						if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
-							"config parameter '"+key+"' for stage '"+name+"'"); err != nil {
-							// Only report error if neither type is a type variable
-							if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
-								ctx.Diagnostics.AddError(
-									errors.Newf(
-										"type mismatch: config parameter '%s' expects %s but got %s",
-										key,
-										expectedType,
-										exprType,
-									),
-									configVal,
-								)
-								return false
-							}
-						}
-					}
-				}
-			}
-		} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-			ctx.Diagnostics.AddError(
-				errors.Newf("anonymous configuration values are not supported"),
-				configBlock.AnonymousConfigValues(),
-			)
-		}
-	}
-	// Step 2B: Check for missing required config parameters
-	for paramName := range stageType.Config.Iter() {
-		if !configParams[paramName] {
-			ctx.Diagnostics.AddError(
-				errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, name),
-				ctx.AST,
-			)
-			return false
-		}
+	if _, ok := validateStageConfig(ctx, name, stageType, ctx.AST.ConfigValues(), ctx.AST); !ok {
+		return false
 	}
 	if prevNode == nil {
 		return true
@@ -193,19 +131,8 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		}
 	} else if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
 		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
-		// lookup stage in symbol table
-		sym, err := ctx.Scope.Resolve(ctx, prevTaskName)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, prevTaskNode)
-			return false
-		}
-		var prevTaskType ir.Stage
-		if sym.Kind != ir.KindStage {
-			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a stage", prevTaskNode),
-				prevTaskNode,
-			)
-			prevTaskType, _ = sym.Type.(ir.Stage)
+		_, prevTaskType, ok := resolveStage(ctx, prevTaskName)
+		if !ok {
 			return false
 		}
 
@@ -277,6 +204,100 @@ func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool 
 	return true
 }
 
+func resolveStage[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	name string,
+) (*ir.Scope, ir.Stage, bool) {
+	sym, err := ctx.Scope.Resolve(ctx, name)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return nil, ir.Stage{}, false
+	}
+	if sym.Kind != ir.KindStage {
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", name), ctx.AST)
+		return nil, ir.Stage{}, false
+	}
+	var stageType ir.Stage
+	if sym.Type != nil {
+		if st, ok := sym.Type.(ir.Stage); ok {
+			stageType = st
+		} else if st, ok := sym.Type.(*ir.Stage); ok {
+			stageType = *st
+		}
+	}
+	return sym, stageType, true
+}
+
+func validateStageConfig[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	stageName string,
+	stageType ir.Stage,
+	configBlock parser.IConfigValuesContext,
+	configNode antlr.ParserRuleContext,
+) (map[string]bool, bool) {
+	configParams := make(map[string]bool)
+	if configBlock == nil {
+		return configParams, true
+	}
+
+	if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
+		for _, configVal := range namedVals.AllNamedConfigValue() {
+			key := configVal.IDENTIFIER().GetText()
+			configParams[key] = true
+			expectedType, exists := stageType.Config.Get(key)
+			if !exists {
+				ctx.Diagnostics.AddError(
+					errors.Newf("unknown config parameter '%s' for stage '%s'", key, stageName),
+					configVal,
+				)
+				return nil, false
+			}
+			if expr := configVal.Expression(); expr != nil {
+				childCtx := context.Child(ctx, expr)
+				if !expression.Analyze(childCtx) {
+					return nil, false
+				}
+				exprType := atypes.InferFromExpression(childCtx)
+				if exprType != nil && expectedType != nil {
+					if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
+						"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
+						if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
+							ctx.Diagnostics.AddError(
+								errors.Newf(
+									"type mismatch: config parameter '%s' expects %s but got %s",
+									key,
+									expectedType,
+									exprType,
+								),
+								configVal,
+							)
+							return nil, false
+						}
+					}
+				}
+			}
+		}
+	} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
+		ctx.Diagnostics.AddError(
+			errors.Newf("anonymous configuration values are not supported"),
+			anonVals,
+		)
+		return nil, false
+	}
+
+	for paramName := range stageType.Config.Iter() {
+		if !configParams[paramName] {
+			ctx.Diagnostics.AddError(
+				errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, stageName),
+				configNode,
+			)
+			return nil, false
+		}
+	}
+
+	return configParams, true
+}
+
 func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool {
 	// Find the parent flow statement
 	flowStmt, ok := ctx.AST.GetParent().(parser.IFlowStatementContext)
@@ -339,17 +360,9 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		return false
 	}
 
-	// Get the previous stage type
 	stageName := prevStage.IDENTIFIER().GetText()
-	stageScope, err := ctx.Scope.Resolve(ctx, stageName)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	}
-
-	stageType, ok := stageScope.Type.(ir.Stage)
+	_, stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
 		return false
 	}
 
@@ -453,17 +466,9 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		return false
 	}
 
-	// Get the stage type
 	stageName := nextStage.IDENTIFIER().GetText()
-	stageScope, err := ctx.Scope.Resolve(ctx, stageName)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	}
-
-	stageType, ok := stageScope.Type.(ir.Stage)
+	_, stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
 		return false
 	}
 
@@ -518,71 +523,13 @@ func analyzeRoutingTarget(ctx context.Context[parser.IFlowNodeContext], sourceTy
 	// Handle stage invocation target
 	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
 		stageName := stageInv.IDENTIFIER().GetText()
-		stageScope, err := ctx.Scope.Resolve(ctx, stageName)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+		_, stageType, ok := resolveStage(ctx, stageName)
+		if !ok {
 			return false
 		}
 
-		if stageScope.Kind != ir.KindStage {
-			ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
+		if _, ok := validateStageConfig(ctx, stageName, stageType, stageInv.ConfigValues(), stageInv); !ok {
 			return false
-		}
-
-		stageType := stageScope.Type.(ir.Stage)
-
-		// Validate configuration parameters (same as parseStageInvocation)
-		configParams := make(map[string]bool)
-		if configBlock := stageInv.ConfigValues(); configBlock != nil {
-			if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
-				for _, configVal := range namedVals.AllNamedConfigValue() {
-					key := configVal.IDENTIFIER().GetText()
-					configParams[key] = true
-					expectedType, exists := stageType.Config.Get(key)
-					if !exists {
-						ctx.Diagnostics.AddError(
-							errors.Newf("unknown config parameter '%s' for stage '%s'", key, stageName),
-							configVal,
-						)
-						return false
-					}
-					if expr := configVal.Expression(); expr != nil {
-						childCtx := context.Child(ctx, expr)
-						if !expression.Analyze(childCtx) {
-							return false
-						}
-						exprType := atypes.InferFromExpression(childCtx)
-						if exprType != nil && expectedType != nil {
-							if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
-								"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
-								if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
-									ctx.Diagnostics.AddError(
-										errors.Newf(
-											"type mismatch: config parameter '%s' expects %s but got %s",
-											key,
-											expectedType,
-											exprType,
-										),
-										configVal,
-									)
-									return false
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Check for missing required config parameters
-		for paramName := range stageType.Config.Iter() {
-			if !configParams[paramName] {
-				ctx.Diagnostics.AddError(
-					errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, stageName),
-					stageInv,
-				)
-				return false
-			}
 		}
 
 		// Type-check: sourceType should match the stage's first parameter
@@ -650,71 +597,13 @@ func analyzeRoutingTargetWithParam(
 	// Handle stage invocation target
 	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
 		stageName := stageInv.IDENTIFIER().GetText()
-		stageScope, err := ctx.Scope.Resolve(ctx, stageName)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+		_, stageType, ok := resolveStage(ctx, stageName)
+		if !ok {
 			return false
 		}
 
-		if stageScope.Kind != ir.KindStage {
-			ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", stageName), ctx.AST)
+		if _, ok := validateStageConfig(ctx, stageName, stageType, stageInv.ConfigValues(), stageInv); !ok {
 			return false
-		}
-
-		stageType := stageScope.Type.(ir.Stage)
-
-		// Validate configuration parameters
-		configParams := make(map[string]bool)
-		if configBlock := stageInv.ConfigValues(); configBlock != nil {
-			if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
-				for _, configVal := range namedVals.AllNamedConfigValue() {
-					key := configVal.IDENTIFIER().GetText()
-					configParams[key] = true
-					expectedType, exists := stageType.Config.Get(key)
-					if !exists {
-						ctx.Diagnostics.AddError(
-							errors.Newf("unknown config parameter '%s' for stage '%s'", key, stageName),
-							configVal,
-						)
-						return false
-					}
-					if expr := configVal.Expression(); expr != nil {
-						childCtx := context.Child(ctx, expr)
-						if !expression.Analyze(childCtx) {
-							return false
-						}
-						exprType := atypes.InferFromExpression(childCtx)
-						if exprType != nil && expectedType != nil {
-							if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
-								"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
-								if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
-									ctx.Diagnostics.AddError(
-										errors.Newf(
-											"type mismatch: config parameter '%s' expects %s but got %s",
-											key,
-											expectedType,
-											exprType,
-										),
-										configVal,
-									)
-									return false
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Check for missing required config parameters
-		for paramName := range stageType.Config.Iter() {
-			if !configParams[paramName] {
-				ctx.Diagnostics.AddError(
-					errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, stageName),
-					stageInv,
-				)
-				return false
-			}
 		}
 
 		// Type-check: if this is the last node and we have a targetParam, validate against next stage's parameter

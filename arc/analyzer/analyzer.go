@@ -10,9 +10,10 @@
 package analyzer
 
 import (
-	context2 "context"
+	"context"
 
-	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/antlr4-go/antlr/v4"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -25,79 +26,72 @@ import (
 
 type Diagnostics = diagnostics.Diagnostics
 
-func AnalyzeProgram(ctx context.Context[parser.IProgramContext]) bool {
-	// PASS 1: Collect declarations with empty type signatures
-	for _, item := range ctx.AST.AllTopLevelItem() {
-		if fn := item.FunctionDeclaration(); fn != nil {
-			name := fn.IDENTIFIER().GetText()
-			_, err := ctx.Scope.Add(ctx, ir.Symbol{
-				Name:       name,
-				Kind:       ir.KindFunction,
-				Type:       ir.Function{Key: name},
-				ParserRule: fn,
-			})
-			if err != nil {
-				ctx.Diagnostics.AddError(err, fn)
-				return false
-			}
-		} else if stage := item.StageDeclaration(); stage != nil {
-			name := stage.IDENTIFIER().GetText()
-			_, err := ctx.Scope.Add(ctx, ir.Symbol{
-				Name:       name,
-				Kind:       ir.KindStage,
-				Type:       ir.Stage{Key: name},
-				ParserRule: stage,
-			})
-			if err != nil {
-				ctx.Diagnostics.AddError(err, stage)
-				return false
-			}
-		}
+func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) bool {
+	if !collectDeclarations(ctx) {
+		return false
 	}
-
-	// PASS 2: Analyze tree and collect constraints
-	for _, item := range ctx.AST.AllTopLevelItem() {
-		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
-			if !analyzeFunctionDeclaration(context.Child(ctx, funcDecl)) {
-				return false
-			}
-		} else if taskDecl := item.StageDeclaration(); taskDecl != nil {
-			if !analyzeStageDeclaration(context.Child(ctx, taskDecl)) {
-				return false
-			}
-		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
-			if !flow.Analyze(context.Child(ctx, flowStmt)) {
-				return false
-			}
-		}
+	if !analyzeDeclarations(ctx) {
+		return false
 	}
-
-	// PASS 3: Unify type variables and resolve all types
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
-
-		// Apply substitutions to all types in the symbol table
 		if !applyTypeSubstitutions(ctx) {
 			return false
 		}
 	}
-
 	return true
 }
 
-func AnalyzeStatement(ctx context.Context[parser.IStatementContext]) bool {
+func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	for _, item := range ctx.AST.AllTopLevelItem() {
+		if fn := item.FunctionDeclaration(); fn != nil {
+			name := fn.IDENTIFIER().GetText()
+			if _, err := ctx.Scope.Add(ctx, ir.Symbol{Name: name, Kind: ir.KindFunction, Type: ir.Function{Key: name}, ParserRule: fn}); err != nil {
+				ctx.Diagnostics.AddError(err, fn)
+				return false
+			}
+		} else if stage := item.StageDeclaration(); stage != nil {
+			name := stage.IDENTIFIER().GetText()
+			if _, err := ctx.Scope.Add(ctx, ir.Symbol{Name: name, Kind: ir.KindStage, Type: ir.Stage{Key: name}, ParserRule: stage}); err != nil {
+				ctx.Diagnostics.AddError(err, stage)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	for _, item := range ctx.AST.AllTopLevelItem() {
+		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
+			if !analyzeFunctionDeclaration(acontext.Child(ctx, funcDecl)) {
+				return false
+			}
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if !analyzeStageDeclaration(acontext.Child(ctx, stageDecl)) {
+				return false
+			}
+		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
+			if !flow.Analyze(acontext.Child(ctx, flowStmt)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) bool {
 	return statement.Analyze(ctx)
 }
 
-func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
+func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) bool {
 	return statement.AnalyzeBlock(ctx)
 }
 
-// analyzeFunctionDeclaration analyzes a function declaration
-func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationContext]) bool {
+func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	fnScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -105,113 +99,115 @@ func analyzeFunctionDeclaration(ctx context.Context[parser.IFunctionDeclarationC
 		return false
 	}
 	fnType := fnScope.Type.(ir.Function)
-	if !analyzeParams(
-		context.Child(ctx, ctx.AST.ParameterList()).WithScope(fnScope),
-		&fnType.Params,
-	) {
+	if !analyzeParams(acontext.Child(ctx, ctx.AST.ParameterList()).WithScope(fnScope), &fnType.Params) {
 		return false
 	}
-	// Parse return type (single or multi-output)
-	if retType := ctx.AST.ReturnType(); retType != nil {
-		if typeCtx := retType.Type_(); typeCtx != nil {
-			// Single return type - create "output" entry
-			outputType, _ := atypes.InferFromTypeContext(typeCtx)
-			if !fnType.Outputs.Put("output", outputType) {
-				ctx.Diagnostics.AddError(
-					errors.New("failed to add output"),
-					retType,
-				)
-				return false
-			}
-		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
-			// Multiple named outputs
-			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
-				outputName := namedOutput.IDENTIFIER().GetText()
-				var outputType ir.Type
-				if typeCtx := namedOutput.Type_(); typeCtx != nil {
-					outputType, _ = atypes.InferFromTypeContext(typeCtx)
-				}
-				if !fnType.Outputs.Put(outputName, outputType) {
-					ctx.Diagnostics.AddError(
-						errors.Newf("duplicate output %s", outputName),
-						namedOutput,
-					)
-					return false
-				}
-
-				// Also add to scope for use within function body
-				if _, err := fnScope.Add(ctx, ir.Symbol{
-					Name:       outputName,
-					Kind:       ir.KindOutput,
-					Type:       outputType,
-					ParserRule: namedOutput,
-				}); err != nil {
-					ctx.Diagnostics.AddError(err, namedOutput)
-					return false
-				}
-			}
-		}
+	if !analyzeReturnTypeFn(ctx, ctx.AST.ReturnType(), fnScope, &fnType.Outputs) {
+		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
 		fnType.Body = ir.Body{AST: block}
 	}
 	fnScope.Type = fnType
 	if block := ctx.AST.Block(); block != nil {
-		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(fnScope)) {
+		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fnScope)) {
 			return false
 		}
-		// Check if the function has a return type and if all paths return
 		if outputType, hasOutput := fnType.Outputs.Get("output"); hasOutput && outputType != nil && !blockAlwaysReturns(block) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("function '%s' must return a value of type %s on all paths", name, outputType),
-				ctx.AST,
-			)
+			ctx.Diagnostics.AddError(errors.Newf("function '%s' must return a value of type %s on all paths", name, outputType), ctx.AST)
 			return false
 		}
 	}
 	return true
 }
 
-// checkOutputAssignedInBlock checks if an output variable is assigned in the given block
+func analyzeReturnTypeFn(
+	ctx acontext.Context[parser.IFunctionDeclarationContext],
+	retType parser.IReturnTypeContext,
+	scope *ir.Scope,
+	outputs *maps.Ordered[string, ir.Type],
+) bool {
+	return parseReturnType(ctx, retType, scope, outputs)
+}
+
+func analyzeReturnTypeStage(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	retType parser.IReturnTypeContext,
+	scope *ir.Scope,
+	outputs *maps.Ordered[string, ir.Type],
+) bool {
+	return parseReturnType(ctx, retType, scope, outputs)
+}
+
+func parseReturnType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	retType parser.IReturnTypeContext,
+	scope *ir.Scope,
+	outputs *maps.Ordered[string, ir.Type],
+) bool {
+	if retType == nil {
+		return true
+	}
+	if typeCtx := retType.Type_(); typeCtx != nil {
+		outputType, _ := atypes.InferFromTypeContext(typeCtx)
+		if !outputs.Put("output", outputType) {
+			ctx.Diagnostics.AddError(errors.New("failed to add output"), retType)
+			return false
+		}
+		return true
+	}
+	if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
+		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
+			outputName := namedOutput.IDENTIFIER().GetText()
+			var outputType ir.Type
+			if typeCtx := namedOutput.Type_(); typeCtx != nil {
+				outputType, _ = atypes.InferFromTypeContext(typeCtx)
+			}
+			if !outputs.Put(outputName, outputType) {
+				ctx.Diagnostics.AddError(errors.Newf("duplicate output %s", outputName), namedOutput)
+				return false
+			}
+			if _, err := scope.Add(ctx, ir.Symbol{Name: outputName, Kind: ir.KindOutput, Type: outputType, ParserRule: namedOutput}); err != nil {
+				ctx.Diagnostics.AddError(err, namedOutput)
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func checkOutputAssignedInBlock(block parser.IBlockContext, outputName string) bool {
 	if block == nil {
 		return false
 	}
-
 	for _, stmt := range block.AllStatement() {
-		// Check if it's an assignment to the output
-		if assignment := stmt.Assignment(); assignment != nil {
-			if assignment.IDENTIFIER().GetText() == outputName {
-				return true
-			}
+		if assignment := stmt.Assignment(); assignment != nil && assignment.IDENTIFIER().GetText() == outputName {
+			return true
 		}
-
-		// Check if statements
-		if ifStmt := stmt.IfStatement(); ifStmt != nil {
-			// Check main if block
-			if checkOutputAssignedInBlock(ifStmt.Block(), outputName) {
-				return true
-			}
-			// Check else-if blocks
-			for _, elseIf := range ifStmt.AllElseIfClause() {
-				if checkOutputAssignedInBlock(elseIf.Block(), outputName) {
-					return true
-				}
-			}
-			// Check else block
-			if elseClause := ifStmt.ElseClause(); elseClause != nil {
-				if checkOutputAssignedInBlock(elseClause.Block(), outputName) {
-					return true
-				}
-			}
+		if ifStmt := stmt.IfStatement(); ifStmt != nil && checkOutputAssignedInIfStmt(ifStmt, outputName) {
+			return true
 		}
 	}
+	return false
+}
 
+func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName string) bool {
+	if checkOutputAssignedInBlock(ifStmt.Block(), outputName) {
+		return true
+	}
+	for _, elseIf := range ifStmt.AllElseIfClause() {
+		if checkOutputAssignedInBlock(elseIf.Block(), outputName) {
+			return true
+		}
+	}
+	if elseClause := ifStmt.ElseClause(); elseClause != nil {
+		return checkOutputAssignedInBlock(elseClause.Block(), outputName)
+	}
 	return false
 }
 
 func analyzeParams(
-	ctx context.Context[parser.IParameterListContext],
+	ctx acontext.Context[parser.IParameterListContext],
 	paramTypes *maps.Ordered[string, ir.Type],
 ) bool {
 	if ctx.AST == nil {
@@ -224,20 +220,10 @@ func analyzeParams(
 		}
 		paramName := param.IDENTIFIER().GetText()
 		if !paramTypes.Put(paramName, paramType) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("duplicate parameter %s", paramName),
-				param,
-			)
+			ctx.Diagnostics.AddError(errors.Newf("duplicate parameter %s", paramName), param)
 			return false
 		}
-
-		// Also add to scope for use within stage body
-		if _, err := ctx.Scope.Add(ctx, ir.Symbol{
-			Name:       paramName,
-			Kind:       ir.KindParam,
-			Type:       paramType,
-			ParserRule: param,
-		}); err != nil {
+		if _, err := ctx.Scope.Add(ctx, ir.Symbol{Name: paramName, Kind: ir.KindParam, Type: paramType, ParserRule: param}); err != nil {
 			ctx.Diagnostics.AddError(err, param)
 			return false
 		}
@@ -245,78 +231,51 @@ func analyzeParams(
 	return true
 }
 
-// blockAlwaysReturns checks if a block always returns a value on all execution paths
 func blockAlwaysReturns(block parser.IBlockContext) bool {
 	if block == nil {
 		return false
 	}
 	statements := block.AllStatement()
-	if len(statements) == 0 {
-		return false
-	}
-	// Check statements from last to first
 	for i := len(statements) - 1; i >= 0; i-- {
-		stmt := statements[i]
-		// Check if it's a return statement
-		if stmt.ReturnStatement() != nil {
+		if statements[i].ReturnStatement() != nil {
 			return true
 		}
-		// Check if it's an if statement that covers all paths
-		if ifStmt := stmt.IfStatement(); ifStmt != nil {
-			// An if statement guarantees a return only if:
-			// 1. It has an else clause
-			// 2. All branches (if, else-ifs, else) return
-			if ifStmt.ElseClause() != nil {
-				// Check if the main if block returns
-				if !blockAlwaysReturns(ifStmt.Block()) {
-					continue // This if doesn't guarantee return
-				}
-				// Check all else-if branches
-				allElseIfsReturn := true
-				for _, elseIf := range ifStmt.AllElseIfClause() {
-					if !blockAlwaysReturns(elseIf.Block()) {
-						allElseIfsReturn = false
-						break
-					}
-				}
-				if !allElseIfsReturn {
-					continue
-				}
-				if blockAlwaysReturns(ifStmt.ElseClause().Block()) {
-					return true //
-				}
-			}
-			// No else or not all branches return, continue checking previous statements
+		if ifStmt := statements[i].IfStatement(); ifStmt != nil && ifStmtAlwaysReturns(ifStmt) {
+			return true
 		}
-		// For other statement types, continue checking previous statements
-		// (assignments, expressions, etc. don't affect return paths)
 	}
 	return false
 }
 
-// applyTypeSubstitutions applies resolved type variables throughout the symbol table
-func applyTypeSubstitutions(ctx context.Context[parser.IProgramContext]) bool {
-	// Walk the entire symbol table and apply substitutions
+func ifStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
+	if ifStmt.ElseClause() == nil || !blockAlwaysReturns(ifStmt.Block()) {
+		return false
+	}
+	for _, elseIf := range ifStmt.AllElseIfClause() {
+		if !blockAlwaysReturns(elseIf.Block()) {
+			return false
+		}
+	}
+	return blockAlwaysReturns(ifStmt.ElseClause().Block())
+}
+
+func applyTypeSubstitutions(ctx acontext.Context[parser.IProgramContext]) bool {
 	return applySubstitutionsToScope(ctx, ctx.Scope)
 }
 
-func applySubstitutionsToScope(ctx context.Context[parser.IProgramContext], scope *ir.Scope) bool {
-	// Apply substitutions to the current scope's type
+func applySubstitutionsToScope(ctx acontext.Context[parser.IProgramContext], scope *ir.Scope) bool {
 	if scope.Type != nil {
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
-
-	// Recursively apply to children
 	for _, child := range scope.Children {
 		if !applySubstitutionsToScope(ctx, child) {
 			return false
 		}
 	}
-
 	return true
 }
 
-func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext]) bool {
+func analyzeStageDeclaration(ctx acontext.Context[parser.IStageDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	stageScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -324,123 +283,64 @@ func analyzeStageDeclaration(ctx context.Context[parser.IStageDeclarationContext
 		return false
 	}
 	stageType := stageScope.Type.(ir.Stage)
-	if configBlock := ctx.AST.ConfigBlock(); configBlock != nil {
-		for _, param := range configBlock.AllConfigParameter() {
-			paramName := param.IDENTIFIER().GetText()
-			var configType ir.Type
-			if typeCtx := param.Type_(); typeCtx != nil {
-				configType, _ = atypes.InferFromTypeContext(typeCtx)
-			}
-			if !stageType.Config.Put(paramName, configType) {
-				ctx.Diagnostics.AddError(
-					errors.Newf("duplicate configuration parameter %s", param),
-					ctx.AST,
-				)
-			}
-			_, err = stageScope.Add(ctx, ir.Symbol{
-				Name:       paramName,
-				Kind:       ir.KindConfigParam,
-				Type:       configType,
-				ParserRule: param,
-			})
-			if err != nil {
-				ctx.Diagnostics.AddError(err, param)
-				return false
-			}
-		}
-	}
-
-	if !analyzeParams(
-		context.Child(ctx, ctx.AST.ParameterList()).WithScope(stageScope),
-		&stageType.Params,
-	) {
+	if !analyzeConfigBlock(ctx, ctx.AST.ConfigBlock(), stageScope, &stageType.Config) {
 		return false
 	}
-
-	// Parse return type (single or multi-output)
-	if retType := ctx.AST.ReturnType(); retType != nil {
-		if typeCtx := retType.Type_(); typeCtx != nil {
-			// Single return type - create "output" entry
-			outputType, _ := atypes.InferFromTypeContext(typeCtx)
-			if !stageType.Outputs.Put("output", outputType) {
-				ctx.Diagnostics.AddError(
-					errors.New("failed to add output"),
-					retType,
-				)
-				return false
-			}
-		} else if multiOutputBlock := retType.MultiOutputBlock(); multiOutputBlock != nil {
-			// Multiple named outputs
-			for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
-				outputName := namedOutput.IDENTIFIER().GetText()
-				var outputType ir.Type
-				if typeCtx := namedOutput.Type_(); typeCtx != nil {
-					outputType, _ = atypes.InferFromTypeContext(typeCtx)
-				}
-				if !stageType.Outputs.Put(outputName, outputType) {
-					ctx.Diagnostics.AddError(
-						errors.Newf("duplicate output %s", outputName),
-						namedOutput,
-					)
-					return false
-				}
-
-				// Also add to scope for use within stage body
-				if _, err := stageScope.Add(ctx, ir.Symbol{
-					Name:       outputName,
-					Kind:       ir.KindOutput,
-					Type:       outputType,
-					ParserRule: namedOutput,
-				}); err != nil {
-					ctx.Diagnostics.AddError(err, namedOutput)
-					return false
-				}
-			}
-		}
+	if !analyzeParams(acontext.Child(ctx, ctx.AST.ParameterList()).WithScope(stageScope), &stageType.Params) {
+		return false
+	}
+	if !analyzeReturnTypeStage(ctx, ctx.AST.ReturnType(), stageScope, &stageType.Outputs) {
+		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
 		stageType.Body = ir.Body{AST: block}
 	}
 	stageScope.Type = stageType
 	if block := ctx.AST.Block(); block != nil {
-		// Track output assignments
-		outputAssignments := make(map[string]bool)
-
-		stageScope.OnResolve = func(ctx context2.Context, s *ir.Scope) error {
+		stageScope.OnResolve = func(ctx context.Context, s *ir.Scope) error {
 			if s.Kind == ir.KindChannel {
 				stageType.Channels.Read.Add(uint32(s.ID))
 			}
-			// Track assignments to outputs
-			if s.Kind == ir.KindOutput {
-				outputAssignments[s.Name] = true
-			}
 			return nil
 		}
-		if !statement.AnalyzeBlock(context.Child(ctx, block).WithScope(stageScope)) {
+		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(stageScope)) {
 			return false
 		}
-
-		// Check if the stage has a single return type and if all paths return
 		if outputType, hasOutput := stageType.Outputs.Get("output"); hasOutput && outputType != nil && !blockAlwaysReturns(block) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("stage '%s' must return a value of type %s on all paths", name, outputType),
-				ctx.AST,
-			)
+			ctx.Diagnostics.AddError(errors.Newf("stage '%s' must return a value of type %s on all paths", name, outputType), ctx.AST)
 			return false
 		}
-
-		// Check for unassigned named outputs (skip "output" for single returns with return statement)
 		for outputName := range stageType.Outputs.Iter() {
-			// Skip "output" - it's populated by return statement
-			if outputName == "output" {
-				continue
+			if outputName != "output" && !checkOutputAssignedInBlock(block, outputName) {
+				ctx.Diagnostics.AddWarning(errors.Newf("output '%s' is never assigned in stage '%s'", outputName, name), ctx.AST)
 			}
-			if !checkOutputAssignedInBlock(block, outputName) {
-				ctx.Diagnostics.AddWarning(
-					errors.Newf("output '%s' is never assigned in stage '%s'", outputName, name),
-					ctx.AST,
-				)
-			}
+		}
+	}
+	return true
+}
+
+func analyzeConfigBlock(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	configBlock parser.IConfigBlockContext,
+	scope *ir.Scope,
+	config *maps.Ordered[string, ir.Type],
+) bool {
+	if configBlock == nil {
+		return true
+	}
+	for _, param := range configBlock.AllConfigParameter() {
+		paramName := param.IDENTIFIER().GetText()
+		var configType ir.Type
+		if typeCtx := param.Type_(); typeCtx != nil {
+			configType, _ = atypes.InferFromTypeContext(typeCtx)
+		}
+		if !config.Put(paramName, configType) {
+			ctx.Diagnostics.AddError(errors.Newf("duplicate configuration parameter %s", paramName), param)
+			return false
+		}
+		if _, err := scope.Add(ctx, ir.Symbol{Name: paramName, Kind: ir.KindConfigParam, Type: configType, ParserRule: param}); err != nil {
+			ctx.Diagnostics.AddError(err, param)
+			return false
 		}
 	}
 	return true
