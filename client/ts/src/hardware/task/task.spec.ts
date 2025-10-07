@@ -281,9 +281,7 @@ describe("Task", async () => {
         const snapshotOnlyResult = await client.hardware.tasks.retrieve({
           snapshot: true,
         });
-        expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(
-          true,
-        );
+        expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
         expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
 
         const regularOnlyResult = await client.hardware.tasks.retrieve({
