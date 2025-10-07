@@ -193,7 +193,7 @@ check_file() {
 
     # Check for duplicate copyright headers anywhere in the file
     local copyright_count
-    copyright_count=$(grep -c "Copyright.*Synnax Labs" "$file" 2>/dev/null || true)
+    copyright_count=$(grep -c "Copyright.*Synnax Labs" "$file" 2> /dev/null || true)
     if [ "$copyright_count" -gt 1 ]; then
         FILES_DUPLICATE_HEADER+=("$file")
         DUPLICATE_HEADER=$((DUPLICATE_HEADER + 1))
@@ -224,7 +224,7 @@ while IFS= read -r file; do
     # Check file extension
     ext="${file##*.}"
     case "$ext" in
-        go|py|ts|tsx|js|jsx|cpp|hpp|h|cc|cxx|css)
+        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css)
             # Check if file should be ignored per .copyrightignore
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")
