@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+<<<<<<< Updated upstream
 //
+=======
+>>>>>>> Stashed changes
 import "@/range/list/List.css";
 
 import { type ranger } from "@synnaxlabs/client";

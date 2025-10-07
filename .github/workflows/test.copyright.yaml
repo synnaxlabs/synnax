@@ -16,6 +16,4 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Check Copyright Headers
-        run: |
-          chmod +x ./scripts/check_copyrights.sh
-          ./scripts/check_copyrights.sh
+        run: ./scripts/check_copyrights.sh
