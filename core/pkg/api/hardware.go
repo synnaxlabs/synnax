@@ -231,7 +231,9 @@ type (
 		Keys          []task.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
 		Types         []string   `json:"types" msgpack:"types"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+		IncludeStatus *bool      `json:"include_status" msgpack:"include_status"`
+		Internal      *bool      `json:"internal" msgpack:"internal"`
+		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
@@ -254,6 +256,12 @@ func (svc *HardwareService) RetrieveTask(
 		hasOffset = req.Offset > 0
 	)
 	q := svc.internal.Task.NewRetrieve()
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal, gorp.Required())
+	}
+	if req.Snapshot != nil {
+		q = q.WhereSnapshot(*req.Snapshot, gorp.Required())
+	}
 	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
@@ -279,7 +287,7 @@ func (svc *HardwareService) RetrieveTask(
 	if err != nil {
 		return res, err
 	}
-	if req.IncludeStatus {
+	if req.IncludeStatus != nil && *req.IncludeStatus {
 		for i := range res.Tasks {
 			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
 			if ok {
