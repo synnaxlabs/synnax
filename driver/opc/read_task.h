@@ -195,16 +195,24 @@ protected:
         pool(std::move(pool)),
         conn(nullptr, nullptr, ""),
         request(this->cfg),
-        timer(rate) {}
+        timer(rate) {
+        LOG(INFO) << "[opc.read] BaseReadTaskSource constructor completed";
+    }
 
     synnax::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
     }
 
     xerrors::Error start() override {
+        LOG(INFO) << "[opc.read] start: acquiring connection from pool";
         auto [c, err] = pool->acquire(cfg.conn, "[opc.read] ");
-        if (err) return err;
+        if (err) {
+            LOG(ERROR) << "[opc.read] start: pool->acquire failed - " << err.message();
+            return err;
+        }
+        LOG(INFO) << "[opc.read] start: connection acquired, moving to conn member";
         conn = std::move(c);
+        LOG(INFO) << "[opc.read] start: completed successfully";
         return xerrors::NIL;
     }
 

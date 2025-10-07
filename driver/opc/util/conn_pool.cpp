@@ -19,11 +19,14 @@ namespace util {
 
 std::pair<ConnectionPool::Connection, xerrors::Error>
 ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_prefix) {
+    LOG(INFO) << log_prefix << "acquire: starting for endpoint " << cfg.endpoint;
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
                             cfg.security_mode + "|" + cfg.security_policy;
 
+    LOG(INFO) << log_prefix << "acquire: attempting to lock mutex";
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        LOG(INFO) << log_prefix << "acquire: mutex locked successfully";
 
         auto it = connections_.find(key);
         if (it != connections_.end()) {
