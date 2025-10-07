@@ -401,15 +401,13 @@ class Console:
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""
         for option in button_options:
-            try:
-                button = self.page.get_by_text(option).first
-                if button.count() > 0:
-                    button.wait_for(state="attached", timeout=300)
-                    class_name = button.get_attribute("class") or ""
-                    if "pluto-btn--filled" in class_name:
-                        return option
-            except:
-                continue
+            button = self.page.get_by_text(option).first
+            if button.count() > 0:
+                button.wait_for(state="attached", timeout=300)
+                class_name = button.get_attribute("class") or ""
+                if "pluto-btn--filled" in class_name:
+                    return option
+
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def click(self, selector: str, timeout: Optional[int] = 5000) -> None:
