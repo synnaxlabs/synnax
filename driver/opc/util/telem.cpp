@@ -117,6 +117,13 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     LOG(INFO) << "[opc.util] write_to_series: starting, series data_type=" << s.data_type().name();
+
+    // Check if variant is empty/invalid
+    if (v.data == nullptr || v.type == nullptr) {
+        LOG(WARNING) << "[opc.util] write_to_series: empty or invalid variant, skipping write";
+        return 0;
+    }
+
     if (s.data_type() == telem::TIMESTAMP_T &&
         UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
         LOG(INFO) << "[opc.util] write_to_series: handling TIMESTAMP type";

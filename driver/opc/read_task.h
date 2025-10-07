@@ -316,21 +316,24 @@ public:
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             LOG(INFO) << "[opc.read.unary] read: sample " << i << " starting";
             const auto start = telem::TimeStamp::now();
-            LOG(INFO) << "[opc.read.unary] read: calling UA_Client_Service_read";
+            LOG(INFO) << "[opc.read.unary] read: calling UA_Client_Service_read, conn=" << this->conn.get();
             UA_ReadResponse ua_res = UA_Client_Service_read(
                 this->conn.get(),
                 this->request.base
             );
-            LOG(INFO) << "[opc.read.unary] read: UA_Client_Service_read completed";
+            LOG(INFO) << "[opc.read.unary] read: UA_Client_Service_read completed, resultsSize=" << ua_res.resultsSize;
             x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
             if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
                 res.error)
                 return res;
             LOG(INFO) << "[opc.read.unary] read: processing " << ua_res.resultsSize << " results";
             for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
+                LOG(INFO) << "[opc.read.unary] read: processing result index " << j;
                 UA_DataValue &result = ua_res.results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
+                LOG(INFO) << "[opc.read.unary] read: calling write_to_series for index " << j;
                 util::write_to_series(fr.series->at(j), result.value);
+                LOG(INFO) << "[opc.read.unary] read: write_to_series completed for index " << j;
             }
             const auto end = telem::TimeStamp::now();
             const auto ts = telem::TimeStamp::midpoint(start, end);
