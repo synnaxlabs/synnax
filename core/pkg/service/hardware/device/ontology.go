@@ -21,20 +21,27 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+// OntologyType is a unique type for the device service within the ontology.
 const OntologyType ontology.Type = "device"
 
-func OntologyID(k string) ontology.ID { return ontology.ID{Type: OntologyType, Key: k} }
+// OntologyID returns the unique ID for the device within the ontology.
+func OntologyID(key string) ontology.ID {
+	return ontology.ID{Type: OntologyType, Key: key}
+}
 
+// OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
 	return lo.Map(devices, func(d Device, _ int) ontology.ID {
 		return OntologyID(d.Key)
 	})
 }
 
+// OntologyIDs returns the ontology IDs for the given keys.
 func OntologyIDs(keys []string) []ontology.ID {
-	return lo.Map(keys, func(key string, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
 }
 
+// KeysFromOntologyIDs returns the keys for the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) []string {
 	keys := make([]string, len(ids))
 	for i, id := range ids {
@@ -45,12 +52,12 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.String(),
+	"rack":       zyn.Uint32().Coerce(),
+	"location":   zyn.String(),
 	"name":       zyn.String(),
 	"make":       zyn.String(),
 	"model":      zyn.String(),
 	"configured": zyn.Bool(),
-	"location":   zyn.String(),
-	"rack":       zyn.Uint32().Coerce(),
 })
 
 func newResource(d Device) ontology.Resource {
@@ -61,12 +68,13 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[string, Device]
 
+// Type returns the type of the device ontology service.
 func (s *Service) Type() ontology.Type { return OntologyType }
 
-// Schema implements ontology.Service.
+// Schema returns the schema for the device ontology service.
 func (s *Service) Schema() zyn.Schema { return schema }
 
-// RetrieveResource implements ontology.Service.
+// RetrieveResource allows for retrieving a device with a given key from the ontology.
 func (s *Service) RetrieveResource(
 	ctx context.Context,
 	key string,
@@ -87,25 +95,27 @@ func translateChange(c change) ontology.Change {
 	}
 }
 
-// OnChange implements ontology.Service.
+// OnChange implements determines what should happen in the ontology when a change is
+// made to a device.
 func (s *Service) OnChange(
 	f func(context.Context, iter.Nexter[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Device]) {
-		f(
-			ctx,
-			iter.NexterTranslator[change, ontology.Change]{
-				Wrap:      reader,
-				Translate: translateChange,
-			},
-		)
+	handleChange := func(
+		ctx context.Context,
+		reader gorp.TxReader[string, Device],
+	) {
+		f(ctx, iter.NexterTranslator[change, ontology.Change]{
+			Wrap:      reader,
+			Translate: translateChange,
+		})
 	}
-	return gorp.Observe[string, Device](s.DB).OnChange(handleChange)
+	return gorp.Observe[string, Device](s.cfg.DB).OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
+// OpenNexter opens a nexter type that allows for iterating over all devices in the
+// ontology.
 func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[string, Device](s.DB).OpenNexter()
+	n, err := gorp.WrapReader[string, Device](s.cfg.DB).OpenNexter()
 	if err != nil {
 		return nil, err
 	}
