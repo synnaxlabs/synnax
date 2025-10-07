@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -93,15 +93,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch, layoutKey],
   );
   const canEdit = useSelectHasPermission();
+  const value = useMemo(
+    () => ({
+      tabs: TABS,
+      selected: toolbar?.activeTab,
+      onSelect: handleTabSelect,
+      content,
+    }),
+    [toolbar?.activeTab, content, handleTabSelect],
+  );
   return (
-    <Tabs.Provider
-      value={{
-        tabs: TABS,
-        selected: toolbar?.activeTab,
-        onSelect: handleTabSelect,
-        content,
-      }}
-    >
+    <Tabs.Provider value={value}>
       <Core.Content disableClusterBoundary>
         <Core.Header>
           <Breadcrumb.Breadcrumb level="h5">

@@ -9,7 +9,7 @@
 
 import "@/header/Header.css";
 
-import { createContext, type ReactElement, type ReactNode, use } from "react";
+import { createContext, type ReactElement, type ReactNode, use, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -49,21 +49,24 @@ export const Header = ({
   bordered = true,
   padded = false,
   ...rest
-}: HeaderProps): ReactElement => (
-  <Context value={{ level, divided }}>
-    <Flex.Box
-      el="header"
-      x
-      align="center"
-      justify="between"
-      className={CSS(
-        CSS.B("header"),
-        bordered && CSS.bordered("bottom"),
-        divided && CSS.BM("header", "divided"),
-        padded && CSS.BM("header", "padded"),
-        className,
-      )}
-      {...rest}
-    />
-  </Context>
-);
+}: HeaderProps): ReactElement => {
+  const value = useMemo(() => ({ level, divided }), [level, divided]);
+  return (
+    <Context value={value}>
+      <Flex.Box
+        el="header"
+        x
+        align="center"
+        justify="between"
+        className={CSS(
+          CSS.B("header"),
+          bordered && CSS.bordered("bottom"),
+          divided && CSS.BM("header", "divided"),
+          padded && CSS.BM("header", "padded"),
+          className,
+        )}
+        {...rest}
+      />
+    </Context>
+  );
+};

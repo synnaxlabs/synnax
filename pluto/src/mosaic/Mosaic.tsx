@@ -280,39 +280,37 @@ const TabLeaf = memo(
     const isEmpty = key == 1 && tabs.length == 0;
 
     return (
-      <>
-        <Tabs.Tabs
-          id={`tab-${key}`}
-          tabs={tabs}
-          className={CSS(className, isEmpty && dragMask != null && CSS.M("drag-over"))}
-          onDragLeave={handleDragLeave}
-          selected={node.selected}
-          selectedAltColor={activeTab === node.selected}
-          onDragStart={handleDragStart}
-          onCreate={handleTabCreate}
-          addTooltip={addTooltip}
-          {...haulProps}
-          {...rest}
-        >
-          {node.selected != null &&
-            children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
-          {dragging && (
-            <div
-              style={{
-                zIndex: 1000,
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-              }}
-            />
-          )}
-          {dragMask != null && (
-            <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
-          )}
-        </Tabs.Tabs>
-      </>
+      <Tabs.Tabs
+        id={`tab-${key}`}
+        tabs={tabs}
+        className={CSS(className, isEmpty && dragMask != null && CSS.M("drag-over"))}
+        onDragLeave={handleDragLeave}
+        selected={node.selected}
+        selectedAltColor={activeTab === node.selected}
+        onDragStart={handleDragStart}
+        onCreate={handleTabCreate}
+        addTooltip={addTooltip}
+        {...haulProps}
+        {...rest}
+      >
+        {node.selected != null &&
+          children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
+        {dragging && (
+          <div
+            style={{
+              zIndex: 1000,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
+          />
+        )}
+        {dragMask != null && (
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
+        )}
+      </Tabs.Tabs>
     );
   },
 );

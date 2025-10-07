@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { useExport } from "@/arc/export";
@@ -96,15 +96,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
   const canEdit = useSelectHasPermission();
+  const contextValue = useMemo(
+    () => ({
+      tabs: TABS,
+      selected: toolbar.activeTab,
+      onSelect: handleTabSelect,
+      content,
+    }),
+    [toolbar.activeTab, content, handleTabSelect],
+  );
   return (
-    <Tabs.Provider
-      value={{
-        tabs: TABS,
-        selected: toolbar.activeTab,
-        onSelect: handleTabSelect,
-        content,
-      }}
-    >
+    <Tabs.Provider value={contextValue}>
       <Core.Header>
         <Breadcrumb.Breadcrumb level="h5">
           <Breadcrumb.Segment weight={500} color={10} level="h5">

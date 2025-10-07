@@ -87,12 +87,10 @@ const ContextMenu = <C extends Channel>({
             </PMenu.Item>
           )}
           {canRemove && (
-            <>
-              <PMenu.Item itemKey="remove">
-                <Icon.Close />
-                Remove
-              </PMenu.Item>
-            </>
+            <PMenu.Item itemKey="remove">
+              <Icon.Close />
+              Remove
+            </PMenu.Item>
           )}
           {(canDuplicate || canRemove) && <PMenu.Divider />}
           {contextMenuItems?.({ channels, keys }) ?? null}

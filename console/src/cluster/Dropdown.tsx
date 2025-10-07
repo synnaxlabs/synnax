@@ -27,6 +27,7 @@ import {
   type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useMemo,
   useState,
@@ -89,9 +90,9 @@ export const NoneConnectedBoundary = ({
   children,
   disabled,
   ...rest
-}: NoneConnectedProps): ReactElement => {
+}: NoneConnectedProps): ReactNode => {
   const client = Synnax.use();
-  if (client != null || disabled) return <>{children}</>;
+  if (client != null || disabled) return children;
   return <NoneConnected {...rest} />;
 };
 

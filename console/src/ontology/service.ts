@@ -97,7 +97,7 @@ export interface PaletteListItem extends FC<List.ItemProps<string>> {}
 
 export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "resource"> {
   id: ontology.ID;
-  icon: Icon.ReactElement;
+  icon?: Icon.ReactElement;
   loading: boolean;
   resource: ontology.Resource;
   onDoubleClick: () => void;
@@ -105,7 +105,7 @@ export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "reso
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
+  icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   hasChildren: boolean;
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
@@ -117,7 +117,6 @@ export interface Service {
 }
 
 export const NOOP_SERVICE: Omit<Service, "type"> = {
-  icon: <></>,
   hasChildren: true,
   canDrop: () => false,
   haulItems: () => [],
