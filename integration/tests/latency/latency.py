@@ -18,7 +18,7 @@ class Latency(TestCase):
     """
 
     def setup(self) -> None:
-        
+
         gc.disable()
         self.log("GC Disabled")
 

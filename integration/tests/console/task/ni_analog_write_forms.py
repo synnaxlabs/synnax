@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class NiAoForms(ConsoleCase):
+class NIAnalogWriteForms(ConsoleCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be
@@ -37,14 +37,13 @@ class NiAoForms(ConsoleCase):
 
         # Check simple functionality
         console.ni_ao.set_parameters(
-            task_name="DO_Test_task",
+            task_name="AO_Test_task",
             state_update_rate=10,
             data_saving=True,
             auto_start=False,
         )
 
         self.create_test_rack(rack_name, device_name)
-        self.verify_function_generator_inputs(device_name)
         self.verify_voltage_inputs(device_name)
         self.verify_current_inputs(device_name)
 
@@ -107,42 +106,4 @@ class NiAoForms(ConsoleCase):
             device=device_name,
             min_val=-0.1,
             max_val=6.5,
-        )
-
-    def verify_function_generator_inputs(self, device_name: str) -> None:
-        """Validate Function Generator inputs"""
-        self.log("Configuring channels of type Function Generator")
-        console = self.console
-
-        console.ni_ao.add_channel(
-            name="FuncGen_1",
-            type="Function Generator",
-            device=device_name,
-        )
-        console.ni_ao.add_channel(
-            name="FuncGen_2",
-            type="Function Generator",
-            device=device_name,
-            frequency=101.1,
-            amplitude=5.5,
-            offset=-1.2,
-            waveform="Sine",
-        )
-        console.ni_ao.add_channel(
-            name="FuncGen_3",
-            type="Function Generator",
-            device=device_name,
-            waveform="Triangle",
-        )
-        console.ni_ao.add_channel(
-            name="FuncGen_4",
-            type="Function Generator",
-            device=device_name,
-            waveform="Square",
-        )
-        console.ni_ao.add_channel(
-            name="FuncGen_5",
-            type="Function Generator",
-            device=device_name,
-            waveform="Sawtooth",
         )

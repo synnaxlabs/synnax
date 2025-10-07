@@ -14,7 +14,6 @@ from .channels.current import Current
 from .channels.force_bridge_table import ForceBridgeTable
 from .channels.force_bridge_two_point_linear import ForceBridgeTwoPointLinear
 from .channels.force_iepe import ForceIEPE
-from .channels.function_generator import FunctionGenerator
 from .channels.microphone import Microphone
 from .channels.pressure_bridge_table import PressureBridgeTable
 from .channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
@@ -27,14 +26,14 @@ from .channels.torque_bridge_table import TorqueBridgeTable
 from .channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
 from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
-from .ni_ai import NiAi
-from .ni_ao import NiAo
+from .ni_analog_read import NIAnalogRead
+from .ni_analog_write import NIAnalogWrite
 from .task import Task
 
 __all__ = [
     "Task",
-    "NiAi",
-    "NiAo",
+    "NIAnalogRead",
+    "NIAnalogWrite",
     "Analog",
     "Accelerometer",
     "Bridge",
@@ -42,7 +41,6 @@ __all__ = [
     "ForceBridgeTable",
     "ForceBridgeTwoPointLinear",
     "ForceIEPE",
-    "FunctionGenerator",
     "Microphone",
     "PressureBridgeTable",
     "PressureBridgeTwoPointLinear",

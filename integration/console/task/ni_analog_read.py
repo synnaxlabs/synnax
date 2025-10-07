@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from console.console import Console
 
 
-class NiAi(Task):
-    """NI Analog Input Task automation interface."""
+class NIAnalogRead(Task):
+    """NI Analog Read/Input Task automation interface."""
 
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)

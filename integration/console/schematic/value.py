@@ -113,16 +113,14 @@ class Value(Symbol):
         props["precision"] = int(console.get_input_field("Precision"))
 
         # Averaging Window
-        props["averaging_window"] = int(
-            console.get_input_field("Averaging Window")
-        )
+        props["averaging_window"] = int(console.get_input_field("Averaging Window"))
 
         # Staleness Timeout
         props["stale_timeout"] = int(console.get_input_field("Stale Timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
-        
+
         notation = console.get_selected_button(notation_options)
         props["notation"] = notation.lower()
 

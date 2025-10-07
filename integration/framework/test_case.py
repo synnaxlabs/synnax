@@ -262,9 +262,7 @@ class TestCase(ABC):
             if is_websocket_error(e):
                 pass
             else:
-                self.log(
-                    f"Writer thread error: {e}\n {traceback.format_exc()}"
-                )
+                self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
                 raise e
 
@@ -313,9 +311,7 @@ class TestCase(ABC):
             if is_websocket_error(e):
                 pass
             else:
-                self.log(
-                    f"Streamer thread error: {e}\n {traceback.format_exc()}"
-                )
+                self.log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
                 raise e
 
@@ -361,17 +357,13 @@ class TestCase(ABC):
             if self.streamer_thread and self.streamer_thread.is_alive():
                 self.streamer_thread.join(timeout=5.0)
                 if self.streamer_thread.is_alive():
-                    self.log(
-                        "Warning: streamer thread did not stop within timeout"
-                    )
+                    self.log("Warning: streamer thread did not stop within timeout")
 
             # Stop writer thread
             if self.writer_thread.is_alive():
                 self.writer_thread.join(timeout=5.0)
                 if self.writer_thread.is_alive():
-                    self.log(
-                        "Warning: writer thread did not stop within timeout"
-                    )
+                    self.log("Warning: writer thread did not stop within timeout")
 
         # All done? All done.
         if self._status == STATUS.PENDING:
@@ -407,17 +399,13 @@ class TestCase(ABC):
                 )
 
         elif self._status == self.expected_outcome:
-            self.log(
-                f"PASSED (✅): Expected outcome achieved ({status_symbol})"
-            )
+            self.log(f"PASSED (✅): Expected outcome achieved ({status_symbol})")
             # Set _status directly. Setter protects against lower-value statuses. (PASSED)
             self._status = STATUS.PASSED
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self.log(
-                f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds"
-            )
+            self.log(f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds")
         elif self._status == STATUS.KILLED:
             self.log(f"KILLED ({status_symbol})")
 

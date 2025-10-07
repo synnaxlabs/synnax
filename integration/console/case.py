@@ -36,9 +36,7 @@ class ConsoleCase(TestCase):
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
-        self.log(
-            f"Opening browser in {'headless' if headless else 'visible'} mode"
-        )
+        self.log(f"Opening browser in {'headless' if headless else 'visible'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)

@@ -21,7 +21,6 @@ from console.task.channels.force_bridge_two_point_linear import (
     ForceBridgeTwoPointLinear,
 )
 from console.task.channels.force_iepe import ForceIEPE
-from console.task.channels.function_generator import FunctionGenerator
 from console.task.channels.microphone import Microphone
 from console.task.channels.pressure_bridge_table import PressureBridgeTable
 from console.task.channels.pressure_bridge_two_point_linear import (
@@ -53,7 +52,6 @@ CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Force Bridge Table": ForceBridgeTable,
     "Force Bridge Two-Point Linear": ForceBridgeTwoPointLinear,
     "Force IEPE": ForceIEPE,
-    "Function Generator": FunctionGenerator,
     "Microphone": Microphone,
     "Pressure Bridge Table": PressureBridgeTable,
     "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,

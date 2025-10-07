@@ -19,8 +19,8 @@ import numpy as np
 import synnax as sy
 
 from framework.utils import get_machine_info, get_memory_info, get_synnax_version
-
 from tests.latency.latency import Latency
+
 
 class BenchReport(Latency):
 

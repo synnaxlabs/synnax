@@ -656,13 +656,16 @@ class TestConductor:
                 test_class = getattr(module, class_name)
             except AttributeError:
                 # If exact class name not found, try to find any TestCase subclass
+                # that is defined in this module (not imported from elsewhere)
                 test_classes = [
                     getattr(module, name)
                     for name in dir(module)
                     if (
                         not name.startswith("_")
-                        and hasattr(getattr(module, name), "__bases__")
-                        and TestCase in getattr(module, name).__bases__
+                        and isinstance(getattr(module, name), type)
+                        and issubclass(getattr(module, name), TestCase)
+                        and getattr(module, name) is not TestCase
+                        and getattr(module, name).__module__ == module.__name__
                     )
                 ]
                 if test_classes:

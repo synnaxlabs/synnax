@@ -28,14 +28,13 @@ from tests.latency.latency import Latency
 matplotlib.use("Agg")  # Use non-interactive backend
 
 
-class DriverNiDo(Latency):
+class DriverNIDigitalWrite(Latency):
     """
-    Send a command to an NI DO channel and measure the latency between the
+    Send a command to an NI DO (Write) channel and measure the latency between the
     core and loop-back (python) timestamp.
     """
 
     def setup(self) -> None:
-        super().setup()
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
         super().setup()

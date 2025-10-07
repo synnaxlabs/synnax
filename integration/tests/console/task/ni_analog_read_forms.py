@@ -15,7 +15,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class NiAiForms(ConsoleCase):
+class NIAnalogReadForms(ConsoleCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be
@@ -440,9 +440,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_pressure_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Pressure Bridge Two-Point Linear inputs"""
-        self.log(
-            "Configuring channels of type Pressure Bridge Two-Point Linear"
-        )
+        self.log("Configuring channels of type Pressure Bridge Two-Point Linear")
         console = self.console
         type = "Pressure Bridge Two-Point Linear"
 

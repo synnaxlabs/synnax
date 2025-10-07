@@ -7,13 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
 from console.task.channels.current import Current
-from console.task.channels.function_generator import FunctionGenerator
 from console.task.channels.voltage import Voltage
 
 from .task import Task
@@ -25,12 +24,11 @@ if TYPE_CHECKING:
 AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
     "Voltage": Voltage,
     "Current": Current,
-    "Function Generator": FunctionGenerator,
 }
 
 
-class NiAo(Task):
-    """NI Analog Output Task automation interface."""
+class NIAnalogWrite(Task):
+    """NI Analog Write/Output Task automation interface."""
 
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
@@ -52,13 +50,13 @@ class NiAo(Task):
         **kwargs: Any,
     ) -> Analog:
         """
-        Add a channel to the NI AO task. Only Voltage, Current, and Function Generator types are allowed.
+        Add a channel to the NI AO task. Only Voltage and Current types are allowed.
         Terminal configuration and shunt resistor parameters are not supported for AO tasks.
 
 
         Args:
             name: Channel name
-            type: Channel type (must be "Voltage", "Current", or "Function Generator")
+            type: Channel type (must be "Voltage" or "Current")
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration

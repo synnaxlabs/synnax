@@ -6,7 +6,7 @@
       "sequence_order": "sequential",
       "tests": [
         {
-          "case": "latency/driver_ni_do"
+          "case": "latency/driver_ni_digital_write"
         }
       ]
     },

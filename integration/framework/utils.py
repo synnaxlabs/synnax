@@ -203,6 +203,7 @@ def get_cpu_cores() -> str:
     """Get the number of CPU cores."""
     return f"{multiprocessing.cpu_count()} cores"
 
+
 def get_synnax_version() -> str:
     """Get the current Synnax version from the VERSION file."""
 
