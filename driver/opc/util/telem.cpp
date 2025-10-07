@@ -116,11 +116,16 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
+    LOG(INFO) << "[opc.util] write_to_series: starting, series data_type=" << s.data_type().name();
     if (s.data_type() == telem::TIMESTAMP_T &&
         UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
+        LOG(INFO) << "[opc.util] write_to_series: handling TIMESTAMP type";
         const auto dt = static_cast<const UA_DateTime *>(v.data);
         return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
-    return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
+    LOG(INFO) << "[opc.util] write_to_series: calling ua_to_data_type";
+    auto ua_type = ua_to_data_type(v.type);
+    LOG(INFO) << "[opc.util] write_to_series: ua_type=" << ua_type.name() << ", casting and writing";
+    return s.write(s.data_type().cast(v.data, ua_type));
 }
 }
