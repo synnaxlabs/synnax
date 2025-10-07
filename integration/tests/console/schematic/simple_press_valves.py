@@ -40,15 +40,6 @@ class SimplePressValves(ConsoleCase):
         END_CMD = "end_test_cmd"
         PRESSURE = "press_pt"
 
-        self.log("Creating plot page")
-        console.plot.new()
-        console.plot.add_Y(
-            "Y1",
-            ["press_vlv_state", "vent_vlv_state"],
-        )
-        console.plot.add_Y("Y2", ["press_pt"])
-        console.plot.add_ranges(["30s"])
-
         self.log("Creating schematic symbols")
         console.schematic.new()
         console.schematic.move("left")

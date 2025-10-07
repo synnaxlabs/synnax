@@ -171,7 +171,6 @@ class Console:
         page_command = f"Create {article} {page_type}"
 
         self.command_palette(page_command)
-        self.page.wait_for_timeout(100)
         page_tab, page_id = self._handle_new_page(page_type, page_name)
 
         return page_tab, page_id
