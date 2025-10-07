@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as dotenv from "dotenv";
-import process from "process";
-dotenv.config();
-
 import algoliasearch from "algoliasearch";
+import * as dotenv from "dotenv";
+import fs from "fs";
+import matter from "gray-matter";
+import path from "path";
+import process from "process";
+import removeMd from "remove-markdown";
+
+dotenv.config();
 
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
@@ -19,10 +23,6 @@ const client = algoliasearch(
 );
 
 // 1. Build a dataset
-import fs from "fs";
-import matter from "gray-matter";
-import path from "path";
-import removeMd from "remove-markdown";
 
 const purgeImports = (content: string) => {
   // find the second --- in the file
