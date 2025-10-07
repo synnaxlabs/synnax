@@ -141,6 +141,118 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*m))
 		})
+
+		It("Should filter tasks by snapshot status", func() {
+			// Create a regular task
+			regular := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Regular Task",
+			}
+			Expect(w.Create(ctx, regular)).To(Succeed())
+
+			// Create a snapshot task
+			snapshot := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Snapshot Task",
+				Snapshot: true,
+			}
+			Expect(w.Create(ctx, snapshot)).To(Succeed())
+
+			// Retrieve only snapshot tasks
+			var snapshots []task.Task
+			Expect(svc.NewRetrieve().WhereSnapshot(true).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
+			Expect(snapshots).To(HaveLen(1))
+			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
+			Expect(snapshots[0].Snapshot).To(BeTrue())
+
+			// Retrieve only non-snapshot tasks
+			var regulars []task.Task
+			Expect(svc.NewRetrieve().WhereSnapshot(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(len(regulars)).To(BeNumerically(">", 0))
+			for _, t := range regulars {
+				Expect(t.Snapshot).To(BeFalse())
+			}
+		})
+
+		It("Should combine WhereSnapshot with other filters", func() {
+			// Create a snapshot task
+			snapshot1 := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Snapshot Task 1",
+				Snapshot: true,
+			}
+			Expect(w.Create(ctx, snapshot1)).To(Succeed())
+
+			// Create another snapshot task
+			snapshot2 := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Snapshot Task 2",
+				Snapshot: true,
+			}
+			Expect(w.Create(ctx, snapshot2)).To(Succeed())
+
+			// Retrieve specific snapshot by name
+			var res task.Task
+			Expect(svc.NewRetrieve().WhereSnapshot(true).WhereNames("Snapshot Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("Snapshot Task 1"))
+			Expect(res.Snapshot).To(BeTrue())
+		})
+
+		It("Should filter tasks by internal status", func() {
+			// Create a regular task
+			regular := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Regular Task 2",
+			}
+			Expect(w.Create(ctx, regular)).To(Succeed())
+
+			// Create an internal task
+			internal := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Internal Task",
+				Internal: true,
+			}
+			Expect(w.Create(ctx, internal)).To(Succeed())
+
+			// Retrieve only internal tasks
+			var internals []task.Task
+			Expect(svc.NewRetrieve().WhereInternal(true).Entries(&internals).Exec(ctx, tx)).To(Succeed())
+			Expect(internals).To(HaveLen(1))
+			Expect(internals[0].Name).To(Equal("Internal Task"))
+			Expect(internals[0].Internal).To(BeTrue())
+
+			// Retrieve only non-internal tasks
+			var regulars []task.Task
+			Expect(svc.NewRetrieve().WhereInternal(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(len(regulars)).To(BeNumerically(">", 0))
+			for _, t := range regulars {
+				Expect(t.Internal).To(BeFalse())
+			}
+		})
+
+		It("Should combine WhereInternal with other filters", func() {
+			// Create an internal task
+			internal1 := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Internal Task 1",
+				Internal: true,
+			}
+			Expect(w.Create(ctx, internal1)).To(Succeed())
+
+			// Create another internal task
+			internal2 := &task.Task{
+				Key:      task.NewKey(rack_.Key, 0),
+				Name:     "Internal Task 2",
+				Internal: true,
+			}
+			Expect(w.Create(ctx, internal2)).To(Succeed())
+
+			// Retrieve specific internal by name
+			var res task.Task
+			Expect(svc.NewRetrieve().WhereInternal(true).WhereNames("Internal Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("Internal Task 1"))
+			Expect(res.Internal).To(BeTrue())
+		})
 	})
 
 	Describe("Delete", func() {
@@ -150,7 +262,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 9)))
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 17)))
 			Expect(m.Name).To(Equal("Test Task"))
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
