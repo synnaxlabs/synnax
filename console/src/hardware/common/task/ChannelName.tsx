@@ -9,8 +9,8 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Channel, Flex, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type Optional, primitive, status, uuid } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { location, type Optional, primitive, status } from "@synnaxlabs/x";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
@@ -39,21 +39,25 @@ export const ChannelName = ({
     (name: string) => update({ key: channel, name }),
     [channel, update],
   );
-  let stat: Pick<status.Status, "variant" | "message" | "description"> =
-    restResult.status;
-  if (primitive.isZero(channel))
-    stat = { variant: "warning", message: "No channel selected" };
-  else if (
-    restResult.status.variant === "error" &&
-    NotFoundError.matches(restResult.status.details.error) &&
-    restResult.status.details.error.message.includes("Channel")
-  )
-    stat = {
-      variant: "error",
-      message: "Channel not found. Was it deleted?",
-      description:
-        "If it was deleted, a new channel will be created when the task is configured.",
-    };
+  const stat = useMemo((): Pick<
+    status.Status,
+    "variant" | "message" | "description"
+  > => {
+    if (primitive.isZero(channel))
+      return { variant: "warning", message: "No channel selected" };
+    if (
+      restResult.status.variant === "error" &&
+      NotFoundError.matches(restResult.status.details.error) &&
+      restResult.status.details.error.message.includes("Channel")
+    )
+      return {
+        variant: "error",
+        message: "Channel not found. Was it deleted?",
+        description:
+          "If it was deleted, a new channel will be created when the task is configured.",
+      };
+    return restResult.status;
+  }, [restResult.status, channel, range]);
 
   const variant = status.removeVariants(stat.variant, ["success"]);
   const text = (
