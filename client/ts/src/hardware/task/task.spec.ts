@@ -264,6 +264,50 @@ describe("Task", async () => {
           })
           .toBe(true);
       });
+
+      it("should filter tasks by snapshot parameter", async () => {
+        const regularTask = await testRack.createTask({
+          name: "regular_test_task",
+          type: "ni",
+          config: { test: true },
+        });
+
+        const snapshotTask = await client.hardware.tasks.copy(
+          regularTask.key,
+          "snapshot_test_task",
+          true,
+        );
+
+        const snapshotOnlyResult = await client.hardware.tasks.retrieve({
+          snapshot: true,
+        });
+        expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
+        expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
+
+        const regularOnlyResult = await client.hardware.tasks.retrieve({
+          snapshot: false,
+        });
+        expect(regularOnlyResult.some((t) => t.key === regularTask.key)).toBe(true);
+        expect(regularOnlyResult.every((t) => t.snapshot === false)).toBe(true);
+      });
+
+      it("should combine snapshot filter with other filters", async () => {
+        const task1 = await testRack.createTask({
+          name: "combined_filter_task",
+          type: "ni",
+          config: { test: true },
+        });
+
+        const result = await client.hardware.tasks.retrieve({
+          rack: testRack.key,
+          types: ["ni"],
+          snapshot: false,
+        });
+
+        expect(result.some((t) => t.key === task1.key)).toBe(true);
+        expect(result.every((t) => t.type === "ni")).toBe(true);
+        expect(result.every((t) => t.snapshot === false)).toBe(true);
+      });
     });
   });
 
