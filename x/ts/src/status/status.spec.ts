@@ -74,4 +74,59 @@ describe("status", () => {
       expect(status.removeVariants("success", [])).toBe("success");
     });
   });
+
+  describe("fromException", () => {
+    it("should create an error status from an Error instance", () => {
+      const error = new Error("Something went wrong");
+      const s = status.fromException(error);
+
+      expect(s.variant).toBe("error");
+      expect(s.message).toBe("Something went wrong");
+      expect(s.description).toBeUndefined();
+      expect(s.details.error).toBe(error);
+      expect(s.details.stack).toBe(error.stack ?? "");
+    });
+
+    it("should use custom message and move error message to description", () => {
+      const error = new Error("Original error");
+      const s = status.fromException(error, "Custom message");
+
+      expect(s.variant).toBe("error");
+      expect(s.message).toBe("Custom message");
+      expect(s.description).toBe("Original error");
+      expect(s.details.error).toBe(error);
+      expect(s.details.stack).toBe(error.stack ?? "");
+    });
+
+    it("should handle errors without stack trace", () => {
+      const error = new Error("No stack");
+      error.stack = undefined;
+      const s = status.fromException(error);
+
+      expect(s.details.stack).toBe("");
+      expect(s.details.error).toBe(error);
+    });
+
+    it("should throw when exception is not an Error instance", () => {
+      const notAnError = "just a string";
+      expect(() => status.fromException(notAnError)).toThrow("just a string");
+    });
+
+    it("should include valid key and timestamp", () => {
+      const error = new Error("Test error");
+      const s = status.fromException(error);
+
+      expect(s.key).toHaveLength(id.LENGTH);
+      expect(s.time).toBeInstanceOf(TimeStamp);
+      expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
+    });
+
+    it("should conform to exceptionDetailsSchema", () => {
+      const error = new Error("Test error");
+      const s = status.fromException(error);
+
+      const result = status.exceptionDetailsSchema.safeParse(s.details);
+      expect(result.success).toBe(true);
+    });
+  });
 });
