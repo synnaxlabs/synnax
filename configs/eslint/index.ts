@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fixupConfigRules, includeIgnoreFile } from "@eslint/compat";
+import { includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
-import pluginReact from "eslint-plugin-react/configs/recommended.js";
+import type { Linter } from "eslint";
+import pluginReact from "eslint-plugin-react";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
@@ -20,12 +21,12 @@ const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 const gitignorePath = path.join(dirname, "../../.gitignore");
 
-export default [
+const config: Linter.Config[] = [
   includeIgnoreFile(gitignorePath),
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
-  ...fixupConfigRules(pluginReact),
+  pluginReact.configs.flat.recommended,
   {
     languageOptions: {
       ecmaVersion: "latest",
@@ -145,7 +146,6 @@ export default [
       "examples",
       "vite.config.ts",
       "stylelint.config.js",
-      "eslint.config.js",
       "bazel-bin",
       "bazel-out",
       "bazel-testlogs",
@@ -154,3 +154,5 @@ export default [
     ],
   },
 ];
+
+export default config;
