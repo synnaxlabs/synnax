@@ -118,9 +118,15 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     LOG(INFO) << "[opc.util] write_to_series: starting, series data_type=" << s.data_type().name();
 
-    // Check if variant is empty/invalid
+    // Check if variant is empty using OPC UA's built-in function
+    if (UA_Variant_isEmpty(&v)) {
+        LOG(WARNING) << "[opc.util] write_to_series: empty variant, skipping write";
+        return 0;
+    }
+
+    // Check if variant has valid data
     if (v.data == nullptr || v.type == nullptr) {
-        LOG(WARNING) << "[opc.util] write_to_series: empty or invalid variant, skipping write";
+        LOG(WARNING) << "[opc.util] write_to_series: invalid variant (null data/type), skipping write";
         return 0;
     }
 
@@ -132,7 +138,17 @@ size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     }
     LOG(INFO) << "[opc.util] write_to_series: calling ua_to_data_type";
     auto ua_type = ua_to_data_type(v.type);
-    LOG(INFO) << "[opc.util] write_to_series: ua_type=" << ua_type.name() << ", casting and writing";
-    return s.write(s.data_type().cast(v.data, ua_type));
+    LOG(INFO) << "[opc.util] write_to_series: ua_type=" << ua_type.name() << ", v.data=" << v.data << ", casting and writing";
+
+    // Add try-catch protection around the cast operation
+    try {
+        return s.write(s.data_type().cast(v.data, ua_type));
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "[opc.util] write_to_series: exception during cast/write: " << e.what();
+        return 0;
+    } catch (...) {
+        LOG(ERROR) << "[opc.util] write_to_series: unknown exception during cast/write";
+        return 0;
+    }
 }
 }
