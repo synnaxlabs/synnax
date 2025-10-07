@@ -42,14 +42,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest]
         include:
-          - os: ubuntu-latest
-            artifact-name: synnax-core-linux
-            binary-suffix: linux
-          - os: windows-latest
-            artifact-name: synnax-core-windows
-            binary-suffix: windows.exe
           - os: macos-latest
             artifact-name: synnax-core-macos
             binary-suffix: macos
@@ -126,19 +120,10 @@ jobs:
       - name: Install Node Dependencies
         run: pnpm install
 
-      - name: Build Console Web Assets
-        env:
-          NODE_OPTIONS: --max_old_space_size=8192
-        run: pnpm build:console-vite
-
-      - name: Copy Console Assets to Server
-        shell: bash
-        run: cp -r console/dist/* core/pkg/service/console/dist/
-
       - name: Build
         working-directory: core
         run: |
-          go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
 
       - name: Upload Core Binary as Artifact
         uses: actions/upload-artifact@v4

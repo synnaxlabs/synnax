@@ -24,13 +24,16 @@ async def main():
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
     ARRAY_COUNT = 5
+    ARRAY_SIZE = 5
     arrays = list()
     for i in range(ARRAY_COUNT):
+        initial_values = [float(j + i) for j in range(ARRAY_SIZE)]
         arrays.append(
             await myobj.add_variable(
-                idx, f"my_array_{i}", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float
+                idx, f"my_array_{i}", initial_values, ua.VariantType.Float
             )
         )
+        await arrays[i].write_array_dimensions([ARRAY_SIZE])
     mytimearray = await myobj.add_variable(
         idx,
         "my_time_array",
@@ -59,7 +62,6 @@ async def main():
     await mytimearray.set_writable()
 
     RATE = 500
-    ARRAY_SIZE = 5
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
     for i in range(5):
@@ -90,9 +92,17 @@ async def main():
                 for j in range(ARRAY_SIZE)
             ]
             for i, arr in enumerate(arrays):
-                await arr.set_value(
-                    [v + i for v in values], varianttype=ua.VariantType.Float
-                )
+                if i == 2:
+                    # This simulates the PLC buffer being empty but with Good status.
+                    cycle_count = int((datetime.datetime.now(datetime.timezone.utc) - start_ref).total_seconds() * RATE)
+                    if cycle_count % 10 == 0:  # Every 10th cycle, return empty array with Good status
+                        await arr.set_value([], varianttype=ua.VariantType.Float)
+                    else:
+                        await arr.set_value([v + i for v in values], varianttype=ua.VariantType.Float)
+                else:
+                    # Other arrays always return full arrays
+                    await arr.set_value([v + i for v in values], varianttype=ua.VariantType.Float)
+        
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start

@@ -195,8 +195,7 @@ protected:
         pool(std::move(pool)),
         conn(nullptr, nullptr, ""),
         request(this->cfg),
-        timer(rate) {
-    }
+        timer(rate) {}
 
     synnax::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
@@ -248,21 +247,22 @@ public:
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
             s.clear();
-            // Skip empty arrays (e.g., PLC buffer not ready)
-            if (result.value.arrayLength == 0) {
-                LOG(WARNING) << "[opc.read] empty array received for channel "
-                             << ch->ch.name << ", skipping sample";
-                continue;
-            }
             auto [written, err] = util::ua_array_write_to_series(
                 s,
                 &result.value,
                 this->cfg.array_size,
                 ch->ch.name
             );
-            res.error = err;
-            if (res.error) return res;
+            if (err || written == 0) {
+                // Invalid data (empty array, bad pointer, or wrong size)
+                fr.clear();
+                res.warning = err ? err.message() :
+                              "Invalid OPC UA array data detected for channel " +
+                              ch->ch.name + ", skipping frame";
+                return res;
+            }
         }
+
         auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
         common::generate_index_data(
@@ -303,16 +303,34 @@ public:
             if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
                 res.error)
                 return res;
+            bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
                 UA_DataValue &result = ua_res.results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
-                util::write_to_series(fr.series->at(j), result.value);
+                const auto written = util::write_to_series(fr.series->at(j), result.value);
+                if (written == 0) {
+                    skip_sample = true;
+                    res.warning = "Invalid OPC UA data detected for channel " +
+                                  this->cfg.channels[j]->ch.name + ", skipping frame";
+                    break;
+                }
+            }
+            if (skip_sample) {
+                // Clear any partial writes from this iteration
+                for (auto [k, s]: fr)
+                    s.clear();
+                this->timer.wait(breaker);
+                continue;
             }
             const auto end = telem::TimeStamp::now();
             const auto ts = telem::TimeStamp::midpoint(start, end);
             for (std::size_t j = this->cfg.channels.size(); j < fr.size(); j++)
                 fr.series->at(j).write(ts);
             this->timer.wait(breaker);
+        }
+        // Do not write empty frames
+        if (!fr.series->empty() && fr.series->at(0).size() == 0) {
+            fr.clear();
         }
         return res;
     }

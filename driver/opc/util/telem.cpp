@@ -116,34 +116,27 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-    // Check if variant is empty using OPC UA's built-in function
+
     if (UA_Variant_isEmpty(&v)) {
-        LOG(WARNING) << "[opc.util] write_to_series: empty variant, skipping write";
+        LOG(WARNING) << "[opc.util] write_to_series: empty variant";
         return 0;
     }
 
-    // Validate variant structure using OPC UA's built-in checks
-    // This is more robust than pointer address checking as it validates:
-    // 1. The variant has a valid type
-    // 2. The data pointer is properly initialized for the type
-    // 3. Array length matches the data structure
     if (v.type == nullptr) {
-        LOG(WARNING) << "[opc.util] write_to_series: variant has null type, skipping write";
+        LOG(WARNING) << "[opc.util] write_to_series: variant has null type";
+        return 0;
+    }
+
+    if (v.data == nullptr) {
+        LOG(WARNING) << "[opc.util] write_to_series: variant has invalid data pointer ("
+                     << v.data << ")";
         return 0;
     }
 
     // Check for scalar type: ensure we have exactly one element
     const bool is_scalar = UA_Variant_isScalar(&v);
     if (!is_scalar && v.arrayLength == 0) {
-        LOG(WARNING) << "[opc.util] write_to_series: variant is array with zero length, skipping write";
-        return 0;
-    }
-
-    // Additional safety: check data pointer validity
-    // Even with valid type, corrupted servers might return bad pointers
-    if (v.data == nullptr || reinterpret_cast<uintptr_t>(v.data) < 0x1000) {
-        LOG(WARNING) << "[opc.util] write_to_series: variant has invalid data pointer ("
-                     << v.data << "), skipping write";
+        LOG(WARNING) << "[opc.util] write_to_series: variant is array with zero length";
         return 0;
     }
 

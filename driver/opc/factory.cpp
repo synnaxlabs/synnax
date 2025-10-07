@@ -29,11 +29,10 @@ common::ConfigureResult configure_read(
         return result;
     }
     std::unique_ptr<common::Source> s;
-    if (cfg.array_size > 1) {
+    if (cfg.array_size > 1)
         s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
-    } else {
+    else
         s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
-    }
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
