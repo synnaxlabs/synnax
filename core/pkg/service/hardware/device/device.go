@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package device implements types and services for managing physical pieces of hardware
+// in Synnax. This includes creating, retrieving, and updating devices.
 package device
 
 import (
@@ -17,6 +19,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Device represents a unique piece of physical hardware that is connected to a rack.
+// Examples of devices include DAQ cards, PLCs, and other hardware.
 type Device struct {
 	// The key of the device is its serial no.
 	Key string `json:"key" msgpack:"key"`
@@ -32,7 +36,7 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	// Configured sets whether the device has been configured yet.
 	Configured bool `json:"configured" msgpack:"configured"`
-	// Properties
+	// Properties are additional properties that are unique to the device.
 	Properties string `json:"properties" msgpack:"properties"`
 	// Status is the state of the device. This field is not stored directly with the
 	// device inside of gorp, and is not guaranteed to be valid.
@@ -41,10 +45,10 @@ type Device struct {
 
 var _ gorp.Entry[string] = Device{}
 
-// GorpKey implements gorp.Entry.
+// GorpKey gives a unique key for the device for use in gorp.
 func (d Device) GorpKey() string { return d.Key }
 
-// SetOptions implements gorp.Entry.
+// SetOptions returns nil.
 func (d Device) SetOptions() []any { return nil }
 
 // OntologyID returns the unique ID for the device within the ontology.
@@ -59,19 +63,24 @@ func (d Device) Validate() error {
 	return v.Error()
 }
 
+// StatusDetails represents unique information about the device's status that appears in
+// the status payload.
 type StatusDetails struct {
-	Rack   rack.Key `json:"rack" msgpack:"rack"`
-	Device string   `json:"device" msgpack:"device"`
+	// Rack identifies the rack that the device is currently connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Device identifies the key of the device that this status is for.
+	Device string `json:"device" msgpack:"device"`
 }
 
+// Status represents information about the state of the device at a given point in time.
 type Status status.Status[StatusDetails]
 
-// GorpKey implements gorp.Entry.
+// GorpKey gives a unique key for the status.
 func (s Status) GorpKey() string { return s.Key }
 
-// SetOptions implements gorp.Entry.
+// SetOptions returns the node of the rack that the status refers to.
 func (s Status) SetOptions() []any { return []any{s.Details.Rack.Node()} }
 
-// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
-// not conflict with any other types in gorp.
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does not
+// conflict with any other types in gorp.
 func (s Status) CustomTypeName() string { return "DeviceStatus" }
