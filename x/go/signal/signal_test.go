@@ -333,7 +333,7 @@ var _ = Describe("Signal", func() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ctx.Wait()
+				Expect(ctx.Wait()).To(Succeed())
 				close(done)
 			}()
 

@@ -60,7 +60,7 @@ func createSetStatus(ctx context.Context, cfg Config) (stage.Node, error) {
 	stat.Message = cfg.Node.Config["message"].(string)
 	stat.Variant = xstatus.Variant(cfg.Node.Config["variant"].(string))
 	stg := &setStatus{cfg: cfg, stat: stat}
-	stg.base.key = cfg.Node.Key
+	stg.key = cfg.Node.Key
 	return stg, nil
 }
 

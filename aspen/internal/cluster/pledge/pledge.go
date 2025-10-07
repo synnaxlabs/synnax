@@ -212,7 +212,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	return res, err
 }
 
-func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Config.Candidates() }
+func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Candidates() }
 
 func (r *responsible) buildQuorum() (node.Group, error) {
 	presentCandidates := r.candidateSnapshot.WhereActive()
@@ -274,7 +274,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	ctx, span := j.T.Prod(ctx, "juror.verdict")
+	_, span := j.T.Prod(ctx, "juror.verdict")
 	defer func() { _ = span.EndWith(err, proposalRejected) }()
 	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)

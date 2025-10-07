@@ -94,7 +94,6 @@ type observable[S, O any] struct {
 	ObservableConfig[S, O]
 	Store[S]
 	observe.Observer[O]
-	mu sync.Mutex
 }
 
 type ObservableConfig[S, O any] struct {
@@ -153,7 +152,7 @@ func (o *observable[S, O]) SetState(ctx context.Context, state S) {
 		lo.Ternary(
 			*o.ObservableConfig.GoNotify,
 			o.Observer.GoNotify,
-			o.Observer.Notify,
+			o.Notify,
 		)(ctx, notify)
 	}
 	o.Store.SetState(ctx, state)

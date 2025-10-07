@@ -575,7 +575,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	if varScope.Type == nil {
 		return true
 	}
-	varType := varScope.Type.(ir.Type)
+	varType := varScope.Type
 	if atypes.Compatible(varType, exprType) {
 		return true
 	}

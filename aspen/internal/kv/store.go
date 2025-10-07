@@ -69,7 +69,7 @@ type storeSink struct {
 
 func newStoreSink(s store) sink {
 	ss := &storeSink{store: s}
-	ss.UnarySink.Sink = ss.Store
+	ss.Sink = ss.Store
 	return ss
 }
 

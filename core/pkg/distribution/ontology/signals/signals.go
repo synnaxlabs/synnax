@@ -77,6 +77,9 @@ func Publish(
 		SetChannel:    channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT, Internal: true},
 		DeleteChannel: channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT, Internal: true},
 	})
+	if err != nil {
+		return nil, err
+	}
 	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }
 
@@ -106,8 +109,6 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 			relationships = append(relationships, relationship)
 			buf.Reset()
 			continue
-		} else {
-
 		}
 		buf.WriteByte(b)
 	}

@@ -107,10 +107,10 @@ var _ = Describe("token", func() {
 			id, newToken, err := svc.ValidateMaybeRefresh(tk)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal(issuer))
+			Expect(newToken).ToNot(BeEmpty())
 			time.Sleep(time.Second * 2)
-			id, newToken, err = svc.ValidateMaybeRefresh(tk)
-			Expect(err).To(HaveOccurredAs(auth.ExpiredToken))
-			Expect(newToken).To(BeEmpty())
+			Expect(svc.ValidateMaybeRefresh(tk)).Error().
+				To(HaveOccurredAs(auth.ExpiredToken))
 		})
 	})
 })

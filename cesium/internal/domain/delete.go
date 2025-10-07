@@ -426,9 +426,9 @@ func validateDelete(
 	}
 
 	// If the startPosition is greater than end position and there are samples in between.
-	if startPosition > endPosition && !(startPosition == endPosition+1 &&
-		*startOffset == 0 &&
-		*endOffset == 0) {
+	if startPosition > endPosition && (startPosition != endPosition+1 ||
+		*startOffset != 0 ||
+		*endOffset != 0) {
 		return false, errors.Newf(
 			"deletion start domain %d is greater than deletion end domain %d",
 			startPosition,
