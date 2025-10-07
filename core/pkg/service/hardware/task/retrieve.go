@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -74,6 +75,11 @@ func (r Retrieve) Limit(limit int) Retrieve {
 
 func (r Retrieve) WhereInternal(internal bool, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Internal == internal }, opts...)
+	return r
+}
+
+func (r Retrieve) WhereSnapshot(snapshot bool, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Snapshot == snapshot }, opts...)
 	return r
 }
 
