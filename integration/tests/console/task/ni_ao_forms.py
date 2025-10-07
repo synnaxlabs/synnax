@@ -32,7 +32,7 @@ class NiAoForms(ConsoleCase):
         rack_name = f"TestRack_{random.randint(100, 999)}"
         device_name = "E203"
         sy.sleep(5)
-        self._log_message("Creating NI Analog Write Task")
+        self.log("Creating NI Analog Write Task")
         console.ni_ao.new()
 
         # Check simple functionality
@@ -52,7 +52,7 @@ class NiAoForms(ConsoleCase):
         ch_names = console.ni_ao.channels_by_name.copy()
         random.shuffle(ch_names)
         total = len(ch_names)
-        self._log_message(f"Asserting {total} channel forms in random order")
+        self.log(f"Asserting {total} channel forms in random order")
         for ch in ch_names:
             console.ni_ao.assert_channel(ch)
 
@@ -75,7 +75,7 @@ class NiAoForms(ConsoleCase):
 
     def verify_voltage_inputs(self, device_name: str) -> None:
         """Validate voltage inputs"""
-        self._log_message("Configuring channels of type Voltage")
+        self.log("Configuring channels of type Voltage")
         console = self.console
 
         console.ni_ao.add_channel(
@@ -93,7 +93,7 @@ class NiAoForms(ConsoleCase):
 
     def verify_current_inputs(self, device_name: str) -> None:
         """Validate Bridge inputs"""
-        self._log_message("Configuring channels of type Current")
+        self.log("Configuring channels of type Current")
         console = self.console
 
         console.ni_ao.add_channel(
@@ -111,7 +111,7 @@ class NiAoForms(ConsoleCase):
 
     def verify_function_generator_inputs(self, device_name: str) -> None:
         """Validate Function Generator inputs"""
-        self._log_message("Configuring channels of type Function Generator")
+        self.log("Configuring channels of type Function Generator")
         console = self.console
 
         console.ni_ao.add_channel(

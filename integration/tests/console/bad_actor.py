@@ -37,7 +37,7 @@ class BadActor(ConsoleCase):
 
             except RuntimeError as rte:
                 if "Failed to delete Channel" in str(rte):
-                    self._log_message(f"Properly failed to delete '{ch}'")
+                    self.log(f"Properly failed to delete '{ch}'")
 
             except Exception as e:
                 self.fail(f"Unexpected error while deleting '{ch}': {e}")

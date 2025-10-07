@@ -48,7 +48,7 @@ class DriverNiDo(Latency):
         latencies_core: deque[float] = deque()
         latencies_loop: deque[float] = deque()
 
-        self._log_message("Searching for NI DO device: SYMod1")
+        self.log("Searching for NI DO device: SYMod1")
         devices = client.hardware.devices.retrieve(keys=[], ignore_not_found=True)
         if not devices:
             raise RuntimeError("No devices found")
@@ -58,10 +58,10 @@ class DriverNiDo(Latency):
             # Sim device must be set up in NI MAX
             if device.location == "SYMod1":
                 dev = device
-                self._log_message(f"Found NI DO device: {dev.location}")
+                self.log(f"Found NI DO device: {dev.location}")
                 break
 
-        self._log_message("Creating Channels")
+        self.log("Creating Channels")
 
         # Create CMD Channels
         do_1_cmd_time = client.channels.create(
@@ -93,7 +93,7 @@ class DriverNiDo(Latency):
             retrieve_if_name_exists=True,
         )
 
-        self._log_message("Creating Task")
+        self.log("Creating Task")
         # Create Task
         tsk = ni.DigitalWriteTask(
             name="Basic Digital Write",
@@ -112,7 +112,7 @@ class DriverNiDo(Latency):
         tsk = client.hardware.tasks.configure(tsk)
 
         # Run NI DO Task
-        self._log_message("Running NI DO Task")
+        self.log("Running NI DO Task")
         with tsk.run():
             with client.open_streamer([do_1_state.key, do_state_time.key]) as stream:
                 with client.open_writer(sy.TimeStamp.now(), do_1_cmd.key) as writer:
@@ -121,7 +121,7 @@ class DriverNiDo(Latency):
                     now_time = sy.TimeStamp.now()
                     cmd_state: bool = False
 
-                    self._log_message("Begin latency test")
+                    self.log("Begin latency test")
                     while (now_time - start_time) < sy.TimeSpan.SECOND * 3:
                         now_time = sy.TimeStamp.now()
 
@@ -162,7 +162,7 @@ class DriverNiDo(Latency):
                     writer.write(do_1_cmd.key, int(False))
                     frame = stream.read(timeout=1)
 
-        self._log_message(f"Total samples: {len(latencies_core)}")
+        self.log(f"Total samples: {len(latencies_core)}")
 
         # Convert to numpy arrays and milliseconds
         latencies_core_ms = np.array(latencies_core)
@@ -175,14 +175,14 @@ class DriverNiDo(Latency):
         )
 
         # Create range for the latency benchmark
-        self._log_message("Creating latency_benchmark range")
+        self.log("Creating latency_benchmark range")
         latency_range = client.ranges.create(
             name="Latency Benchmark: NI DO Driver Loop-back",
             time_range=sy.TimeRange(time_index[0], time_index[-1]),
         )
 
         # Add metadata to the range
-        self._log_message("Adding metadata to range")
+        self.log("Adding metadata to range")
         machine_name = get_machine_info()
         memory_info = get_memory_info()
         cpu_cores = get_cpu_cores()
@@ -228,7 +228,7 @@ class DriverNiDo(Latency):
         )
 
         # Write latency data to Synnax
-        self._log_message("Writing latency data to Synnax")
+        self.log("Writing latency data to Synnax")
         with client.open_writer(
             start=sy.TimeStamp.now(),
             channels=[latency_time.key, latency_core_ch.key, latency_loop_ch.key],
@@ -262,18 +262,18 @@ class DriverNiDo(Latency):
         jitter = np.abs(np.diff(latencies_ms))
         avg_jitter = np.mean(jitter)
 
-        self._log_message(f"=== {name} ===")
-        self._log_message(f"Mean: {mean:.2f} ms")
-        self._log_message(f"Median: {median:.2f} ms")
-        self._log_message(f"Std: {std:.2f} ms")
-        self._log_message(f"Min: {min_lat:.2f} ms")
-        self._log_message(f"Max: {max_lat:.2f} ms")
-        self._log_message(f"P50: {p50:.2f} ms")
-        self._log_message(f"P90: {p90:.2f} ms")
-        self._log_message(f"P95: {p95:.2f} ms")
-        self._log_message(f"P99: {p99:.2f} ms")
-        self._log_message(f"Peak-to-peak jitter: {peak_to_peak:.2f} ms")
-        self._log_message(f"Avg jitter: {avg_jitter:.2f} ms")
+        self.log(f"=== {name} ===")
+        self.log(f"Mean: {mean:.2f} ms")
+        self.log(f"Median: {median:.2f} ms")
+        self.log(f"Std: {std:.2f} ms")
+        self.log(f"Min: {min_lat:.2f} ms")
+        self.log(f"Max: {max_lat:.2f} ms")
+        self.log(f"P50: {p50:.2f} ms")
+        self.log(f"P90: {p90:.2f} ms")
+        self.log(f"P95: {p95:.2f} ms")
+        self.log(f"P99: {p99:.2f} ms")
+        self.log(f"Peak-to-peak jitter: {peak_to_peak:.2f} ms")
+        self.log(f"Avg jitter: {avg_jitter:.2f} ms")
 
         return {
             "mean": mean,
@@ -484,5 +484,5 @@ class DriverNiDo(Latency):
         os.makedirs("tests/results", exist_ok=True)
         output_path = "tests/results/ni_do_latency_analysis.png"
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
-        self._log_message(f"Plot saved to: {os.path.abspath(output_path)}")
+        self.log(f"Plot saved to: {os.path.abspath(output_path)}")
         plt.close(fig)

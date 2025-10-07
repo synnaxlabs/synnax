@@ -36,7 +36,7 @@ class ConsoleCase(TestCase):
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
-        self._log_message(
+        self.log(
             f"Opening browser in {'headless' if headless else 'visible'} mode"
         )
         self.playwright = sync_playwright().start()
@@ -57,7 +57,7 @@ class ConsoleCase(TestCase):
             port = 5173
             self.page.goto(f"http://{host}:{port}/", timeout=15000)
 
-        self._log_message(f"Console found on port {port}")
+        self.log(f"Console found on port {port}")
 
         # Wait for and fill login form
         username = self.synnax_connection.username
@@ -88,6 +88,6 @@ class ConsoleCase(TestCase):
         # Webkit failing on Win in CI
         browsers = ["chromium"]
         selected = random.choice(browsers)
-        self._log_message(f"Randomly selected browser: {selected}")
+        self.log(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)
         return cast(BrowserType, browser_attr)

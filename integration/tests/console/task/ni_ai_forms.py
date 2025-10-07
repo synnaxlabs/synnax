@@ -33,7 +33,7 @@ class NiAiForms(ConsoleCase):
         rack_name = f"TestRack_{random.randint(100, 999)}"
         device_name = f"{mode}_E103"
         sy.sleep(5)
-        self._log_message("Creating NI Analog Read Task")
+        self.log("Creating NI Analog Read Task")
         console.ni_ai.new()
 
         # Check simple functionality
@@ -76,7 +76,7 @@ class NiAiForms(ConsoleCase):
         ch_names = console.ni_ai.channels_by_name.copy()
         random.shuffle(ch_names)
         total = len(ch_names)
-        self._log_message(f"Asserting {total} channel forms in random order")
+        self.log(f"Asserting {total} channel forms in random order")
         for ch in ch_names:
             console.ni_ai.assert_channel(ch)
 
@@ -99,7 +99,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_voltage_inputs(self, device_name: str) -> None:
         """Validate voltage inputs"""
-        self._log_message("Configuring channels of type Voltage")
+        self.log("Configuring channels of type Voltage")
         console = self.console
         type = "Voltage"
 
@@ -140,7 +140,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_accel_inputs(self, device_name: str) -> None:
         """Validate accel inputs"""
-        self._log_message("Configuring channels of type Accelerometer")
+        self.log("Configuring channels of type Accelerometer")
         console = self.console
         type = "Accelerometer"
 
@@ -174,7 +174,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_bridge_inputs(self, device_name: str) -> None:
         """Validate Bridge inputs"""
-        self._log_message("Configuring channels of type Bridge")
+        self.log("Configuring channels of type Bridge")
         console = self.console
         type = "Bridge"
 
@@ -211,7 +211,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_current_inputs(self, device_name: str) -> None:
         """Validate Bridge inputs"""
-        self._log_message("Configuring channels of type Current")
+        self.log("Configuring channels of type Current")
         console = self.console
         type = "Current"
 
@@ -239,7 +239,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_force_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Force Bridge Table inputs"""
-        self._log_message("Configuring channels of type Force Bridge Table")
+        self.log("Configuring channels of type Force Bridge Table")
         console = self.console
         type = "Force Bridge Table"
 
@@ -280,7 +280,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_force_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Force Bridge Two Point Linear inputs"""
-        self._log_message("Configuring channels of type Force Bridge Two-Point Linear")
+        self.log("Configuring channels of type Force Bridge Two-Point Linear")
         console = self.console
         type = "Force Bridge Two-Point Linear"
 
@@ -327,7 +327,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_force_iepe_inputs(self, device_name: str) -> None:
         """Validate Force IEPE inputs"""
-        self._log_message("Configuring channels of type Force IEPE")
+        self.log("Configuring channels of type Force IEPE")
         console = self.console
         type = "Force IEPE"
 
@@ -364,7 +364,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_microphone_inputs(self, device_name: str) -> None:
         """Validate Microphone inputs"""
-        self._log_message("Configuring channels of type Microphone")
+        self.log("Configuring channels of type Microphone")
         console = self.console
         type = "Microphone"
 
@@ -398,7 +398,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_pressure_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Pressure Bridge Table inputs"""
-        self._log_message("Configuring channels of type Pressure Bridge Table")
+        self.log("Configuring channels of type Pressure Bridge Table")
         console = self.console
         type = "Pressure Bridge Table"
 
@@ -440,7 +440,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_pressure_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Pressure Bridge Two-Point Linear inputs"""
-        self._log_message(
+        self.log(
             "Configuring channels of type Pressure Bridge Two-Point Linear"
         )
         console = self.console
@@ -487,7 +487,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_resistance_inputs(self, device_name: str) -> None:
         """Validate Resistance inputs"""
-        self._log_message("Configuring channels of type Resistance")
+        self.log("Configuring channels of type Resistance")
         console = self.console
         type = "Resistance"
 
@@ -521,7 +521,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_rtd_inputs(self, device_name: str) -> None:
         """Validate RTD inputs"""
-        self._log_message("Configuring channels of type RTD")
+        self.log("Configuring channels of type RTD")
         console = self.console
         type = "RTD"
 
@@ -562,7 +562,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_strain_gauge_inputs(self, device_name: str) -> None:
         """Validate Strain Gauge inputs"""
-        self._log_message("Configuring channels of type Strain Gauge")
+        self.log("Configuring channels of type Strain Gauge")
         console = self.console
         type = "Strain Gauge"
 
@@ -607,7 +607,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_temperature_built_in_sensor_inputs(self, device_name: str) -> None:
         """Validate Temperature Built-In Sensor inputs"""
-        self._log_message("Configuring channels of type Temperature Built-In Sensor")
+        self.log("Configuring channels of type Temperature Built-In Sensor")
         console = self.console
         type = "Temperature Built-In Sensor"
 
@@ -643,7 +643,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_thermocouple_inputs(self, device_name: str) -> None:
         """Validate Thermocouple inputs"""
-        self._log_message("Configuring channels of type Thermocouple")
+        self.log("Configuring channels of type Thermocouple")
         console = self.console
         type = "Thermocouple"
 
@@ -679,7 +679,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_torque_bridge_table_inputs(self, device_name: str) -> None:
         """Validate Torque Bridge Table inputs"""
-        self._log_message("Configuring channels of type Torque Bridge Table")
+        self.log("Configuring channels of type Torque Bridge Table")
         console = self.console
         type = "Torque Bridge Table"
 
@@ -722,7 +722,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_torque_bridge_two_point_linear_inputs(self, device_name: str) -> None:
         """Validate Torque Bridge Two-Point Linear inputs"""
-        self._log_message("Configuring channels of type Torque Bridge Two-Point Linear")
+        self.log("Configuring channels of type Torque Bridge Two-Point Linear")
         console = self.console
         type = "Torque Bridge Two-Point Linear"
 
@@ -770,7 +770,7 @@ class NiAiForms(ConsoleCase):
 
     def verify_velocity_iepe_inputs(self, device_name: str) -> None:
         """Validate Velocity IEPE inputs"""
-        self._log_message("Configuring channels of type Velocity IEPE")
+        self.log("Configuring channels of type Velocity IEPE")
         console = self.console
         type = "Velocity IEPE"
 

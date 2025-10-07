@@ -27,7 +27,7 @@ class NoDevice(ConsoleCase):
         Test Opening and closing pages
         """
 
-        self._log_message("Creating NI Analog Read Task Page")
+        self.log("Creating NI Analog Read Task Page")
         self.console.ni_ai.new()
 
         rand_int = random.randint(100, 999)
@@ -39,7 +39,7 @@ class NoDevice(ConsoleCase):
         self.nominal_configuration(rack_name, dev_name)
 
     def create_rack(self, rack_name: str, dev_name: str) -> None:
-        self._log_message(f"Creating {rack_name} and devices")
+        self.log(f"Creating {rack_name} and devices")
 
         client = self.client
         rack = client.hardware.racks.create(name=rack_name)
@@ -111,9 +111,9 @@ class NoDevice(ConsoleCase):
             name="new_channel", type="Voltage", device=dev_name, dev_name="usb_6000"
         )
 
-        self._log_message("Configuring task")
+        self.log("Configuring task")
         console.task.configure()
-        self._log_message("Running task")
+        self.log("Running task")
         console.task.run()
 
         # Status assertions
