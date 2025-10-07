@@ -59,6 +59,8 @@ const INITIAL_QUERY: Task.ListQuery = {
   snapshot: false,
 };
 
+const filter = (task: task.Task) => !task.internal && !task.snapshot;
+
 const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
@@ -69,6 +71,7 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
+    filter,
   });
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
