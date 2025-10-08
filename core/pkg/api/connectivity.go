@@ -44,7 +44,7 @@ func (c *ConnectivityService) Check(_ context.Context, _ types.Nil) (Connectivit
 	return ConnectivityCheckResponse{
 		ClusterKey:  c.clusterProvider.cluster.Key().String(),
 		NodeVersion: version.Get(),
-		NodeKey:     c.clusterProvider.cluster.HostKey(),
+		NodeKey:     c.cluster.HostKey(),
 		NodeTime:    telem.Now(),
 	}, nil
 }

@@ -131,7 +131,6 @@ class Abcd(Latency):
             idx = 0
 
             while self.loop.wait() and self.should_continue:
-
                 # Just assume we'll never exceed
                 # the 20 second limit for the np arrays
                 t_a = self.read_tlm("t_a")

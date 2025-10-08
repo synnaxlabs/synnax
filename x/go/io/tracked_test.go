@@ -31,7 +31,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 	AfterEach(func() {
 		if file != nil {
-			file.Close()
+			Expect(file.Close()).To(Succeed())
 			file = nil
 		}
 	})

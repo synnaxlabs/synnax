@@ -788,7 +788,6 @@ class TestConductor:
                 and hasattr(self.current_test, "Expected_Timeout")
                 and self.current_test.Expected_Timeout > 0
             ):
-
                 elapsed_time = (
                     datetime.now() - self.current_test_start_time
                 ).total_seconds()
@@ -804,7 +803,6 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-
                         elapsed_time = (datetime.now() - start_time).total_seconds()
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(

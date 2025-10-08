@@ -104,6 +104,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
+      {singleResource && (
+        <>
+          <Ontology.CopyMenuItem {...props} />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -35,6 +35,9 @@ on:
 jobs:
   test:
     name: Test (${{ matrix.os }})
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]

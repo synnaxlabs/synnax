@@ -60,7 +60,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	ctx context.Context, stream grpcServerStream[RQT, RST],
 ) error {
 	attachedInitialMetaData := false
-	oCtx, err := s.MiddlewareCollector.Exec(
+	oCtx, err := s.Exec(
 		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
@@ -99,7 +99,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
-	_, err := s.MiddlewareCollector.Exec(
+	_, err := s.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Variant:  freighter.Stream,

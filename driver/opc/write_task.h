@@ -11,6 +11,8 @@
 
 /// external
 #include "open62541/client.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
 
 /// module
 #include "x/cpp/defer/defer.h"
@@ -113,33 +115,71 @@ public:
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
+        auto err = this->perform_write(frame);
+        if (!err.matches(util::UNREACHABLE_ERROR)) return err;
+        LOG(
+            WARNING
+        ) << "[opc.write_task] connection error detected, attempting reconnect: "
+          << err;
+        this->conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        auto [c, conn_err] = this->pool->acquire(this->cfg.conn, "[opc.write] ");
+        if (conn_err) {
+            LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
+            return conn_err;
+        }
+        this->conn = std::move(c);
+        LOG(INFO) << "[opc.write_task] reconnected successfully, retrying write";
+        return this->perform_write(frame);
+    }
+
+private:
+    xerrors::Error perform_write(const synnax::Frame &frame) {
+        if (!this->conn) return util::NO_CONNECTION_ERROR;
+
         UA_WriteRequest req;
         UA_WriteRequest_init(&req);
         req.nodesToWrite = static_cast<UA_WriteValue *>(
             UA_Array_new(frame.size(), &UA_TYPES[UA_TYPES_WRITEVALUE])
         );
-        req.nodesToWriteSize = 0;
-        x::defer clear_req([&req] {
-            UA_Array_delete(
-                req.nodesToWrite,
-                req.nodesToWriteSize,
-                &UA_TYPES[UA_TYPES_WRITEVALUE]
-            );
+        for (size_t i = 0; i < frame.size(); ++i)
+            UA_WriteValue_init(&req.nodesToWrite[i]);
+
+        size_t actual_writes = 0;
+        const size_t max_size = frame.size();
+        x::defer clear_req([&req, &actual_writes, max_size] {
+            for (size_t i = 0; i < actual_writes; ++i)
+                UA_NodeId_clear(&req.nodesToWrite[i].nodeId);
+            UA_Array_delete(req.nodesToWrite, max_size, &UA_TYPES[UA_TYPES_WRITEVALUE]);
         });
+
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
             const auto &ch = it->second;
-            const auto [val, err] = util::series_to_variant(s);
-            if (err != xerrors::NIL) continue;
-            UA_WriteValue &node = req.nodesToWrite[req.nodesToWriteSize];
+            auto [val, err] = util::series_to_variant(s);
+            if (err) {
+                LOG(ERROR) << "[opc.write_task] failed to convert series to variant: "
+                           << err;
+                continue;
+            }
+            UA_WriteValue &node = req.nodesToWrite[actual_writes];
             node.attributeId = UA_ATTRIBUTEID_VALUE;
-            node.nodeId = ch->node;
+            auto copy_status = UA_NodeId_copy(&ch->node, &node.nodeId);
+            if (copy_status != UA_STATUSCODE_GOOD) {
+                LOG(ERROR) << "[opc.write_task] failed to copy node id: "
+                           << util::parse_error(copy_status);
+                continue;
+            }
             node.value.hasValue = true;
             node.value.value = val;
-            req.nodesToWriteSize++;
+            // transfer ownership - zero out val to prevent doubel free.
+            UA_Variant_init(&val);
+            actual_writes++;
         }
+
+        req.nodesToWriteSize = actual_writes;
         if (req.nodesToWriteSize == 0) return xerrors::NIL;
+
         UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
         auto err = util::parse_error(res.responseHeader.serviceResult);
         UA_WriteResponse_clear(&res);

@@ -270,5 +270,5 @@ export interface SelectEdgeTypeProps
   extends Omit<Select.StaticProps<EdgeType>, "data" | "resourceName"> {}
 
 export const SelectEdgeType = (props: SelectEdgeTypeProps): ReactElement => (
-  <Select.Static data={DATA} {...props} resourceName="Path Type" />
+  <Select.Static {...props} data={DATA} resourceName="Path Type" />
 );

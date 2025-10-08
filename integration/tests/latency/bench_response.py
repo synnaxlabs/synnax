@@ -20,7 +20,6 @@ class BenchResponse(Latency):
 
     def setup(self) -> None:
         super().setup()
-
         self.set_manual_timeout(10)
 
         self.bench_client = sy.Synnax(

@@ -84,6 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Export.MenuItem />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
           <PMenu.Divider />
         </>
       )}
@@ -98,20 +99,18 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  client.workspaces.lineplots
-    .retrieve({ key: selection[0].id.key })
-    .then((linePlot) => {
-      placeLayout(
-        LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
-      );
-    })
-    .catch((e) => {
-      const names = strings.naturalLanguageJoin(
-        selection.map(({ name }) => name),
-        "line plot",
-      );
-      handleError(e, `Failed to select ${names}`);
+  const names = strings.naturalLanguageJoin(
+    selection.map(({ name }) => name),
+    "line plot",
+  );
+  handleError(async () => {
+    const linePlot = await client.workspaces.lineplots.retrieve({
+      key: selection[0].id.key,
     });
+    placeLayout(
+      LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
+    );
+  }, `Failed to select ${names}`);
 };
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({

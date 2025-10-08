@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5

@@ -30,7 +30,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            format: true
+            lint: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -47,11 +47,19 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Check Formatting
-        if: matrix.format
+        if: matrix.lint
         run: scripts/check_gofmt.sh x/go
+
+      - name: Lint
+        if: matrix.lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: x/go
 
       - name: Test
         run:

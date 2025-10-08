@@ -106,15 +106,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             <CreateSequenceIcon />
             Create Control Sequence
           </PMenu.Item>
-          <PMenu.Item itemKey="copy">
-            <Icon.Copy />
-            Copy Key
-          </PMenu.Item>
           <PMenu.Divider />
         </>
       )}
       <Menu.DeleteItem />
       <PMenu.Divider />
+      {isSingle && (
+        <>
+          <Ontology.CopyMenuItem {...props} />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -83,6 +83,7 @@ export type Crude<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Opt
 
 export const exceptionDetailsSchema = z.object({
   stack: z.string(),
+  error: z.instanceof(Error),
 });
 
 export const fromException = (
@@ -94,9 +95,7 @@ export const fromException = (
     variant: "error",
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
-    details: {
-      stack: exc.stack ?? "",
-    },
+    details: { stack: exc.stack ?? "", error: exc },
   });
 };
 

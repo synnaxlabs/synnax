@@ -159,15 +159,12 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
 
 const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
 const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
+const xerrors::Error UNREACHABLE_ERROR = CRITICAL_ERROR.sub("unreachable");
+const xerrors::Error NO_CONNECTION_ERROR = UNREACHABLE_ERROR.sub("no_connection");
 
 std::string status_code_description(UA_StatusCode code);
 
-inline xerrors::Error parse_error(const UA_StatusCode &status) {
-    if (status == UA_STATUSCODE_GOOD) return xerrors::NIL;
-    const std::string status_name = UA_StatusCode_name(status);
-    const std::string message = util::status_code_description(status);
-    return {CRITICAL_ERROR.sub(status_name), message};
-};
+xerrors::Error parse_error(const UA_StatusCode &status);
 
 telem::DataType ua_to_data_type(const UA_DataType *dt);
 

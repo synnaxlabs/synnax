@@ -11,6 +11,8 @@
 
 .console-opc-browser {
     height: 100%;
-    flex-basis: 300px;
     border-right: var(--pluto-border);
+    width: 0;
+    flex-basis: 150px;
+    flex-grow: 3;
 }

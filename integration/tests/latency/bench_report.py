@@ -26,7 +26,6 @@ class BenchReport(Latency):
 
     def setup(self) -> None:
         super().setup()
-
         self.set_manual_timeout(10)
 
         self.report_client = sy.Synnax(

@@ -50,9 +50,10 @@ func Analyze(
 	// Stage 2: Iterate through the root scope children to assemble
 	// functions and stages.
 	for _, c := range i.Symbols.Children {
-		if c.Kind == ir.KindStage {
+		switch c.Kind {
+		case ir.KindStage:
 			i.Stages = append(i.Stages, c.Type.(ir.Stage))
-		} else if c.Kind == ir.KindFunction {
+		case ir.KindFunction:
 			i.Functions = append(i.Functions, c.Type.(ir.Function))
 		}
 	}

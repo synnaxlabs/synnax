@@ -31,7 +31,7 @@ func (s *StackTrace) String() string {
 		return ""
 	}
 	var b strings.Builder
-	for _, f := range s.ReportableStackTrace.Frames {
+	for _, f := range s.Frames {
 		funcName := f.Function
 		if funcName == "" {
 			funcName = f.Symbol

@@ -78,7 +78,7 @@ will bootstrap a new cluster.
 func start(cmd *cobra.Command) {
 	var (
 		ctx                 = cmd.Context()
-		v                   = version.Get()
+		vers                = version.Get()
 		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
 		insecure            = viper.GetBool(insecureFlag)
 		debug               = viper.GetBool(debugFlag)
@@ -102,8 +102,8 @@ func start(cmd *cobra.Command) {
 		}
 	}
 
-	ins.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", v)
-	ins.L.Info("starting synnax node", zap.String("version", v))
+	ins.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", vers)
+	ins.L.Info("starting synnax node", zap.String("version", vers), zap.String("commit", version.Commit()), zap.Time("build", version.Time()))
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
