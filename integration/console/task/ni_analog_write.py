@@ -33,7 +33,6 @@ class NIAnalogWrite(Task):
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
         self.page_type = "NI Analog Write Task"
-        self.pluto_label = ".ni_do_somethingsomething"
 
     def new(self) -> str:
         """Create a new NI AO task page and set console.task to this instance."""

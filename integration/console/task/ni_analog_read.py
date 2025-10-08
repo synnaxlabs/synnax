@@ -23,7 +23,6 @@ class NIAnalogRead(Task):
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
         self.page_type = "NI Analog Read Task"
-        self.pluto_label = ".ni_ai_somethingsomething"
 
     def new(self) -> str:
         """Create a new NI AI task page and set console.task to this instance."""

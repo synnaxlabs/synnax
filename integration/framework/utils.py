@@ -199,9 +199,9 @@ def get_memory_info() -> str:
     raise RuntimeError(f"Unable to get memory information for {platform.system()}")
 
 
-def get_cpu_cores() -> str:
+def get_cpu_cores() -> int:
     """Get the number of CPU cores."""
-    return f"{multiprocessing.cpu_count()} cores"
+    return multiprocessing.cpu_count()
 
 
 def get_synnax_version() -> str:

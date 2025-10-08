@@ -48,17 +48,9 @@ class DriverNIDigitalWrite(Latency):
         latencies_loop: deque[float] = deque()
 
         self.log("Searching for NI DO device: SYMod1")
-        devices = client.hardware.devices.retrieve(keys=[], ignore_not_found=True)
-        if not devices:
-            raise RuntimeError("No devices found")
-
-        device = None
-        for device in devices:
-            # Sim device must be set up in NI MAX
-            if device.location == "SYMod1":
-                dev = device
-                self.log(f"Found NI DO device: {dev.location}")
-                break
+        # Sim device must be set up in NI MAX
+        dev = client.hardware.devices.retrieve(location="SYMod1")
+        self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")
 
@@ -117,13 +109,10 @@ class DriverNIDigitalWrite(Latency):
                 with client.open_writer(sy.TimeStamp.now(), do_1_cmd.key) as writer:
 
                     start_time = sy.TimeStamp.now()
-                    now_time = sy.TimeStamp.now()
                     cmd_state: bool = False
 
                     self.log("Begin latency test")
-                    while (now_time - start_time) < sy.TimeSpan.SECOND * 3:
-                        now_time = sy.TimeStamp.now()
-
+                    while (sy.TimeStamp.now() - start_time) < sy.TimeSpan.SECOND * 3:
                         # Prepare
                         cmd_state = not cmd_state
                         val_found = False
@@ -190,7 +179,7 @@ class DriverNIDigitalWrite(Latency):
             {
                 "machine": machine_name,
                 "memory": memory_info if memory_info else "",
-                "cpu_cores": cpu_cores if cpu_cores else "",
+                "cpu_cores": f"{cpu_cores} cores",
                 "driver_mean_ms": round(stats_core["mean"], 3),
                 "driver_median_ms": round(stats_core["median"], 3),
                 "driver_std_ms": round(stats_core["std"], 3),
@@ -313,10 +302,10 @@ class DriverNIDigitalWrite(Latency):
 
         assert (
             stats_driver["peak_to_peak"] < 40
-        ), "Driver peak-to-peak latency is greater than 10 ms"
+        ), "Driver peak-to-peak latency is greater than 40 ms"
         assert (
             stats_loop["peak_to_peak"] < 40
-        ), "Loop peak-to-peak latency is greater than 10 ms"
+        ), "Loop peak-to-peak latency is greater than 40 ms"
 
         assert stats_driver["avg_jitter"] < 4, "Driver avg jitter is greater than 4 ms"
         assert stats_loop["avg_jitter"] < 4, "Loop avg jitter is greater than 4 ms"
@@ -460,7 +449,7 @@ class DriverNIDigitalWrite(Latency):
 
         machine_desc = f"Machine: {machine_name}"
         if cpu_cores:
-            machine_desc += f", {cpu_cores}"
+            machine_desc += f", {cpu_cores} cores"
         if memory_info:
             machine_desc += f", {memory_info}"
 
