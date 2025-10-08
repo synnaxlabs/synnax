@@ -286,7 +286,6 @@ export const Dialog = ({
           root,
         )}
       {cloneElement(children_, {
-        id,
         onMouseEnter: (e) => {
           handleMouseEnter(e);
           children_.props.onMouseEnter?.(e);

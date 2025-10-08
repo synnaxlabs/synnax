@@ -36,7 +36,6 @@ class Setpoint(Symbol):
         return applied_properties
 
     def set_value(self, value: float) -> None:
-
         self._disable_edit_mode()
         self._click_symbol()
 
