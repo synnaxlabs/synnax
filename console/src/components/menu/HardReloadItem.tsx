@@ -12,12 +12,12 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Link } from "@/link";
+import { SHOULD_IGNORE_KEY as SHOULD_IGNORE_LINK_KEY } from "@/link/types";
 
 export const HardReloadItem = (): ReactElement => {
   const dispatch = useDispatch();
   const handleClick = useCallback(() => {
-    localStorage.setItem(Link.SHOULD_IGNORE_LINK_KEY, "true");
+    localStorage.setItem(SHOULD_IGNORE_LINK_KEY, "true");
     dispatch(reloadWindow({}));
   }, [dispatch]);
   return (
