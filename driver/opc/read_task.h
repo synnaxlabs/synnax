@@ -256,9 +256,9 @@ public:
             if (err || written == 0) {
                 // Invalid data (empty array, bad pointer, or wrong size)
                 fr.clear();
-                res.warning = err ? err.message() :
-                              "Invalid OPC UA array data detected for channel " +
-                              ch->ch.name + ", skipping frame";
+                res.warning = err ? err.message()
+                                  : "Invalid OPC UA array data detected for channel " +
+                                        ch->ch.name + ", skipping frame";
                 return res;
             }
         }
@@ -307,7 +307,10 @@ public:
             for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
                 UA_DataValue &result = ua_res.results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
-                const auto written = util::write_to_series(fr.series->at(j), result.value);
+                const auto written = util::write_to_series(
+                    fr.series->at(j),
+                    result.value
+                );
                 if (written == 0) {
                     skip_sample = true;
                     res.warning = "Invalid OPC UA data detected for channel " +
@@ -329,9 +332,7 @@ public:
             this->timer.wait(breaker);
         }
         // Do not write empty frames
-        if (!fr.series->empty() && fr.series->at(0).size() == 0) {
-            fr.clear();
-        }
+        if (!fr.series->empty() && fr.series->at(0).size() == 0) { fr.clear(); }
         return res;
     }
 

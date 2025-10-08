@@ -135,7 +135,8 @@ size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     try {
         return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
     } catch (const std::exception &e) {
-        LOG(ERROR) << "[opc.util] write_to_series: exception during cast/write: " << e.what();
+        LOG(ERROR) << "[opc.util] write_to_series: exception during cast/write: "
+                   << e.what();
         return 0;
     } catch (...) {
         LOG(ERROR) << "[opc.util] write_to_series: unknown exception during cast/write";
