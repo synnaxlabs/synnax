@@ -42,11 +42,13 @@ func (t telemFactory) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != "on" {
 		return nil, query.NotFound
 	}
+	key := cfg.Node.Channels.Read.Keys()[0]
+	t.telem.Register(key, cfg.Node.Key)
 	return &source{
 		node:          cfg.Node,
 		telem:         t.telem,
 		state:         cfg.State,
-		key:           cfg.Node.Channels.Read.Keys()[0],
+		key:           key,
 		highWaterMark: 0,
 	}, nil
 }

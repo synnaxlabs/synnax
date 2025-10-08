@@ -14,32 +14,33 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/set"
 )
 
-type node struct {
-	node     Node
+type nodeState struct {
+	node     node.Node
 	outgoing []ir.Edge
 }
 
 type Scheduler struct {
 	strata    ir.Strata
 	changed   set.Set[string]
-	nodes     map[string]*node
-	currState *node
+	nodes     map[string]*nodeState
+	currState *nodeState
 }
 
 func NewScheduler(
 	prog ir.IR,
-	nodes map[string]Node,
+	nodes map[string]node.Node,
 ) *Scheduler {
 	s := &Scheduler{
-		nodes:   make(map[string]*node, len(prog.Nodes)),
+		nodes:   make(map[string]*nodeState, len(prog.Nodes)),
 		strata:  prog.Strata,
 		changed: make(set.Set[string], len(prog.Nodes)),
 	}
 	for _, n := range prog.Nodes {
-		s.nodes[n.Key] = &node{
+		s.nodes[n.Key] = &nodeState{
 			outgoing: lo.Filter(prog.Edges, func(item ir.Edge, _ int) bool {
 				return item.Source.Node == n.Key
 			}),
