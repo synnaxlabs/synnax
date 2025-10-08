@@ -111,3 +111,41 @@ TEST(TelemTest, testSeriesToVariant) {
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 }
+
+TEST(TelemTest, testWriteToSeriesEmptyVariant) {
+    auto series = telem::Series(telem::FLOAT32_T, 10);
+
+    UA_Variant v;
+    UA_Variant_init(&v);
+
+    auto written = util::write_to_series(series, v);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+}
+
+TEST(TelemTest, testWriteToSeriesNullTypeOrData) {
+    auto series = telem::Series(telem::FLOAT32_T, 10);
+
+    UA_Variant v;
+    UA_Variant_init(&v);
+    v.type = nullptr;
+    v.data = nullptr;
+
+    auto written = util::write_to_series(series, v);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+}
+
+TEST(TelemTest, testWriteToSeriesZeroLengthArray) {
+    auto series = telem::Series(telem::FLOAT32_T, 10);
+
+    UA_Variant v;
+    UA_Variant_init(&v);
+    v.type = &UA_TYPES[UA_TYPES_FLOAT];
+    v.arrayLength = 0;
+    v.data = UA_EMPTY_ARRAY_SENTINEL;
+
+    auto written = util::write_to_series(series, v);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+}
