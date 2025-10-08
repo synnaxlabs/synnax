@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x";
-import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
+import { compare, type CrudeSeries, Series } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";

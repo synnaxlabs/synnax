@@ -27,7 +27,7 @@ import {
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import z from "zod";
+import { z } from "zod";
 
 import {
   select,

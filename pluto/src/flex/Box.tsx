@@ -9,8 +9,7 @@
 
 import "@/flex/Box.css";
 
-import { type color } from "@synnaxlabs/x";
-import { direction } from "@synnaxlabs/x/spatial";
+import { type color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 import z from "zod";
 

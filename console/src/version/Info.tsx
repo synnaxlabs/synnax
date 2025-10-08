@@ -12,7 +12,7 @@ import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import z from "zod";
+import { z } from "zod";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";

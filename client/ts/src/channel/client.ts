@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, status } from "@synnaxlabs/x";
 import {
+  array,
   type CrudeDensity,
   type CrudeTimeRange,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
+  status,
   type TypedArray,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {

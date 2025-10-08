@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, notation } from "@synnaxlabs/x";
-import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
+import { box, color, location, notation, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";

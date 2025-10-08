@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { control, errors } from "@synnaxlabs/x";
-import { type CrudeSeries, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { control, type CrudeSeries, errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";

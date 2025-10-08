@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
+import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";

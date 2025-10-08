@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
+import { array } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";

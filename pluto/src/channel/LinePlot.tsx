@@ -10,9 +10,14 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { type color } from "@synnaxlabs/x";
-import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
-import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
+import {
+  box,
+  type color,
+  location as loc,
+  type TimeRange,
+  type TimeSpan,
+  type xy,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
