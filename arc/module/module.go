@@ -9,11 +9,14 @@
 
 package module
 
-import "github.com/synnaxlabs/arc/ir"
+import (
+	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/ir"
+)
 
 type Module struct {
 	ir.IR
-	WASM []byte
+	compiler.Output
 }
 
 func (m Module) IsZero() bool {

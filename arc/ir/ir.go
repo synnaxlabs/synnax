@@ -17,6 +17,11 @@ import (
 
 type NamedTypes = maps.Ordered[string, Type]
 
+const (
+	DefaultOutput = "output"
+	DefaultInput  = "input"
+)
+
 type Channels struct {
 	Read  set.Set[uint32] `json:"read"`
 	Write set.Set[uint32] `json:"write"`
@@ -97,6 +102,29 @@ type ConstraintSystem interface {
 // Each node is assigned a stratum (execution level) based on its dependencies.
 // Stratification enables single-pass, glitch-free reactive execution.
 type Strata [][]string
+
+func (s Strata) Get(key string) int {
+	for i, nodes := range s {
+		for _, node := range nodes {
+			if node == key {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func (s Strata) Has(key string) bool {
+	return s.Get(key) >= 0
+}
+
+func (s Strata) NodeCount() int {
+	count := 0
+	for _, nodes := range s {
+		count += len(nodes)
+	}
+	return count
+}
 
 type IR struct {
 	Stages      []Stage          `json:"stages"`

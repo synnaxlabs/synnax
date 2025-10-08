@@ -36,19 +36,20 @@ func Stratify(
 ) (ir.Strata, bool) {
 
 	var (
-		strata        = ir.NewStrata()
+		nodeStrata    = make(map[string]int)
 		iterations    = 0
 		maxIterations = len(nodes) // Upper bound for DAG
 		changed       = true
+		maxStratum    = 0
 	)
 	// Handle empty graph
 	if len(nodes) == 0 {
-		return strata, true
+		return ir.Strata{}, true
 	}
 
 	// Step 1: Initialize ALL nodes to stratum 0
 	for _, node := range nodes {
-		strata.Nodes[node.Key] = 0
+		nodeStrata[node.Key] = 0
 	}
 
 	// Step 2: Iterative deepening based on dependencies
@@ -68,22 +69,29 @@ func Stratify(
 		}
 
 		for _, edge := range edges {
-			sourceStratum := strata.Nodes[edge.Source.Node]
-			targetStratum := strata.Nodes[edge.Target.Node]
+			sourceStratum := nodeStrata[edge.Source.Node]
+			targetStratum := nodeStrata[edge.Target.Node]
 
 			// If source stratum >= target stratum, we need to bump target up
 			if sourceStratum >= targetStratum {
 				newStratum := sourceStratum + 1
-				strata.Nodes[edge.Target.Node] = newStratum
+				nodeStrata[edge.Target.Node] = newStratum
 
 				// Track maximum stratum
-				if newStratum > strata.Max {
-					strata.Max = newStratum
+				if newStratum > maxStratum {
+					maxStratum = newStratum
 				}
 
 				changed = true
 			}
 		}
+	}
+
+	// Step 3: Convert map to [][]string structure
+	strata := make(ir.Strata, maxStratum+1)
+	for _, node := range nodes {
+		stratum := nodeStrata[node.Key]
+		strata[stratum] = append(strata[stratum], node.Key)
 	}
 
 	return strata, true

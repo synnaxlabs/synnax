@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
 )
 
@@ -80,6 +82,18 @@ func Analyze(
 	return i, *ctx.Diagnostics
 }
 
+func Compile(
+	ctx_ context.Context,
+	ir ir.IR,
+	opts ...compiler.Option,
+) (module.Module, error) {
+	o, err := compiler.Compile(ctx_, ir, opts...)
+	if err != nil {
+		return module.Module{}, err
+	}
+	return module.Module{IR: ir, Output: o}, nil
+}
+
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	generateKey GenerateKey,
@@ -138,8 +152,8 @@ func analyzeChannel(
 		Channels: ir.NewChannels(),
 	}
 	n.Channels.Read.Add(chKey)
-	h := ir.Handle{Node: nodeKey}
-	return n, h, false
+	h := ir.Handle{Node: nodeKey, Param: "output"}
+	return n, h, true
 }
 
 func extractConfigValues(
@@ -219,7 +233,7 @@ func analyzeStage(
 			}
 		}
 	}
-	h := ir.Handle{Node: key, Param: "output"}
+	h := ir.Handle{Node: key, Param: "input"}
 	return n, h, true
 }
 
@@ -239,7 +253,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		Type:     sym.Name,
 		Channels: ir.OverrideChannels(stageType.Channels),
 	}
-	h := ir.Handle{Node: sym.Name, Param: ""}
+	h := ir.Handle{Node: sym.Name, Param: "output"}
 	return n, h, true
 }
 

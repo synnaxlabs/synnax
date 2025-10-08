@@ -35,7 +35,7 @@ import (
 //     [base_addr + 8 + sizeof(output0)]: output1 value
 //     ...
 //   - Each multi-output stage/function gets its own memory region
-func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error) {
+func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
@@ -45,6 +45,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 	// Output memory counter - starts at 0x1000
 	outputMemoryCounter := uint32(0x1000)
 	hasMultiOutput := false
+	outputMemoryBases := make(map[string]uint32)
 
 	for _, i := range program.Stages {
 		params := slices.Concat(i.Config.Values, i.Params.Values)
@@ -61,6 +62,8 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 		if hasNamedOutputs {
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
+			// Track this stage's memory base
+			outputMemoryBases[i.Key] = outputMemoryBase
 			// Calculate size: 8 bytes for dirty flags + size of all outputs
 			size := uint32(8) // dirty flags
 			for _, outputType := range i.Outputs.Values {
@@ -70,7 +73,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 		}
 
 		if err := compileItem(ctx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
-			return nil, err
+			return Output{}, err
 		}
 	}
 
@@ -88,6 +91,8 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 		if hasNamedOutputs {
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
+			// Track this function's memory base
+			outputMemoryBases[i.Key] = outputMemoryBase
 			// Calculate size: 8 bytes for dirty flags + size of all outputs
 			size := uint32(8) // dirty flags
 			for _, outputType := range i.Outputs.Values {
@@ -97,7 +102,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 		}
 
 		if err := compileItem(ctx, i.Key, i.Body.AST, i.Params.Values, returnType, i.Outputs, outputMemoryBase); err != nil {
-			return nil, err
+			return Output{}, err
 		}
 	}
 
@@ -106,7 +111,10 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) ([]byte, error
 		ctx.Module.EnableMemory()
 	}
 
-	return ctx.Module.Generate(), nil
+	return Output{
+		WASM:              ctx.Module.Generate(),
+		OutputMemoryBases: outputMemoryBases,
+	}, nil
 }
 
 func compileItem(

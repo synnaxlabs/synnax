@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/compiler/runtime"
+	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 )
@@ -21,7 +21,7 @@ import (
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
-	Imports *runtime.ImportIndex
+	Imports *bindings.ImportIndex
 	Scope   *ir.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module
@@ -72,7 +72,7 @@ func CreateRoot(
 		Writer:  wasm.NewWriter(),
 	}
 	if !disableHostImports {
-		ctx.Imports = runtime.SetupImports(ctx.Module)
+		ctx.Imports = bindings.SetupImports(ctx.Module)
 	}
 	return ctx
 }

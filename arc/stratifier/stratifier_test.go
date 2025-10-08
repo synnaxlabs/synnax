@@ -28,7 +28,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(1))
+			Expect(strata.NodeCount()).To(Equal(1))
 			Expect(strata.Get("source")).To(Equal(0))
 		})
 
@@ -42,7 +42,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(2))
+			Expect(strata.NodeCount()).To(Equal(2))
 			Expect(strata.Get("const1")).To(Equal(0))
 			Expect(strata.Get("const2")).To(Equal(0))
 		})
@@ -62,7 +62,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(2))
+			Expect(strata.NodeCount()).To(Equal(2))
 			Expect(strata.Get("sensor")).To(Equal(0))
 			Expect(strata.Get("process")).To(Equal(1))
 		})
@@ -87,7 +87,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(3))
+			Expect(strata.NodeCount()).To(Equal(3))
 			Expect(strata.Get("sensor")).To(Equal(0))
 			Expect(strata.Get("filter")).To(Equal(1))
 			Expect(strata.Get("logger")).To(Equal(2))
@@ -113,7 +113,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(6))
+			Expect(strata.NodeCount()).To(Equal(6))
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("step1")).To(Equal(1))
 			Expect(strata.Get("step2")).To(Equal(2))
@@ -147,7 +147,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(4))
+			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("left")).To(Equal(1))
 			Expect(strata.Get("right")).To(Equal(1))
@@ -179,7 +179,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(5))
+			Expect(strata.NodeCount()).To(Equal(5))
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("fast")).To(Equal(1))
 			Expect(strata.Get("slow1")).To(Equal(1))
@@ -216,7 +216,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(7))
+			Expect(strata.NodeCount()).To(Equal(7))
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("d1_left")).To(Equal(1))
 			Expect(strata.Get("d1_right")).To(Equal(1))
@@ -243,7 +243,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(4))
+			Expect(strata.NodeCount()).To(Equal(4))
 			// All sources at stratum 0
 			Expect(strata.Get("sensor1")).To(Equal(0))
 			Expect(strata.Get("sensor2")).To(Equal(0))
@@ -275,7 +275,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(6))
+			Expect(strata.NodeCount()).To(Equal(6))
 			// Sources
 			Expect(strata.Get("short_src")).To(Equal(0))
 			Expect(strata.Get("long_src")).To(Equal(0))
@@ -308,7 +308,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(4))
+			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("sink1")).To(Equal(1))
 			Expect(strata.Get("sink2")).To(Equal(1))
@@ -335,7 +335,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(4))
+			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source1")).To(Equal(0))
 			Expect(strata.Get("source2")).To(Equal(0))
 			Expect(strata.Get("source3")).To(Equal(0))
@@ -357,7 +357,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeFalse())
-			Expect(strata.Nodes).To(BeNil())
+			Expect(len(strata)).To(Equal(0))
 			Expect(*diag).To(HaveLen(1))
 			Expect((*diag)[0].Message).To(ContainSubstring("cycle detected"))
 		})
@@ -373,7 +373,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeFalse())
-			Expect(strata.Nodes).To(BeNil())
+			Expect(len(strata)).To(Equal(0))
 			Expect(*diag).To(HaveLen(1))
 			Expect((*diag)[0].Message).To(ContainSubstring("cycle detected"))
 		})
@@ -393,7 +393,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeFalse())
-			Expect(strata.Nodes).To(BeNil())
+			Expect(len(strata)).To(Equal(0))
 			Expect(*diag).To(HaveLen(1))
 			Expect((*diag)[0].Message).To(ContainSubstring("cycle detected"))
 			Expect((*diag)[0].Message).To(Or(
@@ -427,7 +427,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeFalse())
-			Expect(strata.Nodes).To(BeNil())
+			Expect(len(strata)).To(Equal(0))
 			Expect(*diag).To(HaveLen(1))
 			Expect((*diag)[0].Message).To(ContainSubstring("cycle detected"))
 		})
@@ -450,7 +450,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).ToNot(BeNil())
+			Expect(len(strata)).To(BeNumerically(">", 0))
 		})
 	})
 
@@ -462,7 +462,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(BeEmpty())
+			Expect(strata.NodeCount()).To(Equal(0))
 		})
 
 		It("Should handle single isolated node", func() {
@@ -474,7 +474,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(1))
+			Expect(strata.NodeCount()).To(Equal(1))
 			Expect(strata.Get("isolated")).To(Equal(0))
 		})
 
@@ -489,7 +489,7 @@ var _ = Describe("Stratification", func() {
 
 			strata, ok := stratifier.Stratify(ctx, nodes, edges, diag)
 			Expect(ok).To(BeTrue(), diag.String())
-			Expect(strata.Nodes).To(HaveLen(3))
+			Expect(strata.NodeCount()).To(Equal(3))
 			Expect(strata.Get("island1")).To(Equal(0))
 			Expect(strata.Get("island2")).To(Equal(0))
 			Expect(strata.Get("island3")).To(Equal(0))

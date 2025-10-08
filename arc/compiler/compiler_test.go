@@ -15,21 +15,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/compiler/runtime"
+	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(source string, resolver ir.SymbolResolver) ([]byte, error) {
+func compile(source string, resolver ir.SymbolResolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
-func compileWithHostImports(source string, resolver ir.SymbolResolver) ([]byte, error) {
+func compileWithHostImports(source string, resolver ir.SymbolResolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
@@ -46,7 +46,7 @@ var _ = Describe("Compiler", func() {
 	})
 	Describe("Function Execution", func() {
 		It("should execute a function with conditional returns", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			func dog(b i64) i64 {
 				a i64 := 2
 				if b == a {
@@ -59,7 +59,7 @@ var _ = Describe("Compiler", func() {
 				return b
 			}
 			`, nil))
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			dog := mod.ExportedFunction("dog")
 			Expect(dog).ToNot(BeNil())
 			// Test case 1: b == 2 should return 1
@@ -79,13 +79,13 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("should execute a simple addition function", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			func add(a i64, b i64) i64 {
 				return a + b
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())
 
@@ -97,14 +97,14 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Stage Execution", func() {
 		It("Should execute a simple compiled addition stage", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			stage add{
 				a i64
 			} (b i64) i64 {
 				return a + b
 			}
 			`, nil))
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())
 			results := MustSucceed(add.Call(ctx, 10, 32))
@@ -116,7 +116,7 @@ var _ = Describe("Compiler", func() {
 	Describe("Channel Operations", func() {
 		It("Should execute a function with channel read operations", func() {
 			// Create mock runtime with channel implementations
-			mockRuntime := runtime.NewBindings()
+			mockRuntime := bindings.NewBindings()
 
 			// Setup channel data
 			channelData := map[uint32]int32{0: 42}
@@ -141,13 +141,13 @@ var _ = Describe("Compiler", func() {
 			})
 
 			// Compile with host imports enabled
-			wasmBytes := MustSucceed(compileWithHostImports(`
+			output := MustSucceed(compileWithHostImports(`
 			func readAndDouble() i32 {
 				return sensor * 2
 			}
 			`, resolver))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			readAndDouble := mod.ExportedFunction("readAndDouble")
 			Expect(readAndDouble).ToNot(BeNil())
 
@@ -161,7 +161,7 @@ var _ = Describe("Compiler", func() {
 		It("Should correctly compile and execute a flow expression", func() {
 
 			// Create mock runtime with channel implementations
-			mockRuntime := runtime.NewBindings()
+			mockRuntime := bindings.NewBindings()
 
 			// Setup channel data
 			channelData := map[uint32]int32{12: 32}
@@ -194,9 +194,9 @@ var _ = Describe("Compiler", func() {
 			}
 
 			// Compile with host imports enabled
-			wasmBytes := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message = "dog"}`, resolver))
+			output := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message = "dog"}`, resolver))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			readAndDouble := mod.ExportedFunction("__expr_0")
 			Expect(readAndDouble).ToNot(BeNil())
 
@@ -208,7 +208,7 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Named Output Routing", func() {
 		It("Should compile a debug multi-param stage", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			stage debug(x i64, y i64) {
 				out i64
 			} {
@@ -216,7 +216,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			debug := mod.ExportedFunction("debug")
 			Expect(debug).ToNot(BeNil())
 
@@ -233,7 +233,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should compile a basic multi-output stage", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			stage classifier(value i64) {
 				high i64
 				low i64
@@ -246,7 +246,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			classifier := mod.ExportedFunction("classifier")
 			Expect(classifier).ToNot(BeNil())
 
@@ -277,7 +277,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should handle conditional output routing", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			stage router(x i64, y i64) {
 				sum i64
 				diff i64
@@ -294,7 +294,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			router := mod.ExportedFunction("router")
 			Expect(router).ToNot(BeNil())
 
@@ -304,9 +304,9 @@ var _ = Describe("Compiler", func() {
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
-			Expect(dirtyFlags & 1).To(Equal(uint64(1)))    // sum set
-			Expect(dirtyFlags & 2).To(Equal(uint64(2)))    // diff set
-			Expect(dirtyFlags & 4).To(Equal(uint64(0)))    // both not set
+			Expect(dirtyFlags & 1).To(Equal(uint64(1))) // sum set
+			Expect(dirtyFlags & 2).To(Equal(uint64(2))) // diff set
+			Expect(dirtyFlags & 4).To(Equal(uint64(0))) // both not set
 
 			sumValue, ok := mem.ReadUint64Le(0x1008)
 			Expect(ok).To(BeTrue())
@@ -321,9 +321,9 @@ var _ = Describe("Compiler", func() {
 
 			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
-			Expect(dirtyFlags & 1).To(Equal(uint64(1)))    // sum set
-			Expect(dirtyFlags & 2).To(Equal(uint64(0)))    // diff not set
-			Expect(dirtyFlags & 4).To(Equal(uint64(4)))    // both set
+			Expect(dirtyFlags & 1).To(Equal(uint64(1))) // sum set
+			Expect(dirtyFlags & 2).To(Equal(uint64(0))) // diff not set
+			Expect(dirtyFlags & 4).To(Equal(uint64(4))) // both set
 
 			bothValue, ok := mem.ReadUint64Le(0x1018)
 			Expect(ok).To(BeTrue())
@@ -331,7 +331,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should support mixed output types", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			stage converter(value i64) {
 				asFloat f64
 				asInt i32
@@ -343,7 +343,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			converter := mod.ExportedFunction("converter")
 			Expect(converter).ToNot(BeNil())
 
@@ -369,7 +369,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should support multi-output functions", func() {
-			wasmBytes := MustSucceed(compile(`
+			output := MustSucceed(compile(`
 			func divmod(a i64, b i64) {
 				quotient i64
 				remainder i64
@@ -379,7 +379,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			divmod := mod.ExportedFunction("divmod")
 			Expect(divmod).ToNot(BeNil())
 
