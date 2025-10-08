@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/framer/client";
-export * from "@/framer/frame";
-export * from "@/framer/iterator";
-export * from "@/framer/streamer";
-export * from "@/framer/writer";
-export * from "@/framer/writerCommand";
+export enum WriterCommand {
+  Open = 0,
+  Write = 1,
+  Commit = 2,
+  SetAuthority = 3,
+}

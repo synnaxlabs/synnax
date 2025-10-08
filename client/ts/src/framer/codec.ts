@@ -21,7 +21,8 @@ import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
-import { WriterCommand, type WriteRequest } from "@/framer/writer";
+import { type WriteRequest } from "@/framer/writer";
+import { WriterCommand } from "@/framer/writerCommand";
 
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();

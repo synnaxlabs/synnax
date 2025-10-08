@@ -156,7 +156,9 @@ const TABS_SELECTOR_BUTTON_CLASS = CSS.BE("tabs-selector", "btn");
 
 const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
   if (!(e.target instanceof HTMLElement)) return "right";
-  const b = box.construct(e.target.closest(`.${TABS_SELECTOR_BUTTON_CLASS}`));
+  const closest = e.target.closest(`.${TABS_SELECTOR_BUTTON_CLASS}`);
+  if (closest == null) return "right";
+  const b = box.construct(closest);
   const cursor = xy.construct(e);
   const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
   if (s < 0.5) return "left";

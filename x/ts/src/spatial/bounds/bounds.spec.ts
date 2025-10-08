@@ -10,7 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 
 import { type numeric } from "@/numeric";
-import * as bounds from "@/spatial/bounds/bounds";
+import { bounds } from "@/spatial/bounds";
 import { testutil } from "@/testutil";
 
 describe("Bounds", () => {

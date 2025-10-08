@@ -17,13 +17,7 @@ import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
-
-export enum WriterCommand {
-  Open = 0,
-  Write = 1,
-  Commit = 2,
-  SetAuthority = 3,
-}
+import { WriterCommand } from "@/framer/writerCommand";
 
 export enum WriterMode {
   PersistStream = 1,

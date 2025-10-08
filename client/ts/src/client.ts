@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { URL } from "@synnaxlabs/x/url";
+import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
