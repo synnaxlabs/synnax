@@ -16,48 +16,20 @@ import {
   Input,
   Nav,
   Status,
-  Synnax,
   Telem,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
+import { Arc } from "@/code/arc";
 import { Code } from "@/code";
-import { Lua } from "@/code/lua";
-import {
-  usePhantomGlobals,
-  type UsePhantomGlobalsReturn,
-  type Variable,
-} from "@/code/phantom";
-import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-const FAILED_TO_UPDATE_AUTOCOMPLETE =
-  "Failed to update calculated channel auto-complete";
-
-const GLOBALS: Variable[] = [
-  {
-    key: "get",
-    name: "get",
-    value: `
-    -- Get a channel's value by its name. This function should be used when
-    -- the channel name cannot be used directly as a variable. For example,
-    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
-    -- instead of just my-channel.
-    function get(name)
-    end
-    `,
-  },
-];
-
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const client = Synnax.use();
   const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = args?.channelKey !== 0;
 
@@ -69,7 +41,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
     },
   });
 
-  const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
 
   const isIndex = Form.useFieldValue<
@@ -77,26 +48,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
     boolean,
     typeof Channel.calculatedFormSchema
   >("isIndex", { ctx: form });
-
-  const globals = usePhantomGlobals({
-    language: Lua.LANGUAGE,
-    stringifyVar: Lua.stringifyVar,
-    initialVars: GLOBALS,
-  });
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
-      const channels = form.get<channel.Key[]>("requires").value;
-      try {
-        const chs = await client.channels.retrieve(channels);
-        if (signal.aborted) return;
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-      } catch (e) {
-        handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
-      }
-    },
-    [form, globals, client],
-  );
 
   if (variant !== "success") return <Status.Summary status={status} />;
 
@@ -118,14 +69,13 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
 
           <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
-              <Editor
+              <Code.Editor
                 value={value}
-                language={Lua.LANGUAGE}
+                language={Arc.LANGUAGE}
                 onChange={onChange}
                 bordered
                 rounded
                 style={{ height: 150 }}
-                globals={globals}
               />
             )}
           </Form.Field>
@@ -149,19 +99,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
               required
               label="Required Channels"
               grow
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("requires").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
-              }}
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
@@ -191,27 +128,4 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
       </Modals.BottomNavBar>
     </Flex.Box>
   );
-};
-
-interface EditorProps extends Code.EditorProps {
-  globals?: UsePhantomGlobalsReturn;
-}
-
-const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
-  const methods = Form.useContext();
-  const onAccept = useCallback(
-    (channel: channel.Payload) => {
-      if (globals == null) return;
-      globals.set(channel.key.toString(), channel.name, channel.key.toString());
-      methods.set(
-        "requires",
-        unique.unique([...methods.get<channel.Key[]>("requires").value, channel.key]),
-      );
-    },
-    [methods, globals],
-  );
-
-  useSuggestChannels(onAccept);
-
-  return <Code.Editor {...props} />;
 };

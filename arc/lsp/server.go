@@ -82,6 +82,13 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			DefinitionProvider:     true,
 			DocumentSymbolProvider: true,
+			SemanticTokensProvider: map[string]interface{}{
+				"legend": protocol.SemanticTokensLegend{
+					TokenTypes:     convertToSemanticTokenTypes(SemanticTokenTypes),
+					TokenModifiers: convertToSemanticTokenModifiers(SemanticTokenModifiers),
+				},
+				"full": true,
+			},
 		},
 	}, nil
 }
@@ -89,6 +96,28 @@ func New(cfgs ...Config) (*Server, error) {
 // SetClient sets the LSP client for sending notifications
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
+}
+
+// Logger returns the server's logger
+func (s *Server) Logger() *zap.Logger {
+	return s.cfg.L.Zap()
+}
+
+// Helper functions to convert string slices to protocol types
+func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
+	result := make([]protocol.SemanticTokenTypes, len(types))
+	for i, t := range types {
+		result[i] = protocol.SemanticTokenTypes(t)
+	}
+	return result
+}
+
+func convertToSemanticTokenModifiers(modifiers []string) []protocol.SemanticTokenModifiers {
+	result := make([]protocol.SemanticTokenModifiers, len(modifiers))
+	for i, m := range modifiers {
+		result[i] = protocol.SemanticTokenModifiers(m)
+	}
+	return result
 }
 
 // Initialize handles the initialize request

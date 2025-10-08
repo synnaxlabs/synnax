@@ -9,3 +9,4 @@
 
 export * from "@/code/Editor";
 export * from "@/code/Provider";
+export * from "@/code/arc";

@@ -169,9 +169,7 @@ func (s *Server) SelectionRange(ctx context.Context, params *protocol.SelectionR
 	return nil, nil
 }
 
-func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
-	return nil, nil
-}
+// SemanticTokensFull is implemented in semantic.go
 
 func (s *Server) SemanticTokensFullDelta(ctx context.Context, params *protocol.SemanticTokensDeltaParams) (interface{}, error) {
 	return nil, nil
