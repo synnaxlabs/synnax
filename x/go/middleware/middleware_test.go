@@ -19,9 +19,7 @@ type request struct {
 	value string
 }
 
-type response struct {
-	value string
-}
+type response struct{}
 
 type myFirstMiddleware struct{}
 
@@ -60,7 +58,7 @@ var _ = Describe("Middleware", func() {
 		collector.Use(&myFirstMiddleware{})
 		collector.Use(&myFirstMiddleware{})
 		req := &request{}
-		_, err := collector.Chain.Exec(req, &myFinalizer{})
+		_, err := collector.Exec(req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
 	})

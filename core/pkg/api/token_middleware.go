@@ -43,7 +43,7 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		setSubject(ctx.Params, user.OntologyID(userKey))
 		oCtx, err := next(ctx)
 		if newTK != "" {
-			oCtx.Params.Set(tokenRefreshHeader, newTK)
+			oCtx.Set(tokenRefreshHeader, newTK)
 		}
 		return oCtx, err
 	})
@@ -89,7 +89,7 @@ func setSubject(p freighter.Params, subject ontology.ID) {
 }
 
 func getSubject(ctx context.Context) ontology.ID {
-	s, ok := freighter.MDFromContext(ctx).Params.Get(subjectKey)
+	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
 		return user.OntologyID(uuid.Nil)

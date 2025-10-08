@@ -136,9 +136,7 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) ir.
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		if varScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
 			if varScope.Type != nil {
-				if t, ok := varScope.Type.(ir.Type); ok {
-					return t
-				}
+				return varScope.Type
 			}
 		}
 		return nil
