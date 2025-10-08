@@ -332,11 +332,8 @@ public:
                 }
             }
             if (skip_sample) {
-                // Clear any partial writes from this iteration
-                for (auto [k, s]: fr)
-                    s.clear();
-                this->timer.wait(breaker);
-                continue;
+                fr.clear();
+                return res;
             }
             const auto end = telem::TimeStamp::now();
             const auto ts = telem::TimeStamp::midpoint(start, end);
