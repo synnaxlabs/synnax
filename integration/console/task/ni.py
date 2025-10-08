@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Literal, Optional, Type
 
 import synnax as sy
@@ -32,38 +33,56 @@ class NITask(ConsolePage):
         self.channels = []
         self.channels_by_name = []
 
+    @abstractmethod
     def add_channel(
         self,
         name: str,
         type: str,
         device: str,
         dev_name: Optional[str] = None,
-        channel_class: Optional[Type[Analog]] = None,
         **kwargs: Any,
     ) -> Analog:
         """
         Add a channel to the task.
+
+        Subclasses must implement this method to validate the channel type
+        and instantiate the appropriate channel class.
 
         Args:
             name: Channel name
             type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
-            channel_class: Channel class to instantiate (required)
             **kwargs: Additional channel-specific configuration
 
         Returns:
             The created channel instance
-
-        Raises:
-            ValueError: If channel_class is not provided
         """
-        if channel_class is None:
-            raise ValueError(
-                "channel_class parameter is required. "
-                "Subclasses should validate the channel type and pass the appropriate class."
-            )
+        ...
 
+    def _add_channel_helper(
+        self,
+        name: str,
+        type: str,
+        device: str,
+        dev_name: Optional[str],
+        channel_class: Type[Analog],
+        **kwargs: Any,
+    ) -> Analog:
+        """
+        Helper method for adding a channel with common UI automation logic.
+
+        Args:
+            name: Channel name
+            type: Channel type string for UI selection
+            device: Device identifier
+            dev_name: Optional device name
+            channel_class: Channel class to instantiate
+            **kwargs: Additional channel-specific configuration
+
+        Returns:
+            The created channel instance
+        """
         console = self.console
 
         # Add first channel or subsequent channels

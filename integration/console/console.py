@@ -57,7 +57,6 @@ class Console:
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)
-        self.task = NITask(page, self)
         self.ni_ai = AnalogRead(page, self)
         self.ni_ao = AnalogWrite(page, self)
 

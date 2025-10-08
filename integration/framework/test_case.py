@@ -521,12 +521,10 @@ class TestCase(ABC):
     @overload
     def read_tlm(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]:
-        ...
+    ) -> Optional[Union[int, float]]: ...
 
     @overload
-    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]:
-        ...
+    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
 
     def read_tlm(
         self, key: str, default: Optional[Union[int, float]] = None
@@ -566,12 +564,10 @@ class TestCase(ABC):
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]:
-        ...
+    ) -> Optional[Union[int, float]]: ...
 
     @overload
-    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]:
-        ...
+    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
 
     def get_state(
         self, key: str, default: Optional[Union[int, float]] = None

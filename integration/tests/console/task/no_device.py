@@ -61,7 +61,7 @@ class NoDevice(ConsoleCase):
         """Initial assertion of task status"""
         console = self.console
 
-        status = console.task.status()
+        status = console.ni_ai.status()
         msg = status["msg"]
         level = status["level"]
 
@@ -78,7 +78,7 @@ class NoDevice(ConsoleCase):
     def configure_without_channels(self) -> None:
         """Configure without defining channels"""
         console = self.console
-        console.task.configure()
+        console.ni_ai.configure()
 
         # Assert error notification
         notifications = self.console.check_for_notifications()
@@ -90,7 +90,7 @@ class NoDevice(ConsoleCase):
         self.console.close_all_notifications()
 
         # Assert Task error status
-        status = console.task.status()
+        status = console.ni_ai.status()
         level = status["level"]
         msg = status["msg"]
         level_expected = "error"
@@ -107,23 +107,23 @@ class NoDevice(ConsoleCase):
         console = self.console
 
         # Add channel
-        console.task.add_channel(
+        console.ni_ai.add_channel(
             name="new_channel", type="Voltage", device=dev_name, dev_name="usb_6000"
         )
 
         self.log("Configuring task")
-        console.task.configure()
+        console.ni_ai.configure()
         self.log("Running task")
-        console.task.run()
+        console.ni_ai.run()
 
         # Status assertions
-        status = console.task.status()
+        status = console.ni_ai.status()
         level = status["level"]
         msg = status["msg"]
 
         while level == "loading" and self.should_continue:
             sy.sleep(0.1)
-            status = console.task.status()
+            status = console.ni_ai.status()
             level = status["level"]
             msg = status["msg"]
 

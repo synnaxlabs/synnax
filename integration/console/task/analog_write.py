@@ -35,10 +35,8 @@ class AnalogWrite(NITask):
         self.page_type = "NI Analog Write Task"
 
     def new(self) -> str:
-        """Create a new NI AO task page and set console.task to this instance."""
-        result = super().new()
-        self.console.task = self
-        return result
+        """Create a new NI AO task page."""
+        return super().new()
 
     def add_channel(
         self,
@@ -76,7 +74,7 @@ class AnalogWrite(NITask):
         kwargs.pop("shunt_resistor", None)
         kwargs.pop("resistance", None)
 
-        return super().add_channel(
+        return self._add_channel_helper(
             name=name,
             type=type,
             device=device,
