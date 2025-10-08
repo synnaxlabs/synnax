@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { math } from "@/math";
+import { abs, add, equal as mathEqual, min as mathMin, sub } from "@/math/math";
 import { type numeric } from "@/numeric";
 import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
 
@@ -479,7 +479,7 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   }
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
-  let removeBefore = math.sub(Number(span(_bounds[lower.index])), lower.position);
+  let removeBefore = sub(Number(span(_bounds[lower.index])), lower.position);
   // If we're overlapping with the previous bound, we need to slice out one less
   // and insert one further up.
   if (lower.position !== 0) {
@@ -596,7 +596,7 @@ export const traverse = <T extends numeric.Value = number>(
   let remainingDist = dist;
   let currentPosition = start as number | bigint;
 
-  while (math.equal(remainingDist, 0) === false) {
+  while (mathEqual(remainingDist, 0) === false) {
     // Find the bound we're currently in or adjacent to
     const index = _bounds.findIndex((b) => {
       if (dir > 0) return currentPosition >= b.lower && currentPosition < b.upper;
@@ -606,19 +606,16 @@ export const traverse = <T extends numeric.Value = number>(
     if (index !== -1) {
       const b = _bounds[index];
       let distanceInBound: T;
-      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition);
-      else distanceInBound = math.sub(currentPosition, b.lower) as T;
+      if (dir > 0) distanceInBound = sub(b.upper, currentPosition);
+      else distanceInBound = sub(currentPosition, b.lower) as T;
 
       if (distanceInBound > (0 as T)) {
-        const moveDist = math.min(math.abs(remainingDist), distanceInBound);
-        currentPosition = math.add(
-          currentPosition,
-          dir > 0 ? moveDist : -moveDist,
-        ) as T;
-        remainingDist = math.sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
+        const moveDist = mathMin(abs(remainingDist), distanceInBound);
+        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist) as T;
+        remainingDist = sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
-        if (math.equal(remainingDist, 0)) return currentPosition as T;
+        if (mathEqual(remainingDist, 0)) return currentPosition as T;
         continue;
       }
     }
