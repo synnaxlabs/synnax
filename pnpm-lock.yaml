@@ -611,6 +611,9 @@ importers:
       eslint-config-synnaxlabs:
         specifier: workspace:^
         version: link:../configs/eslint
+      madge:
+        specifier: 'catalog:'
+        version: 8.0.0(typescript@5.9.2)
       typescript:
         specifier: 'catalog:'
         version: 5.9.2
