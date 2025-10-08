@@ -621,7 +621,7 @@ TEST(RateTest, testRateInErrorMessage) {
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
     EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
-    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);  // Should not have .hz()
+    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
 
 /// @brief Verify device locations are extracted from channels after configuration
@@ -659,10 +659,12 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
 
-    auto dev1 = synnax::Device("d1", "dev1", rack.key, "cDAQ1Mod1", "ni", "NI 9229", "");
+    auto
+        dev1 = synnax::Device("d1", "dev1", rack.key, "cDAQ1Mod1", "ni", "NI 9229", "");
     ASSERT_NIL(sy->hardware.create_device(dev1));
 
-    auto dev2 = synnax::Device("d2", "dev2", rack.key, "cDAQ1Mod2", "ni", "NI 9205", "");
+    auto
+        dev2 = synnax::Device("d2", "dev2", rack.key, "cDAQ1Mod2", "ni", "NI 9205", "");
     ASSERT_NIL(sy->hardware.create_device(dev2));
 
     auto ch1 = ASSERT_NIL_P(sy->channels.create("ch1", telem::FLOAT64_T, true));
@@ -673,32 +675,29 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", "cross-device"},
-        {"channels", json::array({
-            {
-                {"type", "ai_voltage"},
-                {"key", "key1"},
-                {"port", 0},
-                {"enabled", true},
-                {"channel", ch1.key},
-                {"terminal_config", "Cfg_Default"},
-                {"min_val", -10},
-                {"max_val", 10},
-                {"custom_scale", {{"type", "none"}}},
-                {"device", dev1.key}
-            },
-            {
-                {"type", "ai_voltage"},
-                {"key", "key2"},
-                {"port", 0},
-                {"enabled", true},
-                {"channel", ch2.key},
-                {"terminal_config", "Cfg_Default"},
-                {"min_val", -10},
-                {"max_val", 10},
-                {"custom_scale", {{"type", "none"}}},
-                {"device", dev2.key}
-            }
-        })}
+        {"channels",
+         json::array(
+             {{{"type", "ai_voltage"},
+               {"key", "key1"},
+               {"port", 0},
+               {"enabled", true},
+               {"channel", ch1.key},
+               {"terminal_config", "Cfg_Default"},
+               {"min_val", -10},
+               {"max_val", 10},
+               {"custom_scale", {{"type", "none"}}},
+               {"device", dev1.key}},
+              {{"type", "ai_voltage"},
+               {"key", "key2"},
+               {"port", 0},
+               {"enabled", true},
+               {"channel", ch2.key},
+               {"terminal_config", "Cfg_Default"},
+               {"min_val", -10},
+               {"max_val", 10},
+               {"custom_scale", {{"type", "none"}}},
+               {"device", dev2.key}}}
+         )}
     };
 
     auto p = xjson::Parser(j);
@@ -712,10 +711,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
 
     // Verify we can extract unique locations (what the validation code does)
     std::set<std::string> unique_locs;
-    for (const auto &ch : cfg->channels) {
-        if (!ch->dev_loc.empty()) {
-            unique_locs.insert(ch->dev_loc);
-        }
+    for (const auto &ch: cfg->channels) {
+        if (!ch->dev_loc.empty()) { unique_locs.insert(ch->dev_loc); }
     }
     EXPECT_EQ(unique_locs.size(), 2);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);

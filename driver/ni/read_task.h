@@ -177,8 +177,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         std::set<std::string> device_locations;
         for (const auto &ch: this->channels)
-            if (!ch->dev_loc.empty())
-                device_locations.insert(ch->dev_loc);
+            if (!ch->dev_loc.empty()) device_locations.insert(ch->dev_loc);
 
         for (const auto &location: device_locations) {
             float64 min_rate = 0.0;
