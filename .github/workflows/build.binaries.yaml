@@ -4,27 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       build-ubuntu:
-        description: 'Build for Ubuntu'
+        description: "Build for Ubuntu"
         type: boolean
         default: false
       build-windows:
-        description: 'Build for Windows'
+        description: "Build for Windows"
         type: boolean
         default: false
       build-macos:
-        description: 'Build for macOS'
+        description: "Build for macOS"
         type: boolean
         default: false
       build-driver:
-        description: 'Build Driver'
+        description: "Build Driver"
         type: boolean
         default: false
       build-console:
-        description: 'Build Console'
+        description: "Build Console"
         type: boolean
         default: false
       build-core:
-        description: 'Build Core'
+        description: "Build Core"
         type: boolean
         default: false
 
