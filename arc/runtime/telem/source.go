@@ -14,18 +14,40 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	state2 "github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/query"
 	xtelem "github.com/synnaxlabs/x/telem"
+)
+
+var (
+	sourceSymbol = ir.Symbol{
+		Name: "on",
+		Kind: ir.KindStage,
+		Type: ir.Stage{
+			Config: ir.NamedTypes{
+				Keys:   []string{"channel"},
+				Values: []ir.Type{ir.Chan{}},
+			},
+			Outputs: ir.NamedTypes{
+				Keys:   []string{ir.DefaultOutput},
+				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+			},
+		},
+	}
+	Resolver = ir.MapResolver{
+		"on": sourceSymbol,
+	}
 )
 
 type source struct {
 	node          ir.Node
 	telem         *State
-	state         *state2.State
+	state         *state.State
 	key           uint32
 	highWaterMark xtelem.Alignment
 }
+
+func (s *source) Init(ctx context.Context, changed func(output string)) {}
 
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	passSeries := s.telem.Data[s.key].FilterGreaterThanOrEqualTo(s.highWaterMark)

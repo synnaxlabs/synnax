@@ -12,5 +12,6 @@ package node
 import "context"
 
 type Node interface {
+	Init(ctx context.Context, markChanged func(output string))
 	Next(ctx context.Context, markChanged func(output string))
 }

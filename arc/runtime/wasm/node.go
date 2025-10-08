@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	telem2 "github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -22,7 +22,7 @@ type node struct {
 	wasm           *Function
 	inputs         []ir.Edge
 	outputs        []ir.Edge
-	state          *telem2.State
+	state          *state.State
 	params         []uint64
 	changedOutputs []string
 }

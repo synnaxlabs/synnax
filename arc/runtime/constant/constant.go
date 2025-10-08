@@ -10,7 +10,10 @@
 package constant
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/maps"
 )
 
@@ -32,9 +35,16 @@ var (
 	Resolver = ir.MapResolver{"constant": symbol}
 )
 
-type constant struct {
-	value       uint64
-	initialized bool
+type constant struct{}
+
+func (c constant) Init(ctx context.Context, changed func(output string)) {
+	changed(ir.DefaultOutput)
 }
 
-func (c constant) Next() {}
+func (c constant) Next(context.Context, func(output string)) {}
+
+type constantFactory struct{}
+
+func (c *constantFactory) Create(cfg node.Config) (node.Node, error) {
+	return constant{}, nil
+}
