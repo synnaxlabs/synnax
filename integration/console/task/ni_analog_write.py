@@ -52,7 +52,6 @@ class NIAnalogWrite(Task):
         Add a channel to the NI AO task. Only Voltage and Current types are allowed.
         Terminal configuration and shunt resistor parameters are not supported for AO tasks.
 
-
         Args:
             name: Channel name
             type: Channel type (must be "Voltage" or "Current")
@@ -62,12 +61,29 @@ class NIAnalogWrite(Task):
 
         Returns:
             The created channel instance
+
+        Raises:
+            ValueError: If channel type is not valid for analog write tasks
         """
+        if type not in AO_CHANNEL_TYPES:
+            raise ValueError(
+                f"Invalid channel type for NI Analog Write: {type}. "
+                f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
+            )
+
         # Remove parameters not supported for AO tasks
         kwargs.pop("terminal_config", None)
         kwargs.pop("shunt_resistor", None)
         kwargs.pop("resistance", None)
-        return super().add_channel(name, type, device, dev_name, **kwargs)
+
+        return super().add_channel(
+            name=name,
+            type=type,
+            device=device,
+            dev_name=dev_name,
+            channel_class=AO_CHANNEL_TYPES[type],
+            **kwargs,
+        )
 
     def set_parameters(
         self,

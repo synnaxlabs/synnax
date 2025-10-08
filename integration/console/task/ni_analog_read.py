@@ -7,14 +7,62 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 from playwright.sync_api import Page
+
+from console.task.channels.accelerometer import Accelerometer
+from console.task.channels.analog import Analog
+from console.task.channels.bridge import Bridge
+from console.task.channels.current import Current
+from console.task.channels.force_bridge_table import ForceBridgeTable
+from console.task.channels.force_bridge_two_point_linear import (
+    ForceBridgeTwoPointLinear,
+)
+from console.task.channels.force_iepe import ForceIEPE
+from console.task.channels.microphone import Microphone
+from console.task.channels.pressure_bridge_table import PressureBridgeTable
+from console.task.channels.pressure_bridge_two_point_linear import (
+    PressureBridgeTwoPointLinear,
+)
+from console.task.channels.resistance import Resistance
+from console.task.channels.rtd import RTD
+from console.task.channels.strain_gauge import StrainGauge
+from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
+from console.task.channels.thermocouple import Thermocouple
+from console.task.channels.torque_bridge_table import TorqueBridgeTable
+from console.task.channels.torque_bridge_two_point_linear import (
+    TorqueBridgeTwoPointLinear,
+)
+from console.task.channels.velocity_iepe import VelocityIEPE
+from console.task.channels.voltage import Voltage
 
 from .task import Task
 
 if TYPE_CHECKING:
     from console.console import Console
+
+# Valid channel types for NI Analog Read tasks
+ANALOG_READ_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+    "Accelerometer": Accelerometer,
+    "Bridge": Bridge,
+    "Current": Current,
+    "Force Bridge Table": ForceBridgeTable,
+    "Force Bridge Two-Point Linear": ForceBridgeTwoPointLinear,
+    "Force IEPE": ForceIEPE,
+    "Microphone": Microphone,
+    "Pressure Bridge Table": PressureBridgeTable,
+    "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,
+    "Resistance": Resistance,
+    "RTD": RTD,
+    "Strain Gauge": StrainGauge,
+    "Temperature Built-In Sensor": TemperatureBuiltInSensor,
+    "Thermocouple": Thermocouple,
+    "Torque Bridge Table": TorqueBridgeTable,
+    "Torque Bridge Two-Point Linear": TorqueBridgeTwoPointLinear,
+    "Velocity IEPE": VelocityIEPE,
+    "Voltage": Voltage,
+}
 
 
 class NIAnalogRead(Task):
@@ -29,6 +77,45 @@ class NIAnalogRead(Task):
         result = super().new()
         self.console.task = self
         return result
+
+    def add_channel(
+        self,
+        name: str,
+        type: str,
+        device: str,
+        dev_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Analog:
+        """
+        Add an analog read channel to the task.
+
+        Args:
+            name: Channel name
+            type: Channel type (must be valid for analog read tasks)
+            device: Device identifier
+            dev_name: Optional device name
+            **kwargs: Additional channel-specific configuration
+
+        Returns:
+            The created channel instance
+
+        Raises:
+            ValueError: If channel type is not valid for analog read tasks
+        """
+        if type not in ANALOG_READ_CHANNEL_TYPES:
+            raise ValueError(
+                f"Invalid channel type for NI Analog Read: {type}. "
+                f"Valid types: {list(ANALOG_READ_CHANNEL_TYPES.keys())}"
+            )
+
+        return super().add_channel(
+            name=name,
+            type=type,
+            device=device,
+            dev_name=dev_name,
+            channel_class=ANALOG_READ_CHANNEL_TYPES[type],
+            **kwargs,
+        )
 
     def set_parameters(
         self,
