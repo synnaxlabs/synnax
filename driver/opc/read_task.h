@@ -258,10 +258,10 @@ public:
                 ch->ch.name
             );
             if (err || written == 0) {
-                std::string msg =
-                    err ? err.message()
-                        : "Invalid OPC UA array data detected for channel " +
-                              ch->ch.name;
+                std::string
+                    msg = err ? err.message()
+                              : "Invalid OPC UA array data detected for channel " +
+                                    ch->ch.name;
                 error_messages.push_back(msg);
             }
         }
