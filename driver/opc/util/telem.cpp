@@ -116,10 +116,9 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-
-    if (UA_Variant_isEmpty(&v)) {
-        LOG(WARNING) << "[opc.util] write_to_series: empty variant";
-        return 0;
+    if (s.data_type() == telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
+        const auto dt = static_cast<const UA_DateTime *>(v.data);
+        return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
 
     if (v.type == nullptr || v.data == nullptr) {
@@ -131,11 +130,6 @@ size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     if (!is_scalar && v.arrayLength == 0) {
         LOG(WARNING) << "[opc.util] write_to_series: variant is array with zero length";
         return 0;
-    }
-
-    if (s.data_type() == telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
-        const auto dt = static_cast<const UA_DateTime *>(v.data);
-        return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
 
     try {
