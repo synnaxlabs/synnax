@@ -68,6 +68,10 @@ jobs:
         if: matrix.lint
         run: pnpm check-types:x
 
+      - name: Madge
+        if: matrix.lint
+        run: pnpm madge:x
+
       - name: Lint
         if: matrix.lint
         run: pnpm lint:x

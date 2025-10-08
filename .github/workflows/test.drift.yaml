@@ -72,6 +72,10 @@ jobs:
         if: matrix.lint
         run: pnpm check-types:drift
 
+      - name: Madge
+        if: matrix.lint
+        run: pnpm madge:drift
+
       - name: Lint
         if: matrix.lint
         run: pnpm lint:drift

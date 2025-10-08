@@ -237,6 +237,9 @@ jobs:
       - name: Check Types
         run: pnpm check-types:freighter
 
+      - name: Madge
+        run: pnpm madge:freighter
+
       - name: Lint
         run: pnpm lint:freighter
 

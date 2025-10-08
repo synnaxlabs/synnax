@@ -129,6 +129,9 @@ jobs:
       - name: Check Types
         run: pnpm check-types:pluto
 
+      - name: Madge
+        run: pnpm madge:pluto
+
       - name: Lint
         run: pnpm lint:pluto
 

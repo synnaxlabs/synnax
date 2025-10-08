@@ -302,6 +302,9 @@ jobs:
       - name: Check Types
         run: pnpm check-types:client
 
+      - name: Madge
+        run: pnpm madge:client
+
       - name: Lint
         run: pnpm lint:client
 

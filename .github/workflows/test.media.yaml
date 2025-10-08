@@ -54,5 +54,8 @@ jobs:
       - name: Check Types
         run: pnpm check-types:media
 
+      - name: Madge
+        run: pnpm madge:media
+
       - name: Lint
         run: pnpm lint:media
