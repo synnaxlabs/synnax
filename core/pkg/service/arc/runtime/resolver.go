@@ -15,8 +15,9 @@ import (
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/constant"
+	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/std"
 	"github.com/synnaxlabs/x/config"
 )
 
@@ -52,7 +53,8 @@ func CreateResolver(cfgs ...Config) (arc.SymbolResolver, error) {
 		return nil, err
 	}
 	r := ir.CompoundResolver{
-		std.Resolver,
+		constant.Resolver,
+		op.Resolver,
 		&channelResolver{Readable: cfg.Channel},
 	}
 	return r, nil

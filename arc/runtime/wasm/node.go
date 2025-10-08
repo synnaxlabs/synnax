@@ -13,44 +13,42 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime"
+	telem2 "github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Node struct {
-	Node    ir.Node
-	Wasm    *Function
-	Inputs  []ir.Edge
-	Outputs []ir.Edge
-	State   *runtime.State
-	Params  []uint64
+type node struct {
+	ir             ir.Node
+	wasm           *Function
+	inputs         []ir.Edge
+	outputs        []ir.Edge
+	state          *telem2.State
+	params         []uint64
+	changedOutputs []string
 }
 
-func (n *Node) Next(ctx context.Context, onOutput func(param string)) {
+func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	var maxLength int64
-	for _, o := range n.Inputs {
-		if oLen := n.State.Outputs[o.Source].Len(); oLen > maxLength {
+	for _, o := range n.inputs {
+		if oLen := n.state.Outputs[o.Source].Len(); oLen > maxLength {
 			maxLength = oLen
 		}
 	}
 	for i := range maxLength {
-		for inputIdx, o := range n.Inputs {
-			n.Params[inputIdx] = ValueAt(n.State.Outputs[o.Source], int(i))
+		for inputIdx, o := range n.inputs {
+			n.params[inputIdx] = valueAt(n.state.Outputs[o.Source], int(i))
 		}
-		res, err := n.Wasm.Call(ctx, n.Params...)
+		res, err := n.wasm.Call(ctx, n.params...)
 		if err != nil {
 		}
 		for param, value := range res {
-			onOutput(param)
-			SetValueAt(n.State.Outputs[ir.Handle{Param: param, Node: n.Node.Key}], int(i), value)
+			setValueAt(n.state.Outputs[ir.Handle{Param: param, Node: n.ir.Key}], int(i), value)
+			markChanged(param)
 		}
 	}
-	return
 }
 
-// ValueAt reads the value at index i from the series in its native data type and
-// converts it to a WASM compatible uint64.
-func ValueAt(s telem.Series, i int) uint64 {
+func valueAt(s telem.Series, i int) uint64 {
 	if s.DataType.IsVariable() {
 		panic("variable density series not supported for WASM conversion")
 	}
@@ -70,9 +68,7 @@ func ValueAt(s telem.Series, i int) uint64 {
 	}
 }
 
-// SetValueAt takes the Wasm encoded uint64 of the same data type as the series and
-// sets it at the index i.
-func SetValueAt(s telem.Series, i int, v uint64) {
+func setValueAt(s telem.Series, i int, v uint64) {
 	if s.DataType.IsVariable() {
 		panic("variable density series not supported for WASM conversion")
 	}

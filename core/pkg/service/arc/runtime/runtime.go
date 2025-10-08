@@ -15,21 +15,24 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/runtime"
+	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/state"
+	ntelem "github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/stage"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -121,9 +124,8 @@ func (w *writerSeg) Close() error {
 }
 
 type Runtime struct {
-	core     *Core
-	streamer *streamerSeg
-	writer   *writerSeg
+	scheduler *runtime.Scheduler
+	streamer  *streamerSeg
 	// close is a shutdown handler that stops internal processes
 	close io.Closer
 }
@@ -131,20 +133,18 @@ type Runtime struct {
 func (r *Runtime) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(r.streamer.Close)
-	c.Exec(r.writer.Close)
 	c.Exec(r.close.Close)
 	return c.Error()
 }
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
-	r.core.Next(ctx, res.Frame)
 	return nil
 }
 
 func retrieveReadChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
-	nodes map[string]stage.Node,
+	nodes map[string]node.Node,
 ) ([]channel.Channel, error) {
 	keys := make(set.Set[channel.Key])
 	for _, node := range nodes {
@@ -160,24 +160,24 @@ func retrieveReadChannels(
 	return channels, nil
 }
 
-func retrieveWriteChannels(
-	ctx context.Context,
-	channelSvc channel.Readable,
-	nodes map[string]stage.Node,
-) ([]channel.Channel, error) {
-	keys := make(set.Set[channel.Key])
-	for _, node := range nodes {
-		keys.Add(node.WriteChannels()...)
-	}
-	channels := make([]channel.Channel, 0, len(keys))
-	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys.Keys()...).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	return channels, nil
-}
+//func retrieveWriteChannels(
+//	ctx context.Context,
+//	channelSvc channel.Readable,
+//	nodes map[string]stage.Node,
+//) ([]channel.Channel, error) {
+//	keys := make(set.Set[channel.Key])
+//	for _, node := range nodes {
+//		keys.Add(node.WriteChannels()...)
+//	}
+//	channels := make([]channel.Channel, 0, len(keys))
+//	if err := channelSvc.NewRetrieve().
+//		WhereKeys(keys.Keys()...).
+//		Entries(&channels).
+//		Exec(ctx, nil); err != nil {
+//		return nil, err
+//	}
+//	return channels, nil
+//}
 
 var (
 	streamerAddr address.Address = "streamerSeg"
@@ -209,32 +209,32 @@ func createStreamPipeline(
 	return p, requests, nil
 }
 
-func createWritePipeline(
-	ctx context.Context,
-	name string,
-	r *Runtime,
-	frameSvc *framer.Service,
-	writeChannelKeys []channel.Key,
-) (confluence.Flow, error) {
-	p := plumber.New()
-	w, err := frameSvc.NewStreamWriter(
-		ctx,
-		framer.WriterConfig{
-			ControlSubject:   control.Subject{Name: name},
-			Start:            telem.Now(),
-			Keys:             writeChannelKeys,
-			EnableAutoCommit: config.True(),
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	r.writer.Sink = r.writer.sink
-	plumber.SetSegment(p, writerAddr, w)
-	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
-	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
-	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
-	return p, nil
+//func createWritePipeline(
+//	ctx context.Context,
+//	name string,
+//	r *Runtime,
+//	frameSvc *framer.Service,
+//	writeChannelKeys []channel.Key,
+//) (confluence.Flow, error) {
+//	p := plumber.New()
+//	w, err := frameSvc.NewStreamWriter(
+//		ctx,
+//		framer.WriterConfig{
+//			ControlSubject:   control.Subject{Name: name},
+//			Start:            telem.Now(),
+//			Keys:             writeChannelKeys,
+//			EnableAutoCommit: config.True(),
+//		},
+//	)
+//	if err != nil {
+//		return nil, err
+//	}
+//	r.writer.Sink = r.writer.sink
+//	plumber.SetSegment(p, writerAddr, w)
+//	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
+//	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
+//	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
+//	return p, nil
 }
 
 func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
@@ -242,61 +242,96 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	core, err := NewCore(ctx, cfg)
+	progState, err := state.NewState(ctx, cfg.Module.IR)
 	if err != nil {
 		return nil, err
 	}
-	r := &Runtime{
-		core:     core,
-		writer:   &writerSeg{},
-		streamer: &streamerSeg{},
-	}
-	core.OnWrite(r.writer.Write)
-	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, core.nodes)
+	// Step 1: Instantiate WASM node factory
+	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		Module: cfg.Module,
+	})
 	if err != nil {
 		return nil, err
 	}
-	writeChannels, err := retrieveWriteChannels(ctx, cfg.Channel, core.nodes)
-	if err != nil {
-		return nil, err
-	}
-	streamPipeline, requests, err := createStreamPipeline(
-		ctx,
-		r,
-		cfg.Framer,
-		channel.KeysFromChannels(readChannels),
-	)
-	if err != nil {
-		return nil, err
-	}
-	r.streamer.requests = requests
-	var writePipeline confluence.Flow
-	if len(writeChannels) > 0 {
-		writePipeline, err = createWritePipeline(
-			ctx,
-			cfg.Name,
-			r,
-			cfg.Framer,
-			channel.KeysFromChannels(writeChannels),
-		)
+	opFactory := op.NewFactory()
+
+	telemState := &ntelem.State{}
+	fac := ntelem.NewTelemFactory(telemState)
+
+	f := node.MultiFactory{wasmFactory, opFactory, fac}
+	nodes := make(map[string]node.Node)
+	for _, irNode := range cfg.Module.Nodes {
+		n, err := f.Create(node.Config{
+			Node:   irNode,
+			Module: cfg.Module,
+			State:  progState,
+		})
 		if err != nil {
 			return nil, err
 		}
+		nodes[irNode.Key] = n
 	}
-	sCtx, cancel := signal.Isolated()
-	core.Flow(sCtx)
-	streamPipeline.Flow(
-		sCtx,
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-	)
-	if writePipeline != nil {
-		writePipeline.Flow(
-			sCtx,
-			confluence.CloseOutputInletsOnExit(),
-			confluence.RecoverWithErrOnPanic(),
-		)
+
+	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
+	r := &Runtime{
+		scheduler: scheduler,
+		streamer: &streamerSeg{},
 	}
-	r.close = signal.NewGracefulShutdown(sCtx, cancel)
-	return r, err
+
+	//core, err := NewCore(ctx, cfg)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//r := &Runtime{
+	//	core:     core,
+	//	writer:   &writerSeg{},
+	//	streamer: &streamerSeg{},
+	//}
+	//readChannels, err := retrieveReadChannels(ctx, cfg.Channel, core.nodes)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//writeChannels, err := retrieveWriteChannels(ctx, cfg.Channel, core.nodes)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//streamPipeline, requests, err := createStreamPipeline(
+	//	ctx,
+	//	r,
+	//	cfg.Framer,
+	//	channel.KeysFromChannels(readChannels),
+	//)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//r.streamer.requests = requests
+	//var writePipeline confluence.Flow
+	//if len(writeChannels) > 0 {
+	//	writePipeline, err = createWritePipeline(
+	//		ctx,
+	//		cfg.Name,
+	//		r,
+	//		cfg.Framer,
+	//		channel.KeysFromChannels(writeChannels),
+	//	)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+	//sCtx, cancel := signal.Isolated()
+	//core.Flow(sCtx)
+	//streamPipeline.Flow(
+	//	sCtx,
+	//	confluence.CloseOutputInletsOnExit(),
+	//	confluence.RecoverWithErrOnPanic(),
+	//)
+	//if writePipeline != nil {
+	//	writePipeline.Flow(
+	//		sCtx,
+	//		confluence.CloseOutputInletsOnExit(),
+	//		confluence.RecoverWithErrOnPanic(),
+	//	)
+	//}
+	//r.close = signal.NewGracefulShutdown(sCtx, cancel)
+	//return r, err
 }

@@ -144,6 +144,12 @@ func (ir IR) GetStage(key string) (Stage, bool) {
 	})
 }
 
+func (ir IR) GetNode(key string) (Node, bool) {
+	return lo.Find(ir.Nodes, func(item Node) bool {
+		return item.Key == key
+	})
+}
+
 func (ir IR) ReadChannels() set.Set[uint32] {
 	channels := make(set.Set[uint32])
 	for _, node := range ir.Nodes {

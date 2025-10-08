@@ -17,10 +17,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-type Node interface {
-	Next(ctx context.Context, onOutputChange func(param string))
-}
-
 type node struct {
 	node     Node
 	outgoing []ir.Edge
@@ -57,7 +53,7 @@ func (s *Scheduler) MarkChanged(key string) {
 	s.changed.Add(key)
 }
 
-func (s *Scheduler) onOutputChange(param string) {
+func (s *Scheduler) markChanged(param string) {
 	for _, edge := range s.currState.outgoing {
 		if edge.Source.Param == param {
 			s.changed.Add(edge.Target.Node)
@@ -70,7 +66,7 @@ func (s *Scheduler) Next(ctx context.Context) {
 		for _, nodeKey := range stratum {
 			if s.changed.Contains(nodeKey) {
 				s.currState = s.nodes[nodeKey]
-				s.currState.node.Next(ctx, s.onOutputChange)
+				s.currState.node.Next(ctx, s.markChanged)
 			}
 		}
 	}

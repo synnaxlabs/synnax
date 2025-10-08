@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package telem
 
-type Config struct{}
+import "github.com/synnaxlabs/x/telem"
 
-type Runtime struct {
-	scheduler *Scheduler
-	state     *State
+type State struct {
+	Data map[uint32]telem.MultiSeries
 }

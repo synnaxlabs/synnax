@@ -7,16 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package std_test
+package node
 
-import (
-	"testing"
+import "context"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestStd(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Std Suite")
+type Node interface {
+	Next(ctx context.Context, markChanged func(output string))
 }
