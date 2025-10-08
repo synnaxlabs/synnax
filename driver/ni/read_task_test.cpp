@@ -596,3 +596,128 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1); // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
+
+/// @brief Test that telem::Rate can be streamed with << operator
+TEST(RateTest, testRateStreamOperator) {
+    telem::Rate rate_25(25.0);
+    std::ostringstream oss;
+    oss << rate_25;
+    EXPECT_EQ(oss.str(), "25 Hz");
+
+    telem::Rate rate_100(100.5);
+    std::ostringstream oss2;
+    oss2 << rate_100;
+    EXPECT_EQ(oss2.str(), "100.5 Hz");
+
+    telem::Rate rate_zero(0.0);
+    std::ostringstream oss3;
+    oss3 << rate_zero;
+    EXPECT_EQ(oss3.str(), "0 Hz");
+}
+
+/// @brief Test that Rate operator<< works in error messages
+TEST(RateTest, testRateInErrorMessage) {
+    telem::Rate configured_rate(25.0);
+    std::ostringstream msg;
+    msg << "configured sample rate (" << configured_rate << ") is below device minimum";
+    EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
+    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);  // Should not have .hz()
+}
+
+/// @brief Verify device locations are extracted from channels after configuration
+TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+
+    auto dev = synnax::Device(
+        "device123",
+        "test_device",
+        rack.key,
+        "cDAQ1Mod1",
+        "ni",
+        "NI 9229",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("test_ch", telem::FLOAT64_T, true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+
+    // Verify that channels have dev_loc populated after configuration
+    ASSERT_EQ(cfg->channels.size(), 1);
+    EXPECT_EQ(cfg->channels[0]->dev_loc, "cDAQ1Mod1");
+}
+
+/// @brief Verify cross-device task has multiple device locations in channels
+TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+
+    auto dev1 = synnax::Device("d1", "dev1", rack.key, "cDAQ1Mod1", "ni", "NI 9229", "");
+    ASSERT_NIL(sy->hardware.create_device(dev1));
+
+    auto dev2 = synnax::Device("d2", "dev2", rack.key, "cDAQ1Mod2", "ni", "NI 9205", "");
+    ASSERT_NIL(sy->hardware.create_device(dev2));
+
+    auto ch1 = ASSERT_NIL_P(sy->channels.create("ch1", telem::FLOAT64_T, true));
+    auto ch2 = ASSERT_NIL_P(sy->channels.create("ch2", telem::FLOAT64_T, true));
+
+    json j{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", "cross-device"},
+        {"channels", json::array({
+            {
+                {"type", "ai_voltage"},
+                {"key", "key1"},
+                {"port", 0},
+                {"enabled", true},
+                {"channel", ch1.key},
+                {"terminal_config", "Cfg_Default"},
+                {"min_val", -10},
+                {"max_val", 10},
+                {"custom_scale", {{"type", "none"}}},
+                {"device", dev1.key}
+            },
+            {
+                {"type", "ai_voltage"},
+                {"key", "key2"},
+                {"port", 0},
+                {"enabled", true},
+                {"channel", ch2.key},
+                {"terminal_config", "Cfg_Default"},
+                {"min_val", -10},
+                {"max_val", 10},
+                {"custom_scale", {{"type", "none"}}},
+                {"device", dev2.key}
+            }
+        })}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+
+    // Verify both channels have their respective device locations
+    ASSERT_EQ(cfg->channels.size(), 2);
+    EXPECT_EQ(cfg->channels[0]->dev_loc, "cDAQ1Mod1");
+    EXPECT_EQ(cfg->channels[1]->dev_loc, "cDAQ1Mod2");
+
+    // Verify we can extract unique locations (what the validation code does)
+    std::set<std::string> unique_locs;
+    for (const auto &ch : cfg->channels) {
+        if (!ch->dev_loc.empty()) {
+            unique_locs.insert(ch->dev_loc);
+        }
+    }
+    EXPECT_EQ(unique_locs.size(), 2);
+    EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
+    EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+}

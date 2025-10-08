@@ -48,10 +48,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the amount of sample skew needed to trigger a warning that the Synnax
     /// cannot keep up with the amount of clock skew.
     size_t skew_warn_on_count;
-    /// @brief the device resource name(s) used for DAQmx API calls. For single device
-    /// tasks this will have one entry, for cross-device tasks it will have multiple.
-    /// Stored as pairs of (location, model) e.g., ("E103Mod1", "NI 9229").
-    std::vector<std::pair<std::string, std::string>> device_resource_names;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -62,8 +58,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        skew_warn_on_count(other.skew_warn_on_count),
-        device_resource_names(std::move(other.device_resource_names)) {}
+        skew_warn_on_count(other.skew_warn_on_count) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -129,10 +124,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices[device.key] = device;
-            // Store the DAQmx device location and model
-            this->device_resource_names.push_back({device.location, device.model});
-            VLOG(1) << "[ni.read_task] using device for validation: " << device.location
-                    << " (" << device.model << ")";
         } else {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
@@ -146,12 +137,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices = map_device_keys(devices_vec);
-            // Store DAQmx device locations and models for all devices
-            for (const auto &dev: devices_vec) {
-                this->device_resource_names.push_back({dev.location, dev.model});
-                VLOG(1) << "[ni.read_task] using device for validation: "
-                        << dev.location << " (" << dev.model << ")";
-            }
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
@@ -190,10 +175,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
 
-        // Validate sample rate against device minimum(s)
-        VLOG(1) << "[ni.read_task] validating sample rate for "
-                << this->device_resource_names.size() << " device(s)";
-        for (const auto &[location, model]: this->device_resource_names) {
+        std::set<std::string> device_locations;
+        for (const auto &ch: this->channels)
+            if (!ch->dev_loc.empty())
+                device_locations.insert(ch->dev_loc);
+
+        for (const auto &location: device_locations) {
             float64 min_rate = 0.0;
             auto err = dmx->GetDeviceAttributeDouble(
                 location.c_str(),
@@ -205,15 +192,22 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                              << location << ": " << err.message();
                 continue;
             }
-            VLOG(1) << "[ni.read_task] device " << location << " (" << model
-                    << ") min_rate: " << min_rate
-                    << " Hz, configured: " << this->sample_rate.hz() << " Hz";
+
             if (this->sample_rate.hz() < min_rate) {
+                char model_buffer[256];
+                auto model_err = dmx->GetDeviceAttributeString(
+                    location.c_str(),
+                    DAQmx_Dev_ProductType,
+                    model_buffer,
+                    sizeof(model_buffer)
+                );
+                std::string model = model_err ? "Unknown" : model_buffer;
+
                 std::ostringstream msg;
-                msg << "configured sample rate (" << this->sample_rate.hz()
-                    << " Hz) is below device minimum (" << min_rate << " Hz) for "
+                msg << "configured sample rate (" << this->sample_rate
+                    << ") is below device minimum (" << min_rate << " Hz) for "
                     << location << " (" << model << ")";
-                return xerrors::Error("ni.sample_rate_too_low", msg.str());
+                return xerrors::Error(xerrors::VALIDATION, msg.str());
             }
         }
 

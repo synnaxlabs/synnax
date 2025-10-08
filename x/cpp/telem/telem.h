@@ -495,6 +495,11 @@ public:
     [[nodiscard]] TimeSpan period() const {
         return TimeSpan(std::llround(static_cast<double>(_priv::SECOND) / value));
     }
+
+    friend std::ostream &operator<<(std::ostream &os, const Rate &r) {
+        os << r.value << " Hz";
+        return os;
+    }
 };
 
 /// @brief a single hertz
