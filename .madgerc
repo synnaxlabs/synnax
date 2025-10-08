@@ -1,20 +1,13 @@
 {
-    "fileExtensions": [
-        "ts",
-        "tsx",
-        "js",
-        "jsx"
-    ],
-    "tsConfig": "tsconfig.json",
-    "detectiveOptions": {
-        "ts": {
-            "skipTypeImports": true
-        },
-        "tsx": {
-            "skipTypeImports": true
-        }
+  "fileExtensions": ["ts", "tsx", "js", "jsx"],
+  "tsConfig": "tsconfig.json",
+  "detectiveOptions": {
+    "ts": {
+      "skipTypeImports": true
     },
-    "excludeRegExp": [
-        ".*\\.d\\.ts$"
-    ]
+    "tsx": {
+      "skipTypeImports": true
+    }
+  },
+  "excludeRegExp": [".*\\.d\\.ts$"]
 }
