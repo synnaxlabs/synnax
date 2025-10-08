@@ -1,0 +1,14 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "OPC UA Test",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "driver/opcua_sim_server"
+        }
+      ]
+    }
+  ]
+}

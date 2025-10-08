@@ -13,6 +13,14 @@ import math
 
 from asyncua import Server, ua
 
+# Configuration constants
+ARRAY_COUNT = 5
+ARRAY_SIZE = 5
+FLOAT_COUNT = 5
+BOOL_COUNT = 5
+RATE = 100  # Hz
+BOOL_OFFSET = 0.2  # seconds between each boolean transition
+
 
 async def main():
     server = Server()
@@ -23,8 +31,6 @@ async def main():
 
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-    ARRAY_COUNT = 5
-    ARRAY_SIZE = 5
     arrays = list()
     for i in range(ARRAY_COUNT):
         initial_values = [float(j + i) for j in range(ARRAY_SIZE)]
@@ -60,22 +66,23 @@ async def main():
     )
 
     await mytimearray.set_writable()
-
-    RATE = 500
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
-    for i in range(5):
-        # add 30 float variables t OPC
+    floats = []
+    for i in range(FLOAT_COUNT):
         my_float = await myobj.add_variable(
-            idx, f"my_float_{i}", i, ua.VariantType.Float
+            idx, f"my_float_{i}", 0.0, ua.VariantType.Float
         )
         await my_float.set_writable()
-    for i in range(5):
-        # add 30 float variables t OPC
-        my_float = await myobj.add_variable(
-            idx, f"my_bool_{i}", i, ua.VariantType.Boolean
+        floats.append(my_float)
+
+    bools = []
+    for i in range(BOOL_COUNT):
+        my_bool = await myobj.add_variable(
+            idx, f"my_bool_{i}", False, ua.VariantType.Boolean
         )
-        await my_float.set_writable()
+        await my_bool.set_writable()
+        bools.append(my_bool)
 
     i = 0
     start_ref = datetime.datetime.now(datetime.timezone.utc)
@@ -83,6 +90,7 @@ async def main():
         while True:
             i += 1
             start = datetime.datetime.now(datetime.timezone.utc)
+            elapsed = (start - start_ref).total_seconds()
             timestamps = [
                 start + datetime.timedelta(seconds=j * ((1 / RATE)))
                 for j in range(ARRAY_SIZE)
@@ -102,8 +110,19 @@ async def main():
                 else:
                     # Other arrays always return full arrays
                     await arr.set_value([v + i for v in values], varianttype=ua.VariantType.Float)
-        
+
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
+
+            # Update floats with sinewaves (offset like arrays)
+            for idx, float_var in enumerate(floats):
+                await float_var.set_value(math.sin(elapsed) + idx, varianttype=ua.VariantType.Float)
+
+            # Update booleans with 1Hz square waves (sequential pattern)
+            for idx, bool_var in enumerate(bools):
+                offset_elapsed = elapsed + (idx * BOOL_OFFSET)
+                square_wave = int(offset_elapsed) % 2 == 0
+                await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
+
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start
             ).total_seconds()

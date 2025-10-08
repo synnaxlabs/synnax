@@ -235,12 +235,16 @@ public:
             this->request.base
         );
         x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
+        if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+            res.error)
+            return res;
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.array_size
         );
+        std::vector<std::string> error_messages;
         for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
             auto &result = ua_res.results[i];
             if (res.error = util::parse_error(result.status); res.error) return res;
@@ -254,13 +258,22 @@ public:
                 ch->ch.name
             );
             if (err || written == 0) {
-                // Invalid data (empty array, bad pointer, or wrong size)
-                fr.clear();
-                res.warning = err ? err.message()
-                                  : "Invalid OPC UA array data detected for channel " +
-                                        ch->ch.name + ", skipping frame";
-                return res;
+                std::string msg =
+                    err ? err.message()
+                        : "Invalid OPC UA array data detected for channel " +
+                              ch->ch.name;
+                error_messages.push_back(msg);
             }
+        }
+
+        if (!error_messages.empty()) {
+            // Aggregate all error messages
+            fr.clear();
+            res.warning = error_messages[0];
+            for (size_t i = 1; i < error_messages.size(); ++i) {
+                res.warning += "; " + error_messages[i];
+            }
+            return res;
         }
 
         auto start = telem::TimeStamp::now();
