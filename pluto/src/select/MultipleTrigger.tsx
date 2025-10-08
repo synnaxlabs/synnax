@@ -12,8 +12,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
-import { Component } from "@/component";
-import { type RenderProp } from "@/component/renderProp";
+import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -61,7 +60,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   );
 };
 
-const multipleTag = Component.renderProp(MultipleTag);
+const multipleTag = renderProp(MultipleTag);
 
 export interface MultipleTriggerProps<K extends record.Key>
   extends Pick<Button.ButtonProps, "variant" | "disabled"> {
