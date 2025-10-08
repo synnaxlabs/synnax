@@ -15,7 +15,7 @@ from console.task.channels.analog import Analog
 from console.task.channels.current import Current
 from console.task.channels.voltage import Voltage
 
-from .task import Task
+from .ni import NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -27,7 +27,7 @@ AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
 }
 
 
-class NIAnalogWrite(Task):
+class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
     def __init__(self, page: Page, console: "Console") -> None:

@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import NIAnalogRead, NIAnalogWrite, Task
+from .task import AnalogRead, AnalogWrite, NITask
 
 # Define literal types for page creation
 PageType = Literal[
@@ -57,9 +57,9 @@ class Console:
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)
-        self.task = Task(page, self)
-        self.ni_ai = NIAnalogRead(page, self)
-        self.ni_ao = NIAnalogWrite(page, self)
+        self.task = NITask(page, self)
+        self.ni_ai = AnalogRead(page, self)
+        self.ni_ao = AnalogWrite(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""

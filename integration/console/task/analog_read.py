@@ -37,7 +37,7 @@ from console.task.channels.torque_bridge_two_point_linear import (
 from console.task.channels.velocity_iepe import VelocityIEPE
 from console.task.channels.voltage import Voltage
 
-from .task import Task
+from .ni import NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -65,7 +65,7 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, Type[Analog]] = {
 }
 
 
-class NIAnalogRead(Task):
+class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
     def __init__(self, page: Page, console: "Console") -> None:

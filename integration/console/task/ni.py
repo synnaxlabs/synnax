@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 
-class Task(ConsolePage):
+class NITask(ConsolePage):
     """NI Task automation interface for managing analog channels."""
 
     channels: list[Analog]
