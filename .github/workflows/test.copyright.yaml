@@ -1,0 +1,19 @@
+name: Test - Copyright Headers
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Check Copyright Headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check Copyright Headers
+        run: ./scripts/check_copyrights.sh

@@ -107,7 +107,6 @@ class TestCase(ABC):
         expect: str = "PASSED",
         **params: Any,
     ) -> None:
-
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
@@ -526,10 +525,12 @@ class TestCase(ABC):
     @overload
     def read_tlm(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> Optional[Union[int, float]]:
+        ...
 
     @overload
-    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]:
+        ...
 
     def read_tlm(
         self, key: str, default: Optional[Union[int, float]] = None
@@ -569,10 +570,12 @@ class TestCase(ABC):
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> Optional[Union[int, float]]:
+        ...
 
     @overload
-    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]:
+        ...
 
     def get_state(
         self, key: str, default: Optional[Union[int, float]] = None
@@ -755,7 +758,6 @@ class TestCase(ABC):
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
-
             # Set STATUSat the top level as opposed to within
             # the override methods. Ensures that the status is set
             # Even if the child classes don't call super()
