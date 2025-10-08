@@ -21,7 +21,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
-import { Common } from "@/hardware/common";
+import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {
@@ -50,7 +50,7 @@ const ContextMenu = <C extends Channel>({
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { set } = Form.useContext();
   const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>

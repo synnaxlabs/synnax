@@ -9,9 +9,10 @@
 
 import z from "zod";
 
-import { aether, synnax } from "@/ether";
+import { aether } from "@/aether/aether";
 import { core } from "@/flux/core";
 import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
+import { synnax } from "@/synnax/aether";
 
 /** State schema for the flux provider (currently empty) */
 export const providerStateZ = z.object({});
