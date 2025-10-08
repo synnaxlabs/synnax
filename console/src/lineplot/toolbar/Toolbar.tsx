@@ -86,7 +86,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   if (state == null) return null;
   return (
-    <Core.Content className={CSS.B("line-plot-toolbar")} disableClusterBoundary>
+    <Core.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider value={value}>
         <Core.Header>
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>

@@ -104,7 +104,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={value}>
-      <Core.Content disableClusterBoundary>
+      <Core.Content>
         <Core.Header>
           <Breadcrumb.Breadcrumb level="h5">
             <Breadcrumb.Segment weight={500} color={10} level="h5">
