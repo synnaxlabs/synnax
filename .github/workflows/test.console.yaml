@@ -80,6 +80,7 @@ jobs:
         run: pnpm install
 
       - name: Check Types
+        if: matrix.lint
         run: pnpm check-types:console
 
       - name: Lint

@@ -234,8 +234,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:freighter
+      - name: Check Types
+        run: pnpm check-types:freighter
 
       - name: Lint
         run: pnpm lint:freighter

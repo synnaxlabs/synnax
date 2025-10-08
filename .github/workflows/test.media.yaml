@@ -51,8 +51,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:media
+      - name: Check Types
+        run: pnpm check-types:media
 
       - name: Lint
         run: pnpm lint:media
