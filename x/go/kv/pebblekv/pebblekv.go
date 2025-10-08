@@ -76,7 +76,7 @@ func (l logger) Fatalf(format string, args ...any) {
 }
 
 // OpenTx implement kv.DB.
-func (d db) OpenTx() kv.Tx { return &tx{Batch: d.DB.NewIndexedBatch(), db: d} }
+func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
 func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
@@ -102,11 +102,11 @@ func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
 
 // OpenIterator implement kv.DB.
 func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
-	return d.DB.NewIter(parseIterOpts(opts))
+	return d.NewIter(parseIterOpts(opts))
 }
 
 func (d db) apply(ctx context.Context, txn *tx) error {
-	err := d.DB.Apply(txn.Batch, nil)
+	err := d.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
 	}
@@ -157,7 +157,7 @@ func (txn *tx) Delete(
 
 // OpenIterator implements kv.Writer.
 func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
-	return txn.Batch.NewIter(parseIterOpts(opts))
+	return txn.NewIter(parseIterOpts(opts))
 }
 
 // Commit implements kv.Writer.
@@ -179,8 +179,8 @@ func (txn *tx) Close() error {
 // NewReader implements kv.Writer.
 func (txn *tx) NewReader() kv.TxReader {
 	return &txReader{
-		count:  int(txn.Batch.Count()),
-		Reader: txn.Batch.Reader(),
+		count:  int(txn.Count()),
+		Reader: txn.Reader(),
 	}
 }
 

@@ -10,3 +10,5 @@ use (
 	./freighter/integration
 	./x/go
 )
+
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20251002232023-7c0ddcbb5797

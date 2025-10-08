@@ -11,13 +11,14 @@ package gossip_test
 
 import (
 	"context"
+	"time"
+
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,7 +92,7 @@ var _ = Describe("OperationSender", func() {
 		})
 		It("Should DPanic when an invalid message is received", func() {
 			Expect(func() {
-				net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
+				_, _ = net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
 			}).To(Panic())
 		})
 	})

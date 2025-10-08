@@ -285,6 +285,7 @@ var _ = Describe("Control", func() {
 				It("Should return false for authorize after the gate has been released", func() {
 					cfg, _ := baseConfig(1)
 					g, t := MustSucceed2(c.OpenGate(cfg))
+					Expect(t.IsAcquire()).To(BeTrue())
 					e, t := g.Release()
 					Expect(e.value).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())

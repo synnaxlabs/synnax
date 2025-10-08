@@ -341,14 +341,14 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		return nil, err
 	}
 	if requiresMigration {
-		cfg.Instrumentation.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
+		cfg.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
 		if err = pebblekv.Migrate(dirname); err != nil {
 			return nil, err
 		}
 	}
 
 	ev := pebble.MakeLoggingEventListener(pebblekv.NewLogger(
-		cfg.Instrumentation.Child("kv"),
+		cfg.Child("kv"),
 	))
 
 	// Create optimized options for read-heavy workloads
@@ -402,7 +402,7 @@ func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
 	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Instrumentation.Child("ts"),
+		Instrumentation: cfg.Child("ts"),
 		Dirname:         filepath.Join(cfg.Dirname, cesiumDirname),
 		FS:              fs,
 	})

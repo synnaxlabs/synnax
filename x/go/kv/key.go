@@ -20,10 +20,10 @@ func CompositeKey(elems ...any) ([]byte, error) {
 	b := new(bytes.Buffer)
 	c := errors.NewCatcher()
 	for _, e := range elems {
-		switch e.(type) {
+		switch e := e.(type) {
 		case string:
 			c.Exec(func() error {
-				_, err := b.WriteString(e.(string))
+				_, err := b.WriteString(e)
 				return err
 			})
 		default:

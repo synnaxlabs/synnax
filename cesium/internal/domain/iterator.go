@@ -70,7 +70,7 @@ type Iterator struct {
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	db.resourceCount.Add(1)
 	i := &Iterator{
-		Instrumentation: db.cfg.Instrumentation.Child("iterator"),
+		Instrumentation: db.cfg.Child("iterator"),
 		idx:             db.idx,
 		readerFactory:   db.newReader,
 		onClose:         func() { db.resourceCount.Add(-1) },

@@ -1,0 +1,9 @@
+# Copyright ignore patterns
+# Each line is a pattern to exclude from copyright checks
+# Supports glob patterns similar to .gitignore
+
+# Library Headers (NI SDK headers)
+**/nisyscfg_wide.h
+**/nisyscfg_errors.h
+**/nisyscfg.h
+**/nidaqmx.h

@@ -235,5 +235,5 @@ func (n *next[E]) Next(ctx context.Context) (e E, ok bool) {
 	if !ok {
 		return e, ok
 	}
-	return *n.Iterator.Value(ctx), ok
+	return *n.Value(ctx), ok
 }

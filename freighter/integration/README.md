@@ -13,6 +13,6 @@ go run main.go
 
 Integration tests for Freighter implementations in various languages are run as part of
 the [Synnax CI pipeline](/.github/workflows/test.freighter.yaml). The
-[`Earthfile`](Earthfile) in this directory automatically builds the integration server
-into a Docker image and pushes it to the Synnax GitHub Registry. Language specific CI
-tests can pull this image and use it as part of their tests.
+[`Dockerfile`](Dockerfile) in this directory builds the integration server into a Docker
+image and pushes it to the Synnax GitHub Registry. Language specific CI tests can pull
+this image and use it as part of their tests.

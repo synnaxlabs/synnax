@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 type Node struct {
@@ -82,7 +82,7 @@ func (b *Cluster) Provision(
 		peers             = b.addrFactory.Generated()
 		addr              = b.addrFactory.Next()
 		storageLayer      = b.storage.Provision(ctx)
-		distributionLayer = MustSucceed(distribution.Open(ctx, append([]distribution.Config{{
+		distributionLayer = testutil.MustSucceed(distribution.Open(ctx, append([]distribution.Config{{
 			Storage: storageLayer,
 			FrameTransport: mockFramerTransport{
 				iter:    b.iterNet.New(addr, 1),

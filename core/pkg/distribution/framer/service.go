@@ -108,14 +108,14 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		Channels:        cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation.Child("writer"),
+		Instrumentation: cfg.Child("writer"),
 	})
 	if err != nil {
 		return nil, err
 	}
 	freeWrites := confluence.NewStream[relay.Response](25)
 	s.Relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation.Child("relay"),
+		Instrumentation: cfg.Child("relay"),
 		ChannelReader:   cfg.ChannelReader,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
@@ -130,7 +130,7 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation.Child("writer"),
+		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
 	})
 	if err != nil {
