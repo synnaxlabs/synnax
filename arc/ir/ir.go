@@ -18,8 +18,10 @@ import (
 type NamedTypes = maps.Ordered[string, Type]
 
 const (
-	DefaultOutput = "output"
-	DefaultInput  = "input"
+	DefaultOutputParam = "output"
+	DefaultInputParam  = "input"
+	LHSInputParam      = "lhs"
+	RHSInputParam      = "rhs"
 )
 
 type Channels struct {

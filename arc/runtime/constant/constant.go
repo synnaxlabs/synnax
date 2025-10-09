@@ -29,7 +29,7 @@ var (
 				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 			},
 			Outputs: maps.Ordered[string, ir.Type]{
-				Keys:   []string{ir.DefaultOutput},
+				Keys:   []string{ir.DefaultOutputParam},
 				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 			},
 		},
@@ -40,7 +40,7 @@ var (
 type constant struct{}
 
 func (c constant) Init(_ context.Context, changed func(output string)) {
-	changed(ir.DefaultOutput)
+	changed(ir.DefaultOutputParam)
 }
 
 func (c constant) Next(context.Context, func(output string)) {}

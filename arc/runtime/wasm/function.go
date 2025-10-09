@@ -32,7 +32,7 @@ func (f *Function) Call(ctx context.Context, params ...uint64) (map[string]uint6
 		return nil, err
 	}
 	if f.base == 0 {
-		f.result[ir.DefaultOutput] = results[0]
+		f.result[ir.DefaultOutputParam] = results[0]
 		return f.result, nil
 	}
 	clear(f.result)

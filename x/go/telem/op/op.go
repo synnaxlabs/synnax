@@ -12,8 +12,8 @@
 package op
 
 import (
-	"unsafe"
 	"github.com/synnaxlabs/x/telem"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 func GreaterThanF64(a, b telem.Series, output *telem.Series) {
@@ -25,9 +25,9 @@ func GreaterThanF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -65,9 +65,9 @@ func GreaterThanOrEqualF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -105,9 +105,9 @@ func LessThanF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -145,9 +145,9 @@ func LessThanOrEqualF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -185,9 +185,9 @@ func EqualF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -225,9 +225,9 @@ func NotEqualF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -265,9 +265,9 @@ func AddF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*float64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -301,9 +301,9 @@ func SubtractF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*float64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -337,9 +337,9 @@ func MultiplyF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*float64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -373,9 +373,9 @@ func DivideF64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*float64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, float64](a.Data)
+	bData := xunsafe.CastSlice[uint8, float64](b.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
 	var aLast, bLast float64
 	if aLen > 0 {
@@ -409,9 +409,9 @@ func GreaterThanF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -449,9 +449,9 @@ func GreaterThanOrEqualF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -489,9 +489,9 @@ func LessThanF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -529,9 +529,9 @@ func LessThanOrEqualF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -569,9 +569,9 @@ func EqualF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -609,9 +609,9 @@ func NotEqualF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -649,9 +649,9 @@ func AddF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*float32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -685,9 +685,9 @@ func SubtractF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*float32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -721,9 +721,9 @@ func MultiplyF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*float32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -757,9 +757,9 @@ func DivideF32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*float32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*float32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*float32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, float32](a.Data)
+	bData := xunsafe.CastSlice[uint8, float32](b.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
 	var aLast, bLast float32
 	if aLen > 0 {
@@ -793,9 +793,9 @@ func GreaterThanI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -833,9 +833,9 @@ func GreaterThanOrEqualI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -873,9 +873,9 @@ func LessThanI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -913,9 +913,9 @@ func LessThanOrEqualI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -953,9 +953,9 @@ func EqualI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -993,9 +993,9 @@ func NotEqualI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -1033,9 +1033,9 @@ func AddI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*int64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -1069,9 +1069,9 @@ func SubtractI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*int64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -1105,9 +1105,9 @@ func MultiplyI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*int64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -1141,9 +1141,9 @@ func DivideI64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*int64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*int64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, int64](a.Data)
+	bData := xunsafe.CastSlice[uint8, int64](b.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	var aLast, bLast int64
 	if aLen > 0 {
@@ -1177,9 +1177,9 @@ func GreaterThanI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1217,9 +1217,9 @@ func GreaterThanOrEqualI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1257,9 +1257,9 @@ func LessThanI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1297,9 +1297,9 @@ func LessThanOrEqualI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1337,9 +1337,9 @@ func EqualI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1377,9 +1377,9 @@ func NotEqualI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1417,9 +1417,9 @@ func AddI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*int32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1453,9 +1453,9 @@ func SubtractI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*int32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1489,9 +1489,9 @@ func MultiplyI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*int32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1525,9 +1525,9 @@ func DivideI32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*int32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*int32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, int32](a.Data)
+	bData := xunsafe.CastSlice[uint8, int32](b.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	var aLast, bLast int32
 	if aLen > 0 {
@@ -1561,9 +1561,9 @@ func GreaterThanI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1601,9 +1601,9 @@ func GreaterThanOrEqualI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1641,9 +1641,9 @@ func LessThanI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1681,9 +1681,9 @@ func LessThanOrEqualI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1721,9 +1721,9 @@ func EqualI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1761,9 +1761,9 @@ func NotEqualI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1801,9 +1801,9 @@ func AddI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*int16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1837,9 +1837,9 @@ func SubtractI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*int16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1873,9 +1873,9 @@ func MultiplyI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*int16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1909,9 +1909,9 @@ func DivideI16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*int16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*int16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, int16](a.Data)
+	bData := xunsafe.CastSlice[uint8, int16](b.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	var aLast, bLast int16
 	if aLen > 0 {
@@ -1945,9 +1945,9 @@ func GreaterThanI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -1985,9 +1985,9 @@ func GreaterThanOrEqualI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2025,9 +2025,9 @@ func LessThanI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2065,9 +2065,9 @@ func LessThanOrEqualI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2105,9 +2105,9 @@ func EqualI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2145,9 +2145,9 @@ func NotEqualI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2185,9 +2185,9 @@ func AddI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*int8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2221,9 +2221,9 @@ func SubtractI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*int8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2257,9 +2257,9 @@ func MultiplyI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*int8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2293,9 +2293,9 @@ func DivideI8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*int8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*int8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*int8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, int8](a.Data)
+	bData := xunsafe.CastSlice[uint8, int8](b.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	var aLast, bLast int8
 	if aLen > 0 {
@@ -2329,9 +2329,9 @@ func GreaterThanU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2369,9 +2369,9 @@ func GreaterThanOrEqualU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2409,9 +2409,9 @@ func LessThanU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2449,9 +2449,9 @@ func LessThanOrEqualU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2489,9 +2489,9 @@ func EqualU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2529,9 +2529,9 @@ func NotEqualU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2569,9 +2569,9 @@ func AddU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2605,9 +2605,9 @@ func SubtractU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2641,9 +2641,9 @@ func MultiplyU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2677,9 +2677,9 @@ func DivideU64(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
-	bData := unsafe.Slice((*uint64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
-	outData := unsafe.Slice((*uint64)(unsafe.Pointer(&output.Data[0])), len(output.Data)/8)
+	aData := xunsafe.CastSlice[uint8, uint64](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint64](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	var aLast, bLast uint64
 	if aLen > 0 {
@@ -2713,9 +2713,9 @@ func GreaterThanU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2753,9 +2753,9 @@ func GreaterThanOrEqualU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2793,9 +2793,9 @@ func LessThanU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2833,9 +2833,9 @@ func LessThanOrEqualU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2873,9 +2873,9 @@ func EqualU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2913,9 +2913,9 @@ func NotEqualU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2953,9 +2953,9 @@ func AddU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -2989,9 +2989,9 @@ func SubtractU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -3025,9 +3025,9 @@ func MultiplyU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -3061,9 +3061,9 @@ func DivideU32(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint32)(unsafe.Pointer(&a.Data[0])), len(a.Data)/4)
-	bData := unsafe.Slice((*uint32)(unsafe.Pointer(&b.Data[0])), len(b.Data)/4)
-	outData := unsafe.Slice((*uint32)(unsafe.Pointer(&output.Data[0])), len(output.Data)/4)
+	aData := xunsafe.CastSlice[uint8, uint32](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint32](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	var aLast, bLast uint32
 	if aLen > 0 {
@@ -3097,9 +3097,9 @@ func GreaterThanU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3137,9 +3137,9 @@ func GreaterThanOrEqualU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3177,9 +3177,9 @@ func LessThanU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3217,9 +3217,9 @@ func LessThanOrEqualU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3257,9 +3257,9 @@ func EqualU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3297,9 +3297,9 @@ func NotEqualU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3337,9 +3337,9 @@ func AddU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3373,9 +3373,9 @@ func SubtractU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3409,9 +3409,9 @@ func MultiplyU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3445,9 +3445,9 @@ func DivideU16(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint16)(unsafe.Pointer(&a.Data[0])), len(a.Data)/2)
-	bData := unsafe.Slice((*uint16)(unsafe.Pointer(&b.Data[0])), len(b.Data)/2)
-	outData := unsafe.Slice((*uint16)(unsafe.Pointer(&output.Data[0])), len(output.Data)/2)
+	aData := xunsafe.CastSlice[uint8, uint16](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint16](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	var aLast, bLast uint16
 	if aLen > 0 {
@@ -3481,9 +3481,9 @@ func GreaterThanU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3521,9 +3521,9 @@ func GreaterThanOrEqualU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3561,9 +3561,9 @@ func LessThanU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3601,9 +3601,9 @@ func LessThanOrEqualU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3641,9 +3641,9 @@ func EqualU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3681,9 +3681,9 @@ func NotEqualU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := output.Data
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3721,9 +3721,9 @@ func AddU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3757,9 +3757,9 @@ func SubtractU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3793,9 +3793,9 @@ func MultiplyU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	var aLast, bLast uint8
 	if aLen > 0 {
@@ -3829,9 +3829,9 @@ func DivideU8(a, b telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	aData := unsafe.Slice((*uint8)(unsafe.Pointer(&a.Data[0])), len(a.Data)/1)
-	bData := unsafe.Slice((*uint8)(unsafe.Pointer(&b.Data[0])), len(b.Data)/1)
-	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data)/1)
+	aData := xunsafe.CastSlice[uint8, uint8](a.Data)
+	bData := xunsafe.CastSlice[uint8, uint8](b.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	var aLast, bLast uint8
 	if aLen > 0 {

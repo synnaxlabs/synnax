@@ -22,9 +22,9 @@ var _ = Describe("OP", func() {
 	) {
 		f := op.NewFactory()
 		s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
-		lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutput}
-		rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutput}
-		outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutput}
+		lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+		rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+		outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
 		s.Outputs[lhsSourceHandle] = a
 		s.Outputs[rhsSourceHandle] = b
 		s.Outputs[outputHandle] = telem.Series{DataType: expectedOutput.DataType}
@@ -39,7 +39,7 @@ var _ = Describe("OP", func() {
 					Target: ir.Handle{Node: "op", Param: "rhs"},
 				},
 				{
-					Source: ir.Handle{Node: "op", Param: ir.DefaultOutput},
+					Source: ir.Handle{Node: "op", Param: ir.DefaultOutputParam},
 					Target: outputHandle,
 				},
 			},
@@ -54,7 +54,7 @@ var _ = Describe("OP", func() {
 		runtimeNode.Next(ctx, func(output string) {
 			changed = output
 		})
-		Expect(changed).To(Equal(ir.DefaultOutput))
+		Expect(changed).To(Equal(ir.DefaultOutputParam))
 		res := s.Outputs[outputHandle]
 		Expect(res).To(telem.MatchSeries(expectedOutput))
 	},

@@ -37,7 +37,7 @@ func createComparisonSymbol(name string) ir.Symbol {
 	return createBinaryOpSymbol(
 		name,
 		ir.NamedTypes{
-			Keys:   []string{ir.DefaultOutput},
+			Keys:   []string{ir.DefaultOutputParam},
 			Values: []ir.Type{ir.U8{}},
 		},
 	)
@@ -47,7 +47,7 @@ func createArithmeticSymbol(name string) ir.Symbol {
 	return createBinaryOpSymbol(
 		name,
 		ir.NamedTypes{
-			Keys: []string{ir.DefaultOutput},
+			Keys: []string{ir.DefaultOutputParam},
 			Values: []ir.Type{
 				ir.NewTypeVariable("T", ir.NumericConstraint{}),
 			},

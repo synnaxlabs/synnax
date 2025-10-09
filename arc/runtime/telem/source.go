@@ -30,7 +30,7 @@ var (
 				Values: []ir.Type{ir.Chan{}},
 			},
 			Outputs: ir.NamedTypes{
-				Keys:   []string{ir.DefaultOutput},
+				Keys:   []string{ir.DefaultOutputParam},
 				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
 			},
 		},
@@ -53,8 +53,8 @@ func (s *source) Init(ctx context.Context, changed func(output string)) {}
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	passSeries := s.telem.Data[s.key].FilterGreaterThanOrEqualTo(s.highWaterMark)
 	s.highWaterMark = passSeries.AlignmentBounds().Upper
-	s.state.Outputs[ir.Handle{Param: ir.DefaultOutput, Node: s.node.Key}] = passSeries.Series[0]
-	onOutputChange(ir.DefaultOutput)
+	s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = passSeries.Series[0]
+	onOutputChange(ir.DefaultOutputParam)
 }
 
 type telemFactory struct {

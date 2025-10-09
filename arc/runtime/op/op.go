@@ -22,7 +22,7 @@ import (
 type binaryOperator struct {
 	state   *state.State
 	inputs  struct{ lhs, rhs ir.Edge }
-	output  ir.Edge
+	output  ir.Handle
 	compare op.Binary
 }
 
@@ -36,10 +36,10 @@ func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)
 	if aLength == 0 || bLength == 0 {
 		return
 	}
-	outputSeries := n.state.Outputs[n.output.Source]
+	outputSeries := n.state.Outputs[n.output]
 	n.compare(seriesA, seriesB, &outputSeries)
-	n.state.Outputs[n.output.Source] = outputSeries
-	markChanged(ir.DefaultOutput)
+	n.state.Outputs[n.output] = outputSeries
+	markChanged(ir.DefaultOutputParam)
 }
 
 type operatorFactory struct{}
@@ -51,13 +51,10 @@ func (o operatorFactory) Create(cfg node.Config) (node.Node, error) {
 	}
 	lhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: lhsParam})
 	rhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: rhsParam})
-	outputEdge := cfg.Module.GetEdgeBySourceHandle(ir.Handle{
-		Node:  cfg.Node.Key,
-		Param: ir.DefaultOutput,
-	})
+	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	seriesA := cfg.State.Outputs[lhsEdge.Source]
 	comp := opCat[seriesA.DataType]
-	n := &binaryOperator{state: cfg.State, output: outputEdge, compare: comp}
+	n := &binaryOperator{state: cfg.State, output: outputHandle, compare: comp}
 	n.inputs.lhs = lhsEdge
 	n.inputs.rhs = rhsEdge
 	return n, nil
