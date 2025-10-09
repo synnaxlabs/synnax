@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Standalone Driver"
-heading: "Standalone Driver"
-description: "Deploy the standalone driver on a separate machine from the cluster."
+title: "Installation"
+heading: "Driver Installation"
+description: "Install the standalone Driver on a separate machine from the cluster."
 prevURL: "/reference/device-drivers/get-started"
 prev: "Get Started"
 nextURL: "/reference/device-drivers/timing"
@@ -27,7 +27,7 @@ multiple host machines into a single Synnax deployment.
 To get started, you'll need to install the Synnax standalone driver. Choose your
 operating system below to see the installation instructions:
 
-<Tabs exclude={["docker", "windows", "macOS"]} client:only="react">
+<Tabs exclude={["docker"]} client:only="react">
 <Fragment slot="ni-linux-rt">
 
 ### Prerequisites
@@ -73,26 +73,127 @@ installed, we'll need to configure it to connect to your cluster.
 
 </Fragment>
 <Fragment slot="Linux">
+
 ### Install and Run the Driver
 
-To install and start the driver on Linux, run the following command:
+To install the Synnax Driver on a Linux distribution, run the following command to
+download the latest binary:
 
 <DownloadURL os="linux" />
 
-This will download, install, and start the Synnax standalone driver. Once the driver is
-installed, we'll need to configure it to connect to your cluster.
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
+
+```bash
+sudo mv synnax-driver-* /usr/local/bin/synnax-driver
+```
+
+If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
+following:
+
+```bash
+export PATH=$PATH:/usr/local/bin
+```
+
+Or, you can add it permanently using the following one-liner for your shell:
+
+```bash
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+```
+
+Or, for `zsh`:
+
+```bash
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
+```
+
+Next, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax-driver
+```
+
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
+
+To verify that the installation was successful, run:
+
+```bash
+synnax-driver --version
+```
 
 </Fragment>
 <Fragment slot="Windows">
+
 ### Install and Run the Driver
 
-The Synnax standalone driver is not yet supported on Windows.
+Download the latest Synnax Driver executable for Windows from the
+[releases page](https://github.com/synnaxlabs/synnax/releases).
+
+After downloading, move the `synnax-driver.exe` file to a location on your system, such
+as `C:\Program Files\Synnax\`.
+
+To make the driver accessible from any command prompt, add the directory to your
+system's PATH environment variable:
+
+1. Open the Start menu and search for "Environment Variables"
+2. Click "Edit the system environment variables"
+3. Click the "Environment Variables" button
+4. Under "System variables", find and select "Path", then click "Edit"
+5. Click "New" and add the directory containing `synnax-driver.exe`
+6. Click "OK" to save
+
+To verify that the installation was successful, open a new **PowerShell** terminal and
+run:
+
+```powershell
+synnax-driver --version
+```
 
 </Fragment>
 <Fragment slot="macOS">
+
 ### Install and Run the Driver
 
-The Synnax standalone driver is not yet supported on macOS.
+To install the Synnax Driver on macOS, run the following command to download the latest
+binary:
+
+<DownloadURL os="macos" />
+
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
+
+```bash
+sudo mv synnax-driver-* /usr/local/bin/synnax-driver
+```
+
+If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
+following:
+
+```bash
+export PATH=$PATH:/usr/local/bin
+```
+
+Or, you can add it permanently using the following one-liner for your shell:
+
+```bash
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
+```
+
+Next, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax-driver
+```
+
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
+
+To verify that the installation was successful, run:
+
+```bash
+synnax-driver --version
+```
 
 </Fragment>
 </Tabs>
