@@ -27,7 +27,7 @@ var (
 		Type: ir.Stage{
 			Config: ir.NamedTypes{
 				Keys:   []string{"channel"},
-				Values: []ir.Type{ir.Chan{}},
+				Values: []ir.Type{ir.Chan{ValueType: ir.NewTypeVariable("T", nil)}},
 			},
 			Outputs: ir.NamedTypes{
 				Keys:   []string{ir.DefaultOutputParam},

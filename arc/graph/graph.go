@@ -209,7 +209,35 @@ func Analyze(
 		stageScope, _ := ctx.Scope.Resolve(ctx, n.Type)
 		stage := stageScope.Type.(ir.Stage)
 		// Instantiate the stage with fresh type variables unique to this node
-		nodeTypes[n.Key] = ir.FreshStage(stage, n.Key)
+		freshStage := ir.FreshStage(stage, n.Key)
+		nodeTypes[n.Key] = freshStage
+
+		// Create constraints for config channels
+		// If a config parameter is a channel, we need to constrain its value type
+		for configKey, configValue := range n.Config {
+			cfgType, ok := freshStage.Config.Get(configKey)
+			if !ok {
+				continue
+			}
+			// Check if the config type is a channel type
+			if chanType, isChan := cfgType.(ir.Chan); isChan {
+				// Resolve the actual channel
+				if channelKey, isUint := configValue.(uint32); isUint {
+					channelName := fmt.Sprintf("%d", channelKey)
+					channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+					if err == nil {
+						// Create constraint: the fresh stage's channel config type must match the actual channel type
+						if actualChanType, ok := channelSym.Type.(ir.Chan); ok {
+							if err := atypes.CheckEqual(ctx.Constraints, chanType, actualChanType, nil,
+								fmt.Sprintf("node %s config %s channel type", n.Key, configKey)); err != nil {
+								ctx.Diagnostics.AddError(err, nil)
+								return ir.IR{}, *ctx.Diagnostics
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	for _, edge := range g.Edges {

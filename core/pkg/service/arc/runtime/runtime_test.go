@@ -156,6 +156,8 @@ var _ = Describe("Runtime", Ordered, func() {
 			cfg.Module = MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(resolver)))
 			Expect(cfg.Module.Nodes).To(HaveLen(7))
 			Expect(cfg.Module.Edges).To(HaveLen(6))
+			v, _ := cfg.Module.Nodes[1].Outputs.Get("output")
+			Expect(v).To(Equal(ir.F32{}))
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
 			time.Sleep(time.Millisecond * 20)

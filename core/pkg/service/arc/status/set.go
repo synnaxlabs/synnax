@@ -74,9 +74,9 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	stat.Key = key
 	stat.Message = cfg.Node.Config["message"].(string)
 	stat.Variant = xstatus.Variant(cfg.Node.Config["variant"].(string))
-	return &setStatus{ins: cfg.Instrumentation, stat: stat}, nil
+	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
 }
 
-func NewFactory(stat *status.Service) (node.Factory, error) {
-	return &statusFactory{stat: stat}, nil
+func NewFactory(stat *status.Service) node.Factory {
+	return &statusFactory{stat: stat}
 }

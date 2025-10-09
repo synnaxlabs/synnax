@@ -50,8 +50,9 @@ func NewScheduler(
 	return s
 }
 
-func (s *Scheduler) MarkChanged(key string) {
-	s.changed.Add(key)
+func (s *Scheduler) MarkNodesChange(nodeKey string) {
+	s.changed.Add(nodeKey)
+
 }
 
 func (s *Scheduler) markChanged(param string) {
@@ -59,6 +60,13 @@ func (s *Scheduler) markChanged(param string) {
 		if edge.Source.Param == param {
 			s.changed.Add(edge.Target.Node)
 		}
+	}
+}
+
+func (s *Scheduler) Init(ctx context.Context) {
+	for _, nodeKey := range s.strata[0] {
+		s.currState = s.nodes[nodeKey]
+		s.currState.node.Init(ctx, s.markChanged)
 	}
 }
 

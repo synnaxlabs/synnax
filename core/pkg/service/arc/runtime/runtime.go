@@ -20,12 +20,14 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
+	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
 	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	rstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -35,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -140,7 +143,7 @@ func (r *Runtime) Close() error {
 }
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
-	r.telem.Ingest(res.Frame.ToStorage(), r.scheduler.MarkChanged)
+	r.telem.Ingest(res.Frame.ToStorage(), r.scheduler.MarkNodesChange)
 	r.scheduler.Next(ctx)
 	return nil
 }
@@ -203,25 +206,34 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Step 1: Instantiate WASM node factory
-	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
-		Module: cfg.Module,
-	})
-	if err != nil {
-		return nil, err
+
+	telemState := &ntelem.State{
+		Data: make(map[uint32]telem.MultiSeries),
+		Deps: make(map[uint32][]string),
 	}
-	telemState := &ntelem.State{}
 	telemFactory := ntelem.NewTelemFactory(telemState)
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
+	stableFactory := stable.NewFactory(stable.FactoryConfig{})
+	statusFactory := rstatus.NewFactory(cfg.Status)
 
 	f := node.MultiFactory{
-		wasmFactory,
 		opFactory,
 		telemFactory,
 		selectFactory,
 		constantFactory,
+		stableFactory,
+		statusFactory,
+	}
+	if len(cfg.Module.WASM) > 0 {
+		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+			Module: cfg.Module,
+		})
+		if err != nil {
+			return nil, err
+		}
+		f = append(f, wasmFactory)
 	}
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
@@ -258,10 +270,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	r.streamer.requests = requests
 	sCtx, cancel := signal.Isolated()
-	for _, irNode := range nodes {
-		irNode.Init(ctx, r.scheduler.MarkChanged)
-	}
-	r.scheduler.Next(ctx)
+	r.scheduler.Init(ctx)
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
