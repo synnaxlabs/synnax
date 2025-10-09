@@ -53,3 +53,5 @@ func (c *constantFactory) Create(cfg node.Config) (node.Node, error) {
 	}
 	return constant{}, nil
 }
+
+func NewFactory() node.Factory { return &constantFactory{} }

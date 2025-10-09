@@ -386,7 +386,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		coreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
 		ctx.Done(),
 	)}
-	// Register the stream with the server so it gets gracefully shut down.
+	// register the stream with the server so it gets gracefully shut down.
 	s.wg.Add(1)
 	defer s.wg.Done()
 	_, handlerErr := s.Exec(

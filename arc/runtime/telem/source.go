@@ -66,7 +66,7 @@ func (t telemFactory) Create(cfg node.Config) (node.Node, error) {
 		return nil, query.NotFound
 	}
 	key := cfg.Node.Channels.Read.Keys()[0]
-	t.telem.Register(key, cfg.Node.Key)
+	t.telem.register(key, cfg.Node.Key)
 	return &source{
 		node:          cfg.Node,
 		telem:         t.telem,

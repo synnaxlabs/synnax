@@ -104,7 +104,7 @@ func NewImportIndex() *ImportIndex {
 // This defines the complete host interface that runtimes must implement.
 func SetupImports(m *wasm.Module) *ImportIndex {
 	idx := NewImportIndex()
-	// Register channel operations for each type
+	// register channel operations for each type
 	for _, typ := range ir.Numerics {
 		setupChannelOps(m, idx, typ)
 	}

@@ -16,7 +16,7 @@ type State struct {
 	Deps map[uint32][]string
 }
 
-func (s *State) Register(channel uint32, nodeKey string) {
+func (s *State) register(channel uint32, nodeKey string) {
 	s.Deps[channel] = append(s.Deps[channel], nodeKey)
 }
 
