@@ -1,0 +1,111 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Ranges"
+description: "Learn how to work with ranges using the Synnax TypeScript client."
+next: "Read Data"
+nextURL: "/reference/typescript-client/read-data"
+prev: "Channels"
+prevURL: "/reference/typescript-client/channels"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+
+In Synnax, a [range](/reference/concepts/ranges) is a named time interval that labels
+interesting events in your data. Ranges are the primary means for organizing and
+accessing the data stored within Synnax, and can be used to correlate metadata with
+channel telemetry.
+
+<Divider.Divider x />
+
+## Creating Ranges
+
+To create a range, we can use the `client.ranges.create` method:
+
+```typescript
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+const end = start.add(TimeSpan.MINUTE);
+const tr = new TimeRange(start, end);
+const range = await client.ranges.create({
+  name: "My Range",
+  timeRange: tr,
+  // The color is used to identify this range on plots
+  color: "#FF0000",
+});
+```
+
+This creates a range inside Synnax that you can then view from the Console.
+
+<Divider.Divider x />
+
+## Retrieving Ranges
+
+We can retrieve a range using the `client.ranges.retrieve` method:
+
+```typescript
+// you can retrieve a single range by its key or name
+const tr1 = client.ranges.retrieve("9/7/2025 Hotfire");
+const tr2 = client.ranges.retrieve(tr1.key);
+
+// you can also retrieve multiple ranges by their names or keys
+const trs = client.ranges.retrieve(["9/7/2025 Hotfire", "9/8/2025 Hotfire"]);
+const trs2 = client.ranges.retrieve([tr1.key, tr2.key]);
+
+// you can also retrieve by a search term
+const ranges = client.ranges.retrieve({ searchTerm: "Hotfire", limit: 10 });
+```
+
+Synnax will throw a `NotFoundError` if you try to retrieve a range that does not exist,
+or a `MultipleFoundError` if you try to retrieve a range by its name and multiple ranges
+matching that name are found.
+
+```typescript
+import { MultipleFoundError, NotFoundError } from "@synnaxlabs/client";
+
+try {
+  const tr = client.ranges.retrieve("My Range");
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.log("Range not found");
+  }
+  if (error instanceof MultipleFoundError) {
+    console.log("Multiple ranges found");
+  }
+}
+```
+
+### Retrieving Child Ranges or a Parent Range
+
+You can also retrieve the child ranges or parent range of a range:
+
+```typescript
+const tr = await client.ranges.retrieve("9/7/2025 Hotfire");
+const childRanges = await tr.retrieveChildren();
+const parentRange = await tr.retrieveParent();
+```
+
+<Divider.Divider x />
+
+## Metadata
+
+Ranges can store metadata, which is a key-value store of interesting information about
+the range:
+
+```typescript
+const tr = await client.ranges.retrieve("9/7/2025 Hotfire");
+await tr.kv.set("part_number", "12345");
+const partNumber = await tr.kv.get("part_number");
+console.log(partNumber); // "12345"
+```
+
+<Divider.Divider x />
+
+## Deleting Ranges
+
+You can delete a range by passing in its key to the `client.ranges.delete` method:
+
+```typescript
+const tr = await client.ranges.retrieve("9/7/2025 Hotfire");
+await client.ranges.delete(tr.key);
+```
