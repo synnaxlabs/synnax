@@ -67,7 +67,7 @@ export const Search = (): ReactElement => (
 const ICONS: Record<string, Icon.ReactElement> = {
   "python-client": <Icon.Python />,
   "typescript-client": <Icon.TypeScript />,
-  cluster: <Icon.Cluster />,
+  core: <Icon.Cluster />,
   console: <Icon.Visualize />,
   concepts: <Icon.Concepts />,
   guides: <Icon.Guide />,

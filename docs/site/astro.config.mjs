@@ -30,5 +30,6 @@ export default defineConfig({
       theme: "css-variables",
     },
   },
+  redirects: { "/reference/core/[...slug]": "/reference/core/[...slug]" },
   site: "https://docs.synnaxlabs.com",
 });

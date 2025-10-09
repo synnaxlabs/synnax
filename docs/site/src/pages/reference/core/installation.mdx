@@ -3,9 +3,9 @@ layout: "@/layouts/Reference.astro"
 title: "Cluster Installation"
 description: "Install Synnax on a variety of operating systems."
 next: "Production"
-nextURL: "/reference/cluster/production"
+nextURL: "/reference/core/production"
 prev: "Quick Start"
-prevURL: "/reference/cluster/quick-start"
+prevURL: "/reference/core/quick-start"
 platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
@@ -16,7 +16,7 @@ import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Platform } from "@/components/platform";
-import WindowsDownloadButton from "@/components/server/WindowsDownloadButton.astro";
+import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
