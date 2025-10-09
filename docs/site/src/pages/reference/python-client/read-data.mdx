@@ -13,7 +13,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The Python client supports several different ways of reading data from a cluster. We can
-read directly from a channel, fetch a range and access its data, or leverage server side
+read directly from a channel, fetch a range and access its data, or leverage server-side
 iterators for processing large queries. If you'd like a conceptual overview of how to
 read data in Synnax, check out the [reads](/reference/concepts/reads) page.
 
@@ -146,7 +146,7 @@ channels or a `Frame` for multiple channels.
 Single, multiple, and named reads will cover most use cases, but there are situations
 where it's necessary to process more data than can be stored in memory.
 
-Synnax supports server side iterators that allow us to process large queries in
+Synnax supports server-side iterators that allow us to process large queries in
 consistently sized chunks. By default, Synnax uses a chunk size of 100,000. To configure
 a custom chunk size, pass in the `chunk_size` argument to the `open_iterator` method
 with the desired number of samples per iteration.

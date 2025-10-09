@@ -157,13 +157,13 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
       option: "--slow-consumer-timeout",
       default: "2.5s",
       description:
-        "The duration after which a telemetry streamer will be closed by the server if it stops receiving messages. It's rarely necessary to change this value.",
+        "The duration after which a telemetry streamer will be closed by the Core if it stops receiving messages. It's rarely necessary to change this value.",
     },
     {
       option: "--no-driver",
       default: "false",
       description:
-        "Disables the embedded device driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
+        "Disables the embedded device driver for the Synnax database. This is useful when you want to run Synnax without any device integration.",
     },
     {
       option: "--disable-integrations",

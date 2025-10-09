@@ -155,7 +155,7 @@ new data, while the stream rate defines how often the task will stream data into
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
 will poll the OPC UA server every 100 ms, collect 10 samples, and then forward these
-samples to the server.
+samples to the Core.
 
 For very low rate tasks (&lt;50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
