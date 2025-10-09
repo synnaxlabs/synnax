@@ -35,7 +35,7 @@ func BenchmarkGreaterThanF32(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 4))
 			for i := 0; i < b.N; i++ {
-				op.GreaterThanF32(aSeries, bSeries, outSeries)
+				op.GreaterThanF32(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -58,7 +58,7 @@ func BenchmarkGreaterThanF64(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 8))
 			for i := 0; i < b.N; i++ {
-				op.GreaterThanF64(aSeries, bSeries, outSeries)
+				op.GreaterThanF64(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -81,7 +81,7 @@ func BenchmarkGreaterThanI32(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 4))
 			for i := 0; i < b.N; i++ {
-				op.GreaterThanI32(aSeries, bSeries, outSeries)
+				op.GreaterThanI32(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -104,7 +104,7 @@ func BenchmarkGreaterThanI64(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 8))
 			for i := 0; i < b.N; i++ {
-				op.GreaterThanI64(aSeries, bSeries, outSeries)
+				op.GreaterThanI64(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -127,7 +127,7 @@ func BenchmarkAddF32(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 4))
 			for i := 0; i < b.N; i++ {
-				op.AddF32(aSeries, bSeries, outSeries)
+				op.AddF32(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -150,7 +150,7 @@ func BenchmarkAddF64(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 8))
 			for i := 0; i < b.N; i++ {
-				op.AddF64(aSeries, bSeries, outSeries)
+				op.AddF64(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -173,7 +173,7 @@ func BenchmarkMultiplyF32(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 4))
 			for i := 0; i < b.N; i++ {
-				op.MultiplyF32(aSeries, bSeries, outSeries)
+				op.MultiplyF32(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -196,7 +196,7 @@ func BenchmarkMultiplyF64(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 8))
 			for i := 0; i < b.N; i++ {
-				op.MultiplyF64(aSeries, bSeries, outSeries)
+				op.MultiplyF64(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -219,7 +219,7 @@ func BenchmarkDivideF32(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 4))
 			for i := 0; i < b.N; i++ {
-				op.DivideF32(aSeries, bSeries, outSeries)
+				op.DivideF32(aSeries, bSeries, &outSeries)
 			}
 		})
 	}
@@ -242,7 +242,7 @@ func BenchmarkDivideF64(b *testing.B) {
 			b.ResetTimer()
 			b.SetBytes(int64(size * 8))
 			for i := 0; i < b.N; i++ {
-				op.DivideF64(aSeries, bSeries, outSeries)
+				op.DivideF64(aSeries, bSeries, &outSeries)
 			}
 		})
 	}

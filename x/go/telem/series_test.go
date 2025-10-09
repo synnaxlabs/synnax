@@ -545,6 +545,132 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("Resize", func() {
+		Context("Fixed Length Data Types", func() {
+			It("Should shrink a series by truncating data", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
+				s.Resize(3)
+				Expect(s.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{1, 2, 3}))
+			})
+
+			It("Should grow a series by extending with zeros", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3)
+				s.Resize(6)
+				Expect(s.Len()).To(Equal(int64(6)))
+				Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{1, 2, 3, 0, 0, 0}))
+			})
+
+			It("Should be a no-op when resizing to the same length", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4)
+				originalData := make([]byte, len(original.Data))
+				copy(originalData, original.Data)
+				original.Resize(4)
+				Expect(original.Len()).To(Equal(int64(4)))
+				Expect(original.Data).To(Equal(originalData))
+			})
+
+			It("Should work with different numeric types", func() {
+				s := telem.NewSeriesV(1.1, 2.2, 3.3, 4.4, 5.5)
+				s.Resize(3)
+				Expect(s.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalSeries[float64](s)).To(Equal([]float64{1.1, 2.2, 3.3}))
+			})
+
+			It("Should work with uint8", func() {
+				s := telem.NewSeriesV[uint8](1, 2, 3)
+				s.Resize(5)
+				Expect(s.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSeries[uint8](s)).To(Equal([]uint8{1, 2, 3, 0, 0}))
+			})
+
+			It("Should work with float32", func() {
+				s := telem.NewSeriesV[float32](1.0, 2.0, 3.0, 4.0)
+				s.Resize(2)
+				Expect(s.Len()).To(Equal(int64(2)))
+				Expect(telem.UnmarshalSeries[float32](s)).To(Equal([]float32{1.0, 2.0}))
+			})
+
+			It("Should work with timestamps", func() {
+				s := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s.Resize(5)
+				Expect(s.Len()).To(Equal(int64(5)))
+				result := telem.UnmarshalSeries[telem.TimeStamp](s)
+				Expect(result[0]).To(Equal(telem.TimeStamp(1 * telem.Second)))
+				Expect(result[1]).To(Equal(telem.TimeStamp(2 * telem.Second)))
+				Expect(result[2]).To(Equal(telem.TimeStamp(3 * telem.Second)))
+				Expect(result[3]).To(Equal(telem.TimeStamp(0)))
+				Expect(result[4]).To(Equal(telem.TimeStamp(0)))
+			})
+
+			It("Should resize to zero length", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+				s.Resize(0)
+				Expect(s.Len()).To(Equal(int64(0)))
+				Expect(len(s.Data)).To(Equal(0))
+			})
+
+			It("Should handle resizing an empty series", func() {
+				s := telem.Series{DataType: telem.Int64T}
+				s.Resize(3)
+				Expect(s.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{0, 0, 0}))
+			})
+
+			It("Should handle large resize operations", func() {
+				s := telem.NewSeriesV[int32](1, 2, 3)
+				s.Resize(1000)
+				Expect(s.Len()).To(Equal(int64(1000)))
+				result := telem.UnmarshalSeries[int32](s)
+				Expect(result[0]).To(Equal(int32(1)))
+				Expect(result[1]).To(Equal(int32(2)))
+				Expect(result[2]).To(Equal(int32(3)))
+				for i := 3; i < 1000; i++ {
+					Expect(result[i]).To(Equal(int32(0)))
+				}
+			})
+		})
+
+		Context("Variable Length Data Types", func() {
+			It("Should panic when trying to resize a string series", func() {
+				s := telem.NewSeriesStringsV("a", "b", "c")
+				Expect(func() { s.Resize(5) }).To(Panic())
+			})
+
+			It("Should panic when trying to resize a JSON series", func() {
+				s := telem.NewSeriesStaticJSONV(map[string]any{"a": 1})
+				Expect(func() { s.Resize(3) }).To(Panic())
+			})
+		})
+
+		Context("Error Cases", func() {
+			It("Should panic when resizing to a negative length", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3)
+				Expect(func() { s.Resize(-1) }).To(Panic())
+			})
+
+			It("Should panic with a meaningful message for negative length", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3)
+				defer func() {
+					if r := recover(); r != nil {
+						Expect(r).To(Equal("cannot resize series to negative length"))
+					}
+				}()
+				s.Resize(-10)
+			})
+
+			It("Should panic with a meaningful message for variable-density types", func() {
+				s := telem.NewSeriesStringsV("a", "b", "c")
+				defer func() {
+					if r := recover(); r != nil {
+						Expect(r).To(Equal("cannot resize variable-density series"))
+					}
+				}()
+				s.Resize(5)
+			})
+		})
+	})
+
 	Describe("MultiSeries", func() {
 		Describe("NewMultiSeries", func() {
 			It("Should construct a multi-series from a slice of series", func() {

@@ -14,3 +14,7 @@
 // data types to maximize performance by eliminating type checks and virtual
 // dispatch.
 package op
+
+import "github.com/synnaxlabs/x/telem"
+
+type Binary = func(a, b telem.Series, output *telem.Series)

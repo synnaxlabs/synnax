@@ -113,6 +113,31 @@ func (s Series) At(i int) []byte {
 	return s.Data[i*den : (i+1)*den]
 }
 
+// Resize resizes the series to the specified number of samples. If the new length is
+// smaller than the current length, the data is truncated. If the new length is larger,
+// the data is extended with zero bytes. This function only supports fixed-density types
+// and will panic if called on a variable-density series.
+func (s *Series) Resize(length int64) {
+	if length < 0 {
+		panic("cannot resize series to negative length")
+	}
+	if s.DataType.IsVariable() {
+		panic("cannot resize variable-density series")
+	}
+	density := int(s.DataType.Density())
+	targetSize := int(length) * density
+	currentSize := len(s.Data)
+	if targetSize == currentSize {
+		return
+	}
+	if targetSize < currentSize {
+		s.Data = s.Data[:targetSize]
+	} else {
+		// Extend with zeros
+		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
+	}
+}
+
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.

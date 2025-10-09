@@ -82,12 +82,39 @@ import (
 `
 
 const funcTemplate = `{{range $.Operations}}{{if .IsComp}}
-func {{.Name}}{{$.Type.Name}}(a, b, output telem.Series) {
+func {{.Name}}{{$.Type.Name}}(a, b telem.Series, output *telem.Series) {
+	aLen := a.Len()
+	bLen := b.Len()
+	maxLen := aLen
+	if bLen > maxLen {
+		maxLen = bLen
+	}
+	output.Resize(maxLen)
+
 	aData := unsafe.Slice((*{{$.Type.GoType}})(unsafe.Pointer(&a.Data[0])), len(a.Data)/{{$.Type.Size}})
 	bData := unsafe.Slice((*{{$.Type.GoType}})(unsafe.Pointer(&b.Data[0])), len(b.Data)/{{$.Type.Size}})
 	outData := unsafe.Slice((*uint8)(unsafe.Pointer(&output.Data[0])), len(output.Data))
-	for i := range aData {
-		if aData[i] {{.Op}} bData[i] {
+
+	var aLast, bLast {{$.Type.GoType}}
+	if aLen > 0 {
+		aLast = aData[aLen-1]
+	}
+	if bLen > 0 {
+		bLast = bData[bLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		aVal := aLast
+		if i < aLen {
+			aVal = aData[i]
+			aLast = aVal
+		}
+		bVal := bLast
+		if i < bLen {
+			bVal = bData[i]
+			bLast = bVal
+		}
+		if aVal {{.Op}} bVal {
 			outData[i] = 1
 		} else {
 			outData[i] = 0
@@ -95,12 +122,39 @@ func {{.Name}}{{$.Type.Name}}(a, b, output telem.Series) {
 	}
 }
 {{else}}
-func {{.Name}}{{$.Type.Name}}(a, b, output telem.Series) {
+func {{.Name}}{{$.Type.Name}}(a, b telem.Series, output *telem.Series) {
+	aLen := a.Len()
+	bLen := b.Len()
+	maxLen := aLen
+	if bLen > maxLen {
+		maxLen = bLen
+	}
+	output.Resize(maxLen)
+
 	aData := unsafe.Slice((*{{$.Type.GoType}})(unsafe.Pointer(&a.Data[0])), len(a.Data)/{{$.Type.Size}})
 	bData := unsafe.Slice((*{{$.Type.GoType}})(unsafe.Pointer(&b.Data[0])), len(b.Data)/{{$.Type.Size}})
 	outData := unsafe.Slice((*{{$.Type.GoType}})(unsafe.Pointer(&output.Data[0])), len(output.Data)/{{$.Type.Size}})
-	for i := range aData {
-		outData[i] = aData[i] {{.Op}} bData[i]
+
+	var aLast, bLast {{$.Type.GoType}}
+	if aLen > 0 {
+		aLast = aData[aLen-1]
+	}
+	if bLen > 0 {
+		bLast = bData[bLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		aVal := aLast
+		if i < aLen {
+			aVal = aData[i]
+			aLast = aVal
+		}
+		bVal := bLast
+		if i < bLen {
+			bVal = bData[i]
+			bLast = bVal
+		}
+		outData[i] = aVal {{.Op}} bVal
 	}
 }
 {{end}}{{end}}`

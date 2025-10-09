@@ -140,7 +140,13 @@ type IR struct {
 
 func (ir IR) GetEdgeBySourceHandle(sourceHandle Handle) Edge {
 	return lo.Must(lo.Find(ir.Edges, func(item Edge) bool {
-		return item.Target.Node == sourceHandle.Node && item.Target.Param == sourceHandle.Param
+		return item.Source == sourceHandle
+	}))
+}
+
+func (ir IR) GetEdgeByTargetHandle(targetHandle Handle) Edge {
+	return lo.Must(lo.Find(ir.Edges, func(item Edge) bool {
+		return item.Target == targetHandle
 	}))
 }
 
