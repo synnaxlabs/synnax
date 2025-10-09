@@ -1,0 +1,288 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Modbus TCP | Write Task"
+heading: "Modbus TCP Write Task"
+description: "Write data to Modbus TCP devices with write tasks."
+prev: "Read Task"
+prevURL: "/reference/device-drivers/modbus-tcp/read-task"
+---
+
+import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Write tasks are the primary method for sending control commands to a Modbus TCP device
+from Synnax.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before configuring the task, you'll need to have
+[connected to a Modbus TCP device](/reference/device-drivers/modbus-tcp/connect-device).
+
+<Divider.Divider x />
+
+## A Short Primer on Tasks
+
+Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
+for both control and data acquisition purposes. A Modbus TCP write task defines a
+background process that writes data to registers or coils on the Modbus device based on
+values written to Synnax [command channels](#how-commands-work-in-synnax).
+
+A Modbus TCP write task can be started, stopped, and re-configured at any time. We
+permanently store the configuration of the task in Synnax, so it's easy to set up
+multiple tasks for different purposes.
+
+<Divider.Divider x />
+
+## How Commands Work in Synnax
+
+Commands in Synnax use command channels to signal a task to write values to the device.
+For example, to set a holding register to a specific value, you would write that value
+to the corresponding command channel.
+
+A command channel for a holding register might be
+`modbus_server_holding_register_100_cmd`, where `modbus_server` is the device
+identifier, `holding_register` is the register type, `100` is the register address, and
+`_cmd` indicates that it's a command channel.
+
+<Note.Note variant="info">
+  Command channels also have an associated index channel that stores the timestamps at
+  which commands were sent. This channel is suffixed with `_cmd_time`. For the command
+  channel `modbus_server_holding_register_100_cmd`, the index channel would be
+  `modbus_server_holding_register_100_cmd_time`.
+</Note.Note>
+
+Write tasks process commands from these command channels and send the appropriate Modbus
+write requests to the device. The task continuously monitors command channels and writes
+new values as they are received.
+
+<Divider.Divider x />
+
+## Open the Task Configuration Dialog
+
+There are several ways to create Modbus TCP write tasks in the Synnax Console.
+
+### From the Resources Toolbar
+
+To create a write task from the resources toolbar, open the Synnax Console and click on
+the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device you'd
+like to create the task for, right-click on it, and select "Create a Write Task".
+
+<Video
+  client:only="react"
+  id="device-drivers/modbus-tcp/write-task/create-from-resources"
+/>
+
+### From the Command Palette
+
+To create a write task from the command palette, open the Synnax Console and click on
+the Quick Search & Command Palette at the top. You can also open this palette with
+`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
+
+In command mode (enabled when the first character in the input is ">"), type "Modbus".
+You'll see an option called "Create a New Write Task". Select this option to open the
+write task configuration dialog.
+
+<Video
+  client:only="react"
+  id="device-drivers/modbus-tcp/write-task/create-from-palette"
+/>
+
+### From The Layout Selector
+
+To create a write task from the layout selector, click on the "+" button in the top
+right corner and select "Modbus Write Task".
+
+<Video
+  client:only="react"
+  id="device-drivers/modbus-tcp/write-task/create-from-selector"
+/>
+
+<Divider.Divider x />
+
+## Task Configuration Parameters
+
+<Table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Name</td>
+      <td>A name for your write task.</td>
+    </tr>
+    <tr>
+      <td>Modbus Device</td>
+      <td>Which Modbus TCP device the task will write to.</td>
+    </tr>
+    <tr>
+      <td>Data Saving</td>
+      {
+        <td>
+          Data saving defines whether command data will be permanently stored in Synnax.
+          When enabled, Synnax will store a record of all commands sent. When disabled,
+          only the most recent command will be kept in memory.
+        </td>
+      }
+    </tr>
+  </tbody>
+</Table>
+
+<Divider.Divider x />
+
+## Writable Register Types
+
+For write tasks, you can write to two types of Modbus registers:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Register Type</th>
+      <th>Description</th>
+      <th>Data Width</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Coil Output</td>
+      <td>
+        Write to discrete output coils. Used for binary control signals like turning
+        devices on/off.
+      </td>
+      <td>1 bit (boolean)</td>
+    </tr>
+    <tr>
+      <td>Holding Register Output</td>
+      <td>
+        Write to analog output registers. Used for control values like setpoints,
+        speeds, or positions.
+      </td>
+      <td>16 bits (configurable data type)</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Note.Note variant="info">
+  Input Registers and Discrete Inputs are read-only register types and cannot be used in
+  write tasks. To read from these registers, use a [read
+  task](/reference/device-drivers/modbus-tcp/read-task).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Data Types for Holding Registers
+
+For holding register outputs, you can specify the data type for each channel. Synnax
+supports the following data types:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Data Type</th>
+      <th>Description</th>
+      <th>Size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>INT16</td>
+      <td>16-bit signed integer</td>
+      <td>1 register (2 bytes)</td>
+    </tr>
+    <tr>
+      <td>UINT16</td>
+      <td>16-bit unsigned integer</td>
+      <td>1 register (2 bytes)</td>
+    </tr>
+    <tr>
+      <td>INT32</td>
+      <td>32-bit signed integer</td>
+      <td>2 registers (4 bytes)</td>
+    </tr>
+    <tr>
+      <td>UINT32</td>
+      <td>32-bit unsigned integer</td>
+      <td>2 registers (4 bytes)</td>
+    </tr>
+    <tr>
+      <td>FLOAT32</td>
+      <td>32-bit IEEE 754 floating point</td>
+      <td>2 registers (4 bytes)</td>
+    </tr>
+  </tbody>
+</Table>
+
+Coil outputs are always boolean values and do not require a data type specification.
+
+<Note.Note variant="info">
+  For multi-register data types (INT32, UINT32, FLOAT32), make sure the byte and word
+  ordering matches your device's configuration. Use the "Swap Bytes" and "Swap Words"
+  settings in the device connection configuration if needed.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Adding Channels to a Task
+
+To add a channel to a task, click the "Add Channel" button in the task configuration
+dialog. For each channel, you'll need to specify:
+
+1. **Register Type** - Select from Coil Output or Holding Register Output
+2. **Address** - The Modbus register address (e.g., 0, 100, 40001)
+3. **Data Type** - For holding registers, select the data type (INT16, UINT16, INT32,
+   UINT32, FLOAT32)
+4. **Channel Name** - A descriptive name for the command channel
+
+You can enable or disable individual channels using the toggle button to the right of
+each channel. This is useful for temporarily stopping command processing for specific
+channels without removing them from the task.
+
+<Video
+  client:only="react"
+  id="device-drivers/modbus-tcp/write-task/add-channels-to-task"
+/>
+
+<Divider.Divider x />
+
+## Configuring the Task
+
+Once you've added all your channels and configured the task parameters, click the
+"Configure" button to save the task configuration. This will create Synnax command
+channels for each of your Modbus outputs and prepare the task for execution.
+
+Note that configuring a write task will only create
+[command channels](#how-commands-work-in-synnax). The task will process commands from
+these channels and write the values to the Modbus device.
+
+After configuration, you can start and stop the task at any time. The task configuration
+is permanently stored, so you can easily resume command processing later.
+
+<Divider.Divider x />
+
+## Stopping and Starting Tasks
+
+To stop and start a task, you can open up the task toolbar on the right-hand side and
+click play and pause. You can also click the play/pause icon in the bottom of the task
+configuration window.
+
+<Video client:only="react" id="device-drivers/modbus-tcp/write-task/start-stop" />
+
+<Divider.Divider x />
+
+## Using a Schematic to Control Write Tasks
+
+Once the write task is configured and running, you can use a
+[schematic](/reference/console/schematics) to send commands to the Modbus device. Simply
+connect schematic controls (like buttons, sliders, or valves) to the command channels
+created by your write task.
+
+For example, to control a valve connected to a coil output, you would set the valve's
+`command` field to the command channel of the coil output. Clicking the valve in the
+schematic would send a command to toggle the coil state.
