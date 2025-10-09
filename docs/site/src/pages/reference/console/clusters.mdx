@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Clusters"
 description: "Connect to clusters in the Synnax Console."
-prev: "Get Started"
-prevURL: "/reference/console/get-started"
+prev: "Requirements"
+prevURL: "/reference/console/requirements"
 next: "UI Overview"
 nextURL: "/reference/console/ui-overview"
 ---
@@ -43,25 +43,25 @@ UI.
       <td>
         <b>Host</b>
       </td>
-      <td>The hostname or IP address of the cluster.</td>
+      <td>The hostname or IP address of the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Port</b>
       </td>
-      <td>The port number of the cluster.</td>
+      <td>The port number of the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Username</b>
       </td>
-      <td>The username to use when connecting to the cluster.</td>
+      <td>The username to use when connecting to the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Password</b>
       </td>
-      <td>The password to use when connecting to the cluster.</td>
+      <td>The password to use when connecting to the Core.</td>
     </tr>
     <tr>
       <td>
@@ -69,22 +69,17 @@ UI.
       </td>
       {
         <td>
-          Whether to use TLS when connecting to the cluster. This parameter only works
-          with secure clusters.
+          Whether to use TLS when connecting to the Core. This parameter only works with
+          secure Cores.
         </td>
       }
     </tr>
   </tbody>
 </Table>
 
-<Note.Note variant="warning">
-  The console will not connect to remote clusters (i.e. host is not 'localhost') started
-  with the `--insecure` flag.
-</Note.Note>
+### Demo Core
 
-### Demo Cluster
-
-Synnax has a demo cluster that can be connected to which always plots some data. To
+Synnax has a demo Core that can be connected to which always plots some data. To
 connect, enter the following parameters:
 
 <Table>

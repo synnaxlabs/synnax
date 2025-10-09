@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Read Data"
-description: "Use the Python client to read from a Synnax cluster."
+description: "Use the Python client to read data from a Synnax Core."
 next: "Write Data"
 nextURL: "/reference/python-client/write-data"
 prev: "Ranges"
@@ -12,7 +12,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Python client supports several different ways of reading data from a cluster. We can
+The Python client supports several different ways of reading data from a Core. We can
 read directly from a channel, fetch a range and access its data, or leverage server-side
 iterators for processing large queries. If you'd like a conceptual overview of how to
 read data in Synnax, check out the [reads](/reference/concepts/reads) page.
@@ -88,7 +88,7 @@ df = frame.to_df()
 While the above methods are useful for executing precise reads, they require us to know
 the exact range of time we're interested in reading.
 [Ranges](/reference/python-client/ranges) are a useful way of categorizing important
-time ranges in a cluster's data. We can read directly from these ranges.
+time ranges in Synnax. We can read directly from these ranges.
 
 We can access channels on a `Range` object and call `read` on them to access their data:
 

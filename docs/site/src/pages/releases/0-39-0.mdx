@@ -69,7 +69,7 @@ to make them easier to use.
   TypeScript clients.
 - Added support for changing the default console control authority.
 - Implemented a clock skew detection algorithm that warns when Synnax clients
-  communicating with a cluster have a significant time difference.
+  communicating with a Core have a significant time difference.
 - Added warnings when you attempt to configure a task on a driver that is not alive.
 - Improved error messages in the Python client when methods require named parameters.
 
@@ -77,8 +77,8 @@ to make them easier to use.
 
 - Fixed a minor issue with releasing control authority from the Synnax Schematic.
 - Fixed a race condition on Core startup that would cause search indexing to fail.
-- Fixed an issue where hitting `Ctrl + C` immediately after starting a cluster would not
-  stop the cluster properly.
+- Fixed an issue where hitting `Ctrl + C` immediately after starting a Core would not
+  stop the Core properly.
 - Fixed an issue where the command & search palette would not properly switch between
   modes.
 - Fixed an issue where the theme would not change automatically when the system theme

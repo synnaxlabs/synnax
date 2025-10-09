@@ -30,7 +30,7 @@ We'll split this guide into four sections:
 
 ## <StepText step={1} level="h2">Setup and Installation</StepText>
 
-We'll kick things off by downloading the Arduino IDE, starting a Synnax cluster, and
+We'll kick things off by downloading the Arduino IDE, starting a Synnax Core, and
 installing the relevant Python packages to communicate with both the Arduino and Synnax.
 
 ### <StepText step="1.1" level="h3">Downloading the Arduino IDE</StepText>
@@ -57,15 +57,15 @@ Synnax.
 ### <StepText step="1.2" level="h3">Installing Synnax</StepText>
 
 There are two components we need to install to get started with Synnax: the
-[cluster](/reference/core/quick-start) and the
-[console](/reference/console/get-started). The cluster is the central Synnax database
-that streams and permanently stores all of the data we collect from the Arduino. The
-console is a graphical interface for interacting with the cluster. It can be used to
-both visualize incoming data and send commands to the Arduino.
+[Core](/reference/core/quick-start) and the [Console](/reference/console/get-started).
+The Core is the central Synnax database that streams and permanently stores all of the
+data we collect from the Arduino. The Console is a graphical interface for interacting
+with the Core. It can be used to both visualize incoming data and send commands to the
+Arduino.
 
-#### <StepText step="1.2.1" level="h4">The Cluster</StepText>
+#### <StepText step="1.2.1" level="h4">The Core</StepText>
 
-The easiest way to install the cluster is using
+The easiest way to install the Core is using
 [Docker](https://www.docker.com/get-started). To run the latest version, you can use the
 following command:
 
@@ -228,7 +228,7 @@ That's all we need to do for the Arduino, now it's time to integrate it with Syn
 
 ### <StepText step="2.4" level="h3">Setting up the Synnax Client</StepText>
 
-The next step to tackle is setting up the Synnax client to communicate with the cluster.
+The next step to tackle is setting up the Synnax client to communicate with the Core.
 First, we'll add an import for the `synnax` package at the top of our file:
 
 ```python
@@ -238,7 +238,7 @@ import serial
 # ... rest of driver.py
 ```
 
-Then, we'll create a `Client` instance to interact with the Synnax cluster.
+Then, we'll create a `Client` instance to interact with the Synnax Core.
 
 ```python
 # ..imports

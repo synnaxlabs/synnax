@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Write Data"
-description: "Use the Python client to write to a Synnax cluster."
+description: "Use the Python client to write to a Synnax Core."
 next: "Stream Data"
 nextURL: "/reference/python-client/stream-data"
 prev: "Read Data"
@@ -12,8 +12,8 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax supports multiple methods for writing data to a cluster. We can write directly to
-a channel, fetch a range and set its data, or leverage writers for writing large volumes
+Synnax supports multiple methods for writing data to a Core. We can write directly to a
+channel, fetch a range and set its data, or leverage writers for writing large volumes
 of data.
 
 Writes in Synnax are more complicated than reads, and, as such, we recommend checking
