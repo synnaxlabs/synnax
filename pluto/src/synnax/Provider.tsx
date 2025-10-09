@@ -78,7 +78,7 @@ const createErrorDescription = (
   clientVersion: string,
   nodeVersion?: string,
 ): string =>
-  `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+  `Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
@@ -165,7 +165,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
         addStatus<StatusDetails>({
           variant: "warning",
-          message: "Incompatible cluster version",
+          message: "Incompatible Core version",
           description,
           details: {
             type: SERVER_VERSION_MISMATCH,
