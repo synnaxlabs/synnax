@@ -64,21 +64,6 @@ new values as they are received.
 
 ## Open the Task Configuration Dialog
 
-There are several ways to create Modbus TCP write tasks in the Synnax Console.
-
-### From the Resources Toolbar
-
-To create a write task from the resources toolbar, open the Synnax Console and click on
-the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device you'd
-like to create the task for, right-click on it, and select "Create a Write Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/modbus-tcp/write-task/create-from-resources"
-/>
-
-### From the Command Palette
-
 To create a write task from the command palette, open the Synnax Console and click on
 the Quick Search & Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
@@ -87,20 +72,7 @@ In command mode (enabled when the first character in the input is ">"), type "Mo
 You'll see an option called "Create a New Write Task". Select this option to open the
 write task configuration dialog.
 
-<Video
-  client:only="react"
-  id="device-drivers/modbus-tcp/write-task/create-from-palette"
-/>
-
-### From The Layout Selector
-
-To create a write task from the layout selector, click on the "+" button in the top
-right corner and select "Modbus Write Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/modbus-tcp/write-task/create-from-selector"
-/>
+<Video client:only="react" id="device-drivers/modbus-tcp/write-task/open" />
 
 <Divider.Divider x />
 
@@ -244,10 +216,7 @@ You can enable or disable individual channels using the toggle button to the rig
 each channel. This is useful for temporarily stopping command processing for specific
 channels without removing them from the task.
 
-<Video
-  client:only="react"
-  id="device-drivers/modbus-tcp/write-task/add-channels-to-task"
-/>
+<Video client:only="react" id="device-drivers/modbus-tcp/write-task/channels" />
 
 <Divider.Divider x />
 
@@ -268,7 +237,7 @@ is permanently stored, so you can easily resume command processing later.
 
 ## Stopping and Starting Tasks
 
-To stop and start a task, you can open up the task toolbar on the right-hand side and
+To stop and start a task, you can open up the task toolbar on the left-hand side and
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 
