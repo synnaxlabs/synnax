@@ -24,8 +24,8 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "Requirements",
     },
     {
-      key: "/reference/console/clusters",
-      href: "/reference/console/clusters",
+      key: "/reference/console/cores",
+      href: "/reference/console/cores",
       name: "Cores",
     },
     {

@@ -30,6 +30,9 @@ export default defineConfig({
       theme: "css-variables",
     },
   },
-  redirects: { "/reference/core/[...slug]": "/reference/core/[...slug]" },
+  redirects: {
+    "/reference/core/[...slug]": "/reference/core/[...slug]",
+    "reference/console/clusters": "/reference/console/cores",
+  },
   site: "https://docs.synnaxlabs.com",
 });

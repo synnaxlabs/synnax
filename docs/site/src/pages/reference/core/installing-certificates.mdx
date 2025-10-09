@@ -39,11 +39,11 @@ Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachin
 <Fragment slot="macos">
 ## macOS
 
-To start off, you'll need to pull the CA certificate from the cluster. If you have ssh
-access to the cluster, you can use the `scp` command to pull the certificate:
+To start off, you'll need to pull the CA certificate from the Core. If you have ssh
+access to the Core, you can use the `scp` command to pull the certificate:
 
 ```bash
-scp user@cluster:/path/to/ca.crt /tmp/synnax-ca.crt
+scp user@core:/path/to/ca.crt /tmp/synnax-ca.crt
 ```
 
 Otherwise, you can copy and paste the certificate into a new file. Open a new terminal

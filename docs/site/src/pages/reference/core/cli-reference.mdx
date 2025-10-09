@@ -44,13 +44,12 @@ synnax start -l localhost:9090 -im
     {
       option: "--listen/-l",
       default: "localhost:9090",
-      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
-                is also the address and port that will be advertised to peers in the cluster.`,
+      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes.`,
     },
     {
       option: "--peers/-p",
       default: "[]",
-      description: `A list of comma separated peer Cores in an existing cluster. If this list is not empty, the Core will
+      description: `A list of comma-separated peer Cores in an existing cluster. If this list is not empty, the Core will
             attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
             data is found, the Core will bootstrap a new cluster.`,
     },
