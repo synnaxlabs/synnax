@@ -16,7 +16,7 @@ This directory contains several files:
 - `threshold_detection.py`: A script that will automatically create
   [ranges](https://docs.synnaxlabs.com/reference/concepts/ranges) when the fuel tank
   pressure rises above a certain threshold.
-- `Operator.json`: An example schematic that can be imported into Console to visualize
+- `schematic.json`: An example schematic that can be imported into Console to visualize
   and control the TPC system.
 
 ## Running the Example
@@ -65,10 +65,10 @@ the Console.
 
 ## Using the Operator Schematic
 
-This directory includes an example schematic (`Operator.json`) that provides a visual
+This directory includes an example schematic (`schematic.json`) that provides a visual
 interface for monitoring and controlling the example TPC system. To use it:
 
-1. Import the schematic into Console by dragging and dropping `Operator.json` into the
+1. Import the schematic into Console by dragging and dropping `schematic.json` into the
    Console window, or by right-clicking on a workspace in the Workspaces menu and
    selecting "Import Schematic".
 2. Once imported, you'll need to connect the schematic elements to your channels. All
