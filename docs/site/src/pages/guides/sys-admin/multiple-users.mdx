@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Users and Access Control"
 heading: "User Registration and Access Control"
-description: "Register multiple users to a Synnax cluster and manage their permissions."
+description: "Register multiple users to a Synnax Core and manage their permissions."
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -10,14 +10,14 @@ import { Video } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide walks through how to register multiple users to a Synnax cluster and manage
+This guide walks through how to register multiple users to a Synnax Core and manage
 their permissions.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-- A [Synnax cluster](/reference/core/installation) installed and running on a reachable
+- A [Synnax Core](/reference/core/installation) installed and running on a reachable
   network address.
 - The [Synnax Console](/reference/console/get-started) installed and running.
 - (Optional) If you would like to manage users from a script, the
@@ -26,37 +26,37 @@ their permissions.
 
 <Divider.Divider x />
 
-## Logging Into a Cluster
+## Logging Into a Core
 
-To log into a cluster, you need the following information:
+To log into a Core, you need the following information:
 
-- Host: the network address of the machine running the cluster. Defaults to `localhost`.
-- Port: the port the cluster is running on. Defaults to `9090`.
+- Host: the network address of the machine running the Core. Defaults to `localhost`.
+- Port: the port the Core is running on. Defaults to `9090`.
 - Username: the username of the user to log in as. Defaults to `synnax`.
 - Password: the password of the user to log in as. Defaults to `seldon`.
-- Secure: whether the cluster was configured with TLS encryption. Defaults to `false`.
+- Secure: whether the Core was configured with TLS encryption. Defaults to `false`.
 
 <Note.Note variant="info">
-  The cluster does not need to be running on the same machine as the console or clients.
-  All it takes is for the cluster to have a reachable network address. To find the local
-  IP address of the machine running the cluster, run `(Get-NetIPAddress -AddressFamily
+  The Core does not need to be running on the same machine as the Console or clients.
+  All it takes is for the Core to have a reachable network address. To find the local IP
+  address of the machine running the Core, run `(Get-NetIPAddress -AddressFamily
   IPv4).IPAddress` (Windows) / `hostname -I` (Linux) / `ifconfig getifaddr en0` (macOS).
-  Then, when you want to connect to the cluster from another machine, you use the
-  specified address as the `host` argument instead of `localhost`.
+  Then, when you want to connect to the Core from another machine, you use the specified
+  address as the `host` argument instead of `localhost`.
 </Note.Note>
 
 ### Synnax Console
 
-To log into a cluster using the
-[Synnax Console](/reference/console/clusters#Adding%20a%20New%20Cluster), simply click
-the **Add Cluster** button in the top right corner of the cluster toolbar and enter your
+To log into a Core using the
+[Synnax Console](/reference/console/cores#Adding%20a%20New%Core), simply click the
+**Connect a Core** button in the top right corner of the Core toolbar and enter your
 connection parameters:
 
 <Video client:only="react" id="console/clusters/connect" />
 
 ### Python Client
 
-There are two ways to log into a cluster using the Python client, the
+There are two ways to log into a Core using the Python client, the
 [`synnax login`](/reference/python-client/get-started#The%20Synnax%20Login%20Command)
 command or by directly
 [passing in your credentials](/reference/python-client/get-started#Passing%20Credentials%20Directly):
@@ -76,7 +76,7 @@ client = sy.Synnax(
 ### TypeScript Client
 
 To log in with the
-[TypeScript client](/reference/typescript-client/get-started#Authenticating%20with%20a%20Cluster),
+[TypeScript client](/reference/typescript-client/get-started#Authenticating%20with%20a%20Core),
 you can simply create a new client:
 
 ```typescript
@@ -95,21 +95,20 @@ const client = new Synnax({
 
 ## Registering Users
 
-By default, Synnax clusters have a single root user, whose username is `synnax` and
-password is `seldon`. The root user has full access to the cluster, and is granted
-permissions to manage, create, and retrieve every single resource available in the
-cluster.
+By default, Synnax Cores have a single root user, whose username is `synnax` and
+password is `seldon`. The root user has full access to the Core, and is granted
+permissions to manage, create, and retrieve every single resource available in the Core.
 
 When registering a new user, you must give them a username and a password. The new user
-can log into your Synnax cluster by passing their new credentials into the login command
-instead of the root user's credentials.
+can log into the Core by passing their new credentials into the login command instead of
+the root user's credentials.
 
 New users can be registered in the Synnax Console, or programmatically using the Python
 or TypeScript clients.
 
 ### Synnax Console
 
-Once you've logged into the cluster, you can register new users with the
+Once you've logged into the Core, you can register new users with the
 ["Register a User"](/reference/console/users#Registering%20Users) command from the
 command palette. The command palette can be opened by pressing `Ctrl+Shift+P`
 (Windows/Linux) or `Cmd+Shift+P` (macOS), and also by clicking the search bar in the top
@@ -154,11 +153,11 @@ the screen, right-clicking a user, and selecting "Edit Permissions".
 
 ## Logging in as a New User
 
-A new user can log into a cluster by downloading the console on their computer, and
-connecting to a cluster using their username and password.
+A new user can log into a Core by downloading the Console on their computer, and
+connecting to a Core using their username and password.
 
 <Video client:only="react" id="guides/sys-admin/multiple-users/login" controls />
 
 Since the new user does not have permissions to create or edit schematics, they will not
-be able to do so from the console. Any workspaces that they create will be shown under
+be able to do so from the Console. Any workspaces that they create will be shown under
 their name in the resources toolbar on the left-hand side of the screen.

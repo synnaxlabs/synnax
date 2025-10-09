@@ -1,7 +1,7 @@
 ---
 title: "CLI Reference"
 layout: "@/layouts/Reference.astro"
-description: "Find information about the Synnax Database CLI."
+description: "Find information about the Synnax Core CLI."
 next: "Systemd Service"
 nextURL: "/reference/core/systemd-service"
 prev: "Requirements"
@@ -19,40 +19,24 @@ export const components = mdxOverrides;
 
 ## Start
 
-The `start` command starts a node in a Synnax cluster, bootstrapping a new cluster if
-necessary.
+The `start` command starts the Synnax Core.
 
 ### Examples
 
-#### Starting a single-node cluster
+#### Starting a Core
 
-We can use the `i` and `m` flags to start a single node in insecure mode with an
-in-memory data store:
+We can use the `i` and `m` flags to start a Core in insecure mode with an in-memory data
+store:
 
 ```cmd
 synnax start -l localhost:9090 -im
-```
-
-#### Joining a node to an existing cluster
-
-We can use the `p` flag to join a node to an existing cluster. If the node has no
-existing cluster data, it will attempt to join the cluster by repeatedly contacting each
-peer in the list until successful:
-
-```cmd
-synnax start -l localhost:9090 -p localhost:9091,localhost:9092
 ```
 
 ### Flags
 
 <Table
   columns={[
-    {
-      key: "option",
-      name: "Flag",
-      type: "code",
-      width: 150,
-    },
+    { key: "option", name: "Flag", type: "code", width: 150 },
     { key: "default", name: "Default", type: "code" },
     { key: "description", name: "Description", type: "html" },
   ]}
@@ -66,9 +50,9 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
     {
       option: "--peers/-p",
       default: "[]",
-      description: `A list of comma separated peer nodes in an existing cluster. If this list is not empty, the node will
+      description: `A list of comma separated peer Cores in an existing cluster. If this list is not empty, the Core will
             attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
-            data is found, the node will bootstrap a new cluster.`,
+            data is found, the Core will bootstrap a new cluster.`,
     },
     {
       option: "--data/-d",

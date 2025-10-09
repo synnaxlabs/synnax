@@ -65,12 +65,12 @@ For example, if we have three groups of channels:
 - 100 medium speed at 100 Hz -> 10K samples/s
 - 20 actuators sending states at 50 Hz -> 1K samples/s
 
-The total throughput for our cluster is 250K + 10K + 1K = 261K samples/s.
+The total throughput for our Core is 250K + 10K + 1K = 261K samples/s.
 
 ### Workload-Based Minimum Requirements
 
 Once you've calculated your total throughput, use the following table to determine the
-_minimum_ hardware requirements for your cluster.
+_minimum_ hardware requirements for your Core.
 
 <Table>
   <thead>
@@ -153,14 +153,15 @@ cores for your deployment.
 
 ### Memory
 
-The Synnax cluster is generally less memory intensive than it is storage or compute
-intensive. For most production deployments, we recommend using a minimum of 8 GB of RAM.
+The Synnax Core is generally less memory-intensive than it is storage- or
+compute-intensive. For most production deployments, we recommend using a minimum of 8 GB
+of RAM.
 
 <Divider.Divider x />
 
 ## Network
 
-Synnax nodes communicate using TCP and/or UDP protocols for cluster coordination, data
+Synnax Cores communicate using TCP and/or UDP protocols for coordination, data
 replication, and client connections. Given Synnax's high-performance capabilities for
 both data acquisition and control operations, the network infrastructure must be
 designed to handle substantial throughput with minimal latency.
@@ -214,8 +215,8 @@ For optimal performance, especially over longer distances:
 
 For production control environments:
 
-- **Isolated Networks**: Deploy Synnax clusters on dedicated, air-gapped networks
-  separate from corporate IT infrastructure.
+- **Isolated Networks**: Deploy Synnax Cores on dedicated, air-gapped networks separate
+  from corporate IT infrastructure.
 - **Network Segmentation**: Use VLANs or physical separation to isolate control traffic
   from data acquisition traffic.
 - **Firewall Protection**: Implement network firewalls with strict access control

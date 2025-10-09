@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Deploy to Production"
 heading: "Deploying to Production"
-description: "Deploy a single node cluster to production."
+description: "Deploy a Core to production."
 next: "Requirements"
 nextURL: "/reference/core/requirements"
 prev: "Installation"
@@ -15,8 +15,8 @@ import { Table } from "@/components/Table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This page walks you through deploying a single node cluster for production use, which
-requires a few additional steps compared to development use.
+This page walks you through deploying a Core for production use, which requires a few
+additional steps compared to development use.
 
 <Divider.Divider x />
 
@@ -24,7 +24,7 @@ requires a few additional steps compared to development use.
 
 If your organization has an enterprise license for Synnax, you'll need to provide your
 license key on startup. The easiest way to do this is using the `--license-key` flag
-when starting the node. Here's an example:
+when starting the Core. Here's an example:
 
 ```sh
 synnax start --listen=localhost:9090 --license-key=000000-00000000-0000000000
@@ -46,9 +46,7 @@ file parameters, see [this page](/reference/core/cli-reference).
 
 ## Configuring TLS
 
-We recommend using TLS for securing all communications with your cluster. In fact, TLS
-is required for connecting to a remote cluster with the
-[Synnax Console](/reference/console/get-started).
+We recommend using TLS for securing all communications with your Core.
 
 ### TLS Certificate Options
 
@@ -64,7 +62,7 @@ There are four important command line options for configuring TLS:
     {
       option: "--certs-dir",
       description:
-        "The path to a directory containing the necessary certificates for the cluster to use.",
+        "The path to a directory containing the necessary certificates for the Core to use.",
       default: "/usr/local/synnax/certs",
     },
     {
@@ -89,10 +87,10 @@ There are four important command line options for configuring TLS:
 
 <Divider.Divider x />
 
-## Starting the Cluster with TLS
+## Starting the Core with TLS
 
-When starting the cluster with TLS, you'll need to specify the correct options and start
-the node with the correct hostname in the `--listen` option. **The hostname must match
+When starting the Core with TLS, you'll need to specify the correct options and start
+the Core with the correct hostname in the `--listen` option. **The hostname must match
 the hostname in the node certificate**. Here's an example for a let's encrypt
 certificate:
 
@@ -111,10 +109,9 @@ synnax start \
 
 ### Using Synnax's Auto-Cert Feature
 
-The easiest way to start a secure cluster using self-signed certificates is to use the
-`--auto-cert` command line flag when starting the cluster. This will automatically
-generate all of the relevant certificates and keys for you. Here's an example for a
-local cluster:
+The easiest way to start a secure Core using self-signed certificates is to use the
+`--auto-cert` command line flag when starting the Core. This will automatically generate
+all of the relevant certificates and keys for you:
 
 ```sh
 synnax start --listen=localhost:9090 --auto-cert

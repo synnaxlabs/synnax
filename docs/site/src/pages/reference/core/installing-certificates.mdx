@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Installing Certificates"
 heading: "Installing Certificates"
-description: "Deploying a single node cluster to production"
+description: "Deploying a Synnax Core to production"
 ---
 
 import Code from "@/components/code/Code.astro";
@@ -14,7 +14,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This page is a guide on how to efficiently install CA certificates on client machines to
-enable communication with a cluster using a self-signed certificate. Select your
+enable communication with a Synnax Core using a self-signed certificate. Select your
 operating system below.
 
 <Tabs
@@ -27,9 +27,9 @@ operating system below.
 <Fragment slot="windows">
 ## Windows
 
-To start off, you'll need to pull the CA certificate from the cluster. Once you have the
+To start off, you'll need to pull the CA certificate from the Core. Once you have the
 certificate, you can install it using the `Import-Certificate` command. Note that you
-may need to open powershell as an administrator to run the command.
+may need to open PowerShell as an administrator to run the command.
 
 ```powershell
 Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachine\Root

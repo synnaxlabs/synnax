@@ -26,7 +26,7 @@ development.
 
 # 2 - Install Git
 
-We use git for all our version control.
+We use Git for all our version control.
 
 ```zsh
 brew install git
@@ -34,7 +34,7 @@ brew install git
 
 # 3 - Clone the Repository
 
-The next step is to clone the git repository. We recommend cloning it into
+The next step is to clone the Git repository. We recommend cloning it into
 `~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
 
 ```zsh
