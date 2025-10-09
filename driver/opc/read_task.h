@@ -320,14 +320,15 @@ public:
             for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
                 UA_DataValue &result = ua_res.results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
-                const auto written = util::write_to_series(
+                auto [written, write_err] = util::write_to_series(
                     fr.series->at(j),
                     result.value
                 );
-                if (written == 0) {
+                if (write_err) {
                     skip_sample = true;
                     res.warning = "Invalid OPC UA data detected for channel " +
-                                  this->cfg.channels[j]->ch.name + ", skipping frame";
+                                  this->cfg.channels[j]->ch.name + ": " +
+                                  write_err.message() + ", skipping frame";
                     break;
                 }
             }

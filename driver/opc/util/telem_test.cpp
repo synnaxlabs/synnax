@@ -85,7 +85,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float val = 42.0f;
     UA_Variant_setScalar(&v, &val, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    util::write_to_series(series, v);
+    auto [written, err] = util::write_to_series(series, v);
+    ASSERT_NIL(err);
     EXPECT_EQ(series.size(), 1);
     EXPECT_EQ(series.at<float>(0), 42.0f);
 
@@ -94,7 +95,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float v2v = 43.0f;
     UA_Variant_setScalar(&v2, &v2v, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    util::write_to_series(series, v2);
+    auto [written2, err2] = util::write_to_series(series, v2);
+    ASSERT_NIL(err2);
     EXPECT_EQ(series.size(), 2);
     EXPECT_EQ(series.at<float>(1), 43.0f);
 }
@@ -118,7 +120,8 @@ TEST(TelemTest, testWriteToSeriesEmptyVariant) {
     UA_Variant v;
     UA_Variant_init(&v);
 
-    auto written = util::write_to_series(series, v);
+    auto [written, err] = util::write_to_series(series, v);
+    EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
     EXPECT_EQ(series.size(), 0);
 }
@@ -131,7 +134,8 @@ TEST(TelemTest, testWriteToSeriesNullTypeOrData) {
     v.type = nullptr;
     v.data = nullptr;
 
-    auto written = util::write_to_series(series, v);
+    auto [written, err] = util::write_to_series(series, v);
+    EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
     EXPECT_EQ(series.size(), 0);
 }
@@ -145,7 +149,8 @@ TEST(TelemTest, testWriteToSeriesZeroLengthArray) {
     v.arrayLength = 0;
     v.data = UA_EMPTY_ARRAY_SENTINEL;
 
-    auto written = util::write_to_series(series, v);
+    auto [written, err] = util::write_to_series(series, v);
+    EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
     EXPECT_EQ(series.size(), 0);
 }
