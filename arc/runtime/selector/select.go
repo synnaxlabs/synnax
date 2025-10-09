@@ -27,7 +27,7 @@ var (
 		Kind: ir.KindStage,
 		Type: ir.Stage{
 			Params: ir.NamedTypes{
-				Keys:   []string{ir.DefaultInputParam},
+				Keys:   []string{ir.DefaultOutputParam},
 				Values: []ir.Type{ir.U8{}},
 			},
 			Outputs: ir.NamedTypes{
@@ -87,7 +87,7 @@ func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	}
 	inputEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{
 		Node:  cfg.Node.Key,
-		Param: ir.DefaultInputParam,
+		Param: ir.DefaultOutputParam,
 	})
 	trueHandle := ir.Handle{Node: cfg.Node.Key, Param: trueParamName}
 	falseHandle := ir.Handle{Node: cfg.Node.Key, Param: falseParamName}

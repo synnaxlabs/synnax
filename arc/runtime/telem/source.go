@@ -46,13 +46,17 @@ type source struct {
 	highWaterMark xtelem.Alignment
 }
 
-func (s *source) Init(ctx context.Context, changed func(output string)) {}
+func (s *source) Init(context.Context, func(output string)) {}
 
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
-	passSeries := s.telem.Data[s.key].FilterGreaterThanOrEqualTo(s.highWaterMark)
-	s.highWaterMark = passSeries.AlignmentBounds().Upper
-	s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = passSeries.Series[0]
-	onOutputChange(ir.DefaultOutputParam)
+	for _, ser := range s.telem.Data[s.key].Series {
+		ab := ser.AlignmentBounds()
+		if ab.Upper > s.highWaterMark {
+			s.highWaterMark = ab.Upper
+			s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = ser
+			onOutputChange(ir.DefaultOutputParam)
+		}
+	}
 }
 
 type telemFactory struct {
