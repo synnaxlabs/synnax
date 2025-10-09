@@ -27,6 +27,8 @@ type node struct {
 	changedOutputs []string
 }
 
+func (n *node) Init(context.Context, func(output string)) {}
+
 func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	var maxLength int64
 	for _, o := range n.inputs {

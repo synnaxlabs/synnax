@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -128,7 +129,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer xio.MultiCloser
 		s      = &Service{cfg: cfg}
 	)
-	s.symbolResolver, err = runtime.CreateResolver(cfg.baseRuntimeConfig())
+	s.symbolResolver, err = symbol.CreateResolver(cfg.baseRuntimeConfig())
 	if err != nil {
 		return nil, err
 	}

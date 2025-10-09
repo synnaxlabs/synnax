@@ -244,4 +244,202 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
+	Describe("Logical Operations", func() {
+		Context("AND Operation", func() {
+			It("should perform bitwise AND on equal length series", func() {
+				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
+				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.AndU8(a, b, &output)
+
+				// Truth table: 1&1=1, 1&0=0, 0&1=0, 0&0=0
+				expected := []uint8{1, 0, 0, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle different length series with last value repetition", func() {
+				a := telem.NewSeriesV[uint8](1, 0)
+				b := telem.NewSeriesV[uint8](1, 1, 1, 1, 1)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.AndU8(a, b, &output)
+
+				// a values: [1, 0, 0, 0, 0] (0 repeats)
+				// b values: [1, 1, 1, 1, 1]
+				// result:   [1, 0, 0, 0, 0]
+				expected := []uint8{1, 0, 0, 0, 0}
+				Expect(output.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should work with all bits set", func() {
+				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
+				b := telem.NewSeriesV[uint8](0xFF, 0x0F, 0xF0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.AndU8(a, b, &output)
+
+				expected := []uint8{0xFF, 0x00, 0x00}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+
+		Context("OR Operation", func() {
+			It("should perform bitwise OR on equal length series", func() {
+				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
+				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.OrU8(a, b, &output)
+
+				// Truth table: 1|1=1, 1|0=1, 0|1=1, 0|0=0
+				expected := []uint8{1, 1, 1, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle different length series with last value repetition", func() {
+				a := telem.NewSeriesV[uint8](1, 0)
+				b := telem.NewSeriesV[uint8](0, 0, 0, 0, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.OrU8(a, b, &output)
+
+				// a values: [1, 0, 0, 0, 0] (0 repeats)
+				// b values: [0, 0, 0, 0, 0]
+				// result:   [1, 0, 0, 0, 0]
+				expected := []uint8{1, 0, 0, 0, 0}
+				Expect(output.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should work with all bits set", func() {
+				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
+				b := telem.NewSeriesV[uint8](0x00, 0x0F, 0xF0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.OrU8(a, b, &output)
+
+				expected := []uint8{0xFF, 0xFF, 0xFF}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+
+		Context("XOR Operation", func() {
+			It("should perform bitwise XOR on equal length series", func() {
+				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
+				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.XorU8(a, b, &output)
+
+				// Truth table: 1^1=0, 1^0=1, 0^1=1, 0^0=0
+				expected := []uint8{0, 1, 1, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle different length series with last value repetition", func() {
+				a := telem.NewSeriesV[uint8](1, 1)
+				b := telem.NewSeriesV[uint8](0, 1, 0, 1, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.XorU8(a, b, &output)
+
+				// a values: [1, 1, 1, 1, 1] (1 repeats)
+				// b values: [0, 1, 0, 1, 0]
+				// result:   [1, 0, 1, 0, 1]
+				expected := []uint8{1, 0, 1, 0, 1}
+				Expect(output.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should work with all bits set", func() {
+				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F, 0xAA)
+				b := telem.NewSeriesV[uint8](0x00, 0x0F, 0xF0, 0xAA)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.XorU8(a, b, &output)
+
+				expected := []uint8{0xFF, 0xFF, 0xFF, 0x00}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+
+		Context("NOT Operation", func() {
+			It("should perform bitwise NOT", func() {
+				input := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.Not(input, &output)
+
+				// NOT inverts all bits: ^1 = 0xFE, ^0 = 0xFF
+				expected := []uint8{0xFE, 0xFF, 0xFE, 0xFF}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle empty series", func() {
+				input := telem.Series{DataType: telem.Uint8T}
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.Not(input, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle single element", func() {
+				input := telem.NewSeriesV[uint8](0xAA)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.Not(input, &output)
+
+				expected := []uint8{0x55}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should work with all bits combinations", func() {
+				input := telem.NewSeriesV[uint8](0xFF, 0x00, 0xF0, 0x0F, 0xAA, 0x55)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.Not(input, &output)
+
+				expected := []uint8{0x00, 0xFF, 0x0F, 0xF0, 0x55, 0xAA}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+
+		Context("Combined Logical Operations", func() {
+			It("should allow combining AND and OR operations", func() {
+				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
+				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				c := telem.NewSeriesV[uint8](1, 1, 1, 1)
+
+				// (a AND b) OR c
+				andResult := telem.Series{DataType: telem.Uint8T}
+				op.AndU8(a, b, &andResult)
+
+				orResult := telem.Series{DataType: telem.Uint8T}
+				op.OrU8(andResult, c, &orResult)
+
+				expected := []uint8{1, 1, 1, 1}
+				Expect(telem.UnmarshalSlice[uint8](orResult.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should allow NOT of AND result", func() {
+				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
+				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+
+				andResult := telem.Series{DataType: telem.Uint8T}
+				op.AndU8(a, b, &andResult)
+
+				notResult := telem.Series{DataType: telem.Uint8T}
+				op.Not(andResult, &notResult)
+
+				// AND: [1, 0, 0, 0]
+				// NOT: [0xFE, 0xFF, 0xFF, 0xFF]
+				expected := []uint8{0xFE, 0xFF, 0xFF, 0xFF}
+				Expect(telem.UnmarshalSlice[uint8](notResult.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+	})
+
 })

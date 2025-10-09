@@ -44,13 +44,13 @@ func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)
 
 type operatorFactory struct{}
 
-func (o operatorFactory) Create(cfg node.Config) (node.Node, error) {
+func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	opCat, ok := comparisons[cfg.Node.Type]
 	if !ok {
 		return nil, query.NotFound
 	}
-	lhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: lhsParam})
-	rhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: rhsParam})
+	lhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.LHSInputParam})
+	rhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.RHSInputParam})
 	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	seriesA := cfg.State.Outputs[lhsEdge.Source]
 	comp := opCat[seriesA.DataType]

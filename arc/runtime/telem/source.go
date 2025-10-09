@@ -35,9 +35,7 @@ var (
 			},
 		},
 	}
-	Resolver = ir.MapResolver{
-		"on": sourceSymbol,
-	}
+	SymbolResolver = ir.MapResolver{sourceSymbolName: sourceSymbol}
 )
 
 type source struct {
@@ -61,7 +59,7 @@ type telemFactory struct {
 	telem *State
 }
 
-func (t telemFactory) Create(cfg node.Config) (node.Node, error) {
+func (t telemFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != sourceSymbolName {
 		return nil, query.NotFound
 	}

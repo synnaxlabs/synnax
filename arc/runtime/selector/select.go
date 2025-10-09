@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package std
+package selector
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func (s *selectNode) Next(ctx context.Context, onOutput func(string)) {
 type selectFactory struct {
 }
 
-func (s *selectFactory) Create(cfg node.Config) (node.Node, error) {
+func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
@@ -91,10 +91,7 @@ func (s *selectFactory) Create(cfg node.Config) (node.Node, error) {
 	})
 	trueHandle := ir.Handle{Node: cfg.Node.Key, Param: trueParamName}
 	falseHandle := ir.Handle{Node: cfg.Node.Key, Param: falseParamName}
-	n := &selectNode{
-		state: cfg.State,
-		input: inputEdge,
-	}
+	n := &selectNode{state: cfg.State, input: inputEdge}
 	n.outputs.true = trueHandle
 	n.outputs.false = falseHandle
 	return n, nil

@@ -25,7 +25,7 @@ type factory struct {
 	wasm api.Module
 }
 
-func (w *factory) Create(cfg node2.Config) (node2.Node, error) {
+func (w *factory) Create(ctx context.Context, cfg node2.Config) (node2.Node, error) {
 	stage, ok := cfg.Module.GetStage(cfg.Node.Type)
 	if !ok {
 		return nil, query.NotFound

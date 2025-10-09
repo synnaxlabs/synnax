@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	arctelem "github.com/synnaxlabs/arc/runtime/util"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -25,15 +24,9 @@ type State struct {
 func NewState(ctx context.Context, program ir.IR) (*State, error) {
 	state := &State{Outputs: map[ir.Handle]telem.Series{}}
 	for _, node := range program.Nodes {
-		symbol, err := program.Symbols.Resolve(ctx, node.Type)
-		if err != nil {
-			return nil, err
-		}
-		stage, ok := symbol.Type.(*ir.Stage)
-		if !ok {
-			return nil, errors.Newf("stage %s is not a stage", symbol.Type)
-		}
-		for key, t := range stage.Outputs.Iter() {
+		// Use the resolved output types from the node instance
+		// For polymorphic stages, these are the concrete types after unification
+		for key, t := range node.Outputs.Iter() {
 			state.Outputs[ir.Handle{Node: node.Key, Param: key}] = telem.Series{
 				DataType: arctelem.IRTypeToDataType(t),
 			}

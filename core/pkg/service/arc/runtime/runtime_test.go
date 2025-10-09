@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -73,7 +75,7 @@ var _ = Describe("Runtime", Ordered, func() {
 				Status:  statusSvc,
 			}
 
-			resolver := MustSucceed(runtime.CreateResolver(cfg))
+			resolver := MustSucceed(symbol.CreateResolver(cfg))
 
 			graph := arc.Graph{
 				Nodes: []graph.Node{
@@ -126,28 +128,28 @@ var _ = Describe("Runtime", Ordered, func() {
 				},
 				Edges: []arc.Edge{
 					{
-						Source: arc.Handle{Node: "on", Param: "output"},
-						Target: arc.Handle{Node: "ge", Param: "a"},
+						Source: arc.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "ge", Param: ir.LHSInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "constant", Param: "output"},
-						Target: arc.Handle{Node: "ge", Param: "b"},
+						Source: arc.Handle{Node: "constant", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "ge", Param: ir.RHSInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "ge", Param: "output"},
-						Target: arc.Handle{Node: "stable_for", Param: "input"},
+						Source: arc.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "stable_for", Param: "output"},
-						Target: arc.Handle{Node: "select", Param: "input"},
+						Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "select", Param: ir.DefaultInputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success", Param: "input"},
+						Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error", Param: "input"},
+						Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
 					},
 				},
 			}

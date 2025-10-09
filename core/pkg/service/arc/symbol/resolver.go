@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package symbol
 
 import (
 	"context"
@@ -17,7 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/selector"
+	"github.com/synnaxlabs/arc/runtime/stable"
+	"github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/x/config"
 )
 
@@ -47,14 +52,18 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	}, nil
 }
 
-func CreateResolver(cfgs ...Config) (arc.SymbolResolver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
+	cfg, err := config.New(runtime.DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	r := ir.CompoundResolver{
-		constant.Resolver,
-		op.Resolver,
+		constant.SymbolResolver,
+		op.SymbolResolver,
+		selector.SymbolResolver,
+		stable.SymbolResolver,
+		status.SymbolResolver,
+		telem.SymbolResolver,
 		&channelResolver{Readable: cfg.Channel},
 	}
 	return r, nil

@@ -10,6 +10,9 @@
 package node
 
 import (
+	"context"
+
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -18,20 +21,21 @@ import (
 )
 
 type Config struct {
+	alamos.Instrumentation
 	Node   ir.Node
 	State  *state.State
 	Module module.Module
 }
 
 type Factory interface {
-	Create(cfg Config) (Node, error)
+	Create(ctx context.Context, cfg Config) (Node, error)
 }
 
 type MultiFactory []Factory
 
-func (mf MultiFactory) Create(cfg Config) (Node, error) {
+func (mf MultiFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 	for _, f := range mf {
-		n, err := f.Create(cfg)
+		n, err := f.Create(ctx, cfg)
 		if err != nil {
 			if errors.Is(err, query.NotFound) {
 				continue

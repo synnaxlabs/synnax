@@ -85,6 +85,7 @@ func bindNamedTypes(ctx context.Context, s *ir.Scope, t ir.NamedTypes, kind ir.K
 	return nil
 }
 
+
 func Analyze(
 	ctx_ context.Context,
 	g Graph,
@@ -202,10 +203,13 @@ func Analyze(
 	}
 
 	// Step 4: Analyze edge connections and create type constraints
+	// Create fresh type variables for each node instance to avoid collisions
 	nodeTypes := make(map[string]ir.Stage)
 	for _, n := range g.Nodes {
 		stageScope, _ := ctx.Scope.Resolve(ctx, n.Type)
-		nodeTypes[n.Key] = stageScope.Type.(ir.Stage)
+		stage := stageScope.Type.(ir.Stage)
+		// Instantiate the stage with fresh type variables unique to this node
+		nodeTypes[n.Key] = ir.FreshStage(stage, n.Key)
 	}
 
 	for _, edge := range g.Edges {
@@ -310,10 +314,35 @@ func Analyze(
 		}
 	}
 
-	// Step 6: Compute stratification for reactive execution
+	// Step 5.5: Resolve concrete types for each node instance
+	// For polymorphic stages, each node gets its own resolved params/outputs
 	nodes := lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
 		return item.Node
 	})
+	for i, n := range nodes {
+		// Use the fresh stage that was created in Step 4
+		freshStageInst, ok := nodeTypes[n.Key]
+		if !ok {
+			ctx.Diagnostics.AddError(errors.Newf("node %s not found in nodeTypes", n.Key), nil)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+
+		// Apply substitutions to get concrete types for THIS node instance
+		// We apply to the fresh stage which has unique type variables for this node
+		substituted := ctx.Constraints.ApplySubstitutions(freshStageInst)
+		if substituted != nil {
+			resolvedStage := substituted.(ir.Stage)
+			nodes[i].Params = resolvedStage.Params
+			nodes[i].Outputs = resolvedStage.Outputs
+		} else {
+			// No substitutions - use stage types directly
+			// This is fine for non-polymorphic stages
+			nodes[i].Params = freshStageInst.Params
+			nodes[i].Outputs = freshStageInst.Outputs
+		}
+	}
+
+	// Step 6: Compute stratification for reactive execution
 	strata, ok := stratifier.Stratify(ctx, nodes, g.Edges, ctx.Diagnostics)
 	if !ok {
 		return ir.IR{}, *ctx.Diagnostics

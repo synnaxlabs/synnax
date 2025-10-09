@@ -1,4 +1,4 @@
-package std_test
+package stable_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSelect(t *testing.T) {
+func TestStable(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Select Suite")
+	RunSpecs(t, "Stable Suite")
 }

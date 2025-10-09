@@ -1,4 +1,4 @@
-package std_test
+package selector_test
 
 import (
 	"context"

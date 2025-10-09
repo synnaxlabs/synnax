@@ -20,8 +20,8 @@ type NamedTypes = maps.Ordered[string, Type]
 const (
 	DefaultOutputParam = "output"
 	DefaultInputParam  = "input"
-	LHSInputParam      = "lhs"
-	RHSInputParam      = "rhs"
+	LHSInputParam      = "a"
+	RHSInputParam      = "b"
 )
 
 type Channels struct {
@@ -80,6 +80,12 @@ type Node struct {
 	Config map[string]any `json:"config"`
 	// Channels are the channels that the stage needs access to.
 	Channels Channels `json:"channels"`
+	// Params are the resolved parameter types for this specific node instance.
+	// For polymorphic stages, these are the concrete types after unification.
+	Params NamedTypes `json:"params"`
+	// Outputs are the resolved output types for this specific node instance.
+	// For polymorphic stages, these are the concrete types after unification.
+	Outputs NamedTypes `json:"outputs"`
 }
 
 // Handle is a connection point on a node.
@@ -98,6 +104,9 @@ type Edge struct {
 // ConstraintSystem is an interface for type constraint resolution
 type ConstraintSystem interface {
 	ApplySubstitutions(t Type) Type
+	DebugString() string
+	HasTypeVariables() bool
+	Unify() error
 }
 
 // Strata represents the execution stratification of a dataflow graph.

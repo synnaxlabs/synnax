@@ -34,7 +34,7 @@ var (
 			},
 		},
 	}
-	Resolver = ir.MapResolver{symbolName: symbol}
+	SymbolResolver = ir.MapResolver{symbolName: symbol}
 )
 
 type constant struct{}
@@ -47,7 +47,7 @@ func (c constant) Next(context.Context, func(output string)) {}
 
 type constantFactory struct{}
 
-func (c *constantFactory) Create(cfg node.Config) (node.Node, error) {
+func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}

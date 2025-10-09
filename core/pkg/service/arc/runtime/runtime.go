@@ -16,8 +16,10 @@ import (
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime"
+	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/state"
 	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
@@ -208,15 +210,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	telemState := &ntelem.State{}
+	telemFactory := ntelem.NewTelemFactory(telemState)
+	selectFactory := selector.NewFactory()
+	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 
-	telemState := &ntelem.State{}
-	fac := ntelem.NewTelemFactory(telemState)
-
-	f := node.MultiFactory{wasmFactory, opFactory, fac}
+	f := node.MultiFactory{
+		wasmFactory,
+		opFactory,
+		telemFactory,
+		selectFactory,
+		constantFactory,
+	}
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
-		n, err := f.Create(node.Config{
+		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
 			Module: cfg.Module,
 			State:  progState,
@@ -252,6 +261,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	for _, irNode := range nodes {
 		irNode.Init(ctx, r.scheduler.MarkChanged)
 	}
+	r.scheduler.Next(ctx)
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

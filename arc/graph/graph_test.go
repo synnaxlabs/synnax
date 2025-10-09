@@ -236,23 +236,20 @@ var _ = Describe("Graph", func() {
 				Expect(inter.Nodes).To(HaveLen(3))
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Now we can check the resolved types through the constraint system
-				addStage := MustSucceed(inter.Symbols.Resolve(ctx, "polymorphic_add"))
-				stageType := addStage.Type.(ir.Stage)
+				// Check that each node instance has concrete resolved types
+				// The stage definition remains polymorphic, but each node gets concrete types
+				adderNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "adder" })
 
-				// Check that parameters resolve to F32
-				aType, _ := stageType.Params.Get("a")
-				resolvedA := inter.Constraints.ApplySubstitutions(aType)
-				Expect(resolvedA).To(Equal(ir.F32{}))
+				// The adder node should have concrete F32 types resolved from edges
+				aType, _ := adderNode.Params.Get("a")
+				Expect(aType).To(Equal(ir.F32{}))
 
-				bType, _ := stageType.Params.Get("b")
-				resolvedB := inter.Constraints.ApplySubstitutions(bType)
-				Expect(resolvedB).To(Equal(ir.F32{}))
+				bType, _ := adderNode.Params.Get("b")
+				Expect(bType).To(Equal(ir.F32{}))
 
-				// Check that return type resolves to F32
-				returnType, _ := stageType.Outputs.Get("output")
-				resolvedReturn := inter.Constraints.ApplySubstitutions(returnType)
-				Expect(resolvedReturn).To(Equal(ir.F32{}))
+				// Return type should also be concrete
+				returnType, _ := adderNode.Outputs.Get("output")
+				Expect(returnType).To(Equal(ir.F32{}))
 			})
 
 			It("Should correctly infer types for polymorphic stages from I64 inputs", func() {
@@ -297,21 +294,17 @@ var _ = Describe("Graph", func() {
 				inter, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// The polymorphic_multiply stage should have its type variables resolved to I64
-				multStage := MustSucceed(inter.Symbols.Resolve(ctx, "polymorphic_multiply"))
-				stageType := multStage.Type.(ir.Stage)
+				// Check that the multiplier node instance has concrete resolved types
+				multiplierNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "multiplier" })
 
-				xType, _ := stageType.Params.Get("x")
-				resolvedX := inter.Constraints.ApplySubstitutions(xType)
-				Expect(resolvedX).To(Equal(ir.I64{}))
+				xType, _ := multiplierNode.Params.Get("x")
+				Expect(xType).To(Equal(ir.I64{}))
 
-				yType, _ := stageType.Params.Get("y")
-				resolvedY := inter.Constraints.ApplySubstitutions(yType)
-				Expect(resolvedY).To(Equal(ir.I64{}))
+				yType, _ := multiplierNode.Params.Get("y")
+				Expect(yType).To(Equal(ir.I64{}))
 
-				returnType, _ := stageType.Outputs.Get("output")
-				resolvedReturn := inter.Constraints.ApplySubstitutions(returnType)
-				Expect(resolvedReturn).To(Equal(ir.I64{}))
+				returnType, _ := multiplierNode.Outputs.Get("output")
+				Expect(returnType).To(Equal(ir.I64{}))
 			})
 
 			It("Should handle chained polymorphic stages", func() {
@@ -372,18 +365,14 @@ var _ = Describe("Graph", func() {
 				inter, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Both stages should resolve to F64
-				addStage := MustSucceed(inter.Symbols.Resolve(ctx, "poly_add"))
-				addType := addStage.Type.(ir.Stage)
-				addReturnType, _ := addType.Outputs.Get("output")
-				resolvedAddReturn := inter.Constraints.ApplySubstitutions(addReturnType)
-				Expect(resolvedAddReturn).To(Equal(ir.F64{}))
+				// Both node instances should have concrete F64 types
+				add1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "add1" })
+				addReturnType, _ := add1Node.Outputs.Get("output")
+				Expect(addReturnType).To(Equal(ir.F64{}))
 
-				scaleStage := MustSucceed(inter.Symbols.Resolve(ctx, "poly_scale"))
-				scaleType := scaleStage.Type.(ir.Stage)
-				inputType, _ := scaleType.Params.Get("input")
-				resolvedInput := inter.Constraints.ApplySubstitutions(inputType)
-				Expect(resolvedInput).To(Equal(ir.F64{}))
+				scale1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "scale1" })
+				inputType, _ := scale1Node.Params.Get("input")
+				Expect(inputType).To(Equal(ir.F64{}))
 			})
 
 			It("Should detect type mismatches in polymorphic edge connections", func() {
@@ -820,38 +809,30 @@ var _ = Describe("Graph", func() {
 				})[0]
 				Expect(stableForNode.Config).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
-				// Verify polymorphic types were resolved correctly
-				// The constant stage should have its type variable T resolved to F64
-				// (since it receives config value 10 which gets connected to ge that compares with F64 from "on")
-				constantStage := MustSucceed(inter.Symbols.Resolve(ctx, "constant"))
-				constantType := constantStage.Type.(ir.Stage)
-				// The return type should be resolved to F64 after unification
-				// (since "constant" connects to "ge" which receives F64 from "on")
-				constantReturnType, _ := constantType.Outputs.Get("output")
-				resolvedConstantReturn := inter.Constraints.ApplySubstitutions(constantReturnType)
-				Expect(resolvedConstantReturn).To(Equal(ir.F64{}))
+				// Verify polymorphic node instances have concrete resolved types
+				// Stage definitions stay polymorphic, but each node instance gets concrete types
 
-				// The ge stage should have its type variables resolved to F64
+				// The constant node should have concrete F64 type
+				// (since it connects to "ge" which receives F64 from "on")
+				constantIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "constant" })
+				constantReturnType, _ := constantIRNode.Outputs.Get("output")
+				Expect(constantReturnType).To(Equal(ir.F64{}))
+
+				// The ge node should have concrete F64 parameters
 				// (since it receives F64 inputs from "on" and "constant")
-				geStage := MustSucceed(inter.Symbols.Resolve(ctx, "ge"))
-				geType := geStage.Type.(ir.Stage)
-				aType, _ := geType.Params.Get("a")
-				resolvedA := inter.Constraints.ApplySubstitutions(aType)
-				Expect(resolvedA).To(Equal(ir.F64{}))
-				bType, _ := geType.Params.Get("b")
-				resolvedB := inter.Constraints.ApplySubstitutions(bType)
-				Expect(resolvedB).To(Equal(ir.F64{}))
+				geIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "ge" })
+				aType, _ := geIRNode.Params.Get("a")
+				Expect(aType).To(Equal(ir.F64{}))
+				bType, _ := geIRNode.Params.Get("b")
+				Expect(bType).To(Equal(ir.F64{}))
 
-				// The stable_for stage should have its type variable U resolved to U8
+				// The stable_for node should have concrete U8 types
 				// (since it receives U8 from "ge" comparison result)
-				stableStage := MustSucceed(inter.Symbols.Resolve(ctx, "stable_for"))
-				stableType := stableStage.Type.(ir.Stage)
-				inputType, _ := stableType.Params.Get("input")
-				resolvedInput := inter.Constraints.ApplySubstitutions(inputType)
-				Expect(resolvedInput).To(Equal(ir.U8{}))
-				stableReturnType, _ := stableType.Outputs.Get("output")
-				resolvedStableReturn := inter.Constraints.ApplySubstitutions(stableReturnType)
-				Expect(resolvedStableReturn).To(Equal(ir.U8{}))
+				stableIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "stable_for" })
+				inputType, _ := stableIRNode.Params.Get("input")
+				Expect(inputType).To(Equal(ir.U8{}))
+				stableReturnType, _ := stableIRNode.Outputs.Get("output")
+				Expect(stableReturnType).To(Equal(ir.U8{}))
 			})
 		})
 	})
