@@ -16,39 +16,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func DataTypeToIRType(dt telem.DataType) ir.Type {
-	switch dt {
-	case telem.Uint64T:
-		return ir.U64{}
-	case telem.Uint32T:
-		return ir.U32{}
-	case telem.Uint16T:
-		return ir.U16{}
-	case telem.Uint8T:
-		return ir.U8{}
-	case telem.Int64T:
-		return ir.I64{}
-	case telem.Int32T:
-		return ir.I32{}
-	case telem.Int16T:
-		return ir.I16{}
-	case telem.Int8T:
-		return ir.I8{}
-	case telem.Float64T:
-		return ir.F64{}
-	case telem.Float32T:
-		return ir.F32{}
-	case telem.StringT:
-		return ir.String{}
-	case telem.TimeStampT:
-		return ir.TimeStamp{}
-	default:
-		// For unknown types, return nil (untyped)
-		// The actual type should be determined by context
-		return nil
-	}
-}
-
 func IRTypeToDataType(t ir.Type) telem.DataType {
 	switch t.(type) {
 	case ir.F64:

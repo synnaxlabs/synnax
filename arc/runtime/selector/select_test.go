@@ -8,7 +8,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/runtime/node"
-	std "github.com/synnaxlabs/arc/runtime/select"
+	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -21,7 +21,7 @@ var _ = Describe("Select", func() {
 		expectedTrue, expectedFalse telem.Series,
 		expectedOutputs []string,
 	) {
-		f := std.NewFactory()
+		f := selector.NewFactory()
 		s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
 
 		inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
@@ -42,7 +42,7 @@ var _ = Describe("Select", func() {
 		}
 
 		irNode := ir.Node{Key: "select", Type: "select"}
-		runtimeNode := MustSucceed(f.Create(node.Config{
+		runtimeNode := MustSucceed(f.Create(ctx, node.Config{
 			State:  s,
 			Node:   irNode,
 			Module: module.Module{IR: inter},

@@ -32,11 +32,11 @@ var _ = Describe("OP", func() {
 			Edges: []ir.Edge{
 				{
 					Source: lhsSourceHandle,
-					Target: ir.Handle{Node: "op", Param: "lhs"},
+					Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
 				},
 				{
 					Source: rhsSourceHandle,
-					Target: ir.Handle{Node: "op", Param: "rhs"},
+					Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 				},
 				{
 					Source: ir.Handle{Node: "op", Param: ir.DefaultOutputParam},
@@ -45,7 +45,7 @@ var _ = Describe("OP", func() {
 			},
 		}
 		irNode := ir.Node{Key: "op", Type: opName}
-		runtimeNode := MustSucceed(f.Create(node.Config{
+		runtimeNode := MustSucceed(f.Create(ctx, node.Config{
 			State:  s,
 			Node:   irNode,
 			Module: module.Module{IR: inter},

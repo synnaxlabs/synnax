@@ -130,12 +130,11 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 		now = telem.Now
 	}
 
-	node := &stableFor{
+	return &stableFor{
 		state:    cfg.State,
 		input:    inputEdge,
 		output:   outputHandle,
 		duration: duration,
 		now:      now,
-	}
-	return node, nil
+	}, nil
 }
