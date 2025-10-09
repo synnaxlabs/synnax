@@ -21,6 +21,11 @@ channels tied to actuators. We've added a simple example of a schematic below:
 
 <Image client:only="react" id="console/schematics/example" />
 
+[Download the example schematic](/examples/tpc-operator.json) to try it yourself. See
+the
+[TPC example README](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/tpc)
+for configuration instructions.
+
 <Divider.Divider x />
 
 ## Creating a Schematic
@@ -38,6 +43,24 @@ visualization:
 
 <Divider.Divider x />
 
+### Export a Schematic
+
+You can download a schematic as a JSON file so that it can be easily sent and loaded.
+
+To download, right click on the schematics name in the resources toolbar and click
+"Download as JSON":
+
+<Video client:only="react" id="console/schematics/download" />
+
+### Import a Schematic
+
+To import a schematic, you can drag and drop from your file system or right click on a
+workspace name in the ontology menu:
+
+<Video client:only="react" id="console/schematics/upload" />
+
+<Divider.Divider x />
+
 ## Modes
 
 Schematics have three modes: **view**, **edit**, and **control**. To change modes, use
@@ -46,30 +69,30 @@ the controls in the bottom-left hand corner of the schematic.
 <Table>
   <thead>
     <tr>
-      <th>Mode</th>
+      <th style={{ whiteSpace: "nowrap" }}>Mode</th>
       <th>Description</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>
-        <b>Edit</b>
-      </td>
-      <td>Symbols can be added and moved, and their properties can be edited.</td>
-    </tr>
-    <tr>
-      <td>
+      <td style={{ whiteSpace: "nowrap" }}>
         <b>View</b>
       </td>
       {
         <td>
-          Live data from the cluster is displayed on the schematic. Symbols are not
+          Live data from the core is displayed on the schematic. Symbols are not
           editable and the user cannot change the system state.
         </td>
       }
     </tr>
     <tr>
-      <td>
+      <td style={{ whiteSpace: "nowrap" }}>
+        <b>Edit</b>
+      </td>
+      <td>Symbols can be added and moved, and their properties can be edited.</td>
+    </tr>
+    <tr>
+      <td style={{ whiteSpace: "nowrap" }}>
         <b>Control</b>
       </td>
       <td>The user can click on symbols such as valves and buttons to control them.</td>
@@ -84,7 +107,7 @@ the controls in the bottom-left hand corner of the schematic.
 Schematics are assembled by dragging symbols out of the library and onto the screen.
 These symbols are visual representation of sensors, actuators, and other components on
 your hardware system. If the symbols are not appearing on the bottom of the screen, make
-sure to click the visualization <Icon.Visualize /> icon in the bottom-right corner.
+sure to click the visualization <Icon.Visualize /> icon in the bottom-left corner.
 
 Synnax has a collection of built-in symbols including valves, live sensor values,
 buttons, and tanks.
@@ -98,7 +121,7 @@ several tabs that can be used to fine-tune the look and behavior of the symbol.
 
 ### Style Tab
 
-The style tab on allows users to edit the symbol's label, size, orientation, color, and
+The style tab on allows users to edit (<Icon.Edit color="var(--pluto-primary-z)"/>) the symbol's label, size, orientation, color, and
 other visual properties.
 
 <Table>
@@ -133,28 +156,9 @@ other visual properties.
       </td>
       {
         <td>
-          Causes the body of the solenoid valve to look different when it is open or
-          closed.
+          Invert the visual state of the valve when True
         </td>
       }
-    </tr>
-    <tr>
-      <td>
-        <b>Width</b>
-      </td>
-      <td>Changes the size of a tank.</td>
-    </tr>
-    <tr>
-      <td>
-        <b>Height</b>
-      </td>
-      <td>Changes the size of a tank.</td>
-    </tr>
-    <tr>
-      <td>
-        <b>Scale</b>
-      </td>
-      <td>Changes the size of an element.</td>
     </tr>
     <tr>
       <td>
@@ -210,8 +214,29 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          Can be used to display a rolling average. For example, a value of 2 will cause
-          the screen to display the average of the last 2 samples.
+          Display a rolling average for the input channel. This does not 
+          change the underlying value written to the Synnax Core.
+        </td>
+      }
+    </tr>
+    <tr>
+      <td>
+        <b>Stale Timeout</b>
+      </td>
+      {
+        <td>
+          The amount of seconds without input channel telemetry before 
+          the element state registers as stale.
+        </td>
+      }
+    </tr>
+        <tr>
+      <td>
+        <b>Stale Color</b>
+      </td>
+      {
+        <td>
+          The color the element will change to when telemetry is stale.
         </td>
       }
     </tr>
@@ -240,7 +265,7 @@ two main properties:
       {
         <td>
           Represents the display state of the symbol. If the input channel has a value
-          of 1, the symbol will be display as activated.
+          of <code>1</code>, the symbol will be display as {" "}<code>activated</code>.
         </td>
       }
     </tr>
@@ -250,10 +275,10 @@ two main properties:
       </td>
       {
         <td>
-          Will be written to when you click on the symbol. If the symbol is
-          de-activated, clicking on it will write 1 to the output channel (an activation
-          command). If the symbol is activated, clicking on it will write 0 to the
-          output channel (a deactivation command).
+          Channel to write command to when the symbol is clicked. If the symbol is{" "}
+          <code>deactivated</code>, clicking it will write <code>1</code> to the output
+          channel. If the symbol is{" "}<code>activated</code>, clicking it will write
+          <code>0</code> to the output channel.
         </td>
       }
     </tr>
@@ -289,15 +314,22 @@ You can also change the color of multiple symbols together in the same manner:
 
 <Divider.Divider x />
 
-## Control Mode
+## Control Mode 
 
 In control mode, elements on the schematic are able to be activated for manual control
 of the system. Clicking on an actionable element, such as a valve, switch, or button,
-allows you to activate the output channel on that element. The circle on the element
-shows what is in control. If the circle is blue, the current schematic has control. If
-the circle is green, the current schematic has absolute control. If the circle is red,
-the current schematic does not have control as the element is part of an automated
-sequence or is controlled by another schematic.
+allows you to activate the output channel on that element. The indicator next to the 
+element displays the control status. 
+
+<Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current
+user has control. 
+
+<Icon.Circle color="green" /> Green circle indicates the current user has absolute 
+control. 
+
+<Icon.Circle color="red" /> Red circle indicates the current user does not have 
+control as the command channel is being controlled by another user or an automated
+sequence.
 
 The color of the bar indicates what is controlling the elements on the Schematic. There
 is a legend on the display indicating what controlling node is what color.
@@ -314,22 +346,6 @@ this, you can snapshot a schematic to a range by finding the schematic in the re
 toolbar, opening the context menu, and snapshotting the schematic to a range.
 
 <Video client:only="react" id="console/schematics/snapshot" />
-
-<Divider.Divider x />
-
-## Import a Schematic
-
-You can download a schematic as a JSON file so that it can be easily sent and loaded.
-
-To download, right click on the schematics name in the resources toolbar and click
-"Download as JSON":
-
-<Video client:only="react" id="console/schematics/download" />
-
-To import a schematic, you can drag and drop from your file system or right click on a
-workspace name in the ontology menu:
-
-<Video client:only="react" id="console/schematics/upload" />
 
 <Divider.Divider x />
 
