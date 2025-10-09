@@ -5,15 +5,76 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.core.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - relic.conf
+      - scripts/EnVar.dll
+      - turbo.json
+      - vendor
+      - x/cpp/**
+      - x/go/**
+      - x/media/**
+      - x/ts/**
   pull_request:
-    branches:
-      - main
-      - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.core.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - vendor
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
 
 env:
   CACHE_SCOPE: deploy-synnax
@@ -23,10 +84,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get Version
         id: version
@@ -34,36 +94,19 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           fi
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/deploy.core.yaml
-              - alamos/go/**
-              - aspen/**
-              - cesium/**
-              - client/cpp/**
-              - core/**
-              - driver/**
-              - freighter/go/**
-              - x/cpp/**
-              - x/go/**
-              - WORKSPACE
 
   create-release:
     runs-on: ubuntu-latest
     needs: setup
-    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
     steps:
       - name: Create Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { data: releases } = await github.rest.repos.listReleases({
@@ -84,32 +127,44 @@ jobs:
   build:
     needs: setup
     name: Build (${{ matrix.os }})
-    if: needs.setup.outputs.changed == 'true'
+    permissions:
+      contents: write
+      packages: write
     env:
       GH_TOKEN: ${{ github.token }}
       NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+      - name: Install MSYS2
         if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
         with:
-          sdk-version: 22000
+          msystem: MINGW64
+          update: true
+          install: >-
+            autoconf automake libtool
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Deps On Ubuntu
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool
+
+      - name: Install Deps on Macos
+        if: matrix.os == 'macos-latest'
+        run: brew install autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -122,24 +177,24 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures //driver
           else
-            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures //driver
           fi
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
+          --announce_rc --verbose_failures //driver
 
       - name: Download relic for Windows signing
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
       - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path relic-bin
@@ -150,7 +205,7 @@ jobs:
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-15" ]; then
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
@@ -171,7 +226,7 @@ jobs:
           fi
 
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -181,11 +236,13 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          # Prevent the keychain from getting locked during the build process
+          security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: Sign macOS Driver Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         run: |
           # Create entitlements file to disable library validation for LabJack support
           cat > driver-entitlements.plist << 'EOF'
@@ -205,7 +262,7 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Sign Windows Driver Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -238,7 +295,7 @@ jobs:
           }
 
       - name: Upload and Move Driver Binary
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -249,14 +306,14 @@ jobs:
       - name: Move Driver to Assets
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
             mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           else
             mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
       - name: Create Driver Install Script for NI Linux RT
-        if: matrix.os == 'ubuntu-22.04' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-22.04' && github.event_name != 'pull_request'
         shell: bash
         run: |
           cat > install-driver-nilinuxrt.sh << 'EOF'
@@ -271,17 +328,11 @@ jobs:
           EOF
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -294,21 +345,29 @@ jobs:
 
       - name: Copy Console Assets to Server
         shell: bash
-        run: |
-          mkdir -p core/pkg/service/console/dist
-          cp -r console/dist/* core/pkg/service/console/dist/
+        run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      - name: Download Dependencies
-        working-directory: core
-        run: go mod download
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Build
         working-directory: core
+        shell: bash
         run: |
-          go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags console,driver \
+            -ldflags="-w -s \
+              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         working-directory: core
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
@@ -317,7 +376,7 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
 
       - name: Sign Windows Server Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -326,32 +385,26 @@ jobs:
           relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
 
       - name: Upload Release Asset
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         shell: powershell
         run: |
-          # Ensure EnVar.dll is present in the correct plugin path
-          $pluginPath = "${env:ProgramFiles(x86)}\NSIS\Plugins\x86-unicode"
-          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
+          choco install nsis -y --no-progress
 
-          # Prepare the binary for packaging
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
+          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
           Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
-
-          # Build the installer
-          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
+          makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
 
       - name: Sign Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -360,59 +413,61 @@ jobs:
           relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
       - name: Upload Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Download Latest Earthly
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up QEMU
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Image
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
-        working-directory: core
-
-      - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
-            docker push ghcr.io/synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
-            docker push ghcr.io/synnaxlabs/synnax:rc
-          fi
-
-      - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
-            docker push synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
-            docker push synnaxlabs/synnax:rc
-          fi
+      - name: Build and Push Docker Images
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms:
+            ${{ github.event_name == 'pull_request' && 'linux/amd64' ||
+            'linux/amd64,linux/arm64' }}
+          push: true
+          tags: |
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ github.event_name != 'pull_request' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          sbom: ${{ github.event_name != 'pull_request' }}
+          provenance:
+            ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}
+          build-args: |
+            DRIVER_ENABLED=true
+            CONSOLE_ENABLED=true
+            VERSION=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || needs.setup.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}

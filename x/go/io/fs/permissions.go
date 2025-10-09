@@ -11,44 +11,39 @@ package fs
 
 import "os"
 
-//goland:noinspection ALL
 const (
-	OS_NO          os.FileMode = 0
-	OS_READ        os.FileMode = 0o4
-	OS_WRITE       os.FileMode = 0o2
-	OS_EX          os.FileMode = 0o1
-	OS_USER_SHIFT  os.FileMode = 6
-	OS_GROUP_SHIFT os.FileMode = 3
-	OS_OTH_SHIFT   os.FileMode = 0
+	read    = 0o4
+	write   = 0o2
+	execute = 0o1
 
-	OS_USER_R   = OS_READ << OS_USER_SHIFT
-	OS_USER_W   = OS_WRITE << OS_USER_SHIFT
-	OS_USER_X   = OS_EX << OS_USER_SHIFT
-	OS_USER_RW  = OS_USER_R | OS_USER_W
-	OS_USER_RWX = OS_USER_RW | OS_USER_X
+	ownerShift  = 6
+	groupShift  = 3
+	othersShift = 0
 
-	OS_GROUP_R   = OS_READ << OS_GROUP_SHIFT
-	OS_GROUP_W   = OS_WRITE << OS_GROUP_SHIFT
-	OS_GROUP_X   = OS_EX << OS_GROUP_SHIFT
-	OS_GROUP_RW  = OS_GROUP_R | OS_GROUP_W
-	OS_GROUP_RWX = OS_GROUP_RW | OS_GROUP_X
+	OwnerRead             os.FileMode = read << ownerShift
+	OwnerWrite            os.FileMode = write << ownerShift
+	OwnerExecute          os.FileMode = execute << ownerShift
+	OwnerReadWrite        os.FileMode = OwnerRead | OwnerWrite
+	OwnerReadWriteExecute os.FileMode = OwnerReadWrite | OwnerExecute
 
-	OS_OTH_R   = OS_READ << OS_OTH_SHIFT
-	OS_OTH_W   = OS_WRITE << OS_OTH_SHIFT
-	OS_OTH_X   = OS_EX << OS_OTH_SHIFT
-	OS_OTH_RW  = OS_OTH_R | OS_OTH_W
-	OS_OTH_RWX = OS_OTH_RW | OS_OTH_X
+	GroupRead             os.FileMode = read << groupShift
+	GroupWrite            os.FileMode = write << groupShift
+	GroupExecute          os.FileMode = execute << groupShift
+	GroupReadWrite        os.FileMode = GroupRead | GroupWrite
+	GroupReadExecute      os.FileMode = GroupRead | GroupExecute
+	GroupReadWriteExecute os.FileMode = GroupReadWrite | GroupExecute
 
-	OS_ALL_R   = OS_USER_R | OS_GROUP_R | OS_OTH_R
-	OS_ALL_W   = OS_USER_W | OS_GROUP_W | OS_OTH_W
-	OS_ALL_X   = OS_USER_X | OS_GROUP_X | OS_OTH_X
-	OS_ALL_RW  = OS_ALL_R | OS_ALL_W
-	OS_ALL_RWX = OS_ALL_RW | OS_ALL_X
+	OthersRead             os.FileMode = read << othersShift
+	OthersWrite            os.FileMode = write << othersShift
+	OthersExecute          os.FileMode = execute << othersShift
+	OthersReadWrite        os.FileMode = OthersRead | OthersWrite
+	OthersReadExecute      os.FileMode = OthersRead | OthersExecute
+	OthersReadWriteExecute os.FileMode = OthersReadWrite | OthersExecute
 )
 
-// CheckSufficientPermissions checks if the given actual file mode grants at least the
+// HasSufficientPermissions checks if the given actual file mode grants at least the
 // permissions expected by the given threshold. If the actual file mode is insufficient,
 // false is returned. Otherwise, true is returned.
-func CheckSufficientPermissions(actual, threshold os.FileMode) bool {
+func HasSufficientPermissions(actual, threshold os.FileMode) bool {
 	return actual&threshold == threshold
 }

@@ -1,12 +1,20 @@
-import { createTestClient, task } from "@synnaxlabs/client";
-import { id, status } from "@synnaxlabs/x";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
+import { id, status, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { Task } from "@/hardware/task";
-import { Ontology } from "@/ontology";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -14,11 +22,9 @@ const client = createTestClient();
 describe("queries", () => {
   const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
+
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {
@@ -93,7 +99,7 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ term: "special" });
+        result.current.retrieve({ searchTerm: "special" });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -115,7 +121,7 @@ describe("queries", () => {
           config: {},
         });
 
-      const { result } = renderHook(() => Task.useList(), {
+      const { result } = renderHook(() => Task.useList({ useCachedList: false }), {
         wrapper,
       });
       act(() => {
@@ -224,7 +230,9 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task failed",
@@ -288,7 +296,413 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", () => {
+  describe("useRetrieve", () => {
+    it("should retrieve a task by key", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "retrieveRack",
+      });
+      const testTask = await rack.createTask({
+        name: "retrieve_test",
+        type: "testType",
+        config: { value: "test" },
+      });
+
+      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.key).toEqual(testTask.key);
+      expect(result.current.data?.name).toEqual("retrieve_test");
+      expect(result.current.data?.type).toEqual("testType");
+      expect(result.current.data?.config).toEqual({ value: "test" });
+    });
+
+    it("should retrieve task with status", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "statusRack",
+      });
+      const testTask = await rack.createTask({
+        name: "status_task",
+        type: "testType",
+        config: {},
+      });
+
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
+        key: id.create(),
+        variant: "success",
+        message: "Task running",
+        details: {
+          task: testTask.key,
+          running: true,
+          data: {},
+        },
+      });
+
+      await act(async () => {
+        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        await writer.write(task.STATUS_CHANNEL_NAME, [taskStatus]);
+        await writer.close();
+      });
+
+      const { result } = renderHook(
+        () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.status?.variant).toEqual("success");
+      expect(result.current.data?.status?.message).toEqual("Task running");
+    });
+
+    it("should update when task is renamed", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "renameRack",
+      });
+      const testTask = await rack.createTask({
+        name: "original_retrieve",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const retrieve = Task.useRetrieve({ key: testTask.key });
+          const rename = Task.useRename();
+          return { retrieve, rename };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
+
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: testTask.key,
+          name: "renamed_retrieve",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.name).toEqual("renamed_retrieve");
+      });
+    });
+
+    it("should update when task status changes", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "statusUpdateRack",
+      });
+      const testTask = await rack.createTask({
+        name: "status_update_task",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const newStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
+        key: id.create(),
+        variant: "error",
+        message: "Task failed",
+        details: {
+          task: testTask.key,
+          running: false,
+          data: { error: "Test error" },
+        },
+      });
+
+      await act(async () => {
+        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        await writer.write(task.STATUS_CHANNEL_NAME, [newStatus]);
+        await writer.close();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("error");
+        expect(result.current.data?.status?.message).toEqual("Task failed");
+        expect(result.current.data?.status?.details.data).toEqual({
+          error: "Test error",
+        });
+      });
+    });
+
+    it("should handle retrieval with schemas", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "schemaRack",
+      });
+      const testTask = await rack.createTask({
+        name: "schema_task",
+        type: "typedTask",
+        config: { port: 8080, host: "localhost" },
+      });
+
+      const schemas = {
+        typeSchema: z.literal("typedTask"),
+        configSchema: z.object({
+          port: z.number(),
+          host: z.string(),
+        }),
+        statusDataSchema: z.any(),
+      };
+
+      const { useRetrieve } = Task.createRetrieve(schemas);
+
+      const { result } = renderHook(() => useRetrieve({ key: testTask.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.type).toEqual("typedTask");
+      expect(result.current.data?.config.port).toEqual(8080);
+      expect(result.current.data?.config.host).toEqual("localhost");
+    });
+  });
+
+  describe("useCreateSnapshot", () => {
+    it("should create a snapshot of a single task", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "snapshotRack",
+      });
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "testType",
+        config: { value: "original" },
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "snapshot_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const snapshot = await client.hardware.tasks.retrieve({
+        name: `${originalName} (Snapshot)`,
+      });
+      expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
+      expect(snapshot.snapshot).toBe(true);
+      expect(snapshot.config).toEqual({ value: "original" });
+    });
+
+    it("should create snapshots of multiple tasks", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "multiSnapshotRack",
+      });
+      const originalName1 = id.create();
+      const originalName2 = id.create();
+      const task1 = await rack.createTask({
+        name: originalName1,
+        type: "testType",
+        config: { id: 1 },
+      });
+      const task2 = await rack.createTask({
+        name: originalName2,
+        type: "testType",
+        config: { id: 2 },
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "multi_snapshot_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: [
+            { key: task1.key, name: task1.name },
+            { key: task2.key, name: task2.name },
+          ],
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      await waitFor(async () => {
+        const firstSnapshotName = `${originalName1} (Snapshot)`;
+        const secondSnapshotName = `${originalName2} (Snapshot)`;
+        const snapshots = await client.hardware.tasks.retrieve({
+          names: [firstSnapshotName, secondSnapshotName],
+        });
+        const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
+        const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
+        expect(snapshot1).toBeDefined();
+        expect(snapshot2).toBeDefined();
+        expect(snapshot1?.snapshot).toBe(true);
+        expect(snapshot2?.snapshot).toBe(true);
+        expect(snapshot1?.config).toEqual({ id: 1 });
+        expect(snapshot2?.config).toEqual({ id: 2 });
+      });
+    });
+
+    it("should add snapshots to parent ontology group", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "ontologyRack",
+      });
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "testType",
+        config: {},
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "ontology_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const children = await client.ontology.retrieveChildren(
+        group.ontologyID(parentGroup.key),
+      );
+      expect(children.length).toBeGreaterThan(0);
+
+      const snapshotChild = children.find(
+        (c) => c.name === `${originalTask.name} (Snapshot)`,
+      );
+      expect(snapshotChild).toBeDefined();
+    });
+
+    it("should preserve task configuration in snapshots", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "configRack",
+      });
+      const complexConfig = {
+        host: "localhost",
+        port: 8080,
+        settings: {
+          timeout: 5000,
+          retries: 3,
+        },
+      };
+      const originalName = id.create();
+      const originalTask = await rack.createTask({
+        name: originalName,
+        type: "complexType",
+        config: complexConfig,
+      });
+      const parentGroup = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "config_parent",
+      });
+
+      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          tasks: { key: originalTask.key, name: originalTask.name },
+          parentID: group.ontologyID(parentGroup.key),
+        });
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const snapshot = await client.hardware.tasks.retrieve({
+        name: `${originalName} (Snapshot)`,
+      });
+      expect(snapshot).toBeDefined();
+      expect(snapshot.config).toEqual(complexConfig);
+      expect(snapshot.type).toEqual("complexType");
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete a single task", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "deleteRack",
+      });
+      const testTask = await rack.createTask({
+        name: "delete_single",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const list = Task.useList();
+          const del = Task.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(testTask.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync(testTask.key);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(testTask.key);
+      });
+    });
+
+    it("should delete multiple tasks", async () => {
+      const rack = await client.hardware.racks.create({
+        name: "deleteMultiRack",
+      });
+      const task1 = await rack.createTask({
+        name: "delete_multi_1",
+        type: "testType",
+        config: {},
+      });
+      const task2 = await rack.createTask({
+        name: "delete_multi_2",
+        type: "testType",
+        config: {},
+      });
+
+      const { result } = renderHook(
+        () => {
+          const list = Task.useList();
+          const del = Task.useDelete();
+          return { list, del };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      expect(result.current.list.data).toContain(task1.key);
+      expect(result.current.list.data).toContain(task2.key);
+
+      await act(async () => {
+        await result.current.del.updateAsync([task1.key, task2.key]);
+      });
+      await waitFor(() => {
+        expect(result.current.list.data).not.toContain(task1.key);
+        expect(result.current.list.data).not.toContain(task2.key);
+      });
+    });
+  });
+
+  describe("useForm", async () => {
+    const testRack = await client.hardware.racks.create({ name: "testRack" });
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
@@ -303,7 +717,7 @@ describe("queries", () => {
           config: {},
         },
       });
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
       await waitFor(() => {
@@ -318,10 +732,7 @@ describe("queries", () => {
     });
 
     it("should retrieve and populate form with existing task", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "existingTask",
         type: "testType",
         config: { setting: "value" },
@@ -341,7 +752,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -354,10 +765,7 @@ describe("queries", () => {
     });
 
     it("should save form changes when save is called", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskToUpdate",
         type: "testType",
         config: {},
@@ -377,7 +785,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -420,7 +828,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -450,10 +858,7 @@ describe("queries", () => {
     });
 
     it("should handle beforeSave callback", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskWithBeforeSave",
         type: "testType",
         config: {},
@@ -478,7 +883,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             beforeSave,
           }),
         { wrapper },
@@ -500,16 +905,13 @@ describe("queries", () => {
 
       expect(beforeSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: { key: testTask.key },
+          query: { key: testTask.key },
         }),
       );
     });
 
     it("should handle afterSave callback", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "taskWithAfterSave",
         type: "testType",
         config: {},
@@ -534,7 +936,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             afterSave,
           }),
         { wrapper },
@@ -557,16 +959,13 @@ describe("queries", () => {
 
       expect(afterSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: { key: testTask.key },
+          query: { key: testTask.key },
         }),
       );
     });
 
     it("should update form when task status changes", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "statusTask",
         type: "testType",
         config: {},
@@ -588,13 +987,15 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create({
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
         key: id.create(),
         variant: "error",
         message: "Task error",
@@ -635,7 +1036,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: {} }), {
+      const { result } = renderHook(() => useForm({ query: {} }), {
         wrapper,
       });
 
@@ -652,10 +1053,7 @@ describe("queries", () => {
     });
 
     it("should reset form to initial values", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "resetTask",
         type: "testType",
         config: { value: "initial" },
@@ -675,7 +1073,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -715,7 +1113,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: "999999" },
+            query: { key: "999999" },
           }),
         { wrapper },
       );
@@ -727,10 +1125,7 @@ describe("queries", () => {
     });
 
     it("should handle autoSave functionality", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "autoSaveTask",
         type: "testType",
         config: {},
@@ -753,7 +1148,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           useForm({
-            params: { key: testTask.key },
+            query: { key: testTask.key },
             autoSave: true,
           }),
         { wrapper },
@@ -777,10 +1172,6 @@ describe("queries", () => {
     });
 
     it("should handle complex config schemas with nested objects", async () => {
-      const rack = await client.hardware.racks.create({
-        name: "testRack",
-      });
-
       const complexConfig = {
         connection: {
           host: "localhost",
@@ -793,7 +1184,7 @@ describe("queries", () => {
         },
       };
 
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "complexTask",
         type: "complexType",
         config: complexConfig,
@@ -828,7 +1219,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ params: { key: testTask.key } }), {
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
         wrapper,
       });
 
@@ -856,6 +1247,48 @@ describe("queries", () => {
           key: testTask.key,
         });
         expect(updatedTask.config.connection.port).toEqual(9090);
+      });
+    });
+  });
+
+  describe("useCommand", () => {
+    it("should execute a command on a task", async () => {
+      const type = "start";
+      const args = { a: "dog" };
+      const testRack = await client.hardware.racks.create({ name: "test" });
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const writer = await client.openWriter(task.STATUS_CHANNEL_NAME);
+
+      const { result } = renderHook(() => Task.useCommand(), { wrapper });
+
+      await act(async () => {
+        result.current.update([{ task: t.key, type, args }]);
+      });
+
+      await waitFor(async () => {
+        const fr = await streamer.read();
+        const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+        const parsed = task.commandZ.parse(sample);
+        const stat: task.Status = {
+          key: parsed.key,
+          name: "Task Status",
+          variant: "success",
+          message: "Command executed successfully",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: true, data: {} },
+        };
+        await writer.write(task.STATUS_CHANNEL_NAME, [stat]);
+      });
+      streamer.close();
+      await writer.close();
+      await waitFor(async () => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toHaveLength(1);
       });
     });
   });

@@ -7,37 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type ontology, ranger } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
-import { useStore } from "react-redux";
+import { ranger } from "@synnaxlabs/client";
+import { type Flux, Status, Task } from "@synnaxlabs/pluto";
+import { array, strings } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Range } from "@/range";
-import { type RootState } from "@/store";
-
-interface SnapshotToRangeArgs {
-  id: ontology.ID;
-  name: string;
-}
 
 export const useRangeSnapshot = () => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  return useMutation<void, Error, SnapshotToRangeArgs[]>({
-    mutationFn: async (resources) => {
-      const activeRange = Range.selectActiveKey(store.getState());
-      if (activeRange === null) throw new Error("No active range");
-      if (client == null) throw new DisconnectedError();
-      const tasks = await Promise.all(
-        resources.map(({ id, name }) =>
-          client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),
-        ),
-      );
-      const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
-      const rangeID = ranger.ontologyID(activeRange);
-      await client.ontology.addChildren(rangeID, ...otgIDs);
-    },
-    onError: (e: Error) => handleError(e, "Failed to create snapshot"),
-  }).mutate;
+  const addStatus = Status.useAdder();
+  const rng = Range.useSelect();
+  const buildMessage = useCallback(
+    ({ tasks }: Task.SnapshotParams) =>
+      `${strings.naturalLanguageJoin(
+        array.toArray(tasks).map((s) => s.name),
+        "schematic",
+      )} to ${rng?.name ?? "active range"}`,
+    [rng],
+  );
+  const { update } = Task.useCreateSnapshot({
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
+        addStatus({
+          variant: "success",
+          message: `Successfully snapshotted ${buildMessage(data)}`,
+        }),
+      [buildMessage, addStatus],
+    ),
+    afterFailure: ({ status, data }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
+      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
+  });
+  return ({ tasks }: Omit<Task.SnapshotParams, "parentID">) => {
+    if (rng == null)
+      return addStatus({
+        variant: "error",
+        message: "Cannot snapshot schematics without an active range",
+      });
+    const parentID = ranger.ontologyID(rng.key);
+    update({ tasks, parentID });
+  };
 };

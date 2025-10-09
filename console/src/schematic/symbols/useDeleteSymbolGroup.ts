@@ -13,13 +13,13 @@ import { useCallback } from "react";
 
 import { useConfirmDelete } from "@/ontology/hooks";
 
-export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
+export const useDeleteSymbolGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirmDelete = useConfirmDelete({ type: "Group" });
   return useCallback(
-    (g: group.Payload) => {
+    (g: group.Group) => {
       handleError(async () => {
         const confirmed = await confirmDelete(g);
         if (!confirmed) return;
@@ -31,7 +31,7 @@ export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
           .filter((c: ontology.Resource) => c.id.type === "schematic_symbol")
           .map((c: ontology.Resource) => c.id.key);
         if (symbolKeys.length > 0)
-          await client.workspaces.schematic.symbols.delete(symbolKeys);
+          await client.workspaces.schematics.symbols.delete(symbolKeys);
         await client.ontology.groups.delete(g.key);
         addStatus({
           variant: "success",

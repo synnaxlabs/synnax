@@ -169,13 +169,13 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
       option: "--disable-integrations",
       default: "[]",
       description:
-        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default.",
+        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default. Options are: labjack, modbus, ni, opc, sequence",
     },
     {
       option: "--enable-integrations",
       default: "[]",
       description:
-        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
+        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default. Options are: labjack, modbus, ni, opc, sequence",
     },
     {
       option: "--log-file-path",

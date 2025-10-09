@@ -35,6 +35,10 @@ export interface SetRemoteCreatedPayload {
   key: string;
 }
 
+export interface RemovePayload {
+  keys: string[];
+}
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -49,10 +53,18 @@ export const { actions, reducer } = createSlice({
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;
     },
+    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
+      payload.keys.forEach((key) => delete state.logs[key]);
+    },
   },
 });
 
-export const { create: internalCreate, setChannels, setRemoteCreated } = actions;
+export const {
+  create: internalCreate,
+  setChannels,
+  setRemoteCreated,
+  remove,
+} = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

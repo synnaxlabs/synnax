@@ -98,7 +98,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	channels := []channel.Channel{cfg.SetChannel, cfg.DeleteChannel}
-	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(true)); err != nil {
+	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(true), channel.OverwriteIfNameExistsAndDifferentProperties()); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
@@ -149,14 +149,14 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSegment(p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(ctx context.Context, value framer.WriterResponse) error {
-			s.Instrumentation.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
+			s.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
 	plumber.SetSink(p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	return signal.NewHardShutdown(sCtx, cancel), nil
 }

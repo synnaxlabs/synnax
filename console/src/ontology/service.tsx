@@ -22,8 +22,8 @@ import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
 export interface GetResource {
-  (id: ontology.ID): ontology.Resource;
-  (ids: ontology.ID[]): ontology.Resource[];
+  (id: ontology.ID | string): ontology.Resource;
+  (ids: (ontology.ID | string)[]): ontology.Resource[];
 }
 
 export interface TreeState {
@@ -70,7 +70,7 @@ export interface TreeContextMenuProps extends BaseProps {
   selection: {
     parentID: ontology.ID;
     rootID: ontology.ID;
-    resourceIDs: ontology.ID[];
+    ids: ontology.ID[];
   };
   state: TreeState;
 }
@@ -100,7 +100,6 @@ export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "reso
   icon: Icon.ReactElement;
   loading: boolean;
   resource: ontology.Resource;
-  onRename: (name: string) => void;
   onDoubleClick: () => void;
 }
 
@@ -111,9 +110,7 @@ export interface Service {
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
-  allowRename: AllowRename;
   Item?: FC<TreeItemProps>;
-  onRename?: HandleTreeRename;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
   PaletteListItem?: PaletteListItem;
@@ -122,10 +119,8 @@ export interface Service {
 export const NOOP_SERVICE: Omit<Service, "type"> = {
   icon: <></>,
   hasChildren: true,
-  onSelect: () => {},
   canDrop: () => false,
   haulItems: () => [],
-  allowRename: () => false,
 };
 
 export interface Services extends Record<ontology.ResourceType, Service> {}

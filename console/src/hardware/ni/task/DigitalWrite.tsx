@@ -15,7 +15,10 @@ import { type FC } from "react";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
+import {
+  DigitalChannelList,
+  type DigitalNameComponentProps,
+} from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_SCHEMAS,
@@ -53,12 +56,10 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ cmdChannel, key, stateChannel }: DOChannel) => (
-  <Common.Task.WriteChannelNames
-    cmdChannel={cmdChannel}
-    stateChannel={stateChannel}
-    itemKey={key}
-  />
+interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
+
+const NameComponent = (props: NameComponentProps) => (
+  <Common.Task.WriteChannelNames {...props} />
 );
 
 const name = Component.renderProp(NameComponent);

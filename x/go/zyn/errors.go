@@ -17,7 +17,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var InvalidDestinationTypeError = errors.Wrap(validate.Error, "invalid destination type")
+var InvalidDestinationTypeError = errors.Wrap(
+	validate.Error,
+	"invalid destination type",
+)
 
 func NewInvalidDestinationTypeError(expected string, received reflect.Value) error {
 	return errors.Wrapf(
@@ -28,7 +31,6 @@ func NewInvalidDestinationTypeError(expected string, received reflect.Value) err
 	)
 }
 
-// isNumericType checks if a type is numeric
 func isNumericType(t reflect.Type) bool {
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -42,10 +44,9 @@ func isNumericType(t reflect.Type) bool {
 func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) {
 	if data != nil {
 		return true, nil
-
 	}
 	if base.optional {
-		if destVal.Elem().Kind() == reflect.Ptr {
+		if destVal.Elem().Kind() == reflect.Pointer {
 			destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
 		}
 		return false, nil

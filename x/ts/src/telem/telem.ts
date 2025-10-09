@@ -16,6 +16,9 @@ import { type bounds } from "@/spatial";
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";
 
+const SIMPLE_DAYS_IN_YEAR = 365;
+const SIMPLE_DAYS_IN_MONTH = 30;
+
 /** Different string formats for time stamps. */
 export type TimeStampStringFormat =
   | "ISO"
@@ -27,6 +30,9 @@ export type TimeStampStringFormat =
   | "preciseDate"
   | "shortDate"
   | "dateTime";
+
+/** Different string formats for time spans. */
+export type TimeSpanStringFormat = "full" | "semantic";
 
 const dateComponentsZ = z.union([
   z.tuple([z.int()]),
@@ -103,7 +109,9 @@ export class TimeStamp
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
-        if (isFinite(value)) value = Math.trunc(value);
+        if (isFinite(value))
+          if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
+          else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;
@@ -156,34 +164,6 @@ export class TimeStamp
     ).valueOf();
   }
 
-  /**
-   * Formats the TimeStamp as a string in the specified format.
-   *
-   * @param format - The format to use for the string representation.
-   * @param tzInfo - The timezone to use when creating the string representation.
-   * @returns A string representation of the TimeStamp in the specified format.
-   */
-  fString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
-    switch (format) {
-      case "ISODate":
-        return this.toISOString(tzInfo).slice(0, 10);
-      case "ISOTime":
-        return this.toISOString(tzInfo).slice(11, 23);
-      case "time":
-        return this.timeString(false, tzInfo);
-      case "preciseTime":
-        return this.timeString(true, tzInfo);
-      case "date":
-        return this.dateString();
-      case "preciseDate":
-        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
-      case "dateTime":
-        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
-      default:
-        return this.toISOString(tzInfo);
-    }
-  }
-
   private toISOString(tzInfo: TZInfo = "UTC"): string {
     if (tzInfo === "UTC") return this.date().toISOString();
     return this.sub(TimeStamp.utcOffset).date().toISOString();
@@ -213,7 +193,7 @@ export class TimeStamp
    * the other timestamp.
    * @param other - The other timestamp.
    */
-  static since(other: TimeStamp): TimeSpan {
+  static since(other: CrudeTimeStamp): TimeSpan {
     return new TimeStamp().span(other);
   }
 
@@ -505,8 +485,8 @@ export class TimeStamp
   }
 
   /**
-   * @reutrns the integer millisecond that the timestamp corresponds to within
-   * its second.
+   * @returns the integer millisecond that the timestamp corresponds to within its
+   * second.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
@@ -522,9 +502,32 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the time stamp formatted as an ISO string. */
-  toString(): string {
-    return this.date().toISOString();
+  /**
+   * Returns a string representation of the TimeStamp.
+   *
+   * @param format - Optional format for the string representation. Defaults to "ISO".
+   * @param tzInfo - Optional timezone info. Defaults to "UTC".
+   * @returns A string representation of the TimeStamp.
+   */
+  toString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
+    switch (format) {
+      case "ISODate":
+        return this.toISOString(tzInfo).slice(0, 10);
+      case "ISOTime":
+        return this.toISOString(tzInfo).slice(11, 23);
+      case "time":
+        return this.timeString(false, tzInfo);
+      case "preciseTime":
+        return this.timeString(true, tzInfo);
+      case "date":
+        return this.dateString();
+      case "preciseDate":
+        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
+      case "dateTime":
+        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
+      default:
+        return this.toISOString(tzInfo);
+    }
   }
 
   /**
@@ -658,7 +661,7 @@ export class TimeStamp
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
+  static readonly MAX = new TimeStamp(math.MAX_INT64);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -805,9 +808,15 @@ export class TimeSpan
   /**
    * Returns a string representation of the TimeSpan.
    *
+   * @param format - Optional format for the string representation. Defaults to "full".
+   *   - "full": Shows all non-zero units with full precision (e.g., "2d 3h 45m 12s 500ms")
+   *   - "semantic": Shows 1-2 most significant units (e.g., "2d 3h")
    * @returns A string representation of the TimeSpan.
    */
-  toString(): string {
+  toString(format: TimeSpanStringFormat = "full"): string {
+    if (format === "semantic") return this.toSemanticString();
+
+    // Default "full" format
     const totalDays = this.truncate(TimeSpan.DAY);
     const totalHours = this.truncate(TimeSpan.HOUR);
     const totalMinutes = this.truncate(TimeSpan.MINUTE);
@@ -832,6 +841,107 @@ export class TimeSpan
     if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
     if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
     return str.trim();
+  }
+
+  private toSemanticString(): string {
+    const absValue = this.valueOf() < 0n ? -this.valueOf() : this.valueOf();
+    const span = new TimeSpan(absValue);
+    const isNegative = this.valueOf() < 0n;
+
+    if (span.valueOf() === 0n) return "0s";
+
+    if (span.lessThan(TimeSpan.SECOND)) return "< 1s";
+
+    const totalDays = span.days;
+    const totalHours = span.hours;
+    const totalMinutes = span.minutes;
+    const totalSeconds = span.seconds;
+
+    const years = Math.floor(totalDays / SIMPLE_DAYS_IN_YEAR);
+    const months = Math.floor(totalDays / SIMPLE_DAYS_IN_MONTH);
+    const weeks = Math.floor(totalDays / 7);
+    const days = Math.floor(totalDays);
+    const hours = Math.floor(totalHours);
+    const minutes = Math.floor(totalMinutes);
+    const seconds = Math.floor(totalSeconds);
+
+    const prefix = isNegative ? "-" : "";
+
+    if (years >= 1) {
+      let result = `${years}y`;
+      if (years < 2) {
+        const remainingMonths = Math.floor(
+          (totalDays % SIMPLE_DAYS_IN_YEAR) / SIMPLE_DAYS_IN_MONTH,
+        );
+        if (remainingMonths > 0) result += ` ${remainingMonths}mo`;
+      }
+      return prefix + result;
+    }
+
+    // For durations less than 1 month (30 days), prefer weeks if it's exactly divisible
+    if (weeks >= 1 && totalDays < SIMPLE_DAYS_IN_MONTH && totalDays % 7 === 0) {
+      let result = `${weeks}w`;
+      const remainingDays = Math.floor(totalDays % 7);
+      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
+
+      if (weeks < 2)
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
+          // Only hours remaining after full weeks (e.g., "1w 1h")
+          result += ` ${remainingHoursAfterWeeks}h`;
+
+      return prefix + result;
+    }
+
+    if (months >= 1) {
+      let result = `${months}mo`;
+      if (months < 3) {
+        const remainingDays = Math.floor(totalDays % SIMPLE_DAYS_IN_MONTH);
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+      }
+      return prefix + result;
+    }
+
+    if (weeks >= 1) {
+      let result = `${weeks}w`;
+      const remainingDays = Math.floor(totalDays % 7);
+      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
+
+      if (weeks < 2)
+        if (remainingDays > 0) result += ` ${remainingDays}d`;
+        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
+          // Only hours remaining after full weeks (e.g., "1w 1h")
+          result += ` ${remainingHoursAfterWeeks}h`;
+
+      return prefix + result;
+    }
+
+    if (days >= 1) {
+      let result = `${days}d`;
+      const remainingHours = Math.floor(totalHours - days * 24);
+      if (days < 2 && remainingHours > 0) result += ` ${remainingHours}h`;
+      return prefix + result;
+    }
+
+    if (hours >= 1) {
+      let result = `${hours}h`;
+      if (hours < 3) {
+        const remainingMinutes = Math.floor(totalMinutes - hours * 60);
+        if (remainingMinutes > 0) result += ` ${remainingMinutes}m`;
+      }
+      return prefix + result;
+    }
+
+    if (minutes >= 1) {
+      let result = `${minutes}m`;
+      if (minutes < 5) {
+        const remainingSeconds = Math.floor(totalSeconds - minutes * 60);
+        if (remainingSeconds > 0) result += ` ${remainingSeconds}s`;
+      }
+      return prefix + result;
+    }
+
+    return `${prefix}${seconds}s`;
   }
 
   /**
@@ -1017,7 +1127,7 @@ export class TimeSpan
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
+  static readonly MAX = new TimeSpan(math.MAX_INT64);
 
   /** The minimum possible value for a TimeSpan. */
   static readonly MIN = new TimeSpan(0);
@@ -1025,7 +1135,7 @@ export class TimeSpan
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
-  /** A zod schema for validating and transforming timespans */
+  /** A zod schema for validating and transforming time spans */
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
@@ -1344,12 +1454,12 @@ export class TimeRange implements primitive.Stringer {
   }
 
   /**
-   * Checks if the TimeRange has a zero span.
+   * Checks if the TimeRange is zero (both start and end are TimeStamp.ZERO).
    *
-   * @returns True if the TimeRange has a zero span.
+   * @returns True if both start and end are TimeStamp.ZERO, false otherwise.
    */
   get isZero(): boolean {
-    return this.span.isZero;
+    return this.start.isZero && this.end.isZero;
   }
 
   /**
@@ -1406,7 +1516,7 @@ export class TimeRange implements primitive.Stringer {
    * @returns A pretty string representation of the TimeRange.
    */
   toPrettyString(): string {
-    return `${this.start.fString("preciseDate")} - ${this.span.toString()}`;
+    return `${this.start.toString("preciseDate")} - ${this.span.toString()}`;
   }
 
   /**
@@ -1495,9 +1605,6 @@ export class TimeRange implements primitive.Stringer {
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
-  /** The minimum possible time range. */
-  static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
-
   /** A time range whose start and end are both zero. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
 
@@ -1536,7 +1643,7 @@ export class TimeRange implements primitive.Stringer {
       .map((r) => r.makeValid())
       .sort((a, b) => TimeRange.sort(a, b))
       .reduce<TimeRange[]>((simplified, range) => {
-        if (range.isZero) return simplified;
+        if (range.span.isZero) return simplified;
         if (simplified.length === 0) {
           simplified.push(range);
           return simplified;
@@ -1595,8 +1702,10 @@ export class DataType
     return others.some((o) => this.equals(o));
   }
 
-  /** @returns a string representation of the DataType. */
-  toString(): string {
+  /** @returns a string representation of the DataType. If short is true, a 1-4
+   * character representation (i64, str, etc.) is returned instead. */
+  toString(short: boolean = false): string {
+    if (short) return DataType.SHORT_STRINGS.get(this.valueOf()) ?? this.valueOf();
     return this.valueOf();
   }
 
@@ -1739,11 +1848,11 @@ export class DataType
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
-  /** Represents a boolean value. Alias for UINT8. */
-  static readonly BOOLEAN = this.UINT8;
+  /** Represents a boolean value. Stored as a 8-bit unsigned integer. */
+  static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
-  /** Represents a UUID data type */
+  /** Represents a UUID data type. */
   static readonly UUID = new DataType("uuid");
   /** Represents a string data type. Strings have an unknown density, and are separate
    * by a newline character. */
@@ -1821,6 +1930,24 @@ export class DataType
     DataType.STRING,
     DataType.JSON,
   ];
+
+  private static readonly SHORT_STRINGS = new Map<string, string>([
+    [DataType.UINT8.toString(), "u8"],
+    [DataType.UINT16.toString(), "u16"],
+    [DataType.UINT32.toString(), "u32"],
+    [DataType.UINT64.toString(), "u64"],
+    [DataType.INT8.toString(), "i8"],
+    [DataType.INT16.toString(), "i16"],
+    [DataType.INT32.toString(), "i32"],
+    [DataType.INT64.toString(), "i64"],
+    [DataType.FLOAT32.toString(), "f32"],
+    [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
+    [DataType.TIMESTAMP.toString(), "ts"],
+    [DataType.UUID.toString(), "uuid"],
+    [DataType.STRING.toString(), "str"],
+    [DataType.JSON.toString(), "json"],
+  ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
@@ -2055,14 +2182,16 @@ export interface CrudeTimeRange {
   end: CrudeTimeStamp;
 }
 
+export const numericTimeRangeZ = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
 /**
  * A time range backed by numbers instead of TimeStamps/BigInts.
  * Involves a loss of precision, but can be useful for serialization.
  */
-export interface NumericTimeRange {
-  start: number;
-  end: number;
-}
+export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

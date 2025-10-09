@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -21,7 +22,7 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.workspaces.linePlot.create(ws.key, {
+      const linePlot = await client.workspaces.lineplots.create(ws.key, {
         name: "Line Plot",
         data: { one: 1 },
       });
@@ -36,12 +37,12 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.workspaces.linePlot.create(ws.key, {
+      const linePlot = await client.workspaces.lineplots.create(ws.key, {
         name: "Line Plot",
         data: { one: 1 },
       });
-      await client.workspaces.linePlot.rename(linePlot.key, "Line Plot2");
-      const res = await client.workspaces.linePlot.retrieve(linePlot.key);
+      await client.workspaces.lineplots.rename(linePlot.key, "Line Plot2");
+      const res = await client.workspaces.lineplots.retrieve({ key: linePlot.key });
       expect(res.name).toEqual("Line Plot2");
     });
   });
@@ -51,12 +52,12 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.workspaces.linePlot.create(ws.key, {
+      const linePlot = await client.workspaces.lineplots.create(ws.key, {
         name: "Line Plot",
         data: { one: 1 },
       });
-      await client.workspaces.linePlot.setData(linePlot.key, { two: 2 });
-      const res = await client.workspaces.linePlot.retrieve(linePlot.key);
+      await client.workspaces.lineplots.setData(linePlot.key, { two: 2 });
+      const res = await client.workspaces.lineplots.retrieve({ key: linePlot.key });
       expect(res.data.two).toEqual(2);
     });
   });
@@ -66,12 +67,14 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.workspaces.linePlot.create(ws.key, {
+      const linePlot = await client.workspaces.lineplots.create(ws.key, {
         name: "Line Plot",
         data: { one: 1 },
       });
-      await client.workspaces.linePlot.delete(linePlot.key);
-      await expect(client.workspaces.linePlot.retrieve(linePlot.key)).rejects.toThrow();
+      await client.workspaces.lineplots.delete(linePlot.key);
+      await expect(
+        client.workspaces.lineplots.retrieve({ key: linePlot.key }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

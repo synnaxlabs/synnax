@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -23,7 +23,6 @@ import {
 import { type task } from "@/hardware/task";
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
@@ -43,7 +42,7 @@ const retrieveReqZ = z.object({
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
+const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });
 
 const singleRetrieveArgsZ = z.union([
   z
@@ -59,11 +58,11 @@ const singleRetrieveArgsZ = z.union([
     })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
 ]);
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 
 const multiRetrieveArgsZ = retrieveReqZ;
 
-export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 
@@ -76,7 +75,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 export class Client {
-  readonly type = "rack";
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
 
@@ -110,8 +108,8 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Rack>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Rack[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Rack>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Rack[]>;
   async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
     const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(

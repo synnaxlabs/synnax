@@ -20,7 +20,6 @@ import {
   policyZ,
 } from "@/access/policy/payload";
 import { ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -41,14 +40,14 @@ const listRetrieveArgsZ = z.union([
   retrieveRequestZ,
 ]);
 
-export type SingleRetrieveArgs = z.input<typeof keyRetrieveRequestZ>;
-export type ListRetrieveArgs = z.input<typeof listRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
+export type RetrieveMultipleParams = z.input<typeof listRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ policies: nullableArrayZ(policyZ) });
+const retrieveResZ = z.object({ policies: array.nullableZ(policyZ) });
 
 const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
 const createResZ = z.object({ policies: policyZ.array() });
@@ -86,8 +85,8 @@ export class Client {
     return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Policy>;
-  async retrieve(args: ListRetrieveArgs): Promise<Policy[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Policy>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Policy[]>;
   async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(

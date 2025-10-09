@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 // Publish publishes changes from the provided ontology into the provided signals.Provider.
@@ -34,18 +35,26 @@ func Publish(
 	resourceObserver := observe.Translator[iter.Nexter[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
 		Translate: func(nexter iter.Nexter[ontology.Change]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch ontology.Change) change.Change[[]byte, struct{}] {
+			return iter.MapToSliceWithFilter(ctx, nexter, func(ch ontology.Change) (change.Change[[]byte, struct{}], bool) {
+				if ch.Variant == change.Set {
+					v, err := signals.MarshalJSON(ch.Value)
+					if err != nil {
+						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))
+						return change.Change[[]byte, struct{}]{}, false
+					}
+					return change.Change[[]byte, struct{}]{Key: v, Variant: ch.Variant}, true
+				}
 				return change.Change[[]byte, struct{}]{
 					Key:     EncodeID(ch.Key),
 					Variant: ch.Variant,
-				}
+				}, true
 			})
 		},
 	}
 	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
 		Name:          "ontology_resource",
 		Observable:    resourceObserver,
-		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT, Internal: true},
+		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.JSONT, Internal: true},
 		DeleteChannel: channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT, Internal: true},
 	})
 	if err != nil {
@@ -68,6 +77,9 @@ func Publish(
 		SetChannel:    channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT, Internal: true},
 		DeleteChannel: channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT, Internal: true},
 	})
+	if err != nil {
+		return nil, err
+	}
 	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }
 
@@ -97,8 +109,6 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 			relationships = append(relationships, relationship)
 			buf.Reset()
 			continue
-		} else {
-
 		}
 		buf.WriteByte(b)
 	}

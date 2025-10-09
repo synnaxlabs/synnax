@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/gorp"
@@ -118,12 +119,13 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
-			// There's a condition here where we might receive the channel creation
-			// signal, so we just do a length assertion.
-			Expect(len(ids)).To(BeNumerically(">", 0))
-			Expect(len(ids[0].Type)).To(BeNumerically(">", 0))
-			Expect(len(ids[0].Key)).To(BeNumerically(">", 0))
+			s := res.Frame.SeriesAt(0)
+			Expect(s.Len()).To(Equal(int64(1)))
+			for s := range s.Samples() {
+				r := ontology.Resource{}
+				Expect((&binary.JSONCodec{}).Decode(ctx, s, &r)).To(Succeed())
+				Expect(r.ID).To(Equal(newChangeID(key)))
+			}
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(closeStreamer.Close()).To(Succeed())

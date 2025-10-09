@@ -10,6 +10,7 @@
 package falamos
 
 import (
+	"context"
 	"strings"
 
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -129,12 +131,12 @@ func (c carrier) Get(key string) string {
 }
 
 // Set implements TextMapCarrier.
-func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
+func (c carrier) Set(key, value string) { c.Params.Set(keyF(key), value) }
 
 // Keys implements TextMapCarrier.
 func (c carrier) Keys() []string {
-	keys := make([]string, 0, len(c.Context.Params))
-	for k := range c.Context.Params {
+	keys := make([]string, 0, len(c.Params))
+	for k := range c.Params {
 		if strings.HasPrefix(k, keyPrefix) {
 			keys = append(keys, strings.TrimPrefix(k, keyPrefix+"-"))
 		}
@@ -148,7 +150,10 @@ func log(ctx freighter.Context, err error, cfg Config) {
 		zap.Stringer("variant", ctx.Variant),
 		zap.Stringer("role", ctx.Role),
 	}
-	if err != nil {
+	// context.Canceled is returned when the client abruptly closes the connection,
+	// which happens when performing tasks like reloading web pages. As such,
+	// we don't consider it anomalous and don't log it.
+	if errors.Skip(err, context.Canceled) != nil {
 		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
 	} else {
 		cfg.L.Debug(ctx.Target.String(), args...)

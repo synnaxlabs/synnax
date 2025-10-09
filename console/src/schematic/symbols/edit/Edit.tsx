@@ -38,7 +38,8 @@ import { Triggers } from "@/triggers";
 
 export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
-export interface CreateLayoutArgs extends Schematic.Symbol.UseFormParams {
+export interface CreateLayoutArgs extends Schematic.Symbol.FormQuery {
+  parent?: ontology.ID;
   scale?: number;
 }
 
@@ -72,8 +73,8 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 const DEFAULT_REGION_KEY = "default";
 
 export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const isCreate = params.key == null;
+  const { key, parent } = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const isCreate = key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (unsavedChanges: boolean) => {
@@ -84,12 +85,12 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
 
   const theme = Theming.use();
   const { form, save } = Schematic.Symbol.useForm({
-    params,
+    query: { key },
     onHasTouched: handleUnsavedChanges,
     initialValues: {
       version: 1,
       name: "",
-      parent: ontology.ROOT_ID,
+      parent: parent ?? ontology.ROOT_ID,
       data: {
         svg: "",
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -154,13 +155,29 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   };
 
   const handleElementClick = (selector: string) => {
-    const regionPath = `data.states.${selectedStateRef.current}.regions.${selectedRegionRef.current}`;
+    const currentState = selectedStateRef.current;
+    const currentRegion = selectedRegionRef.current;
+    const regionPath = `data.states.${currentState}.regions.${currentRegion}`;
     const region = form.get<schematic.symbol.Region>(regionPath).value;
     const hasSelector = region.selectors.includes(selector);
-    const updatedSelectors = hasSelector
-      ? region.selectors.filter((s) => s !== selector)
-      : [...region.selectors, selector];
-    form.set(regionPath, { ...region, selectors: updatedSelectors });
+    if (hasSelector) {
+      const updatedSelectors = region.selectors.filter((s) => s !== selector);
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    } else {
+      const allRegions = form.get<schematic.symbol.Region[]>(
+        `data.states.${currentState}.regions`,
+      ).value;
+      allRegions.forEach((r, index) => {
+        if (!r.selectors.includes(selector)) return;
+        const updatedRegion = {
+          ...r,
+          selectors: r.selectors.filter((s) => s !== selector),
+        };
+        form.set(`data.states.${currentState}.regions.${index}`, updatedRegion);
+      });
+      const updatedSelectors = [...region.selectors, selector];
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    }
   };
   const hasSVG =
     Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
@@ -249,7 +266,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                           onChange={(v) => onChange(v / 100)}
                           bounds={SCALE_BOUNDS}
                           dragScale={0.5}
-                          endContent={"%"}
+                          endContent="%"
                         />
                       )}
                     </Form.Field>

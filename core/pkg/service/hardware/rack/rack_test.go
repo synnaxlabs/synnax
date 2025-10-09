@@ -10,6 +10,9 @@
 package rack_test
 
 import (
+	"slices"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -112,6 +115,44 @@ var _ = Describe("Rack", Ordered, func() {
 			var embeddedRack rack.Rack
 			Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
+		})
+	})
+
+	Describe("NewTaskKey", func() {
+		It("Should correctly return sequential keys", func() {
+			r := &rack.Rack{Name: "niceRack"}
+			w := svc.NewWriter(nil)
+			Expect(w.Create(ctx, r)).To(Succeed())
+			t1 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
+			t2 := MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
+			Expect(t2 - t1).To(BeEquivalentTo(1))
+		})
+
+		It("Should return sequential keys even when racing", func() {
+			var (
+				r     = &rack.Rack{Name: "niceRack"}
+				w     = svc.NewWriter(nil)
+				count = 100
+				keys  = make([]uint32, count)
+				wg    sync.WaitGroup
+			)
+			Expect(w.Create(ctx, r)).To(Succeed())
+
+			for i := range count {
+				wg.Go(func() {
+					keys[i] = MustSucceed(svc.NewWriter(nil).NewTaskKey(ctx, r.Key))
+				})
+			}
+			wg.Wait()
+
+			slices.Sort(keys)
+			for i := range keys {
+				if i == 0 {
+					continue
+				}
+				Expect(keys[i] - keys[i-1]).To(BeEquivalentTo(1))
+			}
+
 		})
 	})
 })

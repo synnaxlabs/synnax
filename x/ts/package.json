@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.45.0",
+  "version": "0.46.1",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/ts",
@@ -24,7 +24,7 @@
     "@msgpack/msgpack": "^3.1.2",
     "async-mutex": "catalog:",
     "nanoid": "^5.1.5",
-    "uuid": "^11.1.0",
+    "uuid": "^13.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {

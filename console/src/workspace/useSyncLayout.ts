@@ -7,57 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError } from "@synnaxlabs/client";
-import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { Workspace } from "@synnaxlabs/pluto";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActiveKey } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
 
-const MAX_RETRY_COUNT = 3;
+const SYNC_LAYOUT_DEBOUNCE = TimeSpan.milliseconds(250).milliseconds;
+const DUMMY_LAYOUT: Workspace.SaveLayoutParams = { key: "", layout: {} };
 
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
-  const client = Synnax.use();
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
-  const prevSync = useRef<unknown>(null);
-  const sync = useMutation({
-    retry: MAX_RETRY_COUNT,
-    mutationFn: useDebouncedCallback(
-      async (s: RootState) => {
-        const key = selectActiveKey(s);
-        if (key == null || client == null) return;
-        const layoutSlice = Layout.selectSliceState(s);
-        if (deep.equal(prevSync.current, layoutSlice)) return;
-        prevSync.current = layoutSlice;
-        const toSave = purgeExcludedLayouts(layoutSlice);
-        await client.workspaces.setLayout(key, toSave);
-      },
-      250,
-      [client],
-    ),
-    onError: (e) => {
-      if (QueryError.matches(e)) {
-        addStatus({
-          variant: "error",
-          message: "Failed to save workspace.",
-          description: "The workspace was not found in the cluster.",
-        });
-        store.dispatch(setActive(null));
-        return;
-      }
-      handleError(e, "Failed to save workspace");
-    },
+  const prevSyncRef = useRef<unknown>(null);
+  const sync = Workspace.useSaveLayout({
+    debounce: SYNC_LAYOUT_DEBOUNCE,
+    beforeUpdate: useCallback(async () => {
+      const s = store.getState();
+      const key = selectActiveKey(s);
+      if (key == null) return false;
+      const layoutSlice = Layout.selectSliceState(s);
+      if (deep.equal(prevSyncRef.current, layoutSlice)) return false;
+      prevSyncRef.current = layoutSlice;
+      const layout = purgeExcludedLayouts(layoutSlice);
+      return { key, layout };
+    }, [store]),
   });
 
-  useEffect(() => {
-    store.subscribe(() => sync.mutate(store.getState()));
-  }, [client]);
+  useEffect(() => store.subscribe(() => sync.update(DUMMY_LAYOUT)), []);
 };

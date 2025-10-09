@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
-import { nullableArrayZ } from "@/util/zod";
-import { linePlot } from "@/workspace/lineplot";
+import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {
   type Key,
@@ -45,30 +44,34 @@ const retrieveReqZ = z.object({
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
+const setLayoutReqZ = z.object({
+  key: keyZ,
+  layout: record.unknownZ.transform((l) => JSON.stringify(l)),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
+const retrieveResZ = z.object({ workspaces: array.nullableZ(workspaceZ) });
 const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
 
 export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
+export interface SetLayoutArgs extends z.input<typeof setLayoutReqZ> {}
+
 export class Client {
-  readonly type = "workspace";
-  readonly schematic: schematic.Client;
-  readonly linePlot: linePlot.Client;
-  readonly log: log.Client;
-  readonly table: table.Client;
+  readonly schematics: schematic.Client;
+  readonly lineplots: lineplot.Client;
+  readonly logs: log.Client;
+  readonly tables: table.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.schematic = new schematic.Client(client);
-    this.linePlot = new linePlot.Client(client);
-    this.log = new log.Client(client);
-    this.table = new table.Client(client);
+    this.schematics = new schematic.Client(client);
+    this.lineplots = new lineplot.Client(client);
+    this.logs = new log.Client(client);
+    this.tables = new table.Client(client);
   }
 
   async create(workspace: New): Promise<Workspace>;
@@ -99,7 +102,7 @@ export class Client {
     await sendRequired(
       this.client,
       SET_LAYOUT_ENDPOINT,
-      { key, layout: JSON.stringify(layout) },
+      { key, layout },
       setLayoutReqZ,
       emptyResZ,
     );

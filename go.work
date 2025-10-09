@@ -1,12 +1,14 @@
-go 1.25.0
+go 1.25.1
 
 use (
 	./alamos/go
+	./arc
 	./aspen
 	./cesium
 	./core
 	./freighter/go
 	./freighter/integration
-	./integration
 	./x/go
 )
+
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20251002232023-7c0ddcbb5797

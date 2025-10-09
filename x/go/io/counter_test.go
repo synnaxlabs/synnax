@@ -10,12 +10,14 @@
 package io
 
 import (
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"os"
-	"sync"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Counter", func() {
@@ -23,18 +25,12 @@ var _ = Describe("Counter", func() {
 		"memFS": func() xfs.FS {
 			return xfs.NewMem()
 		},
-		"osFS": func() xfs.FS {
-			s, err := xfs.Default.Sub("./testData")
-			Expect(err).ToNot(HaveOccurred())
-			return s
-		},
+		"osFS": func() xfs.FS { return MustSucceed(xfs.Default.Sub("./testdata")) },
 	}
 
 	for fsName, makeFS := range fileSystems {
 		fsName, makeFS := fsName, makeFS
-		var (
-			fsRoot, fs xfs.FS
-		)
+		var fsRoot, fs xfs.FS
 
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {
@@ -56,12 +52,11 @@ var _ = Describe("Counter", func() {
 				Expect(f.Close()).To(Succeed())
 			})
 			It("Should read the existing value when the file does exist", func() {
-				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
-				_, err = f.Write([]byte{0x15, 0x1, 0x0, 0x0})
-				Expect(err).ToNot(HaveOccurred())
-
-				c, err := NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
+				c := MustSucceed(NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(277)))
 				Expect(f.Close()).To(Succeed())
 			})

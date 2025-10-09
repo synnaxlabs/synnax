@@ -159,26 +159,25 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG-----222",
+					Name:     "YXG-----222",
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG-----223",
+					Name:     "catalina",
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
-			var resChannels []channel.Channel
-			err = mockCluster.Nodes[1].Channel.
-				NewRetrieve().
-				Search("SG-----222").
-				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resChannels)).To(BeNumerically(">", 0))
-			Expect(resChannels[0].Name).To(Equal("SG-----222"))
-
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var resChannels []channel.Channel
+				g.Expect(mockCluster.Nodes[1].Channel.
+					NewRetrieve().
+					Search("catalina").
+					Entries(&resChannels).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(len(resChannels)).To(BeNumerically(">", 0))
+				g.Expect(resChannels[0].Name).To(Equal("catalina"))
+			}).Should(Succeed())
 		})
 	})
 	Describe("Exists", func() {

@@ -18,11 +18,26 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.drift.yaml
+      - alamos/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - drift/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
   test:
     name: Test (${{ matrix.os }})
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -39,13 +54,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm

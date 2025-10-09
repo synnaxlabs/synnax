@@ -32,7 +32,6 @@ var _ = Describe("Metrics", Ordered, func() {
 		ctx       = context.Background()
 		svcFramer *framer.Service
 	)
-
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
 		svcFramer = MustSucceed(framer.OpenService(ctx, framer.Config{
@@ -40,52 +39,39 @@ var _ = Describe("Metrics", Ordered, func() {
 			Channel: dist.Channel,
 		}))
 	})
-
 	AfterAll(func() {
 		Expect(svcFramer.Close()).To(Succeed())
 		Expect(builder.Close()).To(Succeed())
 	})
-
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
-			svc, err := metrics.OpenService(ctx, metrics.Config{
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 5 * time.Second,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(svc).ToNot(BeNil())
 			Expect(svc.Close()).To(Succeed())
 		})
-
 		It("Should fail with missing Channel service", func() {
-			_, err := metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.Config{
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("channel: must be non-nil"))
+			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
-
 		It("Should fail with missing Framer service", func() {
-			_, err := metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.Config{
 				Channel:      dist.Channel,
 				HostProvider: dist.Cluster,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("framer: must be non-nil"))
+			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
-
 		It("Should fail with missing HostProvider", func() {
-			_, err := metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.Config{
 				Channel: dist.Channel,
 				Framer:  svcFramer,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("host_provider: must be non-nil"))
+			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
-
 		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultConfig.Override(metrics.Config{
 				Channel:      dist.Channel,
@@ -95,10 +81,8 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
 	})
-
 	Describe("Channel Creation", func() {
 		var svc *metrics.Service
-
 		JustBeforeEach(func() {
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
@@ -107,60 +91,56 @@ var _ = Describe("Metrics", Ordered, func() {
 				CollectionInterval: 100 * time.Millisecond,
 			}))
 		})
-
 		JustAfterEach(func() {
 			Expect(svc.Close()).To(Succeed())
 		})
-
 		It("Should create index channel with correct naming", func() {
 			hostKey := dist.Cluster.HostKey()
-			expectedName := "sy_node_" + hostKey.String() + "_time"
-
-			var ch channel.Channel
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_time"
 			Eventually(func(g Gomega) {
-				err := dist.Channel.NewRetrieve().
+				var ch channel.Channel
+				g.Expect(dist.
+					Channel.
+					NewRetrieve().
 					WhereNames(expectedName).
 					Entry(&ch).
-					Exec(ctx, nil)
-				g.Expect(err).ToNot(HaveOccurred())
+					Exec(ctx, nil),
+				).To(Succeed())
 				g.Expect(ch.Name).To(Equal(expectedName))
 				g.Expect(ch.DataType).To(Equal(telem.TimeStampT))
 				g.Expect(ch.IsIndex).To(BeTrue())
 			}).Should(Succeed())
 		})
-
 		It("Should create CPU metric channel", func() {
 			hostKey := dist.Cluster.HostKey()
-			expectedName := "sy_node_" + hostKey.String() + "_cpu_percentage"
-
-			var ch channel.Channel
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_cpu_percentage"
 			Eventually(func(g Gomega) {
-				err := dist.Channel.NewRetrieve().
+				var ch channel.Channel
+				g.Expect(dist.
+					Channel.
+					NewRetrieve().
 					WhereNames(expectedName).
 					Entry(&ch).
-					Exec(ctx, nil)
-				g.Expect(err).ToNot(HaveOccurred())
+					Exec(ctx, nil),
+				).To(Succeed())
 				g.Expect(ch.DataType).To(Equal(telem.Float32T))
 				g.Expect(ch.LocalIndex).ToNot(BeZero())
 			}).Should(Succeed())
 		})
-
 		It("Should create memory metric channel", func() {
 			hostKey := dist.Cluster.HostKey()
-			expectedName := "sy_node_" + hostKey.String() + "_mem_percentage"
-
-			var ch channel.Channel
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_mem_percentage"
 			Eventually(func(g Gomega) {
-				err := dist.Channel.NewRetrieve().
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
 					WhereNames(expectedName).
 					Entry(&ch).
-					Exec(ctx, nil)
-				g.Expect(err).ToNot(HaveOccurred())
+					Exec(ctx, nil),
+				).To(Succeed())
 				g.Expect(ch.DataType).To(Equal(telem.Float32T))
 				g.Expect(ch.LocalIndex).ToNot(BeZero())
 			}).Should(Succeed())
 		})
-
 		It("Should reuse existing channels", func() {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
@@ -168,22 +148,23 @@ var _ = Describe("Metrics", Ordered, func() {
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
-			defer func() { _ = svc2.Close() }()
-
 			hostKey := dist.Cluster.HostKey()
 			var channels []channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(dist.
+				Channel.
+				NewRetrieve().
 				WhereNames(
-					"sy_node_"+hostKey.String()+"_time",
-					"sy_node_"+hostKey.String()+"_cpu_percentage",
-					"sy_node_"+hostKey.String()+"_mem_percentage",
+					"sy_node_"+hostKey.String()+"_metrics_time",
+					"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
+					"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
 				).
 				Entries(&channels).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, nil),
+			).To(Succeed())
 			Expect(channels).To(HaveLen(3))
+			Expect(svc2.Close()).To(Succeed())
 		})
 	})
-
 	Describe("Metric Collection", func() {
 		var (
 			svc       *metrics.Service
@@ -191,7 +172,6 @@ var _ = Describe("Metrics", Ordered, func() {
 			requests  confluence.Inlet[framer.StreamerRequest]
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
-
 		BeforeEach(func() {
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
@@ -202,17 +182,16 @@ var _ = Describe("Metrics", Ordered, func() {
 			channels := []channel.Channel{}
 			hostKey := dist.Cluster.HostKey()
 			Eventually(func(g Gomega) {
-				err := dist.Channel.NewRetrieve().
+				g.Expect(dist.Channel.NewRetrieve().
 					WhereNames(
-						"sy_node_"+hostKey.String()+"_time",
-						"sy_node_"+hostKey.String()+"_cpu_percentage",
-						"sy_node_"+hostKey.String()+"_mem_percentage",
+						"sy_node_"+hostKey.String()+"_metrics_time",
+						"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
+						"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
 					).
 					Entries(&channels).
-					Exec(ctx, nil)
-				g.Expect(err).ToNot(HaveOccurred())
+					Exec(ctx, nil),
+				).To(Succeed())
 			}).Should(Succeed())
-
 			streamer = MustSucceed(svcFramer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.KeysFromChannels(channels),
 			}))
@@ -220,13 +199,11 @@ var _ = Describe("Metrics", Ordered, func() {
 			requests, responses = confluence.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
-
 		AfterEach(func() {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(svc.Close()).To(Succeed())
 		})
-
 		It("Should write metrics at configured interval", func() {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))

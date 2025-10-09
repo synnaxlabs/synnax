@@ -90,6 +90,7 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   ReturnType<typeof task.statusDetailsZ<StatusData>>
 > => ({
   key: id.create(),
+  name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
   time: TimeStamp.now(),
@@ -118,7 +119,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
       <PForm.Field<string> path="name">
-        {(p) => <Input.Text variant="text" level="h2" {...p} />}
+        {(p) => <Input.Text variant="text" level="h2" onlyChangeOnBlur {...p} />}
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
@@ -143,7 +144,6 @@ export const wrapForm = <
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
-  const retrieveDevice = Device.retrieve();
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
@@ -163,7 +163,7 @@ export const wrapForm = <
     };
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
-      params: { key: taskKey },
+      query: { key: taskKey },
       onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
@@ -179,8 +179,8 @@ export const wrapForm = <
           if (!confirmed) return false;
           await client.hardware.tasks.delete(taskKey);
         }
-        if ("channels" in (newConfig as { channels: any }))
-          form.set("config.channels", (newConfig as { channels: any }).channels);
+        form.set("rackKey", rackKey);
+        form.set("config", newConfig);
         return true;
       },
       afterSave: ({ client, ...form }) => {
@@ -191,10 +191,24 @@ export const wrapForm = <
         dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
       },
     });
-    retrieveDevice.useEffect({
+    Device.useRetrieveEffect({
       onChange: (d) => form.set("rackKey", d.data?.rack),
-      params: deviceKey == null ? undefined : { key: deviceKey },
+      query: deviceKey == null ? undefined : { key: deviceKey },
     });
+    const name = PForm.useFieldValue<
+      string,
+      string,
+      Task.FormSchema<Type, Config, StatusData>
+    >("name", { ctx: form });
+    const handleLayoutNameChange = useCallback(
+      (name: string) => {
+        if (status.variant !== "success") return;
+        form.set("name", name);
+      },
+      [form.set, status?.variant],
+    );
+    Layout.useSyncName(layoutKey, name, handleLayoutNameChange);
+
     const isSnapshot = useIsSnapshot<Task.FormSchema<Type, Config, StatusData>>(form);
     return (
       <Flex.Box

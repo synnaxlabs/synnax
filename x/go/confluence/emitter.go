@@ -11,15 +11,16 @@ package confluence
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/signal"
 	"time"
+
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Emitter is a Source that emits values to an Inlet at a regular interval.
 type Emitter[V Value] struct {
-	// Emitter is called on each tick. If it returns an error, the Emitter closes
-	// and returns a fatal error to the context.
-	Emit func(ctx context.Context) (V, error)
+	// Emitter is called on each tick. If it returns an error, the Emitter closes and
+	// returns a fatal error to the context.
+	Emit func(context.Context) (V, error)
 	// Interval is the duration between ticks.
 	Interval time.Duration
 	AbstractUnarySource[V]
@@ -32,7 +33,7 @@ func (e *Emitter[V]) Flow(ctx signal.Context, opts ...Option) {
 	signal.GoTick(ctx, e.Interval, e.emit, fo.Signal...)
 }
 
-func (e *Emitter[V]) emit(ctx context.Context, t time.Time) error {
+func (e *Emitter[V]) emit(ctx context.Context, _ time.Time) error {
 	v, err := e.Emit(ctx)
 	if err != nil {
 		return err

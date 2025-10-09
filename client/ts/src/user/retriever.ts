@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type User, userZ } from "@/user/payload";
-import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),
   usernames: z.string().array().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}
-const resZ = z.object({ users: nullableArrayZ(userZ) });
+const resZ = z.object({ users: array.nullableZ(userZ) });
 const ENDPOINT = "/user/retrieve";
 
 export class Retriever {

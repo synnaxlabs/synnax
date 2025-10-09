@@ -20,10 +20,10 @@ import {
   type state,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Arc } from "@/arc";
 import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -46,6 +46,7 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
+import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { User } from "@/user";
@@ -73,6 +74,8 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
+  ...Arc.LAYOUTS,
+  ...Status.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -91,8 +94,6 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
   preventDefaultOptions: { double: true },
 };
-
-const queryClient = new QueryClient();
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = Layout.useSelectHauling();
@@ -152,21 +153,19 @@ const MainUnderContext = (): ReactElement => {
 };
 
 export const Console = (): ReactElement => (
-  <QueryClientProvider client={queryClient}>
-    <Error.OverlayWithoutStore>
-      <Provider store={store}>
-        <Error.OverlayWithStore>
-          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-              <Ontology.ServicesProvider services={SERVICES}>
-                <Palette.CommandProvider commands={COMMANDS}>
-                  <MainUnderContext />
-                </Palette.CommandProvider>
-              </Ontology.ServicesProvider>
-            </Layout.ContextMenuProvider>
-          </Layout.RendererProvider>
-        </Error.OverlayWithStore>
-      </Provider>
-    </Error.OverlayWithoutStore>
-  </QueryClientProvider>
+  <Error.OverlayWithoutStore>
+    <Provider store={store}>
+      <Error.OverlayWithStore>
+        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+            <Ontology.ServicesProvider services={SERVICES}>
+              <Palette.CommandProvider commands={COMMANDS}>
+                <MainUnderContext />
+              </Palette.CommandProvider>
+            </Ontology.ServicesProvider>
+          </Layout.ContextMenuProvider>
+        </Layout.RendererProvider>
+      </Error.OverlayWithStore>
+    </Provider>
+  </Error.OverlayWithoutStore>
 );

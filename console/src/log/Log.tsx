@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
@@ -15,7 +14,7 @@ import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
-import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
@@ -25,30 +24,22 @@ import { Workspace } from "@/workspace";
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-interface SyncPayload {
-  key?: string;
-}
-
-export const useSyncComponent = (
-  layoutKey: string,
-): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "Log",
-    layoutKey,
-    async (ws, store, client) => {
-      const storeState = store.getState();
-      const data = select(storeState, layoutKey);
-      if (data == null) return;
-      const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined };
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.log.create(ws, {
-        key: layoutKey,
-        name: layout.name,
-        data: setData,
-      });
-    },
-  );
+export const useSyncComponent = Workspace.createSyncComponent(
+  "Log",
+  async ({ key, workspace, store, client }) => {
+    const storeState = store.getState();
+    const data = select(storeState, key);
+    if (data == null) return;
+    const layout = Layout.selectRequired(storeState, key);
+    const setData = { ...data, key: undefined };
+    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+    await client.workspaces.logs.create(workspace, {
+      key,
+      name: layout.name,
+      data: setData,
+    });
+  },
+);
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);
@@ -96,7 +87,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               ? "No channel configured for this log."
               : "No data received yet."
           }
-          action={zeroChannel ? "Configure here." : ""}
+          action={zeroChannel ? "Configure channel" : ""}
           onClick={handleDoubleClick}
         />
       }
@@ -105,18 +96,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
+const useLoadRemote = createLoadRemote<log.Log>({
+  useRetrieve: Core.useRetrieveObservable,
+  targetVersion: ZERO_STATE.version,
+  useSelectVersion,
+  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+});
+
 export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const log = useLoadRemote({
-    name: "Log",
-    targetVersion: ZERO_STATE.version,
-    layoutKey,
-    useSelectVersion,
-    fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.log.retrieve(layoutKey);
-      return { key, ...data } as State;
-    },
-    actionCreator: internalCreate,
-  });
+  const log = useLoadRemote(layoutKey);
   if (log == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };

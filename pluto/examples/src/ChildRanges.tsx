@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
+  Flex,
   Icon,
-  Align,
   Divider,
   Ranger,
   Text,
@@ -51,7 +51,7 @@ const TIME_RANGES = [
 ];
 
 export const ChildRanges = () => (
-  <Align.Center
+  <Flex.Box
     x
     style={{
       width: "100vw",
@@ -86,5 +86,5 @@ export const ChildRanges = () => (
         ))}
       </Flex.Box>
     </Flex.Box>
-  </Align.Center>
+  </Flex.Box>
 );

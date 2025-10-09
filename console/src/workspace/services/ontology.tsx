@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DisconnectedError, type ontology, workspace } from "@synnaxlabs/client";
 import {
-  DisconnectedError,
-  linePlot as clientLinePlot,
-  log as clientLog,
-  ontology,
-  schematic as clientSchematic,
-  table as clientTable,
-} from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Synnax, Text, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, type record, strings } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
+  Icon,
+  LinePlot as PLinePlot,
+  Log as PLog,
+  Menu as PMenu,
+  Schematic as PSchematic,
+  Synnax,
+  Table as PTable,
+  Workspace as Core,
+} from "@synnaxlabs/pluto";
+import { array, deep, strings } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -33,7 +34,8 @@ import { Link } from "@/link";
 import { Log } from "@/log";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
 import { type RootState } from "@/store";
@@ -43,47 +45,19 @@ import { useExport } from "@/workspace/export";
 import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Workspace" });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
-    }) => {
-      const resources = getResource(resourceIDs);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      const prevNodes = Tree.deepCopy(nodes);
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({
-      selection: { resourceIDs },
-      client,
-      store,
-      state: { getResource },
-    }) => {
-      const resources = getResource(resourceIDs);
-      await client.workspaces.delete(resources.map(({ id }) => id.key));
-      const s = store.getState();
-      const activeKey = selectActiveKey(s);
-      const active = resources.find((r) => r.id.key === activeKey);
-      if (active != null) {
-        store.dispatch(setActive(null));
-        store.dispatch(Layout.clearWorkspace());
-      }
-    },
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete workspace");
-    },
-  }).mutate;
-};
+const useDelete = createUseDelete({
+  type: "Workspace",
+  query: Core.useDelete,
+  convertKey: String,
+  afterSuccess: ({ data, store }) => {
+    const s = store.getState();
+    const activeKey = selectActiveKey(s);
+    const active = array.toArray(data).find((k) => k === activeKey);
+    if (active == null) return;
+    store.dispatch(setActive(null));
+    store.dispatch(Layout.clearWorkspace());
+  },
+});
 
 const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
@@ -104,178 +78,149 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
   };
 };
 
-const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useCreateSchematic = ({
+  placeLayout,
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      selection,
-      placeLayout,
-      state: { nodes, setNodes, setResource },
-      client,
-    }) => {
-      const workspaceID = selection.resourceIDs[0];
-      const schematic = await client.workspaces.schematic.create(workspaceID.key, {
+  const workspaceID = ids[0];
+  const { update } = PSchematic.useCreate({
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...schematic } = data;
+      await maybeChangeWorkspace(workspace);
+      const { key, name, snapshot } = schematic;
+      placeLayout(Schematic.create({ ...schematic.data, key, name, snapshot }));
+    },
+  });
+  return useCallback(
+    () =>
+      update({
+        workspace: workspaceID.key,
         name: "New Schematic",
         snapshot: false,
-        data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
-      });
-      const otg = await client.ontology.retrieve(
-        clientSchematic.ontologyID(schematic.key),
-      );
-      await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(
-        Schematic.create({
-          ...schematic.data,
-          key: schematic.key,
-          name: schematic.name,
-          snapshot: schematic.snapshot,
-        }),
-      );
-      setResource(otg);
-      const nextNodes = Tree.setNode({
-        tree: nodes,
-        destination: ontology.idToString(workspaceID),
-        additions: otg,
-      });
-      setNodes([...nextNodes]);
-    },
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, "Failed to create schematic");
-    },
-  }).mutate;
+        data: deep.copy(Schematic.ZERO_STATE),
+      }),
+    [workspaceID.key],
+  );
 };
 
-const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useCreateLinePlot = ({
+  placeLayout,
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      selection,
-      placeLayout,
-      state: { nodes, setNodes, setResource },
-      client,
-    }) => {
-      const workspaceID = selection.resourceIDs[0];
-      const linePlot = await client.workspaces.linePlot.create(workspaceID.key, {
-        name: "New Line Plot",
-        data: deep.copy(LinePlot.ZERO_SLICE_STATE),
-      });
-      const otg = await client.ontology.retrieve(
-        clientLinePlot.ontologyID(linePlot.key),
-      );
+  const workspaceID = ids[0];
+  const { update } = PLinePlot.useCreate({
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
       placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
-      setResource(otg);
-      const nextNodes = Tree.setNode({
-        tree: nodes,
-        destination: ontology.idToString(workspaceID),
-        additions: { key: ontology.idToString(otg.id) },
-      });
-      setNodes([...nextNodes]);
     },
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, "Failed to create line plot");
-    },
-  }).mutate;
+  });
+  return useCallback(
+    () =>
+      update({
+        workspace: workspaceID.key,
+        name: "New Line Plot",
+        data: deep.copy(LinePlot.ZERO_SLICE_STATE),
+      }),
+    [workspaceID.key],
+  );
 };
 
-const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useCreateLog = ({
+  placeLayout,
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      selection,
-      placeLayout,
-      state: { nodes, setNodes, setResource },
-      client,
-    }) => {
-      const workspaceID = selection.resourceIDs[0];
-      const log = await client.workspaces.log.create(workspaceID.key, {
+  const workspaceID = ids[0];
+  const { update } = PLog.useCreate({
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...log } = data;
+      await maybeChangeWorkspace(workspace);
+      placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
+    },
+  });
+  return useCallback(
+    () =>
+      update({
+        workspace: workspaceID.key,
         name: "New Log",
         data: deep.copy(Log.ZERO_STATE),
-      });
-      const otg = await client.ontology.retrieve(clientLog.ontologyID(log.key));
-      await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
-      setResource(otg);
-      const nextNodes = Tree.setNode({
-        tree: nodes,
-        destination: ontology.idToString(workspaceID),
-        additions: { key: ontology.idToString(otg.id) },
-      });
-      setNodes([...nextNodes]);
-    },
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, "Failed to create log");
-    },
-  }).mutate;
+      }),
+    [workspaceID.key],
+  );
 };
 
-const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useCreateTable = ({
+  placeLayout,
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
   const maybeChangeWorkspace = useMaybeChangeWorkspace();
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      selection,
-      placeLayout,
-      state: { nodes, setNodes, setResource },
-      client,
-    }) => {
-      const workspaceID = selection.resourceIDs[0];
-      const table = await client.workspaces.table.create(workspaceID.key, {
+  const workspaceID = ids[0];
+  const { update } = PTable.useCreate({
+    afterSuccess: async ({ data }) => {
+      const { workspace, ...table } = data;
+      await maybeChangeWorkspace(workspace);
+      placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
+    },
+  });
+  return useCallback(
+    () =>
+      update({
+        workspace: workspaceID.key,
         name: "New Table",
         data: deep.copy(Table.ZERO_STATE),
-      });
-      const otg = await client.ontology.retrieve(clientTable.ontologyID(table.key));
-      await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
-      setResource(otg);
-      const nextNodes = Tree.setNode({
-        tree: nodes,
-        destination: ontology.idToString(workspaceID),
-        additions: { key: ontology.idToString(otg.id) },
-      });
-      setNodes([...nextNodes]);
-    },
-    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      handleError(e, "Failed to create table");
-    },
-  }).mutate;
+      }),
+    [workspaceID.key],
+  );
 };
+
+const useRename = createUseRename({
+  query: Core.useRename,
+  ontologyID: workspace.ontologyID,
+  convertKey: String,
+  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
+    const { key, name } = data;
+    store.dispatch(rename({ key, name }));
+    rollbacks.push(() => store.dispatch(rename({ key, name: oldName })));
+    return { ...data, name };
+  },
+});
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const handleDelete = useDelete();
+  const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
-  const createPlot = useCreateLinePlot();
-  const createLog = useCreateLog();
-  const createTable = useCreateTable();
-  const firstID = selection.resourceIDs[0];
+  const createPlot = useCreateLinePlot(props);
+  const createLog = useCreateLog(props);
+  const createTable = useCreateTable(props);
+  const firstID = selection.ids[0];
   const importPlot = LinePlotServices.useImport(firstID.key);
-  const createSchematic = useCreateSchematic();
+  const createSchematic = useCreateSchematic(props);
   const importSchematic = SchematicServices.useImport(firstID.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
   const importLog = LogServices.useImport(firstID.key);
   const importTable = TableServices.useImport(firstID.key);
-  const resources = getResource(resourceIDs);
+  const handleRename = useRename(props);
+  const resources = getResource(ids);
   const first = resources[0];
   const handleSelect = {
-    delete: () => handleDelete(props),
-    rename: () => Text.edit(ontology.idToString(first.id)),
+    delete: handleDelete,
+    rename: handleRename,
     group: () => group(props),
-    createLog: () => createLog(props),
-    createPlot: () => createPlot(props),
-    createTable: () => createTable(props),
+    createLog,
+    createPlot,
+    createTable,
     importPlot,
     importLog,
     importTable,
-    createSchematic: () => createSchematic(props),
+    createSchematic,
     importSchematic,
     export: () => handleExport(first.id.key),
     link: () => handleLink({ name: first.name, ontologyID: first.id }),
@@ -291,7 +236,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Divider />
       {singleResource && (
         <>
@@ -335,6 +280,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Divider />
           <Export.MenuItem />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
           <PMenu.Divider />
         </>
       )}
@@ -349,39 +295,33 @@ const handleSelect: Ontology.HandleSelect = ({
   store,
   handleError,
 }) => {
-  client.workspaces
-    .retrieve(selection[0].id.key)
-    .then((workspace) => {
-      store.dispatch(add(workspace));
-      store.dispatch(
-        Layout.setWorkspace({
-          slice: workspace.layout as Layout.SliceState,
-          keepNav: false,
-        }),
-      );
-    })
-    .catch((e) => {
-      const names = strings.naturalLanguageJoin(
-        selection.map(({ name }) => name),
-        "workspace",
-      );
-      handleError(e, `Failed to select ${names}`);
-    });
+  const names = strings.naturalLanguageJoin(
+    selection.map(({ name }) => name),
+    "workspace",
+  );
+  handleError(async () => {
+    const ws = await client.workspaces.retrieve(selection[0].id.key);
+    store.dispatch(add(ws));
+    store.dispatch(
+      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+    );
+  }, `Failed to select ${names}`);
 };
 
-const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ id, name, store }) => store.dispatch(rename({ key: id.key, name })),
-  execute: async ({ client, id, name }) => await client.workspaces.rename(id.key, name),
-  rollback: ({ id, store }, prevName) =>
-    store.dispatch(rename({ key: id.key, name: prevName })),
-};
+const VALID_CHILDREN: ontology.ResourceType[] = [
+  "schematic",
+  "lineplot",
+  "log",
+  "table",
+  "group",
+];
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "workspace",
   icon: <Icon.Workspace />,
   onSelect: handleSelect,
-  allowRename: () => true,
-  onRename: handleRename,
   TreeContextMenu,
+  canDrop: ({ items }) =>
+    items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
 };

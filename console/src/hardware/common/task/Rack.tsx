@@ -15,7 +15,7 @@ import { CSS } from "@/css";
 import { useKey } from "@/hardware/common/task/Form";
 
 export const Rack = () => {
-  const { data: rack, retrieve } = PRack.retrieve.useStateful();
+  const { data: rack, retrieve } = PRack.useRetrieveStateful();
   const taskKey = useKey();
   useEffect(() => {
     if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });

@@ -31,7 +31,7 @@ const parseAndCreateSymbol = async (
 ): Promise<schematic.symbol.Symbol> => {
   const data = await readTextFile(filePath);
   const parsed = schematic.symbol.symbolZ.parse(JSON.parse(data));
-  return await client.workspaces.schematic.symbols.create({
+  return await client.workspaces.schematics.symbols.create({
     ...parsed,
     key: uuid.create(),
     parent: parentID,
@@ -57,7 +57,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
         directory: false,
       });
       if (paths == null) return;
-      const symbolGroup = await client.workspaces.schematic.symbols.retrieveGroup();
+      const symbolGroup = await client.workspaces.schematics.symbols.retrieveGroup();
       const parentID = parentGroup
         ? group.ontologyID(parentGroup)
         : group.ontologyID(symbolGroup.key);
@@ -84,7 +84,7 @@ export const useImportGroup = (): (() => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const { updateAsync: createGroup } = Group.create.useDirect({ params: {} });
+  const { updateAsync: createGroup } = Group.useCreate();
 
   return useCallback(() => {
     handleError(async () => {
@@ -103,7 +103,7 @@ export const useImportGroup = (): (() => void) => {
       const manifestPath = await join(dirPath, "manifest.json");
       const manifestData = await readTextFile(manifestPath);
       const manifest = groupManifestZ.parse(JSON.parse(manifestData));
-      const symbolGroup = await client.workspaces.schematic.symbols.retrieveGroup();
+      const symbolGroup = await client.workspaces.schematics.symbols.retrieveGroup();
       const newGroupKey = uuid.create();
       await createGroup({
         key: newGroupKey,

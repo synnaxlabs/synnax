@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integration Test Configuration",
+  "description": "Schema for Synnax integration test configuration files",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "sequences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sequence_name": {
+            "type": "string",
+            "description": "Name of the test sequence"
+          },
+          "sequence_order": {
+            "type": "string",
+            "enum": ["asynchronous", "sequential", "random"],
+            "description": "Execution order for tests in this sequence",
+            "default": "sequential"
+          },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "case": {
+                  "type": "string",
+                  "description": "Path to the test case relative to the integration directory"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Optional specific test name within the test case"
+                },
+                "parameters": {
+                  "type": "object",
+                  "description": "Parameters to pass to the test case",
+                  "additionalProperties": true
+                },
+                "expect": {
+                  "type": "string",
+                  "enum": ["TIMEOUT", "FAILED", "PASSED"],
+                  "description": "Expected test outcome"
+                }
+              },
+              "required": ["case"],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          }
+        },
+        "required": ["sequence_name", "tests"],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": ["sequences"],
+  "additionalProperties": false
+}

@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -34,6 +35,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	var (
 		db     *gorp.DB
 		svc    *ranger.Service
+		ctx    context.Context
 		w      ranger.Writer
 		otg    *ontology.Ontology
 		tx     gorp.Tx
@@ -41,6 +43,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
+		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: config.True(),
@@ -73,6 +76,30 @@ var _ = Describe("Ranger", Ordered, func() {
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(5 * telem.Second),
 					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(r.Key).ToNot(Equal(uuid.Nil))
+		})
+		It("should return an error if the time range is invalid", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(10 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).
+				To(MatchError(
+					ContainSubstring("time_range.start cannot be after time_range.end"),
+				))
+		})
+		It("should create a range with start equal to end", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
 				},
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())

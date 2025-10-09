@@ -22,10 +22,19 @@
         -webkit-user-select: none;
     }
 
-    &.pluto--direction-x > .pluto-list__virtualizer {
-        display: flex;
-        flex-direction: inherit;
-        flex-wrap: inherit;
-        gap: inherit;
+    &.pluto--direction-x {
+        &::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+            background: var(--pluto-gray-l6);
+        }
+        & > .pluto-list__virtualizer {
+            display: flex;
+            flex-direction: inherit;
+            flex-wrap: inherit;
+            gap: inherit;
+        }
     }
 }

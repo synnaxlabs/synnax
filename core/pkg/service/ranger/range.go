@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package ranger implements a service for managing ranges in a Synnax cluster. A range
+// is a user defined region of time in a Synnax cluster. They act as a method for
+// labeling and categorizing data.
 package ranger
 
 import (
@@ -25,17 +28,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Range (short for time range) is an interesting, user defined regions of time in a
+// Range (short for time range) is an interesting, user defined region of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
-	// tx is the transaction used to execute KV operations specific to this range
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the range. This name does not need to be unique.
+	// Name is a human-readable name for the range. This name does not need to be
+	// unique.
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
@@ -152,35 +155,43 @@ func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error
 }
 
 // ResolveAlias attempts to resolve the provided Alias to a channel key on the range.
-func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
+func (r Range) ResolveAlias(ctx context.Context, alias string) (channel.Key, error) {
 	var res Alias
-	matcher := func(a *Alias) bool { return a.Range == r.Key && a.Alias == al }
-	rxp, err := regexp.Compile(al)
+	matcher := func(a *Alias) bool { return a.Range == r.Key && a.Alias == alias }
+	rxp, err := regexp.Compile(alias)
 	if err == nil {
-		matcher = func(a *Alias) bool { return a.Range == r.Key && rxp.MatchString(a.Alias) }
+		matcher = func(a *Alias) bool {
+			return a.Range == r.Key && rxp.MatchString(a.Alias)
+		}
 	}
-	err = gorp.NewRetrieve[string, Alias]().
+	err = gorp.
+		NewRetrieve[string, Alias]().
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.NotFound) {
 		p, pErr := r.RetrieveParent(ctx)
 		if errors.Is(pErr, query.NotFound) {
-			return res.Channel, err
+			return 0, err
 		}
-		return p.ResolveAlias(ctx, al)
+		return p.ResolveAlias(ctx, alias)
 	}
-	return res.Channel, err
+	if err != nil {
+		return 0, err
+	}
+	return res.Channel, nil
 }
 
 // RetrieveParent returns the parent of the given range.
 func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 	var resources []ontology.Resource
-	if err := r.otg.NewRetrieve().WhereIDs(r.OntologyID()).
+	if err := r.otg.NewRetrieve().
+		WhereIDs(r.OntologyID()).
 		TraverseTo(ontology.Parents).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
-		Entries(&resources).Exec(ctx, r.tx); err != nil {
+		Entries(&resources).
+		Exec(ctx, r.tx); err != nil {
 		return Range{}, err
 	}
 	if len(resources) == 0 {
@@ -204,7 +215,10 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 
 // SearchAliases searches for aliases fuzzily matching the given term.
 func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
-	ids, err := r.otg.SearchIDs(ctx, search.Request{Term: term, Type: aliasOntologyType})
+	ids, err := r.otg.SearchIDs(
+		ctx,
+		search.Request{Term: term, Type: aliasOntologyType},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +238,8 @@ func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, e
 // DeleteAlias deletes the Alias for the given channel on the range. DeleteAlias is
 // idempotent, and will not return an error if the Alias does not exist.
 func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
-	return gorp.NewDelete[string, Alias]().
+	return gorp.
+		NewDelete[string, Alias]().
 		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Exec(ctx, r.tx)
 }
@@ -232,7 +247,10 @@ func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
 // RetrieveAliases lists all aliases on the range.
 func (r Range) RetrieveAliases(ctx context.Context) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
-	return res, r.listAliases(ctx, res)
+	if err := r.listAliases(ctx, res); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (r Range) listAliases(
@@ -252,6 +270,8 @@ func (r Range) listAliases(
 	p, pErr := r.RetrieveParent(ctx)
 	if errors.Is(pErr, query.NotFound) {
 		return nil
+	} else if pErr != nil {
+		return pErr
 	}
 	return p.listAliases(ctx, accumulated)
 }
@@ -260,6 +280,6 @@ func (r Range) RetrieveLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
-// OntologyID returns the semantic ID for this range in order to look it up from within
-// the ontology.
+// OntologyID returns the semantic ID for this range to look it up from within the
+// ontology.
 func (r Range) OntologyID() ontology.ID { return OntologyID(r.Key) }

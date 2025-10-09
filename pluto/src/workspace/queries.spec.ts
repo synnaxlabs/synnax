@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { Workspace } from "@/workspace";
 
@@ -21,10 +20,7 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {
@@ -252,8 +248,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Perform rapid layout updates
-      for (let i = 1; i <= 3; i++)
-        await client.workspaces.setLayout(testWorkspace.key, { counter: i });
+      await act(async () => {
+        for (let i = 1; i <= 3; i++)
+          await client.workspaces.setLayout(testWorkspace.key, { counter: i });
+      });
 
       await waitFor(() => {
         const workspace = result.current.getItem(testWorkspace.key);
@@ -262,7 +260,7 @@ describe("queries", () => {
     });
   });
 
-  describe("retrieve", () => {
+  describe("useRetrieve", () => {
     it("should retrieve a single workspace by key", async () => {
       const testWorkspace = await client.workspaces.create({
         name: "singleWorkspace",
@@ -277,7 +275,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Workspace.retrieve.useDirect({ params: { key: testWorkspace.key } }),
+        () => Workspace.useRetrieve({ key: testWorkspace.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -295,7 +293,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Workspace.retrieve.useDirect({ params: { key: workspace.key } }),
+        () => Workspace.useRetrieve({ key: workspace.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -303,6 +301,99 @@ describe("queries", () => {
       expect(result.current.data).toBeDefined();
       expect(result.current.data?.key).toEqual(workspace.key);
       expect((result.current.data?.layout as any).config.setting1).toEqual("value1");
+    });
+  });
+
+  describe("useRename", () => {
+    it("should correctly rename a workspace", async () => {
+      const ws = await client.workspaces.create({
+        name: "testWorkspace",
+        layout: { config: { setting1: "value1" } },
+      });
+
+      const { result } = renderHook(
+        () => ({
+          retrieve: Workspace.useRetrieve({ key: ws.key }),
+          rename: Workspace.useRename(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.rename.update({ key: ws.key, name: "newName" });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.name).toEqual("newName"),
+      );
+    });
+  });
+
+  describe("useRetrieveGroupID", () => {
+    it("should correctly retrieve group ID", async () => {
+      const { result } = renderHook(() => Workspace.useRetrieveGroupID({}), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.type).toEqual("group");
+        expect(result.current.data?.key).not.toBeFalsy();
+      });
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should correctly delete a workspace", async () => {
+      const ws = await client.workspaces.create({
+        name: "testWorkspace",
+        layout: { config: { setting1: "value1" } },
+      });
+
+      const { result } = renderHook(() => Workspace.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(ws.key);
+      });
+      await waitFor(async () => {
+        await expect(client.workspaces.retrieve(ws.key)).rejects.toThrow(NotFoundError);
+      });
+    });
+  });
+
+  describe("useSaveLayout", () => {
+    it("should correctly save a workspace layout", async () => {
+      const ws = await client.workspaces.create({
+        name: "testWorkspace",
+        layout: { config: { setting1: "value1" } },
+      });
+
+      const { result } = renderHook(
+        () => ({
+          saveLayout: Workspace.useSaveLayout(),
+          retrieve: Workspace.useRetrieve({ key: ws.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.retrieve.variant).toEqual("success");
+        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.layout).toEqual({
+          config: { setting1: "value1" },
+        });
+      });
+      await act(async () => {
+        await result.current.saveLayout.updateAsync({
+          key: ws.key,
+          layout: {
+            config: { setting1: "value2" },
+          },
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.saveLayout.variant).toEqual("success");
+        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.layout).toEqual({
+          config: { setting1: "value2" },
+        });
+      });
     });
   });
 });

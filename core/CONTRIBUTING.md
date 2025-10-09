@@ -22,11 +22,12 @@ go run main.go start -vmi
 
 ## Running the Test Suite
 
-To run the test suite, run the following command from the `synnax` directory of the repository:
+To run the test suite, run the following command from the `synnax` directory of the
+repository:
 
 ```bash
 go test -v ./...
 ```
 
-This will run every test suite in the server codebase. You can also run a test suite
-for a specific package by running `go test` in the directory of that package.
+This will run every test suite in the server codebase. You can also run a test suite for
+a specific package by running `go test` in the directory of that package.

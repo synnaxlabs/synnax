@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -104,10 +104,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 func (s *Service) New(issuer uuid.UUID) (string, error) {
 	method, key := s.signingMethodAndKey()
 	now := s.cfg.Now().UTC()
-	claims := jwt.NewWithClaims(method, jwt.StandardClaims{
-		IssuedAt:  now.Unix(),
+	claims := jwt.NewWithClaims(method, jwt.RegisteredClaims{
+		IssuedAt:  jwt.NewNumericDate(now),
 		Issuer:    issuer.String(),
-		ExpiresAt: now.Add(s.cfg.Expiration).Unix(),
+		ExpiresAt: jwt.NewNumericDate(now.Add(s.cfg.Expiration)),
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
@@ -137,8 +137,8 @@ func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) 
 	return id, "", nil
 }
 
-func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error) {
-	claims := &jwt.StandardClaims{}
+func (s *Service) validate(token string) (uuid.UUID, *jwt.RegisteredClaims, error) {
+	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
 		return s.publicKey(), nil
 	})
@@ -158,8 +158,8 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error)
 	return id, claims, nil
 }
 
-func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {
-	expiration := time.Unix(claims.ExpiresAt, 0).UTC()
+func (s *Service) isCloseToExpired(claims *jwt.RegisteredClaims) bool {
+	expiration := claims.ExpiresAt.UTC()
 	currentTime := s.cfg.Now().UTC()
 	if expiration.Sub(currentTime) < 0 {
 		return false
@@ -189,13 +189,13 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 
 func (s *Service) publicKey() any {
 	key := s.cfg.KeyProvider.NodePrivate()
-	switch key.(type) {
+	switch key := key.(type) {
 	case *rsa.PrivateKey:
-		return key.(*rsa.PrivateKey).Public()
+		return key.Public()
 	case *ecdsa.PrivateKey:
-		return key.(*ecdsa.PrivateKey).Public()
+		return key.Public()
 	case *ed25519.PrivateKey:
-		return key.(*ed25519.PrivateKey).Public()
+		return key.Public()
 	}
 	panic("unsupported key type")
 }

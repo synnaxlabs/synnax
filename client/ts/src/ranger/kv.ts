@@ -13,7 +13,6 @@ import { isObject } from "@synnaxlabs/x/identity";
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/ranger/payload";
-import { nullableArrayZ } from "@/util/zod";
 
 export const KV_SET_CHANNEL = "sy_range_kv_set";
 export const KV_DELETE_CHANNEL = "sy_range_kv_delete";
@@ -27,7 +26,7 @@ export const kvPairKey = ({ range, key }: Omit<KVPair, "value">) =>
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface GetRequest extends z.infer<typeof getReqZ> {}
 
-const getResZ = z.object({ pairs: nullableArrayZ(kvPairZ) });
+const getResZ = z.object({ pairs: array.nullableZ(kvPairZ) });
 
 const setReqZ = z.object({ range: keyZ, pairs: kvPairZ.array() });
 export interface SetRequest extends z.infer<typeof setReqZ> {}

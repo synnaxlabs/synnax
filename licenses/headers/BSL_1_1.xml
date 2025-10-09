@@ -8,10 +8,12 @@
   ~ License, use of this software will be governed by the Apache License, Version 2.0,
   ~ included in the file licenses/APL.txt.
   -->
-
 <component name="CopyrightManager">
   <copyright>
-    <option name="notice" value="Copyright &amp;#36;today.year Synnax Labs, Inc.&#10;&#10;Use of this software is governed by the Business Source License included in the file &#10;licenses/BSL.txt.&#10;&#10;As of the Change Date specified in that file, in accordance with the Business Source &#10;License, use of this software will be governed by the Apache License, Version 2.0, &#10;included in the file licenses/APL.txt." />
+    <option
+            name="notice"
+            value="Copyright &amp;#36;today.year Synnax Labs, Inc.&#10;&#10;Use of this software is governed by the Business Source License included in the file &#10;licenses/BSL.txt.&#10;&#10;As of the Change Date specified in that file, in accordance with the Business Source &#10;License, use of this software will be governed by the Apache License, Version 2.0, &#10;included in the file licenses/APL.txt."
+        />
     <option name="myName" value="BSL 1.1" />
   </copyright>
 </component>

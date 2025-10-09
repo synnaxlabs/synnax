@@ -28,7 +28,7 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface ValueInputProps extends Input.TextProps {}
+interface ValueInputProps extends Input.TextProps {}
 
 const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   const isLink = link.is(value);
@@ -40,9 +40,9 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         width: "unset",
         flexGrow: 2,
       }}
-      selectOnFocus={true}
+      selectOnFocus
       variant="shadow"
-      resetOnBlurIfEmpty={true}
+      resetOnBlurIfEmpty
       placeholder="Value"
       textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
       {...rest}
@@ -51,13 +51,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         <Icon.Copy />
       </Button.Button>
       {isLink && (
-        <Button.Button
-          href={value}
-          target="_blank"
-          autoFormatHref
-          style={{ padding: "1rem" }}
-          variant="outlined"
-        >
+        <Button.Button href={value} target="_blank" autoFormatHref variant="outlined">
           <Icon.LinkExternal />
         </Button.Button>
       )}
@@ -65,7 +59,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   );
 };
 
-export interface MetaDataListItemProps extends List.ItemProps<string> {
+interface MetaDataListItemProps extends List.ItemProps<string> {
   isCreate?: boolean;
   visible?: boolean;
   rangeKey: ranger.Key;
@@ -82,11 +76,9 @@ const MetaDataListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, ranger.KVPair>(itemKey);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { update: handleDelete } = Ranger.useDeleteKV.useDirect({
-    params: { rangeKey },
-  });
+  const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
-    params: { rangeKey },
+    query: { rangeKey },
     autoSave: !isCreate,
     initialValues: initialValues ?? {
       key: "",
@@ -95,7 +87,13 @@ const MetaDataListItem = ({
     },
     sync: !isCreate,
     afterSave: useCallback(
-      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Ranger.kvPairFormSchema>) => {
+      ({
+        reset,
+      }: Flux.AfterSaveParams<
+        Flux.Shape,
+        typeof Ranger.kvPairFormSchema,
+        Ranger.FluxSubStore
+      >) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
@@ -119,7 +117,7 @@ const MetaDataListItem = ({
         {isCreate ? (
           <Form.TextField
             style={{ flexBasis: "30%", width: 250 }}
-            path={"key"}
+            path="key"
             inputProps={{
               ref: inputRef,
               autoFocus: isCreate,
@@ -139,7 +137,7 @@ const MetaDataListItem = ({
           </Text.Text>
         )}
         <Divider.Divider y />
-        <Form.Field<string> path={"value"} showLabel={false} hideIfNull>
+        <Form.Field<string> path="value" showLabel={false} hideIfNull>
           {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
@@ -161,9 +159,9 @@ const MetaDataListItem = ({
             className={CSS.BE("metadata", "delete")}
             size="small"
             variant="shadow"
-            onClick={() => handleDelete(itemKey)}
+            onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
-            <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
+            <Icon.Delete color={10} />
           </Button.Button>
         )}
       </Form.Form>
@@ -179,8 +177,8 @@ const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
-  const { data, getItem, subscribe, retrieve, status } = Ranger.useListKV({
-    initialParams: { rangeKey },
+  const { data, getItem, subscribe, retrieve, status } = Ranger.useListMetaData({
+    initialQuery: { rangeKey },
     sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);

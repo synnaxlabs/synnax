@@ -19,12 +19,12 @@ import {
   type ClickMode,
   setControlState,
   setViewport,
-  setViewportMode
+  setViewportMode,
 } from "@/lineplot/slice";
 
 const TOOLTIP_LOCATION: location.XY = {
   x: "left",
-  y: "bottom"
+  y: "bottom",
 };
 
 const style = { zIndex: 500 };

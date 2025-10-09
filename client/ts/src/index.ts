@@ -9,6 +9,7 @@
 
 export { access } from "@/access";
 export { policy } from "@/access/policy";
+export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
@@ -35,10 +36,11 @@ export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
+export { status } from "@/status";
 export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
-export { linePlot } from "@/workspace/lineplot";
+export { lineplot } from "@/workspace/lineplot";
 export { log } from "@/workspace/log";
 export { schematic } from "@/workspace/schematic";
 export { table } from "@/workspace/table";

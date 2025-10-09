@@ -17,6 +17,6 @@ Synnax documentation.
 
 ## Contributing
 
-Read both the [Synnax Contribution Guide](../docs/CONTRIBUTING.md) and the [server
-Contribution Guide](CONTRIBUTING.md) to learn about the codebase and our development
-practices.
+Read both the [Synnax Contribution Guide](../docs/CONTRIBUTING.md) and the
+[server Contribution Guide](CONTRIBUTING.md) to learn about the codebase and our
+development practices.

@@ -8,28 +8,33 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { array, errors } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type Flux,
+  Icon,
+  Menu as PMenu,
+  Ranger,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
-import {
-  create as createLinePlot,
-  LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
-} from "@/lineplot/layout";
-import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
+import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
-import { type RootState } from "@/store";
+import { fromClientRange } from "@/range/translate";
+import { useAddToActivePlot } from "@/range/useAddToActivePlot";
+import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
@@ -45,15 +50,6 @@ export const SnapshotMenuItem = ({
     </PMenu.Item>
   ) : null;
 
-export const fromClientRange = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
-  array.toArray(ranges).map((range) => ({
-    variant: "static",
-    key: range.key,
-    name: range.name,
-    timeRange: range.timeRange.numeric,
-    persisted: true,
-  }));
-
 export const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Client,
@@ -66,45 +62,6 @@ export const fetchIfNotInState = async (
     return range[0];
   }
   return existing;
-};
-
-export const useAddToNewPlot = (): ((key: string) => void) => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      if (client == null) throw new DisconnectedError();
-      const res = await fetchIfNotInState(store, client, key);
-      placeLayout(
-        createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
-      );
-    },
-    onError: (e) => handleError(e, "Failed to add range to new plot"),
-  }).mutate;
-};
-
-const useAddToActivePlot = (): ((key: string) => void) => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      const active = Layout.selectActiveMosaicLayout(store.getState());
-      if (active == null || client == null) return;
-      await fetchIfNotInState(store, client, key);
-      store.dispatch(
-        setLinePlotRanges({
-          key: active.key,
-          axisKey: "x1",
-          mode: "add",
-          ranges: [key],
-        }),
-      );
-    },
-    onError: (e) => handleError(e, "Failed to add range to plot"),
-  }).mutate;
 };
 
 export const deleteMenuItem = (
@@ -161,7 +118,7 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-export const addChildRangeMenuItem = (
+export const createChildRangeMenuItem = (
   <PMenu.Item itemKey="addChildRange">
     <CreateChildRangeIcon key="plot" />
     Create Child Range
@@ -169,48 +126,63 @@ export const addChildRangeMenuItem = (
 );
 
 export const useViewDetails = (): ((key: string) => void) => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
-  return useMutation<void, Error, string>({
-    mutationFn: async (key: string) => {
-      if (client == null) throw new DisconnectedError();
-      const rng = await client.ranges.retrieve(key);
-      placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
-    },
-    onError: (e) => handleError(e, "Failed to view details"),
-  }).mutate;
+  const { retrieve } = Ranger.useRetrieveObservable({
+    onChange: useCallback(
+      ({ data, variant, status }) => {
+        if (variant !== "success") {
+          if (variant === "error") addStatus(status);
+          return;
+        }
+        placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
+      },
+      [placeLayout],
+    ),
+  });
+  return useCallback((key: string) => retrieve({ key }), [retrieve]);
 };
 
 export const useDelete = () => {
   const dispatch = useDispatch();
-  const client = Synnax.use();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
   };
-  const handleError = Status.useErrorHandler();
   const confirm = useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-
-  return useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const rng = ranges.find((r) => r.key === key);
-      if (rng == null || !(await confirm(rng))) throw new errors.Canceled();
-      handleRemove([key]);
-      remover(key);
-      return rng;
-    },
-    mutationFn: async (key: string) => await client?.ranges.delete(key),
-    onError: (e, _, range) => {
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete range");
-      dispatch(add({ ranges: [range as Range] }));
-    },
+  const { update } = Ranger.useDelete({
+    beforeUpdate: useCallback(
+      async ({ data }: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
+        const keys = array.toArray(data);
+        const rng = ranges.filter((r) => keys.includes(r.key));
+        if (!(await confirm(rng))) return false;
+        handleRemove(keys);
+        remover(...keys);
+        return true;
+      },
+      [],
+    ),
   });
+  return update;
+};
+
+export const usePersist = () => {
+  const dispatch = useDispatch();
+  const ranges = useSelectMultiple();
+  const { update } = Ranger.useCreate();
+  return useCallback(
+    (key: string) => {
+      const range = ranges.find((r) => r.key === key);
+      if (range == null || range.variant === "dynamic") return;
+      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
+      update(range);
+    },
+    [dispatch, ranges],
+  );
 };
 
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
@@ -224,7 +196,6 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
   };
-  const handleError = Status.useErrorHandler();
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Layout.useSelectActiveMosaicLayout();
@@ -244,38 +215,22 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   };
 
   const rangeExists = rng != null;
-
   const del = useDelete();
-
-  const save = useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
-      return range;
-    },
-    mutationFn: async (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      await client?.ranges.create({ ...range });
-    },
-    onError: (e) => handleError(e, "Failed to save range"),
-  });
-
+  const persist = usePersist();
   const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => Text.edit(`text-${key}`),
     create: () => handleCreate(),
     remove: () => rangeExists && handleRemove([rng.key]),
-    delete: () => rangeExists && del.mutate(rng.key),
+    delete: () => rangeExists && del(rng.key),
     details: () => rangeExists && handleViewDetails(rng.key),
-    save: () => rangeExists && save.mutate(rng.key),
+    save: () => rangeExists && persist(rng.key),
     link: () =>
       rangeExists &&
       handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
-    addToActivePlot: () => addToActivePlot(key),
-    addToNewPlot: () => addToNewPlot(key),
+    addToActivePlot: () => addToActivePlot([key]),
+    addToNewPlot: () => addToNewPlot([key]),
     addChildRange: handleAddChildRange,
     setAsActive: handleSetActive,
     clearActive: handleClearActive,
@@ -293,14 +248,14 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           {rng.persisted && viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />
-          {rng.persisted && addChildRangeMenuItem}
+          {rng.persisted && createChildRangeMenuItem}
           <PMenu.Divider />
           {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
           {addToNewPlotMenuItem}
           <PMenu.Divider />
           <PMenu.Item itemKey="remove">
             <Icon.Close />
-            Remove from List
+            Remove from Favorites
           </PMenu.Item>
           {rng.persisted ? (
             <>

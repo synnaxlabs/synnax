@@ -1,0 +1,31 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Sequential_Tests",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "example_basic"
+        },
+        {
+          "case": "example_basic",
+          "name": "inject_timeout",
+          "parameters": {
+            "timeout": 2,
+            "wait_time": 5
+          },
+          "expect": "TIMEOUT"
+        },
+        {
+          "case": "example_basic",
+          "name": "inject_failure",
+          "parameters": {
+            "fail_test": true
+          },
+          "expect": "FAILED"
+        }
+      ]
+    }
+  ]
+}

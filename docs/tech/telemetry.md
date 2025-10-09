@@ -4,8 +4,8 @@
 
 The term "telemetry" is thrown around throughout Synnax's product and software design,
 and lies at the core of Synnax's vision for data acquisition and analysis. The purpose
-of this page is to provide a clear definition of what telemetry is in the context of
-the Synnax ecosystem. All concepts discussed here are fundamental to understanding how
+of this page is to provide a clear definition of what telemetry is in the context of the
+Synnax ecosystem. All concepts discussed here are fundamental to understanding how
 Synnax works and delivers value.
 
 # 1 - General Definition
@@ -29,8 +29,7 @@ becomes less meaningful. The following are a few of the common contexts in which
 telemetry is used:
 
 - In **agriculture**, telemetry is characterized by low-frequency readings across vast
-  areas
-  to study the effects of various factors on crop growth.
+  areas to study the effects of various factors on crop growth.
 
 - In **software**, telemetry takes a variety of forms from reading hardware metrics such
   as CPU usage to tracking user behavior and interactions. For example, Synnax uses a
@@ -39,16 +38,14 @@ telemetry is used:
   developing.
 
 - In **aerospace**, telemetry typically represents high-rate data collection from
-  sensors and
-  actuators all over a vehicle. This data is used to monitor the health of the vehicle
-  and control it in real-time. Perhaps one of the best documented examples is the
-  [Space Shuttle's RS-25 engine controller](https://en.wikipedia.org/wiki/RS-25), which
-  was responsible for controlling the Space Shuttle's main engines during flight.
+  sensors and actuators all over a vehicle. This data is used to monitor the health of
+  the vehicle and control it in real-time. Perhaps one of the best documented examples
+  is the [Space Shuttle's RS-25 engine controller](https://en.wikipedia.org/wiki/RS-25),
+  which was responsible for controlling the Space Shuttle's main engines during flight.
 
 Telemetry in Synnax most closely relates to the third definition. While it can be used
-in the first two scenarios, Synnax resembles a test and measurement system
-that is designed to acquire telemetry from sensors and send commands to actuators in
-real-time.
+in the first two scenarios, Synnax resembles a test and measurement system that is
+designed to acquire telemetry from sensors and send commands to actuators in real-time.
 
 # 3 - Fundamental Properties
 
@@ -57,15 +54,14 @@ real-time.
 A sample is the most basic unit of telemetry, and is simply a time-associated value.
 Time-association is done with a timestamp, or number that represents a particular
 duration of time since a fixed epoch. Values, on the other hand, can be almost anything
-that can be represented as binary, whether it be a single number, JSON file, or a
-video frame.
+that can be represented as binary, whether it be a single number, JSON file, or a video
+frame.
 
 ## 3.1 - Read and Write Patterns
 
 The read and write patterns of time-series data are perhaps some of the most predictable
 and constrained in the database world. These patterns allow us to make various
-optimizations
-to increase database performance.
+optimizations to increase database performance.
 
 ### 3.1.0 - Writes
 
@@ -78,17 +74,17 @@ arriving over an extended period of time (most commonly a sensor).
 
 ### 3.1.1 - Reads
 
-Read patterns typically come in one of two flavors. The most common, and simplest is
-a time-range based lookup. These reads often contain a large number of consecutive
+Read patterns typically come in one of two flavors. The most common, and simplest is a
+time-range based lookup. These reads often contain a large number of consecutive
 samples. Range based reads are far more common than point lookups; so much so that the
 Synnax storage engine, Cesium, intentionally sacrifices point lookup performance for
 range lookup performance.
 
-Value filters are the second read flavor. This pattern returns samples that match
-a set of criteria, such as a threshold. While more expensive to execute, this pattern is
-also less common than range based lookups. Despite their relative rarity, these reads
-play an especially important role in queries that look for specific events over long
-periods of time.
+Value filters are the second read flavor. This pattern returns samples that match a set
+of criteria, such as a threshold. While more expensive to execute, this pattern is also
+less common than range based lookups. Despite their relative rarity, these reads play an
+especially important role in queries that look for specific events over long periods of
+time.
 
 ### 3.1.2 - Frequency and Volume
 
@@ -116,9 +112,9 @@ characteristics that we leverage throughout Synnax's design.
 One of the hardest problems in database design is concurrent transaction handling, with
 increasingly complex solutions being developed to handle the problem of writing to the
 same value at the same time. When collecting sensor data, this issue becomes far less
-relevant. It doesn't make physical sense to have two different entities writing
-values for the same sensor at the same time. We leverage this property to simplify
-the way we handle transaction control within Synnax's storage engine.
+relevant. It doesn't make physical sense to have two different entities writing values
+for the same sensor at the same time. We leverage this property to simplify the way we
+handle transaction control within Synnax's storage engine.
 
 ### 4.1.1 - Tightly Constrained Types
 
@@ -131,10 +127,9 @@ memory allocations and perform more efficient storage lookups.
 ### 4.1.1 - Regularity
 
 Unlike software telemetry such as user events, sensor data is typically sampled at a
-fixed or almost-fixed rate. The consistency in time-spacing between samples means we
-can make assumptions about the volumes of data we need to sample, as well as make
-relatively precise time-based lookups without expensive operations such as binary
-searches.
+fixed or almost-fixed rate. The consistency in time-spacing between samples means we can
+make assumptions about the volumes of data we need to sample, as well as make relatively
+precise time-based lookups without expensive operations such as binary searches.
 
 ### 4.1.1 - Batching
 
@@ -172,24 +167,24 @@ real-time, often at rates exceeding several hundred hertz.
 
 Commands can be issued by multiple sources concurrently. For example, an operator can
 issue a manual command while an auto-sequence (programmatic control) is running. In
-order to deal with multi-source writes, we need some way of clearly defining who has
-the authority to issue commands, and how we handle ordering from multiple sources for
-both reads and writes.
+order to deal with multi-source writes, we need some way of clearly defining who has the
+authority to issue commands, and how we handle ordering from multiple sources for both
+reads and writes.
 
 ### 3.2.1 - Highly-Variable Emission Rates
 
 Real-time commands can be issued at arbitrary intervals. In the Diagram control example,
-this isn't the case, and the commands are probably issued at predictable rates.
-However, in the case of a human operator, commands can be issued at any time, and at
-any rate. For writes, this variability means it's more difficult to pre-allocate buffers
-and size caches, and, for reads, lookups become far more expensive.
+this isn't the case, and the commands are probably issued at predictable rates. However,
+in the case of a human operator, commands can be issued at any time, and at any rate.
+For writes, this variability means it's more difficult to pre-allocate buffers and size
+caches, and, for reads, lookups become far more expensive.
 
 ### 3.2.3 - Small Batch Sizes
 
-In most cases, commands for different channels are issued independently or in
-relatively small batches of less than 10 actuators. As a result, timestamp cardinality
-across multiple command channels is very high, and we need to store more timestamps per
-channel than with sensor data.
+In most cases, commands for different channels are issued independently or in relatively
+small batches of less than 10 actuators. As a result, timestamp cardinality across
+multiple command channels is very high, and we need to store more timestamps per channel
+than with sensor data.
 
 ### 3.2.4 - Low Latency and Jitter
 
@@ -214,22 +209,22 @@ latency.
 
 ## 3.3 - Supervisory Commands
 
-Supervisory commands are issued to set the state or parameters of another device;
-this device then uses these parameters to perform real-time control much closer to the
-hardware. Diagram control is also a good example of this. In a supervisory control system,
-a command would be sent over the network containing the P,I, and D parameters for
-operation. Another command is issued to start an embedded Diagram controller, which then
-uses the parameters to perform real-time control independent of Synnax. Another similar
-example involve pushing a configuration file to a flight computer or a calibration sheet
-to a data acquisition device. Supervisory control is as important as its real-time
-counterpart, yet has very different requirements.
+Supervisory commands are issued to set the state or parameters of another device; this
+device then uses these parameters to perform real-time control much closer to the
+hardware. Diagram control is also a good example of this. In a supervisory control
+system, a command would be sent over the network containing the P,I, and D parameters
+for operation. Another command is issued to start an embedded Diagram controller, which
+then uses the parameters to perform real-time control independent of Synnax. Another
+similar example involve pushing a configuration file to a flight computer or a
+calibration sheet to a data acquisition device. Supervisory control is as important as
+its real-time counterpart, yet has very different requirements.
 
 ### 3.3.0 - Low, Highly Variables Frequencies
 
 Supervisory commands are issued at a much lower, far more variable frequencies than
 real-time commands, and these channels have much lower sample counts than other
-telemetry variants. Although we can't make the transportation pipeline as efficient
-for these channels, we don't really need to.
+telemetry variants. Although we can't make the transportation pipeline as efficient for
+these channels, we don't really need to.
 
 ### 3.3.1 - Large, Variably Sized Data Types
 
@@ -250,11 +245,11 @@ jitter.
 
 ## 3.4 - Software Signals
 
-Software signals are used to track and listen to the state of the Synnax cluster.
-An example of such an event would be the creation of a new channel, the commitment
-of a new range, or the deletion of a channel. By allowing our users to listen to these
-events as pseudo software-sensors, we enable a truly dynamic system for interacting with
-a Synnax cluster.
+Software signals are used to track and listen to the state of the Synnax cluster. An
+example of such an event would be the creation of a new channel, the commitment of a new
+range, or the deletion of a channel. By allowing our users to listen to these events as
+pseudo software-sensors, we enable a truly dynamic system for interacting with a Synnax
+cluster.
 
 For example, if we have a new channel that emits a value whenever a new range is labeled
 as "Tank Pressurization", we can notify automated post-processing systems that perform
@@ -279,10 +274,10 @@ As with supervisory commands, software signals can have arbitrary payloads.
 
 ### 3.4.3 - Persistence Requirements
 
-One of the simplifying properties of software signals is that they are emergent, and
-are typically triggered by some command or sensor value. These emergent events aren't
-useful to query in hindsight, and, as a result, most software signals are completely
-virtual and don't need to be persisted to disk.
+One of the simplifying properties of software signals is that they are emergent, and are
+typically triggered by some command or sensor value. These emergent events aren't useful
+to query in hindsight, and, as a result, most software signals are completely virtual
+and don't need to be persisted to disk.
 
 ## 3.5 - Summary
 

@@ -169,7 +169,7 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialParams: { keys } }), {
+      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
         wrapper,
       });
       act(() => {
@@ -322,7 +322,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -351,7 +351,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -374,7 +374,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
       });
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -393,7 +393,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -435,7 +435,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -469,7 +469,7 @@ describe("queries", () => {
         { parent: parentRange.ontologyID },
       );
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -511,7 +511,7 @@ describe("queries", () => {
       );
 
       // Test grandparent's children
-      const { result: grandparentResult } = renderHook(() => Ranger.useChildren(), {
+      const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -525,7 +525,7 @@ describe("queries", () => {
       expect(grandparentResult.current.data).not.toContain(childRange.key);
 
       // Test parent's children
-      const { result: parentResult } = renderHook(() => Ranger.useChildren(), {
+      const { result: parentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -558,7 +558,7 @@ describe("queries", () => {
         children.push(child);
       }
 
-      const { result } = renderHook(() => Ranger.useChildren(), {
+      const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
       act(() => {
@@ -577,7 +577,7 @@ describe("queries", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -608,7 +608,7 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -633,7 +633,7 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -660,7 +660,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: existingRange.key } }),
+        () => Ranger.useForm({ query: { key: existingRange.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -697,10 +697,12 @@ describe("queries", () => {
         timeRange,
       });
 
-      await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      await act(async () => {
+        await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      });
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: existingRange.key } }),
+        () => Ranger.useForm({ query: { key: existingRange.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -725,7 +727,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: childRange.key } }),
+        () => Ranger.useForm({ query: { key: childRange.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -742,7 +744,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: testRange.key } }),
+        () => Ranger.useForm({ query: { key: testRange.key } }),
         { wrapper },
       );
       await waitFor(() => {
@@ -765,7 +767,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: testRange.key } }),
+        () => Ranger.useForm({ query: { key: testRange.key } }),
         { wrapper },
       );
       await waitFor(() => {
@@ -810,20 +812,22 @@ describe("queries", () => {
       await client.labels.label(testRange.ontologyID, [label1.key, label2.key]);
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: testRange.key } }),
+        () => Ranger.useForm({ query: { key: testRange.key } }),
         { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
+        const labels = result.current.form.value().labels;
+        expect(labels).toContain(label1.key);
+        expect(labels).toContain(label2.key);
       });
-      expect(result.current.form.value().labels).toContain(label1.key);
-      expect(result.current.form.value().labels).toContain(label2.key);
 
       await client.labels.remove(testRange.ontologyID, [label1.key]);
 
       await waitFor(() => {
-        expect(result.current.form.value().labels).not.toContain(label1.key);
-        expect(result.current.form.value().labels).toContain(label2.key);
+        const labels = result.current.form.value().labels;
+        expect(labels).not.toContain(label1.key);
+        expect(labels).toContain(label2.key);
       });
     });
 
@@ -845,7 +849,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: childRange.key } }),
+        () => Ranger.useForm({ query: { key: childRange.key } }),
         { wrapper },
       );
       await waitFor(() => {
@@ -865,7 +869,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -887,7 +891,7 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -914,7 +918,7 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
@@ -951,7 +955,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 

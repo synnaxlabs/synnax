@@ -56,11 +56,13 @@ type (
 func (o *OntologyService) Retrieve(
 	ctx context.Context,
 	req OntologyRetrieveRequest,
-) (res OntologyRetrieveResponse, err error) {
-	res.Resources = []ontology.Resource{}
+) (OntologyRetrieveResponse, error) {
 	if req.SearchTerm != "" {
-		res.Resources, err = o.Ontology.Search(ctx, search.Request{Term: req.SearchTerm})
-		return
+		resources, err := o.Ontology.Search(ctx, search.Request{Term: req.SearchTerm})
+		if err != nil {
+			return OntologyRetrieveResponse{}, err
+		}
+		return OntologyRetrieveResponse{Resources: resources}, nil
 	}
 	q := o.Ontology.NewRetrieve()
 	if len(req.IDs) > 0 {
@@ -75,23 +77,25 @@ func (o *OntologyService) Retrieve(
 	if len(req.Types) > 0 {
 		q = q.WhereTypes(req.Types...)
 	}
+	q.ExcludeFieldData(req.ExcludeFieldData)
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err = q.Entries(&res.Resources).Exec(ctx, nil); err != nil {
+	var resources []ontology.Resource
+	if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
-	if err = o.access.Enforce(ctx, access.Request{
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: ontology.ResourceIDs(res.Resources),
+		Objects: ontology.IDs(resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
-	return res, err
+	return OntologyRetrieveResponse{Resources: resources}, nil
 }
 
 type (

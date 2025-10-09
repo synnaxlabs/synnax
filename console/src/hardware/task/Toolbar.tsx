@@ -9,10 +9,11 @@
 
 import "@/hardware/task/Toolbar.css";
 
-import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
+import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
+  type Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -23,8 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -47,114 +47,106 @@ const EmptyContent = () => {
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
     <EmptyAction
-      message="No existing tasks"
+      message="No existing tasks."
       action="Create a task"
       onClick={handleClick}
     />
   );
 };
 
-interface RenameArgs {
-  name: string;
-  key: task.Key;
-}
+const INITIAL_QUERY: Task.ListQuery = {
+  internal: false,
+  snapshot: false,
+};
 
-interface StartStopArgs {
-  command: Common.Task.Command;
-  keys: task.Key[];
-}
-
-const filterExternal = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) => !task.internal && !task.snapshot;
 
 const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const { data, getItem, subscribe, retrieve } = Task.useList({
-    filter: filterExternal,
+    initialQuery: INITIAL_QUERY,
+    filter,
   });
-  const { fetchMore } = List.usePager({ retrieve });
+  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const rename = useMutation({
-    onMutate: ({ key }) => getItem(key)?.name ?? "task",
-    mutationFn: async ({ name, key }: RenameArgs) => {
-      const tsk = getItem(key);
-      if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-      if (tsk.status?.details.running === true) {
+  const { update: rename } = Task.useRename({
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
+        const { key, name } = data;
+        const tsk = getItem(key);
+        if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
+        const oldName = tsk.name;
+        if (tsk.status?.details.running === true) {
+          const confirmed = await confirm({
+            message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
+            description: `This will cause ${tsk.name} to stop and be reconfigured.`,
+            cancel: { label: "Cancel" },
+            confirm: { label: "Rename", variant: "error" },
+          });
+          if (!confirmed) return false;
+        }
+        dispatch(Layout.rename({ key, name }));
+        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
+        return data;
+      },
+      [],
+    ),
+  });
+
+  const { update: handleDelete } = Task.useDelete({
+    beforeUpdate: useCallback(
+      async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
+        setSelected([]);
+        if (keys.length === 0) return false;
+        const names = strings.naturalLanguageJoin(
+          getItem(array.toArray(keys)).map(({ name }) => name),
+          "tasks",
+        );
         const confirmed = await confirm({
-          message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
-          description: `This will cause ${tsk.name} to stop and be reconfigured.`,
+          message: `Are you sure you want to delete ${names}?`,
+          description: "This action cannot be undone.",
           cancel: { label: "Cancel" },
-          confirm: { label: "Rename", variant: "error" },
+          confirm: { label: "Delete", variant: "error" },
         });
-        if (!confirmed) return;
-      }
-      dispatch(Layout.rename({ key, name }));
-      if (client == null) throw new DisconnectedError();
-      await client.hardware.tasks.create({ ...tsk, name });
-    },
-    onError: (e, { name }, oldName) => {
-      handleError(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
-    },
-  }).mutate;
+        if (!confirmed) return false;
+        dispatch(Layout.remove({ keys: array.toArray(keys) }));
+        return keys;
+      },
+      [client, dispatch, getItem],
+    ),
+    afterFailure: ({ status }) => addStatus(status),
+  });
 
-  const handleDelete = useMutation({
-    mutationFn: async (keys: string[]) => {
-      setSelected([]);
-      if (keys.length === 0) return;
-      if (client == null) throw new DisconnectedError();
-      const names = strings.naturalLanguageJoin(
-        getItem(keys).map(({ name }) => name),
-        "tasks",
-      );
-      const confirmed = await confirm({
-        message: `Are you sure you want to delete ${names}?`,
-        description: "This action cannot be undone.",
-        cancel: { label: "Cancel" },
-        confirm: { label: "Delete", variant: "error" },
-      });
-      if (!confirmed) return;
-      await client.hardware.tasks.delete(keys);
-      dispatch(Layout.remove({ keys }));
-    },
-    onError: (e) => {
-      if (errors.Canceled.matches(e)) return;
-      handleError(e, "Failed to delete tasks");
-    },
-  }).mutate;
+  const handleCommandStatus = useCallback(
+    ({ data: statuses }: Flux.AfterSuccessParams<task.Status[]>) =>
+      statuses.forEach((status) => addStatus(status)),
+    [addStatus],
+  );
 
-  const startOrStop = useMutation({
-    mutationFn: async ({ command, keys }: StartStopArgs) => {
-      if (client == null) throw new DisconnectedError();
-      const filteredKeys = keys.filter((k) => {
-        const status = getItem(k)?.status;
-        if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
-        return Common.Task.shouldExecuteCommand(status, command);
-      });
-      const commands: task.NewCommand[] = filteredKeys.map((k) => ({
-        task: k,
-        type: command,
-      }));
-      const statuses = await client.hardware.tasks.executeCommandSync(
-        commands,
-        TimeSpan.fromSeconds(10),
-      );
-      statuses.forEach((s) => addStatus({ ...s, time: TimeStamp.now() }));
-    },
-    onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
-  }).mutate;
+  const { update: runCommand } = Task.useCommand({
+    afterSuccess: handleCommandStatus,
+    afterFailure: useCallback(
+      ({ status }: Flux.AfterFailureParams<Task.CommandParams>) => addStatus(status),
+      [addStatus],
+    ),
+  });
+  const handleCommand = useCallback(
+    (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
+    [runCommand],
+  );
   const handleStart = useCallback(
-    (keys: string[]) => startOrStop({ command: "start", keys }),
-    [startOrStop],
+    (keys: string[]) => handleCommand(keys, "start"),
+    [handleCommand],
   );
   const handleStop = useCallback(
-    (keys: string[]) => startOrStop({ command: "stop", keys }),
-    [startOrStop],
+    (keys: string[]) => handleCommand(keys, "stop"),
+    [handleCommand],
   );
   const handleEdit = useCallback(
     (key: task.Key) => {
@@ -184,9 +176,8 @@ const Content = () => {
     [handleDelete, handleStart, handleStop],
   );
   const handleListItemStopStart = useCallback(
-    (command: Common.Task.Command, key: task.Key) =>
-      startOrStop({ command, keys: [key] }),
-    [startOrStop],
+    (command: Common.Task.Command, key: task.Key) => handleCommand([key], command),
+    [handleCommand],
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
@@ -354,9 +345,9 @@ const ContextMenu = ({
       export: () => handleExport(keys[0]),
       delete: () => onDelete(keys),
       rangeSnapshot: () =>
-        snapshotToActiveRange(
-          selectedTasks.map(({ name, ontologyID }) => ({ id: ontologyID, name })),
-        ),
+        snapshotToActiveRange({
+          tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({ key, name })),
+        }),
     }),
     [
       onStart,

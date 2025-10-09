@@ -11,7 +11,6 @@ import { migrate } from "@synnaxlabs/x";
 
 import * as v0 from "@/range/types/v0";
 
-export type TimeRange = v0.TimeRange;
 export type StaticRange = v0.StaticRange;
 export type DynamicRange = v0.DynamicRange;
 export type Range = v0.Range;

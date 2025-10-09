@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type Store, type UnknownAction } from "@reduxjs/toolkit";
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 
 import { type Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -16,7 +16,7 @@ import { type RootState } from "@/store";
 // Links have the form synnax://cluster/<cluster-key> for a cluster or
 // synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource
 
-export const PREFIX = `synnax://${ontology.CLUSTER_TYPE}/`;
+export const PREFIX = `synnax://cluster/`;
 
 export interface ClusterHandlerArgs {
   store: Store<RootState>;

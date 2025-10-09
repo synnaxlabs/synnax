@@ -616,6 +616,94 @@ export const ValueForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
+const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
+  min: 1,
+  max: 50,
+  step: 1,
+  bounds: { lower: 1, upper: 50 },
+  endContent: "px",
+  dragScale: { x: 0.1, y: 0.1 },
+};
+
+const MIN_VALUE_INPUT_PROPS: Partial<Input.NumericProps> = {
+  step: 10,
+};
+
+const MAX_VALUE_INPUT_PROPS: Partial<Input.NumericProps> = {
+  step: 10,
+};
+
+const handleLevelChange = (v: Text.Level, { set }: Form.ContextValue): void => {
+  if (v === "small") set("barWidth", 4);
+  else if (v === "h5") set("barWidth", 8);
+  else set("barWidth", 10);
+};
+
+export const GaugeForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "telemetry":
+        return (
+          <FormWrapper y empty>
+            <Value.TelemForm path="" />
+          </FormWrapper>
+        );
+      default:
+        return (
+          <FormWrapper x>
+            <Flex.Box y grow>
+              <LabelControls path="label" />
+              <Flex.Box x>
+                <ColorControl path="color" />
+                <Form.TextField
+                  path="units"
+                  label="Units"
+                  align="start"
+                  padHelpText={false}
+                />
+                <Form.NumericField
+                  path="bounds.lower"
+                  label="Min Value"
+                  hideIfNull
+                  inputProps={MIN_VALUE_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path="bounds.upper"
+                  label="Max Value"
+                  hideIfNull
+                  inputProps={MAX_VALUE_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path="barWidth"
+                  label="Bar Width"
+                  hideIfNull
+                  inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+                />
+                <Form.Field<Text.Level>
+                  path="level"
+                  label="Size"
+                  hideIfNull
+                  padHelpText={false}
+                  onChange={handleLevelChange}
+                >
+                  {({ value, onChange }) => (
+                    <Select.Text.Level value={value} onChange={onChange} />
+                  )}
+                </Form.Field>
+              </Flex.Box>
+            </Flex.Box>
+          </FormWrapper>
+        );
+    }
+  }, []);
+  const tabs: Tabs.Spec[] = [
+    { tabKey: "properties", name: "Properties" },
+    { tabKey: "telemetry", name: "Telemetry" },
+  ];
+  const props = Tabs.useStatic({ tabs, content });
+  return <Tabs.Tabs {...props} />;
+};
+
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
@@ -915,7 +1003,7 @@ export const TextBoxForm = (): ReactElement => {
                 <Button.Button
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
-                  variant="text"
+                  variant="outlined"
                   style={{ borderLeft: "var(--pluto-border-l5)" }}
                   tooltip={
                     autoFit?.value === true

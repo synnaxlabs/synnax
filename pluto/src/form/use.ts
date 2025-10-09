@@ -20,7 +20,7 @@ import {
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 
 export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
@@ -69,7 +69,7 @@ export const use = <Z extends z.ZodType>({
   );
 
   const get: typeof State.prototype.getState = useCallback(
-    <V = unknown,>(path: string, opts?: GetOptions<V>): FieldState<V> | null =>
+    <V = unknown>(path: string, opts?: GetOptions<V>): FieldState<V> | null =>
       ref.current.getState(path, opts),
     [],
   ) as typeof State.prototype.getState;

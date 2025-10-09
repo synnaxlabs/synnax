@@ -49,7 +49,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             }}
             trigger={Triggers.SAVE}
           >
-            Create
+            Save
           </Button.Button>
         </Nav.Bar.End>
       </>

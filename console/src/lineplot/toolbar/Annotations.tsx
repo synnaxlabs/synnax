@@ -37,7 +37,7 @@ const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   <EmptyAction
     x
     message="No annotations added."
-    action="Create a new one."
+    action="Create an annotation"
     onClick={onCreateRule}
   />
 );

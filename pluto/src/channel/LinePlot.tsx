@@ -19,12 +19,12 @@ import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
+import { LinePlot as Core } from "@/lineplot";
+import { Range } from "@/lineplot/range";
+import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
-import { LinePlot as Core } from "@/vis/lineplot";
-import { Range } from "@/vis/lineplot/range";
-import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
 
@@ -90,7 +90,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
-  rangeAnnotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -120,7 +120,7 @@ export const LinePlot = ({
   legendVariant,
   onViewportChange,
   viewportTriggers,
-  rangeAnnotationProvider: annotationProvider,
+  rangeProviderProps,
   onSelectRule,
   children,
   ...rest
@@ -153,7 +153,7 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
-            annotationProvider={annotationProvider}
+            rangeProviderProps={rangeProviderProps}
             onRuleChange={onRuleChange}
             onSelectRule={onSelectRule}
           />
@@ -197,7 +197,7 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
-  annotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
 }
 
 const XAxis = ({
@@ -210,7 +210,7 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
-  annotationProvider,
+  rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -270,7 +270,7 @@ const XAxis = ({
           onSelect={() => onSelectRule?.(rule.key)}
         />
       ))}
-      <Range.Provider {...annotationProvider} />
+      <Range.Provider {...rangeProviderProps} />
     </Core.XAxis>
   );
 };

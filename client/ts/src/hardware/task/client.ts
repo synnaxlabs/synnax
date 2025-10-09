@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { caseconv, id, strings } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
+import { array, caseconv, id, type record, strings } from "@synnaxlabs/x";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -29,7 +28,6 @@ import {
 import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const STATUS_CHANNEL_NAME = "sy_task_status";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
@@ -43,6 +41,29 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
   if (parents.length === 0) return null;
   return parents[0];
 };
+
+export interface TaskExecuteCommandParams {
+  type: string;
+  args?: record.Unknown;
+}
+
+export interface ExecuteCommandParams extends TaskExecuteCommandParams {
+  task: Key;
+}
+
+export interface ExecuteCommandsParams {
+  commands: NewCommand[];
+}
+
+export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
+  timeout?: CrudeTimeSpan;
+}
+
+export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType>
+  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "frameClient" | "name"> {}
+
+export interface ExecuteCommandSyncParams<StatusData extends z.ZodType>
+  extends Omit<ExecuteCommandSyncInternalParams<StatusData>, "frameClient" | "name"> {}
 
 export class Task<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -124,24 +145,24 @@ export class Task<
     return ontologyID(this.key);
   }
 
-  async executeCommand(type: string, args?: {}): Promise<string> {
-    return await executeCommand(this.frameClient, this.key, type, args);
+  async executeCommand(params: TaskExecuteCommandParams): Promise<string> {
+    return await executeCommand({
+      ...params,
+      frameClient: this.frameClient,
+      task: this.key,
+    });
   }
 
   async executeCommandSync(
-    type: string,
-    timeout: CrudeTimeSpan,
-    args?: {},
+    params: TaskExecuteCommandSyncParams,
   ): Promise<Status<StatusData>> {
-    return await executeCommandSync<StatusData>(
-      this.frameClient,
-      this.key,
-      type,
-      timeout,
-      this.name,
-      this.schemas?.statusDataSchema,
-      args,
-    );
+    return await executeCommandSync<StatusData>({
+      ...params,
+      frameClient: this.frameClient,
+      task: this.key,
+      name: this.name,
+      statusDataZ: this.schemas?.statusDataSchema,
+    });
   }
 
   async snapshottedTo(): Promise<ontology.Resource | null> {
@@ -158,6 +179,9 @@ const retrieveReqZ = z.object({
   names: z.string().array().optional(),
   types: z.string().array().optional(),
   includeStatus: z.boolean().optional(),
+  internal: z.boolean().optional(),
+  snapshot: z.boolean().optional(),
+  searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
@@ -169,11 +193,17 @@ const singleRetrieveArgsZ = z.union([
   z
     .object({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+  z
+    .object({
+      type: z.string(),
+      rack: rackKeyZ.optional(),
+    })
+    .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 
 const multiRetrieveArgsZ = retrieveReqZ;
-export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
 
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
@@ -194,7 +224,7 @@ const retrieveResZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   z.object({
-    tasks: nullableArrayZ(taskZ(schemas)),
+    tasks: array.nullableZ(taskZ(schemas)),
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -309,17 +339,17 @@ export class Client {
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >(
-    args: SingleRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
+    args: RetrieveSingleParams & RetrieveSchemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>>;
-  async retrieve(args: SingleRetrieveArgs): Promise<Task>;
+  async retrieve(args: RetrieveSingleParams): Promise<Task>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >(
-    args: MultiRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
+    args: RetrieveMultipleParams & RetrieveSchemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>[]>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Task[]>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
@@ -330,7 +360,7 @@ export class Client {
   }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
-    const isSingle = "key" in args || "name" in args;
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -409,79 +439,72 @@ export class Client {
     return isSingle ? res[0] : res;
   }
 
-  async executeCommand(task: Key, type: string, args?: {}): Promise<string>;
+  async executeCommand(params: ExecuteCommandParams): Promise<string>;
 
-  async executeCommand(commands: NewCommand[]): Promise<string[]>;
+  async executeCommand(params: ExecuteCommandsParams): Promise<string[]>;
 
   async executeCommand(
-    task: Key | NewCommand[],
-    type?: string,
-    args?: {},
+    params: ExecuteCommandParams | ExecuteCommandsParams,
   ): Promise<string | string[]> {
-    if (Array.isArray(task)) return await executeCommands(this.frameClient, task);
-    if (type == null) throw new Error("Type is required");
-    return await executeCommand(this.frameClient, task, type, args);
+    if ("commands" in params)
+      return await executeCommands({ ...params, frameClient: this.frameClient });
+    return await executeCommand({ ...params, frameClient: this.frameClient });
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    task: Key,
-    type: string,
-    timeout: CrudeTimeSpan,
-    args?: {},
-    name?: string,
-    statusDataZ?: StatusData,
-  ): Promise<Status<StatusData>>;
-  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    commands: NewCommand[],
-    timeout: CrudeTimeSpan,
-    statusDataZ?: StatusData,
+    parms: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    task: Key | NewCommand[],
-    type: string | CrudeTimeSpan,
-    timeout?: CrudeTimeSpan | StatusData,
-    args?: {},
-    name?: string,
-    statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+    parms: ExecuteCommandSyncParams<StatusData>,
+  ): Promise<Status<StatusData>>;
+
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+    params:
+      | ExecuteCommandsSyncParams<StatusData>
+      | ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData> | Status<StatusData>[]> {
-    if (Array.isArray(task)) {
+    if ("commands" in params) {
       const retrieveNames = async () => {
-        const ts = await this.retrieve({ keys: task.map((t) => t.task) });
+        const { commands } = params;
+        const ts = await this.retrieve({ keys: commands.map((t) => t.task) });
         return ts.map((t) => t.name);
       };
-      return await executeCommandsSync(
-        this.frameClient,
-        task,
-        type as CrudeTimeSpan,
-        statusDataZ,
-        retrieveNames,
-      );
+      return await executeCommandsSync({
+        ...params,
+        frameClient: this.frameClient,
+        name: retrieveNames,
+      });
     }
     const retrieveName = async () => {
+      const { task } = params;
       const t = await this.retrieve({ key: task });
       return t.name;
     };
-    return await executeCommandSync(
-      this.frameClient,
-      task,
-      type as string,
-      timeout as CrudeTimeSpan,
-      name ?? retrieveName,
-      statusDataZ,
-      args,
-    );
+    return await executeCommandSync({
+      frameClient: this.frameClient,
+      name: retrieveName,
+      ...params,
+    });
   }
 }
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
 
-const executeCommand = async (
-  frameClient: framer.Client | null,
-  task: Key,
-  type: string,
-  args?: {},
-): Promise<string> => (await executeCommands(frameClient, [{ args, task, type }]))[0];
+interface ExecuteCommandInternalParams {
+  frameClient: framer.Client | null;
+  task: Key;
+  type: string;
+  args?: {};
+}
+
+const executeCommand = async ({
+  frameClient,
+  task,
+  type,
+  args,
+}: ExecuteCommandInternalParams): Promise<string> =>
+  (await executeCommands({ frameClient, commands: [{ args, task, type }] }))[0];
 
 export interface NewCommand {
   task: Key;
@@ -489,10 +512,15 @@ export interface NewCommand {
   args?: {};
 }
 
-const executeCommands = async (
-  frameClient: framer.Client | null,
-  commands: NewCommand[],
-): Promise<string[]> => {
+interface ExecuteCommandsInternalParams {
+  frameClient: framer.Client | null;
+  commands: NewCommand[];
+}
+
+const executeCommands = async ({
+  frameClient,
+  commands,
+}: ExecuteCommandsInternalParams): Promise<string[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
   const cmds = commands.map((c) => ({ ...c, key: id.create() }));
@@ -501,35 +529,49 @@ const executeCommands = async (
   return cmds.map((c) => c.key);
 };
 
-const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
-  frameClient: framer.Client | null,
-  task: Key,
-  type: string,
-  timeout: CrudeTimeSpan,
-  tskName: string | (() => Promise<string>),
-  statusDataZ: StatusData,
-  args?: {},
-): Promise<Status<StatusData>> =>
+interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
+  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
+    TaskExecuteCommandSyncParams {
+  task: Key;
+}
+
+const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
+  frameClient,
+  task,
+  type,
+  timeout,
+  name: taskName,
+  statusDataZ,
+  args,
+}: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
-    await executeCommandsSync(
+    await executeCommandsSync({
       frameClient,
-      [{ args, task, type }],
+      commands: [{ args, task, type }],
       timeout,
       statusDataZ,
-      tskName,
-    )
+      name: taskName,
+    })
   )[0];
 
-const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
-  frameClient: framer.Client | null,
-  commands: NewCommand[],
-  timeout: CrudeTimeSpan,
-  statusDataZ: StatusData,
-  tskName: string | string[] | (() => Promise<string | string[]>),
-): Promise<Status<StatusData>[]> => {
+interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodType> {
+  frameClient: framer.Client | null;
+  commands: NewCommand[];
+  timeout?: CrudeTimeSpan;
+  statusDataZ: StatusData;
+  name: string | string[] | (() => Promise<string | string[]>);
+}
+
+const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
+  frameClient,
+  commands,
+  timeout = TimeSpan.seconds(10),
+  statusDataZ,
+  name: taskName,
+}: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
   const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
-  const cmdKeys = await executeCommands(frameClient, commands);
+  const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
   let states: Status<StatusData>[] = [];
   let timeoutID: NodeJS.Timeout | undefined;
@@ -537,7 +579,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
     timeoutID = setTimeout(() => {
       void (async () => {
         const taskKeys = commands.map((c) => c.task);
-        reject(await formatTimeoutError("command", tskName, parsedTimeout, taskKeys));
+        reject(await formatTimeoutError("command", taskName, parsedTimeout, taskKeys));
       })();
     }, parsedTimeout.milliseconds);
   });

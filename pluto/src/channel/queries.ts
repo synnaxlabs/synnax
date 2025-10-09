@@ -7,38 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, ranger } from "@synnaxlabs/client";
-import { deep, type Optional, primitive } from "@synnaxlabs/x";
+import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
+import { array, deep, type Optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { type Group } from "@/group";
+import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "channels";
+const RESOURCE_NAME = "Channel";
+const PLURAL_RESOURCE_NAME = "Channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
-interface SubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-const SET_CHANNEL_LISTENER: Flux.ChannelListener<SubStore, typeof channel.keyZ> = {
+const SET_CHANNEL_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof channel.payloadZ
+> = {
   channel: channel.SET_CHANNEL_NAME,
-  schema: channel.keyZ,
+  schema: channel.payloadZ,
   onChange: async ({ store, changed, client }) =>
-    store.channels.set(changed, await client.channels.retrieve(changed)),
+    store.channels.set(client.channels.sugar(changed)),
 };
 
-const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<SubStore, typeof channel.keyZ> = {
-  channel: channel.DELETE_CHANNEL_NAME,
-  schema: channel.keyZ,
-  onChange: ({ store, changed }) => store.channels.delete(changed),
-};
+const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> =
+  {
+    channel: channel.DELETE_CHANNEL_NAME,
+    schema: channel.keyZ,
+    onChange: ({ store, changed }) => store.channels.delete(changed),
+  };
 
 const CALCULATION_STATUS_LISTENER: Flux.ChannelListener<
-  SubStore,
+  FluxSubStore,
   typeof channel.statusZ
 > = {
   channel: channel.CALCULATION_STATUS_CHANNEL_NAME,
@@ -53,7 +65,7 @@ const CALCULATION_STATUS_LISTENER: Flux.ChannelListener<
 export const useListenForCalculationStatus = (
   onChange: (status: channel.Status) => void,
 ): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = Flux.useStore<FluxSubStore>();
   useEffect(
     () =>
       store.channels.onSet((ch) => {
@@ -65,7 +77,7 @@ export const useListenForCalculationStatus = (
 };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  SubStore,
+  FluxSubStore,
   channel.Key,
   channel.Channel
 > = {
@@ -89,7 +101,7 @@ export const formSchema = channel.newZ
       path: ["dataType"],
     },
   )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
     message: "Data channel must have an index",
     path: ["index"],
   })
@@ -99,7 +111,7 @@ export const formSchema = channel.newZ
   });
 
 export const calculatedFormSchema = formSchema
-  .extend({
+  .safeExtend({
     expression: z
       .string()
       .min(1, "Expression must not be empty")
@@ -117,7 +129,7 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface RetrieveArgs {
+export interface RetrieveQuery {
   key: channel.Key;
   rangeKey?: ranger.Key;
 }
@@ -137,11 +149,11 @@ export const ZERO_FORM_VALUES: z.infer<
   requires: [],
 };
 
-const retrieveSingleFn = async ({
+const retrieveSingle = async ({
   client,
-  params: { key, rangeKey },
+  query: { key, rangeKey },
   store,
-}: Flux.RetrieveArgs<RetrieveArgs, SubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   let ch = store.channels.get(key);
   if (ch == null) {
     ch = await client.channels.retrieve(key);
@@ -150,24 +162,21 @@ const retrieveSingleFn = async ({
   if (rangeKey != null) {
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
-    if (alias == null)
-      try {
-        const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
-        alias = { alias: aliasName, channel: ch.key, range: rangeKey };
-      } finally {
-        store.rangeAliases.set(aliasKey, { channel: ch.key, range: rangeKey });
-      }
-
+    if (alias == null) {
+      const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
+      alias = { alias: aliasName, channel: ch.key, range: rangeKey };
+      store.rangeAliases.set(aliasKey, alias);
+    }
     if (alias != null) ch.alias = alias.alias;
   }
   return ch;
 };
 
-const retrieveManyFn = async ({
+const retrieveMultiple = async ({
   client,
-  params: { keys, rangeKey },
+  query: { keys, rangeKey },
   store,
-}: Flux.RetrieveArgs<RetrieveManyArgs, SubStore>) => {
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>) => {
   const channels = store.channels.get(keys);
   const existingKeys = new Set(channels?.map((ch) => ch.key));
   const missingKeys = keys.filter((key) => !existingKeys.has(key));
@@ -205,60 +214,66 @@ const retrieveManyFn = async ({
   return channels;
 };
 
-const formRetrieveFn = async ({
-  params: { key, rangeKey },
+const retrieveInitialFormValues = async ({
+  query: { key, rangeKey },
   store,
   client,
   reset,
-}: Flux.FormRetrieveArgs<
-  FormRetrieveArgs,
+}: Flux.FormRetrieveParams<
+  FormQuery,
   typeof formSchema | typeof calculatedFormSchema,
-  SubStore
+  FluxSubStore
 >) => {
   if (key == null) return undefined;
-  const res = await retrieveSingleFn({ client, store, params: { key, rangeKey } });
+  const res = await retrieveSingle({ client, store, query: { key, rangeKey } });
   reset(channelToFormValues(res));
 };
 
-export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>({
-  name: "Channel",
-  retrieve: retrieveSingleFn,
-  mountListeners: ({ store, onChange, params: { key, rangeKey }, client }) => {
-    const ch = store.channels.onSet((channel) => {
-      if (rangeKey != null) {
-        const alias = store.rangeAliases.get(
-          ranger.aliasKey({ range: rangeKey, channel: key }),
+export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
+  Flux.createRetrieve<RetrieveQuery, channel.Channel, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, onChange, query: { key, rangeKey }, client }) => {
+      const ch = store.channels.onSet((channel) => {
+        if (rangeKey != null) {
+          const alias = store.rangeAliases.get(
+            ranger.aliasKey({ range: rangeKey, channel: key }),
+          );
+          if (alias != null) channel.alias = alias.alias;
+        }
+        onChange(channel);
+      }, key);
+      if (rangeKey == null) return ch;
+      const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
+      const onSetAlias = store.rangeAliases.onSet((alias) => {
+        if (alias == null) return;
+        onChange(
+          state.skipNull((p) => client.channels.sugar({ ...p, alias: alias.alias })),
         );
-        if (alias != null) channel.alias = alias.alias;
-      }
-      onChange(channel);
-    }, key);
-    if (rangeKey == null) return ch;
-    const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
-    const onSetAlias = store.rangeAliases.onSet((alias) => {
-      if (alias == null) return;
-      onChange((p) => client.channels.sugar({ ...p, alias: alias.alias }));
-    }, aliasKey);
-    const onDeleteAlias = store.rangeAliases.onDelete(
-      () => onChange((p) => client.channels.sugar({ ...p, alias: undefined })),
-      aliasKey,
-    );
-    return [ch, onSetAlias, onDeleteAlias];
-  },
-});
+      }, aliasKey);
+      const onDeleteAlias = store.rangeAliases.onDelete(
+        () =>
+          onChange(
+            state.skipNull((p) => client.channels.sugar({ ...p, alias: undefined })),
+          ),
+        aliasKey,
+      );
+      return [ch, onSetAlias, onDeleteAlias];
+    },
+  });
 
-export interface RetrieveManyArgs extends channel.RetrieveOptions {
+export interface RetrieveMultipleQuery extends channel.RetrieveOptions {
   keys: channel.Keys;
 }
 
-export const retrieveMany = Flux.createRetrieve<
-  RetrieveManyArgs,
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
   channel.Channel[],
-  SubStore
+  FluxSubStore
 >({
-  name: "Channels",
-  retrieve: retrieveManyFn,
-  mountListeners: ({ store, onChange, params: { keys, rangeKey }, client }) => {
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: retrieveMultiple,
+  mountListeners: ({ store, onChange, query: { keys, rangeKey }, client }) => {
     const keysSet = new Set(keys);
     const ch = store.channels.onSet(async (channel) => {
       if (!keysSet.has(channel.key)) return;
@@ -276,26 +291,32 @@ export const retrieveMany = Flux.createRetrieve<
 
         if (alias != null) channel.alias = alias.alias;
       }
-      onChange((p) => p.map((ch) => (ch.key === channel.key ? channel : ch)));
+      onChange(
+        state.skipNull((p) => p.map((ch) => (ch.key === channel.key ? channel : ch))),
+      );
     });
     if (rangeKey == null) return ch;
     const onSetAlias = store.rangeAliases.onSet((alias) => {
       if (alias == null) return;
-      onChange((p) =>
-        p.map((ch) =>
-          ch.key === alias.channel
-            ? client.channels.sugar({ ...ch, alias: alias.alias })
-            : ch,
+      onChange(
+        state.skipNull((p) =>
+          p.map((ch) =>
+            ch.key === alias.channel
+              ? client.channels.sugar({ ...ch, alias: alias.alias })
+              : ch,
+          ),
         ),
       );
     });
     const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
       const decoded = ranger.decodeDeleteAliasChange(aliasKey);
-      onChange((p) =>
-        p.map((ch) =>
-          ch.key === decoded.channel
-            ? client.channels.sugar({ ...ch, alias: undefined })
-            : ch,
+      onChange(
+        state.skipNull((p) =>
+          p.map((ch) =>
+            ch.key === decoded.channel
+              ? client.channels.sugar({ ...ch, alias: undefined })
+              : ch,
+          ),
         ),
       );
     });
@@ -308,22 +329,21 @@ const updateForm = async ({
   store,
   set,
   value,
-}: Flux.FormUpdateArgs<
-  FormRetrieveArgs,
+}: Flux.FormUpdateParams<
   typeof formSchema | typeof calculatedFormSchema,
-  SubStore
+  FluxSubStore
 >) => {
   const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
   set("key", ch.key);
 };
 
-export interface FormRetrieveArgs extends Optional<RetrieveArgs, "key"> {}
+export interface FormQuery extends Optional<RetrieveQuery, "key"> {}
 
-const formMountListeners: Flux.CreateFormArgs<
-  FormRetrieveArgs,
+const formMountListeners: Flux.CreateFormParams<
+  FormQuery,
   typeof formSchema | typeof calculatedFormSchema,
-  SubStore
+  FluxSubStore
 >["mountListeners"] = ({ store, get, reset }) =>
   store.channels.onSet((changed) => {
     const key = get<channel.Key>("key").value;
@@ -331,29 +351,29 @@ const formMountListeners: Flux.CreateFormArgs<
     reset(channelToFormValues(changed));
   });
 
-export const useForm = Flux.createForm<FormRetrieveArgs, typeof formSchema, SubStore>({
-  name: "Channel",
+export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
+  name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: formRetrieveFn,
+  retrieve: retrieveInitialFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
 
 export const useCalculatedForm = Flux.createForm<
-  FormRetrieveArgs,
+  FormQuery,
   typeof calculatedFormSchema,
-  SubStore
+  FluxSubStore
 >({
   name: "Calculated Channel",
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: formRetrieveFn,
+  retrieve: retrieveInitialFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
 
-export interface ListParams extends channel.RetrieveOptions {
+export interface ListQuery extends channel.RetrieveOptions {
   searchTerm?: string;
   rangeKey?: string;
   internal?: boolean;
@@ -361,89 +381,163 @@ export interface ListParams extends channel.RetrieveOptions {
   limit?: number;
 }
 
-const DEFAULT_LIST_PARAMS: ListParams = {
+const DEFAULT_LIST_PARAMS: ListQuery = {
   internal: false,
 };
 
 export const useList = Flux.createList<
-  ListParams,
+  ListQuery,
   channel.Key,
   channel.Channel,
-  SubStore
+  FluxSubStore
 >({
-  name: "Channels",
-  retrieveCached: ({ params, store }) => {
-    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
+  name: PLURAL_RESOURCE_NAME,
+  retrieveCached: ({ query, store }) => {
+    if (query.searchTerm != null && query.searchTerm.length > 0) return [];
     return store.channels.get((ch) => {
-      if (params.internal != null && ch.internal !== params.internal) return false;
-      if (params.calculated != null && ch.isCalculated !== params.calculated)
+      if (query.internal != null && ch.internal !== query.internal) return false;
+      if (query.calculated != null && ch.isCalculated !== query.calculated)
         return false;
       if (
-        primitive.isNonZero(params.notDataTypes) &&
-        params.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.notDataTypes) &&
+        query.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
       if (
-        primitive.isNonZero(params.dataTypes) &&
-        !params.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.dataTypes) &&
+        !query.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
-      if (params.isIndex != null && ch.isIndex !== params.isIndex) return false;
-      if (params.virtual != null && ch.virtual !== params.virtual) return false;
+      if (query.isIndex != null && ch.isIndex !== query.isIndex) return false;
+      if (query.virtual != null && ch.virtual !== query.virtual) return false;
       return true;
     });
   },
-  retrieve: async ({ client, params, store }) => {
+  retrieve: async ({ client, query, store }) => {
     const channels = await client.channels.retrieve({
       ...DEFAULT_LIST_PARAMS,
-      ...params,
+      ...query,
     });
     store.channels.set(channels);
     return channels;
   },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingleFn({ client, params: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.channels.onSet((channel) => onChange(channel.key, channel)),
-    store.channels.onDelete((key) => onDelete(key)),
-  ],
-});
-
-export interface UpdateArgs extends Optional<RetrieveArgs, "key"> {}
-
-export const update = Flux.createUpdate<UpdateArgs, channel.New, SubStore>({
-  name: "Channel",
-  update: async ({ client, value, store }) => {
-    const ch = await client.channels.create(value);
-    store.channels.set(ch.key, ch);
+  retrieveByKey: async ({ client, key, query, store }) =>
+    await retrieveSingle({ client, query: { ...query, key }, store }),
+  mountListeners: ({ store, onChange, onDelete, query: { rangeKey }, client }) => {
+    const destructors = [
+      store.channels.onSet(onChange),
+      store.channels.onDelete(onDelete),
+    ];
+    if (rangeKey != null)
+      destructors.push(
+        store.rangeAliases.onSet((alias) => {
+          if (alias.range !== rangeKey) return;
+          onChange(alias.channel, (prev) => {
+            if (prev == null) return prev;
+            return client.channels.sugar({ ...prev, alias: alias.alias });
+          });
+        }),
+      );
+    return destructors;
   },
 });
 
-export interface RenameArgs extends Optional<UpdateArgs, "key"> {}
+export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 
-export const rename = Flux.createUpdate<RenameArgs, string, SubStore>({
-  name: "Channel",
-  update: async ({ client, value, store, params: { key } }) => {
-    if (key == null) return;
-    await client.channels.rename(key, value);
-    store.channels.set(key, (p) => {
-      if (p == null) return p;
-      return client.channels.sugar({ ...p, name: value });
-    });
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
+    rollbacks.push(
+      store.channels.set(
+        key,
+        state.skipNull((p) => client.channels.sugar({ ...p, name })),
+      ),
+    );
+    rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
+    await client.channels.rename(key, name);
+    return data;
   },
 });
 
-interface UpdateAliasArgs extends Optional<UpdateArgs, "key"> {
-  rangeKey?: string;
-  channelKey: channel.Key;
+const ALIAS_RESOURCE_NAME = "channel alias";
+
+export interface UpdateAliasParams extends Optional<ranger.Alias, "range" | "channel"> {
+  alias: string;
 }
 
-export const updateAlias = Flux.createUpdate<UpdateAliasArgs, string, SubStore>({
-  name: "Channel Alias",
-  update: async ({ client, value, store, params: { rangeKey, channelKey } }) => {
-    if (rangeKey == null) return;
-    const alias: ranger.Alias = { alias: value, channel: channelKey, range: rangeKey };
-    await client.ranges.setAlias(rangeKey, channelKey, value);
-    store.rangeAliases.set(ranger.aliasKey(alias), alias);
+export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
+  UpdateAliasParams,
+  FluxSubStore
+>({
+  name: ALIAS_RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data: v, store }) => {
+    const { range, channel, alias } = v;
+    if (range == null || channel == null) return false;
+    await client.ranges.setAlias(range, channel, alias);
+    store.rangeAliases.set(ranger.aliasKey({ range, channel }), {
+      channel,
+      range,
+      alias,
+    });
+    return v;
+  },
+});
+
+export type DeleteParams = channel.Key | channel.Keys;
+
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const keys = array.toArray(data);
+    const ids = keys.map((k) => channel.ontologyID(k));
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.channels.delete(keys));
+    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
+    store.channels.delete(keys);
+    await client.channels.delete(keys);
+    return data;
+  },
+});
+
+export interface DeleteAliasParams {
+  range?: ranger.Key;
+  channels?: channel.Key | channel.Key[];
+}
+
+export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
+  DeleteAliasParams,
+  FluxSubStore,
+  DeleteAliasParams
+>({
+  name: ALIAS_RESOURCE_NAME,
+  verbs: Flux.DELETE_VERBS,
+  update: async ({ client, store, data, rollbacks }) => {
+    const { range, channels } = data;
+    if (range == null || channels == null) return false;
+    const arrChannels = array.toArray(channels);
+    await client.ranges.deleteAlias(range, arrChannels);
+    const aliasKeys = arrChannels.map((c) => ranger.aliasKey({ range, channel: c }));
+    rollbacks.push(store.rangeAliases.delete(aliasKeys));
+    return data;
+  },
+});
+
+interface RetrieveGroupQuery {}
+
+export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+  RetrieveGroupQuery,
+  group.Group,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, store }) => {
+    const g = await client.channels.retrieveGroup();
+    store.groups.set(g.key, g);
+    return g;
   },
 });

@@ -31,7 +31,7 @@ import {
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -114,7 +114,11 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      <Dialog.Dialog passthrough full className={CSS.B("mosaic-modal")}>
+      <Dialog.Dialog
+        passthrough
+        full
+        className={CSS(CSS.B(caseconv.toKebab(layout.type)), CSS.B("mosaic-modal"))}
+      >
         <PNav.Bar
           location="top"
           size="5rem"

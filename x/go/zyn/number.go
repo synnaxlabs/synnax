@@ -36,9 +36,9 @@ func Number() NumberZ {
 // Optional marks the number field as optional. Optional fields can be nil or omitted.
 func (n NumberZ) Optional() NumberZ { n.optional = true; return n }
 
-// Coerce enables type coercion for the number field.
-// When enabled, the schema will attempt to convert values to the expected type.
-// This allows for more flexible type conversion but may result in precision loss.
+// Coerce enables type coercion for the number field. When enabled, the schema will
+// attempt to convert values to the expected type. This allows for more flexible type
+// conversion but may result in precision loss.
 func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 
 // Shape returns the base shape of the number schema.
@@ -46,123 +46,125 @@ func (n NumberZ) Shape() Shape { return n.baseZ }
 
 // validateDestination validates that the destination is compatible with numeric data
 func (n NumberZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(n.dataType), dest)
 	}
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 	if isNumericType(destType) {
 		return nil
 	}
-	if n.expectedType != nil && (destType.AssignableTo(n.expectedType) || n.expectedType.AssignableTo(destType)) {
+	if n.expectedType != nil &&
+		(destType.AssignableTo(n.expectedType) ||
+			n.expectedType.AssignableTo(destType)) {
 		return nil
 	}
 	return NewInvalidDestinationTypeError(string(n.dataType), dest)
 }
 
-// Float64 marks the number field as a float64.
-// This enables float64-specific validation and conversion.
+// Float64 marks the number field as a float64. This enables float64-specific validation
+// and conversion.
 func (n NumberZ) Float64() NumberZ {
 	n.expectedType = reflect.TypeOf(float64(0))
 	n.dataType = Float64T
 	return n
 }
 
-// Float32 marks the number field as a float32.
-// This enables float32-specific validation and conversion.
+// Float32 marks the number field as a float32. This enables float32-specific validation
+// and conversion.
 func (n NumberZ) Float32() NumberZ {
 	n.expectedType = reflect.TypeOf(float32(0))
 	n.dataType = Float32T
 	return n
 }
 
-// Int marks the number field as an int.
-// This enables int-specific validation and conversion.
+// Int marks the number field as an int. This enables int-specific validation and
+// conversion.
 func (n NumberZ) Int() NumberZ {
 	n.expectedType = reflect.TypeOf(0)
 	n.dataType = IntT
 	return n
 }
 
-// Int8 marks the number field as an int8.
-// This enables int8-specific validation and conversion.
+// Int8 marks the number field as an int8. This enables int8-specific validation and
+// conversion.
 func (n NumberZ) Int8() NumberZ {
 	n.expectedType = reflect.TypeOf(int8(0))
 	n.dataType = Int8T
 	return n
 }
 
-// Int16 marks the number field as an int16.
-// This enables int16-specific validation and conversion.
+// Int16 marks the number field as an int16. This enables int16-specific validation and
+// conversion.
 func (n NumberZ) Int16() NumberZ {
 	n.expectedType = reflect.TypeOf(int16(0))
 	n.dataType = Int16T
 	return n
 }
 
-// Int32 marks the number field as an int32.
-// This enables int32-specific validation and conversion.
+// Int32 marks the number field as an int32. This enables int32-specific validation and
+// conversion.
 func (n NumberZ) Int32() NumberZ {
 	n.expectedType = reflect.TypeOf(int32(0))
 	n.dataType = Int32T
 	return n
 }
 
-// Int64 marks the number field as an int64.
-// This enables int64-specific validation and conversion.
+// Int64 marks the number field as an int64. This enables int64-specific validation and
+// conversion.
 func (n NumberZ) Int64() NumberZ {
 	n.expectedType = reflect.TypeOf(int64(0))
 	n.dataType = Int64T
 	return n
 }
 
-// Uint marks the number field as a uint.
-// This enables uint-specific validation and conversion.
+// Uint marks the number field as a uint. This enables uint-specific validation and
+// conversion.
 func (n NumberZ) Uint() NumberZ {
 	n.expectedType = reflect.TypeOf(uint(0))
 	n.dataType = UintT
 	return n
 }
 
-// Uint8 marks the number field as a uint8.
-// This enables uint8-specific validation and conversion.
+// Uint8 marks the number field as a uint8. This enables uint8-specific validation and
+// conversion.
 func (n NumberZ) Uint8() NumberZ {
 	n.expectedType = reflect.TypeOf(uint8(0))
 	n.dataType = Uint8T
 	return n
 }
 
-// Uint16 marks the number field as a uint16.
-// This enables uint16-specific validation and conversion.
+// Uint16 marks the number field as a uint16. This enables uint16-specific validation
+// and conversion.
 func (n NumberZ) Uint16() NumberZ {
 	n.expectedType = reflect.TypeOf(uint16(0))
 	n.dataType = Uint16T
 	return n
 }
 
-// Uint32 marks the number field as a uint32.
-// This enables uint32-specific validation and conversion.
+// Uint32 marks the number field as a uint32. This enables uint32-specific validation
+// and conversion.
 func (n NumberZ) Uint32() NumberZ {
 	n.expectedType = reflect.TypeOf(uint32(0))
 	n.dataType = Uint32T
 	return n
 }
 
-// Uint64 marks the number field as a uint64.
-// This enables uint64-specific validation and conversion.
+// Uint64 marks the number field as a uint64. This enables uint64-specific validation
+// and conversion.
 func (n NumberZ) Uint64() NumberZ {
 	n.expectedType = reflect.TypeOf(uint64(0))
 	n.dataType = Uint64T
 	return n
 }
 
-// Dump converts the given data to a number according to the schema.
-// It validates the data and returns an error if the data is invalid.
-// The function handles type conversion and validation based on the expected type.
-// For integer types, it ensures the value is within the valid range.
-// For floating-point types, it handles precision conversion.
+// Dump converts the given data to a number according to the schema. It validates the
+// data and returns an error if the data is invalid. The function handles type
+// conversion and validation based on the expected type. For integer types, it ensures
+// the value is within the valid range. For floating-point types, it handles precision
+// conversion.
 func (n NumberZ) Dump(data any) (any, error) {
 	if data == nil {
 		if n.optional {
@@ -170,9 +172,8 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			if n.optional {
 				return nil, nil
@@ -181,15 +182,16 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-
 	// If an expected type is set and coercion is not enabled, validate the input type
 	if n.dataType != NumberT && !n.coerce {
 		if val.Type() != n.expectedType {
-			return nil, validate.NewInvalidTypeError(n.expectedType.String(), types.ValueName(val))
+			return nil, validate.NewInvalidTypeError(
+				n.expectedType.String(),
+				types.ValueName(val),
+			)
 		}
 		return val.Interface(), nil
 	}
-
 	// If the source is a custom type, try to convert it to a basic type first
 	if val.Type().Kind() != reflect.Float64 &&
 		val.Type().Kind() != reflect.Float32 &&
@@ -209,7 +211,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 			return nil, cannotConvertToNumberError(val)
 		}
 	}
-
 	if n.dataType != NumberT {
 		switch n.expectedType.Kind() {
 		case reflect.Float64, reflect.Float32:
@@ -217,9 +218,11 @@ func (n NumberZ) Dump(data any) (any, error) {
 			switch val.Kind() {
 			case reflect.Float64, reflect.Float32:
 				floatVal = val.Float()
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+				reflect.Int64:
 				floatVal = float64(val.Int())
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+				reflect.Uint64:
 				floatVal = float64(val.Uint())
 			default:
 				return nil, cannotConvertToNumberError(val)
@@ -237,9 +240,11 @@ func (n NumberZ) Dump(data any) (any, error) {
 					return nil, fractionalPartError(floatVal)
 				}
 				intVal = int64(floatVal)
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+				reflect.Int64:
 				intVal = val.Int()
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+				reflect.Uint64:
 				uintVal := val.Uint()
 				if uintVal > uint64(math.MaxInt64) {
 					return nil, unsignedIntegerTooLargeError()
@@ -248,11 +253,14 @@ func (n NumberZ) Dump(data any) (any, error) {
 			default:
 				return nil, cannotConvertToNumberError(val)
 			}
-			if intVal > (1<<(n.expectedType.Bits()-1)-1) || intVal < -(1<<(n.expectedType.Bits()-1)) {
+			if intVal >
+				(1<<(n.expectedType.Bits()-1)-1) ||
+				intVal < -(1<<(n.expectedType.Bits()-1)) {
 				return nil, valueOutOfRangeError(intVal, n.expectedType.String())
 			}
 			return reflect.ValueOf(intVal).Convert(n.expectedType).Interface(), nil
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+			reflect.Uint64:
 			var uintVal uint64
 			switch val.Kind() {
 			case reflect.Float64, reflect.Float32:
@@ -270,7 +278,8 @@ func (n NumberZ) Dump(data any) (any, error) {
 					return nil, negativeToUnsignedError(intVal)
 				}
 				uintVal = uint64(intVal)
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+				reflect.Uint64:
 				uintVal = val.Uint()
 			default:
 				return nil, cannotConvertToNumberError(val)
@@ -281,9 +290,11 @@ func (n NumberZ) Dump(data any) (any, error) {
 			return reflect.ValueOf(uintVal).Convert(n.expectedType).Interface(), nil
 		default:
 		}
-		return nil, validate.NewInvalidTypeError(n.expectedType.String(), types.ValueName(val))
+		return nil, validate.NewInvalidTypeError(
+			n.expectedType.String(),
+			types.ValueName(val),
+		)
 	}
-
 	// If no expected type is set, return the value in its most appropriate form
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
@@ -297,11 +308,11 @@ func (n NumberZ) Dump(data any) (any, error) {
 	return nil, cannotConvertToNumberError(val)
 }
 
-// Parse converts the given data from a number to the destination type.
-// It validates the data and returns an error if the data is invalid.
-// The function handles type conversion and validation based on the destination type.
-// For integer types, it ensures the value is within the valid range.
-// For floating-point types, it handles precision conversion.
+// Parse converts the given data from a number to the destination type. It validates the
+// data and returns an error if the data is invalid. The function handles type
+// conversion and validation based on the destination type. For integer types, it
+// ensures the value is within the valid range. For floating-point types, it handles
+// precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := n.validateDestination(destVal); err != nil {
@@ -310,28 +321,26 @@ func (n NumberZ) Parse(data any, dest any) error {
 	if ok, err := validateNilData(destVal, data, n.baseZ); !ok || err != nil {
 		return err
 	}
-
 	destType := destVal.Type().Elem()
 	destVal = destVal.Elem()
-
-	if destVal.Kind() == reflect.Ptr {
+	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destType.Elem()))
 		}
 		destVal = destVal.Elem()
 		destType = destType.Elem()
 	}
-
 	srcVal := reflect.ValueOf(data)
 	srcValName := types.ValueName(srcVal)
-	convertibleErr := validate.NewInvalidTypeError("number or convertible to number", srcValName)
-
+	convertibleErr := validate.NewInvalidTypeError(
+		"number or convertible to number",
+		srcValName,
+	)
 	if n.dataType != NumberT && !n.coerce {
 		if srcVal.Type() != n.expectedType {
 			return validate.NewInvalidTypeError(n.expectedType.String(), srcValName)
 		}
 	}
-
 	if srcVal.Type().Kind() != reflect.Float64 &&
 		srcVal.Type().Kind() != reflect.Float32 &&
 		srcVal.Type().Kind() != reflect.Int &&
@@ -350,7 +359,6 @@ func (n NumberZ) Parse(data any, dest any) error {
 			return convertibleErr
 		}
 	}
-
 	// Handle the destination type
 	switch destType.Kind() {
 	case reflect.Float64, reflect.Float32:
@@ -363,7 +371,8 @@ func (n NumberZ) Parse(data any, dest any) error {
 			floatVal = srcVal.Float()
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			floatVal = float64(srcVal.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+			reflect.Uint64:
 			floatVal = float64(srcVal.Uint())
 		default:
 			return convertibleErr
@@ -381,7 +390,8 @@ func (n NumberZ) Parse(data any, dest any) error {
 			intVal = int64(floatVal)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			intVal = srcVal.Int()
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+			reflect.Uint64:
 			uintVal := srcVal.Uint()
 			if uintVal > uint64(math.MaxInt64) {
 				return unsignedIntegerTooLargeError()
@@ -391,7 +401,10 @@ func (n NumberZ) Parse(data any, dest any) error {
 			return convertibleErr
 		}
 		if intVal > (1<<(destType.Bits()-1)-1) || intVal < -(1<<(destType.Bits()-1)) {
-			return errors.Wrap(validate.ConversionError, "integer value out of range for destination type")
+			return errors.Wrap(
+				validate.ConversionError,
+				"integer value out of range for destination type",
+			)
 		}
 		destVal.SetInt(intVal)
 		return nil
@@ -413,7 +426,8 @@ func (n NumberZ) Parse(data any, dest any) error {
 				return negativeToUnsignedError(intVal)
 			}
 			uintVal = uint64(intVal)
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case reflect.Uint,
+			reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			uintVal = srcVal.Uint()
 		default:
 			return convertibleErr
@@ -465,21 +479,40 @@ func Uint8() NumberZ { return Number().Uint8() }
 func Uint16() NumberZ { return Number().Uint16() }
 
 func fractionalPartError(float float64) error {
-	return errors.Wrapf(validate.ConversionError, "cannot convert float %v with fractional part to integer", float)
+	return errors.Wrapf(
+		validate.ConversionError,
+		"cannot convert float %v with fractional part to integer",
+		float,
+	)
 }
 
 func negativeToUnsignedError[T types.Numeric](value T) error {
-	return errors.Wrapf(validate.ConversionError, "cannot convert negative value %v to unsigned integer", value)
+	return errors.Wrapf(
+		validate.ConversionError,
+		"cannot convert negative value %v to unsigned integer",
+		value,
+	)
 }
 
 func valueOutOfRangeError[T types.Numeric](value T, destinationType string) error {
-	return errors.Wrapf(validate.ConversionError, "integer value %v out of range for destination type %s", value, destinationType)
+	return errors.Wrapf(
+		validate.ConversionError,
+		"integer value %v out of range for destination type %s",
+		value,
+		destinationType,
+	)
 }
 
 func cannotConvertToNumberError(val reflect.Value) error {
-	return validate.NewInvalidTypeError("number or convertible to number", types.ValueName(val))
+	return validate.NewInvalidTypeError(
+		"number or convertible to number",
+		types.ValueName(val),
+	)
 }
 
 func unsignedIntegerTooLargeError() error {
-	return errors.Wrap(validate.ConversionError, "unsigned integer value too large for conversion to signed integer")
+	return errors.Wrap(
+		validate.ConversionError,
+		"unsigned integer value too large for conversion to signed integer",
+	)
 }

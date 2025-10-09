@@ -21,7 +21,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { TimeRange, uuid } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -30,7 +30,6 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -44,19 +43,12 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   location: "modal",
   name: "Range.Create",
   icon: "Range",
-  window: {
-    resizable: false,
-    size: { height: 370, width: 700 },
-    navTop: true,
-  },
+  window: { resizable: false, size: { height: 440, width: 700 }, navTop: true },
 };
 
 export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
-): Layout.BaseState<CreateLayoutArgs> => ({
-  ...CREATE_LAYOUT,
-  args: initial,
-});
+): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
 export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
@@ -71,7 +63,7 @@ export const Create: Layout.Renderer = (props) => {
   const client = Synnax.use();
   const clientExists = client != null;
   const { form, save, variant } = Ranger.useForm({
-    params: { key: args?.key },
+    query: { key: args?.key },
     autoSave: false,
     initialValues: {
       key: uuid.create(),
@@ -81,19 +73,13 @@ export const Create: Layout.Renderer = (props) => {
       parent: "",
       ...args,
     },
-    afterSave: () => {
+    afterSave: (form) => {
       onClose();
-      const value = form.value();
-      if (value.key == null) return;
+      const { name, key, timeRange } = form.value();
+      if (key == null) return;
       dispatch(
         add({
-          ranges: fromClientRange({
-            ...value,
-            key: value.key ?? "",
-            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end),
-            labels: [],
-            parent: null,
-          }),
+          ranges: [{ name, key, persisted: true, variant: "static", timeRange }],
         }),
       );
     },
@@ -146,6 +132,15 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
+          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
+            {(p) => (
+              <Ranger.SelectStage
+                {...Ranger.wrapNumericTimeRangeToStage(p)}
+                style={{ width: 150 }}
+                triggerProps={{ variant: "outlined" }}
+              />
+            )}
+          </Form.Field>
           <Flex.Box x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
@@ -160,7 +155,7 @@ export const Create: Layout.Renderer = (props) => {
           <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, value }) => (
-                <Ranger.SelectSingle
+                <Ranger.Select
                   style={{ width: "fit-content" }}
                   zIndex={-1}
                   filter={recursiveParentFilter}
@@ -172,9 +167,7 @@ export const Create: Layout.Renderer = (props) => {
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => (
-                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
-              )}
+              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Flex.Box>
         </Form.Form>

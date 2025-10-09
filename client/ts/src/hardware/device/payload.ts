@@ -16,17 +16,18 @@ import { decodeJSONString } from "@/util/decodeJSONString";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusZ = status.statusZ(z.object({ rack: rackKeyZ, device: keyZ }));
+export const statusDetailsSchema = z.object({ rack: rackKeyZ, device: keyZ });
+export const statusZ = status.statusZ(statusDetailsSchema);
 
 export interface Status extends z.infer<typeof statusZ> {}
 
 export const deviceZ = z.object({
   key: keyZ,
-  rack: rackKeyZ,
-  name: z.string(),
-  make: z.string(),
-  model: z.string(),
-  location: z.string(),
+  rack: rackKeyZ.min(1, "Must select a location to connect from"),
+  name: z.string().min(1, "Name is required"),
+  make: z.string().min(1, "Make is required"),
+  model: z.string().min(1, "Model is required"),
+  location: z.string().min(1, "Location is required"),
   configured: z.boolean().optional(),
   properties: record.unknownZ.or(z.string().transform(decodeJSONString)),
   status: zod.nullToUndefined(statusZ),

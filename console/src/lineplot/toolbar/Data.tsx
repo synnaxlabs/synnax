@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type CSSProperties, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
@@ -26,6 +26,11 @@ const SELECT_PROPS = { location: "top" } as const;
 export interface DataProps {
   layoutKey: string;
 }
+
+const SELECT_X_STYLE: CSSProperties = {
+  maxWidth: 400,
+  width: "100%",
+};
 
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const vis = useSelect(layoutKey);
@@ -86,6 +91,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
         />
         <SelectAxisInputItem
           axis="x1"
+          style={SELECT_X_STYLE}
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
           selectProps={SELECT_PROPS}

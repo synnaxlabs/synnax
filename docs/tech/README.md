@@ -17,8 +17,7 @@ The purpose of this document, and the entire `docs/tech` directory, is to:
 2. Provide a guide for **navigating the codebase**, and to explain the rationale behind
    the design decisions made.
 3. Establish **clear standards on the quality of code we expect**, and to provide
-   references
-   to make it easier to adhere to these standards.
+   references to make it easier to adhere to these standards.
 4. Put in place the **software engineering foundations** required to work on a project
    with this level of complexity, and to provide a reference for developing these
    foundations.
@@ -43,15 +42,16 @@ into the current architecture.
 
 # 4 - Setting up your Development Environment
 
-It's time to set up your development environment! Here are guides for [macos](setup-macos.md)
-and for [windows](setup-windows.md).
+It's time to set up your development environment! Here are guides for
+[macos](setup-macos.md) and for [windows](setup-windows.md).
 
 # 5 - Engineering Foundations
 
-While there's a lot to be learned by actively contributing to the project, it's important
-to have solid software engineering foundations in place. The [foundations](foundations.md)
-document walks you through all the essential (and advanced) technologies and concepts
-you need to be familiar with when working on a specific area of the codebase.
+While there's a lot to be learned by actively contributing to the project, it's
+important to have solid software engineering foundations in place. The
+[foundations](foundations.md) document walks you through all the essential (and
+advanced) technologies and concepts you need to be familiar with when working on a
+specific area of the codebase.
 
 # 6 - Language Specific Guides
 

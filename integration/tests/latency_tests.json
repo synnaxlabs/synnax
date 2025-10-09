@@ -1,0 +1,42 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Async_ABC",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/plot_abcd"
+        },
+        {
+          "case": "latency/abcd",
+          "name": "async_a"
+        },
+        {
+          "case": "latency/abcd",
+          "name": "async_b"
+        },
+        {
+          "case": "latency/abcd",
+          "name": "async_c"
+        },
+        {
+          "case": "latency/abcd",
+          "name": "async_d"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Bench_Latency",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "latency/bench_response"
+        },
+        {
+          "case": "latency/bench_report"
+        }
+      ]
+    }
+  ]
+}

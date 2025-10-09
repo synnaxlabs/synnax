@@ -411,6 +411,7 @@ export class AuthoritySource
     const time = TimeStamp.now();
     if (this.props.channel === 0)
       return {
+        name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "No Channel",
@@ -422,6 +423,7 @@ export class AuthoritySource
 
     if (state == null)
       return {
+        name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "Uncontrolled",
@@ -430,6 +432,7 @@ export class AuthoritySource
       };
 
     return {
+      name: this.controller.key,
       key: state.subject.key,
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,

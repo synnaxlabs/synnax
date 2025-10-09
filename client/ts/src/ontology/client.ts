@@ -71,7 +71,7 @@ export class Client {
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
-  async retrieve(id: ID | string, options?: RetrieveOptions): Promise<Resource>;
+  async retrieve(id: ID, options?: RetrieveOptions): Promise<Resource>;
 
   /**
    * Retrieves the resources in the ontology with the given IDs.
@@ -83,12 +83,12 @@ export class Client {
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
-  async retrieve(ids: ID[] | string[], options?: RetrieveOptions): Promise<Resource[]>;
+  async retrieve(ids: ID[], options?: RetrieveOptions): Promise<Resource[]>;
 
   async retrieve(params: RetrieveRequest): Promise<Resource[]>;
 
   async retrieve(
-    ids: ID | ID[] | string | string[] | RetrieveRequest,
+    ids: ID | ID[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
     if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))

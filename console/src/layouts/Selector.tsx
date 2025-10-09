@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
+import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
@@ -37,6 +38,7 @@ export const Selector: Layout.Renderer = (props) => {
   const selectables = [
     ...Vis.getSelectables(store.getState()),
     ...Hardware.SELECTABLES,
+    ...Arc.SELECTABLES,
   ];
   return (
     <CoreSelector.Selector

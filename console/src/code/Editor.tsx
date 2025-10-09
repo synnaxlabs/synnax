@@ -38,7 +38,6 @@ const disableCommandPalette = (
   mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod">,
 ) => {
   const CMD_ID = "ctrl-p";
-  mon.editor.addCommand({ id: CMD_ID, run: () => {} });
   mon.editor.addKeybindingRule({
     keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP,
     command: CMD_ID,

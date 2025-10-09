@@ -13,7 +13,11 @@
     border-radius: 1rem;
     background:
         linear-gradient(var(--pluto-swatch-color), var(--pluto-swatch-color)),
-        repeating-conic-gradient(#e0e0e0 0% 25%, white 0% 50%) 50% / 1rem 1rem;
+        repeating-conic-gradient(
+                var(--pluto-gray-l2) 0% 25%,
+                var(--pluto-gray-l5) 0% 50%
+            )
+            50% / 1rem 1rem;
 
     &.pluto--no-border {
         border-color: transparent;
@@ -43,4 +47,10 @@
         width: 7rem;
         height: 5rem;
     }
+}
+
+.pluto-color-swatch__dropdown {
+    display: inline-block;
+    min-width: 1px;
+    min-height: 1px;
 }

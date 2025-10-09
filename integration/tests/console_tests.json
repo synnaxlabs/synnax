@@ -1,0 +1,25 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Console_Tests",
+      "tests": [
+        {
+          "case": "console/channel_lifecycle"
+        },
+        {
+          "case": "console/snap_pages_to_grid"
+        },
+        {
+          "case": "console/schematic_set_output"
+        },
+        {
+          "case": "console/schematic_edit_symbol_props"
+        },
+        {
+          "case": "console/pages_open_close"
+        }
+      ]
+    }
+  ]
+}

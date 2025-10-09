@@ -17,6 +17,7 @@ import {
   DataType,
   type Destructor,
   type direction,
+  math,
   type MultiSeries,
   type scale,
   type Series,
@@ -474,20 +475,27 @@ export const buildDrawOperations = (
   xSeries.series.forEach((x) =>
     ySeries.series.forEach((y) => {
       if (!seriesOverlap(x, y, overlapThreshold)) return;
-      let xOffset = 0;
-      let yOffset = 0;
+      let xAlignmentOffset = 0n;
+      let yAlignmentOffset = 0n;
       // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
+      if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
       // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
-      const count = Math.min(x.length - xOffset, y.length - yOffset);
-      if (count === 0) return;
+      else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
+      // The total number of alignment steps that are common to the two series.
+      const alignmentCount = math.min(
+        bounds.span(x.alignmentBounds) - xAlignmentOffset,
+        bounds.span(y.alignmentBounds) - yAlignmentOffset,
+      );
+      if (alignmentCount === 0n) return;
       let downsample = clamp(
-        Math.round(exposure * 4 * count),
+        Math.round(exposure * 4 * Number(alignmentCount)),
         userSpecifiedDownSampling,
         51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
+      const count = Number(alignmentCount / x.alignmentMultiple);
+      const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
+      const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
       ops.push({ x, y, xOffset, yOffset, count, downsample });
     }),
   );
@@ -498,6 +506,13 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
+  if (x.alignmentMultiple !== ys.alignmentMultiple) {
+    console.warn(
+      "encountered two series with different alignment multiples in draw operations",
+      { x: x.digest, y: ys.digest },
+    );
+    return false;
+  }
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a

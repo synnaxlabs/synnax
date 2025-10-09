@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/Form.css";
+import "@/hardware/opc/task/Task.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
+import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { Device } from "@/hardware/opc/device";
@@ -56,12 +57,24 @@ const ChannelListItem = <C extends Channel>({
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
-      <Flex.Box direction="y" gap="small">
+      <Flex.Box
+        direction="y"
+        gap="small"
+        className={CSS.BE("channel-name", "container")}
+      >
         <ChannelName weight={500} color={10} level="p" channel={channel} id={id} />
-        <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
-          <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
-          {nodeName} {opcNode}
-        </Text.Text>
+        <Flex.Box x align="center" gap="tiny">
+          <Icon.Variable color={7} />
+          <Text.Text
+            level="small"
+            weight={350}
+            color={opcNodeColor ?? 9}
+            gap="small"
+            overflow="ellipsis"
+          >
+            {nodeName} {opcNode}
+          </Text.Text>
+        </Flex.Box>
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
@@ -114,8 +127,8 @@ const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
-  const fieldListreturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
-  const { data, push } = fieldListreturn;
+  const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { data, push } = fieldListReturn;
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
       const channels = ctx.get<C[]>(CHANNELS_PATH).value;
@@ -158,7 +171,7 @@ const ChannelList = <C extends Channel>({
       grow
       {...rest}
       {...haulProps}
-      {...fieldListreturn}
+      {...fieldListReturn}
     />
   );
 };

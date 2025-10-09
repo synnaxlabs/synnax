@@ -28,6 +28,17 @@ export const ingest: Import.DirectoryIngestor = async (
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
   const layout = Layout.migrateSlice(JSON.parse(layoutData.data));
+  const wsKey = uuid.create();
+  const wsName = name;
+  const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
+  const createdWs = await client?.workspaces.create(ws);
+  store.dispatch(Workspace.add(createdWs ?? ws));
+  store.dispatch(
+    Layout.setWorkspace({
+      slice: (createdWs?.layout as Layout.SliceState) ?? layout,
+      keepNav: false,
+    }),
+  );
   Object.entries(layout.layouts).forEach(([key, layout]) => {
     const ingest = fileIngestors[layout.type];
     if (ingest == null) return;
@@ -35,12 +46,6 @@ export const ingest: Import.DirectoryIngestor = async (
     if (data == null) throw new Error(`Data for ${key} not found`);
     ingest(data, { layout, placeLayout, store });
   });
-  const wsKey = uuid.create();
-  const wsName = name;
-  const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
-  store.dispatch(Workspace.add(ws));
-  store.dispatch(Layout.setWorkspace({ slice: layout, keepNav: false }));
-  await client?.workspaces.create(ws);
 };
 
 export interface IngestContext {

@@ -4,6 +4,21 @@ on:
   push:
     branches:
       - main
+    paths:
+      - .github/workflows/deploy.ts.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
@@ -12,15 +27,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
@@ -35,5 +52,4 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Publish
-        run: |
-          pnpm publish -r --access public
+        run: pnpm publish -r --access public

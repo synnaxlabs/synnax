@@ -15,16 +15,16 @@ import (
 	"strings"
 )
 
-// CustomTypeName is an interface that allows types to provide their own custom type name.
-// Types implementing this interface will return their custom name instead of the
+// CustomTypeName is an interface that allows types to provide their own custom type
+// name. Types implementing this interface will return their custom name instead of the
 // reflection-based name.
 type CustomTypeName interface {
 	// CustomTypeName returns the custom name of the type.
 	CustomTypeName() string
 }
 
-// Name returns the type name of T. If T implements CustomTypeName interface,
-// it returns the custom name. Otherwise, it returns the Go type name using reflection.
+// Name returns the type name of T. If T implements CustomTypeName interface, it returns
+// the custom name. Otherwise, it returns the Go type name using reflection.
 func Name[T any]() string {
 	var t T
 	if ct, ok := any(t).(CustomTypeName); ok {
@@ -33,8 +33,8 @@ func Name[T any]() string {
 	return reflect.TypeOf(*new(T)).Name()
 }
 
-// PluralName returns the plural form of the type name for T.
-// It handles common English pluralization rules:
+// PluralName returns the plural form of the type name for T. It handles common English
+// pluralization rules:
 //   - Words ending in 'y' change to 'ies'
 //   - Words ending in 's', 'x', 'z', 'ch', or 'sh' add 'es'
 //   - All other words add 's'
@@ -60,11 +60,10 @@ func PluralName[T any]() string {
 	}
 }
 
-// PackageName extracts the package name from a reflect.Type.
-// It returns the last component of the package path, which is typically
-// the package name. For example, given a type from "github.com/user/project/pkg",
-// it returns "pkg". If the type has no package path or the path is empty,
-// it returns "unknown".
+// PackageName extracts the package name from a reflect.Type. It returns the last
+// component of the package path, which is typically the package name. For example,
+// given a type from "github.com/user/project/pkg", it returns "pkg". If the type has no
+// package path or the path is empty, it returns "unknown".
 func PackageName(t reflect.Type) string {
 	pkgPath := t.PkgPath()
 	parts := strings.Split(pkgPath, "/")
@@ -82,7 +81,7 @@ func ValueName(v reflect.Value) string {
 	}
 	t := v.Type()
 	switch t.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if v.IsNil() {
 			return "*" + t.Elem().String() + " (nil)"
 		}

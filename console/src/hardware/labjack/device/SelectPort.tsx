@@ -50,7 +50,6 @@ export const SelectPort = ({
   value,
   onChange,
   children,
-  allowNone,
   emptyContent,
   filter,
   triggerProps,
@@ -66,7 +65,7 @@ export const SelectPort = ({
   const dialogVariant = variant === "preview" ? "connected" : variant;
   const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
-    <Dialog.Frame location="bottom" variant={dialogVariant} {...rest}>
+    <Dialog.Frame variant={dialogVariant} {...rest}>
       <Select.Frame
         data={data}
         getItem={getItem}

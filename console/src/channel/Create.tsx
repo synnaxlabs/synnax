@@ -41,10 +41,12 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
+const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+
 export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
-    params: {},
+    query: {},
     afterSave: ({ reset }) => {
       if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else onClose();
@@ -118,7 +120,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
-                initialParams={{ isIndex: true }}
+                initialQuery={INDEX_QUERY}
                 disabled={isIndex || isVirtual}
                 allowNone={false}
                 zIndex={100}

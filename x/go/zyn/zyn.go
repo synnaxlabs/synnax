@@ -17,13 +17,11 @@ import (
 	"slices"
 )
 
-// DataType represents the type of a schema.
-// It is used to identify the kind of validation and conversion rules to apply.
+// DataType represents the type of a schema. It is used to identify the kind of
+// validation and conversion rules to apply.
 type DataType string
 
-func (t DataType) String() string {
-	return string(t)
-}
+func (t DataType) String() string { return string(t) }
 
 const (
 	// StringT represents a string type in the schema.
@@ -36,7 +34,6 @@ const (
 	ObjectT DataType = "object"
 	// UUIDT represents a UUID type in the schema.
 	UUIDT DataType = "uuid"
-
 	// IntT represents an int type in the schema.
 	IntT DataType = "int"
 	// Int8T represents an int8 type in the schema.
@@ -47,7 +44,6 @@ const (
 	Int32T DataType = "int32"
 	// Int64T represents an int64 type in the schema.
 	Int64T DataType = "int64"
-
 	// UintT represents a uint type in the schema.
 	UintT DataType = "uint"
 	// Uint8T represents a uint8 type in the schema.
@@ -58,11 +54,10 @@ const (
 	Uint32T DataType = "uint32"
 	// Uint64T represents a uint64 type in the schema.
 	Uint64T DataType = "uint64"
-
 	// Float32T represents a float32 type in the schema.
-	Float32T DataType = "float"
+	Float32T DataType = "float32"
 	// Float64T represents a float64 type in the schema.
-	Float64T DataType = "double"
+	Float64T DataType = "float64"
 )
 
 var (
@@ -82,7 +77,7 @@ var (
 	Uint32TypeSchema  = Literal(Uint32T)
 	Uint64TypeSchema  = Literal(Uint64T)
 	Float32TypeSchema = Literal(Float32T)
-	Float64TypeShema  = Literal(Float64T)
+	Float64TypeSchema = Literal(Float64T)
 	IntegerTypes      = []DataType{
 		IntT,
 		Int8T,
@@ -95,28 +90,19 @@ var (
 		Uint32T,
 		Uint64T,
 	}
-	IntegerTypeSchema  = Enum(IntegerTypes...)
-	FloatingPointTypes = []DataType{
-		Float32T,
-		Float64T,
-	}
+	IntegerTypeSchema       = Enum(IntegerTypes...)
+	FloatingPointTypes      = []DataType{Float32T, Float64T}
 	FloatingPointTypeSchema = Enum(FloatingPointTypes...)
 	NumericTypes            = slices.Concat(
 		[]DataType{NumberT},
 		IntegerTypes,
 		FloatingPointTypes,
 	)
-	NumericTypeSchema = Enum(NumericTypes...)
-	PrimitiveTypes    = slices.Concat(
-		[]DataType{StringT, BoolT, UUIDT},
-		IntegerTypes,
-	)
+	NumericTypeSchema   = Enum(NumericTypes...)
+	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat(
-		[]DataType{ObjectT},
-		IntegerTypes,
-	)
-	DataTypeSchema = Enum(DataTypes...)
+	DataTypes           = slices.Concat([]DataType{ObjectT}, PrimitiveTypes)
+	AnyDataTypeSchema   = Enum(DataTypes...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
@@ -125,9 +111,9 @@ func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
 type Schema interface {
 	// Parse converts the given data from a standardized format to the destination type.
 	// It validates the data and returns an error if the data is invalid.
-	Parse(data any, dest any) error
-	// Dump converts the given data to a standardized format according to the schema.
-	// It validates the data and returns an error if the data is invalid.
+	Parse(data, dest any) error
+	// Dump converts the given data to a standardized format according to the schema. It
+	// validates the data and returns an error if the data is invalid.
 	Dump(data any) (any, error)
 	// Shape returns the base shape of the schema.
 	Shape() Shape
@@ -140,8 +126,8 @@ type Shape interface {
 	Optional() bool
 	// DataType returns a string representation of the schema's type.
 	DataType() DataType
-	// Fields is only valid for object schemas, and returns a map of the field
-	// names to the schemas for each field.
+	// Fields is only valid for object schemas, and returns a map of the field names to
+	// the schemas for each field.
 	Fields() map[string]Shape
 	ReflectType() reflect.Type
 }

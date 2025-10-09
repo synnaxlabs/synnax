@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, scale, xy } from "@synnaxlabs/x";
+import { box, color, primitive, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -52,9 +52,10 @@ export class Diagram extends aether.Composite<
   afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     this.internal.handleError = status.useErrorHandler(ctx);
-    this.internal.autoRenderInterval ??= setInterval(() => {
-      if (this.state.visible) this.requestRender("low");
-    }, this.state.autoRenderInterval);
+    if (primitive.isNonZero(this.state.autoRenderInterval))
+      this.internal.autoRenderInterval ??= setInterval(() => {
+        if (this.state.visible) this.requestRender("low");
+      }, this.state.autoRenderInterval);
 
     render.control(ctx, () => {
       if (!this.state.visible) return;

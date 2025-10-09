@@ -19,6 +19,27 @@ on:
       - turbo.json
       - x/media/**
       - x/ts/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.console.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
@@ -26,6 +47,8 @@ jobs:
     name: Test (${{ matrix.os }})
     env:
       NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -42,13 +65,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm

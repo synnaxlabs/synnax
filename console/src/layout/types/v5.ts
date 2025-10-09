@@ -15,7 +15,7 @@ import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
 import * as v4 from "@/layout/types/v4";
 
-const VERSION = "5.0.0";
+export const VERSION = "5.0.0";
 
 export const sliceStateZ = v4.sliceStateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),

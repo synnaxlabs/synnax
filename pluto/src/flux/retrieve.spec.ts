@@ -9,7 +9,7 @@
 
 import { createTestClient, type label } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -22,46 +22,42 @@ describe("retrieve", () => {
   describe("useDirect", () => {
     describe("basic retrieval", () => {
       it("should return a loading result as its initial state", () => {
-        const { result } = renderHook(
-          () =>
-            Flux.createRetrieve<{}, number>({
-              name: "Resource",
-              retrieve: async () => 0,
-            }).useDirect({ params: {} }),
-          { wrapper },
-        );
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
+          name: "Resource",
+          retrieve: async () => 0,
+        });
+
+        const { result } = renderHook(() => useRetrieve({ params: {} }), { wrapper });
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
       it("should return a success result when the data is fetched", async () => {
-        const { result } = renderHook(
-          () =>
-            Flux.createRetrieve<{}, number>({
-              name: "Resource",
-              retrieve: async () => 12,
-            }).useDirect({ params: {} }),
-          { wrapper },
-        );
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
+          name: "Resource",
+          retrieve: async () => 12,
+        });
+
+        const { result } = renderHook(() => useRetrieve({ params: {} }), { wrapper });
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.status.message).toEqual("Retrieved Resource");
+          expect(result.current.status.message).toEqual(
+            "Successfully retrieved Resource",
+          );
         });
       });
 
       it("should return an error result when the retrieve function throws an error", async () => {
-        const { result } = renderHook(
-          () =>
-            Flux.createRetrieve<{}, number>({
-              name: "Resource",
-              retrieve: async () => {
-                throw new Error("test");
-              },
-            }).useDirect({ params: {} }),
-          { wrapper },
-        );
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
+          name: "Resource",
+          retrieve: async () => {
+            throw new Error("test");
+          },
+        });
+
+        const { result } = renderHook(() => useRetrieve({ params: {} }), { wrapper });
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(undefined);
@@ -71,14 +67,14 @@ describe("retrieve", () => {
       });
 
       it("should return an error result when no client is connected", async () => {
-        const { result } = renderHook(
-          () =>
-            Flux.createRetrieve<{}, number>({
-              name: "Resource",
-              retrieve: async () => 0,
-            }).useDirect({ params: {} }),
-          { wrapper: createSynnaxWrapper({ client: null }) },
-        );
+        const { useRetrieve } = Flux.createRetrieve<{}, number>({
+          name: "Resource",
+          retrieve: async () => 0,
+        });
+
+        const { result } = renderHook(() => useRetrieve({ params: {} }), {
+          wrapper: createSynnaxWrapper({ client: null }),
+        });
         await waitFor(() => {
           expect(result.current.variant).toEqual("disabled");
           expect(result.current.data).toEqual(undefined);
@@ -100,17 +96,21 @@ describe("retrieve", () => {
           name: "Test Label",
           color: "#000000",
         });
-        const { result } = renderHook(
-          () =>
-            Flux.createRetrieve<{ key: label.Key }, label.Label, Store>({
-              name: "Resource",
-              retrieve: async ({ client, params: { key } }) =>
-                await client.labels.retrieve({ key }),
-              mountListeners: ({ store, onChange, params: { key } }) =>
-                store.labels.onSet(onChange, key),
-            }).useDirect({ params: { key: ch.key } }),
-          { wrapper },
-        );
+        const { useRetrieve } = Flux.createRetrieve<
+          { key: label.Key },
+          label.Label,
+          Store
+        >({
+          name: "Resource",
+          retrieve: async ({ client, query: { key } }) =>
+            await client.labels.retrieve({ key }),
+          mountListeners: ({ store, onChange, query: { key } }) =>
+            store.labels.onSet(onChange, key),
+        });
+
+        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
+          wrapper,
+        });
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(ch);
@@ -141,25 +141,23 @@ describe("retrieve", () => {
       const { result } = renderHook(
         () => {
           const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.pendingResult<number>("Resource", "retrieving", undefined),
+            Flux.loadingResult<number>("retrieving Resource", undefined),
           );
-          const handleChange: Flux.UseEffectRetrieveArgs<
-            { key: string },
-            number
-          >["onChange"] = (value) => {
-            setResult(value);
-            onChangeMock(value);
-          };
-
-          Flux.createRetrieve<
-            {
-              key: string;
+          const handleChange = useCallback(
+            (value: Flux.Result<number>) => {
+              setResult(value);
+              onChangeMock(value);
             },
-            number
-          >({
+            [onChangeMock],
+          );
+          const { useRetrieveEffect } = Flux.createRetrieve<{ key: string }, number>({
             name: "Resource",
             retrieve: async () => 12,
-          }).useEffect({ params: { key: "test" }, onChange: handleChange });
+          });
+          useRetrieveEffect({
+            query: { key: "test" },
+            onChange: handleChange,
+          });
           return result;
         },
         { wrapper },

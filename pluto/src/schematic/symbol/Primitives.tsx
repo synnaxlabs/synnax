@@ -449,6 +449,7 @@ export const SolenoidValve = ({
       normallyOpen && CSS.M("normally-open"),
       className,
     )}
+    orientation={orientation}
     {...rest}
   >
     <HandleBoundary orientation={orientation}>
@@ -514,7 +515,7 @@ export const CustomActuator = ({
   stateOverrides,
   ...rest
 }: CustomActuatorProps): ReactElement | null => {
-  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const spec = Symbol.useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
   useCustom({
     container: svgContainerRef.current,
@@ -570,7 +571,7 @@ export const CustomStatic = ({
   stateOverrides,
   ...rest
 }: CustomStaticProps): ReactElement | null => {
-  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const spec = Symbol.useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLDivElement>(null);
   useCustom({
     container: svgContainerRef.current,
@@ -1965,7 +1966,7 @@ export const Value = ({
 };
 
 export interface SwitchProps extends Omit<ToggleValveButtonProps, "onClick"> {
-  onClick?: MouseEventHandler<HTMLInputElement>;
+  onClick?: MouseEventHandler<HTMLElement>;
 }
 
 export const Switch = ({

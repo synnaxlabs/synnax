@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Progress, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import z from "zod";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";
@@ -31,47 +30,95 @@ export const INFO_LAYOUT: Layout.BaseState = {
   excludeFromWorkspace: true,
 };
 
+const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
+  {},
+  Update | null
+>({
+  name: "Version",
+  retrieve: async () => {
+    if (Runtime.ENGINE !== "tauri") return null;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return await check();
+  },
+});
+
+export const statusDetailsSchema = z.object({
+  total: Size.z,
+  progress: Size.z,
+});
+
+interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
+
+const { useUpdate } = Flux.createUpdate<Update, {}, Update, typeof statusDetailsSchema>(
+  {
+    name: "Console",
+    verbs: Flux.UPDATE_VERBS,
+    initialStatusDetails: {
+      total: Size.bytes(0),
+      progress: Size.bytes(0),
+    },
+    update: async ({ data: update, setStatus }) => {
+      await update.downloadAndInstall((prog) => {
+        const updateStatus = (v: (p: StatusDetails) => StatusDetails) =>
+          setStatus((p) => {
+            if (p.variant === "error") return p;
+            return {
+              ...p,
+              variant: "loading",
+              details: v(p.details),
+            };
+          });
+        switch (prog.event) {
+          case "Started":
+            updateStatus((p) => ({
+              ...p,
+              total: Size.bytes(prog.data.contentLength ?? 0),
+            }));
+            break;
+          case "Progress":
+            updateStatus((p) => ({
+              ...p,
+              progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+            }));
+            break;
+          case "Finished":
+            updateStatus((p) => ({
+              ...p,
+              variant: "success",
+              details: { ...p, progress: p.total },
+            }));
+            break;
+        }
+      });
+      if (Runtime.ENGINE === "tauri") await relaunch();
+      return update;
+    },
+  },
+);
+
 export const Info: Layout.Renderer = () => {
   const version = useSelectVersion();
-  const updateQuery = useQuery({
-    queryKey: ["version.update"],
-    queryFn: async () => {
-      if (Runtime.ENGINE !== "tauri") return null;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return await check();
-    },
-  });
+  const availableQuery = useRetrieveUpdateAvailable({});
+  const updateQuery = useUpdate();
+  let totalSize: Size = Size.bytes(0);
+  let amountDownloaded: Size = Size.bytes(0);
+  if (updateQuery.status.variant !== "error") {
+    totalSize = updateQuery.status.details.total;
+    amountDownloaded = updateQuery.status.details.progress;
+  }
 
-  const [updateSize, setUpdateSize] = useState<Size>(Size.bytes(1));
-  const [amountDownloaded, setAmountDownloaded] = useState(Size.bytes(0));
-  const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
-
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      if (!updateQuery.isSuccess) return;
-      const update = updateQuery.data;
-      if (update == null) return;
-      await update.downloadAndInstall((progress) => {
-        if (progress.event === "Started")
-          setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
-        else if (progress.event === "Progress")
-          setAmountDownloaded((prev) =>
-            prev.add(Size.bytes(progress.data.chunkLength)),
-          );
-      });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      setAmountDownloaded(updateSize);
-      await new Promise((resolve) => setTimeout(resolve, 750));
-      if (Runtime.ENGINE === "tauri") await relaunch();
-    },
-  });
+  const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
 
   let updateContent = (
     <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
     </Status.Summary>
   );
-  if (updateMutation.isPending)
+  if (availableQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
+  else if (updateQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
+  else if (updateQuery.variant === "loading")
     if (progressPercent === 100)
       updateContent = (
         <Status.Summary level="h4" variant="loading" gap="medium">
@@ -87,25 +134,21 @@ export const Info: Layout.Renderer = () => {
           <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
             <Text.Text color={10} overflow="ellipsis">
-              {Math.ceil(amountDownloaded.megabytes)} /{" "}
-              {Math.ceil(updateSize.megabytes)} MB
+              {Math.ceil(amountDownloaded.megabytes)} / {Math.ceil(totalSize.megabytes)}{" "}
+              MB
             </Text.Text>
           </Flex.Box>
         </Flex.Box>
       );
-  else if (updateQuery.isSuccess)
-    if (updateQuery.data != null) {
-      const version = updateQuery.data.version;
+  else if (availableQuery.variant == "success")
+    if (availableQuery.data != null) {
+      const update = availableQuery.data;
       updateContent = (
         <>
           <Status.Summary level="h4" variant="success">
-            Version {version} available
+            Version {update.version} available
           </Status.Summary>
-          <Button.Button
-            variant="filled"
-            disabled={updateMutation.isPending}
-            onClick={() => updateMutation.mutate()}
-          >
+          <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
             Update & Restart
           </Button.Button>
         </>
@@ -116,18 +159,6 @@ export const Info: Layout.Renderer = () => {
           Up to date
         </Status.Summary>
       );
-  else if (updateQuery.isError)
-    updateContent = (
-      <Status.Summary level="h4" variant="error">
-        Error checking for update: {updateQuery.error.message}
-      </Status.Summary>
-    );
-  else if (updateMutation.isError)
-    updateContent = (
-      <Status.Summary level="h4" variant="error">
-        Error updating: {updateMutation.error.message}
-      </Status.Summary>
-    );
 
   return (
     <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>

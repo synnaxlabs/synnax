@@ -10,164 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
-import { type record } from "@/record";
 
-interface TestRecord {
-  a: number;
-  b: {
-    c?: number;
-    d?: number;
-  };
-  c: number[];
-}
-
-describe("path", () => {
-  describe("get", () => {
-    it("should get a key", () => {
-      const a: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1],
-      };
-      expect(deep.get(a, "b.c")).toEqual(2);
-    });
-    it("should get an array index", () => {
-      const a: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1, 2, 3],
-      };
-      expect(deep.get(a, "c.1")).toEqual(2);
-    });
-    it("should return the object itself if the key is empty", () => {
-      const a: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1, 2, 3],
-      };
-      expect(deep.get(a, "")).toStrictEqual(a);
-    });
-    describe("custom getter function", () => {
-      const v = {
-        a: {
-          value: () => ({
-            c: 0,
-          }),
-        },
-      };
-      it("should use the custom getter function", () => {
-        expect(
-          deep.get(v, "a.value().c", {
-            optional: false,
-            getter: (obj, key) => {
-              if (key === "value()")
-                return (obj as { value: () => { c: number } }).value();
-              return obj[key];
-            },
-          }),
-        ).toEqual(0);
-      });
-
-      it("should get an array of keyed records", () => {
-        interface TestKeyedRecord {
-          values: record.KeyedNamed[];
-        }
-        const a: TestKeyedRecord = {
-          values: [
-            { key: "a", name: "a" },
-            { key: "b", name: "b" },
-          ],
-        };
-        expect(deep.get(a, "values.a.name")).toEqual("a");
-      });
-    });
-  });
-
-  describe("set", () => {
-    it("should set a key", () => {
-      const a: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1],
-      };
-      const b: TestRecord = {
-        a: 1,
-        b: {
-          c: 3,
-        },
-        c: [1],
-      };
-      deep.set(a, "b.c", 3);
-      expect(a).toEqual(b);
-    });
-
-    it("should set an array index", () => {
-      const a: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1, 2, 3],
-      };
-      const b: TestRecord = {
-        a: 1,
-        b: {
-          c: 2,
-        },
-        c: [1, 4, 3],
-      };
-      deep.set(a, "c.1", 4);
-      expect(a).toEqual(b);
-    });
-
-    it("should interpret a leading number also containing letters as a key", () => {
-      const data = {
-        a: [
-          {
-            key: "1b",
-            value: 1,
-          },
-        ],
-      };
-      deep.set(data, "a.1b.value", 2);
-      expect(deep.get(data, "a.1b.value")).toEqual(2);
-    });
-
-    it("should set a value on a nested object in the array by key", () => {
-      const data = {
-        config: {
-          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
-        },
-      };
-      deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
-      expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
-    });
-
-    it("should set an entire item in the array by its key", () => {
-      const data = {
-        config: {
-          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
-        },
-      };
-      deep.set(data, "config.channels.tMnAnJeQmn6", {
-        key: "tMnAnJeQmn6",
-        type: "ai_force_bridge_table",
-      });
-      expect(data.config.channels[0]).toEqual({
-        key: "tMnAnJeQmn6",
-        type: "ai_force_bridge_table",
-      });
-    });
-  });
-
+describe("path utilities", () => {
   describe("transformPath", () => {
     it("should transform a path", () => {
       expect(deep.transformPath("a.b.c", (part) => part.toUpperCase())).toEqual(
@@ -184,7 +28,7 @@ describe("path", () => {
     });
   });
 
-  describe("matches", () => {
+  describe("pathsMatch", () => {
     it("should return true if two paths are equal", () => {
       expect(deep.pathsMatch("a.b.c", "a.b.c")).toEqual(true);
     });
@@ -196,6 +40,12 @@ describe("path", () => {
     });
     it("should return true for an empty pattern", () => {
       expect(deep.pathsMatch("a.b.c", "")).toEqual(true);
+    });
+    it("should return false if pattern is longer than path", () => {
+      expect(deep.pathsMatch("a.b", "a.b.c")).toEqual(false);
+    });
+    it("should return false if paths don't match", () => {
+      expect(deep.pathsMatch("a.b.c", "a.b.d")).toEqual(false);
     });
   });
 
@@ -225,33 +75,95 @@ describe("path", () => {
     });
   });
 
-  describe("delete", () => {
-    const a: TestRecord = {
-      a: 1,
-      b: {
-        c: 2,
-      },
-      c: [1, 2, 3],
-    };
-    it("should delete a key", () => {
-      const cpy = deep.copy(a);
-      deep.remove(a, "b.c");
-      expect(a).toEqual({ ...cpy, b: {} });
+  describe("element", () => {
+    it("should get element at index", () => {
+      expect(deep.element("a.b.c", 1)).toEqual("b");
     });
-    it("should delete an array index", () => {
-      const cpy = deep.copy(a);
-      deep.remove(a, "c.1");
-      expect(a).toEqual({ ...cpy, c: [1, 3] });
+
+    it("should handle negative index", () => {
+      expect(deep.element("a.b.c", -1)).toEqual("c");
+      expect(deep.element("a.b.c", -2)).toEqual("b");
     });
-    it("should not throw an error when the index is out of bounds", () => {
-      const cpy = deep.copy(a);
-      deep.remove(a, "c.100");
-      expect(a).toEqual(cpy);
+
+    it("should get first element", () => {
+      expect(deep.element("a.b.c", 0)).toEqual("a");
     });
-    it("should not throw an error when the key exists", () => {
-      const cpy = deep.copy(a);
-      deep.remove(a, "b.d");
-      expect(a).toEqual(cpy);
+  });
+
+  describe("getIndex", () => {
+    it("should return index for numeric string", () => {
+      expect(deep.getIndex("42")).toEqual(42);
+    });
+
+    it("should return null for non-numeric string", () => {
+      expect(deep.getIndex("abc")).toBeNull();
+    });
+
+    it("should return null for mixed string", () => {
+      expect(deep.getIndex("1a")).toBeNull();
+    });
+
+    it("should handle zero", () => {
+      expect(deep.getIndex("0")).toEqual(0);
+    });
+  });
+
+  describe("defaultGetter", () => {
+    it("should get property from object", () => {
+      const obj = { a: 1, b: 2 };
+      expect(deep.defaultGetter(obj, "a")).toEqual(1);
+    });
+
+    it("should get index from array", () => {
+      const arr = [1, 2, 3];
+      expect(deep.defaultGetter(arr as any, "1")).toEqual(2);
+    });
+
+    it("should find keyed item in array", () => {
+      const arr = [
+        { key: "item1", value: 1 },
+        { key: "item2", value: 2 },
+      ];
+      expect(deep.defaultGetter(arr as any, "item2")).toEqual({
+        key: "item2",
+        value: 2,
+      });
+    });
+
+    it("should return undefined for non-existent key", () => {
+      const obj = { a: 1 };
+      expect(deep.defaultGetter(obj, "b")).toBeUndefined();
+    });
+
+    it("should handle empty array", () => {
+      const arr: any[] = [];
+      expect(deep.defaultGetter(arr as any, "0")).toBeUndefined();
+    });
+  });
+
+  describe("findBestKey", () => {
+    it("should find single part key", () => {
+      const obj = { a: { b: 1 } };
+      const result = deep.findBestKey(obj, ["a", "b"]);
+      expect(result).toEqual(["a", 1]);
+    });
+
+    it("should find multi-part key with period", () => {
+      const obj = { "a.b": { c: 1 } };
+      const result = deep.findBestKey(obj, ["a.b", "c"]);
+      expect(result).toEqual(["a.b", 1]);
+    });
+
+    it("should return null if no key found", () => {
+      const obj = { a: 1 };
+      const result = deep.findBestKey(obj, ["b", "c"]);
+      expect(result).toBeNull();
+    });
+
+    it("should prefer shorter key", () => {
+      const obj = { a: { b: 1 }, "a.b": 2 };
+      const result = deep.findBestKey(obj, ["a", "b"]);
+      expect(result).toEqual(["a", 1]);
     });
   });
 });

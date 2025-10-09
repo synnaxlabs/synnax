@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon, Ranger } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { Range } from "@/range";
@@ -15,8 +15,15 @@ import { Range } from "@/range";
 const CREATE_COMMAND: Palette.Command = {
   key: "define-range",
   name: "Create a Range",
-  icon: <Icon.Range />,
+  icon: <Ranger.CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_COMMAND];
+const OPEN_EXPLORER_COMMAND: Palette.Command = {
+  key: "open-explorer",
+  name: "Open Range Explorer",
+  icon: <Icon.Explore />,
+  onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
+};
+
+export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

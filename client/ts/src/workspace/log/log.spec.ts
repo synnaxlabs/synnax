@@ -10,6 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -18,7 +19,7 @@ describe("Log", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.workspaces.log.create(ws.key, {
+      const log = await client.workspaces.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
       });
@@ -30,36 +31,38 @@ describe("Log", () => {
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.workspaces.log.create(ws.key, {
+      const log = await client.workspaces.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
       });
-      await client.workspaces.log.rename(log.key, "Log2");
-      const res = await client.workspaces.log.retrieve(log.key);
+      await client.workspaces.logs.rename(log.key, "Log2");
+      const res = await client.workspaces.logs.retrieve({ key: log.key });
       expect(res.name).toEqual("Log2");
     });
   });
   describe("setData", () => {
     test("set data", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.workspaces.log.create(ws.key, {
+      const log = await client.workspaces.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
       });
-      await client.workspaces.log.setData(log.key, { two: 2 });
-      const res = await client.workspaces.log.retrieve(log.key);
+      await client.workspaces.logs.setData(log.key, { two: 2 });
+      const res = await client.workspaces.logs.retrieve({ key: log.key });
       expect(res.data.two).toEqual(2);
     });
   });
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.workspaces.log.create(ws.key, {
+      const log = await client.workspaces.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
       });
-      await client.workspaces.log.delete(log.key);
-      await expect(client.workspaces.log.retrieve(log.key)).rejects.toThrow();
+      await client.workspaces.logs.delete(log.key);
+      await expect(client.workspaces.logs.retrieve({ key: log.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

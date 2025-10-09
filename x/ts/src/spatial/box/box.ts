@@ -249,8 +249,7 @@ export const loc = (b: Crude, loc: location.Location): number => {
 };
 
 /** @returns true if the area of the box is 0 and false otherwise. */
-export const areaIsZero = (b: Box): boolean =>
-  b.one.x === b.two.x && b.one.y === b.two.y;
+export const areaIsZero = (b: Box): boolean => area(b) === 0;
 
 /** @returns the width of the box. */
 export const width = (b: Crude): number => dim(b, "x");

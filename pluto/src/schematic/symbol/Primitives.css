@@ -20,19 +20,28 @@
             calc(var(--pluto-diagram-zoom, 1) * -50%)
         );
     }
-    &.pluto--location-bottom svg > g {
-        transform-origin: top left;
-        transform: translateX(100%) rotate(90deg);
+    &.pluto--location-bottom svg,
+    & svg.pluto--location-bottom {
+        & > g {
+            transform-origin: top left;
+            transform: translateX(100%) rotate(90deg);
+        }
     }
 
-    &.pluto--location-top svg > g {
-        transform-origin: top left;
-        transform: translateY(100%) rotate(-90deg);
+    &.pluto--location-top svg,
+    & svg.pluto--location-top {
+        & > g {
+            transform-origin: top left;
+            transform: translateY(100%) rotate(-90deg);
+        }
     }
 
-    &.pluto--location-right svg > g {
-        transform-origin: top left;
-        transform: translate(100%, 100%) rotate(180deg);
+    &.pluto--location-right svg,
+    & svg.pluto--location-right {
+        & > g {
+            transform-origin: top left;
+            transform: translate(100%, 100%) rotate(180deg);
+        }
     }
 
     &:not(.pluto-symbol--custom) svg {

@@ -147,7 +147,7 @@ describe("Select.Single", () => {
 
   it("should allow the user to deselect an item when allowNone is true", () => {
     const { SelectSingle, onChange } = createSelectSingle();
-    const c = render(<SelectSingle allowNone={true} />);
+    const c = render(<SelectSingle allowNone />);
     fireEvent.click(c.getByText("Select a Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
 

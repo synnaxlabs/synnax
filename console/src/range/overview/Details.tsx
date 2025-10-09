@@ -10,6 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
+  Divider,
   Flex,
   Form,
   Icon,
@@ -17,11 +18,9 @@ import {
   Ranger,
   Status,
   Text,
-  usePrevious,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
@@ -29,7 +28,7 @@ import { CSV } from "@/csv";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
-import { rename } from "@/layout/slice";
+import { FavoriteButton } from "@/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 interface ParentRangeButtonProps {
@@ -39,18 +38,18 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.retrieveParent.useDirect({
-    params: { id: ranger.ontologyID(rangeKey) },
-  });
+  const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
+  const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
   return (
     <Flex.Box x gap="small" align="center">
       <Text.Text weight={450} color={9}>
         Child Range of
       </Text.Text>
       <Button.Button
+        color={8}
         variant="text"
         weight={400}
         gap="small"
@@ -59,7 +58,7 @@ const ParentRangeButton = ({
           placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
-        <Icon.Range />
+        <Icon />
         {parent.name}
       </Button.Button>
     </Flex.Box>
@@ -71,39 +70,35 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const layoutName = Layout.useSelect(rangeKey)?.name;
-  const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
+  const { data: range } = Ranger.useRetrieve({ key: rangeKey });
+  const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
-    params: { key: rangeKey },
+    query: { key: rangeKey },
     initialValues: {
       key: rangeKey,
       name: "",
-      timeRange: { start: 0, end: 0 },
+      timeRange: { start: now, end: now },
       labels: [],
     },
     autoSave: true,
   });
+
+  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleError = Status.useErrorHandler();
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
-  useEffect(() => {
-    if (
-      prevLayoutName == layoutName ||
-      prevLayoutName == null ||
-      status.variant !== "success"
-    )
-      return;
-    form.set("name", layoutName);
-  }, [layoutName, status]);
-  useEffect(() => {
-    if (primitive.isNonZero(name)) dispatch(rename({ key: rangeKey, name }));
-  }, [name]);
+  const handleLayoutNameChange = useCallback(
+    (name: string) => {
+      if (status.variant !== "success") return;
+      form.set("name", name);
+    },
+    [form.set, status?.variant],
+  );
+  Layout.useSyncName(rangeKey, name, handleLayoutNameChange);
 
   const copy = useCopyToClipboard();
   const handleCopyPythonCode = () => {
@@ -159,24 +154,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Flex.Box>
           <Flex.Box x style={{ height: "fit-content" }} gap="small">
             <Button.Button
-              tooltip={`Download data for ${name} as a CSV`}
-              tooltipLocation={"bottom"}
-              variant="text"
-              onClick={() =>
-                handleError(async () => {
-                  await promptDownloadCSVModal(
-                    {
-                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
-                      name,
-                    },
-                    { icon: "Range" },
-                  );
-                }, "Failed to download CSV")
-              }
-            >
-              <Icon.CSV color={9} />
-            </Button.Button>
-            <Button.Button
               tooltip={`Copy Python code to retrieve ${name}`}
               tooltipLocation="bottom"
               variant="text"
@@ -192,14 +169,36 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.TypeScript color={9} />
             </Button.Button>
+            <Divider.Divider y />
             <Button.Button
               variant="text"
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
+              textColor={9}
             >
               <Icon.Link color={9} />
             </Button.Button>
+            <Button.Button
+              tooltip={`Download data for ${name} as a CSV`}
+              tooltipLocation="bottom"
+              variant="text"
+              onClick={() =>
+                handleError(async () => {
+                  await promptDownloadCSVModal(
+                    {
+                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
+                      name,
+                    },
+                    { icon: "Range" },
+                  );
+                }, "Failed to download CSV")
+              }
+            >
+              <Icon.CSV color={9} />
+            </Button.Button>
+            <Divider.Divider y />
+            {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
@@ -208,27 +207,35 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Text.Text className={CSS.B("time-range-divider")} level="h4">
-            <Icon.Arrow.Right />
-          </Text.Text>
+          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
             )}
           </Form.Field>
         </Flex.Box>
-        <Form.Field<string[]> required={false} path="labels">
-          {({ value, onChange }) => (
-            <Label.SelectMultiple
-              zIndex={100}
-              variant="floating"
-              location="bottom"
-              style={{ width: "fit-content" }}
-              value={value}
-              onChange={onChange}
-            />
-          )}
-        </Form.Field>
+        <Flex.Box x>
+          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
+            {(props) => (
+              <Ranger.SelectStage
+                {...Ranger.wrapNumericTimeRangeToStage(props)}
+                allowNone={false}
+                triggerProps={{ variant: "text", hideCaret: true }}
+                variant="floating"
+              />
+            )}
+          </Form.Field>
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                zIndex={100}
+                variant="floating"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
+            )}
+          </Form.Field>
+        </Flex.Box>
       </Flex.Box>
     </Form.Form>
   );

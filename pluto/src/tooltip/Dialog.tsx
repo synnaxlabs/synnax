@@ -286,7 +286,6 @@ export const Dialog = ({
           root,
         )}
       {cloneElement(children_, {
-        id,
         onMouseEnter: (e) => {
           handleMouseEnter(e);
           children_.props.onMouseEnter?.(e);
@@ -309,6 +308,10 @@ export const Dialog = ({
 
 export const formatTip = (tip: ReactNode): ReactNode => {
   if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip))
-    return <Text.Text level="small">{tip as string | number}</Text.Text>;
+    return (
+      <Text.Text level="small" color={1} weight={450}>
+        {tip as string | number}
+      </Text.Text>
+    );
   return tip;
 };

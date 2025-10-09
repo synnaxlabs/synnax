@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// ReSharper disable CppUseStructuredBinding
-
 /// external
 #include "gtest/gtest.h"
 
@@ -74,7 +72,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto errors = std::make_shared<std::vector<xerrors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
-        telem::HZ * 10,
+        telem::HERTZ * 10,
         std::set<synnax::ChannelKey>{2},
         std::vector{state},
         std::vector<synnax::ChannelKey>{1},

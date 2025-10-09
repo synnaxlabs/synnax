@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
@@ -206,7 +215,7 @@ describe("encoder", () => {
           const ser = spec.frame.get(k);
           expect(ser.series.length).toBeGreaterThan(0);
           const os = ser.series[0];
-          if (dcs.timeRange != null && !dcs.timeRange.isZero)
+          if (dcs.timeRange != null && !dcs.timeRange.span.isZero)
             expect(dcs.timeRange.toString()).toEqual(os.timeRange?.toString());
           expect(new Series(dcs).toString()).toEqual(os.toString());
         });

@@ -1,19 +1,15 @@
 [tool.poetry]
-name = "opc"
-version = "0.1.0"
-description = ""
-authors = ["Emiliano Bonilla <56323762+emilbon99@users.noreply.github.com>"]
-readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
+asyncua = "1.1.5"
 python = "^3.12"
 synnax = { path = "../../../client/py", develop = true }
-asyncua = "1.1.5"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
+isort = "^6.0.1"
+poetry = "^2.2.0"
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.isort]
+profile = "black"

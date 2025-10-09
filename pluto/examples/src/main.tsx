@@ -10,14 +10,8 @@
 import "@synnaxlabs/pluto/dist/style.css";
 import "./main.css";
 
-import { Table } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
-import { ChildRanges } from "./ChildRanges";
-import WorkerURL from "./worker?worker&url";
-
-const Main = () => (
-
-)
+const Main = () => <></>;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

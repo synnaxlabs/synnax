@@ -116,6 +116,7 @@ export const SelectIconShowcase = () => {
       ]}
       value={value}
       allowNone
+      variant="floating"
       onChange={setValue}
       icon={<Icon.Align.XCenter />}
       triggerProps={{ iconOnly: true }}

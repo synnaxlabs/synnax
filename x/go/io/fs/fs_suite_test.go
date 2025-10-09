@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestFs(t *testing.T) {
+func TestFS(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "FS Suite")
 }

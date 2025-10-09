@@ -49,7 +49,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            initialParams={{ internal: IS_DEV }}
+            initialQuery={{ internal: IS_DEV }}
           />
         </Input.Item>
       </Flex.Box>

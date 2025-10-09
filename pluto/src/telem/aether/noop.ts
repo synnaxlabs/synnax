@@ -117,6 +117,7 @@ class StatusSource extends Noop implements StatusSource {
   value(): status.Status {
     return {
       key: "noop",
+      name: "noop",
       variant: "disabled",
       message: "unknown",
       time: TimeStamp.now(),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const baseRangeZ = z.object({
@@ -16,13 +16,9 @@ export const baseRangeZ = z.object({
   persisted: z.boolean(),
 });
 
-export const timeRangeZ = z.object({ start: z.number(), end: z.number() });
-
-export type TimeRange = z.infer<typeof timeRangeZ>;
-
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
-  timeRange: timeRangeZ,
+  timeRange: numericTimeRangeZ,
 });
 
 export type StaticRange = z.infer<typeof staticRangeZ>;

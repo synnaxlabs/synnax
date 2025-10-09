@@ -7,30 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Nav, Status, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
+import { Button, Flex, Form, Nav, Synnax, User } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-
-const formSchema = z.object({
-  username: z.string().min(1, "Username must not be empty"),
-  password: z.string().min(1, "Password must not be empty"),
-  firstName: z.string().min(1, "First Name must not be empty"),
-  lastName: z.string().min(1, "Last Name must not be empty"),
-});
-type FormValues = z.infer<typeof formSchema>;
-
-const initialValues: FormValues = {
-  username: "",
-  password: "",
-  firstName: "",
-  lastName: "",
-};
 
 export const REGISTER_LAYOUT_TYPE = "registerUser";
 
@@ -49,18 +32,9 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
 
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
-  const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const handleError = Status.useErrorHandler();
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      if (!methods.validate()) return;
-      const values = methods.value();
-      if (client == null) throw new DisconnectedError();
-      await client.user.create({ ...values });
-      onClose();
-    },
-    onError: (e) => handleError(e, "Failed to register user"),
+  const { form, save, variant } = User.useForm({
+    query: {},
+    afterSave: useCallback(() => onClose(), [onClose]),
   });
 
   return (
@@ -71,7 +45,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
             <Flex.Box x grow>
               <Form.TextField
@@ -120,8 +94,8 @@ export const Register: Layout.Renderer = ({ onClose }) => {
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
-            onClick={() => mutate()}
-            status={isPending ? "loading" : undefined}
+            onClick={() => save()}
+            status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             tooltip={
               client == null

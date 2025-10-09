@@ -64,16 +64,17 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       y
       selected={selected}
       onSelect={onSelect}
+      gap="small"
       {...rest}
     >
       <Text.MaybeEditable
         id={`cluster-dropdown-${item.key}`}
-        weight={450}
+        weight={500}
         value={item.name}
         onChange={handleChange}
         allowDoubleClick={false}
       />
-      <Text.Text color={10}>
+      <Text.Text color={9} weight={450}>
         {item.host}:{item.port}
       </Text.Text>
     </CoreList.Item>
@@ -255,7 +256,12 @@ export const Dropdown = (): ReactElement => {
               Connect
             </Button.Button>
           </Flex.Box>
-          <Flex.Box empty style={{ height: 190 }} onContextMenu={menuProps.open}>
+          <Flex.Box
+            className={CSS.B("cluster-list")}
+            empty
+            style={{ height: 190 }}
+            onContextMenu={menuProps.open}
+          >
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}

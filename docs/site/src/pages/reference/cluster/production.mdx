@@ -98,11 +98,11 @@ certificate:
 
 ```sh
 synnax start \
-    --listen=synnax.example.com:9090
-    --mem \
-    --certs-dir=/etc/letsencrypt/live/synnax.example.com/ \
-    --node-cert=fullchain.pem \
-    --node-key=privkey.pem \
+  --listen=synnax.example.com:9090 \
+  --mem \
+  --certs-dir=/etc/letsencrypt/live/synnax.example.com/ \
+  --node-cert=fullchain.pem \
+  --node-key=privkey.pem \
 ```
 
 <Divider.Divider x />
@@ -142,14 +142,14 @@ entire `/etc/letsencrypt` directory into the container, as the `live` directory 
 symlinks to the actual certificate and key files. Here's an example of how to do this:
 
 ```bash
- docker run -v /etc/letsencrypt:/usr/local/synnax/certs \
-     -p 9090:9090 \
-    synnaxlabs/synnax \
-    -l localhost:9090 \
-    -vm \
-    --certs-dir=/usr/local/synnax/certs/live/demo.synnaxlabs.com \
-    --node-cert=fullchain.pem  \
-    --node-key=privkey.pem
+docker run -v /etc/letsencrypt:/usr/local/synnax/certs \
+  -p 9090:9090 \
+  synnaxlabs/synnax \
+  -l localhost:9090 \
+  -vm \
+  --certs-dir=/usr/local/synnax/certs/live/demo.synnaxlabs.com \
+  --node-cert=fullchain.pem \
+  --node-key=privkey.pem
 ```
 
 ### Using Your Own Certificates

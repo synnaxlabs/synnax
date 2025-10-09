@@ -18,13 +18,29 @@ import (
 )
 
 var _ = Describe("Permissions", func() {
-	Describe("CheckSufficientPermissions", func() {
+	Describe("HasSufficientPermissions", func() {
 		DescribeTable("should return the correct value",
 			func(actual, expected os.FileMode, output bool) {
-				Expect(fs.CheckSufficientPermissions(actual, expected)).To(Equal(output))
+				Expect(fs.HasSufficientPermissions(actual, expected)).To(Equal(output))
 			},
-			Entry("0755 700", os.FileMode(0o755), fs.OS_USER_RWX, true),
-			Entry("600 700", os.FileMode(600), fs.OS_USER_RWX, false),
+			Entry(
+				"0o755 0o700",
+				fs.OwnerReadWriteExecute|fs.GroupReadExecute|fs.OthersReadExecute,
+				fs.OwnerReadWriteExecute,
+				true,
+			),
+			Entry(
+				"0o600 0o700",
+				fs.OwnerReadWrite,
+				fs.OwnerReadWriteExecute,
+				false,
+			),
+			Entry(
+				"0o650 0o750",
+				fs.OwnerReadWrite|fs.OthersReadExecute,
+				fs.OwnerReadWriteExecute|fs.OthersReadExecute,
+				false,
+			),
 		)
 
 	})

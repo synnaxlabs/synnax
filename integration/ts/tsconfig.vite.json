@@ -1,4 +1,0 @@
-{
-  "extends": "@synnaxlabs/tsconfig/vite.json",
-  "include": ["vite.config.ts"]
-}

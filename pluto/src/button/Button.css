@@ -56,12 +56,6 @@
             cursor: not-allowed;
         }
     }
-    &.pluto-btn--prevent-click {
-        cursor: default;
-        & * {
-            cursor: default;
-        }
-    }
 
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
@@ -85,6 +79,9 @@
     }
     &.pluto-btn--filled {
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
+        &.pluto--status-success {
+            color: var(--pluto-text-on-primary);
+        }
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);

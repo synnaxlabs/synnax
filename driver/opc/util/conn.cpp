@@ -271,10 +271,17 @@ connect(const ConnectionConfig &cfg, std::string log_prefix) {
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = custom_logger;
     config->logging->context = &log_prefix;
-    config->secureChannelLifeTime = 7200000; // (ms) 2 hours
-    config->requestedSessionTimeout = 14400000; // (ms) 4 hours (default had it double
-                                                // the secure channel lifetime)
-    config->timeout = 7200000; // (ms) 2 hours
+
+    // Use configured timeouts if provided, otherwise use production defaults
+    config->secureChannelLifeTime = cfg.secure_channel_lifetime_ms > 0
+                                      ? cfg.secure_channel_lifetime_ms
+                                      : 7200000; // Default: 2 hours
+    config->requestedSessionTimeout = cfg.session_timeout_ms > 0
+                                        ? cfg.session_timeout_ms
+                                        : 14400000; // Default: 4 hours
+    config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
+                                                : 7200000; // Default: 2 hours
+
     configure_encryption(cfg, client);
     if (!cfg.username.empty() || !cfg.password.empty()) {
         if (const auto err = parse_error(UA_ClientConfig_setAuthenticationUsername(

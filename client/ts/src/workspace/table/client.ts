@@ -12,6 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
@@ -29,14 +30,26 @@ const RENAME_ENDPOINT = "/workspace/table/rename";
 const SET_DATA_ENDPOINT = "/workspace/table/set-data";
 const DELETE_ENDPOINT = "/workspace/table/delete";
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
-const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ tables: remoteZ.array() });
+const retrieveReqZ = z.object({ keys: keyZ.array() });
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+
+const retrieveResZ = z.object({ tables: array.nullableZ(remoteZ) });
+
+const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: remoteZ.array() });
+
 const emptyResZ = z.object({});
 
 export class Client {
@@ -80,22 +93,23 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Table>;
-  async retrieve(keys: Key[]): Promise<Table[]>;
-  async retrieve(keys: Params): Promise<Table | Table[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: RetrieveSingleParams): Promise<Table>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Table[]>;
+  async retrieve(
+    args: RetrieveSingleParams | RetrieveMultipleParams,
+  ): Promise<Table | Table[]> {
+    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.tables : res.tables[0];
+    checkForMultipleOrNoResults("Table", args, res.tables, isSingle);
+    return isSingle ? res.tables[0] : res.tables;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,

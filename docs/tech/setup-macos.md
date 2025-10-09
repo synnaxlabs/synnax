@@ -7,8 +7,8 @@ The setup guide for Windows is available [here](setup-windows.md). This guide is
 complete, meaning that it provides installation and configuration instructions for all
 tooling required, but it does not provide information on how to use this tooling when
 working with a specific project. For that information, see the project's `README.md`.
-Links to all project `README.md` files can be found in
-the [project index](../../README.md).
+Links to all project `README.md` files can be found in the
+[project index](../../README.md).
 
 Certain tools may require running commands using `sudo` privileges.
 
@@ -63,8 +63,7 @@ go version go1.20.x darwin/amd64
 ```
 
 As an additional verification, let's run some test cases to make sure everything is
-working
-as expected. In the root directory (`~/Desktop/synnaxlabs/synnax`), run
+working as expected. In the root directory (`~/Desktop/synnaxlabs/synnax`), run
 
 ```zsh
 cd x/go && go test -v ./...
@@ -186,14 +185,16 @@ Poetry version 1.1.x
 ## 5.2 - Install Python Dependencies
 
 Synnax has three Python projects: `freighter/py`, `client/py`, and `alamos/py`. To
-install the dependencies for all three projects, move into the respective project directories and run
+install the dependencies for all three projects, move into the respective project
+directories and run
 
 ```zsh
 poetry install
 ```
 
-If, for freighter/py, the ``poetry install`` command gives an error, go into the ``freighter/py/pyproject.toml`` file, comment the line `alamos = "^0.2.0"`, and uncomment the line that follows.
-
+If, for freighter/py, the `poetry install` command gives an error, go into the
+`freighter/py/pyproject.toml` file, comment the line `alamos = "^0.2.0"`, and uncomment
+the line that follows.
 
 # 6 - Front End Build System
 
@@ -245,10 +246,10 @@ pnpm install
 
 ## 6.2 - Build the Pluto Component Library
 
-We use [turborepo](https://turbo.build/repo) to build our various typescript projects.
-It has great monorepo support, and intelligently caches builds to speed up to development. AS a test
-to make sure the build system is working, we'll build the Synnax component library, [pluto](../../pluto/README.md)
-by running
+We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
+It has great monorepo support, and intelligently caches builds to speed up to
+development. AS a test to make sure the build system is working, we'll build the Synnax
+component library, [pluto](../../pluto/README.md) by running
 
 ```zsh
 pnpm build:pluto
@@ -256,9 +257,9 @@ pnpm build:pluto
 
 ## 6.3 - Start a Pluto Dev Server
 
-As another test, we'll start a development server for Pluto. We use this server to develop
-components in isolation before integrating them into the main Synnax application, [console](../console/README.md).
-To start, run
+As another test, we'll start a development server for Pluto. We use this server to
+develop components in isolation before integrating them into the main Synnax
+application, [console](../console/README.md). To start, run
 
 ```zsh
 pnpm dev:pluto
@@ -286,4 +287,5 @@ The output should look something like:
 ```zsh
 rustc 1.55.x (c8dfcfe04 2021-09-06)
 ```
+
 Then you are all set!

@@ -13,19 +13,45 @@ on:
       - cesium/**
       - client/cpp/**
       - core/**
+      - driver/**
+      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - go.work
       - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
+      - scripts/check_clang_format.sh
+      - vendor
       - x/cpp/**
       - x/go/**
   push:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.driver.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - core/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - vendor
+      - x/cpp/**
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -38,7 +64,10 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
@@ -47,17 +76,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earthly
-        uses: earthly/actions-setup@v1
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Image
-        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: core
-
-      - name: Push to Github Container Registry
-        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          cache-from: type=gha,scope=test-driver
+          cache-to: type=gha,mode=max,scope=test-driver
+          build-args: |
+            DRIVER_ENABLED=false
 
   test:
     name: Test
@@ -79,7 +109,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Dependencies
         run: |
@@ -104,7 +134,7 @@ jobs:
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: scripts/check-clang-format.sh driver
+        run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
         run:

@@ -11,13 +11,25 @@ on:
       - freighter/cpp/**
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
+      - scripts/check_clang_format.sh
       - x/cpp/**
-      - x/go/**/*.pb.h
+      - x/go/**/*.pb.go
   push:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.freighter.cpp.yaml
+      - freighter/cpp/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - x/cpp/**
+      - x/go/**/*.pb.go
   workflow_dispatch:
 
 jobs:
@@ -39,10 +51,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
+        uses: actions/checkout@v5
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -61,7 +70,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: scripts/check-clang-format.sh freighter/cpp
+        run: scripts/check_clang_format.sh freighter/cpp
 
       - name: Test
         run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results

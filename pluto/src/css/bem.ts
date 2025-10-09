@@ -20,8 +20,7 @@ export interface BEM extends CoreBEMType {
   BE: (block: string, ...elements: string[]) => string;
   BM: (block: string, ...modifiers: string[]) => string;
   BEM: (block: string, element: string, ...modifiers: string[]) => string;
-  extend: (prefix: string) => BEM;
-  var: (...variables: string[]) => "height" | "width";
+  var: (...variables: string[]) => string;
 }
 
 const BLOCK = "-";
@@ -39,8 +38,6 @@ export const newBEM = (prefix: string): BEM => {
   BEM_.BE = (block, ...elements) => BEM_.B(block) + ELEMENT + elements.join(BLOCK);
   BEM_.BEM = (block, element, ...modifiers) =>
     BEM_.BE(block, element) + MODIFIER + modifiers.join(BLOCK);
-  BEM_.extend = (prefix_) => newBEM(BEM_.B(prefix_));
-  BEM_.var = (...variables) =>
-    (MODIFIER + prefix + BLOCK + variables.join(BLOCK)) as "height";
+  BEM_.var = (...variables) => MODIFIER + prefix + BLOCK + variables.join(BLOCK);
   return BEM_;
 };

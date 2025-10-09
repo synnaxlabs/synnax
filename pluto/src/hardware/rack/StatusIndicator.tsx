@@ -14,7 +14,7 @@ import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { Status } from "@/status";
+import { Status } from "@/status/core";
 import { Tooltip } from "@/tooltip";
 
 export interface StatusIndicatorProps {

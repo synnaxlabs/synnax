@@ -13,6 +13,7 @@ import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { access } from "@/access";
+import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
@@ -26,6 +27,7 @@ import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { status } from "@/status";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -60,14 +62,16 @@ export default class Synnax extends framer.Client {
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
-  readonly user: user.Client;
+  readonly users: user.Client;
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
+  readonly statuses: status.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly arcs: arc.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -133,6 +137,7 @@ export default class Synnax extends framer.Client {
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary);
+    this.statuses = new status.Client(this.transport.unary);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -142,7 +147,7 @@ export default class Synnax extends framer.Client {
       this.ontology,
     );
     this.access = new access.Client(this.transport.unary);
-    this.user = new user.Client(this.transport.unary);
+    this.users = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
     const devices = new device.Client(this.transport.unary);
     const tasks = new task.Client(
@@ -153,6 +158,7 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+    this.arcs = new arc.Client(this.transport.unary);
   }
 
   get key(): string {

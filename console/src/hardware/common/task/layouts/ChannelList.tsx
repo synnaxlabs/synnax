@@ -52,7 +52,7 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
     <EmptyAction
-      message="No channels in task"
+      message="No channels in task."
       action="Add a channel"
       onClick={isSnapshot ? undefined : onAdd}
     />
@@ -62,7 +62,7 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
 export interface ChannelListProps<C extends Channel>
   extends Omit<
     CoreProps<C>,
-    "data" | "header" | "emptyContent" | "path" | "remove" | "useListItem" | "value"
+    "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
   > {
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
@@ -72,13 +72,12 @@ export interface ChannelListProps<C extends Channel>
 export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
-  onSelect,
   path = "config.channels",
-  listItem,
-  selected,
+  ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
+  const { onSelect } = rest;
   const handleAdd = useCallback(() => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
@@ -97,15 +96,13 @@ export const ChannelList = <C extends Channel>({
   );
   return (
     <Core
+      {...rest}
+      data={data}
       header={<Header onAdd={handleAdd} />}
       emptyContent={<EmptyContent onAdd={handleAdd} />}
       path={path}
-      onSelect={onSelect}
-      onDuplicate={handleDuplicate}
-      data={data}
-      listItem={listItem}
-      selected={selected}
       remove={remove}
+      onDuplicate={handleDuplicate}
     />
   );
 };

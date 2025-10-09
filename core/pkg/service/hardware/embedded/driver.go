@@ -97,8 +97,10 @@ func (c Config) format() map[string]any {
 
 var (
 	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
-	DefaultConfig                         = Config{
+	AllIntegrations                       = []string{
+		"labjack", "modbus", "ni", "opc", "sequence",
+	}
+	DefaultConfig = Config{
 		Integrations: []string{},
 		Enabled:      config.True(),
 		Debug:        config.False(),

@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -24,8 +25,14 @@ func Publish(
 	prov *signals.Provider,
 	db *gorp.DB,
 ) (io.Closer, error) {
-	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigPureNumeric[channel.Key, channel.Channel](
-		db,
-		telem.Uint32T,
-	))
+	cfg := signals.GorpPublisherConfigPureNumeric[channel.Key, channel.Channel](db, telem.Uint32T)
+	cfg.SetDataType = telem.JSONT
+	cfg.MarshalSet = func(c channel.Channel) ([]byte, error) {
+		v, err := (&binary.JSONCodec{}).Encode(ctx, channel.ToPayload(c))
+		if err != nil {
+			return nil, err
+		}
+		return append(v, '\n'), nil
+	}
+	return signals.PublishFromGorp(ctx, prov, cfg)
 }

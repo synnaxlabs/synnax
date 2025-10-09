@@ -16,11 +16,9 @@ const ADD_CHILDREN_ENDPOINT = "/ontology/add-children";
 const REMOVE_CHILDREN_ENDPOINT = "/ontology/remove-children";
 const MOVE_CHILDREN_ENDPOINT = "/ontology/move-children";
 
-const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
-
-const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
-
-const emptyResZ = z.object({});
+export const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
+export const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
+export const emptyResZ = z.object({});
 
 export class Writer {
   client: UnaryClient;

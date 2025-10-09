@@ -14,7 +14,6 @@ import z from "zod";
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -58,10 +57,10 @@ const singleRetrieveArgsZ = z
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
+const retrieveResponseZ = z.object({ labels: array.nullableZ(labelZ) });
 
 export class Client {
   readonly type: string = "label";
@@ -71,8 +70,8 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Label>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Label[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Label>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Label[]>;
   async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
     const isSingle = "key" in args;
     const res = await sendRequired(
@@ -120,8 +119,6 @@ export class Client {
     return isMany ? res.labels : res.labels[0];
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,

@@ -11,13 +11,9 @@ import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
-import { type Button } from "@/button";
-import { Boolean } from "@/input/Boolean";
-import { type InputProps } from "@/input/types";
+import { Boolean, type BooleanProps } from "@/input/Boolean";
 
-export interface CheckboxProps
-  extends InputProps<boolean>,
-    Omit<Button.ExtensionProps, "variant"> {}
+export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {}
 
 /**
  * A controlled boolean Checkbox input component.
@@ -30,5 +26,5 @@ export interface CheckboxProps
  * @default "medium"
  */
 export const Checkbox = (props: CheckboxProps): ReactElement => (
-  <Boolean inputType="checkbox" {...props} />
+  <Boolean {...props} inputType="checkbox" />
 );

@@ -24,24 +24,24 @@ interface DisplaySelectorProps {
 export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) => {
   const handleSelectAll = () => setDisplay([...DISPLAY]);
   const handleClearAll = () => setDisplay([]);
-  
+
   return (
     <Flex.Box y gap="small">
       <Flex.Box x gap="small" align="center">
         <Text.Text level="p" weight={500}>
           Select Components:
         </Text.Text>
-        <Button.Button 
-          variant="text" 
-          size="small" 
+        <Button.Button
+          variant="text"
+          size="small"
           onClick={handleSelectAll}
           disabled={display.length === DISPLAY.length}
         >
           Select All
         </Button.Button>
-        <Button.Button 
-          variant="text" 
-          size="small" 
+        <Button.Button
+          variant="text"
+          size="small"
           onClick={handleClearAll}
           disabled={display.length === 0}
         >
@@ -51,7 +51,7 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
           {display.length} of {DISPLAY.length} selected
         </Text.Text>
       </Flex.Box>
-      
+
       <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
         {DISPLAY.map((d) => (
           <Select.Button key={d} itemKey={d}>

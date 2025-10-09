@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
-  Flex,
+  type Flux,
   type Haul,
   Icon,
   Menu as PMenu,
@@ -19,9 +19,8 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, primitive, type record } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { primitive, type record } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -31,11 +30,10 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { createUseDelete } from "@/ontology/createUseDelete";
+import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-
-const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
   store,
@@ -115,136 +113,71 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({
-    type: "Channel",
-  });
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({
-      state: { nodes, setNodes, getResource },
-      selection: { resourceIDs },
-    }) => {
-      const prevNodes = Tree.deepCopy(nodes);
-      const resources = getResource(resourceIDs);
-      if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
-        }),
-      ]);
-      return prevNodes;
-    },
-    mutationFn: async ({ client, selection: { resourceIDs } }) =>
-      await client.channels.delete(resourceIDs.map(({ key }) => Number(key))),
-    onError: (
-      e,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (errors.Canceled.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
-      let message = "Failed to delete channels";
-      if (resourceIDs.length === 1) {
-        const resource = getResource(resourceIDs[0]);
-        message = `Failed to delete channel ${resource.name}`;
-      }
-      handleError(e, message);
-    },
-  }).mutate;
+export const useDelete = createUseDelete({
+  type: "Channel",
+  query: PChannel.useDelete,
+  convertKey: Number,
+});
+
+const beforeSetAlias = async ({
+  data,
+}: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
+  if (data.channel == null) return false;
+  const [alias, renamed] = await Text.asyncEdit(
+    ontology.idToString(channel.ontologyID(data.channel)),
+  );
+  if (!renamed) return false;
+  return { ...data, alias };
 };
 
-export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      store,
-      selection: { resourceIDs },
-      state: { getResource },
-    }) => {
-      const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
-      );
-      if (!renamed) return;
-      const activeRange = Range.select(store.getState());
-      if (activeRange == null) return;
-      const rng = await client.ranges.retrieve(activeRange.key);
-      await rng.setAlias(Number(resources[0].id.key), value);
-    },
-    onError: (
-      e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
-      handleError(e, `Failed to set alias for ${first.name}`);
-    },
-  }).mutate;
+export const useSetAlias = ({
+  selection: {
+    ids: [firstID],
+  },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const activeRange = Range.useSelectActiveKey();
+  const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
+  return useCallback(
+    () =>
+      update({
+        range: activeRange ?? undefined,
+        channel: Number(firstID.key),
+        alias: "",
+      }),
+    [update, activeRange, firstID],
+  );
+};
 
-export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      selection: { resourceIDs },
-      state: { getResource },
-    }) => {
-      const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
-      );
-      if (!renamed) return;
-      await client.channels.rename(Number(resources[0].id.key), value);
-    },
-    onError: (
-      e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
-      handleError(e, `Failed to rename ${first.name}`);
-    },
-  }).mutate;
+export const useRename = createUseRename({
+  query: PChannel.useRename,
+  ontologyID: channel.ontologyID,
+  convertKey: Number,
+});
 
-export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
-    mutationFn: async ({
-      client,
-      store,
-      selection: { resourceIDs },
-      state: { getResource },
-    }) => {
-      const resources = getResource(resourceIDs);
-      const activeRange = Range.select(store.getState());
-      if (activeRange == null) return;
-      const rng = await client.ranges.retrieve(activeRange.key);
-      await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
-    },
-    onError: (
-      e: Error,
-      { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
-      prevNodes,
-    ) => {
-      if (prevNodes != null) setNodes(prevNodes);
-      const first = getResource(resourceIDs[0]);
-      handleError(e, `Failed to remove alias on ${first.name}`);
-    },
-  }).mutate;
+export const useDeleteAlias = ({
+  selection: { ids },
+}: Ontology.TreeContextMenuProps): (() => void) => {
+  const activeRange = Range.useSelectActiveKey();
+  const { update } = PChannel.useDeleteAlias();
+  return useCallback(
+    () =>
+      update({
+        range: activeRange ?? undefined,
+        channels: ids.map((id) => Number(id.key)),
+      }),
+    [update, ids],
+  );
+};
 
 const useOpenCalculated =
   () =>
   ({
-    selection: { resourceIDs },
+    selection: { ids },
     placeLayout,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
-    if (resourceIDs.length !== 1) return;
-    const resource = getResource(resourceIDs[0]);
+    if (ids.length !== 1) return;
+    const resource = getResource(ids[0]);
     return placeLayout(
       Channel.createCalculatedLayout({
         key: Number(resource.id.key),
@@ -255,33 +188,31 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
-  const setAlias = useSetAlias();
-  const resources = getResource(resourceIDs);
-  const channelKeys = useMemo(
-    () => resourceIDs.map((r) => Number(r.key)),
-    [resourceIDs],
-  );
-  const channels = PChannel.retrieveMany.useDirect({
-    params: { rangeKey: activeRange?.key, keys: channelKeys },
+  const handleSetAlias = useSetAlias(props);
+  const resources = getResource(ids);
+  const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
+  const channels = PChannel.useRetrieveMultiple({
+    rangeKey: activeRange?.key,
+    keys: channelKeys,
   });
   const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
-  const delAlias = useDeleteAlias();
-  const del = useDelete();
-  const handleRename = useRename();
+  const handleDeleteAlias = useDeleteAlias(props);
+  const handleDelete = useDelete(props);
+  const handleRename = useRename(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
-    delete: () => del(props),
-    deleteAlias: () => delAlias(props),
-    alias: () => setAlias(props),
-    rename: () => handleRename(props),
+    delete: handleDelete,
+    deleteAlias: handleDeleteAlias,
+    alias: handleSetAlias,
+    rename: handleRename,
     link: () => handleLink({ name: first.name, ontologyID: first.id }),
     openCalculated: () => openCalculated(props),
   };
@@ -292,7 +223,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       {isCalc && (
         <>
           <PMenu.Divider />
@@ -330,6 +261,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Divider />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
         </>
       )}
       <PMenu.Divider />
@@ -338,38 +270,30 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item = ({
-  id,
-  resource,
-  icon: _,
-  onRename,
-  ...rest
-}: Ontology.TreeItemProps) => {
+export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps) => {
   const activeRange = Range.useSelect();
-  const res = PChannel.retrieve.useDirect({
-    params: { key: Number(id.key), rangeKey: activeRange?.key },
+  const res = PChannel.useRetrieve({
+    key: Number(id.key),
+    rangeKey: activeRange?.key,
   }).data;
   let name = resource.name;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
-  const I = PChannel.resolveIcon(data);
+  const DataTypeIcon = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <Flex.Box gap="small" x align="center">
-        <I style={{ color: "var(--pluto-gray-l10" }} />
-        <Text.MaybeEditable
-          id={ontology.idToString(id)}
-          allowDoubleClick={false}
-          value={name}
-          disabled={!allowRename(resource)}
-          onChange={onRename}
-        />
-      </Flex.Box>
-      {data.virtual && (
-        <Icon.Virtual
-          style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}
-        />
-      )}
+      <DataTypeIcon color={10} />
+      <Text.MaybeEditable
+        id={ontology.idToString(id)}
+        allowDoubleClick={false}
+        value={name}
+        overflow="ellipsis"
+        style={{ width: 0 }}
+        grow
+        disabled={!allowRename(resource)}
+        onChange
+      />
+      {data.virtual && <Icon.Virtual color={8} />}
     </Tree.Item>
   );
 };
@@ -380,9 +304,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   onSelect: handleSelect,
-  canDrop,
   haulItems,
-  allowRename,
   Item,
   TreeContextMenu,
 };

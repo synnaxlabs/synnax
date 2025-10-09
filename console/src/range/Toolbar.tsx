@@ -9,23 +9,22 @@
 
 import "@/range/Toolbar.css";
 
-import { DisconnectedError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
+  type Flux,
   Haul,
   Icon,
   List as CoreList,
   Menu as PMenu,
   Ranger,
   Select,
-  Status,
-  Synnax,
   Tag,
+  Telem,
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -33,6 +32,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
@@ -42,8 +42,8 @@ const NoRanges = (): ReactElement => {
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
-      message="No ranges loaded"
-      action="Create a Range"
+      message="No ranges loaded."
+      action="Create a range"
       onClick={handleLinkClick}
     />
   );
@@ -98,47 +98,53 @@ const List = (): ReactElement => {
   );
 };
 
-export const useRename = (key: string) => {
-  const dispatch = useDispatch();
+export const useRename = () => {
   const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  return (name: string) => {
-    const rng = select(store.getState(), key);
-    dispatch(rename({ key, name }));
-    if (rng != null && !rng.persisted) return;
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      await client.ranges.rename(key, name);
-    }, `Failed to rename range to ${name}`);
-  };
+  return Ranger.useRename({
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
+        const { key, name } = data;
+        const rng = select(store.getState(), key);
+        if (rng == null) return data;
+        const oldName = rng.name;
+        if (!rng.persisted) return false;
+        store.dispatch(rename({ key, name }));
+        rollbacks.push(() => store.dispatch(rename({ key, name: oldName })));
+        return data;
+      },
+      [store],
+    ),
+  });
 };
 
 const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
-  const onRename = useRename(itemKey);
+  const onRename = useRename();
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
-
   return (
     <Select.ListItem className={CSS.B("range-list-item")} {...props} gap="small" y>
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small">
+          <Text.Text className="save-button" weight={700} level="small" color={11}>
             L
           </Text.Text>
         </Tooltip.Dialog>
       )}
-      <Text.MaybeEditable
-        id={`text-${key}`}
-        value={name}
-        onChange={onRename}
-        allowDoubleClick={false}
-      />
-      <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
+      <Flex.Box x align="center" gap="small">
+        <Ranger.StageIcon timeRange={timeRange} />
+        <Text.MaybeEditable
+          id={`text-${key}`}
+          level="p"
+          value={name}
+          onChange={(name) => onRename.update({ key, name })}
+          allowDoubleClick={false}
+        />
+      </Flex.Box>
+      <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
         <Flex.Box
           x
@@ -164,8 +170,18 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+          <Toolbar.Action
+            tooltip="Create Range"
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+          >
             <Icon.Add />
+          </Toolbar.Action>
+          <Toolbar.Action
+            tooltip="Open Range Explorer"
+            onClick={() => placeLayout(EXPLORER_LAYOUT)}
+            variant="filled"
+          >
+            <Icon.Explore />
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>

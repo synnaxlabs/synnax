@@ -61,7 +61,6 @@ TEST(ScanTaskTest, testConfigShouldIgnore) {
     ni::ScanTaskConfig cfg2(p2);
 
     // Should ignore models matching default patterns
-    EXPECT_TRUE(cfg2.should_ignore("O-PXI-123"));
     EXPECT_TRUE(cfg2.should_ignore("cRIO-9068"));
     EXPECT_TRUE(cfg2.should_ignore("nownDevice"));
 

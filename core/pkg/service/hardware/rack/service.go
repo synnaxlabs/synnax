@@ -167,15 +167,27 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.DB, tx),
-		otg: s.Ontology.NewWriter(tx),
-		newKey: func() (Key, error) {
-			n, err := s.localKeyCounter.Add(1)
-			return NewKey(s.HostProvider.HostKey(), uint16(n)), err
-		},
-		group: s.group,
-		keyMu: s.keyMu,
+		tx:         gorp.OverrideTx(s.DB, tx),
+		otg:        s.Ontology.NewWriter(tx),
+		newKey:     s.newKey,
+		newTaskKey: s.newTaskKey,
+		group:      s.group,
 	}
+}
+
+func (s *Service) newKey() (Key, error) {
+	n, err := s.localKeyCounter.Add(1)
+	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
+}
+
+func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
+	s.keyMu.Lock()
+	defer s.keyMu.Unlock()
+	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(rackKey).Change(func(r Rack) Rack {
+		r.TaskCounter += 1
+		next = r.TaskCounter
+		return r
+	}).Exec(ctx, s.DB)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

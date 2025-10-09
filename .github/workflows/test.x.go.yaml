@@ -7,12 +7,19 @@ on:
       - alamos/go/**
       - go.work
       - go.work.sum
-      - scripts/check-gofmt.sh
+      - scripts/check_gofmt.sh
       - x/go/**
   push:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.x.go.yaml
+      - alamos/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -23,7 +30,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            format: true
+            lint: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -34,18 +41,28 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Check Formatting
-        if: matrix.format
-        run: ./scripts/check-gofmt.sh x/go
+        if: matrix.lint
+        run: scripts/check_gofmt.sh x/go
+
+      - name: Lint
+        if: matrix.lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: x/go
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
+          --fail-on-pending --fail-on-empty --keep-going --trace --github-output
         working-directory: x/go

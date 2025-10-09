@@ -229,12 +229,9 @@ export const { actions, reducer } = createSlice({
       state.plots[layoutKey] = migrated;
       state.plots[layoutKey].lines = updateLines(migrated);
     },
-    remove: (
-      state,
-      { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>,
-    ) => {
-      layoutKeys.forEach((layoutKey) => {
-        delete state.plots[layoutKey];
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      keys.forEach((k) => {
+        delete state.plots[k];
       });
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {

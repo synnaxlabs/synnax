@@ -29,6 +29,7 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
+import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
@@ -56,6 +57,7 @@ const SideEffect = (): null => {
   Channel.useListenForCalculationStatus();
   Range.useListenForChanges();
   Workspace.useSyncLayout();
+  Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });

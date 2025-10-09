@@ -11,13 +11,9 @@ import "@/input/Switch.css";
 
 import { type ReactElement } from "react";
 
-import { type Button } from "@/button";
-import { Boolean } from "@/input/Boolean";
-import { type InputProps } from "@/input/types";
+import { Boolean, type BooleanProps } from "@/input/Boolean";
 
-export interface SwitchProps
-  extends InputProps<boolean>,
-    Omit<Button.ExtensionProps, "variant"> {}
+export interface SwitchProps extends Omit<BooleanProps, "inputType"> {}
 
 /**
  * A controlled boolean Switch input component.

@@ -1,1 +1,9 @@
-{"key":2,"IsIndex":false,"data_type":"uint8","rate":0,"index":1,"Virtual":false,"Concurrency":0}
+{
+  "key": 2,
+  "IsIndex": false,
+  "data_type": "uint8",
+  "rate": 0,
+  "index": 1,
+  "Virtual": false,
+  "Concurrency": 0
+}

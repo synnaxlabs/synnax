@@ -860,7 +860,6 @@ export class ScaledPath2D {
     );
   }
 
-  // Helper method to scale radii for roundRect
   private scaleRadii(
     radii?: number | DOMPointInit | Array<number | DOMPointInit>,
   ): number | DOMPointInit | Array<number | DOMPointInit> | undefined {
@@ -880,7 +879,6 @@ export class ScaledPath2D {
     };
   }
 
-  // Method to retrieve the underlying Path2D
   getPath(): Path2D {
     return this.path;
   }

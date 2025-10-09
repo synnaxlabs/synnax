@@ -15,7 +15,7 @@ import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs, rootID },
+    selection: { ids, rootID },
     state: { shape },
   } = props;
   const group = Group.useCreateFromSelection();
@@ -24,7 +24,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   };
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
+      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

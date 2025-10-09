@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+import { type ID as OntologyID } from "@/ontology/payload";
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export const nameZ = z.string();
@@ -17,4 +19,6 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 export const groupZ = z.object({ key: keyZ, name: nameZ });
-export interface Payload extends z.infer<typeof groupZ> {}
+export interface Group extends z.infer<typeof groupZ> {}
+
+export const ontologyID = (key: Key): OntologyID => ({ type: "group", key });

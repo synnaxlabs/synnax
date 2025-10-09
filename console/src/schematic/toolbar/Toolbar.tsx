@@ -48,7 +48,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   return (
     <EmptyAction
       x
-      message={`${name} is not editable. ${isEditable ? "To make changes," : ""}`}
+      message={`${name} is not editable.${isEditable ? " To make changes," : ""}`}
       action={
         controlState === "acquired"
           ? "release control and enable editing."

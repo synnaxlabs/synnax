@@ -103,7 +103,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       direction="y"
       style={{ padding: "2.5rem 3rem" }}
       gap="medium"
-      aria-selected={true}
+      aria-selected
       href={href}
       {...props}
     >

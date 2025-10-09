@@ -85,4 +85,3 @@ export const { actions, reducer } = createSlice({
 export const { add, remove, rename, setActive, updateIfExists } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];

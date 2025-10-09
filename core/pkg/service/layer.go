@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/console"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -115,8 +117,12 @@ type Layer struct {
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
 	Console *console.Service
+	// Arc is used for validating, saving, and executing arc automations.
+	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
+	// Status is used for tracking the statuses
+	Status *status.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -212,7 +218,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
-		Instrumentation: cfg.Instrumentation.Child("hardware"),
+		Instrumentation: cfg.Child("hardware"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Group:           cfg.Distribution.Group,
@@ -226,7 +232,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.Config{
-			Instrumentation: cfg.Instrumentation.Child("framer"),
+			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
 			Channel:         cfg.Distribution.Channel,
 		},
@@ -237,11 +243,38 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.Config{
-			Instrumentation: cfg.Instrumentation.Child("metrics"),
+			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
 		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	if l.Status, err = status.OpenService(
+		ctx,
+		status.ServiceConfig{
+			Instrumentation: cfg.Child("status"),
+			DB:              cfg.Distribution.DB,
+			Signals:         cfg.Distribution.Signals,
+			Ontology:        cfg.Distribution.Ontology,
+			Group:           cfg.Distribution.Group,
+			Label:           l.Label,
+		},
+	); !ok(err, l.Status) {
+		return nil, err
+	}
+	if l.Arc, err = arc.OpenService(
+		ctx,
+		arc.ServiceConfig{
+			Instrumentation: cfg.Child("arc"),
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Channel:         cfg.Distribution.Channel,
+			Signals:         cfg.Distribution.Signals,
+			Status:          l.Status,
+		},
+	); !ok(err, l.Arc) {
 		return nil, err
 	}
 	return l, nil

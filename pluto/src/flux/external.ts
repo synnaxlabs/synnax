@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/flux/core/client";
-export * from "@/flux/core/params";
 export * from "@/flux/core/store";
+export * from "@/flux/core/types";
 export * from "@/flux/form";
 export * from "@/flux/list";
 export * from "@/flux/Provider";

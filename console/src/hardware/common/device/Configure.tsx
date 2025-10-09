@@ -9,11 +9,20 @@
 
 import "@/hardware/common/device/Configure.css";
 
-import { type device, DisconnectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { deep, type record, strings } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { type device } from "@synnaxlabs/client";
+import {
+  Button,
+  Device as Core,
+  Device,
+  Flex,
+  Form,
+  Icon,
+  Nav,
+  Status,
+  Text,
+} from "@synnaxlabs/pluto";
+import { deep, type record, status, strings } from "@synnaxlabs/x";
+import { useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -54,17 +63,23 @@ const Internal = <
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
-  const client = Synnax.use();
   const [step, setStep] = useState<"name" | "identifier">("name");
   const isNameStep = step === "name";
   const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const handleError = Status.useErrorHandler();
-  const { isPending, mutate } = useMutation<void, Error, void>({
-    onError: (e) => handleError(e, `Failed to configure ${name}`),
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
+  const deviceToCreate = () => ({
+    ...device,
+    configured: true,
+    name: methods.get<string>("name").value,
+    properties: {
+      ...deep.copy(initialProperties),
+      ...device.properties,
+      identifier: methods.get<string>("identifier").value,
+    },
+  });
+  const { update, variant } = Core.useCreate({
+    beforeUpdate: useCallback(async () => {
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -73,22 +88,14 @@ const Internal = <
           );
           setTimeout(() => identifierRef.current?.focus(), 100);
         }
-        return;
+        return false;
       }
-      if (!methods.validate("identifier")) return;
-      await client.hardware.devices.create({
-        ...device,
-        configured: true,
-        name: methods.get<string>("name").value,
-        properties: {
-          ...deep.copy(initialProperties),
-          ...device.properties,
-          identifier: methods.get<string>("identifier").value,
-        },
-      });
-      onClose();
-    },
+      if (!methods.validate("identifier")) return false;
+      return deviceToCreate();
+    }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
+    afterSuccess: useCallback(() => onClose(), [onClose]),
   });
+
   return (
     <Flex.Box align="stretch" className={CSS.B("configure")} empty>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
@@ -154,8 +161,8 @@ const Internal = <
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
-            status={isPending ? "loading" : undefined}
-            onClick={() => mutate()}
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => update(deviceToCreate())}
             variant="filled"
             trigger={Triggers.SAVE}
             type="submit"
@@ -183,32 +190,7 @@ export const Configure = <
   layoutKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const client = Synnax.use();
-  const { data, error, isError, isPending } = useQuery({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      return await client.hardware.devices.retrieve<Properties, Make, Model>({
-        key: layoutKey,
-      });
-    },
-  });
-  if (isPending)
-    return (
-      <Status.Summary center level="h4" variant="loading">
-        Fetching device from server
-      </Status.Summary>
-    );
-  if (isError)
-    return (
-      <Status.Summary
-        center
-        level="h4"
-        variant="error"
-        message={`Failed to load data for device with key ${layoutKey}`}
-        description={error.message}
-      />
-    );
-
+  const { data, status, variant } = Device.useRetrieve({ key: layoutKey });
+  if (variant !== "success") return <Status.Summary status={status} />;
   return <Internal device={data} {...rest} />;
 };

@@ -31,7 +31,7 @@ telem::DataType ua_to_data_type(const UA_DataType *dt) {
     if (dt == &UA_TYPES[UA_TYPES_UINT64]) return telem::UINT64_T;
     if (dt == &UA_TYPES[UA_TYPES_STRING]) return telem::STRING_T;
     if (dt == &UA_TYPES[UA_TYPES_DATETIME]) return telem::TIMESTAMP_T;
-    if (dt == &UA_TYPES[UA_TYPES_GUID]) return telem::UINT128_T;
+    if (dt == &UA_TYPES[UA_TYPES_GUID]) return telem::UUID_T;
     if (dt == &UA_TYPES[UA_TYPES_BOOLEAN]) return telem::UINT8_T;
     return telem::UNKNOWN_T;
 }
@@ -43,13 +43,12 @@ UA_DataType *data_type_to_ua(const telem::DataType &data_type) {
     if (data_type == telem::INT16_T) return &UA_TYPES[UA_TYPES_INT16];
     if (data_type == telem::INT32_T) return &UA_TYPES[UA_TYPES_INT32];
     if (data_type == telem::INT64_T) return &UA_TYPES[UA_TYPES_INT64];
-    if (data_type == telem::UINT8_T) return &UA_TYPES[UA_TYPES_BYTE];
     if (data_type == telem::UINT16_T) return &UA_TYPES[UA_TYPES_UINT16];
     if (data_type == telem::UINT32_T) return &UA_TYPES[UA_TYPES_UINT32];
     if (data_type == telem::UINT64_T) return &UA_TYPES[UA_TYPES_UINT64];
     if (data_type == telem::STRING_T) return &UA_TYPES[UA_TYPES_STRING];
     if (data_type == telem::TIMESTAMP_T) return &UA_TYPES[UA_TYPES_DATETIME];
-    if (data_type == telem::UINT128_T) return &UA_TYPES[UA_TYPES_GUID];
+    if (data_type == telem::UUID_T) return &UA_TYPES[UA_TYPES_GUID];
     if (data_type == telem::UINT8_T) return &UA_TYPES[UA_TYPES_BOOLEAN];
     return &UA_TYPES[UA_TYPES_VARIANT];
 }
@@ -111,7 +110,8 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     UA_Variant v;
     UA_Variant_init(&v);
     const auto dt = data_type_to_ua(s.data_type());
-    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(s.at(-1)), dt);
+    auto sample = s.at(-1);
+    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(sample), dt);
     return {v, parse_error(status)};
 }
 

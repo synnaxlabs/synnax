@@ -403,6 +403,108 @@ describe("list", () => {
       });
     });
 
+    it("should return undefined for zero value keys", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test various zero values
+          const zeroValue = getItem(0);
+          const nullValue = getItem(null as unknown as number);
+          const undefinedValue = getItem(undefined as unknown as number);
+          const emptyStringValue = getItem("" as unknown as number);
+          return { retrieve, zeroValue, nullValue, undefinedValue, emptyStringValue };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.zeroValue).toBeUndefined();
+        expect(result.current.nullValue).toBeUndefined();
+        expect(result.current.undefinedValue).toBeUndefined();
+        expect(result.current.emptyStringValue).toBeUndefined();
+      });
+    });
+
+    it("should return undefined for zero value keys with string keys", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            string,
+            record.Keyed<string>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: "key1" }, { key: "key2" }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test various zero values for string keys
+          const emptyStringValue = getItem("");
+          const nullValue = getItem(null as unknown as string);
+          const undefinedValue = getItem(undefined as unknown as string);
+          return { retrieve, emptyStringValue, nullValue, undefinedValue };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.emptyStringValue).toBeUndefined();
+        expect(result.current.nullValue).toBeUndefined();
+        expect(result.current.undefinedValue).toBeUndefined();
+      });
+    });
+
+    it("should handle array of keys with zero values correctly", async () => {
+      const { result } = renderHook(
+        () => {
+          const { retrieve, getItem } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }, { key: 3 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          // Test array with mixed valid and zero values
+          const mixedArray = getItem([1, 0, 2, null as unknown as number, 3]);
+          const allZeroArray = getItem([
+            0,
+            null as unknown as number,
+            undefined as unknown as number,
+          ]);
+          return { retrieve, mixedArray, allZeroArray };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        // Should filter out zero values and return only valid items
+        expect(result.current.mixedArray).toEqual([{ key: 1 }, { key: 2 }, { key: 3 }]);
+        // All zero values should result in empty array
+        expect(result.current.allZeroArray).toEqual([]);
+      });
+    });
+
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
       const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
@@ -432,7 +534,7 @@ describe("list", () => {
     });
   });
 
-  interface SubStore extends Flux.Store {
+  interface FluxStore extends Flux.Store {
     ranges: aetherRanger.FluxStore;
   }
 
@@ -519,12 +621,12 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             retrieveCached,
-          })({ initialParams: { searchTerm: "test" } }),
+          })({ initialQuery: { searchTerm: "test" } }),
         { wrapper },
       );
 
       expect(retrieveCached).toHaveBeenCalledWith({
-        params: { searchTerm: "test" },
+        query: { searchTerm: "test" },
         store: expect.any(Object),
       });
     });
@@ -599,7 +701,7 @@ describe("list", () => {
         key: number;
         priority: number;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 3, priority: 3 },
         { key: 1, priority: 1 },
@@ -627,7 +729,7 @@ describe("list", () => {
         key: number;
         name: string;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, name: "Alpha" },
         { key: 2, name: "Charlie" },
@@ -656,7 +758,7 @@ describe("list", () => {
         value: number;
         active: boolean;
       }
-      
+
       const cachedItems: TestItem[] = [
         { key: 1, value: 100, active: true },
         { key: 2, value: 50, active: false },
@@ -672,7 +774,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
             retrieveCached,
-          })({ 
+          })({
             filter: (item) => item.active,
             sort: (a, b) => a.value - b.value,
           }),
@@ -691,7 +793,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -717,7 +819,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -744,7 +846,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
@@ -771,7 +873,7 @@ describe("list", () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -799,7 +901,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
@@ -834,12 +936,12 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<TestParams, number, record.Keyed<number>, SubStore>({
+          Flux.createList<TestParams, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
             mountListeners,
-          })({ initialParams: { filter: "active" } }),
+          })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
 
@@ -849,18 +951,18 @@ describe("list", () => {
 
       await waitFor(() => {
         const firstCall = mountListeners.mock.calls[0];
-        expect(firstCall[0].params).toEqual({ filter: "active" });
+        expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
 
-    it("should mount listeners immediately when retrieveCached returns data", () => {
+    it("should not mount listeners immediately when retrieveCached returns data", () => {
       const mountListeners = vi.fn();
       const cachedItems = [{ key: 1 }, { key: 2 }];
       const retrieveCached = vi.fn().mockReturnValue(cachedItems);
 
       renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
@@ -871,6 +973,23 @@ describe("list", () => {
       );
 
       expect(mountListeners).not.toHaveBeenCalled();
+    });
+
+    it("should mount listeners when getItem is called before retrieve AND the result of getItem is cached", () => {
+      const mountListeners = vi.fn();
+      const useList = Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+        name: "Resource",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key }),
+        retrieveCached: () => [{ key: 1 }],
+        mountListeners,
+      });
+
+      const { result } = renderHook(useList, { wrapper });
+      act(() => {
+        result.current.getItem(1);
+      });
+      expect(mountListeners).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -890,13 +1009,60 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             mountListeners: ({ store, onChange }) =>
               store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
+          })();
+          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieve, value };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range 2");
+      });
+    });
+
+    it("should accept a keyed record as the argument to onChange", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieve } = Flux.createList<
+            {},
+            ranger.Key,
+            ranger.Payload,
+            FluxStore
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            mountListeners: ({ store, onChange }) => store.ranges.onSet(onChange),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Payload>({
             subscribe,
@@ -937,13 +1103,12 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            SubStore
+            FluxStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onDelete }) =>
-              store.ranges.onDelete(async (changed) => onDelete(changed)),
+            mountListeners: ({ store, onDelete }) => store.ranges.onDelete(onDelete),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
@@ -980,7 +1145,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
@@ -1033,7 +1198,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),

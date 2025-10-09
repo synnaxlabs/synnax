@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.45.0",
+  "version": "0.46.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
@@ -34,6 +34,7 @@
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
+    "typescript": "catalog:",
     "vite": "catalog:"
   },
   "files": [

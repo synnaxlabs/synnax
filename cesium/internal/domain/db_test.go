@@ -66,11 +66,12 @@ var _ = Describe("DB", func() {
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-					defer func() {
-						Expect(cleanUp()).To(Succeed())
-					}()
-					_ = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
 					Expect(db.Close()).To(MatchError(core.ErrOpenResource))
+					Expect(w.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+
 				})
 			})
 		})
