@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Installation"
+title: "Driver Installation"
 heading: "Driver Installation"
-description: "Install the standalone Driver on a separate machine from the cluster."
+description: "Install the Synnax Driver on a separate machine from the Synnax Core."
 prevURL: "/reference/device-drivers/get-started"
 prev: "Get Started"
 nextURL: "/reference/device-drivers/timing"
@@ -17,15 +17,16 @@ import StepText from "@/components/StepText.astro";
 import DownloadURL from "@/components/driver/DownloadURL.astro";
 export const components = mdxOverrides;
 
-The standalone driver makes it possible to integrate data acquisition hardware from
-multiple host machines into a single Synnax deployment.
+The Synnax Driver can also be installed as a separate binary, making it possible to
+integrate data acquisition hardware from multiple host machines into a single Synnax
+deployment.
 
 <Divider.Divider x />
 
 ## <StepText step="1" level="h2">Installation</StepText>
 
-To get started, you'll need to install the Synnax standalone driver. Choose your
-operating system below to see the installation instructions:
+To get started, you'll need to install the Synnax Driver. Choose your operating system
+below to see the installation instructions:
 
 <Tabs exclude={["docker"]} client:only="react">
 <Fragment slot="ni-linux-rt">
@@ -34,8 +35,8 @@ operating system below to see the installation instructions:
 
 #### Supported Hardware & Software
 
-The Synnax standalone driver supports the cRIO-904x and cRIO-905x families of
-controllers running NI Linux Real-Time 2024 Q1 and later.
+The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
+NI Linux Real-Time 2024 Q1 and later.
 
 #### NI-DAQmx Programming Mode
 
@@ -50,26 +51,26 @@ guide.
 
 #### SSH Access
 
-The easiest way to install the Synnax standalone driver is to use an SSH connection to
-the cRIO. Once the driver is installed, SSH can be disabled, although we recommend
-keeping it enabled to install updates and manage the driver.
+The easiest way to install the Driver is to use an SSH connection to the cRIO.
+Once the driver is installed, SSH can be disabled, although we recommend keeping it
+enabled to install updates and manage the driver.
 
-#### Network Available Cluster
+#### Network Available Synnax Core
 
-In order to function properly, the standalone driver must be able to connect to a Synnax
-cluster running on the same local network. Make sure you have a
-[cluster running](/reference/cluster/quick-start) and have the connection parameters on
+In order to function properly, the Driver must be able to connect to a Synnax Core
+running on the same local network. Make sure you have a
+[Core running](/reference/cluster/quick-start) and have the connection parameters on
 hand.
 
 ### Install and Run the Driver
 
-Installing the Synnax standalone driver is as simple as opening an SSH connection to the
-cRIO and running the following command:
+Installing the Driver is as simple as opening an SSH connection to the cRIO and
+running the following command:
 
 <DownloadURL os="ni-linux-rt" />
 
-This will download, install, and start the Synnax standalone driver. Once the driver is
-installed, we'll need to configure it to connect to your cluster.
+This will download, install, and start the Driver. Once the driver is installed, we'll
+need to configure it to connect to your Core.
 
 </Fragment>
 <Fragment slot="Linux">
@@ -200,18 +201,18 @@ synnax-driver --version
 
 <Divider.Divider x />
 
-## <StepText step="2" level="h2">Connect to a Cluster</StepText>
+## <StepText step="2" level="h2">Connect to the Synnax Core</StepText>
 
-To connect to a cluster, you'll need to know the cluster's IP address, port, username,
-and password. Then run the `synnax-driver login` command:
+To connect to the Core, you'll need to know the Core's IP address, port, username, and
+password. Then run the `synnax-driver login` command:
 
 ```bash
 synnax-driver login
 ```
 
-This will prompt you to enter the cluster's connection parameters. Once you've entered
-the parameters, the driver will automatically connect to the cluster. Here's an example
-of the output:
+This will prompt you to enter the Core's connection parameters. Once you've entered the
+parameters, the driver will automatically connect to the Core. Here's an example of the
+output:
 
 ```
 synnax-driver login
@@ -247,9 +248,9 @@ Synnax Driver is running (PID: 28191)
 
 ## Configuration Methods
 
-In addition to using the `synnax-driver login` command, the standalone driver also
-allows you to configure parameters for the driver via a configuration file and/or
-environment variables.
+In addition to using the `synnax-driver login` command, the Synnax Driver also allows
+you to configure parameters for the driver via a configuration file and/or environment
+variables.
 
 ### Precedence
 
@@ -264,31 +265,31 @@ methods taking precedence over later ones:
 
 ### Configuration File
 
-The standalone driver can optionally read connection parameters from a JSON
-configuration file with the following format:
+The Synnax Driver can optionally read connection parameters from a JSON configuration
+file with the following format:
 
 ```json
 {
   // Connection parameters
   "connection": {
-    // The host of the Synnax cluster.
+    // The host of the Synnax Core.
     "host": "localhost",
-    // The port of the Synnax cluster.
+    // The port of the Synnax Core.
     "port": 9090,
-    // The username to use when logging in to the Synnax cluster.
+    // The username to use when logging in to the Synnax Core.
     "username": "synnax",
-    // The password to use when logging in to the Synnax cluster.
+    // The password to use when logging in to the Synnax Core.
     "password": "password",
     // The path to the CA certificate file to use when connecting
-    // to the Synnax cluster. This is only required if the cluster
+    // to the Synnax Core. This is only required if the Core
     // is configured to use TLS.
     "ca_cert_file": "/path/to/ca.crt",
     // The path to the client certificate file to use when connecting
-    // to the Synnax cluster. This is only required when the cluster
+    // to the Synnax Core. This is only required when the Core
     // is configured to use TLS and client certificates for authentication.
     "client_cert_file": "/path/to/client.crt",
     // The path to the client key file to use when connecting to the
-    // Synnax cluster. This is only required when the cluster is
+    // Synnax Core. This is only required when the Core is
     // configured to use TLS and client certificates for authentication.
     "client_key_file": "/path/to/client.key"
   },
@@ -301,29 +302,28 @@ configuration file with the following format:
 
 ### Environment Variables
 
-The standalone driver also supports setting connection parameters via environment
-variables.
+The Synnax Driver also supports setting connection parameters via environment variables.
 
 ```bash
-# The host of the Synnax cluster.
+# The host of the Synnax Core.
 export SYNNAX_DRIVER_HOST=localhost
-# The port of the Synnax cluster.
+# The port of the Synnax Core.
 export SYNNAX_DRIVER_PORT=9090
-# The username to use when logging in to the Synnax cluster.
+# The username to use when logging in to the Synnax Core.
 export SYNNAX_DRIVER_USERNAME=synnax
-# The password to use when logging in to the Synnax cluster.
+# The password to use when logging in to the Synnax Core.
 export SYNNAX_DRIVER_PASSWORD=password
 # The path to the CA certificate file to use when connecting
-# to the Synnax cluster. This is only required if
-# the cluster is configured to use TLS.
+# to the Synnax Core. This is only required if
+# the Core is configured to use TLS.
 export SYNNAX_DRIVER_CA_CERT_FILE=/path/to/ca.crt
 # The path to the client certificate file to use when
-# connecting to the Synnax cluster. This is only required when
-# the cluster is configured to use TLS and client certificates
+# connecting to the Synnax Core. This is only required when
+# the Core is configured to use TLS and client certificates
 # for authentication.
 export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
 # The path to the client key file to use when connecting
-# to the Synnax cluster. This is only required when the cluster
+# to the Synnax Core. This is only required when the Core
 # is configured to use TLS and client certificates for authentication.
 export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
 # Enable automatic clock skew correction for the driver.
@@ -375,40 +375,40 @@ synnax-driver start --standalone
     {
       option: "--host",
       default: "localhost",
-      description: "The host of the Synnax cluster.",
+      description: "The host of the Synnax Core.",
     },
     {
       option: "--port",
       default: "9090",
-      description: "The port of the Synnax cluster.",
+      description: "The port of the Synnax Core.",
     },
     {
       option: "--username",
       default: "synnax",
-      description: "The username to use when logging in to the Synnax cluster.",
+      description: "The username to use when logging in to the Synnax Core.",
     },
     {
       option: "--password",
       default: "seldon",
-      description: "The password to use when logging in to the Synnax cluster.",
+      description: "The password to use when logging in to the Synnax Core.",
     },
     {
       option: "--ca-cert-file",
       default: "",
       description:
-        "The path to the CA certificate file to use when connecting to the Synnax cluster.",
+        "The path to the CA certificate file to use when connecting to the Synnax Core.",
     },
     {
       option: "--client-cert-file",
       default: "",
       description:
-        "The path to the client certificate file to use when connecting to the Synnax cluster.",
+        "The path to the client certificate file to use when connecting to the Synnax Core.",
     },
     {
       option: "--client-key-file",
       default: "",
       description:
-        "The path to the client key file to use when connecting to the Synnax cluster.",
+        "The path to the client key file to use when connecting to the Synnax Core.",
     },
     {
       option: "--correct-skew",
@@ -441,7 +441,7 @@ synnax-driver restart
 
 ### Login
 
-The `login` command logs in to a Synnax cluster.
+The `login` command logs in to a Synnax Core.
 
 #### Example Usage
 
@@ -449,9 +449,9 @@ The `login` command logs in to a Synnax cluster.
 synnax-driver login
 ```
 
-This will prompt you to enter the cluster's connection parameters. Once you've entered
-the parameters, the driver will automatically connect to the cluster. Here's an example
-of the output:
+This will prompt you to enter the Core's connection parameters. Once you've entered the
+parameters, the driver will automatically connect to the Core. Here's an example of the
+output:
 
 ```
 synnax-driver login
