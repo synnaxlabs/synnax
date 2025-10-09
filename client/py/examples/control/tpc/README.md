@@ -74,11 +74,11 @@ interface for monitoring and controlling the example TPC system. To use it:
 2. Once imported, you'll need to connect the schematic elements to your channels. All
    channel keys in the schematic have been left empty so you can configure them for your
    specific setup.
-3. To add channel keys, right-click on each schematic element (valves, sensors, displays)
-   and select "Properties". Then, select the appropriate channel from your Core that
-   corresponds to each element.
+3. To add channel keys, right-click on each schematic element (valves, sensors,
+   displays) and select "Properties". Then, select the appropriate channel from your
+   Core that corresponds to each element.
 4. Make sure the channel names match those defined in `common.py` (e.g., `ox_press_cmd`,
    `fuel_pt_1`, etc.).
 
-Once configured, the schematic will display live sensor values and allow you to
-manually control valves and other components in the TPC system.
+Once configured, the schematic will display live sensor values and allow you to manually
+control valves and other components in the TPC system.

@@ -121,8 +121,8 @@ several tabs that can be used to fine-tune the look and behavior of the symbol.
 
 ### Style Tab
 
-The style tab on allows users to edit (<Icon.Edit color="var(--pluto-primary-z)"/>) the symbol's label, size, orientation, color, and
-other visual properties.
+The style tab on allows users to edit (<Icon.Edit color="var(--pluto-primary-z)"/>) the
+symbol's label, size, orientation, color, and other visual properties.
 
 <Table>
   <thead>
@@ -154,11 +154,7 @@ other visual properties.
       <td>
         <b>Normally Open</b>
       </td>
-      {
-        <td>
-          Invert the visual state of the valve when True
-        </td>
-      }
+      {<td>Invert the visual state of the valve when True</td>}
     </tr>
     <tr>
       <td>
@@ -214,8 +210,8 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          Display a rolling average for the input channel. This does not 
-          change the underlying value written to the Synnax Core.
+          Display a rolling average for the input channel. This does not change the
+          underlying value written to the Synnax Core.
         </td>
       }
     </tr>
@@ -225,20 +221,16 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          The amount of seconds without input channel telemetry before 
-          the element state registers as stale.
+          The amount of seconds without input channel telemetry before the element state
+          registers as stale.
         </td>
       }
     </tr>
-        <tr>
+    <tr>
       <td>
         <b>Stale Color</b>
       </td>
-      {
-        <td>
-          The color the element will change to when telemetry is stale.
-        </td>
-      }
+      {<td>The color the element will change to when telemetry is stale.</td>}
     </tr>
   </tbody>
 </Table>
@@ -265,7 +257,7 @@ two main properties:
       {
         <td>
           Represents the display state of the symbol. If the input channel has a value
-          of <code>1</code>, the symbol will be display as {" "}<code>activated</code>.
+          of <code>1</code>, the symbol will be display as <code>activated</code>.
         </td>
       }
     </tr>
@@ -277,7 +269,7 @@ two main properties:
         <td>
           Channel to write command to when the symbol is clicked. If the symbol is{" "}
           <code>deactivated</code>, clicking it will write <code>1</code> to the output
-          channel. If the symbol is{" "}<code>activated</code>, clicking it will write
+          channel. If the symbol is <code>activated</code>, clicking it will write
           <code>0</code> to the output channel.
         </td>
       }
@@ -314,22 +306,21 @@ You can also change the color of multiple symbols together in the same manner:
 
 <Divider.Divider x />
 
-## Control Mode 
+## Control Mode
 
 In control mode, elements on the schematic are able to be activated for manual control
 of the system. Clicking on an actionable element, such as a valve, switch, or button,
-allows you to activate the output channel on that element. The indicator next to the 
-element displays the control status. 
+allows you to activate the output channel on that element. The indicator next to the
+element displays the control status.
 
-<Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current
-user has control. 
+<Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current user
+has control.
 
-<Icon.Circle color="green" /> Green circle indicates the current user has absolute 
-control. 
+<Icon.Circle color="green" /> Green circle indicates the current user has absolute
+control.
 
-<Icon.Circle color="red" /> Red circle indicates the current user does not have 
-control as the command channel is being controlled by another user or an automated
-sequence.
+<Icon.Circle color="red" /> Red circle indicates the current user does not have control
+as the command channel is being controlled by another user or an automated sequence.
 
 The color of the bar indicates what is controlling the elements on the Schematic. There
 is a legend on the display indicating what controlling node is what color.
