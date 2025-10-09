@@ -13,18 +13,22 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
+const lhsParam = "lhs"
+const rhsParam = "rhs"
+
 func createBinaryOpSymbol(name string, outputs ir.NamedTypes) ir.Symbol {
 	return ir.Symbol{
 		Name: name,
 		Kind: ir.KindStage,
 		Type: ir.Stage{
 			Params: ir.NamedTypes{
-				Keys: []string{"a", "b"},
+				Keys: []string{lhsParam, rhsParam},
 				Values: []ir.Type{
 					ir.NewTypeVariable("T", ir.NumericConstraint{}),
 					ir.NewTypeVariable("T", ir.NumericConstraint{}),
 				},
 			},
+			Outputs: outputs,
 		},
 	}
 }
@@ -39,7 +43,6 @@ func createComparisonSymbol(name string) ir.Symbol {
 	)
 }
 
-// createArithmeticSymbol creates a polymorphic arithmetic operator symbol
 func createArithmeticSymbol(name string) ir.Symbol {
 	return createBinaryOpSymbol(
 		name,

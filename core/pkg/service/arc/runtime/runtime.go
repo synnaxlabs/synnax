@@ -127,8 +127,7 @@ type Runtime struct {
 	scheduler *runtime.Scheduler
 	streamer  *streamerSeg
 	telem     *ntelem.State
-	// close is a shutdown handler that stops internal processes
-	close io.Closer
+	close     io.Closer
 }
 
 func (r *Runtime) Close() error {
@@ -139,6 +138,8 @@ func (r *Runtime) Close() error {
 }
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
+	r.telem.Ingest(res.Frame.ToStorage(), r.scheduler.MarkChanged)
+	r.scheduler.Next(ctx)
 	return nil
 }
 
@@ -248,6 +249,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	r.streamer.requests = requests
 	sCtx, cancel := signal.Isolated()
+	for _, irNode := range nodes {
+		irNode.Init(ctx, r.scheduler.MarkChanged)
+	}
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

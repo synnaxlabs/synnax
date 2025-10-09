@@ -15,11 +15,13 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/x/query"
 )
 
 var (
-	symbol = ir.Symbol{
-		Name: "constant",
+	symbolName = "constant"
+	symbol     = ir.Symbol{
+		Name: symbolName,
 		Kind: ir.KindStage,
 		Type: ir.Stage{
 			Config: maps.Ordered[string, ir.Type]{
@@ -32,12 +34,12 @@ var (
 			},
 		},
 	}
-	Resolver = ir.MapResolver{"constant": symbol}
+	Resolver = ir.MapResolver{symbolName: symbol}
 )
 
 type constant struct{}
 
-func (c constant) Init(ctx context.Context, changed func(output string)) {
+func (c constant) Init(_ context.Context, changed func(output string)) {
 	changed(ir.DefaultOutput)
 }
 
@@ -46,5 +48,8 @@ func (c constant) Next(context.Context, func(output string)) {}
 type constantFactory struct{}
 
 func (c *constantFactory) Create(cfg node.Config) (node.Node, error) {
+	if cfg.Node.Type != symbolName {
+		return nil, query.NotFound
+	}
 	return constant{}, nil
 }

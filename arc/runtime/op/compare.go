@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/x/telem/op"
 )
 
-var comparisons = map[string]map[telem.DataType]compare{
+var comparisons = map[string]map[telem.DataType]op.Binary{
 	"ge": {
 		telem.Float64T: op.GreaterThanOrEqualF64,
 		telem.Float32T: op.GreaterThanOrEqualF32,

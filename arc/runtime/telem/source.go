@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	sourceSymbol = ir.Symbol{
-		Name: "on",
+	sourceSymbolName = "on"
+	sourceSymbol     = ir.Symbol{
+		Name: sourceSymbolName,
 		Kind: ir.KindStage,
 		Type: ir.Stage{
 			Config: ir.NamedTypes{
@@ -61,7 +62,7 @@ type telemFactory struct {
 }
 
 func (t telemFactory) Create(cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != "on" {
+	if cfg.Node.Type != sourceSymbolName {
 		return nil, query.NotFound
 	}
 	key := cfg.Node.Channels.Read.Keys()[0]

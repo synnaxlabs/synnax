@@ -138,6 +138,12 @@ type IR struct {
 	Strata Strata `json:"-"`
 }
 
+func (ir IR) GetEdgeBySourceHandle(sourceHandle Handle) Edge {
+	return lo.Must(lo.Find(ir.Edges, func(item Edge) bool {
+		return item.Target.Node == sourceHandle.Node && item.Target.Param == sourceHandle.Param
+	}))
+}
+
 func (ir IR) GetStage(key string) (Stage, bool) {
 	return lo.Find(ir.Stages, func(item Stage) bool {
 		return item.Key == key

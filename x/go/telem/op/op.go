@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Binary = func(a, b, output telem.Series)
+
 func GreaterThanF64(a, b, output telem.Series) {
 	aData := unsafe.Slice((*float64)(unsafe.Pointer(&a.Data[0])), len(a.Data)/8)
 	bData := unsafe.Slice((*float64)(unsafe.Pointer(&b.Data[0])), len(b.Data)/8)
