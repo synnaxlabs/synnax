@@ -28,10 +28,10 @@ is to permanently store and serve sensor data to users. It's useful to think of 
 as the heart of a Synnax deployment. All traffic related to data recording, control
 sequences, and other tasks is routed through and processed by a node.
 
-A node is not the same as the [Synnax Console UI](/reference/console/get-started). The
-console UI contains a local node embedded inside for single person usage of Synnax. For
+A node is not the same as the [Synnax Console](/reference/console/get-started). The
+Console contains a local node embedded inside for single person usage of Synnax. For
 deployment in a multi-user organization, it's common to run a node on a separate server
-and have multiple users connect to it via the console.
+and have multiple users connect to it via the Console.
 
 ### Cluster
 
@@ -116,7 +116,7 @@ use standard TCP/IP networking.
 
 All Synnax nodes expose themselves to traffic on a **single port**, which is
 configurable at runtime. This port is used for cluster internal communication between
-Cores, as well as for processing incoming requests from clients (console UI, control
+Cores, as well as for processing incoming requests from clients (Consoles, control
 sequences, analysis scripts, device drivers, etc.).
 
 When running in production, we recommend encrypting all traffic to and from your Synnax

@@ -33,12 +33,12 @@ The first step to getting started with Synnax is to install two key components: 
 
 <Divider.Divider x />
 
-## Install the Console
+## Install the Synnax Console
 
-The console is our primary user interface for interacting with a Synnax deployment. We
-can set up visualizations to observe data, integrate and configure data acquisition
-devices, and manually control actuators on our system. Here's the link to download the
-latest version of the console for your OS:
+The Synnax Console is our primary user interface for interacting with a Synnax
+deployment. We can set up visualizations to observe data, integrate and configure data
+acquisition devices, and manually control actuators on our system. Here's the link to
+download the latest version of the Console for your OS:
 
 <br />
 <br />
@@ -66,7 +66,7 @@ connection is healthy.
 
 Next, click on the workspace selector in the top right corner of the screen. This will
 open a dropdown menu where we can select the workspace we want to use. Choose the "Demo"
-workspace. You'll see the console automatically re-configure its layout to match the
+workspace. You'll see the Console automatically re-configure its layout to match the
 workspace, and a new plot will appear with a live stream of data.
 
 <Divider.Divider x />
@@ -75,8 +75,8 @@ workspace, and a new plot will appear with a live stream of data.
 
 Now that the Console is up and running, we'll install our own Synnax Core locally. The
 Core is the heart of every Synnax deployment. It's where all sensor and actuator data is
-stored, and it serves as a central hub where all of our devices, operator consoles, and
-control sequences will communicate.
+stored, and it serves as a central hub where all of our devices, Consoles, and control
+sequences will communicate.
 
 <Platform.Tabs client:only="react">
 
@@ -257,8 +257,8 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 Now that we have a Core running, we'll disconnect the Console from the demo Core and
 connect it to our own. We've pre-populated the Console with a connection for the default
-admin user on a local Core. To connect, head to the Core dropdown in the bottom right
-corner of the console and select the Core named `Local`.
+admin user on a local Core. To connect, head to the Core dropdown in the top-right
+corner of the Console and select the Core named `Local`.
 
 <Video client:only="react" id="console/clusters/switch" />
 
