@@ -362,11 +362,10 @@ try {
 ### Calling Commit on Every Write
 
 If you're not using auto-commit, it's important to call `commit` on the writer
-periodically to ensure that the data is persisted to the cluster. However, calling
-`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
-the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
-on auto-commit.
+periodically to ensure that the data is persisted to theCore . However, calling `commit`
+on every write is a bad idea. This is because `commit` requires a round-trip to the Core
+to ensure that the data is persisted. This can be very slow if you're writing a lot of
+data. If you're writing a lot of data, commit every few seconds or turn on auto-commit.
 
 This is a bad idea:
 

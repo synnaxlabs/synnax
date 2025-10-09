@@ -178,7 +178,7 @@ This example will write 100 samples to the `my_precise_tc` channel, each spaced 
 0.1 seconds apart, and will commit all writes when finished.
 
 It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is persisted to the cluster.
+intermittently calling commit to ensure that the data is persisted to the Core.
 
 We recommend using writers within a context manager. This ensures that a writer is
 properly closed after use, ensuring that resources have been freed and sockets are
@@ -307,9 +307,8 @@ with client.open_writer(
 
 ## Common Pitfalls
 
-There are several common pitfalls to avoid when writing data to a Synnax cluster. These
-are important to avoid as they can lead to performance degradation and/or control
-issues.
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 
@@ -364,11 +363,10 @@ with client.open_writer(
 ### Calling Commit on Every Write
 
 If you're not using auto-commit, it's important to call `commit` on the writer
-periodically to ensure that the data is persisted to the cluster. However, calling
-`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
-the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
-on auto-commit.
+periodically to ensure that the data is persisted to the Core. However, calling `commit`
+on every write is a bad idea. This is because `commit` requires a round-trip to the Core
+to ensure that the data is persisted. This can be very slow if you're writing a lot of
+data. If you're writing a lot of data, commit every few seconds or turn on auto-commit.
 
 This is a bad idea:
 

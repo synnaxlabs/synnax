@@ -61,13 +61,13 @@ At the top of your script, make sure to import the Synnax library:
 import synnax as sy
 ```
 
-The next step is to connect to a Synnax cluster. This can be done by logging in with
+The next step is to connect to a Synnax Core. This can be done by logging in with
 through the [CLI](/reference/python-client/get-started#the-synnax-login-command) or by
 [passing the credentials](/reference/python-client/get-started#passing-credentials-directly)
 into your script.
 
 After that, we will want to instantiate the Synnax client so we can interact with the
-cluster:
+Core:
 
 ```python
 client = sy.Synnax()
@@ -240,8 +240,8 @@ with client.control.acquire(
 ## Running the Control Sequence
 
 The first step to running the control sequence is to start a
-[local Synnax cluster](/reference/core/quick-start). After installing the Core you
-should run the following command:
+[Core](/reference/core/quick-start). After installing the Core you should run the
+following command:
 
 ```shell
 synnax start --insecure --memory
@@ -263,8 +263,8 @@ python simulated_daq.py
 </Note.Note>
 
 Now its, time to open the Synnax Console to set up two visualizations of the tank. After
-opening the console, you can connect to the cluster using the same connection parameters
-in the Python script.
+opening the console, you can connect to the Core using the same connection parameters in
+the Python script.
 
 <Video client:only="react" id="guides/operations/automated-control/connect-cluster" />
 

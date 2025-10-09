@@ -26,7 +26,7 @@ export const CONSOLE_NAV: PageNavNode = {
     {
       key: "/reference/console/clusters",
       href: "/reference/console/clusters",
-      name: "Clusters",
+      name: "Cores",
     },
     {
       key: "/reference/console/ui-overview",
