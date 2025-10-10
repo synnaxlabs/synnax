@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/x/confluence"
@@ -140,17 +141,60 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.
 				Channel.
 				NewRetrieve().
-				WhereNames(
-					"sy_node_"+hostKey.String()+"_metrics_time",
-					"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
-					"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
-				).
+				WhereNames(getNames(hostKey)...).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
 			Expect(channels).To(HaveLen(3))
 			Expect(svc2.Close()).To(Succeed())
 		})
+	})
+	Describe("Restarting nodes", Focus, func() {
+		It("Should not recreate channels if they are renamed", func() {
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+				Channel:            dist.Channel,
+				Framer:             svcFramer,
+				HostProvider:       dist.Cluster,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+			Expect(svc.Close()).To(Succeed())
+			originalNames := getNames(dist.Cluster.HostKey())
+			var channels []channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(originalNames...).
+				Entries(&channels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(channels).To(HaveLen(3))
+			chKeys := channel.KeysFromChannels(channels)
+			newNames := []string{
+				"renamed_time",
+				"renamed_cpu_percentage",
+				"renamed_mem_percentage",
+			}
+			Expect(dist.Channel.RenameMany(ctx, chKeys, newNames, false)).To(Succeed())
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+				Channel:            dist.Channel,
+				Framer:             svcFramer,
+				HostProvider:       dist.Cluster,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+			Expect(svc.Close()).To(Succeed())
+			var newChannels []channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(originalNames...).
+				Entries(&newChannels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(newChannels).To(BeEmpty())
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(newNames...).
+				Entries(&channels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(channels).To(HaveLen(3))
+		})
+
 	})
 	Describe("Metric Collection", func() {
 		var (
@@ -167,14 +211,9 @@ var _ = Describe("Metrics", func() {
 				CollectionInterval: 50 * time.Millisecond,
 			}))
 			channels := []channel.Channel{}
-			hostKey := dist.Cluster.HostKey()
 			Eventually(func(g Gomega) {
 				g.Expect(dist.Channel.NewRetrieve().
-					WhereNames(
-						"sy_node_"+hostKey.String()+"_metrics_time",
-						"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
-						"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
-					).
+					WhereNames(getNames(dist.Cluster.HostKey())...).
 					Entries(&channels).
 					Exec(ctx, nil),
 				).To(Succeed())
@@ -225,3 +264,11 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 })
+
+func getNames(hostKey cluster.NodeKey) []string {
+	return []string{
+		"sy_node_" + hostKey.String() + "_metrics_time",
+		"sy_node_" + hostKey.String() + "_metrics_cpu_percentage",
+		"sy_node_" + hostKey.String() + "_metrics_mem_percentage",
+	}
+}
