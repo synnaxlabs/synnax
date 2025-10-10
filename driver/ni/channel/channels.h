@@ -1079,7 +1079,7 @@ struct AIFrequencyVoltage final : AICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        const auto port = this->dev_loc + "ctr" + std::to_string(this->port);
+        const auto port = this->dev_loc + "/ctr" + std::to_string(this->port);
         return dmx->CreateAIFreqVoltageChan(
             task_handle,
             port.c_str(),
