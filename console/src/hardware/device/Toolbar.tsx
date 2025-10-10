@@ -17,12 +17,12 @@ import { Ontology } from "@/ontology";
 const Content = (): ReactElement => {
   const { data: groupID } = Device.useRetrieveGroupID({});
   return (
-    <Toolbar.Content>
+    <Ontology.Toolbar>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
-    </Toolbar.Content>
+    </Ontology.Toolbar>
   );
 };
 

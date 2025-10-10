@@ -11,7 +11,8 @@ import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useIsRunning, useKey } from "@/hardware/common/task/Form";
+import { useIsRunning } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 
 export interface TareableChannel {
   key: string;

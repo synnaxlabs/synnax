@@ -141,7 +141,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       hideIfNull
     >
       {({ value, onChange }) => (
-        <Flex.SelectAlignment value={value} onChange={onChange} />
+        <Select.Flex.Alignment value={value} onChange={onChange} />
       )}
     </Form.Field>
     <Form.Field<direction.Direction>
@@ -981,7 +981,7 @@ export const TextBoxForm = (): ReactElement => {
             hideIfNull
           >
             {({ value, onChange }) => (
-              <Flex.SelectAlignment value={value} onChange={onChange} />
+              <Select.Flex.Alignment value={value} onChange={onChange} />
             )}
           </Form.Field>
         </Flex.Box>

@@ -105,7 +105,7 @@ export const Canvas = ({
         // We need to explicitly construct the region here because this callback
         // may race against the `useResize` callback and cause a stale region to
         // be used in state.
-        region: box.construct(elRef.current),
+        region: box.construct(elRef.current ?? box.ZERO),
         dpr: window.devicePixelRatio,
       }));
     };
@@ -124,7 +124,7 @@ export const Canvas = ({
         // We need to explicitly construct the region here because this callback
         // may race against the `useResize` callback and cause a stale region to
         // be used in state.
-        region: box.construct(elRef.current),
+        region: box.construct(elRef.current ?? box.ZERO),
         glCanvas: undefined,
         upper2dCanvas: undefined,
         lower2dCanvas: undefined,

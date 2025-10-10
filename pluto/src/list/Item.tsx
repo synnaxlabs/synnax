@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
 export interface ItemRenderProps<K extends record.Key = record.Key> {
   index: number;

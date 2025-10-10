@@ -10,5 +10,6 @@
 export * from "@/framer/client";
 export * from "@/framer/frame";
 export * from "@/framer/iterator";
+export * from "@/framer/payload";
 export * from "@/framer/streamer";
 export * from "@/framer/writer";

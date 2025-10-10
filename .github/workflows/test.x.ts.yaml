@@ -64,8 +64,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:x
+      - name: Check Types
+        if: matrix.lint
+        run: pnpm check-types:x
+
+      - name: Madge
+        if: matrix.lint
+        run: pnpm madge:x
 
       - name: Lint
         if: matrix.lint
