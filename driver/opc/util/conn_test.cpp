@@ -56,6 +56,9 @@ TEST(ConnTest, testBasicConn) {
     ASSERT_EQ(ser.at<float>(0), 5.0f);
 
     server.stop();
+
+    // Clean up allocated variant memory
+    UA_Variant_clear(&float_val);
 }
 
 TEST(ConnTest, connectionRefused) {
@@ -169,6 +172,9 @@ TEST(ConnTest, serverStopDuringConnection) {
     UA_ReadResponse res = UA_Client_Service_read(client.get(), req);
     EXPECT_NE(res.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     UA_ReadResponse_clear(&res);
+
+    // Clean up allocated node_id memory
+    UA_NodeId_clear(&node_id);
 }
 
 TEST(ConnTest, connectionAfterServerRestart) {

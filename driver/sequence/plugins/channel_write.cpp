@@ -88,12 +88,25 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 luaL_error(cL, err.message().c_str());
                 return 0;
             }
-            auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
-            if (s_err) {
-                luaL_error(cL, s_err.message().c_str());
+
+            // Create Series in a nested scope to ensure cleanup before luaL_error
+            std::string error_msg;
+            bool has_error = false;
+            {
+                auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
+                if (s_err) {
+                    error_msg = s_err.message();
+                    has_error = true;
+                    // value is destroyed here when exiting scope
+                } else {
+                    op->frame.emplace(channel.key, std::move(value));
+                }
+            }  // Series is destroyed here if there was an error
+
+            if (has_error) {
+                luaL_error(cL, error_msg.c_str());
                 return 0;
             }
-            op->frame.emplace(channel.key, std::move(value));
             return 0;
         },
         1

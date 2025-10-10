@@ -160,6 +160,7 @@ private:
             if (err) {
                 LOG(ERROR) << "[opc.write_task] failed to convert series to variant: "
                            << err;
+                UA_Variant_clear(&val);
                 continue;
             }
             UA_WriteValue &node = req.nodesToWrite[actual_writes];
@@ -168,6 +169,7 @@ private:
             if (copy_status != UA_STATUSCODE_GOOD) {
                 LOG(ERROR) << "[opc.write_task] failed to copy node id: "
                            << util::parse_error(copy_status);
+                UA_Variant_clear(&val);
                 continue;
             }
             node.value.hasValue = true;

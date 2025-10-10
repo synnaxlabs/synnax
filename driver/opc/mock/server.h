@@ -44,76 +44,78 @@ struct ServerConfig {
     static ServerConfig create_default() {
         ServerConfig cfg;
 
-        // Boolean node
-        UA_Variant bool_val;
-        UA_Variant_init(&bool_val);
-        UA_Boolean bool_data = true;
-        UA_Variant_setScalarCopy(&bool_val, &bool_data, &UA_TYPES[UA_TYPES_BOOLEAN]);
-
-        // uint16 node
-        UA_Variant uint16_val;
-        UA_Variant_init(&uint16_val);
-        UA_UInt16 uint16_data = 42;
-        UA_Variant_setScalarCopy(&uint16_val, &uint16_data, &UA_TYPES[UA_TYPES_UINT16]);
-
-        // uint32 node
-        UA_Variant uint32_val;
-        UA_Variant_init(&uint32_val);
-        UA_UInt32 uint32_data = 12345;
-        UA_Variant_setScalarCopy(&uint32_val, &uint32_data, &UA_TYPES[UA_TYPES_UINT32]);
-
-        // uint64 node
-        UA_Variant uint64_val;
-        UA_Variant_init(&uint64_val);
-        UA_UInt64 uint64_data = 12345;
-        UA_Variant_setScalarCopy(&uint64_val, &uint64_data, &UA_TYPES[UA_TYPES_UINT64]);
-
-        // int8 node (using SByte in OPC UA)
-        UA_Variant int8_val;
-        UA_Variant_init(&int8_val);
-        UA_SByte int8_data = 42;
-        UA_Variant_setScalarCopy(&int8_val, &int8_data, &UA_TYPES[UA_TYPES_SBYTE]);
-
-        // int16 node
-        UA_Variant int16_val;
-        UA_Variant_init(&int16_val);
-        UA_Int16 int16_data = 42;
-        UA_Variant_setScalarCopy(&int16_val, &int16_data, &UA_TYPES[UA_TYPES_INT16]);
-
-        // int32 node
-        UA_Variant int32_val;
-        UA_Variant_init(&int32_val);
-        UA_Int32 int32_data = 12345;
-        UA_Variant_setScalarCopy(&int32_val, &int32_data, &UA_TYPES[UA_TYPES_INT32]);
-
-        // int64 node
-        UA_Variant int64_val;
-        UA_Variant_init(&int64_val);
-        UA_Int64 int64_data = 12345;
-        UA_Variant_setScalarCopy(&int64_val, &int64_data, &UA_TYPES[UA_TYPES_INT64]);
-
-        // float node
-        UA_Variant float_val;
-        UA_Variant_init(&float_val);
-        UA_Float float_data = 3.14159f;
-        UA_Variant_setScalarCopy(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
-
-        // double node
-        UA_Variant double_val;
-        UA_Variant_init(&double_val);
-        UA_Double double_data = 2.71828;
-        UA_Variant_setScalarCopy(&double_val, &double_data, &UA_TYPES[UA_TYPES_DOUBLE]);
-
-        // guid node
-        UA_Variant guid_val;
-        UA_Variant_init(&guid_val);
-        UA_Guid guid_data = {
+        // Static storage for variant data (needed because UA_Variant_setScalar doesn't copy)
+        static UA_Boolean bool_data = true;
+        static UA_UInt16 uint16_data = 42;
+        static UA_UInt32 uint32_data = 12345;
+        static UA_UInt64 uint64_data = 12345;
+        static UA_SByte int8_data = 42;
+        static UA_Int16 int16_data = 42;
+        static UA_Int32 int32_data = 12345;
+        static UA_Int64 int64_data = 12345;
+        static UA_Float float_data = 3.14159f;
+        static UA_Double double_data = 2.71828;
+        static UA_Guid guid_data = {
             0x12345678,
             0x1234,
             0x5678,
             {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0}
         };
-        UA_Variant_setScalarCopy(&guid_val, &guid_data, &UA_TYPES[UA_TYPES_GUID]);
+
+        // Boolean node
+        UA_Variant bool_val;
+        UA_Variant_init(&bool_val);
+        UA_Variant_setScalar(&bool_val, &bool_data, &UA_TYPES[UA_TYPES_BOOLEAN]);
+
+        // uint16 node
+        UA_Variant uint16_val;
+        UA_Variant_init(&uint16_val);
+        UA_Variant_setScalar(&uint16_val, &uint16_data, &UA_TYPES[UA_TYPES_UINT16]);
+
+        // uint32 node
+        UA_Variant uint32_val;
+        UA_Variant_init(&uint32_val);
+        UA_Variant_setScalar(&uint32_val, &uint32_data, &UA_TYPES[UA_TYPES_UINT32]);
+
+        // uint64 node
+        UA_Variant uint64_val;
+        UA_Variant_init(&uint64_val);
+        UA_Variant_setScalar(&uint64_val, &uint64_data, &UA_TYPES[UA_TYPES_UINT64]);
+
+        // int8 node (using SByte in OPC UA)
+        UA_Variant int8_val;
+        UA_Variant_init(&int8_val);
+        UA_Variant_setScalar(&int8_val, &int8_data, &UA_TYPES[UA_TYPES_SBYTE]);
+
+        // int16 node
+        UA_Variant int16_val;
+        UA_Variant_init(&int16_val);
+        UA_Variant_setScalar(&int16_val, &int16_data, &UA_TYPES[UA_TYPES_INT16]);
+
+        // int32 node
+        UA_Variant int32_val;
+        UA_Variant_init(&int32_val);
+        UA_Variant_setScalar(&int32_val, &int32_data, &UA_TYPES[UA_TYPES_INT32]);
+
+        // int64 node
+        UA_Variant int64_val;
+        UA_Variant_init(&int64_val);
+        UA_Variant_setScalar(&int64_val, &int64_data, &UA_TYPES[UA_TYPES_INT64]);
+
+        // float node
+        UA_Variant float_val;
+        UA_Variant_init(&float_val);
+        UA_Variant_setScalar(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
+
+        // double node
+        UA_Variant double_val;
+        UA_Variant_init(&double_val);
+        UA_Variant_setScalar(&double_val, &double_data, &UA_TYPES[UA_TYPES_DOUBLE]);
+
+        // guid node
+        UA_Variant guid_val;
+        UA_Variant_init(&guid_val);
+        UA_Variant_setScalar(&guid_val, &guid_data, &UA_TYPES[UA_TYPES_GUID]);
 
         cfg.test_nodes = {
             {1,
@@ -155,23 +157,23 @@ struct ServerConfig {
 class Server {
 public:
     ServerConfig cfg;
-    volatile bool *running = new bool(false);
+    std::atomic<bool> running{false};
     std::thread thread;
 
     explicit Server(const ServerConfig &cfg): cfg(cfg) {}
 
     void start() {
-        running = new bool(true);
+        running = true;
         thread = std::thread(&Server::run, this);
     }
 
     void stop() {
-        *running = false;
+        running = false;
         thread.join();
     }
 
     ~Server() {
-        if (*running) this->stop();
+        if (running) this->stop();
     }
 
     void run() const {
@@ -217,8 +219,14 @@ public:
                 NULL,
                 NULL
             );
+
+            // Clean up allocated memory
+            UA_LocalizedText_clear(&attr.description);
+            UA_LocalizedText_clear(&attr.displayName);
+            UA_NodeId_clear(&nodeId);
+            UA_QualifiedName_clear(&nodeName);
         }
-        UA_StatusCode retval = UA_Server_run(server, running);
+        UA_StatusCode retval = UA_Server_run(server, &running);
         UA_Server_delete(server);
     }
 };

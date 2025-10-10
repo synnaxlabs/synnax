@@ -63,9 +63,20 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
 
     UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
     UA_StatusCode status = res.responseHeader.serviceResult;
-    if (status != UA_STATUSCODE_GOOD) return status;
-    if (!res.results[0].hasValue) return res.results[0].status;
-    if (!res.results[1].hasValue) return res.results[1].status;
+    if (status != UA_STATUSCODE_GOOD) {
+        UA_ReadResponse_clear(&res);
+        return status;
+    }
+    if (!res.results[0].hasValue) {
+        status = res.results[0].status;
+        UA_ReadResponse_clear(&res);
+        return status;
+    }
+    if (!res.results[1].hasValue) {
+        status = res.results[1].status;
+        UA_ReadResponse_clear(&res);
+        return status;
+    }
     UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
     auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
         res.results[1].value.data
@@ -87,6 +98,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
         util::node_class_to_string(cls),
         is_array
     );
+    UA_ReadResponse_clear(&res);
     return status;
 }
 
