@@ -161,6 +161,12 @@ func (ir IR) GetEdgeByTargetHandle(targetHandle Handle) Edge {
 	}))
 }
 
+func (ir IR) TryGetEdgeByTargetHandle(targetHandle Handle) (Edge, bool) {
+	return lo.Find(ir.Edges, func(item Edge) bool {
+		return item.Target == targetHandle
+	})
+}
+
 func (ir IR) GetStage(key string) (Stage, bool) {
 	return lo.Find(ir.Stages, func(item Stage) bool {
 		return item.Key == key

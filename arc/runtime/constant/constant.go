@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -26,11 +25,11 @@ var (
 		Name: symbolName,
 		Kind: ir.KindStage,
 		Type: ir.Stage{
-			Config: maps.Ordered[string, ir.Type]{
+			Config: ir.NamedTypes{
 				Keys:   []string{"value"},
 				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 			},
-			Outputs: maps.Ordered[string, ir.Type]{
+			Outputs: ir.NamedTypes{
 				Keys:   []string{ir.DefaultOutputParam},
 				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
 			},
