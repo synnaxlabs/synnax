@@ -10,7 +10,7 @@
 import "@/input/Item.css";
 
 import { direction, type status } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -51,12 +51,12 @@ export const Item = ({
   status,
   showHelpText = true,
   ...rest
-}: ItemProps): ReactElement => {
+}: ItemProps): ReactNode => {
   const dir = Flex.parseDirection(direction, x, y, false);
   let inputAndHelp: ReactElement;
   const actuallyShowHelpText = showHelpText && helpText != null && helpText.length > 0;
   const actuallyShowLabel = showLabel && label != null && label.length > 0;
-  if (!actuallyShowHelpText && !actuallyShowLabel) return <>{children}</>;
+  if (!actuallyShowHelpText && !actuallyShowLabel) return children;
   if (dir === "x")
     inputAndHelp = (
       <Flex.Box y gap="small">

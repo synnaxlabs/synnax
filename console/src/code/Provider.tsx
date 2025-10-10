@@ -20,6 +20,7 @@ import {
 } from "react";
 
 import { type Extension, initializeMonaco, type Service } from "@/code/init/initialize";
+
 export type * as Monaco from "monaco-editor";
 
 type Monaco = typeof monacoT;

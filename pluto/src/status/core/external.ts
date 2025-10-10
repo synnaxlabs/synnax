@@ -12,5 +12,4 @@ export * from "@/status/core/colors";
 export * from "@/status/core/CreateIcon";
 export * from "@/status/core/Indicator";
 export * from "@/status/core/Notification";
-export * from "@/status/core/SelectVariant";
 export * from "@/status/core/Summary";

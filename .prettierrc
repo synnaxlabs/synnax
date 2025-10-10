@@ -3,7 +3,7 @@
   "proseWrap": "always",
   "overrides": [
     {
-      "files": ["synnax.code-workspace", ".prettierrc"],
+      "files": ["synnax.code-workspace", ".prettierrc", ".madgerc"],
       "options": { "parser": "json", "tabWidth": 2 }
     }
   ],

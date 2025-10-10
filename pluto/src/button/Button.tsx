@@ -9,8 +9,7 @@
 
 import "@/button/Button.css";
 
-import { color, record } from "@synnaxlabs/x";
-import { TimeSpan } from "@synnaxlabs/x/telem";
+import { color, record, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";

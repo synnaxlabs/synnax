@@ -10,3 +10,4 @@
 export * from "@/menu/ContextMenu";
 export * from "@/menu/Item";
 export * from "@/menu/Menu";
+export * from "@/menu/types";

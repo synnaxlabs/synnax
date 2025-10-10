@@ -41,7 +41,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   ) : (
     <Select.ListItem highlightHovered {...props}>
       <Text.Text weight={450} gap="medium">
-        {isValidElement(icon) ? icon : icon(item)}
+        {icon != null && (isValidElement(icon) ? icon : icon(item))}
         {name}
       </Text.Text>
     </Select.ListItem>

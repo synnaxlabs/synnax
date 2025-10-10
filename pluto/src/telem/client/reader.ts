@@ -9,9 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
-import { sync } from "@synnaxlabs/x";
-import { debounce } from "@synnaxlabs/x/debounce";
-import { type MultiSeries, TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
+import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { type Cache } from "@/telem/client/cache/cache";
 import { type ReadClient } from "@/telem/client/client";

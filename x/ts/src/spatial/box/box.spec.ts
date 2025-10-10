@@ -9,9 +9,9 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import * as box from "@/spatial/box/box";
-import * as location from "@/spatial/location/location";
-import type * as xy from "@/spatial/xy/xy";
+import { box } from "@/spatial/box";
+import { location } from "@/spatial/location";
+import { type xy } from "@/spatial/xy";
 
 describe("Box", () => {
   describe("construction", () => {

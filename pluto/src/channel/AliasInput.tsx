@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { Channel } from "@/channel";
+import { useRetrieve, useUpdateAlias } from "@/channel/queries";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status/core";
@@ -32,8 +32,8 @@ export const AliasInput = ({
 }: AliasInputProps): ReactElement => {
   const { value, onChange } = rest;
   const [loading, setLoading] = useState(false);
-  const { update } = Channel.useUpdateAlias();
-  const { data } = Channel.useRetrieve({ key: channel, rangeKey: range });
+  const { update } = useUpdateAlias();
+  const { data } = useRetrieve({ key: channel, rangeKey: range });
   const setAlias = async (value: string) => {
     update({ alias: value, range, channel });
   };

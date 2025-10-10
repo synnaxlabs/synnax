@@ -18,7 +18,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/core/Aggregator";
 import { Indicator } from "@/status/core/Indicator";
-import { Telem } from "@/telem";
+import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 
 interface ActionProps {
@@ -64,13 +64,13 @@ export const Notification = ({
             {primitive.isNonZero(name) && name}
           </Text.Text>
           <Text.Text level="small">{`x${count}`}</Text.Text>
-          <Telem.Text.TimeStamp
+          <TelemText.TimeStamp
             className={CSS(CSS.BE("notification", "time"))}
             level="small"
             format="time"
           >
             {time}
-          </Telem.Text.TimeStamp>
+          </TelemText.TimeStamp>
         </Flex.Box>
         <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}

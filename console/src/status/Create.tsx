@@ -10,7 +10,7 @@
 import { Button, Flex, Form, Nav, Status } from "@synnaxlabs/pluto";
 import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-import type z from "zod";
+import { type z } from "zod";
 
 import { Label } from "@/label";
 import { Layout } from "@/layout";

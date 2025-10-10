@@ -12,15 +12,14 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
-import { Component } from "@/component";
-import { type RenderProp } from "@/component/renderProp";
+import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { Select } from "@/select";
+import { useContext, useItemState, useSelection } from "@/select/Frame";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -42,7 +41,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   onDragStart,
 }: MultipleTagProps<K>): ReactElement | null => {
   const item = List.useItem<K, E>(itemKey);
-  const { onSelect } = Select.useItemState(itemKey);
+  const { onSelect } = useItemState(itemKey);
   let label: string = itemKey.toString();
   if (primitive.isNonZero(item?.alias)) label = item.alias;
   else if (primitive.isNonZero(item?.name)) label = item.name;
@@ -61,7 +60,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   );
 };
 
-const multipleTag = Component.renderProp(MultipleTag);
+const multipleTag = renderProp(MultipleTag);
 
 export interface MultipleTriggerProps<K extends record.Key>
   extends Pick<Button.ButtonProps, "variant" | "disabled"> {
@@ -92,9 +91,9 @@ export const MultipleTrigger = <K extends record.Key>({
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {
-  const value = Select.useSelection<K>();
+  const value = useSelection<K>();
   const valueRef = useSyncedRef(value);
-  const { setSelected } = Select.useContext<K>();
+  const { setSelected } = useContext<K>();
   const { toggle, visible } = Dialog.useContext();
   const canDrop = useCallback(
     (hauled: Haul.DraggingState) =>

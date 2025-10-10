@@ -22,6 +22,7 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
+
 export const stateProviderStateZ = z.object({});
 
 interface InternalState {

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { math } from "@synnaxlabs/x";
-import { TimeRange } from "@synnaxlabs/x/telem";
+import { math, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { label } from "@/label";

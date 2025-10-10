@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, type SenderHandler } from "@synnaxlabs/x";
-import { compare } from "@synnaxlabs/x/compare";
+import { compare, deep, type SenderHandler } from "@synnaxlabs/x";
 import {
   createContext,
   memo,

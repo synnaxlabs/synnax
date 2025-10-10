@@ -11,11 +11,11 @@ import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
-import { Common } from "@/hardware/common";
 import {
   ChannelList as Core,
   type ChannelListProps as CoreProps,
 } from "@/hardware/common/task/ChannelList";
+import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
 
 interface HeaderProps {
@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 const Header = ({ onAdd }: HeaderProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   return (
     <PHeader.Header>
       <PHeader.Title weight={500} color={10}>
@@ -49,7 +49,7 @@ const Header = ({ onAdd }: HeaderProps) => {
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ onAdd }: EmptyContentProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   return (
     <EmptyAction
       message="No channels in task."

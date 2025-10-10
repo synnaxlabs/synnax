@@ -9,6 +9,7 @@
 
 import { Logo as CoreLogo } from "./Logo";
 import { LogoWatermark } from "./LogoWatermark";
+
 export { type LogoProps } from "./Logo";
 
 type CoreLogoType = typeof CoreLogo;

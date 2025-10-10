@@ -12,7 +12,8 @@ import { Triggers } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { setNavDrawerVisible, toggleNavHover } from "@/layout/slice";
 
 const createModeConfig = (items: Layout.NavDrawerItem[]): Triggers.ModeConfig<string> =>
   Object.fromEntries(
@@ -47,8 +48,8 @@ export const useTriggers = ({ items }: UseTriggersProps) => {
       if (mode.length === 0) return;
       if (mode.includes("double")) {
         const key = mode.split("-")[0];
-        dispatch(Layout.setNavDrawerVisible({ windowKey, key, value: true }));
-      } else dispatch(Layout.toggleNavHover({ windowKey, key: mode }));
+        dispatch(setNavDrawerVisible({ windowKey, key, value: true }));
+      } else dispatch(toggleNavHover({ windowKey, key: mode }));
     },
   });
 };

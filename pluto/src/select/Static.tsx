@@ -12,7 +12,7 @@ import { type Optional, type record } from "@synnaxlabs/x";
 import { Component } from "@/component";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
-import { Select } from "@/select";
+import { ListItem } from "@/select/ListItem";
 import { Single, type SingleProps } from "@/select/Single";
 
 export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> {
@@ -34,10 +34,10 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <Select.ListItem {...p}>
+    <ListItem {...p}>
       {icon}
       {name}
-    </Select.ListItem>
+    </ListItem>
   );
 });
 

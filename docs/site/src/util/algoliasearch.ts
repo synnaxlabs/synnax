@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as dotenv from "dotenv";
-import process from "process";
-dotenv.config();
-
 import algoliasearch from "algoliasearch";
-
-const client = algoliasearch(
-  process.env.DOCS_ALGOLIA_APP_ID,
-  process.env.DOCS_ALGOLIA_WRITE_API_KEY,
-);
-
-// 1. Build a dataset
+import * as dotenv from "dotenv";
 import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
+import process from "process";
 import removeMd from "remove-markdown";
 
-const purgeImports = (content) => {
+dotenv.config();
+
+const client = algoliasearch(
+  process.env.DOCS_ALGOLIA_APP_ID ?? "",
+  process.env.DOCS_ALGOLIA_WRITE_API_KEY ?? "",
+);
+
+// 1. Build a dataset
+
+const purgeImports = (content: string) => {
   // find the second --- in the file
   const secondDash = content.indexOf("---", 3);
   // get the content after the second ---
@@ -42,30 +42,28 @@ const purgeImports = (content) => {
   return nc.slice(lastImport + lastNewline + 2);
 };
 
-const filenames = fs.readdirSync(path.join("./src/pages"), { recursive: true });
+const filenames = fs.readdirSync(path.join("./src/pages"), {
+  recursive: true,
+}) as string[];
 const data = filenames
   .filter((f) => f.endsWith("mdx"))
   .map((filename) => {
-    try {
-      const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
-      const { data: frontmatter, content } = matter(markdownWithMeta);
-      let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
-      if (filename.includes("releases") && !filename.includes("index"))
-        href = `/releases/#${filename
-          .replace(".mdx", "")
-          .replaceAll("-", "")
-          .slice(0, -1)
-          .replace("releases/", "")}`;
-      return {
-        objectID: filename,
-        href,
-        title: frontmatter.heading ?? frontmatter.title,
-        description: frontmatter.description,
-        content: removeMd(purgeImports(content)).replace(/\n/g, " "),
-      };
-    } catch (e) {
-      console.log(e.message);
-    }
+    const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
+    const { data: frontmatter, content } = matter(markdownWithMeta);
+    let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
+    if (filename.includes("releases") && !filename.includes("index"))
+      href = `/releases/#${filename
+        .replace(".mdx", "")
+        .replaceAll("-", "")
+        .slice(0, -1)
+        .replace("releases/", "")}`;
+    return {
+      objectID: filename,
+      href,
+      title: frontmatter.heading ?? frontmatter.title,
+      description: frontmatter.description,
+      content: removeMd(purgeImports(content)).replace(/\n/g, " "),
+    };
   });
 
 const idx = client.initIndex("docs_site");
