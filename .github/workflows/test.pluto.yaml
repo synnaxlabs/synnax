@@ -126,8 +126,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:pluto
+      - name: Check Types
+        run: pnpm check-types:pluto
+
+      - name: Madge
+        run: pnpm madge:pluto
 
       - name: Lint
         run: pnpm lint:pluto

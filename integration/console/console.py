@@ -49,7 +49,6 @@ class Console:
     channels: ChannelClient
 
     def __init__(self, page: Page):
-
         # Playwright
         self.page = page
         self.channels = ChannelClient(page, self)

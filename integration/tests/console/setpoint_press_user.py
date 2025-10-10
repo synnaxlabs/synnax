@@ -20,7 +20,6 @@ class Setpoint_Press_User(ConsoleCase):
     """
 
     def setup(self) -> None:
-
         self.set_manual_timeout(90)
         self.subscribe(
             [

@@ -47,7 +47,27 @@ const generateStatic = (
   const mediaQueryVars = defaultTheme === "light" ? darkVars : lightVars;
   const mediaQueryTheme = defaultTheme === "light" ? "dark" : "light";
 
-  return `:root {
+  // Read the copyright header from the licenses directory
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const headerPath = path.resolve(__dirname, "../../../licenses/headers/template.txt");
+  const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
+
+  // Replace template arguments
+  const currentYear = new Date().getFullYear();
+  const processedHeader = headerContent.replace(
+    /\{\{YEAR\}\}/g,
+    currentYear.toString(),
+  );
+
+  // Format as CSS comment
+  const copyrightHeader = `/*
+ * ${processedHeader.split("\n").join("\n * ")}
+ */
+
+`;
+
+  return `${copyrightHeader}:root {
 ${formatVars(defaultVars)}
 ${formatVars(darkPrefixedVars)}
 }

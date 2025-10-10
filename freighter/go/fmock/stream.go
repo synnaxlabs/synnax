@@ -11,10 +11,11 @@ package fmock
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"go/types"
 )
 
 var (
@@ -85,7 +86,7 @@ func (s *StreamServer[RQ, RS]) exec(
 	if s.Handler == nil {
 		return ctx, errors.New("no handler bound to stream server")
 	}
-	return s.MiddlewareCollector.Exec(
+	return s.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, s.Handler)
@@ -109,7 +110,7 @@ func (s *StreamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], err error) {
-	_, err = s.MiddlewareCollector.Exec(
+	_, err = s.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,

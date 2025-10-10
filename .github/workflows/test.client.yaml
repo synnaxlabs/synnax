@@ -303,8 +303,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:client
+      - name: Check Types
+        run: pnpm check-types:client
+
+      - name: Madge
+        run: pnpm madge:client
 
       - name: Lint
         run: pnpm lint:client

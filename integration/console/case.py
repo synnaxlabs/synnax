@@ -29,7 +29,6 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
-
         headless = self.params.get("headless", True)
         slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 5000)  # 5s
