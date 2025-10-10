@@ -52,8 +52,8 @@ guide.
 #### SSH Access
 
 The easiest way to install the Driver is to use an SSH connection to the cRIO. Once the
-driver is installed, SSH can be disabled, although we recommend keeping it enabled to
-install updates and manage the driver.
+Driver is installed, SSH can be disabled, although we recommend keeping it enabled to
+install updates and manage the Driver.
 
 #### Network Available Synnax Core
 
@@ -134,7 +134,7 @@ Download the latest Synnax Driver executable for Windows:
 After downloading, move the `synnax-driver.exe` file to a location on your system, such
 as `C:\Program Files\Synnax\`.
 
-To make the driver accessible from any command prompt, add the directory to your
+To make the Driver accessible from any command prompt, add the directory to your
 system's PATH environment variable:
 
 1. Open the Start menu and search for "Environment Variables"
@@ -210,7 +210,7 @@ synnax-driver login
 ```
 
 This will prompt you to enter the Core's connection parameters. Once you've entered the
-parameters, the driver will automatically connect to the Core. Here's an example of the
+parameters, the Driver will automatically connect to the Core. Here's an example of the
 output:
 
 ```
@@ -228,14 +228,14 @@ I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
 
 ## <StepText step="3" level="h2">Check the Driver Status</StepText>
 
-As a final step, you can check the driver's status by running the `synnax-driver status`
+As a final step, you can check the Driver's status by running the `synnax-driver status`
 command:
 
 ```bash
 synnax-driver status
 ```
 
-This will print the driver's status to the console. Here's an example of the output:
+This will print the Driver's status to the console. Here's an example of the output:
 
 ```
 I20250318 05:07:04.312907  5935 daemon_nilinuxrt.cpp:490] Checking service status
@@ -248,7 +248,7 @@ Synnax Driver is running (PID: 28191)
 ## Configuration Methods
 
 In addition to using the `synnax-driver login` command, the Synnax Driver also allows
-you to configure parameters for the driver via a configuration file and/or environment
+you to configure parameters for the Driver via a configuration file and/or environment
 variables.
 
 ### Precedence
@@ -293,7 +293,7 @@ file with the following format:
     "client_key_file": "/path/to/client.key"
   },
   "timing": {
-    // Enable automatic skew correction for the driver.
+    // Enable automatic skew correction for the Driver.
     "correct_skew": true
   }
 }
@@ -325,7 +325,7 @@ export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
 # the Synnax Core. This is only required when the Core is
 # configured to use TLS and client certificates for authentication.
 export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
-# Enable automatic clock skew correction for the driver.
+# Enable automatic clock skew correction for the Driver.
 export SYNNAX_DRIVER_CORRECT_SKEW=true
 ```
 
@@ -333,7 +333,7 @@ export SYNNAX_DRIVER_CORRECT_SKEW=true
 
 ### Start
 
-The `start` command starts the driver as a background process on the host machine.
+The `start` command starts the Driver as a background process on the host machine.
 
 #### Example Usage
 
@@ -341,7 +341,7 @@ The `start` command starts the driver as a background process on the host machin
 synnax-driver start
 ```
 
-To start the driver as a foreground process, use the `--standalone` flag:
+To start the Driver as a foreground process, use the `--standalone` flag:
 
 ```bash
 synnax-driver start --standalone
@@ -359,12 +359,12 @@ synnax-driver start --standalone
     {
       option: "--standalone/-s",
       default: "false",
-      description: "Run the driver directly within the terminal process.",
+      description: "Run the Driver directly within the terminal process.",
     },
     {
       option: "--config/-c",
       default: "config.json",
-      description: "The path to the configuration file to use for the driver.",
+      description: "The path to the configuration file to use for the Driver.",
     },
     {
       option: "--debug",
@@ -412,14 +412,14 @@ synnax-driver start --standalone
     {
       option: "--correct-skew",
       default: "true",
-      description: "Enable automatic clock skew correction for the driver.",
+      description: "Enable automatic clock skew correction for the Driver.",
     },
   ]}
 />
 
 ### Stop
 
-The `stop` command stops the driver.
+The `stop` command stops the Driver.
 
 #### Example Usage
 
@@ -429,8 +429,8 @@ synnax-driver stop
 
 ### Restart
 
-The `restart` command restarts the driver. This is equivalent to stopping and then
-starting the driver.
+The `restart` command restarts the Driver. This is equivalent to stopping and then
+starting the Driver.
 
 #### Example Usage
 
@@ -449,7 +449,7 @@ synnax-driver login
 ```
 
 This will prompt you to enter the Core's connection parameters. Once you've entered the
-parameters, the driver will automatically connect to the Core. Here's an example of the
+parameters, the Driver will automatically connect to the Core. Here's an example of the
 output:
 
 ```
@@ -472,7 +472,7 @@ synnax-driver clear
 
 ### Status
 
-The `status` command prints the driver's status to the console.
+The `status` command prints the Driver's status to the console.
 
 #### Example Usage
 
@@ -482,7 +482,7 @@ synnax-driver status
 
 ### Uninstall
 
-The `uninstall` command uninstalls the driver.
+The `uninstall` command uninstalls the Driver.
 
 #### Example Usage
 
@@ -492,7 +492,7 @@ synnax-driver uninstall
 
 ### Logs
 
-The `logs` command prints the driver's logs to the console.
+The `logs` command prints the Driver's logs to the console.
 
 #### Example Usage
 
@@ -502,7 +502,7 @@ synnax-driver logs
 
 ### Version
 
-The `version` command prints the driver's version to the console.
+The `version` command prints the Driver's version to the console.
 
 #### Example Usage
 

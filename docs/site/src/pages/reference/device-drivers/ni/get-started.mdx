@@ -13,10 +13,10 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows
-Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and
-PXI systems. This page will walk you through some of the important pre-requisites
-necessary to get started with the NI driver.
+The Synnax Driver supports reading and writing data from
+[National Instruments (NI)](https://www.ni.com/en-us.html) hardware, including
+CompactDAQ, CompactRIO, and PXI systems. This page will walk you through the steps to
+start acquiring data from your NI devices using the Driver.
 
 <Divider.Divider x />
 
@@ -44,9 +44,9 @@ see the [Driver installation](/reference/device-drivers/installation) page.
 
 ## OS Compatibility
 
-The NI driver is compatible with Linux, Windows, and NI Linux RT. The driver will not be
-able to find your devices when running on macOS or within a containerized environment
-(even if the container is running on a supported OS).
+The Synnax Driver is compatible with Linux, Windows, and NI Linux RT. The Driver will
+not be able to find your devices when running on macOS or within a containerized
+environment (even if the container is running on a supported OS).
 
 ### Installing DAQmx and System Configuration Libraries
 

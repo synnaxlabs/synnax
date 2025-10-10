@@ -11,9 +11,9 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax has developed a number of device drivers for a variety of vendors, including
-[National Instruments](https://www.ni.com), [LabJack](https://labjack.com), and
-[OPC UA](https://opcfoundation.org) servers. Synnax also supports building custom
+The Synnax Driver has developed a number of device drivers for a variety of vendors,
+including [National Instruments](https://www.ni.com), [LabJack](https://labjack.com),
+and [OPC UA](https://opcfoundation.org) servers. Synnax also supports building custom
 drivers for devices that are not natively supported.
 
 <Divider.Divider x />
@@ -21,9 +21,8 @@ drivers for devices that are not natively supported.
 ## Synnax Driver
 
 The Synnax Driver natively supports reading and writing data for
-[National Instruments](/reference/device-drivers/ni/get-started),
-[OPC UA](/reference/device-drivers/opc-ua/connect-server),
-[Modbus TCP](/reference/device-drivers/opc-ua/connect-server), and
+[National Instruments](/reference/device-drivers/ni/get-started) hardware,
+[OPC UA](/reference/device-drivers/opc-ua/connect-server) servers, and
 [LabJack](/reference/device-drivers/labjack/get-started) devices.
 
 ### Embedded Driver
@@ -38,7 +37,7 @@ users.
 The [Synnax Driver](/reference/device-drivers/installation) can also be installed as a
 separate binary that can run on a different machine from the Synnax Core. It is used to
 integrate data acquisition devices across multiple machines. The Driver connects to a
-Synnax Core over the network.
+Core over the network.
 
 #### Support for NI Linux Real-Time
 

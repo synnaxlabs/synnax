@@ -11,9 +11,9 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The [LabJack](https://support.labjack.com/docs/?l=en) LJM library allows Synnax to
-directly connect to your LabJack T-series devices. This page will walk you through some
-of the important prerequisites necessary to get started with the LabJack driver.
+The Synnax Driver supports reading and writing data from LabJack T-series devices. This
+page will walk you through the steps to start acquiring data from your LabJack devices
+using the Driver.
 
 <Divider.Divider x />
 
@@ -33,8 +33,8 @@ the
 
 ## Supported Operating Systems
 
-The LabJack driver supports Linux, Windows, and macOS machines that have the LJM library
-installed. The driver will not be able to connect to external devices when running
+The Synnax Driver supports Linux, Windows, and macOS machines that have the LJM library
+installed. The Driver will not be able to connect to external devices when running
 within a containerized environment (even if that container is running on a supported
 OS).
 

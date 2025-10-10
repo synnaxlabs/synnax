@@ -26,7 +26,7 @@ export const components = mdxOverrides;
 
 Synnax v0.39.0 introduces embedded control sequences. Write and deploy tightly timed
 control loops directly within the Synnax Console. We've done major refactoring work on
-our built-in device drivers to make them more reliable and user-friendly.
+the Synnax Driver to make it more reliable and user-friendly.
 
 ### Embedded Control Sequences
 
@@ -50,7 +50,7 @@ variety of applications, such as generating test signals or controlling hardware
 
 ### Driver Performance & Experience Improvements
 
-We've rewritten a large portion of our device drivers to improve their performance and
+We've rewritten a large portion of the Synnax Driver to improve its performance and
 stability. We've improved our device discovery mechanisms, made tasks more resilient to
 device disconnects, and made a number of changes to the Console task configuration UI's
 to make them easier to use.
@@ -69,7 +69,7 @@ to make them easier to use.
 - Added support for changing the default Console control authority.
 - Implemented a clock skew detection algorithm that warns when Synnax clients
   communicating with a Core have a significant time difference.
-- Added warnings when you attempt to configure a task on a driver that is not alive.
+- Added warnings when you attempt to configure a task on a Driver that is not alive.
 - Improved error messages in the Python client when methods require named parameters.
 
 ### Bug Fixes

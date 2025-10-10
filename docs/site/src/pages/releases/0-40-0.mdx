@@ -17,12 +17,12 @@ export const components = mdxOverrides;
 >
 
 Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves
-performance of the device driver, and fixes a few bugs related to the embedded control
+performance of the Synnax Driver, and fixes a few bugs related to the embedded control
 sequences.
 
 ### Driver Clock Skew Improvements
 
-Our refactor of the driver in Synnax v0.39 made several major improvements, and,
+Our refactor of the Driver in Synnax v0.39 made several major improvements, and,
 unfortunately, introduced a few performance issues related to task timing. In this
 release, we've introduced a new
 [clock skew detection algorithm](/reference/device-drivers/timing) that automatically
@@ -32,7 +32,7 @@ corrects for timing offsets in hardware timed tasks.
 
 In previous versions of Synnax, tasks that were set at too high of a stream rate would
 silently fall behind drop data samples. This release introduces a new warning mechanisms
-that updates the Console task configuration dialog and logs a warning to the driver logs
+that updates the Console task configuration dialog and logs a warning to the Driver logs
 when Synnax cannot keep up with the requested stream rate.
 
 ### Improved Device Disconnection Retry
@@ -43,8 +43,8 @@ better handle unexpected cable disconnections and loss of power.
 ### Cleaner Transfer of Devices Across Drivers
 
 We've implemented a smoother mechanisms for moving data acquisition modules across
-drivers, ensuring that existing tasks on a device are correctly transferred and started
-on new drivers.
+Drivers, ensuring that existing tasks on a device are correctly transferred and started
+on new Drivers.
 
 ### Other Improvements
 
