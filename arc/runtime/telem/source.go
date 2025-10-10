@@ -63,7 +63,7 @@ type telemFactory struct {
 	telem *State
 }
 
-func (t telemFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != sourceSymbolName {
 		return nil, query.NotFound
 	}
