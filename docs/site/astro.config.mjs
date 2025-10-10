@@ -30,5 +30,8 @@ export default defineConfig({
       theme: "css-variables",
     },
   },
+  redirects: {
+    "/reference/device-drivers/standalone": "/reference/device-drivers/installation",
+  },
   site: "https://docs.synnaxlabs.com",
 });
