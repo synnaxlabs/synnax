@@ -402,7 +402,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
         };
     }
 
@@ -428,8 +427,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return false;
     }
 
-    [[nodiscard]] xerrors::Error
-    apply(const std::shared_ptr<device::Device> &dev) const {
+    [[nodiscard]] xerrors::Error apply(const std::shared_ptr<device::Device> &dev
+    ) const {
         for (const auto &ch: this->channels)
             if (const auto err = ch->apply(dev, this->dev_model)) return err;
         return xerrors::NIL;
@@ -549,13 +548,11 @@ public:
     StreamSource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
         dev(dev),
-        sample_clock(
-            common::HardwareTimedSampleClockConfig::create_simple(
-                this->cfg.sample_rate,
-                this->cfg.stream_rate,
-                this->cfg.timing.correct_skew
-            )
-        ),
+        sample_clock(common::HardwareTimedSampleClockConfig::create_simple(
+            this->cfg.sample_rate,
+            this->cfg.stream_rate,
+            this->cfg.timing.correct_skew
+        )),
         interleaved_buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
         channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {}
 

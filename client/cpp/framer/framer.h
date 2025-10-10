@@ -418,7 +418,7 @@ struct WriterConfig {
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made
     /// available for reads only after a call to Writer::commit().
-    bool enable_auto_commit = false;
+    bool enable_auto_commit = true;
 
     /// @brief sets whether the writer returns error if the writer attempts to write
     /// to a channel that it does not have authority to write to. If false, the
@@ -582,8 +582,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error>
-    open_writer(const WriterConfig &cfg) const;
+    [[nodiscard]] std::pair<Writer, xerrors::Error> open_writer(const WriterConfig &cfg
+    ) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
     /// information on configuration parameters, see StreamerConfig.
