@@ -20,6 +20,7 @@ import {
   type ReactElement,
   use as reactUse,
   useCallback,
+  useMemo,
 } from "react";
 import z from "zod";
 
@@ -90,8 +91,9 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
     schema: synnax.Provider.stateZ,
     state: { props: null, state: null },
   });
+  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
   return (
-    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
     </Context>
   );

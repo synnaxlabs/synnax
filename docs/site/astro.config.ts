@@ -9,8 +9,9 @@
 
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
-import vercel from "@astrojs/vercel/static";
+import vercel from "@astrojs/vercel";
 import { defineConfig } from "astro/config";
+
 const shikiResourcePaths = Object.keys(
   import.meta.glob([
     "../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
@@ -21,6 +22,7 @@ const shikiResourcePaths = Object.keys(
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
+  output: "server",
   adapter: vercel({
     includeFiles: shikiResourcePaths,
   }),
@@ -28,6 +30,9 @@ export default defineConfig({
     shikiConfig: {
       theme: "css-variables",
     },
+  },
+  redirects: {
+    "/reference/device-drivers/standalone": "/reference/device-drivers/installation",
   },
   site: "https://docs.synnaxlabs.com",
 });

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, unique } from "@synnaxlabs/x";
 import {
+  array,
   MultiSeries,
   Series,
   type SeriesDigest,
@@ -17,7 +17,8 @@ import {
   type TelemValue,
   TimeRange,
   TimeStamp,
-} from "@synnaxlabs/x/telem";
+  unique,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";

@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
+  box,
   color,
   DataType,
   type Destructor,
   MultiSeries,
   type TelemValue,
+  xy,
 } from "@synnaxlabs/x";
-import { box, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
