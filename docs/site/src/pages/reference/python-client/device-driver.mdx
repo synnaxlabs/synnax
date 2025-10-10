@@ -103,8 +103,8 @@ start menu or launch pad. After it boots up, you'll see a screen like this:
 
 The next step is to connect the Console to the Core we just started. To do this,
 navigate to the Core dropdown in the top-right corner of the Console, and click on the
-pre-populated "Local" option. You'll see the chip on the bottom right corner switch to
-"Connected" once the Console has successfully connected to the Core.
+pre-populated "Local" option. You'll see the chip switch to "Connected" once the Console
+has successfully connected to the Core.
 
 <Video client:only="react" id="console/clusters/switch" />
 
@@ -166,13 +166,13 @@ void loop() {
 
 This code will continuously read from the analog pin at 10Hz and send the value over
 serial. To start running the code, you can upload it to the Arduino by hitting the
-"upload" button in the top right corner of the Arduino IDE.
+"upload" button in the top-right corner of the Arduino IDE.
 
 ### <StepText step="2.2" level="h3">Setting up the Serial Connection in Python</StepText>
 
 In our `driver.py` script, we'll import the `serial` package and set up the serial
 connection to the Arduino. To do this, we'll need to know the port we're using to
-connect to the Arduino. You can find that in the top right corner of the Arduino IDE
+connect to the Arduino. You can find that in the top-right corner of the Arduino IDE
 when the Arduino is connected to your computer over USB. We'll also need the baud rate,
 which we set to 9600 in the Arduino code.
 
@@ -563,8 +563,8 @@ digital output on the Arduino:
 3. In the symbols library, we'll drag a switch onto the schematic.
 4. In the "Properties" section, we'll go to the "Telemetry" tab.
 5. We'll set both the "State" and "Command" channels to `arduino_command`.
-6. We'll acquire control by hitting the "Acquire" button in the bottom-right corner of
-   the schematic.
+6. We'll acquire control by hitting the "Acquire" button in the top-right corner of the
+   schematic.
 7. We'll click the switch to turn the Arduino's LED on and off, and see the state
    updated in the Console.
 
