@@ -78,7 +78,6 @@ export interface IteratorConfig {
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class Iterator {
-  private static readonly ENDPOINT = "/frame/iterate";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
@@ -108,7 +107,7 @@ export class Iterator {
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
     const adapter = await ReadAdapter.open(retriever, channels);
-    const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
+    const stream = await client.stream("/frame/iterate", reqZ, resZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({
       command: Command.Open,

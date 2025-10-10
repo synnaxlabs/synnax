@@ -184,7 +184,6 @@ interface Response extends z.infer<typeof resZ> {}
  * close will throw the error.
  */
 export class Writer {
-  private static readonly ENDPOINT = "/frame/write";
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private closeErr: Error | null = null;
@@ -203,7 +202,7 @@ export class Writer {
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSWriterCodec(adapter.codec));
-    const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
+    const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
       command: WriterCommand.Open,
