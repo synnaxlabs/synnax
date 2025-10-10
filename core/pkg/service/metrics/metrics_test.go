@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/x/confluence"
@@ -25,23 +24,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Metrics", Ordered, func() {
-	var (
-		builder   = mock.NewCluster()
-		dist      mock.Node
-		ctx       = context.Background()
-		svcFramer *framer.Service
-	)
-	BeforeAll(func() {
-		dist = builder.Provision(ctx)
-		svcFramer = MustSucceed(framer.OpenService(ctx, framer.Config{
-			Framer:  dist.Framer,
-			Channel: dist.Channel,
-		}))
-	})
-	AfterAll(func() {
-		Expect(svcFramer.Close()).To(Succeed())
-		Expect(builder.Close()).To(Succeed())
+var _ = Describe("Metrics", func() {
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
 	})
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
