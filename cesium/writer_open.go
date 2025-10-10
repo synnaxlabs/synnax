@@ -107,7 +107,7 @@ func DefaultWriterConfig() WriterConfig {
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}

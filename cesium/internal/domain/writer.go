@@ -51,7 +51,10 @@ type WriterConfig struct {
 
 var (
 	errWriterClosed     = core.NewErrResourceClosed("domain.writer")
-	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
+	DefaultWriterConfig = WriterConfig{
+		EnableAutoCommit:         config.True(),
+		AutoIndexPersistInterval: 1 * telem.Second,
+	}
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1

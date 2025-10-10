@@ -131,7 +131,7 @@ func DefaultConfig() Config {
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}
