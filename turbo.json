@@ -13,6 +13,7 @@
     "dev-vite": { "cache": false },
     "dev": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
+    "madge": { "dependsOn": ["^build"] },
     "fix": { "cache": false },
     "test": { "dependsOn": ["^build"] },
     "devtools": { "cache": false }

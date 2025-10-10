@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS as PCSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { Text, type TextProps } from "@/text/Text";

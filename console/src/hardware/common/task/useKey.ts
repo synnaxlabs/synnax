@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { pluto } from "@synnaxlabs/pluto/ether";
+import { type task } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/pluto";
+import { type z } from "zod";
 
-pluto.render();
+export const useKey = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
+  Form.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
