@@ -29,7 +29,7 @@ struct OutputChan {
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
-    const UA_NodeId node;
+    UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey cmd_channel;
@@ -43,6 +43,8 @@ struct OutputChan {
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}
+
+    ~OutputChan() { UA_NodeId_clear(&node); }
 };
 
 struct WriteTaskConfig : common::BaseWriteTaskConfig {

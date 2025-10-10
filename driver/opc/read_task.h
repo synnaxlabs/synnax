@@ -30,7 +30,7 @@ namespace opc {
 struct InputChan {
     const bool enabled;
     /// @brief the OPC UA node id.
-    const UA_NodeId node;
+    UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey synnax_key;
@@ -42,6 +42,8 @@ struct InputChan {
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
+
+    ~InputChan() { UA_NodeId_clear(&node); }
 };
 
 struct ReadTaskConfig : common::BaseReadTaskConfig {

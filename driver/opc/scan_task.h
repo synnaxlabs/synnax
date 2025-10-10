@@ -39,6 +39,8 @@ struct ScanCommandArgs {
         else
             node = util::parse_node_id("node_id", parser);
     }
+
+    ~ScanCommandArgs() { UA_NodeId_clear(&node); }
 };
 
 const std::string SCAN_CMD_TYPE = "scan";

@@ -101,7 +101,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 } else {
                     op->frame.emplace(channel.key, std::move(value));
                 }
-            }  // Series is destroyed here if there was an error
+            } // Series is destroyed here if there was an error
 
             if (has_error) {
                 luaL_error(cL, error_msg.c_str());

@@ -44,7 +44,8 @@ struct ServerConfig {
     static ServerConfig create_default() {
         ServerConfig cfg;
 
-        // Static storage for variant data (needed because UA_Variant_setScalar doesn't copy)
+        // Static storage for variant data (needed because UA_Variant_setScalar doesn't
+        // copy)
         static UA_Boolean bool_data = true;
         static UA_UInt16 uint16_data = 42;
         static UA_UInt32 uint32_data = 12345;
