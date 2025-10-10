@@ -33,7 +33,6 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { Switch as InputSwitch, type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
 
@@ -178,22 +177,5 @@ export const Provider = ({
     <Context value={ret}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
     </Context>
-  );
-};
-
-export const Switch = (
-  props: Omit<SwitchProps, "onChange" | "value">,
-): ReactElement => {
-  const { toggleTheme } = useContext();
-  const [checked, setChecked] = useState(false);
-  return (
-    <InputSwitch
-      value={checked}
-      onChange={(v) => {
-        toggleTheme();
-        setChecked(v);
-      }}
-      {...props}
-    />
   );
 };

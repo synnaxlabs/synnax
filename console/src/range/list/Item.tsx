@@ -25,9 +25,9 @@ import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { OVERVIEW_LAYOUT } from "@/range/external";
 import { FavoriteButton } from "@/range/FavoriteButton";
 import { ContextMenu } from "@/range/list/ContextMenu";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;

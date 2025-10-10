@@ -40,6 +40,7 @@ import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 
 const EmptyContent = () => {
@@ -181,7 +182,7 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+      <Ontology.Toolbar className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Toolbar.Actions>
@@ -216,7 +217,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Toolbar.Content>
+      </Ontology.Toolbar>
     </PMenu.ContextMenu>
   );
 };

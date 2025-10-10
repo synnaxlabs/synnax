@@ -5,5 +5,5 @@
     "types": ["webgl2", "offscreencanvas"],
     "composite": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "eslint.config.ts"]
 }

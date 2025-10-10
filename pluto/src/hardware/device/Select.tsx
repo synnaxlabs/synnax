@@ -16,8 +16,8 @@ import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { type Flux } from "@/flux";
-import { Device } from "@/hardware/device";
 import { type ListParams, useList } from "@/hardware/device/queries";
+import { StatusIndicator } from "@/hardware/device/StatusIndicator";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -35,7 +35,7 @@ const listItemRenderProp = Component.renderProp(
         align="center"
       >
         <Text.Text align="center">
-          <Device.StatusIndicator status={item?.status} />
+          <StatusIndicator status={item?.status} />
           {item?.name}
         </Text.Text>
         <Breadcrumb.Breadcrumb

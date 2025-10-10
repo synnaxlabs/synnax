@@ -12,10 +12,9 @@ import { type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
 import { type List } from "@/list";
-import { Select } from "@/select";
-import { type DialogProps } from "@/select/Dialog";
+import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
-import { type SingleTriggerProps } from "@/select/SingleTrigger";
+import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
 import {
   transformDialogVariant,
   transformTriggerVariant,
@@ -32,7 +31,7 @@ export interface SingleProps<
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
   variant?: Variant;
-  triggerProps?: Select.SingleTriggerProps;
+  triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
 
@@ -74,7 +73,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       virtual={virtual}
       closeDialogOnSelect={closeDialogOnSelect}
     >
-      <Select.SingleTrigger
+      <SingleTrigger
         haulType={haulType}
         icon={icon}
         placeholder={`Select a ${resourceName}`}
@@ -82,7 +81,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         variant={transformTriggerVariant(variant)}
         {...triggerProps}
       />
-      <Select.Dialog<K>
+      <SelectDialog<K>
         onSearch={onSearch}
         resourceName={resourceName}
         emptyContent={emptyContent}
@@ -91,7 +90,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         {...dialogProps}
       >
         {children}
-      </Select.Dialog>
+      </SelectDialog>
     </Frame>
   </Dialog.Frame>
 );

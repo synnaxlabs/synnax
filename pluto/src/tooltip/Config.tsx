@@ -14,6 +14,7 @@ import {
   type ReactElement,
   use,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -72,11 +73,13 @@ export const Config = ({
       setAccelerating(false);
     }, new TimeSpan(accelerationDelay).milliseconds);
   }, [accelerating, accelerationDelay]);
-  return (
-    <Context
-      value={{ delay: accelerating ? acceleratedDelay : delay, startAccelerating }}
-    >
-      {children}
-    </Context>
+  const parsedDelay = useMemo(
+    () => (accelerating ? acceleratedDelay : delay),
+    [accelerating, acceleratedDelay, delay],
   );
+  const value = useMemo(
+    () => ({ delay: parsedDelay, startAccelerating }),
+    [parsedDelay, startAccelerating],
+  );
+  return <Context value={value}>{children}</Context>;
 };

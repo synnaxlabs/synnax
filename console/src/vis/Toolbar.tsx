@@ -38,7 +38,7 @@ const NoVis = (): ReactElement => {
     placeLayout(createSelectorLayout());
   };
   return (
-    <Toolbar.Content disableClusterBoundary>
+    <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>

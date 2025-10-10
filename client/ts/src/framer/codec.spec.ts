@@ -21,7 +21,8 @@ import {
   WSWriterCodec,
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
-import { WriterCommand, type WriteRequest } from "@/framer/writer";
+import { WriterCommand } from "@/framer/payload";
+import { type WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
   describe("base codec", () => {

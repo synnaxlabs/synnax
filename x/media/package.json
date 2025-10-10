@@ -42,10 +42,10 @@
   ],
   "main": "./dist/media.cjs",
   "module": "./dist/media.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/media.js",
       "require": "./dist/media.cjs"
     },

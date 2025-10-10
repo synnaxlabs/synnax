@@ -51,6 +51,6 @@
     "vitest": "catalog:"
   },
   "type": "module",
-  "types": "dist/index.d.ts",
+  "types": "dist/src/index.d.ts",
   "module": "dist/client.js"
 }

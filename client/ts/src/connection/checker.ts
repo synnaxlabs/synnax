@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { migrate } from "@synnaxlabs/x";
-import { TimeSpan } from "@synnaxlabs/x/telem";
+import { migrate, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);

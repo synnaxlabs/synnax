@@ -22,8 +22,6 @@ interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({});
 
-const ENDPOINT = "/frame/delete";
-
 export class Deleter {
   /*
   Deleter is used to delete a time range of telemetry from the data engine.
@@ -37,7 +35,7 @@ export class Deleter {
   async delete(props: Request): Promise<void> {
     await sendRequired<typeof reqZ, typeof resZ>(
       this.client,
-      ENDPOINT,
+      "/frame/delete",
       props,
       reqZ,
       resZ,

@@ -41,5 +41,5 @@
   },
   "main": "dist/freighter.cjs",
   "module": "dist/freighter.js",
-  "types": "dist/index.d.ts"
+  "types": "dist/src/index.d.ts"
 }
