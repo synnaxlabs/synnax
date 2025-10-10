@@ -24,23 +24,17 @@ type metric struct {
 
 var all = []metric{
 	{
-		ch: channel.Channel{
-			Name:     "mem_percentage",
-			DataType: telem.Float32T,
-		},
+		ch: channel.Channel{Name: "mem_percentage", DataType: telem.Float32T},
 		collect: func() (float32, error) {
 			vm, err := mem.VirtualMemory()
 			if err != nil {
 				return 0, err
 			}
-			return float32(vm.UsedPercent), err
+			return float32(vm.UsedPercent), nil
 		},
 	},
 	{
-		ch: channel.Channel{
-			Name:     "cpu_percentage",
-			DataType: telem.Float32T,
-		},
+		ch: channel.Channel{Name: "cpu_percentage", DataType: telem.Float32T},
 		collect: func() (float32, error) {
 			cpuUsage, err := cpu.Percent(0, false)
 			if err != nil {
@@ -49,7 +43,7 @@ var all = []metric{
 			if len(cpuUsage) < 1 {
 				return 0, errors.New("no cpu usage metric found")
 			}
-			return float32(cpuUsage[0]), err
+			return float32(cpuUsage[0]), nil
 		},
 	},
 }

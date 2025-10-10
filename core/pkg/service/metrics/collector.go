@@ -50,20 +50,27 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case currTime := <-t.C:
 				frame := core.UnaryFrame(
 					c.idx.Key(),
-					telem.NewSeriesV[telem.TimeStamp](telem.NewTimeStamp(currTime)),
+					telem.NewSeriesV(telem.NewTimeStamp(currTime)),
 				)
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
 					if err != nil {
-						c.ins.L.Warn("failed to collect metric from host", zap.Error(err), zap.String("name", metric.ch.Name))
+						c.ins.L.Warn(
+							"failed to collect metric from host",
+							zap.Error(err),
+							zap.String("name", metric.ch.Name),
+						)
 						continue
 					}
-					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV[float32](value))
+					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV(value))
 				}
-				if err := signal.SendUnderContext(ctx, c.Out.Inlet(), framer.WriterRequest{
-					Command: writer.Write,
-					Frame:   frame,
-				}); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					c.Out.Inlet(),
+					framer.WriterRequest{
+						Command: writer.Write,
+						Frame:   frame,
+					}); err != nil {
 					return err
 				}
 			}

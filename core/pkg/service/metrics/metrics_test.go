@@ -70,7 +70,8 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(metrics.OpenService(ctx, metrics.Config{
 				Channel: dist.Channel,
 				Framer:  svcFramer,
-			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
+			})).Error().
+				To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultConfig.Override(metrics.Config{

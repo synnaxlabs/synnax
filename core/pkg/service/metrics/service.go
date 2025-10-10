@@ -39,14 +39,14 @@ type Config struct {
 	Channel channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
-	// [REQUIRED}
+	// [REQUIRED]
 	Framer *framer.Service
 	// HostProvider is for identify the current host for channel naming.
 	//
 	// [REQUIRED]
 	HostProvider cluster.HostProvider
-	// CollectionInterval sets the interval at which metrics will be collected
-	// from the host machine.
+	// CollectionInterval sets the interval at which metrics will be collected from the
+	// host machine.
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
@@ -55,9 +55,7 @@ type Config struct {
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a metrics service.
-	DefaultConfig = Config{
-		CollectionInterval: 2 * time.Second,
-	}
+	DefaultConfig = Config{CollectionInterval: 2 * time.Second}
 )
 
 // Override implements config.Config.
@@ -66,17 +64,20 @@ func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.CollectionInterval = override.Numeric(c.CollectionInterval, other.CollectionInterval)
+	c.CollectionInterval = override.Numeric(
+		c.CollectionInterval,
+		other.CollectionInterval,
+	)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("config")
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "HostProvider", c.HostProvider)
-	validate.Positive(v, "CollectionInterval", c.CollectionInterval)
+	v := validate.New("service.metrics")
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "host_provider", c.HostProvider)
+	validate.Positive(v, "collection_interval", c.CollectionInterval)
 	return v.Error()
 }
 
@@ -96,8 +97,8 @@ const (
 
 // OpenService opens a new metric.Service using the provided configuration. See the
 // Config struct for details on the required configuration values. If OpenService
-// returns an error, the service is not safe to use. If OpenService succeeds, it must
-// be shut down by calling Close after use.
+// returns an error, the service is not safe to use. If OpenService succeeds, it must be
+// shut down by calling Close after use.
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -142,7 +143,10 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
-			Keys:                     append(channel.KeysFromChannels(metricChannels), c.idx.Key()),
+			Keys: append(
+				channel.KeysFromChannels(metricChannels),
+				c.idx.Key(),
+			),
 			Start:                    telem.Now(),
 			EnableAutoCommit:         config.True(),
 			AutoIndexPersistInterval: telem.Second * 30,
@@ -154,17 +158,27 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p := plumber.New()
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, w)
-	plumber.SetSource[framer.WriterRequest](p, collectorAddr, c)
+	plumber.SetSegment(p, writerAddr, w)
+	plumber.SetSource(p, collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(ctx context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
 			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}
 	})
-	plumber.SetSink[framer.WriterResponse](p, loggerAddr, o)
-	plumber.MustConnect[framer.WriterRequest](p, collectorAddr, writerAddr, channelBufferSize)
-	plumber.MustConnect[framer.WriterResponse](p, writerAddr, loggerAddr, channelBufferSize)
+	plumber.SetSink(p, loggerAddr, o)
+	plumber.MustConnect[framer.WriterRequest](
+		p,
+		collectorAddr,
+		writerAddr,
+		channelBufferSize,
+	)
+	plumber.MustConnect[framer.WriterResponse](
+		p,
+		writerAddr,
+		loggerAddr,
+		channelBufferSize,
+	)
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return s, nil
