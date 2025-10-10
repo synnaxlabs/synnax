@@ -55,7 +55,11 @@ func New() *System {
 }
 
 // AddEquality adds an equality constraint between two types
-func (s *System) AddEquality(left, right ir.Type, source antlr.ParserRuleContext, reason string) {
+func (s *System) AddEquality(
+	left, right ir.Type,
+	source antlr.ParserRuleContext,
+	reason string,
+) {
 	s.recordTypeVars(left, right)
 	s.constraints = append(s.constraints, Constraint{
 		Kind:   KindEquality,
@@ -67,7 +71,11 @@ func (s *System) AddEquality(left, right ir.Type, source antlr.ParserRuleContext
 }
 
 // AddCompatible adds a compatibility constraint (types must be compatible for operations)
-func (s *System) AddCompatible(left, right ir.Type, source antlr.ParserRuleContext, reason string) {
+func (s *System) AddCompatible(
+	left, right ir.Type,
+	source antlr.ParserRuleContext,
+	reason string,
+) {
 	s.recordTypeVars(left, right)
 	s.constraints = append(s.constraints, Constraint{
 		Kind:   KindCompatible,
@@ -216,7 +224,7 @@ func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]boo
 	return t
 }
 
-// String provides a debug representation of the constraint system
+// String provides a string representation of the constraint system
 func (s *System) String() string {
 	result := "Constraint System:\n"
 	result += fmt.Sprintf("  Type Variables: %d\n", len(s.typeVars))

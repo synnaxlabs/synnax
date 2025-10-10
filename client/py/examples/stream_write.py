@@ -50,7 +50,7 @@ start = sy.TimeStamp.now()
 
 # The rate at which we'll send samples to the cluster. sy.Loop  is a utility to help
 # regulate the timing.
-loop = sy.Loop(sy.Rate.HZ * 25)
+loop = sy.Loop(sy.Rate.HZ * 2500)
 
 # Open the writer as a context manager. Using a context manager is recommended as the
 # context manager will automatically close the writer when we are done writing. We will

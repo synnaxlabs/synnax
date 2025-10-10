@@ -52,42 +52,9 @@ func CheckEqual(
 	return nil
 }
 
-// InferBinaryOpType infers the result type of a binary operation with constraints
-func InferBinaryOpType(
-	cs *constraints.System,
-	left, right ir.Type,
-	op string,
-	source antlr.ParserRuleContext,
-) (ir.Type, error) {
-	// If either operand is a type variable, the result depends on the operation
-	if ir.IsTypeVariable(left) || ir.IsTypeVariable(right) {
-		switch op {
-		case "+", "-", "*", "/", "%", "^":
-			// Numeric operations - result type matches operand types
-			cs.AddCompatible(left, right, source, "binary operation "+op)
-			// For now, return left type (will be resolved during unification)
-			return left, nil
-		case "<", ">", "<=", ">=", "==", "!=":
-			// Comparison operations - always return U8 (boolean)
-			cs.AddCompatible(left, right, source, "comparison "+op)
-			return ir.U8{}, nil
-		case "&&", "||":
-			// Logical operations - operands and result are U8
-			cs.AddEquality(left, ir.U8{}, source, "logical operation "+op+" left operand")
-			cs.AddEquality(right, ir.U8{}, source, "logical operation "+op+" right operand")
-			return ir.U8{}, nil
-		default:
-			return nil, errors.Newf("unknown operator: %s", op)
-		}
-	}
-
-	// Both are concrete types - use existing logic
-	return InferBinaryOpTypeOriginal(left, right, op)
-}
-
-// InferBinaryOpTypeOriginal is the original type inference without type variables
+// InferBinaryOpType is the original type inference without type variables
 // This is called when both operands are concrete types
-func InferBinaryOpTypeOriginal(left, right ir.Type, op string) (ir.Type, error) {
+func InferBinaryOpType(left, right ir.Type, op string) (ir.Type, error) {
 	switch op {
 	case "+", "-", "*", "/", "%", "^":
 		// Numeric operations
