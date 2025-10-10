@@ -976,8 +976,9 @@ var _ = Describe("Writer Behavior", func() {
 						)).To(Succeed())
 
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{index, basic},
-							Start:    10 * telem.SecondTS,
+							Channels:         []cesium.ChannelKey{index, basic},
+							Start:            10 * telem.SecondTS,
+							EnableAutoCommit: config.False(),
 						}))
 
 						By("Writing data to the channel")
