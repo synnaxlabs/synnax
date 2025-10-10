@@ -12,6 +12,7 @@ import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import { extract } from "@/table/export";
 import { LAYOUT_TYPE, SELECTABLE, Table } from "@/table/Table";
+
 export * from "@/table/export";
 export * from "@/table/slice";
 export * from "@/table/Table";

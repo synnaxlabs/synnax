@@ -14,9 +14,7 @@ import {
   unaryWithBreaker,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { type breaker } from "@synnaxlabs/x";
-import { binary } from "@synnaxlabs/x/binary";
-import { type URL } from "@synnaxlabs/x/url";
+import { binary, type breaker, type URL } from "@synnaxlabs/x";
 
 const baseAPIEndpoint = "/api/v1/";
 

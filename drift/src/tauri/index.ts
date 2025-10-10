@@ -87,7 +87,7 @@ const monitorBoxes = async (): Promise<box.Box[]> => {
  * @returns true whether the top-left corner of the window is visible on the user's
  * monitors.
  */
-const isPositionVisible = async (position?: xy.XY): Promise<boolean> => {
+const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
   const boxes = await monitorBoxes();
   return boxes.some((b) => box.contains(b, position));
 };

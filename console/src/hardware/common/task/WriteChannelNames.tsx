@@ -12,6 +12,7 @@ import { type channel } from "@synnaxlabs/client";
 import { CSS } from "@/css";
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
+
 export interface WriteChannelNamesProps
   extends Omit<ChannelNameProps, "channel" | "defaultName" | "id"> {
   cmdChannel: channel.Key;

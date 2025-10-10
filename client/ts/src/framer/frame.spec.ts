@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeRange } from "@synnaxlabs/x/telem";
+import { DataType, Series, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";

@@ -14,7 +14,12 @@ import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import { type ClusterHandler, type Handler, PREFIX } from "@/link/types";
+import {
+  type ClusterHandler,
+  type Handler,
+  PREFIX,
+  SHOULD_IGNORE_KEY,
+} from "@/link/types";
 import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
@@ -62,9 +67,14 @@ export const useDeep = (
   // Handles the case where the app is opened from a link
   useAsyncEffect(async (signal) => {
     const urls = await getCurrent();
-    const shouldIgnore = localStorage.getItem(SHOULD_IGNORE_LINK_KEY) === "true";
+    // We need to use this SHOULD_IGNORE_KEY because triggering a hard reload will mean
+    // that this useAsyncEffect will run again and receive the same link. We need to
+    // ignore the link the second time around. Redux is also too slow to store it in
+    // there, as the hard reload gets triggered before Redux finishes updating the
+    // global store.
+    const shouldIgnore = localStorage.getItem(SHOULD_IGNORE_KEY) === "true";
     if (shouldIgnore) {
-      localStorage.setItem(SHOULD_IGNORE_LINK_KEY, "false");
+      localStorage.setItem(SHOULD_IGNORE_KEY, "false");
       return;
     }
     if (urls == null || signal.aborted) return;
@@ -74,10 +84,3 @@ export const useDeep = (
   // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => await onOpenUrl((urls) => void urlHandler(urls)), []);
 };
-
-// We need to use this SHOULD_IGNORE_LINK_KEY because triggering a hard reload will
-// mean that the first useAsyncEffect hook with the getCurrent() function will run again
-// and receive the same link. We need to ignore the link the second time around. Redux
-// is also too slow to store it in there, as the hard reload gets triggered before Redux
-// finishes updating the global store.
-export const SHOULD_IGNORE_LINK_KEY = "shouldIgnoreLink";

@@ -63,4 +63,4 @@ export {
   type TimeStampStringFormat,
   type TypedArray,
   type TZInfo,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";

@@ -9,26 +9,24 @@
 
 import { type ReactElement } from "react";
 
-import { type Alignment, ALIGNMENTS } from "@/flex/Box";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Select as Core } from "@/select";
+import { type Select } from "@/select";
+import { Button, Buttons } from "@/select/Button";
 
-export interface SelectAlignmentProps
-  extends Omit<Core.ButtonsProps<Alignment>, "keys"> {}
+export interface AlignmentProps
+  extends Omit<Select.ButtonsProps<Flex.Alignment>, "keys"> {}
 
-export const SelectAlignment = ({
-  value,
-  ...rest
-}: SelectAlignmentProps): ReactElement => (
-  <Core.Buttons {...rest} value={value} keys={ALIGNMENTS}>
-    <Core.Button itemKey="start">
+export const Alignment = ({ value, ...rest }: AlignmentProps): ReactElement => (
+  <Buttons {...rest} value={value} keys={Flex.ALIGNMENTS}>
+    <Button itemKey="start">
       <Icon.TextAlign.Left />
-    </Core.Button>
-    <Core.Button itemKey="center">
+    </Button>
+    <Button itemKey="center">
       <Icon.TextAlign.Center />
-    </Core.Button>
-    <Core.Button itemKey="end">
+    </Button>
+    <Button itemKey="end">
       <Icon.TextAlign.Right />
-    </Core.Button>
-  </Core.Buttons>
+    </Button>
+  </Buttons>
 );

@@ -1,5 +1,5 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "eslint.config.ts"]
 }

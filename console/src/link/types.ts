@@ -37,3 +37,5 @@ export interface HandlerArgs {
 export interface Handler {
   (args: HandlerArgs): Promise<void>;
 }
+
+export const SHOULD_IGNORE_KEY = "shouldIgnoreLink";

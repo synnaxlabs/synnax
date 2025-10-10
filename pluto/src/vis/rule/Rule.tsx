@@ -9,8 +9,7 @@
 
 import "@/vis/rule/Rule.css";
 
-import { color } from "@synnaxlabs/x";
-import { box } from "@synnaxlabs/x/spatial";
+import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";

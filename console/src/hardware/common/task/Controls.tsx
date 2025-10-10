@@ -22,7 +22,8 @@ import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import { useKey, useStatus } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
+import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
 
 export interface ControlsProps extends Flex.BoxProps {
