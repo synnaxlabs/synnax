@@ -10,8 +10,6 @@
 package constraints
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/maps"
@@ -222,26 +220,4 @@ func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]boo
 
 	// Concrete type, return as-is
 	return t
-}
-
-// String provides a string representation of the constraint system
-func (s *System) String() string {
-	result := "Constraint System:\n"
-	result += fmt.Sprintf("  Type Variables: %d\n", len(s.typeVars))
-	for name, tv := range s.typeVars {
-		result += fmt.Sprintf("    %s: %v\n", name, tv.Constraint)
-	}
-	result += fmt.Sprintf("  Constraints: %d\n", len(s.constraints))
-	for _, c := range s.constraints {
-		kindStr := "="
-		if c.Kind == KindCompatible {
-			kindStr = "~"
-		}
-		result += fmt.Sprintf("    %v %s %v (%s)\n", c.Left, kindStr, c.Right, c.Reason)
-	}
-	result += fmt.Sprintf("  Substitutions: %d\n", len(s.substitutions))
-	for name, t := range s.substitutions {
-		result += fmt.Sprintf("    %s -> %v\n", name, t)
-	}
-	return result
 }

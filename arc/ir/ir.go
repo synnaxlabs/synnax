@@ -104,7 +104,7 @@ type Edge struct {
 // ConstraintSystem is an interface for type constraint resolution
 type ConstraintSystem interface {
 	ApplySubstitutions(t Type) Type
-	DebugString() string
+	String() string
 	HasTypeVariables() bool
 	Unify() error
 }

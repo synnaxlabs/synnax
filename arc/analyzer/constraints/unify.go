@@ -219,10 +219,8 @@ func defaultTypeForConstraint(constraint ir.Type) ir.Type {
 }
 
 // DebugString returns a detailed debug string showing the unification process
-func (s *System) DebugString() string {
-	result := "=== Type Unification Debug ===\n"
-
-	// Show type variables
+func (s *System) String() string {
+	result := "=== Type Unification ===\n"
 	result += fmt.Sprintf("\nType Variables (%d):\n", len(s.typeVars))
 	for name, tv := range s.typeVars {
 		result += fmt.Sprintf("  %s", name)
@@ -237,7 +235,6 @@ func (s *System) DebugString() string {
 		result += "\n"
 	}
 
-	// Show constraints
 	result += fmt.Sprintf("\nConstraints (%d):\n", len(s.constraints))
 	for i, c := range s.constraints {
 		kindStr := "≡"
@@ -251,7 +248,6 @@ func (s *System) DebugString() string {
 		result += "\n"
 	}
 
-	// Show final substitutions
 	result += fmt.Sprintf("\nSubstitutions (%d):\n", len(s.substitutions))
 	for name, t := range s.substitutions {
 		result += fmt.Sprintf("  %s => %v\n", name, t)

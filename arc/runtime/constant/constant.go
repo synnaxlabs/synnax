@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -46,65 +45,10 @@ type constant struct {
 	value  any
 }
 
-func (c constant) Init(_ context.Context, changed func(output string)) {
-	changed(ir.DefaultOutputParam)
-
-	// Get the resolved output type from the state
+func (c constant) Init(_ context.Context, onOutputChange func(output string)) {
 	outputType := c.state.Outputs[c.output].DataType
-
-	// Convert input value to float64 as intermediate representation
-	var floatVal float64
-	switch v := c.value.(type) {
-	case int:
-		floatVal = float64(v)
-	case int64:
-		floatVal = float64(v)
-	case int32:
-		floatVal = float64(v)
-	case int16:
-		floatVal = float64(v)
-	case int8:
-		floatVal = float64(v)
-	case uint64:
-		floatVal = float64(v)
-	case uint32:
-		floatVal = float64(v)
-	case uint16:
-		floatVal = float64(v)
-	case uint8:
-		floatVal = float64(v)
-	case float64:
-		floatVal = v
-	case float32:
-		floatVal = float64(v)
-	}
-
-	// Cast to the appropriate output type and create series
-	var outputSeries telem.Series
-	switch outputType {
-	case telem.Int64T:
-		outputSeries = telem.NewSeriesV[int64](int64(floatVal))
-	case telem.Int32T:
-		outputSeries = telem.NewSeriesV[int32](int32(floatVal))
-	case telem.Int16T:
-		outputSeries = telem.NewSeriesV[int16](int16(floatVal))
-	case telem.Int8T:
-		outputSeries = telem.NewSeriesV[int8](int8(floatVal))
-	case telem.Uint64T:
-		outputSeries = telem.NewSeriesV[uint64](uint64(floatVal))
-	case telem.Uint32T:
-		outputSeries = telem.NewSeriesV[uint32](uint32(floatVal))
-	case telem.Uint16T:
-		outputSeries = telem.NewSeriesV[uint16](uint16(floatVal))
-	case telem.Uint8T:
-		outputSeries = telem.NewSeriesV[uint8](uint8(floatVal))
-	case telem.Float64T:
-		outputSeries = telem.NewSeriesV[float64](floatVal)
-	case telem.Float32T:
-		outputSeries = telem.NewSeriesV[float32](float32(floatVal))
-	}
-
-	c.state.Outputs[c.output] = outputSeries
+	c.state.Outputs[c.output] = telem.NewSeriesFromAny(c.value, outputType)
+	onOutputChange(ir.DefaultOutputParam)
 }
 
 func (c constant) Next(context.Context, func(output string)) {}
@@ -115,15 +59,10 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-	value, ok := cfg.Node.Config["value"]
-	if !ok {
-		return nil, errors.Wrap(query.InvalidParameters, "constant node requires 'value' config parameter")
-	}
-	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	return constant{
-		output: outputHandle,
+		output: ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam},
 		state:  cfg.State,
-		value:  value,
+		value:  cfg.Node.Config["value"],
 	}, nil
 }
 

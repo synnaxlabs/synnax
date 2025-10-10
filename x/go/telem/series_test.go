@@ -918,4 +918,229 @@ var _ = Describe("Series", func() {
 			Expect(count).To(Equal(0))
 		})
 	})
+
+	Describe("NewSeriesFromAny", func() {
+		Describe("Int input types", func() {
+			It("Should create a series from an int value", func() {
+				s := telem.NewSeriesFromAny(42, telem.Int64T)
+				Expect(s.DataType).To(Equal(telem.Int64T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(42)))
+			})
+
+			It("Should create a series from an int64 value", func() {
+				s := telem.NewSeriesFromAny(int64(100), telem.Int32T)
+				Expect(s.DataType).To(Equal(telem.Int32T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(100)))
+			})
+
+			It("Should create a series from an int32 value", func() {
+				s := telem.NewSeriesFromAny(int32(50), telem.Int16T)
+				Expect(s.DataType).To(Equal(telem.Int16T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int16](s, 0)).To(Equal(int16(50)))
+			})
+
+			It("Should create a series from an int16 value", func() {
+				s := telem.NewSeriesFromAny(int16(25), telem.Int8T)
+				Expect(s.DataType).To(Equal(telem.Int8T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int8](s, 0)).To(Equal(int8(25)))
+			})
+
+			It("Should create a series from an int8 value", func() {
+				s := telem.NewSeriesFromAny(int8(12), telem.Int64T)
+				Expect(s.DataType).To(Equal(telem.Int64T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(12)))
+			})
+		})
+
+		Describe("Uint input types", func() {
+			It("Should create a series from a uint64 value", func() {
+				s := telem.NewSeriesFromAny(uint64(200), telem.Uint32T)
+				Expect(s.DataType).To(Equal(telem.Uint32T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(200)))
+			})
+
+			It("Should create a series from a uint32 value", func() {
+				s := telem.NewSeriesFromAny(uint32(150), telem.Uint16T)
+				Expect(s.DataType).To(Equal(telem.Uint16T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[uint16](s, 0)).To(Equal(uint16(150)))
+			})
+
+			It("Should create a series from a uint16 value", func() {
+				s := telem.NewSeriesFromAny(uint16(75), telem.Uint8T)
+				Expect(s.DataType).To(Equal(telem.Uint8T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[uint8](s, 0)).To(Equal(uint8(75)))
+			})
+
+			It("Should create a series from a uint8 value", func() {
+				s := telem.NewSeriesFromAny(uint8(37), telem.Uint64T)
+				Expect(s.DataType).To(Equal(telem.Uint64T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[uint64](s, 0)).To(Equal(uint64(37)))
+			})
+		})
+
+		Describe("Float input types", func() {
+			It("Should create a series from a float64 value", func() {
+				s := telem.NewSeriesFromAny(3.14159, telem.Float64T)
+				Expect(s.DataType).To(Equal(telem.Float64T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[float64](s, 0)).To(BeNumerically("~", 3.14159))
+			})
+
+			It("Should create a series from a float32 value", func() {
+				s := telem.NewSeriesFromAny(float32(2.718), telem.Float32T)
+				Expect(s.DataType).To(Equal(telem.Float32T))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[float32](s, 0)).To(Equal(float32(2.718)))
+			})
+		})
+
+		Describe("Type conversions", func() {
+			It("Should convert int to float64", func() {
+				s := telem.NewSeriesFromAny(42, telem.Float64T)
+				Expect(s.DataType).To(Equal(telem.Float64T))
+				Expect(telem.ValueAt[float64](s, 0)).To(Equal(float64(42)))
+			})
+
+			It("Should convert float64 to int", func() {
+				s := telem.NewSeriesFromAny(42.7, telem.Int64T)
+				Expect(s.DataType).To(Equal(telem.Int64T))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(42)))
+			})
+
+			It("Should convert uint to int", func() {
+				s := telem.NewSeriesFromAny(uint32(100), telem.Int32T)
+				Expect(s.DataType).To(Equal(telem.Int32T))
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(100)))
+			})
+
+			It("Should convert int to uint", func() {
+				s := telem.NewSeriesFromAny(int32(50), telem.Uint32T)
+				Expect(s.DataType).To(Equal(telem.Uint32T))
+				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(50)))
+			})
+
+			It("Should convert float32 to float64", func() {
+				s := telem.NewSeriesFromAny(float32(1.5), telem.Float64T)
+				Expect(s.DataType).To(Equal(telem.Float64T))
+				Expect(telem.ValueAt[float64](s, 0)).To(BeNumerically("~", 1.5))
+			})
+
+			It("Should convert float64 to float32", func() {
+				s := telem.NewSeriesFromAny(2.5, telem.Float32T)
+				Expect(s.DataType).To(Equal(telem.Float32T))
+				Expect(telem.ValueAt[float32](s, 0)).To(BeNumerically("~", 2.5))
+			})
+		})
+
+		Describe("Edge cases", func() {
+			It("Should handle zero values", func() {
+				s := telem.NewSeriesFromAny(0, telem.Int64T)
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(0)))
+			})
+
+			It("Should handle negative values", func() {
+				s := telem.NewSeriesFromAny(-42, telem.Int32T)
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(-42)))
+			})
+
+			It("Should handle large uint64 values", func() {
+				largeVal := uint64(18446744073709551615)
+				s := telem.NewSeriesFromAny(largeVal, telem.Uint64T)
+				Expect(s.Len()).To(Equal(int64(1)))
+			})
+		})
+
+		Describe("Error cases", func() {
+			It("Should panic with unsupported value type", func() {
+				Expect(func() {
+					telem.NewSeriesFromAny("string", telem.Int64T)
+				}).To(Panic())
+			})
+
+			It("Should panic with unsupported data type", func() {
+				Expect(func() {
+					telem.NewSeriesFromAny(42, telem.StringT)
+				}).To(Panic())
+			})
+
+			It("Should panic with nil value", func() {
+				Expect(func() {
+					telem.NewSeriesFromAny(nil, telem.Int64T)
+				}).To(Panic())
+			})
+		})
+
+		Describe("All data type targets", func() {
+			It("Should create Int8T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Int8T)
+				Expect(s.DataType).To(Equal(telem.Int8T))
+				Expect(telem.ValueAt[int8](s, 0)).To(Equal(int8(5)))
+			})
+
+			It("Should create Int16T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Int16T)
+				Expect(s.DataType).To(Equal(telem.Int16T))
+				Expect(telem.ValueAt[int16](s, 0)).To(Equal(int16(5)))
+			})
+
+			It("Should create Int32T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Int32T)
+				Expect(s.DataType).To(Equal(telem.Int32T))
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(5)))
+			})
+
+			It("Should create Int64T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Int64T)
+				Expect(s.DataType).To(Equal(telem.Int64T))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(5)))
+			})
+
+			It("Should create Uint8T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Uint8T)
+				Expect(s.DataType).To(Equal(telem.Uint8T))
+				Expect(telem.ValueAt[uint8](s, 0)).To(Equal(uint8(5)))
+			})
+
+			It("Should create Uint16T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Uint16T)
+				Expect(s.DataType).To(Equal(telem.Uint16T))
+				Expect(telem.ValueAt[uint16](s, 0)).To(Equal(uint16(5)))
+			})
+
+			It("Should create Uint32T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Uint32T)
+				Expect(s.DataType).To(Equal(telem.Uint32T))
+				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(5)))
+			})
+
+			It("Should create Uint64T series", func() {
+				s := telem.NewSeriesFromAny(5, telem.Uint64T)
+				Expect(s.DataType).To(Equal(telem.Uint64T))
+				Expect(telem.ValueAt[uint64](s, 0)).To(Equal(uint64(5)))
+			})
+
+			It("Should create Float32T series", func() {
+				s := telem.NewSeriesFromAny(5.5, telem.Float32T)
+				Expect(s.DataType).To(Equal(telem.Float32T))
+				Expect(telem.ValueAt[float32](s, 0)).To(BeNumerically("~", 5.5))
+			})
+
+			It("Should create Float64T series", func() {
+				s := telem.NewSeriesFromAny(5.5, telem.Float64T)
+				Expect(s.DataType).To(Equal(telem.Float64T))
+				Expect(telem.ValueAt[float64](s, 0)).To(BeNumerically("~", 5.5))
+			})
+		})
+	})
 })
