@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Bad_Actor(ConsoleCase):
+class BadActor(ConsoleCase):
     """
     Attempt to delete channels that are being controlled
     by another process. Test will PASS if channels could
@@ -23,6 +23,9 @@ class Bad_Actor(ConsoleCase):
         """
         Test the "create a channel" modal for all data types
         """
+        console = self.console
+        client = self.client
+
         channels_to_delete = [
             "press_pt",
             "press_vlv_cmd",
@@ -32,12 +35,20 @@ class Bad_Actor(ConsoleCase):
         self.subscribe(channels_to_delete)
         for ch in channels_to_delete:
             try:
-                self.console.channels.delete(ch)
-                self.fail(f"Channel '{ch}' improperly deleted.")
+                console.channels.delete(ch)
+
+                # Not getting an error immediately does not mean
+                # the channel was deleted. Check the channels list.
+                exists, _ = console.channels.existing_channel(ch)
+                if not exists:
+                    self.fail(f"Channel '{ch}' improperly deleted.")
 
             except RuntimeError as rte:
                 if "Failed to delete Channel" in str(rte):
-                    self._log_message(f"Properly failed to delete '{ch}'")
+                    self.log(f"Properly failed to delete '{ch}'")
 
             except Exception as e:
                 self.fail(f"Unexpected error while deleting '{ch}': {e}")
+
+            channel = client.channels.retrieve(ch)
+            self.log(f"{ch} still exists")
