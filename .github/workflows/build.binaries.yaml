@@ -1,32 +1,40 @@
 name: Build - Binaries
 
+run-name:
+  ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
+
 on:
   workflow_dispatch:
     inputs:
-      build-ubuntu:
-        description: "Build for Ubuntu"
+      ubuntu:
+        description: "OS: Ubuntu"
         type: boolean
         default: false
-      build-windows:
-        description: "Build for Windows"
+      windows:
+        description: "OS: Windows"
         type: boolean
         default: false
-      build-macos:
-        description: "Build for macOS"
+      macos:
+        description: "OS: macOS"
         type: boolean
         default: false
-      build-driver:
-        description: "Build Driver"
+      driver:
+        description: "Build: Driver"
         type: boolean
         default: false
-      build-console:
-        description: "Build Console"
+      console:
+        description: "Build: Console"
         type: boolean
         default: false
-      build-core:
-        description: "Build Core"
+      core:
+        description: "Build: Core"
         type: boolean
         default: false
+      RUN_NAME:
+        description: "Custom name for run"
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -54,23 +63,27 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           fi
 
-  select-os:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - id: set-matrix
+      - name: Generate OS Matrix
+        id: set-matrix
         run: |
-          MATRIX=$(integration/scripts/generate_os_matrix.sh "${{ inputs.build-ubuntu }}" "${{ inputs.build-windows }}" "${{ inputs.build-macos }}")
-          echo "$MATRIX" >> $GITHUB_OUTPUT
+          MATRIX=$(integration/scripts/generate_os_matrix.sh "${{ inputs.ubuntu }}" "${{ inputs.windows }}" "${{ inputs.macos }}")
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+      - name: Verify Build Configuration
+        run: |
+          integration/scripts/verify_build_config.sh \
+            "${{ steps.version.outputs.VERSION }}" \
+            "${{ inputs.ubuntu }}" \
+            "${{ inputs.windows }}" \
+            "${{ inputs.macos }}" \
+            "${{ inputs.driver }}" \
+            "${{ inputs.console }}" \
+            "${{ inputs.core }}"
 
   build:
     name: Build (${{ matrix.os }})
-    needs: [setup, select-os]
-    if: needs.select-os.outputs.matrix != '[]'
+    needs: setup
+    if: needs.setup.outputs.matrix != '[]'
     timeout-minutes: 75
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -78,17 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.select-os.outputs.matrix) }}
-        include:
-          - os: ubuntu-latest
-            artifact-name: synnax-core-linux
-            binary-suffix: linux
-          - os: windows-latest
-            artifact-name: synnax-core-windows
-            binary-suffix: windows.exe
-          - os: macos-latest
-            artifact-name: synnax-core-macos
-            binary-suffix: macos
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -121,18 +124,18 @@ jobs:
           repository-cache: true
 
       - name: Build Driver
-        if: inputs.build-driver && matrix.os != 'windows-latest'
+        if: inputs.driver && matrix.os != 'windows-latest'
         run: |
           bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
       - name: Build Driver (Windows)
-        if: inputs.build-driver && matrix.os == 'windows-latest'
+        if: inputs.driver && matrix.os == 'windows-latest'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
       - name: Upload Driver Binary as Artifact
-        if: inputs.build-driver
+        if: inputs.driver
         uses: actions/upload-artifact@v4
         with:
           name: synnax-driver-${{ matrix.binary-suffix }}
@@ -141,7 +144,7 @@ jobs:
           if-no-files-found: error
 
       - name: Move Driver to Assets
-        if: inputs.build-driver
+        if: inputs.driver && inputs.core
         shell: bash
         run: |
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
@@ -153,44 +156,53 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Set up pnpm
-        if: inputs.build-console
+        if: inputs.console
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        if: inputs.build-console
+        if: inputs.console
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
           cache: pnpm
 
       - name: Install Node Dependencies
-        if: inputs.build-console
+        if: inputs.console
         run: pnpm install
 
       - name: Build Console Web Assets
-        if: inputs.build-console
+        if: inputs.console
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
-      - name: Copy Console Assets to Server
-        if: inputs.build-console
+      - name: Upload Console Assets as Artifact
+        if: inputs.console
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-console-${{ matrix.binary-suffix }}
+          path: console/dist/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Move Console to Assets
+        if: inputs.console && inputs.core
         shell: bash
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Core
-        if: inputs.build-core
+        if: inputs.core
         working-directory: core
         shell: bash
         run: |
           TAGS=""
-          ${{ inputs.build-console == true }} && TAGS="console"
-          ${{ inputs.build-driver == true }} && TAGS="${TAGS:+$TAGS,}driver"
+          ${{ inputs.console == true }} && TAGS="console"
+          ${{ inputs.driver == true }} && TAGS="${TAGS:+$TAGS,}driver"
           [ -n "$TAGS" ] && TAGS="-tags $TAGS"
           go build $TAGS -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
 
       - name: Upload Core Binary as Artifact
-        if: inputs.build-core
+        if: inputs.core
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}

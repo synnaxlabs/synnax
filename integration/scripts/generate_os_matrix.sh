@@ -8,17 +8,17 @@ BUILD_MACOS=$3
 OS_LIST=""
 
 if [ "$BUILD_UBUNTU" = "true" ]; then
-    OS_LIST="\"ubuntu-latest\""
+    OS_LIST="{\"os\":\"ubuntu-latest\",\"artifact-name\":\"synnax-core-linux\",\"binary-suffix\":\"linux\"}"
 fi
 
 if [ "$BUILD_WINDOWS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}\"windows-latest\""
+    OS_LIST="${OS_LIST}{\"os\":\"windows-latest\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows.exe\"}"
 fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}\"macos-latest\""
+    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"artifact-name\":\"synnax-core-macos\",\"binary-suffix\":\"macos\"}"
 fi
 
-echo "matrix=[${OS_LIST}]"
+echo "[${OS_LIST}]"
