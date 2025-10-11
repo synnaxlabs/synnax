@@ -3,9 +3,9 @@ layout: "@/layouts/Reference.astro"
 title: "Requirements"
 heading: "Deployment Requirements"
 next: "CLI Reference"
-nextURL: "/reference/cluster/cli-reference"
+nextURL: "/reference/core/cli-reference"
 prev: "Production"
-prevURL: "/reference/cluster/production"
+prevURL: "/reference/core/production"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -13,14 +13,14 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
 
-This page lists the hardware and software requirements for deploying a Synnax cluster to
+This page lists the hardware and software requirements for deploying a Synnax Core to
 production.
 
 <Divider.Divider x />
 
 ## Operating System
 
-A Synnax cluster can run on Linux, macOS, Windows, or a containerized environment.
+A Synnax Core can run on Linux, macOS, Windows, or a containerized environment.
 
 For most production scenarios, we recommend running a glibc-based Linux distribution and
 a Linux kernel version from the last 5 years, such as
@@ -28,9 +28,9 @@ a Linux kernel version from the last 5 years, such as
 [Red Hat Enterprise Linux](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux),
 or [CentOS](https://www.centos.org/centos-stream/).
 
-### Device Driver Compatibility
+### Synnax Driver Compatibility
 
-If you plan on using our device drivers to integrate directly with your hardware, only
+If you plan on using the Synnax Driver to integrate directly with your hardware, only
 certain operating systems are supported.
 
 - [National Instruments](https://docs.synnaxlabs.com/reference/device-drivers/ni) -
@@ -39,13 +39,14 @@ certain operating systems are supported.
   Linux, macOS
 - [OPC UA](https://docs.synnaxlabs.com/reference/device-drivers/opc-ua) - Windows,
   Linux, macOS, or a containerized environment
+- [Modbus](https://docs.synnaxlabs.com/reference/device-drivers/modbus) - Windows,
+  Linux, macOS, or a containerized environment
 
 <Divider.Divider x />
 
 ## Hardware
 
-Cluster hardware requirements vary depending on your data acquisition and control
-workload.
+Core hardware requirements vary depending on your data acquisition and control workload.
 
 ### Calculating Workload
 
@@ -66,12 +67,12 @@ For example, if we have three groups of channels:
 - 100 medium speed at 100 Hz -> 10K samples/s
 - 20 actuators sending states at 50 Hz -> 1K samples/s
 
-The total throughput for our cluster is 250K + 10K + 1K = 261K samples/s.
+The total throughput for our Core is 250K + 10K + 1K = 261K samples/s.
 
 ### Workload-Based Minimum Requirements
 
 Once you've calculated your total throughput, use the following table to determine the
-_minimum_ hardware requirements for your cluster.
+_minimum_ hardware requirements for your Core.
 
 <Table>
   <thead>
@@ -134,7 +135,7 @@ acquisition channels (10 kHz or higher).
 
 ### CPU
 
-The Synnax cluster is CPU intensive during data ingestion, streaming, and control
+The Synnax Core is CPU intensive during data ingestion, streaming, and control
 operations. Modern multi-core processors perform best, and are a must when working in
 safety/performance critical environments.
 
@@ -154,14 +155,15 @@ cores for your deployment.
 
 ### Memory
 
-The Synnax cluster is generally less memory intensive than it is storage or compute
-intensive. For most production deployments, we recommend using a minimum of 8 GB of RAM.
+The Synnax Core is generally less memory-intensive than it is storage- or
+compute-intensive. For most production deployments, we recommend using a minimum of 8 GB
+of RAM.
 
 <Divider.Divider x />
 
 ## Network
 
-Synnax nodes communicate using TCP and/or UDP protocols for cluster coordination, data
+Synnax Cores communicate using TCP and/or UDP protocols for coordination, data
 replication, and client connections. Given Synnax's high-performance capabilities for
 both data acquisition and control operations, the network infrastructure must be
 designed to handle substantial throughput with minimal latency.
@@ -215,8 +217,8 @@ For optimal performance, especially over longer distances:
 
 For production control environments:
 
-- **Isolated Networks**: Deploy Synnax clusters on dedicated, air-gapped networks
-  separate from corporate IT infrastructure.
+- **Isolated Networks**: Deploy Synnax Cores on dedicated, air-gapped networks separate
+  from corporate IT infrastructure.
 - **Network Segmentation**: Use VLANs or physical separation to isolate control traffic
   from data acquisition traffic.
 - **Firewall Protection**: Implement network firewalls with strict access control

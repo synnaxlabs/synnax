@@ -1,95 +1,30 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Installing Synnax"
-description: "Install the Synnax core components."
+title: "Deploy"
+heading: "Deployment Quick Start"
+description: "Start a Core for testing, learning, or development."
+next: "Installation"
+nextURL: "/reference/core/installation"
 platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
-import { Flex, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
+import { Flex, Button, Note, Icon } from "@synnaxlabs/pluto";
 
-import { Console } from "@/components/console";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
-import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/Media";
 import { Platform } from "@/components/platform";
 import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
-<iframe
-  className="yt-video"
-  src="https://www.youtube.com/embed/PYlPwOoucCY?si=F7Ko9i-JhPtC3E5L"
-  title="YouTube video player"
-  frameborder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  referrerpolicy="strict-origin-when-cross-origin"
-  allowfullscreen
-/>
-
-The first step to getting started with Synnax is to install two key components: the
-[Console](/reference/console/get-started) and [Core](/reference/core/quick-start).
-
-<Divider.Divider x />
-
-## Install the Synnax Console
-
-The Synnax Console is our primary user interface for interacting with a Synnax
-deployment. We can set up visualizations to observe data, integrate and configure data
-acquisition devices, and manually control actuators on our system. Here's the link to
-download the latest version of the Console for your OS:
-
-<br />
-<br />
-<Flex.Box direction="y" justify="center" align="center">
-  <Console.DownloadButton client:load />
-</Flex.Box>
-<br />
-<br />
-
-After downloading and running the installer, you'll see a splash screen that looks like
-this:
-
-<Image id="console/get-started/window" client:only="react" />
-
-### Plotting Demo Data
-
-To make sure everything is working correctly, we'll plot some live data. Our team has a
-demo Core running in the cloud that we can connect to. Head to the Core dropdown in the
-top-right corner, and select the Core named `Demo`.
-
-<Video client:only="react" id="console/clusters/switch" />
-
-You'll see the connection status badge on the right turn blue, indicating that the
-connection is healthy.
-
-Next, click on the workspace selector in the top-left corner of the screen. This will
-open a dropdown menu where we can select the workspace we want to use. Choose the "Demo"
-workspace. You'll see the Console automatically re-configure its layout to match the
-workspace, and a new plot will appear with a live stream of data.
-
-<Divider.Divider x />
-
-## Installing the Core
-
-Now that the Console is up and running, we'll install our own Synnax Core locally. The
-Core is the heart of every Synnax deployment. It's where all sensor and actuator data is
-stored, and it serves as a central hub where all of our devices, Consoles, and control
-sequences will communicate.
+This page will walk you through starting a Synnax Core. To get started, select your
+operating system below:
 
 <Platform.Tabs client:only="react">
-
 <Fragment slot="Docker">
 
-### Using Docker
-
-<Note.Note variant="error">
-  A Synnax Core within a container has an isolated runtime, which means that it's not
-  currently able to access devices attached to the host machine. If you're interested in
-  connecting data acquisition devices using the embedded Synnax Driver, we recommend
-  installing Synnax directly on the host OS using one of the other installation methods.
-</Note.Note>
+## Using Docker
 
 The simplest way to start a Core is by using the `synnaxlabs/synnax` Docker image:
 
@@ -120,7 +55,7 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 <Fragment slot="Linux">
 
-### Using Linux
+## Using Linux
 
 To start a Core on Linux, first download the latest Synnax binary by running:
 
@@ -166,7 +101,7 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 <Fragment slot="macOS">
 
-### Using macOS
+## Using macOS
 
 To start a Core on macOS, first download the latest Synnax binary by running:
 
@@ -212,9 +147,7 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 <Fragment slot="Windows">
 
-### Using Windows
-
-To install the Synnax Core on Windows, download and run the latest Synnax installer.
+## Using Windows
 
 <br />
 <br />
@@ -228,7 +161,7 @@ To install the Synnax Core on Windows, download and run the latest Synnax instal
 <br />
 <br />
 
-To start the Core, run this:
+To start the Core, run this command in a **PowerShell** terminal:
 
 ```powershell
 synnax start --listen=localhost:9090 --mem --insecure
@@ -244,55 +177,11 @@ development.
 
 `--insecure` - Tells the Core to run without TLS.
 
-If you're interested in more details on these flags, see the
-[CLI Reference](/reference/core/cli-reference).
+The [Core CLI Reference](/reference/core/cli-reference) contains more details about
+these flags.
 
 To stop the Core, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
 </Platform.Tabs>
-
-### Connecting the Console to the Core
-
-Now that we have a Core running, we'll disconnect the Console from the demo Core and
-connect it to our own. We've pre-populated the Console with a connection for the default
-admin user on a local Core. To connect, head to the Core dropdown in the top-right
-corner of the Console and select the Core named `Local`.
-
-<Video client:only="react" id="console/clusters/switch" />
-
-Again, you'll see the connection status badge on the right turn blue, indicating that
-the connection is healthy. If you've changed the username or password, or removed the
-connection, you'll need to re-add it. Here are the connection details:
-
-<table>
-  <tr>
-    <th>Host</th>
-    <td>localhost</td>
-  </tr>
-  <tr>
-    <th>Port</th>
-    <td>9090</td>
-  </tr>
-  <tr>
-    <th>Username</th>
-    <td>synnax</td>
-  </tr>
-  <tr>
-    <th>Password</th>
-    <td>seldon</td>
-  </tr>
-  <tr>
-    <th>Secure</th>
-    <td>false</td>
-  </tr>
-</table>
-
-<Divider.Divider x />
-
-## Next Steps
-
-Now that we have a local Core running, it's time to start acquiring data from a device.
-Check out the [Synnax Driver](/reference/device-drivers/get-started) to start
-integrating your own hardware.

@@ -13,10 +13,10 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows
-Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and
-PXI systems. This page will walk you through some of the important pre-requisites
-necessary to get started with the NI driver.
+The Synnax Driver supports reading and writing data from
+[National Instruments (NI)](https://www.ni.com/en-us.html) hardware, including
+CompactDAQ, CompactRIO, and PXI systems. This page will walk you through the steps to
+start acquiring data from your NI devices using the Driver.
 
 <Divider.Divider x />
 
@@ -32,9 +32,9 @@ Aside from very old DAQ modules, Synnax is generally compatible with every NI de
 
 ## Installation
 
-Every instance of the [Synnax Core](/reference/cluster/quick-start) comes with the
-Synnax Driver embedded inside, so there are no additional installation steps unless
-you're using the Real-Time Linux Driver for CompactRIO.
+Every instance of the [Synnax Core](/reference/core/quick-start) comes with the Synnax
+Driver embedded inside, so there are no additional installation steps unless you're
+using the Real-Time Linux Driver for CompactRIO.
 
 ### Real-Time Linux Driver for CompactRIO
 
@@ -44,9 +44,9 @@ see the [Driver installation](/reference/device-drivers/installation) page.
 
 ## OS Compatibility
 
-The NI driver is compatible with Linux, Windows, and NI Linux RT. The driver will not be
-able to find your devices when running on macOS or within a containerized environment
-(even if the container is running on a supported OS).
+The Synnax Driver is compatible with Linux, Windows, and NI Linux RT. The Driver will
+not be able to find your devices when running on macOS or within a containerized
+environment (even if the container is running on a supported OS).
 
 ### Installing DAQmx and System Configuration Libraries
 
@@ -58,8 +58,8 @@ Instructions for installing System Configuration can be found on the
 [following page.](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
 
 <Note.Note variant="warning">
-  If you have a Synnax Core already running before installing DAQmx, you'll need to
-  restart the Core for Synnax to recognize the DAQmx installation.
+  If you have a Synnax Driver already running before installing DAQmx, you'll need to
+  restart the Driver for Synnax to recognize the DAQmx installation.
 </Note.Note>
 
 <Divider.Divider x />

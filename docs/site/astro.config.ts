@@ -23,16 +23,12 @@ const shikiResourcePaths = Object.keys(
 export default defineConfig({
   integrations: [react(), mdx()],
   output: "server",
-  adapter: vercel({
-    includeFiles: shikiResourcePaths,
-  }),
-  markdown: {
-    shikiConfig: {
-      theme: "css-variables",
-    },
-  },
+  adapter: vercel({ includeFiles: shikiResourcePaths }),
+  markdown: { shikiConfig: { theme: "css-variables" } },
   redirects: {
     "/reference/device-drivers/standalone": "/reference/device-drivers/installation",
+    "/reference/cluster/[...slug]": "/reference/core/[...slug]",
+    "/reference/console/clusters": "/reference/console/cores",
   },
   site: "https://docs.synnaxlabs.com",
 });

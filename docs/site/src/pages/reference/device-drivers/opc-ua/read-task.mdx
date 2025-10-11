@@ -155,7 +155,7 @@ new data, while the stream rate defines how often the task will stream data into
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
 will poll the OPC UA server every 100 ms, collect 10 samples, and then forward these
-samples to the server.
+samples to the Core.
 
 For very low rate tasks (&lt;50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
@@ -176,7 +176,7 @@ requires a little bit of tuning to set up.
 
 <Note.Note variant="info">
   When experimenting with array based sampling, we recommend running a separate [Synnax
-  Core](/reference/cluster/quick-start) with a memory-backed data store. This will allow
+  Core](/reference/core/quick-start) with a memory-backed data store. This will allow
   you to quickly test different configurations without writing a large amount of
   experimental data to your production database.
 </Note.Note>
@@ -218,7 +218,7 @@ configuration, and you will be able to pause and resume the tasks whenever you w
 
 ## Stopping and Starting Tasks
 
-To stop and start a task, you can open up the task toolbar on the right-hand side and
+To stop and start a task, you can open up the task toolbar on the left-hand side and
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 

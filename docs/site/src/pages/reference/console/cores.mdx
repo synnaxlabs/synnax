@@ -1,9 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Clusters"
-description: "Connect to clusters in the Synnax Console."
-prev: "Get Started"
-prevURL: "/reference/console/get-started"
+title: "Cores"
+description: "Connect to Synnax Cores in the Synnax Console."
+prev: "Requirements"
+prevURL: "/reference/console/requirements"
 next: "UI Overview"
 nextURL: "/reference/console/ui-overview"
 ---
@@ -17,17 +17,15 @@ export const components = mdxOverrides;
 
 <Divider.Divider x />
 
-## Adding a New Cluster
+## Adding a New Core
 
-Adding a new cluster is as simple as clicking the **Add Cluster** button in the top
-right corner of the cluster toolbar and entering your connection parameters, as shown
-below:
+Adding a new Core is as simple as clicking the **Connect** button in the top-right
+corner of the Core toolbar and entering your connection parameters, as shown below:
 
 <Video client:only="react" id="console/clusters/connect" />
 
-This will add a new cluster to the list and set it as active. The console continuously
-monitors the connection to the cluster and displays it in the bottom right corner of the
-UI.
+This will add a new Core to the list and set it as active. The Console continuously
+monitors the connection to the Core and displays it in the top-right corner of the UI.
 
 ### Parameters
 
@@ -43,25 +41,25 @@ UI.
       <td>
         <b>Host</b>
       </td>
-      <td>The hostname or IP address of the cluster.</td>
+      <td>The hostname or IP address of the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Port</b>
       </td>
-      <td>The port number of the cluster.</td>
+      <td>The port number of the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Username</b>
       </td>
-      <td>The username to use when connecting to the cluster.</td>
+      <td>The username to use when connecting to the Core.</td>
     </tr>
     <tr>
       <td>
         <b>Password</b>
       </td>
-      <td>The password to use when connecting to the cluster.</td>
+      <td>The password to use when connecting to the Core.</td>
     </tr>
     <tr>
       <td>
@@ -69,22 +67,17 @@ UI.
       </td>
       {
         <td>
-          Whether to use TLS when connecting to the cluster. This parameter only works
-          with secure clusters.
+          Whether to use TLS when connecting to the Core. This parameter only works with
+          secure Cores.
         </td>
       }
     </tr>
   </tbody>
 </Table>
 
-<Note.Note variant="warning">
-  The console will not connect to remote clusters (i.e. host is not 'localhost') started
-  with the `--insecure` flag.
-</Note.Note>
+### Demo Core
 
-### Demo Cluster
-
-Synnax has a demo cluster that can be connected to which always plots some data. To
+Synnax has a demo Core that can be connected to which always plots some data. To
 connect, enter the following parameters:
 
 <Table>
@@ -130,20 +123,20 @@ connect, enter the following parameters:
 
 <Divider.Divider x />
 
-## Cluster Toolbar
+## Core Toolbar
 
-The cluster toolbar is located at the bottom right of the screen. From this toolbar, you
-can add clusters, switch between them, and more.
+The Core toolbar is located at the top-right of the screen. From this toolbar, you can
+add Cores and switch between them.
 
-If you have multiple clusters, you can switch between them by clicking on the cluster
-you'd like to connect to in the toolbar:
+If you have multiple Cores, you can switch between them by clicking on the Core you'd
+like to connect to in the toolbar:
 
 <Video client:only="react" id="console/clusters/switch" />
 
-Right-clicking on a cluster in the toolbar will open a context menu with options to
-connect from, disconnect from, rename, and remove the cluster:
+Right-clicking on a Core in the toolbar will open a context menu with options to connect
+from, disconnect from, rename, and remove the Core:
 
 <Video client:only="react" id="console/clusters/context-menu" />
 
-You can also copy a link to the cluster from the context menu. Opening this link will
-open the Synnax Console with the cluster already connected.
+You can also copy a link to the Core from the context menu. Opening this link will open
+the Synnax Console with the Core already connected.

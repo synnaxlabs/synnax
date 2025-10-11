@@ -90,7 +90,7 @@ the read task configuration dialog.
 ### From The Layout Selector
 
 To create a digital read task from the layout selector, click on the "+" button in the
-top right corner and select "NI Digital Read Task".
+top-right corner and select "NI Digital Read Task".
 
 <Video
   client:only="react"
@@ -104,7 +104,7 @@ top right corner and select "NI Digital Read Task".
 ### <StepText level="h3" step={1}>Select your NI Device</StepText>
 
 The first step is to select the NI device you'd like to read data from. Use the dropdown
-menu in the top left corner to do so.
+menu in the top-left corner to do so.
 
 <Video
   client:only="react"
@@ -130,7 +130,7 @@ Synnax.
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
 will read a batch of 10 samples every second, and then forward the entire batch to the
-server.
+Core.
 
 For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can

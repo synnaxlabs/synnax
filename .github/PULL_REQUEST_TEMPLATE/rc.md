@@ -37,7 +37,7 @@ been updated to match any changes in the release candidate:
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
-- [ ] `reference/cluster`
+- [ ] `reference/core`
 - [ ] `reference/concepts`
 - [ ] `reference/console`
 - [ ] `reference/control`

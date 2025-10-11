@@ -9,38 +9,38 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const CLUSTER_NAV: PageNavNode = {
-  key: "cluster",
-  name: "Cluster",
+export const CORE_NAV: PageNavNode = {
+  key: "core",
+  name: "Core",
   children: [
     {
-      key: "/reference/cluster/quick-start",
-      href: "/reference/cluster/quick-start",
+      key: "/reference/core/quick-start",
+      href: "/reference/core/quick-start",
       name: "Quick Start",
     },
     {
-      key: "/reference/cluster/installation",
-      href: "/reference/cluster/installation",
+      key: "/reference/core/installation",
+      href: "/reference/core/installation",
       name: "Installation",
     },
     {
-      key: "/reference/cluster/production",
-      href: "/reference/cluster/production",
+      key: "/reference/core/production",
+      href: "/reference/core/production",
       name: "Production",
     },
     {
-      key: "/reference/cluster/requirements",
-      href: "/reference/cluster/requirements",
+      key: "/reference/core/requirements",
+      href: "/reference/core/requirements",
       name: "Requirements",
     },
     {
-      key: "/reference/cluster/cli-reference",
-      href: "/reference/cluster/cli-reference",
+      key: "/reference/core/cli-reference",
+      href: "/reference/core/cli-reference",
       name: "CLI Reference",
     },
     {
-      key: "/reference/cluster/systemd-service",
-      href: "/reference/cluster/systemd-service",
+      key: "/reference/core/systemd-service",
+      href: "/reference/core/systemd-service",
       name: "Systemd Service",
     },
   ],
