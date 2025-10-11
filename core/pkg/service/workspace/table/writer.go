@@ -71,8 +71,8 @@ func (w Writer) Rename(
 	return gorp.NewUpdate[uuid.UUID, Table]().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, t Table) Table {
-			l.Name = name
-			return l
+			t.Name = name
+			return t
 		}).
 		Exec(ctx, w.tx)
 }
@@ -86,8 +86,8 @@ func (w Writer) SetData(
 	return gorp.NewUpdate[uuid.UUID, Table]().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, t Table) Table {
-			l.Data = data
-			return l
+			t.Data = data
+			return t
 		}).Exec(ctx, w.tx)
 }
 
