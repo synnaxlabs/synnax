@@ -31,7 +31,7 @@ func (r Retrieve) Search(term string) Retrieve {
 }
 
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, m *Task) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, t *Task) (bool, error) {
 		return lo.Contains(names, m.Name), nil
 	}, gorp.Required())
 	return r
@@ -43,14 +43,14 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 func (r Retrieve) WhereRacks(key ...rack.Key) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, m *Task) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, t *Task) (bool, error) {
 		return lo.Contains(key, m.Rack()), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereTypes(types ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, m *Task) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, t *Task) (bool, error) {
 		return lo.Contains(types, m.Type), nil
 	}, gorp.Required())
 	return r
@@ -72,7 +72,7 @@ func (r Retrieve) Limit(limit int) Retrieve {
 }
 
 func (r Retrieve) WhereInternal(internal bool, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, m *Task) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, t *Task) (bool, error) {
 		return m.Internal == internal, nil
 	}, opts...)
 	return r

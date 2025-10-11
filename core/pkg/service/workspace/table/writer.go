@@ -70,7 +70,7 @@ func (w Writer) Rename(
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Table]().
 		WhereKeys(key).
-		Change(func(_ gorp.Context, l Table) Table {
+		Change(func(_ gorp.Context, t Table) Table {
 			l.Name = name
 			return l
 		}).
@@ -85,7 +85,7 @@ func (w Writer) SetData(
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Table]().
 		WhereKeys(key).
-		Change(func(_ gorp.Context, l Table) Table {
+		Change(func(_ gorp.Context, t Table) Table {
 			l.Data = data
 			return l
 		}).Exec(ctx, w.tx)

@@ -88,9 +88,9 @@ func (w Writer) Rename(
 	name string,
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
-		Change(func(_ gorp.Context, p Schematic) Schematic {
-			p.Name = name
-			return p
+		Change(func(_ gorp.Context, s Schematic) Schematic {
+			s.Name = name
+			return s
 		}).Exec(ctx, w.tx)
 }
 

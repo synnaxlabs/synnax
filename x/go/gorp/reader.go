@@ -43,7 +43,7 @@ type Reader[K Key, E Entry[K]] struct {
 //
 // The next example reads from a Tx:
 //
-//	r := gor.WrapReader[MyKey, MyEntry](Tx)
+//	r := gor.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 	return &Reader[K, E]{
 		BaseReader: base,
@@ -158,12 +158,12 @@ func (k *Iterator[E]) Valid() bool {
 // typed interface for iterating over a transactions operations in order. The given
 // tools are used to implement gorp-specific functionality, such as
 // decoding. Typically, the Tools interface is satisfied by a gorp.Tx
-// or a gorp.Db. The following example reads from a Tx;
+// or a gorp.Db. The following example reads from a tx;
 //
-//	Tx := db.OpenTx()
-//	defer Tx.Close()
+//	tx := db.OpenTx()
+//	defer tx.Close()
 //
-//	r := gor.WrapTxReader[MyKey, MyEntry](Tx.NewStreamer(), Tx)
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewStreamer(), tx)
 //
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {

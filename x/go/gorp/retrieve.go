@@ -140,7 +140,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 			Tx:      tx,
 		}, iter.Value(ctx))
 		if err != nil {
-			return count, err
+			return 0, err
 		}
 		if match {
 			count++
