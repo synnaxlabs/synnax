@@ -190,23 +190,15 @@ func translateChannelForward(
 	msg api.Channel,
 	_ int,
 ) *gapi.Channel {
-	isIndex := false
-	if msg.IsIndex != nil {
-		isIndex = *msg.IsIndex
-	}
-	virtual := false
-	if msg.Virtual != nil {
-		virtual = *msg.Virtual
-	}
 	return &gapi.Channel{
 		Key:         uint32(msg.Key),
 		Name:        msg.Name,
 		Leaseholder: uint32(msg.Leaseholder),
 		DataType:    string(msg.DataType),
 		Density:     int64(msg.Density),
-		IsIndex:     isIndex,
+		IsIndex:     msg.IsIndex,
 		Index:       uint32(msg.Index),
-		IsVirtual:   virtual,
+		IsVirtual:   msg.Virtual,
 	}
 }
 
@@ -214,17 +206,15 @@ func translateChannelBackward(
 	msg *gapi.Channel,
 	_ int,
 ) api.Channel {
-	isIndex := msg.IsIndex
-	virtual := msg.IsVirtual
 	return api.Channel{
 		Key:         channel.Key(msg.Key),
 		Name:        msg.Name,
 		Leaseholder: cluster.NodeKey(msg.Leaseholder),
 		DataType:    telem.DataType(msg.DataType),
 		Density:     telem.Density(msg.Density),
-		IsIndex:     &isIndex,
+		IsIndex:     msg.IsIndex,
 		Index:       channel.Key(msg.Index),
-		Virtual:     &virtual,
+		Virtual:     msg.IsVirtual,
 	}
 }
 

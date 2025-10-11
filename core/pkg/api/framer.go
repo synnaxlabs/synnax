@@ -280,7 +280,7 @@ type FrameWriterRequest struct {
 type FrameWriterResponse struct {
 	Command    writer.Command  `json:"command" msgpack:"command"`
 	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Authorized *bool           `json:"authorized" msgpack:"authorized"`
+	Authorized bool            `json:"authorized" msgpack:"authorized"`
 	Err        errors.Payload  `json:"err" msgpack:"err"`
 }
 
@@ -350,8 +350,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Sender: freighter.SenderNopCloser[FrameWriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
 			o.Command = i.Command
-			authorized := i.Authorized
-			o.Authorized = &authorized
+			o.Authorized = i.Authorized
 			o.Err = errors.Encode(ctx, i.Err, false)
 			o.End = i.End
 			return o, true, nil

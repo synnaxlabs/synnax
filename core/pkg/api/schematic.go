@@ -148,7 +148,7 @@ type (
 	SchematicCopyRequest struct {
 		Key      uuid.UUID `json:"key" msgpack:"key"`
 		Name     string    `json:"name" msgpack:"name"`
-		Snapshot *bool     `json:"snapshot" msgpack:"snapshot"`
+		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
 	}
 	SchematicCopyResponse struct {
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
@@ -164,11 +164,7 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 		return res, err
 	}
 	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
-		snapshot := false
-		if req.Snapshot != nil {
-			snapshot = *req.Snapshot
-		}
-		return s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, snapshot, &res.Schematic)
+		return s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic)
 	}); err != nil {
 		return SchematicCopyResponse{}, err
 	}
