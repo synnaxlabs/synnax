@@ -77,8 +77,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
             "channels",
-            [](xjson::Parser &ch_cfg)
-                -> std::pair<std::unique_ptr<channel::Input>, bool> {
+            [](xjson::Parser &ch_cfg
+            ) -> std::pair<std::unique_ptr<channel::Input>, bool> {
                 auto ch = channel::parse_input(ch_cfg);
                 if (ch == nullptr) return {nullptr, false};
                 return {std::move(ch), ch->enabled};
@@ -165,10 +165,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     [[nodiscard]]
 
-    xerrors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const TaskHandle handle
-    ) const {
+    xerrors::Error
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, const TaskHandle handle)
+        const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
@@ -192,14 +191,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
         };
     }
 
     [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
         if (this->software_timed)
-            return std::make_unique<common::SoftwareTimedSampleClock>(
-                this->stream_rate
+            return std::make_unique<common::SoftwareTimedSampleClock>(this->stream_rate
             );
         return std::make_unique<common::HardwareTimedSampleClock>(
             common::HardwareTimedSampleClockConfig::create_simple(

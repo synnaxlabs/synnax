@@ -541,7 +541,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 1 * telem.Hour}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start:                    10 * telem.SecondTS,
+						AutoIndexPersistInterval: 1 * telem.Hour,
+						EnableAutoCommit:         config.False(),
+					}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
