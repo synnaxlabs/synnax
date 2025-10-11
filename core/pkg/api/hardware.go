@@ -83,11 +83,11 @@ type (
 		Keys          []rack.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
-		Embedded      bool       `json:"embedded" msgpack:"embedded"`
-		HostIsNode    bool       `json:"host_is_node" msgpack:"host_is_node"`
+		Embedded      *bool      `json:"embedded" msgpack:"embedded"`
+		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+		IncludeStatus *bool      `json:"include_status" msgpack:"include_status"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -119,17 +119,17 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Embedded {
-		q = q.WhereEmbedded(req.Embedded)
+	if req.Embedded != nil && *req.Embedded {
+		q = q.WhereEmbedded(*req.Embedded)
 	}
-	if req.HostIsNode {
+	if req.HostIsNode != nil && *req.HostIsNode {
 		q = q.WhereNodeIsHost()
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
 	}
 
-	if req.IncludeStatus {
+	if req.IncludeStatus != nil && *req.IncludeStatus {
 		for i := range resRacks {
 			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
 				resRacks[i].Status = &s.Status
@@ -227,7 +227,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 
 type (
 	HardwareRetrieveTaskRequest struct {
-		Rack          rack.Key
+		Rack          rack.Key   `json:"rack" msgpack:"rack"`
 		Keys          []task.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
 		Types         []string   `json:"types" msgpack:"types"`
@@ -335,7 +335,7 @@ type (
 	HardwareCopyTaskRequest struct {
 		Key      task.Key `json:"key" msgpack:"key"`
 		Name     string   `json:"name" msgpack:"name"`
-		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+		Snapshot *bool    `json:"snapshot" msgpack:"snapshot"`
 	}
 	HardwareCopyTaskResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -351,11 +351,15 @@ func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRe
 		return res, err
 	}
 	err := svc.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		snapshot := false
+		if req.Snapshot != nil {
+			snapshot = *req.Snapshot
+		}
 		res.Task, err = svc.internal.Task.NewWriter(tx).Copy(
 			ctx,
 			req.Key,
 			req.Name,
-			req.Snapshot,
+			snapshot,
 		)
 		return err
 	})
@@ -410,8 +414,8 @@ type HardwareRetrieveDeviceRequest struct {
 	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
-	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
+	IgnoreNotFound *bool      `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IncludeStatus  *bool      `json:"include_status" msgpack:"include_status"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -459,7 +463,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		q = q.WhereRacks(req.Racks...)
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
-	if req.IncludeStatus {
+	if req.IncludeStatus != nil && *req.IncludeStatus {
 		for i := range res.Devices {
 			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Key); ok {
 				res.Devices[i].Status = &s
@@ -473,7 +477,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
 	}
-	if retErr != nil && req.IgnoreNotFound {
+	if retErr != nil && req.IgnoreNotFound != nil && *req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.NotFound)
 	}
 	return res, retErr

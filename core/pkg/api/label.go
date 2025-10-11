@@ -147,7 +147,7 @@ func (s *LabelService) Delete(
 
 type LabelAddRequest struct {
 	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
-	Replace bool        `json:"replace" msgpack:"replace"`
+	Replace *bool       `json:"replace" msgpack:"replace"`
 	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
 }
 
@@ -164,7 +164,7 @@ func (s *LabelService) Add(
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		if req.Replace {
+		if req.Replace != nil && *req.Replace {
 			if err := w.Clear(ctx, req.ID); err != nil {
 				return err
 			}

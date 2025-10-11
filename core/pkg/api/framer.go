@@ -257,12 +257,12 @@ type FrameWriterConfig struct {
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
 	// [OPTIONAL] - Defaults to false.
-	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
+	ErrOnUnauthorized *bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
 	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
-	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
 	// to AlwaysAutoPersist.
@@ -280,7 +280,7 @@ type FrameWriterRequest struct {
 type FrameWriterResponse struct {
 	Command    writer.Command  `json:"command" msgpack:"command"`
 	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Authorized bool            `json:"authorized" msgpack:"authorized"`
+	Authorized *bool           `json:"authorized" msgpack:"authorized"`
 	Err        errors.Payload  `json:"err" msgpack:"err"`
 }
 
@@ -350,7 +350,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Sender: freighter.SenderNopCloser[FrameWriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
 			o.Command = i.Command
-			o.Authorized = i.Authorized
+			authorized := i.Authorized
+			o.Authorized = &authorized
 			o.Err = errors.Encode(ctx, i.Err, false)
 			o.End = i.End
 			return o, true, nil
@@ -393,14 +394,23 @@ func (s *FrameService) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
+	errOnUnauthorized := false
+	if req.Config.ErrOnUnauthorized != nil {
+		errOnUnauthorized = *req.Config.ErrOnUnauthorized
+	}
+	enableAutoCommit := false
+	if req.Config.EnableAutoCommit != nil {
+		enableAutoCommit = *req.Config.EnableAutoCommit
+	}
+
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
 		Authorities:              authorities,
 		Mode:                     req.Config.Mode,
-		ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
-		EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
+		ErrOnUnauthorized:        config.Bool(errOnUnauthorized),
+		EnableAutoCommit:         config.Bool(enableAutoCommit),
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})
 	if err != nil {

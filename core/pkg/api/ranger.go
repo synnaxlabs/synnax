@@ -121,8 +121,8 @@ type (
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`
-		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
-		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
+		IncludeLabels *bool           `json:"include_labels" msgpack:"include_labels"`
+		IncludeParent *bool           `json:"include_parent" msgpack:"include_parent"`
 	}
 	RangeRetrieveResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -168,7 +168,7 @@ func (s *RangeService) Retrieve(
 	}
 	apiRanges := translateRangesFromService(svcRanges)
 	var err error
-	if req.IncludeLabels {
+	if req.IncludeLabels != nil && *req.IncludeLabels {
 		for i, rng := range apiRanges {
 			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
 				return RangeRetrieveResponse{}, err
@@ -176,7 +176,7 @@ func (s *RangeService) Retrieve(
 			apiRanges[i] = rng
 		}
 	}
-	if req.IncludeParent {
+	if req.IncludeParent != nil && *req.IncludeParent {
 		for i, rng := range apiRanges {
 			parent, err := rng.RetrieveParent(ctx)
 			if errors.Is(err, query.NotFound) {

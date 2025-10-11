@@ -37,11 +37,11 @@ type Channel struct {
 	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
 	DataType    telem.DataType  `json:"data_type" msgpack:"data_type"`
 	Density     telem.Density   `json:"density" msgpack:"density"`
-	IsIndex     bool            `json:"is_index" msgpack:"is_index"`
+	IsIndex     *bool           `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key     `json:"index" msgpack:"index"`
 	Alias       string          `json:"alias" msgpack:"alias"`
-	Virtual     bool            `json:"virtual" msgpack:"virtual"`
-	Internal    bool            `json:"internal" msgpack:"internal"`
+	Virtual     *bool           `json:"virtual" msgpack:"virtual"`
+	Internal    *bool           `json:"internal" msgpack:"internal"`
 	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
 	Expression  string          `json:"expression" msgpack:"expression"`
 }
@@ -67,7 +67,7 @@ func NewChannelService(p Provider) *ChannelService {
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
 	Channels             []Channel `json:"channels" msgpack:"channels"`
-	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
+	RetrieveIfNameExists *bool     `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -97,7 +97,11 @@ func (s *ChannelService) Create(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		w := s.internal.NewWriter(tx)
-		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
+		retrieve := false
+		if req.RetrieveIfNameExists != nil {
+			retrieve = *req.RetrieveIfNameExists
+		}
+		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(retrieve))
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})
@@ -239,16 +243,19 @@ func (s *ChannelService) Retrieve(
 func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
+		isIndex := ch.IsIndex
+		virtual := ch.Virtual
+		internal := ch.Internal
 		translated[i] = Channel{
 			Key:         ch.Key(),
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
-			IsIndex:     ch.IsIndex,
+			IsIndex:     &isIndex,
 			Index:       ch.Index(),
 			Density:     ch.DataType.Density(),
-			Virtual:     ch.Virtual,
-			Internal:    ch.Internal,
+			Virtual:     &virtual,
+			Internal:    &internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
 		}
@@ -261,19 +268,31 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
+		isIndex := false
+		if ch.IsIndex != nil {
+			isIndex = *ch.IsIndex
+		}
+		virtual := false
+		if ch.Virtual != nil {
+			virtual = *ch.Virtual
+		}
+		internal := false
+		if ch.Internal != nil {
+			internal = *ch.Internal
+		}
 		tCH := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
-			IsIndex:     ch.IsIndex,
+			IsIndex:     isIndex,
 			LocalIndex:  ch.Index.LocalKey(),
 			LocalKey:    ch.Key.LocalKey(),
-			Virtual:     ch.Virtual,
-			Internal:    ch.Internal,
+			Virtual:     virtual,
+			Internal:    internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
 		}
-		if ch.IsIndex {
+		if isIndex {
 			tCH.LocalIndex = tCH.LocalKey
 		}
 

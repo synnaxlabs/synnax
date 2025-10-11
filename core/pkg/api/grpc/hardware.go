@@ -332,6 +332,10 @@ func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.Hard
 }
 
 func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveDeviceRequest) (*gapi.HardwareRetrieveDeviceRequest, error) {
+	ignoreNotFound := false
+	if req.IgnoreNotFound != nil {
+		ignoreNotFound = *req.IgnoreNotFound
+	}
 	return &gapi.HardwareRetrieveDeviceRequest{
 		Keys:           req.Keys,
 		Names:          req.Names,
@@ -342,11 +346,12 @@ func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.Hardwa
 		Racks:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Racks),
 		Limit:          uint32(req.Limit),
 		Offset:         uint32(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
+		IgnoreNotFound: ignoreNotFound,
 	}, nil
 }
 
 func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveDeviceRequest) (api.HardwareRetrieveDeviceRequest, error) {
+	ignoreNotFound := req.IgnoreNotFound
 	return api.HardwareRetrieveDeviceRequest{
 		Keys:           req.Keys,
 		Names:          req.Names,
@@ -357,7 +362,7 @@ func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.Har
 		Limit:          int(req.Limit),
 		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
 		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
+		IgnoreNotFound: &ignoreNotFound,
 	}, nil
 }
 

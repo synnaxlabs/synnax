@@ -91,9 +91,13 @@ func (t channelCreateRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateRequest,
 ) (*gapi.ChannelCreateRequest, error) {
+	retrieveIfNameExists := false
+	if msg.RetrieveIfNameExists != nil {
+		retrieveIfNameExists = *msg.RetrieveIfNameExists
+	}
 	return &gapi.ChannelCreateRequest{
 		Channels:             lo.Map(msg.Channels, translateChannelForward),
-		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+		RetrieveIfNameExists: retrieveIfNameExists,
 	}, nil
 }
 
@@ -101,9 +105,10 @@ func (t channelCreateRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateRequest,
 ) (api.ChannelCreateRequest, error) {
+	retrieveIfNameExists := msg.RetrieveIfNameExists
 	return api.ChannelCreateRequest{
 		Channels:             lo.Map(msg.Channels, translateChannelBackward),
-		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+		RetrieveIfNameExists: &retrieveIfNameExists,
 	}, nil
 }
 
@@ -185,15 +190,23 @@ func translateChannelForward(
 	msg api.Channel,
 	_ int,
 ) *gapi.Channel {
+	isIndex := false
+	if msg.IsIndex != nil {
+		isIndex = *msg.IsIndex
+	}
+	virtual := false
+	if msg.Virtual != nil {
+		virtual = *msg.Virtual
+	}
 	return &gapi.Channel{
 		Key:         uint32(msg.Key),
 		Name:        msg.Name,
 		Leaseholder: uint32(msg.Leaseholder),
 		DataType:    string(msg.DataType),
 		Density:     int64(msg.Density),
-		IsIndex:     msg.IsIndex,
+		IsIndex:     isIndex,
 		Index:       uint32(msg.Index),
-		IsVirtual:   msg.Virtual,
+		IsVirtual:   virtual,
 	}
 }
 
@@ -201,15 +214,17 @@ func translateChannelBackward(
 	msg *gapi.Channel,
 	_ int,
 ) api.Channel {
+	isIndex := msg.IsIndex
+	virtual := msg.IsVirtual
 	return api.Channel{
 		Key:         channel.Key(msg.Key),
 		Name:        msg.Name,
 		Leaseholder: cluster.NodeKey(msg.Leaseholder),
 		DataType:    telem.DataType(msg.DataType),
 		Density:     telem.Density(msg.Density),
-		IsIndex:     msg.IsIndex,
+		IsIndex:     &isIndex,
 		Index:       channel.Key(msg.Index),
-		Virtual:     msg.IsVirtual,
+		Virtual:     &virtual,
 	}
 }
 
