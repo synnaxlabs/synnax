@@ -11,7 +11,8 @@ import { useState } from "react";
 
 import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { Input } from "@/input";
+import { type Input } from "@/input";
+import { Text as InputText } from "@/input/Text";
 
 export interface SearchInputProps {
   searchPlaceholder?: string;
@@ -28,7 +29,7 @@ export const SearchInput = ({
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   const inputContent = (
-    <Input.Text
+    <InputText
       value={term}
       autoFocus
       placeholder={searchPlaceholder}

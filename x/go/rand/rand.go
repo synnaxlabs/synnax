@@ -74,10 +74,7 @@ func SubSlice[V comparable](slice []V, n int) []V {
 		subSlice = make([]V, n)
 		indexes  = make([]int, n)
 	)
-	for {
-		if c == n {
-			break
-		}
+	for c != n {
 		i := rand.Intn(len(slice))
 		if lo.Contains(indexes, i) {
 			continue

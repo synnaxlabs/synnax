@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";

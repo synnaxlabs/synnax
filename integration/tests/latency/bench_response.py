@@ -17,9 +17,7 @@ from framework.test_case import TestCase
 
 
 class BenchResponse(TestCase):
-
     def setup(self) -> None:
-
         self.set_manual_timeout(15)
 
         self.bench_client = sy.Synnax(

@@ -8,17 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Input } from "@/input";
 import { Theming } from "@/theming";
 
 const TestThemeContent = (): ReactElement => {
-  const { theme } = Theming.useContext();
+  const { theme, toggleTheme } = Theming.useContext();
+  const [checked, setChecked] = useState(false);
+  const handleChange = (value: boolean) => {
+    setChecked(value);
+    toggleTheme();
+  };
   return (
     <div>
       {theme.name}
-      <Theming.Switch aria-label="theme-switch" />
+      <Input.Switch aria-label="theme-switch" value={checked} onChange={handleChange} />
     </div>
   );
 };

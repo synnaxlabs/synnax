@@ -11,6 +11,7 @@ package codec_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"math/rand"
 	"testing"
@@ -35,7 +36,7 @@ var _ = Describe("Codec", func() {
 		fr framer.Frame,
 	) {
 		cdc := codec.NewStatic(channels, dataTypes)
-		encoded := MustSucceed(cdc.Encode(nil, fr))
+		encoded := MustSucceed(cdc.Encode(context.Background(), fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
@@ -531,11 +532,11 @@ func BenchmarkEncode(b *testing.B) {
 	)
 	cd := codec.NewStatic(keys, dataTypes)
 	w := bytes.NewBuffer(nil)
-	if err := cd.EncodeStream(nil, w, fr); err != nil {
+	if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	for b.Loop() {
-		if err := cd.EncodeStream(nil, w, fr); err != nil {
+		if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
 		w.Reset()
@@ -564,7 +565,7 @@ func BenchmarkDecode(b *testing.B) {
 			[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 		)
 		cd         = codec.NewStatic(keys, dataTypes)
-		encoded, _ = cd.Encode(nil, fr)
+		encoded, _ = cd.Encode(b.Context(), fr)
 		r          = bytes.NewReader(encoded)
 	)
 	for b.Loop() {

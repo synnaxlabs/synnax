@@ -22,9 +22,9 @@ export const DEVICE_DRIVERS_NAV: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/device-drivers/standalone",
-      href: "/reference/device-drivers/standalone",
-      name: "Standalone Driver",
+      key: "/reference/device-drivers/installation",
+      href: "/reference/device-drivers/installation",
+      name: "Installation",
     },
     {
       key: "/reference/device-drivers/timing",

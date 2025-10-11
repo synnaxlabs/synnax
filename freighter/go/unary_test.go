@@ -57,10 +57,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Normal Operation", func() {
 				It("should send a request", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
-						return response{
-							ID:      req.ID,
-							Message: req.Message,
-						}, nil
+						return response(req), nil
 					})
 					req := request{ID: 1, Message: "hello"}
 					res, err := client.Send(context.TODO(), addr, req)

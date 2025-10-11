@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	roacherrors "github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -142,7 +141,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 				Variant:  freighter.Unary,
 			}
 			if u.handler == nil {
-				return oCtx, roacherrors.New("[freighter] - no handler registered")
+				return oCtx, errors.New("[freighter] - no handler registered")
 			}
 			req, err := u.RequestTranslator.Backward(ctx, tReq)
 			if err != nil {
@@ -161,7 +160,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 	if err == nil {
 		return tRes, nil
 	}
-	return tRes, errors.Encode(ctx, err, u.Internal)
+	return tRes, errors.Encode(oCtx, err, u.Internal)
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(

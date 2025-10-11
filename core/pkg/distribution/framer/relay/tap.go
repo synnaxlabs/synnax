@@ -109,7 +109,7 @@ func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
 		// runs before we close the inlet to the delta.
-		confluence.WithClosables(t.AbstractUnarySource.Out),
+		confluence.WithClosables(t.Out),
 		confluence.Defer(t.close),
 	)...)
 }
@@ -181,8 +181,8 @@ func (t *tapper) tapInto(
 	}
 	requests := confluence.NewStream[Request](1)
 	tp.InFrom(requests)
-	tp.OutTo(t.AbstractUnarySource.Out)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Instrumentation.Child(tapKey)))
+	tp.OutTo(t.Out)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
 	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
 	return tapController{Inlet: requests, closer: signal.NewHardShutdown(sCtx, cancel)}, nil
 }

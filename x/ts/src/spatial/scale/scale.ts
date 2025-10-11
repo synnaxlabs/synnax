@@ -11,12 +11,12 @@ import { z } from "zod";
 
 import { clamp } from "@/clamp/clamp";
 import { type numeric } from "@/numeric";
-import * as bounds from "@/spatial/bounds/bounds";
+import { bounds } from "@/spatial/bounds";
+import { box } from "@/spatial/box";
 import { type Box, isBox } from "@/spatial/box/box";
-import * as box from "@/spatial/box/box";
-import type * as dims from "@/spatial/dimensions/dimensions";
-import * as location from "@/spatial/location/location";
-import * as xy from "@/spatial/xy/xy";
+import { type dimensions } from "@/spatial/dimensions";
+import { location } from "@/spatial/location";
+import { xy } from "@/spatial/xy";
 
 export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
@@ -449,7 +449,7 @@ export class XY {
     return new XY().magnify(xy);
   }
 
-  static scale(box: dims.Dimensions | Box): XY {
+  static scale(box: dimensions.Dimensions | Box): XY {
     return new XY().scale(box);
   }
 
@@ -484,7 +484,7 @@ export class XY {
     return next;
   }
 
-  scale(b: Box | dims.Dimensions): XY {
+  scale(b: Box | dimensions.Dimensions): XY {
     const next = this.copy();
     if (isBox(b)) {
       const prevRoot = this.currRoot;

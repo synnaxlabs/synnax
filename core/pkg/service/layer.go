@@ -218,7 +218,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
-		Instrumentation: cfg.Instrumentation.Child("hardware"),
+		Instrumentation: cfg.Child("hardware"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Group:           cfg.Distribution.Group,
@@ -232,7 +232,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.Config{
-			Instrumentation: cfg.Instrumentation.Child("framer"),
+			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
 			Channel:         cfg.Distribution.Channel,
 		},
@@ -243,7 +243,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.Config{
-			Instrumentation: cfg.Instrumentation.Child("metrics"),
+			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
@@ -253,7 +253,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("status"),
+			Instrumentation: cfg.Child("status"),
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
@@ -266,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("arc"),
+			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
 			Framer:          cfg.Distribution.Framer,

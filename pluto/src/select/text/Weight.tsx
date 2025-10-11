@@ -9,7 +9,8 @@
 
 import { type ReactElement } from "react";
 
-import { Select } from "@/select";
+import { type Select } from "@/select";
+import { Button, Buttons } from "@/select/Button";
 import { type text } from "@/text/core";
 
 const DATA = [250, 400, 500, 600];
@@ -17,10 +18,10 @@ const DATA = [250, 400, 500, 600];
 export interface WeightProps extends Omit<Select.ButtonsProps<text.Weight>, "keys"> {}
 
 export const Weight = (props: WeightProps): ReactElement => (
-  <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey={250}>Light</Select.Button>
-    <Select.Button itemKey={400}>Normal</Select.Button>
-    <Select.Button itemKey={500}>Medium</Select.Button>
-    <Select.Button itemKey={600}>Bold</Select.Button>
-  </Select.Buttons>
+  <Buttons {...props} keys={DATA}>
+    <Button itemKey={250}>Light</Button>
+    <Button itemKey={400}>Normal</Button>
+    <Button itemKey={500}>Medium</Button>
+    <Button itemKey={600}>Bold</Button>
+  </Buttons>
 );

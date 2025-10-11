@@ -29,7 +29,7 @@ struct OutputChan {
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
-    const UA_NodeId node;
+    opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey cmd_channel;
@@ -146,9 +146,8 @@ private:
 
         size_t actual_writes = 0;
         const size_t max_size = frame.size();
-        x::defer clear_req([&req, &actual_writes, max_size] {
-            for (size_t i = 0; i < actual_writes; ++i)
-                UA_NodeId_clear(&req.nodesToWrite[i].nodeId);
+        // No NodeId cleanup needed - we're borrowing, not owning
+        x::defer clear_req([&req, max_size] {
             UA_Array_delete(req.nodesToWrite, max_size, &UA_TYPES[UA_TYPES_WRITEVALUE]);
         });
 
@@ -164,15 +163,11 @@ private:
             }
             UA_WriteValue &node = req.nodesToWrite[actual_writes];
             node.attributeId = UA_ATTRIBUTEID_VALUE;
-            auto copy_status = UA_NodeId_copy(&ch->node, &node.nodeId);
-            if (copy_status != UA_STATUSCODE_GOOD) {
-                LOG(ERROR) << "[opc.write_task] failed to copy node id: "
-                           << util::parse_error(copy_status);
-                continue;
-            }
+            // Deep copy NodeId using wrapper method - UA_Array_delete will clean it up
+            ch->node.copy_to(node.nodeId);
             node.value.hasValue = true;
             node.value.value = val;
-            // transfer ownership - zero out val to prevent doubel free.
+            // transfer ownership - zero out val to prevent double free.
             UA_Variant_init(&val);
             actual_writes++;
         }
@@ -180,10 +175,8 @@ private:
         req.nodesToWriteSize = actual_writes;
         if (req.nodesToWriteSize == 0) return xerrors::NIL;
 
-        UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
-        auto err = util::parse_error(res.responseHeader.serviceResult);
-        UA_WriteResponse_clear(&res);
-        return err;
+        opc::WriteResponse res(UA_Client_Service_write(this->conn.get(), req));
+        return util::parse_error(res.get().responseHeader.serviceResult);
     }
 };
 }

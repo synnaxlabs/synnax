@@ -11,6 +11,7 @@ package freighter
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/middleware"
 )
 
@@ -29,10 +30,6 @@ type (
 
 // MDContextKey is the context key used to store freighter metadata.
 const MDContextKey ContextKey = "freighter.md"
-
-func setMDOnContext(ctx Context) context.Context {
-	return context.WithValue(ctx, MDContextKey, ctx)
-}
 
 // MDFromContext returns the freighter metadata from the given context.
 func MDFromContext(ctx context.Context) Context { return ctx.(Context) }

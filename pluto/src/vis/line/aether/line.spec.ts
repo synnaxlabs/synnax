@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/spatial";
 import {
+  bounds,
   type CrudeTimeRange,
   DataType,
   MultiSeries,
   Series,
   TimeRange,
   TimeSpan,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";

@@ -19,31 +19,27 @@
 TEST(NodeTest, ParseNumericNodeId) {
     xjson::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
 
-    UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
+    opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
 
-    EXPECT_EQ(nodeId.namespaceIndex, 1);
-    EXPECT_EQ(nodeId.identifierType, UA_NODEIDTYPE_NUMERIC);
-    EXPECT_EQ(nodeId.identifier.numeric, 42);
-
-    UA_NodeId_clear(&nodeId);
+    EXPECT_EQ(nodeId.get().namespaceIndex, 1);
+    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_NUMERIC);
+    EXPECT_EQ(nodeId.get().identifier.numeric, 42);
 }
 
 TEST(NodeTest, ParseStringNodeId) {
     xjson::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
 
-    UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
+    opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
 
-    EXPECT_EQ(nodeId.namespaceIndex, 2);
-    EXPECT_EQ(nodeId.identifierType, UA_NODEIDTYPE_STRING);
+    EXPECT_EQ(nodeId.get().namespaceIndex, 2);
+    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_STRING);
     EXPECT_EQ(
         std::string(
-            reinterpret_cast<char *>(nodeId.identifier.string.data),
-            nodeId.identifier.string.length
+            reinterpret_cast<char *>(nodeId.get().identifier.string.data),
+            nodeId.get().identifier.string.length
         ),
         "TestString"
     );
-
-    UA_NodeId_clear(&nodeId);
 }
 
 TEST(NodeTest, ParseGuidNodeId) {
@@ -51,33 +47,31 @@ TEST(NodeTest, ParseGuidNodeId) {
         std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
     );
 
-    UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
+    opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
 
-    EXPECT_EQ(nodeId.namespaceIndex, 3);
-    EXPECT_EQ(nodeId.identifierType, UA_NODEIDTYPE_GUID);
-    EXPECT_EQ(nodeId.identifier.guid.data1, 0x12345678);
-    EXPECT_EQ(nodeId.identifier.guid.data2, 0x1234);
-    EXPECT_EQ(nodeId.identifier.guid.data3, 0x5678);
-    EXPECT_EQ(nodeId.identifier.guid.data4[0], 0x9A);
-    EXPECT_EQ(nodeId.identifier.guid.data4[1], 0xBC);
-
-    UA_NodeId_clear(&nodeId);
+    EXPECT_EQ(nodeId.get().namespaceIndex, 3);
+    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_GUID);
+    EXPECT_EQ(nodeId.get().identifier.guid.data1, 0x12345678);
+    EXPECT_EQ(nodeId.get().identifier.guid.data2, 0x1234);
+    EXPECT_EQ(nodeId.get().identifier.guid.data3, 0x5678);
+    EXPECT_EQ(nodeId.get().identifier.guid.data4[0], 0x9A);
+    EXPECT_EQ(nodeId.get().identifier.guid.data4[1], 0xBC);
 }
 
 TEST(NodeTest, ParseInvalidNodeId) {
     xjson::Parser parser(std::string(R"({"nodeId": "Invalid"})"));
 
-    UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
+    opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
 
-    EXPECT_TRUE(UA_NodeId_isNull(&nodeId));
+    EXPECT_TRUE(nodeId.is_null());
 }
 
 TEST(NodeTest, ParseMissingNodeId) {
     xjson::Parser parser(std::string(R"({"otherField": "value"})"));
 
-    UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
+    opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
 
-    EXPECT_TRUE(UA_NodeId_isNull(&nodeId));
+    EXPECT_TRUE(nodeId.is_null());
     EXPECT_FALSE(parser.ok());
 }
 
@@ -143,19 +137,17 @@ TEST(NodeTest, RoundTripConversion) {
     // Test numeric node ID round trip
     {
         xjson::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
-        UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
-        std::string nodeIdStr = util::node_id_to_string(nodeId);
+        opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
+        std::string nodeIdStr = util::node_id_to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=1;I=42");
-        UA_NodeId_clear(&nodeId);
     }
 
     // Test string node ID round trip
     {
         xjson::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
-        UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
-        std::string nodeIdStr = util::node_id_to_string(nodeId);
+        opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
+        std::string nodeIdStr = util::node_id_to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=2;S=TestString");
-        UA_NodeId_clear(&nodeId);
     }
 
     // Test GUID node ID round trip
@@ -163,9 +155,8 @@ TEST(NodeTest, RoundTripConversion) {
         xjson::Parser parser(
             std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
         );
-        UA_NodeId nodeId = util::parse_node_id("nodeId", parser);
-        std::string nodeIdStr = util::node_id_to_string(nodeId);
+        opc::NodeId nodeId = util::parse_node_id("nodeId", parser);
+        std::string nodeIdStr = util::node_id_to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
-        UA_NodeId_clear(&nodeId);
     }
 }

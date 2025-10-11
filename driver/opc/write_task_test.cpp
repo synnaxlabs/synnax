@@ -250,7 +250,14 @@ protected:
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+        // Wait for server to be ready by attempting to connect
+        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            util::connect(conn_cfg, "test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
+        );
+        UA_Client_disconnect(test_client.get());
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
@@ -348,9 +355,14 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     EXPECT_TRUE(write_err2.matches(util::UNREACHABLE_ERROR))
         << "Error should be UNREACHABLE_ERROR, got: " << write_err2;
 
-    // Restart the server
+    // Restart the server and wait for it to be ready
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(conn_cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
+    UA_Client_disconnect(test_client.get());
 
     // Write after server restart - should trigger reconnect and succeed
     auto fr3 = synnax::Frame(1);

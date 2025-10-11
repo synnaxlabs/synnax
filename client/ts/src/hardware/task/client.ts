@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, id, type record, strings } from "@synnaxlabs/x";
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
+import {
+  array,
+  caseconv,
+  type CrudeTimeSpan,
+  id,
+  type record,
+  strings,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type framer } from "@/framer";
@@ -179,6 +186,8 @@ const retrieveReqZ = z.object({
   names: z.string().array().optional(),
   types: z.string().array().optional(),
   includeStatus: z.boolean().optional(),
+  internal: z.boolean().optional(),
+  snapshot: z.boolean().optional(),
   searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),

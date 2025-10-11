@@ -110,4 +110,7 @@ TEST(TelemTest, testSeriesToVariant) {
     EXPECT_EQ(err, xerrors::NIL);
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
+
+    // Clean up allocated variant memory
+    UA_Variant_clear(&variant);
 }

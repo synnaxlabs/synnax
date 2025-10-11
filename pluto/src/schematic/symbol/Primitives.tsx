@@ -41,8 +41,8 @@ import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Input } from "@/input";
-import { Symbol } from "@/schematic/symbol";
 import { useCustom } from "@/schematic/symbol/Custom";
+import { useRetrieve } from "@/schematic/symbol/queries";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -515,7 +515,7 @@ export const CustomActuator = ({
   stateOverrides,
   ...rest
 }: CustomActuatorProps): ReactElement | null => {
-  const spec = Symbol.useRetrieve({ key: specKey });
+  const spec = useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
   useCustom({
     container: svgContainerRef.current,
@@ -571,7 +571,7 @@ export const CustomStatic = ({
   stateOverrides,
   ...rest
 }: CustomStaticProps): ReactElement | null => {
-  const spec = Symbol.useRetrieve({ key: specKey });
+  const spec = useRetrieve({ key: specKey });
   const svgContainerRef = useRef<HTMLDivElement>(null);
   useCustom({
     container: svgContainerRef.current,

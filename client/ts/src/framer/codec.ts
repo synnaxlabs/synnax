@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,8 +20,9 @@ import { type z } from "zod";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
+import { WriterCommand } from "@/framer/payload";
 import { type StreamerResponse } from "@/framer/streamer";
-import { WriterCommand, type WriteRequest } from "@/framer/writer";
+import { type WriteRequest } from "@/framer/writer";
 
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();

@@ -10,15 +10,16 @@
 import { type ReactElement } from "react";
 
 import { type Size, SIZES } from "@/component/size";
-import { Select } from "@/select";
+import { type Select } from "@/select";
+import { Button, Buttons } from "@/select/Button";
 
 export interface SelectComponentSizeProps
   extends Omit<Select.ButtonsProps<Size>, "keys"> {}
 
 export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
-  <Select.Buttons {...props} keys={SIZES}>
-    <Select.Button itemKey="tiny">S</Select.Button>
-    <Select.Button itemKey="small">M</Select.Button>
-    <Select.Button itemKey="medium">L</Select.Button>
-  </Select.Buttons>
+  <Buttons {...props} keys={SIZES}>
+    <Button itemKey="tiny">S</Button>
+    <Button itemKey="small">M</Button>
+    <Button itemKey="medium">L</Button>
+  </Buttons>
 );

@@ -39,7 +39,7 @@ This will be used to decide on the size for the run-length encoding
 func preCompile(src []byte) (size int) {
 
 	var (
-		longestCount, curCount int = 1, 1
+		longestCount, curCount = 1, 1
 	)
 
 	for i := 1; i < len(src); i++ {
@@ -68,8 +68,8 @@ var _ CompressorDecompressor = Bool{}
 
 func (b Bool) Compress(src []byte) (dst []byte, err error) {
 	var (
-		count, appendVal, curShift int  = 0, 0, 0
-		prev                       byte = byte(0)
+		count, appendVal, curShift = 0, 0, 0
+		prev                       = byte(0)
 		returnArray                []byte
 	)
 
@@ -121,8 +121,8 @@ func (b Bool) Compress(src []byte) (dst []byte, err error) {
 func (b Bool) Decompress(src []byte) (dst []byte, err error) {
 
 	var (
-		maxShift, sum, count int  = int(src[0]), 0, 0
-		cur                  byte = byte(0)
+		maxShift, sum, count = int(src[0]), 0, 0
+		cur                  = byte(0)
 		returnArray          []byte
 	)
 

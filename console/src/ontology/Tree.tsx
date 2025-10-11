@@ -147,7 +147,7 @@ const itemRenderProp = Component.renderProp(
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
         onDoubleClick={handleDoubleClick}
-        icon={icon as Icon.ReactElement}
+        icon={icon}
         resource={resource}
         loading={loading}
       />

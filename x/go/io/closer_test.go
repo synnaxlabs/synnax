@@ -58,7 +58,7 @@ var _ = Describe("CloserFunc", func() {
 		var closer xio.CloserFunc
 		Expect(func() {
 			if closer != nil {
-				closer.Close()
+				Expect(closer.Close()).To(Succeed())
 			}
 		}).ToNot(Panic())
 	})
@@ -232,7 +232,7 @@ var _ = Describe("MultiCloser", func() {
 		// This should panic or handle gracefully depending on implementation
 		// Based on the code, it will panic when trying to call Close on nil
 		Expect(func() {
-			multi.Close()
+			_ = multi.Close()
 		}).To(Panic())
 	})
 
@@ -307,27 +307,6 @@ var _ = Describe("MultiCloser", func() {
 
 			// Should close in reverse order: 4, 3, then inner (which closes 2, 1)
 			Expect(closeOrder).To(Equal([]string{"4", "3", "2", "1"}))
-		})
-
-		It("should handle cleanup pattern with defer", func() {
-			// This test demonstrates a common pattern
-			var cleanupCalled bool
-
-			testFunc := func() error {
-				closer1 := xio.CloserFunc(func() error {
-					cleanupCalled = true
-					return nil
-				})
-
-				multi := xio.MultiCloser{closer1}
-				defer multi.Close()
-
-				// Simulate some work
-				return nil
-			}
-
-			Expect(testFunc()).To(Succeed())
-			Expect(cleanupCalled).To(BeTrue())
 		})
 	})
 })

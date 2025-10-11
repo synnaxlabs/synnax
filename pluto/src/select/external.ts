@@ -9,6 +9,7 @@
 
 export * from "@/select/Button";
 export * from "@/select/Dialog";
+export * from "@/select/flex";
 export * from "@/select/Frame";
 export * from "@/select/ListItem";
 export * from "@/select/Multiple";

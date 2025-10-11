@@ -15,18 +15,20 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 type FSFactory func() (xfs.FS, func() error)
 
 var FileSystems = map[string]FSFactory{
 	"memFS": func() (xfs.FS, func() error) {
-		return MustSucceed(xfs.NewMem().Sub("testData")), func() error { return nil }
+		return testutil.MustSucceed(xfs.NewMem().Sub("testData")),
+			func() error { return nil }
 	},
 	"osFS": func() (xfs.FS, func() error) {
-		dirName := MustSucceed(os.MkdirTemp("", "test-*"))
-		return MustSucceed(xfs.Default.Sub(dirName)), func() error { return xfs.Default.Remove(dirName) }
+		dirName := testutil.MustSucceed(os.MkdirTemp("", "test-*"))
+		return testutil.MustSucceed(xfs.Default.Sub(dirName)),
+			func() error { return xfs.Default.Remove(dirName) }
 	},
 }
 

@@ -19,7 +19,7 @@ const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
   return (
-    <Toolbar.Content>
+    <Ontology.Toolbar>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         <Toolbar.Actions>
@@ -29,7 +29,7 @@ const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
-    </Toolbar.Content>
+    </Ontology.Toolbar>
   );
 };
 

@@ -42,7 +42,17 @@ protected:
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        // Wait for server to be ready by attempting to connect
+        util::ConnectionConfig test_conn_cfg;
+        test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
+        test_conn_cfg.security_mode = "None";
+        test_conn_cfg.security_policy = "None";
+        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            util::connect(test_conn_cfg, "test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
+        );
+        UA_Client_disconnect(test_client.get());
     }
 };
 

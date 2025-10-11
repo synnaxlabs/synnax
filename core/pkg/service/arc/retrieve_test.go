@@ -87,7 +87,6 @@ var _ = Describe("Retrieve", func() {
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			newTx := db.OpenTx()
-			defer newTx.Close()
 
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
@@ -101,6 +100,7 @@ var _ = Describe("Retrieve", func() {
 
 			Expect(s.Key).To(Equal(a.Key.String()))
 			Expect(s.Name).To(Equal("tx-test-arc Status"))
+			Expect(newTx.Close()).To(Succeed())
 		})
 
 		It("Should retrieve Arc without transaction", func() {

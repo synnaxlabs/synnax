@@ -29,10 +29,9 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	requestParser func(*fiber.Ctx, httputil.Codec) (RQ, error)
-	handle        func(ctx context.Context, rq RQ) (RS, error)
-	internal      bool
-	path          string
+	handle   func(ctx context.Context, rq RQ) (RS, error)
+	internal bool
+	path     string
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -47,7 +46,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 	}
 	fCtx.Set(fiber.HeaderContentType, codec.ContentType())
 	var res RS
-	oMD, err := s.MiddlewareCollector.Exec(
+	oMD, err := s.Exec(
 		parseRequestCtx(fCtx.Context(), fCtx, address.Address(fCtx.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
@@ -80,7 +79,7 @@ func (u *unaryClient[RQ, RS]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	_, err = u.MiddlewareCollector.Exec(
+	_, err = u.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Protocol: unaryReporter.Protocol,
@@ -111,12 +110,12 @@ func (u *unaryClient[RQ, RS]) Send(
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := u.codec.DecodeStream(nil, httpRes.Body, &pld); err != nil {
+				if err := u.codec.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
 					return outCtx, err
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
-			return outCtx, u.codec.DecodeStream(nil, httpRes.Body, &res)
+			return outCtx, u.codec.DecodeStream(outCtx, httpRes.Body, &res)
 		}),
 	)
 	return res, err
@@ -199,11 +198,11 @@ func parseResponseCtx(c *http.Response, target address.Address) freighter.Contex
 
 func parseQueryString(c *fiber.Ctx) map[string]string {
 	data := make(map[string]string)
-	c.Context().QueryArgs().VisitAll(func(key, val []byte) {
+	for key, val := range c.Context().QueryArgs().All() {
 		k := utils.UnsafeString(key)
 		v := utils.UnsafeString(val)
 		data[k] = v
-	})
+	}
 	return data
 }
 
