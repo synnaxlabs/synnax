@@ -335,7 +335,7 @@ type (
 	HardwareCopyTaskRequest struct {
 		Key      task.Key `json:"key" msgpack:"key"`
 		Name     string   `json:"name" msgpack:"name"`
-		Snapshot *bool    `json:"snapshot" msgpack:"snapshot"`
+		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
 	}
 	HardwareCopyTaskResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -351,15 +351,11 @@ func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRe
 		return res, err
 	}
 	err := svc.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		snapshot := false
-		if req.Snapshot != nil {
-			snapshot = *req.Snapshot
-		}
 		res.Task, err = svc.internal.Task.NewWriter(tx).Copy(
 			ctx,
 			req.Key,
 			req.Name,
-			snapshot,
+			req.Snapshot,
 		)
 		return err
 	})
