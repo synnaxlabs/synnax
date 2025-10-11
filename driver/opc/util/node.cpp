@@ -71,38 +71,40 @@ opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
         parser.field_err(path, err.message());
         return opc::NodeId();
     }
-    return opc::NodeId(node_id);
+    return node_id;
 }
 
-std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
+std::pair<opc::NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
         return {
-            UA_NODEID_NULL,
+            opc::NodeId(),
             xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
         };
 
-    int nsIndex = std::stoi(matches[1].str());
+    uint16_t nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
-    UA_NodeId node_id = UA_NODEID_NULL;
-    if (type == "I")
-        node_id = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
-    else if (type == "S")
-        node_id = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
-    else if (type == "G")
-        node_id = UA_NODEID_GUID(nsIndex, string_to_guid(identifier));
-    else if (type == "B") {
+    // Use factory methods for automated memory management
+    if (type == "I") {
+        return {opc::NodeId::numeric(nsIndex, std::stoul(identifier)), xerrors::NIL};
+    } else if (type == "S") {
+        return {opc::NodeId::string(nsIndex, identifier), xerrors::NIL};
+    } else if (type == "G") {
+        return {opc::NodeId::guid(nsIndex, string_to_guid(identifier)), xerrors::NIL};
+    } else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        node_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
+        auto node_id = opc::NodeId::bytestring(nsIndex, data, len);
         UA_free(data);
+        return {std::move(node_id), xerrors::NIL};
     }
-    return {node_id, xerrors::NIL};
+
+    return {opc::NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId type")};
 }
 
 

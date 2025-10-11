@@ -65,6 +65,46 @@ public:
 
     /// @brief Check if this is a null NodeId
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
+
+    /// @brief Deep copy this NodeId to a raw UA_NodeId (caller takes ownership)
+    /// Use this when you need to copy into C structures that will manage their own cleanup
+    void copy_to(UA_NodeId &dest) const {
+        UA_NodeId_copy(&id_, &dest);
+    }
+
+    /// @brief Create a numeric NodeId
+    static NodeId numeric(uint16_t ns, uint32_t identifier) {
+        NodeId node;
+        node.id_ = UA_NODEID_NUMERIC(ns, identifier);
+        return node;
+    }
+
+    /// @brief Create a string NodeId
+    static NodeId string(uint16_t ns, const std::string &identifier) {
+        NodeId node;
+        node.id_.namespaceIndex = ns;
+        node.id_.identifierType = UA_NODEIDTYPE_STRING;
+        node.id_.identifier.string = UA_STRING_ALLOC(identifier.c_str());
+        return node;
+    }
+
+    /// @brief Create a GUID NodeId
+    static NodeId guid(uint16_t ns, const UA_Guid &identifier) {
+        NodeId node;
+        node.id_ = UA_NODEID_GUID(ns, identifier);
+        return node;
+    }
+
+    /// @brief Create a ByteString NodeId
+    static NodeId bytestring(uint16_t ns, const uint8_t *data, size_t len) {
+        NodeId node;
+        node.id_.namespaceIndex = ns;
+        node.id_.identifierType = UA_NODEIDTYPE_BYTESTRING;
+        node.id_.identifier.byteString.length = len;
+        node.id_.identifier.byteString.data = static_cast<UA_Byte *>(UA_malloc(len));
+        memcpy(node.id_.identifier.byteString.data, data, len);
+        return node;
+    }
 };
 
 /// @brief RAII wrapper for UA_Variant that automatically manages memory.
@@ -103,12 +143,17 @@ public:
 };
 
 /// @brief RAII wrapper for UA_ReadResponse that automatically manages memory.
+/// Takes ownership of the response - caller must not call UA_ReadResponse_clear on source
 class ReadResponse {
     UA_ReadResponse res_;
 
 public:
-    ReadResponse() = default;
-    explicit ReadResponse(const UA_ReadResponse &res) { res_ = res; }
+    ReadResponse() { UA_ReadResponse_init(&res_); }
+    explicit ReadResponse(UA_ReadResponse res) : res_(res) {
+        // Take ownership of res - we now own the allocated memory
+        // The parameter 'res' is passed by value, so when it goes out of scope,
+        // no cleanup happens (it's a plain C struct). We've taken its resources.
+    }
     ~ReadResponse() { UA_ReadResponse_clear(&res_); }
 
     ReadResponse(const ReadResponse &) = delete;
@@ -131,12 +176,17 @@ public:
 };
 
 /// @brief RAII wrapper for UA_WriteResponse that automatically manages memory.
+/// Takes ownership of the response - caller must not call UA_WriteResponse_clear on source
 class WriteResponse {
     UA_WriteResponse res_;
 
 public:
-    WriteResponse() = default;
-    explicit WriteResponse(const UA_WriteResponse &res) { res_ = res; }
+    WriteResponse() { UA_WriteResponse_init(&res_); }
+    explicit WriteResponse(UA_WriteResponse res) : res_(res) {
+        // Take ownership of res - we now own the allocated memory
+        // The parameter 'res' is passed by value, so when it goes out of scope,
+        // no cleanup happens (it's a plain C struct). We've taken its resources.
+    }
     ~WriteResponse() { UA_WriteResponse_clear(&res_); }
 
     WriteResponse(const WriteResponse &) = delete;

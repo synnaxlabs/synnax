@@ -32,7 +32,7 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
 
     UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
-        ua_node_id,
+        ua_node_id.get(),
         value.ptr()
     );
 

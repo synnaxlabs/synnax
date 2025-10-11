@@ -184,7 +184,7 @@ std::pair<size_t, xerrors::Error> ua_array_write_to_series(
 );
 
 opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser);
-std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str);
+std::pair<opc::NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str);
 std::string node_id_to_string(const UA_NodeId &node_id);
 std::string node_class_to_string(const UA_NodeClass &node_class);
 

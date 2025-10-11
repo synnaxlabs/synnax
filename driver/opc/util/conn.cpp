@@ -173,15 +173,6 @@ xerrors::Error configure_encryption(
 
     client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
-    const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
-    client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    UA_String_clear(&client_config->clientDescription.applicationUri);
-
-    std::string app_uri = app_uri_from_cert(cfg.client_cert);
-    if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
-    client_config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
-
     const UA_ByteString certificate = load_file(cfg.client_cert.c_str());
     const UA_ByteString priv_key = load_file(cfg.client_private_key.c_str());
 
@@ -189,6 +180,8 @@ xerrors::Error configure_encryption(
     UA_STACKARRAY(UA_ByteString, trustList, trust_list_size + 1);
     if (!cfg.server_cert.empty()) trustList[0] = load_file(cfg.server_cert.c_str());
 
+    // UA_ClientConfig_setDefaultEncryption manages security policy URIs and
+    // other encryption settings internally - no need to manually allocate
     const UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
         client_config,
         certificate,

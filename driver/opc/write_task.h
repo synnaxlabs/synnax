@@ -163,8 +163,8 @@ private:
             }
             UA_WriteValue &node = req.nodesToWrite[actual_writes];
             node.attributeId = UA_ATTRIBUTEID_VALUE;
-            // Zero-copy borrowing: Safe because cfg.channels outlives this request
-            node.nodeId = ch->node.get();
+            // Deep copy NodeId using wrapper method - UA_Array_delete will clean it up
+            ch->node.copy_to(node.nodeId);
             node.value.hasValue = true;
             node.value.value = val;
             // transfer ownership - zero out val to prevent double free.

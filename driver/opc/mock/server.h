@@ -198,7 +198,8 @@ public:
             attr.description = description.get();
             attr.displayName = displayName.get();
 
-            opc::NodeId nodeId(UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str()));
+            // Use factory method for automated memory management
+            auto nodeId = opc::NodeId::string(node.ns, node.node_id);
             LOG(INFO) << "Creating OPC UA node: " << util::node_id_to_string(nodeId.get());
 
             opc::QualifiedName nodeName(node.ns, node.node_id.c_str());
@@ -217,8 +218,20 @@ public:
                 NULL
             );
         }
-        volatile UA_Boolean running_flag = running.load();
-        UA_StatusCode retval = UA_Server_run(server, &running_flag);
+
+        // Start the server event loop
+        UA_StatusCode retval = UA_Server_run_startup(server);
+        if (retval != UA_STATUSCODE_GOOD) {
+            UA_Server_delete(server);
+            return;
+        }
+
+        // Run server in iterations so we can check the atomic running flag
+        while (running.load()) {
+            UA_Server_run_iterate(server, true);
+        }
+
+        UA_Server_run_shutdown(server);
         UA_Server_delete(server);
     }
 };

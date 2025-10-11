@@ -106,15 +106,17 @@ TEST(ConnTest, disconnectAndReconnect) {
     server_cfg.port = 4841;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     util::ConnectionConfig cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = util::connect(cfg, "test");
-    ASSERT_FALSE(err1);
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
     ASSERT_NE(client, nullptr);
 
     UA_SessionState session_state;
@@ -141,15 +143,17 @@ TEST(ConnTest, serverStopDuringConnection) {
     server_cfg.port = 4842;
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     util::ConnectionConfig cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = util::connect(cfg, "test");
-    ASSERT_FALSE(err1);
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
     ASSERT_NE(client, nullptr);
 
     server->stop();
@@ -161,7 +165,7 @@ TEST(ConnTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id;
+    ids[0].nodeId = node_id.get();
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -172,9 +176,6 @@ TEST(ConnTest, serverStopDuringConnection) {
     UA_ReadResponse res = UA_Client_Service_read(client.get(), req);
     EXPECT_NE(res.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     UA_ReadResponse_clear(&res);
-
-    // Clean up allocated node_id memory
-    UA_NodeId_clear(&node_id);
 }
 
 TEST(ConnTest, connectionAfterServerRestart) {
@@ -183,15 +184,17 @@ TEST(ConnTest, connectionAfterServerRestart) {
 
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     util::ConnectionConfig cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client1, err1] = util::connect(cfg, "test");
-    ASSERT_FALSE(err1);
+    auto client1 = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
     ASSERT_NE(client1, nullptr);
 
     server->stop();
@@ -200,10 +203,12 @@ TEST(ConnTest, connectionAfterServerRestart) {
 
     server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    auto [client2, err2] = util::connect(cfg, "test");
-    ASSERT_FALSE(err2);
+    auto client2 = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
     ASSERT_NE(client2, nullptr);
 
     server->stop();
@@ -214,15 +219,18 @@ TEST(ConnTest, readAfterDisconnect) {
     server_cfg.port = 4845;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     util::ConnectionConfig cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
+    ASSERT_NE(client, nullptr);
 
     auto [ser1, read_err1] = util::simple_read(client, "NS=1;S=TestFloat");
     ASSERT_FALSE(read_err1);
@@ -242,15 +250,18 @@ TEST(ConnTest, multipleDisconnects) {
     server_cfg.port = 4846;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     util::ConnectionConfig cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
+    ASSERT_NE(client, nullptr);
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
