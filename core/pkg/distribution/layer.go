@@ -203,7 +203,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	aspenOptions := append([]aspen.Option{
 		aspen.WithEngine(cfg.Storage.KV),
 		aspen.WithTransport(cfg.AspenTransport),
-		aspen.WithInstrumentation(cfg.Instrumentation.Child("aspen")),
+		aspen.WithInstrumentation(cfg.Child("aspen")),
 	}, cfg.AspenOptions...)
 
 	// Since we're using our own key-value engine, the value we use for 'dirname'
@@ -231,7 +231,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Ontology, err = ontology.Open(
 		ctx,
 		ontology.Config{
-			Instrumentation: cfg.Instrumentation.Child("ontology"),
+			Instrumentation: cfg.Child("ontology"),
 			DB:              l.DB,
 		},
 	); !ok(err, l.Ontology) {
@@ -283,7 +283,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Framer, err = framer.Open(framer.Config{
-		Instrumentation: cfg.Instrumentation.Child("framer"),
+		Instrumentation: cfg.Child("framer"),
 		ChannelReader:   l.Channel,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
@@ -299,7 +299,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Signals, err = signals.New(signals.Config{
 		Channel:         l.Channel,
 		Framer:          l.Framer,
-		Instrumentation: cfg.Instrumentation.Child("signals"),
+		Instrumentation: cfg.Child("signals"),
 	}); !ok(err, nil) {
 		return nil, err
 	}

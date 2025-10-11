@@ -11,7 +11,10 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { type Platform, PLATFORMS } from "@/components/platform/platform";
 import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
-const TABS = PLATFORMS.filter(({ key }) => key === "Linux").map(({ key, ...p }) => ({
+
+const TABS = PLATFORMS.filter(
+  ({ key }) => key === "Linux" || key === "Windows" || key === "macOS",
+).map(({ key, ...p }) => ({
   ...p,
   tabKey: key,
 }));

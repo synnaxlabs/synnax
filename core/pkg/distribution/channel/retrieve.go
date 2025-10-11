@@ -119,10 +119,6 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 // WhereKeys filters for channels with the provided Key. This is an identical interface
 // to gorp.Retrieve.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	notFound := lo.IndexOf(keys, 0)
-	if notFound != -1 {
-		keys = lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
-	}
 	r.keys = append(r.keys, keys...)
 	r.gorp.WhereKeys(keys...)
 	return r

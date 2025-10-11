@@ -90,7 +90,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		}
 		r.curr = g
 		t.To = g.state()
-	} else if *cfg.ErrOnUnauthorizedOpen && !(r.controller.Concurrency == control.Shared && g.authority == r.curr.authority) {
+	} else if *cfg.ErrOnUnauthorizedOpen && (r.controller.Concurrency != control.Shared || g.authority != r.curr.authority) {
 		err = errors.Wrapf(
 			control.ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",

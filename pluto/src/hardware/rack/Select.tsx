@@ -13,8 +13,8 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
-import { Rack } from "@/hardware/rack";
 import { type ListQuery, useList } from "@/hardware/rack/queries";
+import { StatusIndicator } from "@/hardware/rack/StatusIndicator";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -33,7 +33,7 @@ const listItemRenderProp = Component.renderProp(
     return (
       <Select.ListItem {...props} align="center" justify="between">
         <Text.Text>{item?.name}</Text.Text>
-        <Rack.StatusIndicator status={item?.status} tooltipLocation="left" />
+        <StatusIndicator status={item?.status} tooltipLocation="left" />
       </Select.ListItem>
     );
   },

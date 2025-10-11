@@ -70,7 +70,7 @@ func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLogi
 		Token: tk,
 		ClusterInfo: ClusterInfo{
 			ClusterKey:  s.clusterProvider.cluster.Key().String(),
-			NodeKey:     s.clusterProvider.cluster.HostKey(),
+			NodeKey:     s.cluster.HostKey(),
 			NodeVersion: version.Get(),
 			NodeTime:    midPoint,
 		},

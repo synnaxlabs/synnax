@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TOOLBAR } from "@/hardware/device/Toolbar";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -30,3 +31,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,
 };
+
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];

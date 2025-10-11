@@ -154,7 +154,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 					if !errors.Is(err, timeout.Timeout) {
 						return err
 					}
-					d.Instrumentation.L.Warn(fmt.Sprintf("delta: %s", err))
+					d.L.Warn(fmt.Sprintf("delta: %s", err))
 				}
 			}
 		}

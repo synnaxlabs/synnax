@@ -16,11 +16,13 @@
     z-index: 11;
     pointer-events: none;
     background: var(--pluto-gray-l0);
-    border: var(--pluto-border-l5);
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l6);
     border-radius: calc(var(--pluto-border-radius) * 2);
     box-shadow: var(--pluto-shadow-v1);
     padding: 1rem 1.5rem;
     opacity: 0;
+    max-width: 70rem;
     --translate-amount: 0.666rem;
     --transform-x: 0;
     --transform-y: 0;
@@ -31,7 +33,6 @@
         transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
     .pluto-text {
-        color: var(--pluto-gray-l11);
         font-weight: 350;
     }
 
