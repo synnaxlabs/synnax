@@ -193,41 +193,32 @@ public:
             // Set access level to allow reading and writing
             attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
 
-            attr.description = UA_LOCALIZEDTEXT_ALLOC(
-                "en-US",
-                node.description.c_str()
-            );
-            attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", node.node_id.c_str());
+            opc::LocalizedText description("en-US", node.description.c_str());
+            opc::LocalizedText displayName("en-US", node.node_id.c_str());
+            attr.description = description.get();
+            attr.displayName = displayName.get();
 
-            UA_NodeId nodeId = UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str());
-            LOG(INFO) << "Creating OPC UA node: " << util::node_id_to_string(nodeId);
+            opc::NodeId nodeId(UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str()));
+            LOG(INFO) << "Creating OPC UA node: " << util::node_id_to_string(nodeId.get());
 
-            UA_QualifiedName nodeName = UA_QUALIFIEDNAME_ALLOC(
-                node.ns,
-                node.node_id.c_str()
-            );
+            opc::QualifiedName nodeName(node.ns, node.node_id.c_str());
             UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
             UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
 
             UA_Server_addVariableNode(
                 server,
-                nodeId,
+                nodeId.get(),
                 parentNodeId,
                 parentReferenceNodeId,
-                nodeName,
+                nodeName.get(),
                 UA_NODEID_NULL,
                 attr,
                 NULL,
                 NULL
             );
-
-            // Clean up allocated memory
-            UA_LocalizedText_clear(&attr.description);
-            UA_LocalizedText_clear(&attr.displayName);
-            UA_NodeId_clear(&nodeId);
-            UA_QualifiedName_clear(&nodeName);
         }
-        UA_StatusCode retval = UA_Server_run(server, &running);
+        volatile UA_Boolean running_flag = running.load();
+        UA_StatusCode retval = UA_Server_run(server, &running_flag);
         UA_Server_delete(server);
     }
 };

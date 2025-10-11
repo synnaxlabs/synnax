@@ -11,6 +11,7 @@ cc_library(
     hdrs = [
         "util.h",
         "conn_pool.h",
+        "node_id.h",
     ],
     visibility = ["//visibility:public"],
     deps = [

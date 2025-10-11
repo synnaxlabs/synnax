@@ -29,18 +29,16 @@ namespace opc {
 struct ScanCommandArgs {
     util::ConnectionConfig connection;
     std::string node_id;
-    UA_NodeId node;
+    opc::NodeId node;
 
     explicit ScanCommandArgs(xjson::Parser &parser):
         connection(util::ConnectionConfig(parser.child("connection"))),
         node_id(parser.optional<std::string>("node_id", "")) {
         if (node_id.empty())
-            node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+            node = opc::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
             node = util::parse_node_id("node_id", parser);
     }
-
-    ~ScanCommandArgs() { UA_NodeId_clear(&node); }
 };
 
 const std::string SCAN_CMD_TYPE = "scan";

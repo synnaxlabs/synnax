@@ -30,7 +30,7 @@ namespace opc {
 struct InputChan {
     const bool enabled;
     /// @brief the OPC UA node id.
-    UA_NodeId node;
+    opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey synnax_key;
@@ -43,7 +43,7 @@ struct InputChan {
         node(util::parse_node_id("node_id", parser)),
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
 
-    ~InputChan() { UA_NodeId_clear(&node); }
+    // No manual destructor needed - opc::NodeId handles cleanup automatically
 };
 
 struct ReadTaskConfig : common::BaseReadTaskConfig {
@@ -171,13 +171,16 @@ struct ReadRequest {
             if (!ch->enabled) continue;
             UA_ReadValueId rvid;
             UA_ReadValueId_init(&rvid);
-            rvid.nodeId = ch->node;
+            // Zero-copy borrowing: Safe because cfg outlives this ReadRequest
+            // (member destruction order is reverse of declaration)
+            rvid.nodeId = ch->node.get();
             rvid.attributeId = UA_ATTRIBUTEID_VALUE;
             read_value_ids.push_back(rvid);
         }
         base.nodesToRead = read_value_ids.data();
         base.nodesToReadSize = read_value_ids.size();
     }
+    // No destructor needed - we're borrowing NodeIds, not owning them
 };
 
 class BaseReadTaskSource : public common::Source {
@@ -232,19 +235,18 @@ public:
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
-        UA_ReadResponse ua_res = UA_Client_Service_read(
+        opc::ReadResponse ua_res(UA_Client_Service_read(
             this->conn.get(),
             this->request.base
-        );
-        x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
+        ));
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.array_size
         );
-        for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
-            auto &result = ua_res.results[i];
+        for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
+            auto &result = ua_res.get_mut().results[i];
             if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
@@ -290,16 +292,15 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = telem::TimeStamp::now();
-            UA_ReadResponse ua_res = UA_Client_Service_read(
+            opc::ReadResponse ua_res(UA_Client_Service_read(
                 this->conn.get(),
                 this->request.base
-            );
-            x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
-            if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+            ));
+            if (res.error = util::parse_error(ua_res.get().responseHeader.serviceResult);
                 res.error)
                 return res;
-            for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
-                UA_DataValue &result = ua_res.results[j];
+            for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
+                UA_DataValue &result = ua_res.get_mut().results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
                 util::write_to_series(fr.series->at(j), result.value);
             }

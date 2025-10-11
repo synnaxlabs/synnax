@@ -25,6 +25,7 @@
 
 /// internal
 #include "driver/errors/errors.h"
+#include "driver/opc/util/node_id.h"
 
 using json = nlohmann::json;
 
@@ -182,7 +183,7 @@ std::pair<size_t, xerrors::Error> ua_array_write_to_series(
     const std::string &name = ""
 );
 
-UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser);
+opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser);
 std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str);
 std::string node_id_to_string(const UA_NodeId &node_id);
 std::string node_class_to_string(const UA_NodeClass &node_class);

@@ -61,16 +61,17 @@ std::string guid_to_string(const UA_Guid &guid) {
     return stream.str();
 }
 
-/// @brief Parses a string NodeId into a UA_NodeId object
-UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
+/// @brief Parses a string NodeId into an opc::NodeId wrapper with automatic memory
+/// management
+opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
     const std::string nodeIdStr = parser.required<std::string>(path);
-    if (!parser.ok()) return UA_NODEID_NULL;
+    if (!parser.ok()) return opc::NodeId();
     auto [node_id, err] = parse_node_id(nodeIdStr);
     if (err) {
         parser.field_err(path, err.message());
-        return UA_NODEID_NULL;
+        return opc::NodeId();
     }
-    return node_id;
+    return opc::NodeId(node_id);
 }
 
 std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {

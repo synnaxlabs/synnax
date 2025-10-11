@@ -61,34 +61,28 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     req.nodesToRead = ids;
     req.nodesToReadSize = 3;
 
-    UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
-    UA_StatusCode status = res.responseHeader.serviceResult;
+    opc::ReadResponse res(UA_Client_Service_read(ua_client, req));
+    UA_StatusCode status = res.get().responseHeader.serviceResult;
     if (status != UA_STATUSCODE_GOOD) {
-        UA_ReadResponse_clear(&res);
         return status;
     }
-    if (!res.results[0].hasValue) {
-        status = res.results[0].status;
-        UA_ReadResponse_clear(&res);
-        return status;
+    if (!res.get().results[0].hasValue) {
+        return res.get().results[0].status;
     }
-    if (!res.results[1].hasValue) {
-        status = res.results[1].status;
-        UA_ReadResponse_clear(&res);
-        return status;
+    if (!res.get().results[1].hasValue) {
+        return res.get().results[1].status;
     }
-    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
+    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.get().results[0].value.data);
     auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
-        res.results[1].value.data
+        res.get().results[1].value.data
     );
     const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
     auto data_type = telem::UNKNOWN_T;
     bool is_array = false;
-    if (cls == UA_NODECLASS_VARIABLE && res.results[2].hasValue) {
-        auto value = res.results[2].value;
+    if (cls == UA_NODECLASS_VARIABLE && res.get().results[2].hasValue) {
+        const auto &value = res.get().results[2].value;
         data_type = util::ua_to_data_type(value.type);
         is_array = !UA_Variant_isScalar(&value);
-        UA_Variant_clear(&value);
     } else if (cls == UA_NODECLASS_VARIABLE)
         LOG(ERROR) << "[opc.scanner] No value for " << name;
     ctx->channels->emplace_back(
@@ -98,7 +92,6 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
         util::node_class_to_string(cls),
         is_array
     );
-    UA_ReadResponse_clear(&res);
     return status;
 }
 
@@ -133,7 +126,7 @@ void ScanTask::scan(const task::Command &cmd) const {
 
     UA_Client_forEachChildNodeCall(
         scan_ctx->client.get(),
-        args.node,
+        args.node.get(),
         node_iter,
         scan_ctx.get()
     );

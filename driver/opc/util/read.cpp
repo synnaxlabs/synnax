@@ -27,32 +27,25 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     auto [ua_node_id, parse_err] = parse_node_id(node_id);
     if (parse_err) return {telem::Series(0), parse_err};
 
-    // Read the value from the node
-    UA_Variant value;
-    UA_Variant_init(&value);
+    // Read the value from the node - RAII wrapper handles cleanup
+    opc::Variant value;
 
     UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
         ua_node_id,
-        &value
+        value.ptr()
     );
-
-    // Clean up the node ID
-    UA_NodeId_clear(&ua_node_id);
 
     if (status != UA_STATUSCODE_GOOD) {
         return {telem::Series(0), util::parse_error(status)};
     }
 
     // Convert the value to a telemetry series
-    telem::DataType data_type = util::ua_to_data_type(value.type);
+    telem::DataType data_type = util::ua_to_data_type(value.get().type);
     telem::Series series(data_type, 1);
 
     // Write the value to the series
-    size_t count = util::write_to_series(series, value);
-
-    // Clean up the variant
-    UA_Variant_clear(&value);
+    size_t count = util::write_to_series(series, value.get());
 
     if (count == 0) {
         return {
