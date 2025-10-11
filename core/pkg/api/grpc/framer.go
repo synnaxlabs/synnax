@@ -117,14 +117,6 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameWriterRequest,
 ) (*gapi.FrameWriterRequest, error) {
-	enableAutoCommit := false
-	if msg.Config.EnableAutoCommit != nil {
-		enableAutoCommit = *msg.Config.EnableAutoCommit
-	}
-	errOnUnauthorized := false
-	if msg.Config.ErrOnUnauthorized != nil {
-		errOnUnauthorized = *msg.Config.ErrOnUnauthorized
-	}
 	r := &gapi.FrameWriterRequest{
 		Command: int32(msg.Command),
 		Config: &gapi.FrameWriterConfig{
@@ -132,10 +124,10 @@ func (t frameWriterRequestTranslator) Forward(
 			Start:                    int64(msg.Config.Start),
 			Mode:                     int32(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         enableAutoCommit,
+			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
 			ControlSubject:           translateControlSubjectForward(msg.Config.ControlSubject),
-			ErrOnUnauthorized:        errOnUnauthorized,
+			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}
@@ -157,17 +149,15 @@ func (t frameWriterRequestTranslator) Backward(
 	r.Command = writer.Command(msg.Command)
 	if msg.Config != nil {
 		keys := translateChannelKeysBackward(msg.Config.Keys)
-		enableAutoCommit := msg.Config.EnableAutoCommit
-		errOnUnauthorized := msg.Config.ErrOnUnauthorized
 		r.Config = api.FrameWriterConfig{
 			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
 			Mode:                     writer.Mode(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         &enableAutoCommit,
+			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
 			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
-			ErrOnUnauthorized:        &errOnUnauthorized,
+			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {
 			return r, err

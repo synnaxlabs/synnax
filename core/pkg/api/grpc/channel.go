@@ -91,13 +91,9 @@ func (t channelCreateRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateRequest,
 ) (*gapi.ChannelCreateRequest, error) {
-	retrieveIfNameExists := false
-	if msg.RetrieveIfNameExists != nil {
-		retrieveIfNameExists = *msg.RetrieveIfNameExists
-	}
 	return &gapi.ChannelCreateRequest{
 		Channels:             lo.Map(msg.Channels, translateChannelForward),
-		RetrieveIfNameExists: retrieveIfNameExists,
+		RetrieveIfNameExists: msg.RetrieveIfNameExists,
 	}, nil
 }
 
@@ -105,10 +101,9 @@ func (t channelCreateRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateRequest,
 ) (api.ChannelCreateRequest, error) {
-	retrieveIfNameExists := msg.RetrieveIfNameExists
 	return api.ChannelCreateRequest{
 		Channels:             lo.Map(msg.Channels, translateChannelBackward),
-		RetrieveIfNameExists: &retrieveIfNameExists,
+		RetrieveIfNameExists: msg.RetrieveIfNameExists,
 	}, nil
 }
 

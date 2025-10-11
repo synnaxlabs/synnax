@@ -414,7 +414,7 @@ type HardwareRetrieveDeviceRequest struct {
 	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
-	IgnoreNotFound *bool      `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  *bool      `json:"include_status" msgpack:"include_status"`
 }
 
@@ -477,7 +477,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
 	}
-	if retErr != nil && req.IgnoreNotFound != nil && *req.IgnoreNotFound {
+	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.NotFound)
 	}
 	return res, retErr

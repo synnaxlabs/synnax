@@ -67,7 +67,7 @@ func NewChannelService(p Provider) *ChannelService {
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
 	Channels             []Channel `json:"channels" msgpack:"channels"`
-	RetrieveIfNameExists *bool     `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
+	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -97,11 +97,7 @@ func (s *ChannelService) Create(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		w := s.internal.NewWriter(tx)
-		retrieve := false
-		if req.RetrieveIfNameExists != nil {
-			retrieve = *req.RetrieveIfNameExists
-		}
-		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(retrieve))
+		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})
