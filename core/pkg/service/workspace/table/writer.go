@@ -68,10 +68,13 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Table]().WhereKeys(key).Change(func(l Table) Table {
-		l.Name = name
-		return l
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Table]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, t Table) Table {
+			t.Name = name
+			return t
+		}).
+		Exec(ctx, w.tx)
 }
 
 // SetData sets the data of the table with the given key to the provided data.
@@ -80,10 +83,12 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Table]().WhereKeys(key).Change(func(l Table) Table {
-		l.Data = data
-		return l
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Table]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, t Table) Table {
+			t.Data = data
+			return t
+		}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the tables with the given keys.
