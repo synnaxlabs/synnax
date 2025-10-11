@@ -11,7 +11,7 @@ import os
 import random
 import re
 import time
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from playwright.sync_api import Locator, Page
 
@@ -49,7 +49,6 @@ class Console:
     channels: ChannelClient
 
     def __init__(self, page: Page):
-
         # Playwright
         self.page = page
         self.channels = ChannelClient(page, self)
@@ -60,8 +59,7 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        self.page.wait_for_selector(f"text={command}", timeout=5000)
-        self.page.get_by_text(command).click()
+        self.click(command)
 
     @property
     def ESCAPE(self) -> None:
@@ -70,6 +68,10 @@ class Console:
     @property
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
+
+    @property
+    def DELETE(self) -> None:
+        self.page.keyboard.press("Delete")
 
     @property
     def MODAL_OPEN(self) -> bool:
@@ -84,7 +86,7 @@ class Console:
         self, text: str, placeholder: Optional[str] = None
     ) -> None:
         """Select an item from an open dropdown."""
-        self.page.wait_for_timeout(500)
+        self.page.wait_for_timeout(300)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
         if placeholder is not None:
@@ -99,7 +101,6 @@ class Console:
                 self.page.locator(target_item).first.click()
                 return
             except Exception:
-                self.page.wait_for_timeout(100)
                 continue
 
         items = self.page.locator(
@@ -201,12 +202,119 @@ class Console:
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
 
-    def screenshot(self, path: Optional[str] = None) -> None:
-        """Take a screenshot of the entire console page."""
-        if path is None:
-            os.makedirs("test/results", exist_ok=True)
-            path = "test/results/console.png"
+    def check_for_error_screen(self) -> None:
+        self.page.wait_for_timeout(300)
+        """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
+        if self.page.get_by_text("Something went wrong").is_visible():
+            self.page.wait_for_timeout(200)
+            self.page.get_by_text("Try again").click()
+            self.page.wait_for_timeout(200)
 
+    def check_for_notifications(self) -> list[Dict[str, Any]]:
+        """
+        Check for notifications in the bottom right corner.
+        Returns a list of notification dictionaries with details.
+        """
+        self.page.wait_for_timeout(100)
+
+        notifications = []
+        notification_elements = self.page.locator(".pluto-notification").all()
+
+        for notification in notification_elements:
+            try:
+                # Extract notification details
+                notification_data = {}
+
+                # Get the count (e.g., "x1")
+                count_element = notification.locator(".pluto-text--small").first
+                if count_element.count() > 0:
+                    count_text = count_element.inner_text().strip()
+                    notification_data["count"] = count_text
+
+                # Get the timestamp
+                time_element = notification.locator(".pluto-notification__time")
+                if time_element.count() > 0:
+                    timestamp = time_element.inner_text().strip()
+                    notification_data["timestamp"] = timestamp
+
+                # Get the main message
+                message_element = notification.locator(".pluto-notification__message")
+                if message_element.count() > 0:
+                    message = message_element.inner_text().strip()
+                    notification_data["message"] = message
+
+                # Get the description
+                description_element = notification.locator(
+                    ".pluto-notification__description"
+                )
+                if description_element.count() > 0:
+                    description = description_element.inner_text().strip()
+                    notification_data["description"] = description
+
+                # Determine notification type based on icon or styling
+                error_icon = notification.locator("svg[color*='error']")
+                if error_icon.count() > 0:
+                    notification_data["type"] = "error"
+                else:
+                    notification_data["type"] = "info"
+
+                notifications.append(notification_data)
+
+            except Exception as e:
+                raise RuntimeError(f"Error parsing notification: {e}")
+
+        return notifications
+
+    def close_notification(self, notification_index: int = 0) -> bool:
+        """
+        Close a notification by clicking its close button.
+
+        :param notification_index: Index of the notification to close (0 for first)
+        :returns: True if notification was closed, False if not found
+        """
+        try:
+            notification_elements = self.page.locator(".pluto-notification").all()
+            if notification_index >= len(notification_elements):
+                return False
+
+            notification = notification_elements[notification_index]
+            close_button = notification.locator(".pluto-notification__silence")
+
+            if close_button.count() > 0:
+                close_button.click()
+                return True
+            return False
+
+        except Exception:
+            return False
+
+    def close_all_notifications(self) -> int:
+        """
+        Close all visible notifications.
+
+        :returns: Number of notifications closed
+        """
+        closed_count = 0
+        notifications_closed = True
+
+        while notifications_closed:
+            notifications_closed = self.close_notification(0)
+            if notifications_closed:
+                closed_count += 1
+
+        return closed_count
+
+    def screenshot(self, name: Optional[str] = None) -> None:
+        """Take a screenshot of the entire console page."""
+        results_dir = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
+        os.makedirs(results_dir, exist_ok=True)
+        if name is None:
+            name = "console.png"
+        else:
+            if not name.endswith(".png"):
+                name = name + ".png"
+
+        path = os.path.join(results_dir, name)
         self.page.screenshot(
             path=path, full_page=True, animations="disabled", type="png"
         )
@@ -219,7 +327,7 @@ class Console:
             .locator("button")
             .first
         )
-        button.click()
+        button.click(force=True)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -250,3 +358,8 @@ class Console:
             .first
         )
         return input_field.input_value()
+
+    def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
+        """Wait for and click a selector (by text)"""
+        self.page.wait_for_selector(f"text={selector}", timeout=timeout)
+        self.page.get_by_text(selector, exact=True).first.click()

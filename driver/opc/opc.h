@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/opc/util/conn_pool.h"
 #include "driver/task/task.h"
 #include "open62541/types.h"
 #include "x/cpp/xjson/xjson.h"
@@ -20,6 +21,8 @@ const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
 
 struct Factory final : public task::Factory {
+    Factory(): conn_pool_(std::make_shared<util::ConnectionPool>()) {}
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
@@ -32,5 +35,10 @@ struct Factory final : public task::Factory {
     ) override;
 
     std::string name() override { return INTEGRATION_NAME; }
+
+    std::shared_ptr<util::ConnectionPool> conn_pool() const { return conn_pool_; }
+
+private:
+    std::shared_ptr<util::ConnectionPool> conn_pool_;
 };
 }

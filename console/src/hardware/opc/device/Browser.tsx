@@ -23,15 +23,15 @@ import {
   Text,
   TimeSpan,
   Tree,
+  useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
 import { type Optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
+import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { type Device } from "@/hardware/opc/device/types";
 import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
-
-import { retrieveScanTask } from "./useRetrieveScanTask";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -99,22 +99,25 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
     },
   }) => {
     const scanTask = await retrieveScanTask(client, store, rack);
-    const { details } = await scanTask.executeCommandSync({
+    const { details, variant, message } = await scanTask.executeCommandSync({
       type: SCAN_COMMAND_TYPE,
       timeout: TimeSpan.seconds(10),
       args: { connection, node_id: id },
     });
+    if (variant !== "success") throw new Error(message);
     if (details?.data == null || !("channels" in details.data)) return [];
     return details.data.channels;
   },
 });
 
 export const Browser = ({ device }: BrowserProps) => {
-  const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
+  const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
+    [],
+  );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [status, setStatus] = useState<status.Status | null>(null);
   const { retrieve: retrieveNodes } = useRetrieveNodes({
-    onChange: (result, { clicked: { id, key } }) => {
+    onChange: useCallback((result, { clicked: { id, key } }) => {
       setStatus(result.status);
       if (result.variant !== "success") return;
       const isRoot = id === "";
@@ -130,12 +133,12 @@ export const Browser = ({ device }: BrowserProps) => {
       else
         setTreeNodes([
           ...Tree.setNode({
-            tree: treeNodes,
+            tree: treeNodesRef.current,
             destination: key ?? null,
             additions: newNodes,
           }),
         ]);
-    },
+    }, []),
   });
 
   const expand = useCallback(
@@ -159,13 +162,13 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [clearExpanded]);
   useEffect(refresh, [refresh]);
   let content: ReactElement;
-  if (initialLoading)
+  if (status?.variant === "error") content = <Status.Summary center status={status} />;
+  else if (initialLoading)
     content = (
       <Flex.Box center>
         <Icon.Loading style={{ fontSize: "5rem" }} color={7} />
       </Flex.Box>
     );
-  else if (status?.variant === "error") content = <Status.Summary center {...status} />;
   else
     content = (
       <Tree.Tree
@@ -186,7 +189,7 @@ export const Browser = ({ device }: BrowserProps) => {
         <Header.Actions>
           <Button.Button
             onClick={refresh}
-            disabled={initialLoading}
+            disabled={initialLoading && status?.variant !== "error"}
             sharp
             contrast={2}
             variant="text"

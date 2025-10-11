@@ -22,7 +22,6 @@ import {
   Schematic as Core,
   Text,
   Theming,
-  Triggers,
   usePrevious,
   useSyncedRef,
   Viewport,
@@ -53,7 +52,6 @@ import {
   useSelectVersion,
 } from "@/schematic/selectors";
 import {
-  calculatePos,
   clearSelection,
   copySelection,
   internalCreate,
@@ -120,7 +118,11 @@ const SymbolRenderer = ({
     (props: object) => {
       if (key == null) return;
       dispatch(
-        setElementProps({ layoutKey, key: symbolKey, props: { key, ...props } }),
+        setElementProps({
+          layoutKey,
+          key: symbolKey,
+          props: { key, ...props },
+        }),
       );
     },
     [symbolKey, layoutKey, key, dispatch],
@@ -193,8 +195,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes, changes) => {
-      // @ts-expect-error - Sometimes, the nodes do have dragging
-      if (nodes.some((n) => n.dragging) || changes.some((c) => c.type === "select"))
+      if (
+        // @ts-expect-error - Sometimes, the nodes do have dragging
+        nodes.some((n) => n.dragging) ||
+        changes.some((c) => c.type === "select")
+      )
         // don't remember dragging a node or selecting an element
         syncDispatch(setNodes({ key: layoutKey, nodes }));
       else undoableDispatch(setNodes({ key: layoutKey, nodes }));
@@ -243,22 +248,24 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
 
+  const calculateCursorPosition = useCallback(
+    (cursor: xy.Crude) =>
+      Diagram.calculateCursorPosition(
+        box.construct(ref.current ?? box.ZERO),
+        cursor,
+        viewportRef.current,
+      ),
+    [],
+  );
+
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
-      if (ref.current == null || event == null) return valid;
-      const region = box.construct(ref.current);
+      if (event == null) return valid;
       valid.forEach(({ key, data }) => {
         const spec = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
         if (spec == null) return;
-        const pos = xy.truncate(
-          calculatePos(
-            region,
-            { x: event.clientX, y: event.clientY },
-            viewportRef.current,
-          ),
-          0,
-        );
+        const pos = xy.truncate(calculateCursorPosition(event), 0);
         handleAddElement(key.toString(), pos, data);
       });
       return valid;
@@ -276,48 +283,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const mode = useSelectRequiredViewportMode(layoutKey);
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-      ["Escape"],
-      ["Control", "Z"],
-      ["Control", "Shift", "Z"],
-      ["Control", "A"],
-    ],
-    loose: true,
-    region: ref,
-    callback: useCallback(
-      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (ref.current == null || stage !== "start") return;
-        const region = box.construct(ref.current);
-        const copy = triggers.some((t) => t.includes("C"));
-        const isClear = triggers.some((t) => t.includes("Escape"));
-        const isAll = triggers.some((t) => t.includes("A"));
-        const isUndo =
-          triggers.some((t) => t.includes("Z")) &&
-          triggers.some((t) => t.includes("Control")) &&
-          !triggers.some((t) => t.includes("Shift"));
-        const isRedo =
-          triggers.some((t) => t.includes("Z")) &&
-          triggers.some((t) => t.includes("Control")) &&
-          triggers.some((t) => t.includes("Shift"));
-        const pos = calculatePos(region, cursor, viewportRef.current);
-        if (copy) syncDispatch(copySelection({ pos }));
-        else if (isClear) syncDispatch(clearSelection({ key: layoutKey }));
-        else if (isUndo) undo();
-        else if (isRedo) redo();
-        else if (isAll) syncDispatch(selectAll({ key: layoutKey }));
-        else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
-      },
-      [layoutKey, undoableDispatch, undo, redo, syncDispatch],
-    ),
-  });
-
   const handleDoubleClick = useCallback(() => {
     if (!schematic.editable) return;
     syncDispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+      Layout.setNavDrawerVisible({
+        windowKey,
+        key: "visualization",
+        value: true,
+      }),
     );
   }, [windowKey, schematic.editable, syncDispatch]);
 
@@ -346,6 +319,43 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const handleCopySelection = useCallback(
+    (cursor: xy.XY) =>
+      dispatch(copySelection({ pos: calculateCursorPosition(cursor) })),
+    [dispatch, calculateCursorPosition],
+  );
+
+  const handlePasteSelection = useCallback(
+    (cursor: xy.XY) =>
+      dispatch(
+        pasteSelection({
+          pos: calculateCursorPosition(cursor),
+          key: layoutKey,
+        }),
+      ),
+    [dispatch, calculateCursorPosition, layoutKey],
+  );
+
+  const handleSelectAll = useCallback(
+    () => dispatch(selectAll({ key: layoutKey })),
+    [dispatch, layoutKey],
+  );
+
+  const handleClearSelection = useCallback(
+    () => dispatch(clearSelection({ key: layoutKey })),
+    [dispatch, layoutKey],
+  );
+
+  Diagram.useTriggers({
+    onCopy: handleCopySelection,
+    onPaste: handlePasteSelection,
+    onSelectAll: handleSelectAll,
+    onClear: handleClearSelection,
+    onUndo: undo,
+    onRedo: redo,
+    region: ref,
+  });
+
   return (
     <div
       ref={ref}
@@ -358,7 +368,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         acquireTrigger={schematic.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Diagram.Diagram
+        <Core.Schematic
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
@@ -377,7 +387,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
-          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
@@ -412,7 +421,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               )}
             </Flex.Box>
           </Diagram.Controls>
-        </Diagram.Diagram>
+        </Core.Schematic>
         <Control.Legend
           position={legendPosition}
           onPositionChange={handleLegendPositionChange}

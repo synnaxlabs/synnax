@@ -9,6 +9,7 @@
 
 export { access } from "@/access";
 export { policy } from "@/access/policy";
+export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
@@ -63,4 +64,4 @@ export {
   type TimeStampStringFormat,
   type TypedArray,
   type TZInfo,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";

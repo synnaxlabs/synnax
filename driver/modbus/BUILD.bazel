@@ -1,0 +1,40 @@
+cc_library(
+    name = "modbus",
+    srcs = [
+        "channels.h",
+        "factory.cpp",
+        "modbus.h",
+        "read_task.h",
+        "scan_task.h",
+        "write_task.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/modbus/device",
+        "//driver/modbus/util",
+        "//driver/pipeline",
+        "//driver/task",
+        "//driver/task/common",
+        "//vendor/libmodbus",
+        "//x/cpp/defer",
+    ],
+)
+
+cc_test(
+    name = "modbus_test",
+    srcs = [
+        "read_task_test.cpp",
+        "scan_task_test.cpp",
+        "write_task_test.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/modbus",
+        "//driver/modbus/mock",
+        "//driver/pipeline/mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

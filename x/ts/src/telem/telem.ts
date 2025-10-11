@@ -1702,8 +1702,10 @@ export class DataType
     return others.some((o) => this.equals(o));
   }
 
-  /** @returns a string representation of the DataType. */
-  toString(): string {
+  /** @returns a string representation of the DataType. If short is true, a 1-4
+   * character representation (i64, str, etc.) is returned instead. */
+  toString(short: boolean = false): string {
+    if (short) return DataType.SHORT_STRINGS.get(this.valueOf()) ?? this.valueOf();
     return this.valueOf();
   }
 
@@ -1846,11 +1848,11 @@ export class DataType
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
-  /** Represents a boolean value. Alias for UINT8. */
-  static readonly BOOLEAN = this.UINT8;
+  /** Represents a boolean value. Stored as a 8-bit unsigned integer. */
+  static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
-  /** Represents a UUID data type */
+  /** Represents a UUID data type. */
   static readonly UUID = new DataType("uuid");
   /** Represents a string data type. Strings have an unknown density, and are separate
    * by a newline character. */
@@ -1928,6 +1930,24 @@ export class DataType
     DataType.STRING,
     DataType.JSON,
   ];
+
+  private static readonly SHORT_STRINGS = new Map<string, string>([
+    [DataType.UINT8.toString(), "u8"],
+    [DataType.UINT16.toString(), "u16"],
+    [DataType.UINT32.toString(), "u32"],
+    [DataType.UINT64.toString(), "u64"],
+    [DataType.INT8.toString(), "i8"],
+    [DataType.INT16.toString(), "i16"],
+    [DataType.INT32.toString(), "i32"],
+    [DataType.INT64.toString(), "i64"],
+    [DataType.FLOAT32.toString(), "f32"],
+    [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
+    [DataType.TIMESTAMP.toString(), "ts"],
+    [DataType.UUID.toString(), "uuid"],
+    [DataType.STRING.toString(), "str"],
+    [DataType.JSON.toString(), "json"],
+  ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 

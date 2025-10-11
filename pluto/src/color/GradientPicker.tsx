@@ -71,9 +71,7 @@ export const GradientPicker = ({
     <div className={CSS(PICKER_CLS)}>
       <div
         className={CSS(CSS.BE("gradient-picker", "bar"))}
-        style={{
-          background: `linear-gradient(to right, ${grad})`,
-        }}
+        style={{ background: `linear-gradient(to right, ${grad})` }}
         onClick={(e) => {
           const x = stopPosition(e);
           if (x == null) return;

@@ -25,9 +25,9 @@ import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { OVERVIEW_LAYOUT } from "@/range/external";
 import { FavoriteButton } from "@/range/FavoriteButton";
 import { ContextMenu } from "@/range/list/ContextMenu";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -50,7 +50,7 @@ const Base = ({
   if (getItem == null) throw new UnexpectedError("getItem is null");
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
-    if (item == null) return null;
+    if (item == null) return undefined;
     return {
       ...item.payload,
       labels: item.labels?.map((l) => l.key) ?? [],
@@ -60,7 +60,7 @@ const Base = ({
   }, [item]);
   const { form } = Ranger.useForm({
     query: {},
-    initialValues: initialValues ?? undefined,
+    initialValues,
     sync: true,
     autoSave: true,
   });

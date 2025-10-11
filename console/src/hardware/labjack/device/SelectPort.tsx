@@ -50,7 +50,6 @@ export const SelectPort = ({
   value,
   onChange,
   children,
-  allowNone,
   emptyContent,
   filter,
   triggerProps,

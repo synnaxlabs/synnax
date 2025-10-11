@@ -16,13 +16,11 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 import logging
 import sys
 import threading
-import time
 import traceback
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from selectors import SelectorKey
 from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
 
 import synnax as sy
@@ -109,7 +107,6 @@ class TestCase(ABC):
         expect: str = "PASSED",
         **params: Any,
     ) -> None:
-
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
@@ -125,6 +122,7 @@ class TestCase(ABC):
 
         """Initialize test case with Synnax server connection."""
         self.params = params
+        self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame: Optional[Dict[str, Union[int, float]]] = None
@@ -207,7 +205,7 @@ class TestCase(ABC):
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
-        start_time = sy.TimeStamp.now()
+        start_time = self.start_time
         client = None
 
         try:
@@ -224,7 +222,7 @@ class TestCase(ABC):
                 """
 
                 now = sy.TimeStamp.now()
-                uptime_value = (now - start_time) / 1e9
+                uptime_value = (now - self.start_time) / 1e9
                 self.tlm[f"{self.name}_time"] = now
                 self.tlm[f"{self.name}_uptime"] = uptime_value
                 self.tlm[f"{self.name}_state"] = self._status.value
@@ -243,7 +241,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except Exception as e:
                     if is_websocket_error(e):
-                        time.sleep(self.WEBSOCKET_RETRY_DELAY)
+                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self.STATUS = STATUS.FAILED
                         raise e
@@ -253,7 +251,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-            self._log_message("Shutting down")
+            self._log_message("Writer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -281,7 +279,6 @@ class TestCase(ABC):
         self.read_frame = {}
         streamer = None
         if len(self.subscribed_channels):
-            self._log_message(f"Channels subscribed: {self.subscribed_channels}")
             for channel in self.subscribed_channels:
                 self.read_frame[channel] = 0
         else:
@@ -300,12 +297,12 @@ class TestCase(ABC):
 
                 except Exception as e:
                     if is_websocket_error(e):
-                        time.sleep(self.WEBSOCKET_RETRY_DELAY)
+                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self._log_message(f"Streamer error: {e}")
                         break
 
-            self._log_message("streamer shutting down")
+            self._log_message("Streamer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -330,7 +327,9 @@ class TestCase(ABC):
 
     def _log_message(self, message: str) -> None:
         """Log a message to the console with real-time output."""
-        self.logger.info(f"{self.name} > {message}")
+        now = sy.TimeStamp.now()
+        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
+        self.logger.info(f"{timestamp} | {self.name} > {message}")
 
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:
@@ -417,8 +416,9 @@ class TestCase(ABC):
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
 
+        self._log_message(f"Uptime: {self.uptime:.1f} s")
         # Sleep for 2 loops to ensure the status is updated
-        time.sleep(self.DEFAULT_LOOP_RATE * 2)
+        sy.sleep(self.DEFAULT_LOOP_RATE * 2)
 
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
@@ -449,13 +449,51 @@ class TestCase(ABC):
 
         self.tlm[tlm_name] = initial_value
 
-    def subscribe(self, channels: Union[str, List[str]]) -> None:
-        """Subscribe to channels. Can take either a single channel name or a list of channels."""
+    def subscribe(
+        self, channels: Union[str, List[str]], timeout: Optional[sy.TimeSpan] = 10
+    ) -> None:
+        """
+        Subscribe to channels.
+        Can take either a single channel name or a list of channels.
+        Timeout is the time (s) to wait for the channels to be initialized.
+        """
+        self._log_message(f"Subscribing to channels: {channels} ({timeout}s timeout)")
+
+        client = self.client
+        time_start = sy.TimeStamp.now()
+        timeout_ns = timeout * sy.TimeSpan.SECOND
+        found = False
+
+        while self.loop.wait():
+            time_now = sy.TimeStamp.now()
+            elapsed = time_now - time_start
+            if elapsed > timeout_ns:
+                break
+
+            try:
+                existing_channels = client.channels.retrieve(channels)
+
+                if isinstance(channels, str):
+                    found = existing_channels is not None
+                else:
+                    found = isinstance(existing_channels, list) and len(
+                        existing_channels
+                    ) == len(channels)
+
+                if found:
+                    break
+
+            except Exception as e:
+                self._log_message(f"Channel retrieval failed: {e}")
+                continue
+
+        if not found:
+            raise TimeoutError(f"Unable to retrieve channels: {channels}")
+
+        self._log_message(f"Channels retrieved")
         if isinstance(channels, str):
-            # Single channel name
             self.subscribed_channels.add(channels)
         elif isinstance(channels, list):
-            # List of channels - extend the list
             self.subscribed_channels.update(channels)
         return None
 
@@ -487,10 +525,12 @@ class TestCase(ABC):
     @overload
     def read_tlm(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> Optional[Union[int, float]]:
+        ...
 
     @overload
-    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]:
+        ...
 
     def read_tlm(
         self, key: str, default: Optional[Union[int, float]] = None
@@ -520,7 +560,7 @@ class TestCase(ABC):
                 if len(frame) > 0:
                     return float(frame[-1])
                 if attempt < 2:
-                    time.sleep(0.2)
+                    sy.sleep(0.2)
 
             return None
 
@@ -530,10 +570,12 @@ class TestCase(ABC):
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> Optional[Union[int, float]]:
+        ...
 
     @overload
-    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]:
+        ...
 
     def get_state(
         self, key: str, default: Optional[Union[int, float]] = None
@@ -611,23 +653,6 @@ class TestCase(ABC):
     def should_continue(self) -> bool:
         return not self.should_stop
 
-    def wait_for_tlm_init(self) -> bool:
-        self._log_message("Waiting for all channels to be initialized")
-
-        non_initialized_channels = self.subscribed_channels.copy()
-
-        while self.loop.wait() and self.should_continue:
-            if len(non_initialized_channels) > 0:
-                for ch in list(non_initialized_channels):
-                    if self.read_tlm(ch) is not None:
-                        non_initialized_channels.discard(ch)
-            else:
-                self._log_message("Subscribed Channels Initialized")
-                return True
-
-        self._log_message(f"Channels failed to initialize: {non_initialized_channels}")
-        raise TimeoutError("Channels failed to initialize")
-
     def wait_for_tlm_stale(self, buffer_size: int = 5) -> bool:
         """
         Wait for all subscribed channels to be Stale (inactive).
@@ -662,25 +687,39 @@ class TestCase(ABC):
         self._manual_timeout = value
         self._log_message(f"Manual timeout set ({value}s)")
 
-    def configure(self, **kwargs: Any) -> None:
+    def configure(
+        self,
+        read_timeout: int | None = None,
+        loop_rate: float | None = None,
+        timeout_limit: int | None = None,
+        manual_timeout: int | None = None,
+    ) -> None:
         """Configure test case parameters.
 
         Args:
-            read_timeout: Timeout for read operations (default: 1)
-            loop_rate: Loop frequency in Hz (default: 1)
-            websocket_retry_delay: Delay before retrying WebSocket operations (default: 1)
-            timeout_limit: Maximum execution time in seconds (default: -1, no limit)
-            manual_timeout: Manual timeout value (default: -1, no limit)
+            read_timeout: Timeout for synnax client read operations (default: 1)
+            loop_rate: Synnax Client Loop frequency in Hz (default: 1)
+            timeout_limit: Maximum execution time before failure (default: -1, no limit)
+            manual_timeout: Manual timeout for test termination (default: -1, no limit)
         """
-        if "read_timeout" in kwargs:
-            self.read_timeout = kwargs["read_timeout"]
-        if "loop_rate" in kwargs:
-            self.loop = sy.Loop(kwargs["loop_rate"])
-        if "timeout_limit" in kwargs:
-            self._timeout_limit = kwargs["timeout_limit"]
-        if "manual_timeout" in kwargs:
-            self._manual_timeout = kwargs["manual_timeout"]
-        self._log_message(f"Configured with: {kwargs}")
+        params = {}
+        if read_timeout is not None:
+            self._read_timeout = read_timeout
+            params["read_timeout"] = read_timeout
+
+        if loop_rate is not None:
+            self.loop = sy.Loop(loop_rate)
+            params["loop_rate"] = self.loop
+
+        if timeout_limit is not None:
+            self._timeout_limit = timeout_limit
+            params["timeout_limit"] = timeout_limit
+
+        if manual_timeout is not None:
+            self._manual_timeout = manual_timeout
+            params["manual_timeout"] = manual_timeout
+
+        self._log_message(f"Configured with: {params}")
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
@@ -713,13 +752,12 @@ class TestCase(ABC):
 
     def fail(self, message: Optional[str] = None) -> None:
         if message is not None:
-            self._log_message(message)
+            self._log_message(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
-
             # Set STATUSat the top level as opposed to within
             # the override methods. Ensures that the status is set
             # Even if the child classes don't call super()

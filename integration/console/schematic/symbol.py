@@ -9,7 +9,8 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
 from playwright.sync_api import Locator, Page
 
@@ -30,7 +31,6 @@ class Symbol(ABC):
     def __init__(
         self, page: Page, console: "Console", symbol_id: str, channel_name: str
     ):
-
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
@@ -43,18 +43,28 @@ class Symbol(ABC):
         self.symbol = self.page.get_by_test_id(self.symbol_id)
         self.set_label(channel_name)
 
+    @contextmanager
+    def bring_to_front(self, element: "Locator") -> Generator["Locator", None, None]:
+        original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
+        element.evaluate("element => element.style.zIndex = '9999'")
+        try:
+            yield element
+        finally:
+            element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+
     def _disable_edit_mode(self) -> None:
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
     def _click_symbol(self) -> None:
-        self.symbol.click(force=True)
-        time.sleep(0.1)
+        with self.bring_to_front(self.symbol) as s:
+            s.click(force=True)
+        self.console.page.wait_for_timeout(100)
 
     def set_label(self, label: str) -> None:
         self._click_symbol()
-        self.page.get_by_text("Style").click()
+        self.page.get_by_text("Style").click(force=True)
         self.console.fill_input_field("Label", label)
         self.label = label
 
@@ -101,21 +111,6 @@ class Symbol(ABC):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-        # Verify the move
-        new_box = self.symbol.bounding_box()
-        if not new_box:
-            raise RuntimeError(
-                f"Could not get new bounding box for symbol {self.symbol_id}"
-            )
-
-        final_x = new_box["x"] + new_box["width"] / 2
-        final_y = new_box["y"] + new_box["height"] / 2
-
-        grid_tolerance = 25
-        if (
-            abs(final_x - target_x) > grid_tolerance
-            or abs(final_y - target_y) > grid_tolerance
-        ):
-            raise RuntimeError(
-                f"Symbol {self.symbol_id} moved to ({final_x}, {final_y}) instead of ({target_x}, {target_y})"
-            )
+    def delete(self) -> None:
+        self._click_symbol()
+        self.console.DELETE

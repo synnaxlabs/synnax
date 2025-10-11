@@ -7,16 +7,8 @@
   "author": "emilbon99@gmail.com",
   "license": "MIT",
   "type": "module",
-  "scripts": {
-    "lint": "eslint",
-    "fix": "eslint --fix"
-  },
   "dependencies": {
     "stylelint": "^16.24.0",
     "stylelint-config-standard": "^39.0.0"
-  },
-  "devDependencies": {
-    "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^"
   }
 }

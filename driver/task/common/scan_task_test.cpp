@@ -120,7 +120,7 @@ TEST(TestScanTask, testSingleScan) {
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HZ * 1;
+    telem::Rate scan_rate = telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -173,7 +173,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HZ * 1;
+    telem::Rate scan_rate = telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -236,7 +236,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HZ * 1;
+    telem::Rate scan_rate = telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -303,7 +303,7 @@ TEST(TestScanTask, TestStatePropagation) {
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HZ * 1;
+    telem::Rate scan_rate = telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),

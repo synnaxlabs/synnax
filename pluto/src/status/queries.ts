@@ -34,7 +34,12 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<
 > = {
   channel: status.SET_CHANNEL_NAME,
   schema: status.statusZ(),
-  onChange: ({ store, changed }) => store.statuses.set(changed.key, changed),
+  onChange: ({ store, changed }) =>
+    store.statuses.set(changed.key, (p) => {
+      const next = { ...p, ...changed };
+      next.labels = Label.retrieveCachedLabelsOf(store, status.ontologyID(changed.key));
+      return next;
+    }),
 };
 
 const DELETE_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof status.keyZ> = {
@@ -70,7 +75,7 @@ export const useList = Flux.createList<
         if (keysSet != null && !keysSet.has(status.key)) return;
         onChange(status.key, status, { mode: "prepend" });
       }),
-      store.statuses.onDelete(async (key) => onDelete(key)),
+      store.statuses.onDelete(onDelete),
     ];
   },
 });
@@ -129,7 +134,17 @@ const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
     ...query,
     detailsSchema,
   });
-  if (res.labels != null) store.labels.set(res.labels);
+  if (res.labels != null) {
+    store.labels.set(res.labels);
+    res.labels.forEach((l) => {
+      const rel: ontology.Relationship = {
+        from: status.ontologyID(query.key),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(l.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+  }
   store.statuses.set(query.key, res);
   return res;
 };
@@ -258,5 +273,20 @@ export const useForm = Flux.createForm<
         return set("labels", array.remove(get<string[]>("labels").value, rel.to.key));
       }),
     ];
+  },
+});
+
+export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
+
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
+    const stat = await retrieveSingle({ client, store, query: { key } });
+    const renamed = { ...stat, name };
+    rollbacks.push(store.statuses.set(renamed));
+    await client.statuses.set(renamed);
+    return data;
   },
 });

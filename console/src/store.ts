@@ -18,6 +18,7 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
+import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
@@ -50,6 +51,7 @@ const ZERO_STATE: RootState = {
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
+  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -65,6 +67,7 @@ const reducer = combineReducers({
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -80,6 +83,7 @@ export interface RootState {
   [Table.SLICE_NAME]: Table.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
 export type RootAction =
@@ -94,7 +98,8 @@ export type RootAction =
   | Schematic.Action
   | Table.Action
   | Version.Action
-  | Workspace.Action;
+  | Workspace.Action
+  | Arc.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -115,6 +120,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
+  const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -128,6 +134,7 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
+    arc,
   };
 };
 
@@ -157,6 +164,7 @@ const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
+  ...Arc.MIDDLEWARE,
 ];
 
 const createStore = async (): Promise<RootStore> => {
@@ -166,7 +174,7 @@ const createStore = async (): Promise<RootStore> => {
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
-    enablePrerender: true,
+    enablePrerender: !IS_DEV,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

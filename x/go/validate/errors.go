@@ -28,12 +28,12 @@ var (
 	RequiredError    = errors.Wrap(Error, "required")
 )
 
-type pathError struct {
+type PathError struct {
 	Path []string `json:"path"`
 	Err  error    `json:"error"`
 }
 
-func (p pathError) joinPath() string {
+func (p PathError) joinPath() string {
 	return strings.Join(p.Path, ".")
 }
 
@@ -42,11 +42,20 @@ type encodedPathError struct {
 	Error errors.Payload `json:"error"`
 }
 
-func PathedError(err error, path string) error {
-	var pathErr pathError
-	segments := lo.Map(strings.Split(path, "."), func(s string, _ int) string {
-		return lo.SnakeCase(s)
+func pathToSegments(segments ...string) []string {
+	if len(segments) == 1 {
+		return lo.Map(strings.Split(segments[0], "."), func(s string, _ int) string {
+			return lo.SnakeCase(s)
+		})
+	}
+	return lo.FlatMap(segments, func(s string, _ int) []string {
+		return pathToSegments(s)
 	})
+}
+
+func PathedError(err error, path ...string) error {
+	var pathErr PathError
+	segments := pathToSegments(path...)
 	if errors.As(err, &pathErr) {
 		pathErr.Path = append(segments, pathErr.Path...)
 	} else {
@@ -56,7 +65,7 @@ func PathedError(err error, path string) error {
 	return pathErr
 }
 
-func (p pathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
+func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
 func NewInvalidTypeError(expected, received string) error {
 	return errors.Wrapf(InvalidTypeError, "expected %s but received %s", expected, received)
@@ -68,7 +77,7 @@ const (
 )
 
 func encode(ctx context.Context, err error) (errors.Payload, bool) {
-	var fe pathError
+	var fe PathError
 	if errors.As(err, &fe) {
 		internal := errors.Encode(ctx, fe.Err, false)
 		return errors.Payload{
@@ -94,7 +103,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 		if err := json.Unmarshal([]byte(p.Data), &decodedPathError); err != nil {
 			return err, true
 		}
-		return pathError{
+		return PathError{
 			Path: decodedPathError.Path,
 			Err:  errors.Decode(ctx, decodedPathError.Error),
 		}, true

@@ -8,6 +8,43 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/test.integration.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - freighter/py/**
+      - go.work
+      - go.work.sum
+      - integration/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - vendor
+      - x/cpp/**
+      - x/go/**
+      - x/media/**
+      - x/ts/**
+
   workflow_dispatch:
     inputs:
       RUN_NAME:
@@ -170,6 +207,9 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     timeout-minutes: 75
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
@@ -236,7 +276,9 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -349,7 +391,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         shell: cmd
         working-directory: integration
         env:
@@ -363,7 +405,7 @@ jobs:
         if: always()
         with:
           name: test-results-windows
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -425,7 +467,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -436,7 +478,7 @@ jobs:
         if: always()
         with:
           name: test-results-macos
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment
@@ -496,7 +538,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 5
+        timeout-minutes: 10
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -507,7 +549,7 @@ jobs:
         if: always()
         with:
           name: test-results-linux
-          path: integration/test/results/*
+          path: integration/tests/results/*
           retention-days: 7
 
       - name: Debug Test Environment

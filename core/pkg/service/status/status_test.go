@@ -74,7 +74,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Writer", func() {
-		Describe("Create", func() {
+		Describe("Set", func() {
 			It("Should create a new status", func() {
 				s := &status.Status{
 					Name:    "Test Status",
@@ -111,6 +111,7 @@ var _ = Describe("Status", Ordered, func() {
 						Key:     "parent-key",
 						Variant: "info",
 						Message: "Parent status",
+						Time:    telem.Now(),
 					}
 					Expect(w.Set(ctx, &parent)).To(Succeed())
 
@@ -119,6 +120,7 @@ var _ = Describe("Status", Ordered, func() {
 						Key:     "child-key",
 						Variant: "info",
 						Message: "Child status",
+						Time:    telem.Now(),
 					}
 					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
 
@@ -133,7 +135,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("CreateMany", func() {
+		Describe("SetMany", func() {
 			It("Should create multiple statuses", func() {
 				statuses := []status.Status{
 					{
@@ -141,12 +143,14 @@ var _ = Describe("Status", Ordered, func() {
 						Key:     "key1",
 						Variant: "info",
 						Message: "Message 1",
+						Time:    telem.Now(),
 					},
 					{
 						Name:    "Status 2",
 						Key:     "key2",
 						Variant: "warning",
 						Message: "Message 2",
+						Time:    telem.Now(),
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -164,6 +168,7 @@ var _ = Describe("Status", Ordered, func() {
 					Key:     "delete-key",
 					Variant: "info",
 					Message: "Will be deleted",
+					Time:    telem.Now(),
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
@@ -184,11 +189,13 @@ var _ = Describe("Status", Ordered, func() {
 						Name:    "Del 1",
 						Key:     "del1",
 						Variant: "info",
+						Time:    telem.Now(),
 					},
 					{
 						Name:    "Del 2",
 						Key:     "del2",
 						Variant: "info",
+						Time:    telem.Now(),
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -207,18 +214,21 @@ var _ = Describe("Status", Ordered, func() {
 					Key:     "retrieve-a",
 					Variant: "info",
 					Message: "Status A message",
+					Time:    telem.Now(),
 				},
 				{
 					Name:    "Status B",
 					Key:     "retrieve-b",
 					Variant: "warning",
 					Message: "Status B message",
+					Time:    telem.Now(),
 				},
 				{
 					Name:    "Status C",
 					Key:     "retrieve-c",
 					Variant: "error",
 					Message: "Status C message",
+					Time:    telem.Now(),
 				},
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())

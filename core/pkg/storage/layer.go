@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/bloom"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -44,6 +45,7 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -210,8 +212,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
+	cache, cacheCloser, err := openPebbleCache(cfg)
+	if !ok(err, cacheCloser) {
+		return nil, err
+	}
+
 	// Open the key-value storage engine.
-	if l.KV, err = openKV(cfg, kvFS); !ok(err, l.KV) {
+	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
 
@@ -225,7 +232,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 // Close closes the Layer, releasing the lock on the storage directory. Close
 // must be called when the Layer is no longer in use. The caller must ensure that
 // all routines interacting with the Layer have finished before calling Close.
-func (s *Layer) Close() error { return s.closer.Close() }
+func (s *Layer) Close() error {
+	return s.closer.Close()
+}
 
 const (
 	kvDirname     = "kv"
@@ -301,7 +310,27 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 	return release, errors.Wrapf(err, failedToAcquireLockMsg, cfg.Dirname)
 }
 
-func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
+func openPebbleCache(cfg Config) (*pebble.Cache, io.Closer, error) {
+	// Create a shared block cache for Pebble.
+	// For read-heavy workloads, a large cache is critical for performance.
+	// Default is 8 MB, we're using 1 GB for production workloads.
+	// Adjust based on available system memory.
+	cacheSize := 1 * telem.Gigabyte
+	if *cfg.InMemory {
+		// Use smaller cache for in-memory mode
+		cacheSize = 256 * telem.Megabyte
+	}
+	cache := pebble.NewCache(int64(cacheSize))
+	if cache == nil {
+		return nil, nil, errors.New("[storage] - failed to create block cache")
+	}
+	return cache, xio.CloserFunc(func() error {
+		cache.Unref()
+		return nil
+	}), nil
+}
+
+func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	if cfg.KVEngine != PebbleKV {
 		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
 	}
@@ -312,20 +341,52 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 		return nil, err
 	}
 	if requiresMigration {
-		cfg.Instrumentation.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
+		cfg.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
 		if err = pebblekv.Migrate(dirname); err != nil {
 			return nil, err
 		}
 	}
 
 	ev := pebble.MakeLoggingEventListener(pebblekv.NewLogger(
-		cfg.Instrumentation.Child("kv"),
+		cfg.Child("kv"),
 	))
-	db, err := pebble.Open(dirname, &pebble.Options{
+
+	// Create optimized options for read-heavy workloads
+	opts := &pebble.Options{
 		FS:                 fs,
 		FormatMajorVersion: pebble.FormatNewest,
 		EventListener:      &ev,
-	})
+		Cache:              cache,
+		// 128 MB (up from 4 MB default)
+		MemTableSize: uint64(128 * telem.Megabyte),
+		// Allow more mem-tables in memory
+		MemTableStopWritesThreshold: 4,
+		// Trigger compaction earlier for better read performance
+		L0CompactionThreshold:     2,
+		L0CompactionFileThreshold: 500,
+		L0StopWritesThreshold:     12,
+		// Allow more open files (up from 1000)
+		MaxOpenFiles: 10000,
+		BytesPerSync: int(telem.Megabyte * 2),
+		// Let OS handle WAL syncing
+		WALBytesPerSync: 0,
+	}
+
+	// Configure per-level options for optimal read performance
+	for i := range opts.Levels {
+		opts.Levels[i].BlockSize = 32 << 10                  // 32 KB blocks (up from 4 KB)
+		opts.Levels[i].IndexBlockSize = 256 << 10            // 256 KB index blocks
+		opts.Levels[i].FilterPolicy = bloom.FilterPolicy(10) // 10 bits per key
+		opts.Levels[i].FilterType = pebble.TableFilter
+	}
+
+	// Set target file sizes for each level
+	opts.TargetFileSizes[0] = int64(telem.Megabyte * 64)
+	for i := 1; i < len(opts.TargetFileSizes); i++ {
+		opts.TargetFileSizes[i] = opts.TargetFileSizes[i-1] * 10 // 10x growth per level
+	}
+
+	db, err := pebble.Open(dirname, opts)
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,
@@ -341,7 +402,7 @@ func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
 	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Instrumentation.Child("ts"),
+		Instrumentation: cfg.Child("ts"),
 		Dirname:         filepath.Join(cfg.Dirname, cesiumDirname),
 		FS:              fs,
 	})

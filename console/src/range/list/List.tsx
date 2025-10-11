@@ -6,7 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-//
+
 import "@/range/list/List.css";
 
 import { type ranger } from "@synnaxlabs/client";
@@ -20,7 +20,7 @@ import {
   Select,
   type state,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
 import { Layout } from "@/layout";
@@ -38,6 +38,7 @@ export interface ListProps
   enableFilters?: boolean;
   enableAddButton?: boolean;
   initialRequest?: ranger.RetrieveRequest;
+  emptyContent?: ReactNode;
 }
 
 const EmptyContent = () => {
@@ -64,6 +65,7 @@ export const List = ({
   showTimeRange = true,
   showFavorite = true,
   initialRequest = {},
+  emptyContent = <EmptyContent />,
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
@@ -139,11 +141,7 @@ export const List = ({
             )}
           </Flex.Box>
         )}
-        <PList.Items<string>
-          emptyContent={<EmptyContent />}
-          displayItems={Infinity}
-          grow
-        >
+        <PList.Items<string> emptyContent={emptyContent} displayItems={Infinity} grow>
           {({ key, ...rest }) => (
             <Item
               key={key}

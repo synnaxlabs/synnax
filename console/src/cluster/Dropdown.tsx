@@ -27,6 +27,7 @@ import {
   type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useMemo,
   useState,
@@ -81,23 +82,19 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
   );
 };
 
-export interface NoneConnectedProps extends PropsWithChildren {
-  disabled?: boolean;
-}
+export interface NoneConnectedBoundaryProps extends PropsWithChildren {}
 
 export const NoneConnectedBoundary = ({
   children,
-  disabled,
-  ...rest
-}: NoneConnectedProps): ReactElement => {
+}: NoneConnectedBoundaryProps): ReactNode => {
   const client = Synnax.use();
-  if (client != null || disabled) return <>{children}</>;
-  return <NoneConnected {...rest} />;
+  if (client != null) return children;
+  return <NoneConnected />;
 };
 
 export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 
-export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => {
+export const NoneConnected = (props: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
@@ -110,7 +107,7 @@ export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => 
       message="No cluster connected."
       action="Connect a cluster"
       onClick={handleCluster}
-      {...rest}
+      {...props}
     />
   );
 };

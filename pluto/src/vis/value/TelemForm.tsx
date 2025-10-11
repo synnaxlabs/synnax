@@ -36,6 +36,7 @@ export interface TelemFormProps {
 }
 
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
+  const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -69,8 +70,8 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   const { retrieve } = Channel.useRetrieveObservable({
     onChange: useCallback(
-      ({ data }) => data != null && onChange({ ...value, tooltip: [data.name] }),
-      [onChange],
+      ({ data }) => data != null && set(`${path}.tooltip`, [data.name]),
+      [set, path],
     ),
   });
   const handleSourceChange = (key: channel.Key | null): void => {

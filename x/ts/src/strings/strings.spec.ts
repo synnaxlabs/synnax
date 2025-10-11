@@ -103,3 +103,45 @@ describe("trimPrefix", () => {
   it("should handle numbers in prefix", () =>
     expect(strings.trimPrefix("123abc", "123")).toBe("abc"));
 });
+
+describe("pluralName", () => {
+  it("should handle empty string", () => expect(strings.pluralName("")).toBe(""));
+
+  it("should add 's' to regular words", () => {
+    expect(strings.pluralName("cat")).toBe("cats");
+    expect(strings.pluralName("dog")).toBe("dogs");
+    expect(strings.pluralName("regularType")).toBe("regularTypes");
+  });
+
+  it("should convert 'y' endings to 'ies'", () => {
+    expect(strings.pluralName("company")).toBe("companies");
+    expect(strings.pluralName("yEndingType")).toBe("yEndingTypes");
+    expect(strings.pluralName("baby")).toBe("babies");
+  });
+
+  it("should add 'es' to words ending in 's'", () => {
+    expect(strings.pluralName("class")).toBe("classes");
+    expect(strings.pluralName("bus")).toBe("buses");
+  });
+
+  it("should add 'es' to words ending in 'x'", () => {
+    expect(strings.pluralName("box")).toBe("boxes");
+    expect(strings.pluralName("fox")).toBe("foxes");
+  });
+
+  it("should add 'es' to words ending in 'ch'", () => {
+    expect(strings.pluralName("catch")).toBe("catches");
+    expect(strings.pluralName("church")).toBe("churches");
+  });
+
+  it("should add 'es' to words ending in 'sh'", () => {
+    expect(strings.pluralName("bush")).toBe("bushes");
+    expect(strings.pluralName("brush")).toBe("brushes");
+  });
+
+  it("should work with built-in type names", () => {
+    expect(strings.pluralName("string")).toBe("strings");
+    expect(strings.pluralName("number")).toBe("numbers");
+    expect(strings.pluralName("object")).toBe("objects");
+  });
+});

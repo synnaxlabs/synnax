@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type group } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { bounds, color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
 
@@ -23,6 +23,7 @@ import {
   CommonStyleForm,
   CommonToggleForm,
   CylinderForm,
+  GaugeForm,
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
@@ -137,6 +138,9 @@ import {
   type FourWayValveProps,
   GateValve,
   type GateValveProps,
+  Gauge,
+  GaugePreview,
+  type GaugeProps,
   HeaterElement,
   type HeaterElementProps,
   HeatExchangerGeneral,
@@ -328,6 +332,7 @@ const VARIANTS = [
   "threeWayValve",
   "vacuumPump",
   "value",
+  "gauge",
   "valve",
   "vent",
   "tJunction",
@@ -1025,6 +1030,25 @@ const value: Spec<ValueProps> = {
     stalenessColor: t.colors.warning.m1,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
     redline: CoreValue.ZERO_READLINE,
+  }),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const gauge: Spec<GaugeProps> = {
+  name: "Gauge",
+  key: "gauge",
+  Form: GaugeForm,
+  Symbol: Gauge,
+  Preview: GaugePreview,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11,
+    units: "RPM",
+    level: "h5",
+    bounds: bounds.construct(0, 100),
+    barWidth: 10,
+    ...zeroLabel("Gauge"),
+    ...ZERO_PROPS,
+    telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -1831,6 +1855,7 @@ const customStatic: Spec<CustomStaticProps> = {
 
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
+  gauge,
   button,
   tank,
   polygon,
@@ -1940,6 +1965,7 @@ export const GROUPS: Group[] = [
     name: "General",
     symbols: [
       "value",
+      "gauge",
       "setpoint",
       "textBox",
       "offPageReference",

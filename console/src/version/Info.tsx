@@ -12,7 +12,7 @@ import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import z from "zod";
+import { z } from "zod";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";
@@ -115,9 +115,9 @@ export const Info: Layout.Renderer = () => {
     </Status.Summary>
   );
   if (availableQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" {...availableQuery.status} />;
+    updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
   else if (updateQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" {...updateQuery.status} />;
+    updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
   else if (updateQuery.variant === "loading")
     if (progressPercent === 100)
       updateContent = (

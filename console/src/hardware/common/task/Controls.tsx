@@ -22,7 +22,8 @@ import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import { useKey, useStatus } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
+import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
 
 export interface ControlsProps extends Flex.BoxProps {
@@ -66,14 +67,7 @@ export const Controls = ({
       {...props}
     >
       <Flex.Box className={CSS.B("task-state")} x>
-        <Status.Summary
-          variant={stat.variant}
-          message={stat.message}
-          description={stat.description}
-          justify="center"
-          align="center"
-          center={false}
-        />
+        <Status.Summary status={stat} justify="center" align="center" center={false} />
       </Flex.Box>
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">

@@ -202,14 +202,14 @@ public:
         return static_cast<double>(value) / _priv::HOUR;
     }
 
-    /// @brief returns the exact number of minutes in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of minutes in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double minutes() const {
         return static_cast<double>(value) / _priv::MINUTE;
     }
 
-    /// @brief returns the exact number of seconds in the timespan as
-    /// double-precision floating point value.
+    /// @brief returns the exact number of seconds in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / _priv::SECOND;
     }
@@ -220,8 +220,8 @@ public:
         return static_cast<double>(value) / _priv::MILLISECOND;
     }
 
-    /// @brief returns the exact number of microseconds in the timespan as a
-    /// double precision floating point value.
+    /// @brief returns the exact number of microseconds in the timespan as a double
+    /// precision floating point value.
     [[nodiscard]] double microseconds() const {
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
@@ -498,11 +498,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = Rate(1);
+inline const auto HERTZ = Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * HZ;
+inline const Rate KILOHERTZ = 1000 * HERTZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * KHZ;
+inline const Rate MEGAHERTZ = 1000 * KILOHERTZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.
@@ -630,6 +630,9 @@ template<typename T>
     );
 }
 
+[[nodiscard]] inline std::string to_string(const SampleValue &value) {
+    return cast<std::string>(value);
+}
 using NowFunc = std::function<TimeStamp()>;
 
 namespace _priv {
@@ -645,7 +648,6 @@ const std::string UINT8_T = "uint8";
 const std::string UINT16_T = "uint16";
 const std::string UINT32_T = "uint32";
 const std::string UINT64_T = "uint64";
-const std::string UINT128_T = "uint128";
 const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
@@ -863,7 +865,6 @@ private:
         {_priv::UINT16_T, 2},
         {_priv::UINT32_T, 4},
         {_priv::UINT64_T, 8},
-        {_priv::UINT128_T, 16},
         {_priv::TIMESTAMP_T, 8},
         {_priv::UUID_T, 16},
         {_priv::STRING_T, 0},
@@ -975,9 +976,6 @@ const DataType UINT16_T(_priv::UINT16_T);
 const DataType UINT32_T(_priv::UINT32_T);
 /// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
 const DataType UINT64_T(_priv::UINT64_T);
-/// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16
-/// bytes).
-const DataType UINT128_T(_priv::UINT128_T);
 /// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16
 /// bytes).
 const DataType UUID_T(_priv::UUID_T);

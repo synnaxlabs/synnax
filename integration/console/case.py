@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import time
 from typing import cast
 
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
@@ -30,8 +29,8 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
-
         headless = self.params.get("headless", True)
+        slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 5000)  # 5s
         default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
 
@@ -41,7 +40,7 @@ class ConsoleCase(TestCase):
         )
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=headless)
+        self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)
         self.page = self.browser.new_page()
 
         # Set timeouts
@@ -72,7 +71,7 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page)
 
         # Toggle theme
-        time.sleep(0.5)
+        self.page.wait_for_timeout(1000)
         self.console.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:

@@ -52,6 +52,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	AfterAll(func() {
 		Expect(c.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
 	})
 
 	It("Output a basic calculation", func() {

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { URL } from "@synnaxlabs/x/url";
+import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
+import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
@@ -29,7 +28,6 @@ import { ranger } from "@/ranger";
 import { status } from "@/status";
 import { Transport } from "@/transport";
 import { user } from "@/user";
-import { view } from "@/view";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
@@ -69,9 +67,9 @@ export default class Synnax extends framer.Client {
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly statuses: status.Client;
-  readonly views: view.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly arcs: arc.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -138,7 +136,6 @@ export default class Synnax extends framer.Client {
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary);
     this.statuses = new status.Client(this.transport.unary);
-    this.views = new view.Client(this.transport.unary);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -159,6 +156,7 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+    this.arcs = new arc.Client(this.transport.unary);
   }
 
   get key(): string {

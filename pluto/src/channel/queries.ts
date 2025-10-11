@@ -101,7 +101,7 @@ export const formSchema = channel.newZ
       path: ["dataType"],
     },
   )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
     message: "Data channel must have an index",
     path: ["index"],
   })
@@ -162,18 +162,11 @@ const retrieveSingle = async ({
   if (rangeKey != null) {
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
-    if (alias == null)
-      try {
-        const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
-        alias = {
-          alias: aliasName,
-          channel: ch.key,
-          range: rangeKey,
-        };
-      } finally {
-        store.rangeAliases.set(aliasKey, { channel: ch.key, range: rangeKey });
-      }
-
+    if (alias == null) {
+      const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
+      alias = { alias: aliasName, channel: ch.key, range: rangeKey };
+      store.rangeAliases.set(aliasKey, alias);
+    }
     if (alias != null) ch.alias = alias.alias;
   }
   return ch;
@@ -399,24 +392,24 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ query: params, store }) => {
-    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
+  retrieveCached: ({ query, store }) => {
+    if (query.searchTerm != null && query.searchTerm.length > 0) return [];
     return store.channels.get((ch) => {
-      if (params.internal != null && ch.internal !== params.internal) return false;
-      if (params.calculated != null && ch.isCalculated !== params.calculated)
+      if (query.internal != null && ch.internal !== query.internal) return false;
+      if (query.calculated != null && ch.isCalculated !== query.calculated)
         return false;
       if (
-        primitive.isNonZero(params.notDataTypes) &&
-        params.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.notDataTypes) &&
+        query.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
       if (
-        primitive.isNonZero(params.dataTypes) &&
-        !params.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.dataTypes) &&
+        !query.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
-      if (params.isIndex != null && ch.isIndex !== params.isIndex) return false;
-      if (params.virtual != null && ch.virtual !== params.virtual) return false;
+      if (query.isIndex != null && ch.isIndex !== query.isIndex) return false;
+      if (query.virtual != null && ch.virtual !== query.virtual) return false;
       return true;
     });
   },
@@ -428,12 +421,25 @@ export const useList = Flux.createList<
     store.channels.set(channels);
     return channels;
   },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ client, query: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.channels.onSet((channel) => onChange(channel.key, channel)),
-    store.channels.onDelete((key) => onDelete(key)),
-  ],
+  retrieveByKey: async ({ client, key, query, store }) =>
+    await retrieveSingle({ client, query: { ...query, key }, store }),
+  mountListeners: ({ store, onChange, onDelete, query: { rangeKey }, client }) => {
+    const destructors = [
+      store.channels.onSet(onChange),
+      store.channels.onDelete(onDelete),
+    ];
+    if (rangeKey != null)
+      destructors.push(
+        store.rangeAliases.onSet((alias) => {
+          if (alias.range !== rangeKey) return;
+          onChange(alias.channel, (prev) => {
+            if (prev == null) return prev;
+            return client.channels.sugar({ ...prev, alias: alias.alias });
+          });
+        }),
+      );
+    return destructors;
+  },
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}

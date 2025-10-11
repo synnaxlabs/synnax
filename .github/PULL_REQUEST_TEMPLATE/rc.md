@@ -566,6 +566,43 @@ I can successfully:
   - [ ] Register a new user.
 - [ ] Change a user's username and log in with the new username.
 
+### Arc
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Created a named arc automation.
+  - [ ] Open an existing arc automation.
+
+- **Arc Editor**
+  - [ ] Create an alarm automation that changes statuses and includes the following
+        blocks: channel source, constant, comparison, stable for, select, and status
+        change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change
+        based on the constant condition.
+  - [ ] Stop the arc deployment.
+  - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
+
+### Statuses
+
+I can successfully:
+
+- **Search and Command Palette**
+  - [ ] Open the status explorer.
+  - [ ] Open the status create modal.
+
+- **Status Create Modal**
+  - [ ] Create a new status.
+  - [ ] Create a new status with labels.
+
+- **Status Explorer**
+  - [ ] Filter statuses by labels.
+  - [ ] Delete a single status.
+  - [ ] Delete multiple statuses.
+
+- **Status Notifications**
+  - [ ] See status notifications in the bottom right corner when creating a new status.
+
 ### Version
 
 I can successfully:
@@ -783,3 +820,34 @@ I can successfully:
   - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
+
+### Modbus
+
+I can successfully:
+
+- [ ] Enable and disable Modbus integration when starting the server.
+- [ ] Connect to a Modbus TCP server.
+- [ ] Configure connection parameters (IP address, port, unit ID).
+- **Read Task**
+  - [ ] Read holding registers from a Modbus device.
+  - [ ] Read input registers from a Modbus device.
+  - [ ] Read coils and discrete inputs from a Modbus device.
+  - [ ] Plot live data from Modbus registers.
+  - [ ] Apply scaling to register values.
+  - [ ] Enable and disable data saving.
+  - [ ] Stop, start, and reconfigure read tasks.
+  - [ ] Handle device disconnection gracefully.
+  - **Reliable data reading at the following sample rates:**
+    - [ ] 1 Hz
+    - [ ] 10 Hz
+    - [ ] 100 Hz
+- **Write Task**
+  - [ ] Write to holding registers on a Modbus device.
+  - [ ] Write to coils on a Modbus device.
+  - [ ] Perform control actions using a schematic.
+  - [ ] Stop, start, and reconfigure write tasks.
+  - **Configure response time for specified state rates:**
+    - [ ] 1 Hz (visible delay)
+    - [ ] 20 Hz (near-instant response)
+- [ ] Run simultaneous read and write tasks on the same device.
+- [ ] Run tasks across multiple Modbus devices concurrently.

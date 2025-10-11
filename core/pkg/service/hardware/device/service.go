@@ -22,20 +22,23 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for creating a Service.
+// Config is the configuration for creating a device service.
 type Config struct {
-	DB       *gorp.DB
+	// DB is the gorp database that devices will be stored in.
+	DB *gorp.DB
+	// Ontology is used to define relationships between devices and other resources in
+	// the Synnax cluster.
 	Ontology *ontology.Ontology
-	Group    *group.Service
-	Signals  *signals.Provider
+	// Group is used to create device related groups of ontology resources.
+	Group *group.Service
+	// Signals is used to propagate device changes through the Synnax signals' channel
+	// communication mechanism.
+	Signals *signals.Provider
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
-// Override implements config.Config.
+// Override overrides parts of c with the valid parts of other.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -44,88 +47,83 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate determines whether the configuration can be used for creating a device
+// service.
 func (c Config) Validate() error {
-	v := validate.New("workspace")
+	v := validate.New("hardware.device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 
+var DefaultConfig = Config{}
+
+// Service is the main entrypoint for managing devices within Synnax. It provides
+// mechanisms for creating, retrieving, updating, and deleting devices. It also
+// provides mechanisms for listening to changes in devices.
 type Service struct {
-	Config
+	cfg             Config
 	shutdownSignals io.Closer
 	group           group.Group
 }
 
-const groupName = "Devices"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// OpenService opens a new device service using the provided configuration. If error
+// is nil, the service is ready for use and must be closed by calling Close to
+// prevent resource leaks.
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	s = &Service{Config: cfg, group: g}
+	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-	if err := s.migrateDeviceParents(ctx); err != nil {
-		return s, err
-	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigString[Device](cfg.DB))
-	if err != nil {
-		return
+	if s.shutdownSignals, err = signals.PublishFromGorp(
+		ctx,
+		cfg.Signals,
+		signals.GorpPublisherConfigString[Device](cfg.DB),
+	); err != nil {
+		return nil, err
 	}
-	s.shutdownSignals = cdcS
-	return
+	return s, nil
 }
 
-func (s *Service) migrateDeviceParents(ctx context.Context) error {
-	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var devices []Device
-		if err := s.NewRetrieve().Entries(&devices).Exec(ctx, tx); err != nil {
-			return err
-		}
-		w := s.Ontology.NewWriter(tx)
-		for _, dev := range devices {
-			if err := w.DeleteIncomingRelationshipsOfType(ctx, dev.OntologyID(), ontology.ParentOf); err != nil {
-				return err
-			}
-			if err := w.DefineRelationship(ctx, dev.Rack.OntologyID(), ontology.ParentOf, dev.OntologyID()); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
+// Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error {
-	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+	if s.shutdownSignals == nil {
+		return nil
 	}
-	return nil
+	return s.shutdownSignals.Close()
 }
 
+// RootGroup returns the permanent group for devices. Note that racks will be children
+// of this group, and devices will be children of racks (or children of groups that are
+// children of racks).
 func (s *Service) RootGroup() group.Group { return s.group }
 
+// NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
+// the writer will use that transaction. If tx is nil, the writer will execute
+// operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.DB, tx),
-		otg:   s.Ontology.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
 		group: s.group,
 	}
 }
 
+// NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.Ontology,
-		baseTX: s.DB,
+		otg:    s.cfg.Ontology,
+		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[string, Device](),
 	}
 }

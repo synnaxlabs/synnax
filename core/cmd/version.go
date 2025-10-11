@@ -20,10 +20,10 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version of Synnax",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Synnax version %s\n", version.Get())
+		fmt.Printf("Synnax %s\n", version.Full())
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(versionCmd)
+	root.AddCommand(versionCmd)
 }

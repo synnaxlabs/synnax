@@ -103,13 +103,17 @@ func Create(ctx context.Context, fs xfs.FS, codec binary.Encoder, ch core.Channe
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = errors.Combine(err, tempMetaF.Close())
-		err = errors.Combine(err, fs.Remove(metaTempFile))
-	}()
+	defer func() { err = errors.Combine(err, fs.Remove(metaTempFile)) }()
 	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
+		err = errors.Combine(err, tempMetaF.Close())
 		return err
 	}
-	err = fs.Rename(metaTempFile, metaFile)
+	if err = tempMetaF.Close(); err != nil {
+		return err
+	}
+	if err = fs.Rename(metaTempFile, metaFile); err != nil {
+		return err
+	}
+	err = fs.Remove(metaTempFile)
 	return err
 }

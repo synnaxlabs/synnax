@@ -27,6 +27,7 @@ import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
+import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
@@ -41,8 +42,6 @@ import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-
-import { retrieveScanTask } from "./useRetrieveScanTask";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
@@ -194,7 +193,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           {variant == "success" ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Summary status={variant} message={stat.description} />
+            <Status.Summary variant={variant} message={stat.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>

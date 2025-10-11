@@ -13,7 +13,7 @@ import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
-import { useKey } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface UtilityButtonProps {
@@ -51,6 +51,16 @@ export const UtilityButtons = () => {
       `TypeScript code for retrieving ${name}`,
     );
   };
+  const handleCopyPythonCode = () => {
+    const name = getName();
+    copy(
+      `
+      # Retrieve ${name}
+      task = client.hardware.tasks.retrieve("${taskKey}")
+      `,
+      `Python code for retrieving ${name}`,
+    );
+  };
   const handleCopyJSONConfig = () => {
     const name = getName();
     const config = ctx.get("config").value;
@@ -71,6 +81,9 @@ export const UtilityButtons = () => {
         tooltip="Copy TypeScript code"
       >
         {Icon.TypeScript}
+      </UtilityButton>
+      <UtilityButton onClick={handleCopyPythonCode} tooltip="Copy Python code">
+        {Icon.Python}
       </UtilityButton>
       <UtilityButton onClick={handleCopyJSONConfig} tooltip="Copy JSON configuration">
         {Icon.JSON}

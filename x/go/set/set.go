@@ -31,19 +31,21 @@ func FromSlice[T comparable](values []T) Set[T] {
 
 // Add inserts the provided values into the set.
 // If a value already exists in the set, it will not be duplicated.
-func (s Mapped[T, V]) Add(values ...T) {
+func (s Mapped[T, V]) Add(values ...T) Mapped[T, V] {
 	var v V
 	for _, k := range values {
 		s[k] = v
 	}
+	return s
 }
 
 // Remove deletes the specified keys from the set.
 // If a key does not exist in the set, the operation is a no-op for that key.
-func (s Mapped[T, V]) Remove(keys ...T) {
+func (s Mapped[T, V]) Remove(keys ...T) Mapped[T, V] {
 	for _, v := range keys {
 		delete(s, v)
 	}
+	return s
 }
 
 // Contains checks if the specified value exists in the set.

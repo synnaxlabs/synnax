@@ -21,23 +21,26 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const store = useStore<RootState>();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
-    onChange: ({ data, variant, status }) => {
-      if (variant !== "success") {
-        if (variant === "error") addStatus(status);
-        return;
-      }
-      const active = Layout.selectActiveMosaicLayout(store.getState());
-      if (active == null) return;
-      store.dispatch(add({ ranges: fromClientRange(data) }));
-      store.dispatch(
-        setRanges({
-          key: active.key,
-          axisKey: "x1",
-          mode: "add",
-          ranges: data.map((range) => range.key),
-        }),
-      );
-    },
+    onChange: useCallback(
+      ({ data, variant, status }) => {
+        if (variant !== "success") {
+          if (variant === "error") addStatus(status);
+          return;
+        }
+        const active = Layout.selectActiveMosaicLayout(store.getState());
+        if (active == null) return;
+        store.dispatch(add({ ranges: fromClientRange(data) }));
+        store.dispatch(
+          setRanges({
+            key: active.key,
+            axisKey: "x1",
+            mode: "add",
+            ranges: data.map((range) => range.key),
+          }),
+        );
+      },
+      [store],
+    ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), []);
 };

@@ -14,7 +14,7 @@
           "case": "console/schematic_set_output"
         },
         {
-          "case": "console/schematic_edit_value_props"
+          "case": "console/schematic_edit_symbol_props"
         },
         {
           "case": "console/pages_open_close"

@@ -62,7 +62,7 @@ class TestResult:
 
     def __str__(self) -> str:
         """Return display name for test result."""
-        if self.name:
+        if self.name and self.name != self.test_name.split("/")[-1]:
             return f"{self.test_name} ({self.name})"
         return self.test_name
 
@@ -78,7 +78,7 @@ class TestDefinition:
 
     def __str__(self) -> str:
         """Return display name for test definition."""
-        if self.name:
+        if self.name and self.name != self.case.split("/")[-1]:
             return f"{self.case} ({self.name})"
         return self.case
 
@@ -291,8 +291,10 @@ class TestConductor:
 
     def log_message(self, message: str, use_name: bool = True) -> None:
         """Log message with real-time output using logging module."""
+        now = sy.TimeStamp.now()
+        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
         if use_name:
-            self.logger.info(f"{self.name} > {message}")
+            self.logger.info(f"{timestamp} | {self.name} > {message}")
         else:
             self.logger.info(message)
 
@@ -783,7 +785,6 @@ class TestConductor:
                 and hasattr(self.current_test, "Expected_Timeout")
                 and self.current_test.Expected_Timeout > 0
             ):
-
                 elapsed_time = (
                     datetime.now() - self.current_test_start_time
                 ).total_seconds()
@@ -799,7 +800,6 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-
                         elapsed_time = (datetime.now() - start_time).total_seconds()
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(
@@ -940,12 +940,18 @@ class TestConductor:
         # Individual Summary
         self.log_message("\n" + "=" * 60, False)
         for result in self.test_results:
+            if result.start_time and result.end_time:
+                duration = (result.end_time - result.start_time).total_seconds()
+                duration_str = f" ({duration:.1f}s)"
+            else:
+                duration_str = ""
+
             status_symbol = SYMBOLS.get_symbol(result.status)
             case_parts = str(result).split("/")
             display_name = (
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(result)
             )
-            self.log_message(f"{status_symbol} {display_name}", False)
+            self.log_message(f"{status_symbol} {display_name}{duration_str}", False)
             if result.error_message:
                 self.log_message(f"ERROR: {result.error_message}")
 
@@ -988,7 +994,7 @@ def main() -> None:
     gc.disable()
 
     parser = argparse.ArgumentParser(description="Run test sequences")
-    parser.add_argument("--name", default=None, help="Test conductor name")
+    parser.add_argument("--name", default="tc", help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
     parser.add_argument("--username", default="synnax", help="Synnax username")

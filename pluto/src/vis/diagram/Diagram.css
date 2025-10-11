@@ -9,107 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-diagram__controls {
-    position: absolute;
-    top: 2rem;
-    right: 2rem;
-    z-index: 4;
-}
-
-.react-flow__selection,
-.react-flow__nodesselection-rect {
-    background: var(--pluto-primary-z-20) !important;
-    border: var(--pluto-border-width) dashed var(--pluto-primary-z-40) !important;
-}
-
-.react-flow__node.selected .pluto-symbol-primitive {
-    /* make an inset box shadow to simulate a background */
-    box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
-
-    & .react-flow__resize-control {
-        display: block;
-    }
-}
-
-.react-flow__resize-control {
-    display: none;
-}
-
-.react-flow__handle {
-    background: none !important;
-    border: var(--pluto-border) !important;
-    border-color: transparent !important;
-    pointer-events: none !important;
-    border-radius: 50%;
-}
-
-.react-flow__background circle {
-    fill: var(--pluto-gray-l8);
-}
-
-.react-flow__node {
-    pointer-events: all !important;
-    border: var(--pluto-border-width) solid transparent !important;
-}
-
-.react-flow__edge {
-    & .react-flow__edge-path {
-        stroke-width: 2px !important;
-        &.pluto--thin {
-            stroke-width: 1px !important;
-        }
-    }
-}
-
-.react-flow__edges {
-    z-index: 6 !important;
-}
-
 .pluto-diagram {
-    .react-flow__pane.selection {
-        cursor: default !important;
+    .pluto-diagram__controls {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+        z-index: 4;
     }
-    &.pluto--editable {
-        .react-flow__pane.selection {
-            cursor: pointer !important;
-        }
-        & .pluto-symbol-primitive,
-        .pluto-control-chip {
-            pointer-events: none;
-        }
-
-        & .react-flow__handle {
-            display: block !important;
-            border-width: 2px !important;
-            min-width: 1.4rem !important;
-            min-height: 1.4rem !important;
-            width: 1.4rem !important;
-            height: 1.4rem !important;
-            pointer-events: all !important;
-            border-radius: 50%;
-            z-index: 1;
-        }
-        .react-flow__node:focus {
-            outline: none;
-        }
-        & .react-flow__node.draggable:hover {
-            .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
-            }
-        }
-
-        & .react-flow__container:has(.react-flow__connectionline) {
-            & .react-flow__handle {
-                border-color: var(--pluto-primary-z) !important;
-                background: var(--pluto-text-color) !important;
-                &:hover {
-                    background: var(--pluto-primary-z) !important;
-                }
-            }
-        }
+    .react-flow__selection,
+    .react-flow__nodesselection-rect {
+        background: var(--pluto-primary-z-10) !important;
+        border: calc(var(--pluto-border-width) * 2) dashed var(--pluto-primary-z-40) !important;
+        border-radius: var(--pluto-border-radius);
     }
 }

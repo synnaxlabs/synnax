@@ -35,8 +35,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
-const canDrop = (): boolean => false;
-
 const handleSelect: Ontology.HandleSelect = ({
   store,
   placeLayout,
@@ -263,6 +261,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Divider />
           <Link.CopyMenuItem />
+          <Ontology.CopyMenuItem {...props} />
         </>
       )}
       <PMenu.Divider />
@@ -305,7 +304,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   onSelect: handleSelect,
-  canDrop,
   haulItems,
   Item,
   TreeContextMenu,

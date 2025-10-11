@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { URL } from "@synnaxlabs/x/url";
+import { URL } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";

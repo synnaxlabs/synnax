@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TOOLBAR } from "@/hardware/device/Toolbar";
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
@@ -18,10 +20,16 @@ export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/Toolbar";
 export * from "@/hardware/device/useListenForChanges";
 
-export const COMMANDS: Palette.Command[] = OPC.Device.COMMANDS;
+export const COMMANDS: Palette.Command[] = [
+  ...Modbus.Device.COMMANDS,
+  ...OPC.Device.COMMANDS,
+];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Device.LAYOUTS,
+  ...Modbus.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,
 };
+
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];

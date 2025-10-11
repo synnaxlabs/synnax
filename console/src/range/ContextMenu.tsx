@@ -29,7 +29,7 @@ import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";
-import { OVERVIEW_LAYOUT } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
@@ -129,13 +129,16 @@ export const useViewDetails = (): ((key: string) => void) => {
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const { retrieve } = Ranger.useRetrieveObservable({
-    onChange: ({ data, variant, status }) => {
-      if (variant !== "success") {
-        if (variant === "error") addStatus(status);
-        return;
-      }
-      placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
-    },
+    onChange: useCallback(
+      ({ data, variant, status }) => {
+        if (variant !== "success") {
+          if (variant === "error") addStatus(status);
+          return;
+        }
+        placeLayout({ ...OVERVIEW_LAYOUT, name: data.name, key: data.key });
+      },
+      [placeLayout],
+    ),
   });
   return useCallback((key: string) => retrieve({ key }), [retrieve]);
 };

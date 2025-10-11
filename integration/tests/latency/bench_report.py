@@ -24,9 +24,7 @@ from framework.utils import get_machine_info, get_memory_info, get_synnax_versio
 
 
 class BenchReport(TestCase):
-
     def setup(self) -> None:
-
         self.set_manual_timeout(15)
 
         self.report_client = sy.Synnax(
@@ -205,9 +203,9 @@ class BenchReport(TestCase):
             self.fail()
         self._log_message(average_jitter_msg)
 
-        os.makedirs("test/results", exist_ok=True)
-        plt.savefig("test/results/bench_latency_load.png", dpi=300, bbox_inches="tight")
+        os.makedirs("tests/results", exist_ok=True)
+        plt.savefig("tests/results/bench_load.png", dpi=300, bbox_inches="tight")
         self._log_message(
-            f"Saved benchmark plot to: {os.path.abspath('test/results/bench_latency_load.png')}"
+            f"Saved benchmark plot to: {os.path.abspath('tests/results/bench_load.png')}"
         )
         plt.close(fig)

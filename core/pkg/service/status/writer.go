@@ -46,24 +46,24 @@ func (w Writer) SetWithParent(
 	ctx context.Context,
 	s *Status,
 	parent ontology.ID,
-) (err error) {
+) error {
 	hasParent := !parent.IsZero()
 	if !hasParent {
 		parent = w.group.OntologyID()
 	}
-	if err = w.validate(*s); err != nil {
-		return
+	if err := w.validate(*s); err != nil {
+		return err
 	}
 	exists, err := gorp.NewRetrieve[string, Status]().WhereKeys(s.Key).Exists(ctx, w.tx)
 	if err != nil {
-		return
+		return err
 	}
 	if err = gorp.NewCreate[string, Status]().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(s.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
 	}
 	// Status already exists and parent provided = delete incoming relationships and define new parent
 	// Status already exists and no parent provided = do nothing
@@ -73,32 +73,32 @@ func (w Writer) SetWithParent(
 			return err
 		}
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
-			return
+			return err
 		}
 		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
+			return err
 		}
 	} else if !exists {
 		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses already
 // exist, they will be updated.
 func (w Writer) SetMany(
 	ctx context.Context,
-	ss *[]Status,
-) (err error) {
-	for i, s := range *ss {
-		if err = w.Set(ctx, &s); err != nil {
-			return
+	statuses *[]Status,
+) error {
+	for i, s := range *statuses {
+		if err := w.Set(ctx, &s); err != nil {
+			return err
 		}
-		(*ss)[i] = s
+		(*statuses)[i] = s
 	}
-	return err
+	return nil
 }
 
 // SetManyWithParent creates or updates multiple statuses within the DB as child statuses of
@@ -109,19 +109,19 @@ func (w Writer) SetMany(
 // provided, the status will be created under the top level "Statuses" group.
 func (w Writer) SetManyWithParent(
 	ctx context.Context,
-	ss *[]Status,
+	statuses *[]Status,
 	parent ontology.ID,
-) (err error) {
-	if ss == nil {
-		return
+) error {
+	if statuses == nil {
+		return nil
 	}
-	for i, s := range *ss {
-		if err = w.SetWithParent(ctx, &s, parent); err != nil {
-			return
+	for i, s := range *statuses {
+		if err := w.SetWithParent(ctx, &s, parent); err != nil {
+			return err
 		}
-		(*ss)[i] = s
+		(*statuses)[i] = s
 	}
-	return err
+	return nil
 }
 
 // Delete deletes the status with the given key. Delete is idempotent.
@@ -145,6 +145,7 @@ func (w Writer) DeleteMany(ctx context.Context, keys ...string) error {
 func (w Writer) validate(s Status) error {
 	v := validate.New("status.Status")
 	validate.NotEmptyString(v, "Key", s.Key)
-	validate.NotEmptyString(v, "Name", s.Name)
+	validate.Positive(v, "Time", s.Time)
+	validate.NotEmptyString(v, "Variant", s.Variant)
 	return v.Error()
 }

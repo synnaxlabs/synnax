@@ -115,8 +115,8 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
                      << " (model: " << dev.model << ")";
         err = SKIP_DEVICE_ERR;
     } else {
-        LOG(INFO) << "Device validated successfully: " << dev.key
-                  << " (model: " << dev.model << ")";
+        VLOG(1) << "Device validated successfully: " << dev.key
+                << " (model: " << dev.model << ")";
     }
     return {dev, err};
 }

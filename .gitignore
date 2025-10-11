@@ -200,7 +200,7 @@ dmypy.json
 cython_debug/
 
 # |||| TEST RESULTS ||||
-integration/test/results/
+integration/tests/results/
 
 # |||| LANDING SITE ||||
 
@@ -240,8 +240,6 @@ core/pkg/service/hardware/embedded/assets/**
 .eslintcache
 
 # |||| EDITOR ||||
-.vscode/
-!.vscode/extensions.json
 *.suo
 *.ntvs*
 *.njsproj

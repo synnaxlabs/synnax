@@ -31,99 +31,99 @@ const (
 )
 
 func configureRootFlags() {
-	rootCmd.PersistentFlags().StringP(
+	root.PersistentFlags().StringP(
 		configFlag,
 		"c",
 		"/usr/local/synnax/config.yaml",
 		"config file",
 	)
 
-	rootCmd.Flags().Bool(
+	root.Flags().Bool(
 		versionFlag,
 		false,
 		"Print the version of Synnax",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		certsDirFlag,
 		cert.DefaultLoaderConfig.CertsDir,
 		"The directory where certificates should be stored and/or written to.",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		caKeyFlag,
 		cert.DefaultLoaderConfig.CAKeyPath,
 		"The path to the CA key. This is relative to certs-dir.",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		caCertFlag,
 		cert.DefaultLoaderConfig.CACertPath,
 		"The path to the CA certificate. This is relative to certs-dir.",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		nodeKeyFlag,
 		cert.DefaultLoaderConfig.NodeKeyPath,
 		"The path to the node key. This is relative to certs-dir.",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		nodeCertFlag,
 		cert.DefaultLoaderConfig.NodeCertPath,
 		"The path to the node certificate. This is relative to certs-dir.",
 	)
 
-	rootCmd.PersistentFlags().Bool(
+	root.PersistentFlags().Bool(
 		allowKeyReuseFlag,
 		*cert.DefaultFactoryConfig.AllowKeyReuse,
 		"Whether to allow the reuse of CA keys for certificate generation.",
 	)
 
-	rootCmd.PersistentFlags().Int(
+	root.PersistentFlags().Int(
 		keySizeFlag,
 		cert.DefaultFactoryConfig.KeySize,
 		"The size to use for certificate key generation.",
 	)
 
-	rootCmd.PersistentFlags().BoolP(
+	root.PersistentFlags().BoolP(
 		verboseFlag,
 		"v",
 		false,
 		"Enable verbose debugging.",
 	)
 
-	rootCmd.PersistentFlags().Bool(
+	root.PersistentFlags().Bool(
 		debugFlag,
 		false,
 		"Enable debug logging.",
 	)
 
-	rootCmd.PersistentFlags().String(
+	root.PersistentFlags().String(
 		logFilePathFlag,
 		"./synnax-logs/synnax.log",
 		"Log file path",
 	)
 
-	rootCmd.PersistentFlags().Int(
+	root.PersistentFlags().Int(
 		logFileMaxSizeFlag,
 		50,
 		"Maximum size of log file in megabytes",
 	)
 
-	rootCmd.PersistentFlags().Int(
+	root.PersistentFlags().Int(
 		logFileMaxBackupsFlag,
 		5,
 		"Maximum number of log files to retain",
 	)
 
-	rootCmd.PersistentFlags().Int(
+	root.PersistentFlags().Int(
 		logFileMaxAgeFlag,
 		30,
 		"Maximum age of log files to retain",
 	)
 
-	rootCmd.PersistentFlags().Bool(
+	root.PersistentFlags().Bool(
 		logFileCompressFlag,
 		false,
 		"Compress log files",

@@ -955,7 +955,7 @@ describe("list", () => {
       });
     });
 
-    it("should mount listeners immediately when retrieveCached returns data", () => {
+    it("should not mount listeners immediately when retrieveCached returns data", () => {
       const mountListeners = vi.fn();
       const cachedItems = [{ key: 1 }, { key: 2 }];
       const retrieveCached = vi.fn().mockReturnValue(cachedItems);
@@ -973,6 +973,23 @@ describe("list", () => {
       );
 
       expect(mountListeners).not.toHaveBeenCalled();
+    });
+
+    it("should mount listeners when getItem is called before retrieve AND the result of getItem is cached", () => {
+      const mountListeners = vi.fn();
+      const useList = Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+        name: "Resource",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key }),
+        retrieveCached: () => [{ key: 1 }],
+        mountListeners,
+      });
+
+      const { result } = renderHook(useList, { wrapper });
+      act(() => {
+        result.current.getItem(1);
+      });
+      expect(mountListeners).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -1025,6 +1042,53 @@ describe("list", () => {
       });
     });
 
+    it("should accept a keyed record as the argument to onChange", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieve } = Flux.createList<
+            {},
+            ranger.Key,
+            ranger.Payload,
+            FluxStore
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            mountListeners: ({ store, onChange }) => store.ranges.onSet(onChange),
+          })();
+          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieve, value };
+        },
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range 2");
+      });
+    });
+
     it("should correctly remove a list item when it gets deleted", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -1044,8 +1108,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onDelete }) =>
-              store.ranges.onDelete(async (changed) => onDelete(changed)),
+            mountListeners: ({ store, onDelete }) => store.ranges.onDelete(onDelete),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },

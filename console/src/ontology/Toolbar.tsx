@@ -7,30 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
 
-import { Toolbar } from "@/components";
-import { type Layout } from "@/layout";
-import { Tree } from "@/ontology/Tree";
+export interface ToolbarProps extends Core.ContentProps {}
 
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header padded>
-      <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>
-    </Toolbar.Header>
-    <Tree root={ontology.ROOT_ID} />
-  </Toolbar.Content>
+export const Toolbar = (props: ToolbarProps) => (
+  <Cluster.NoneConnectedBoundary>
+    <Core.Content {...props} />
+  </Cluster.NoneConnectedBoundary>
 );
-
-export const TOOLBAR: Layout.NavDrawerItem = {
-  key: "ontology",
-  icon: <Icon.Group />,
-  content: <Content />,
-  tooltip: "Resources",
-  initialSize: 400,
-  minSize: 175,
-  maxSize: 400,
-  trigger: ["O"],
-};

@@ -126,6 +126,21 @@ interface ListenerOnChangeOptions {
   mode?: ListChangeMode;
 }
 
+interface OnListChange<K extends record.Key, E extends record.Keyed<K>> {
+  (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions): void;
+  (e: E, opts?: ListenerOnChangeOptions): void;
+}
+
+const parseOnListChangeArgs = <K extends record.Key, E extends record.Keyed<K>>(
+  key: K | E,
+  e?: state.SetArg<E | null> | ListenerOnChangeOptions,
+  opts?: ListenerOnChangeOptions,
+): [K, state.SetArg<E | null>, ListenerOnChangeOptions] => {
+  if (typeof key === "object" && "key" in key)
+    return [key.key, key, (e as ListenerOnChangeOptions | undefined) ?? {}];
+  return [key, e as state.SetArg<E | null>, opts ?? {}];
+};
+
 export interface ListMountListenersParams<
   Query extends core.Shape,
   Key extends record.Key,
@@ -136,11 +151,7 @@ export interface ListMountListenersParams<
     "onChange" | "query"
   > {
   query: Partial<Query>;
-  onChange: (
-    key: Key,
-    e: state.SetArg<Data | null>,
-    opts?: ListenerOnChangeOptions,
-  ) => void;
+  onChange: OnListChange<Key, Data>;
   onDelete: (key: Key) => void;
 }
 
@@ -270,7 +281,16 @@ export const createList =
               return { ...p, data: p.data.filter((key) => key !== k) };
             });
           },
-          onChange: (k, setter, opts = {}) => {
+          onChange: (
+            argKey: Key | Data,
+            argSetter?: state.SetArg<Data | null> | ListenerOnChangeOptions,
+            argOptions?: ListenerOnChangeOptions,
+          ) => {
+            const [k, setter, opts] = parseOnListChangeArgs<Key, Data>(
+              argKey,
+              argSetter,
+              argOptions,
+            );
             const { mode = "append" } = opts;
             const prev = dataRef.current.get(k) ?? null;
             if (prev != null && !filterRef.current(prev)) return;
@@ -361,7 +381,6 @@ export const createList =
       (key: Key, options: core.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
-          if (!storeListenersMountedRef.current) syncListeners();
           try {
             if (client == null || primitive.isZero(key)) return;
             const item = await retrieveByKey({
@@ -389,6 +408,7 @@ export const createList =
 
     const getItem = useCallback(
       ((key?: Key | Key[]) => {
+        if (!storeListenersMountedRef.current) syncListeners();
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
         // Zero-value keys that are not null or undefined are common as
@@ -402,7 +422,7 @@ export const createList =
         if (res === undefined) retrieveSingle(key);
         return res;
       }) as GetItem<Key, Data>,
-      [retrieveSingle],
+      [retrieveSingle, syncListeners],
     );
 
     const subscribe = useCallback((callback: () => void, key?: Key) => {

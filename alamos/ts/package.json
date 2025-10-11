@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.45.1",
+  "version": "0.46.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -39,14 +39,15 @@
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./dev": {
-      "types": "./dist/dev/index.d.ts",
+      "types": "./dist/src/dev/index.d.ts",
       "import": "./dist/dev.js",
       "require": "./dist/dev.cjs"
     }

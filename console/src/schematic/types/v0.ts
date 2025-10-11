@@ -20,7 +20,10 @@ export const nodePropsZ = z.looseObject({
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
-export const edgePropsZ = Diagram.edgeZ.pick({ color: true, variant: true });
+export const edgePropsZ = z.object({
+  color: color.crudeZ.optional(),
+  variant: Schematic.edgeTypeZ.optional(),
+});
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
 export const stateZ = z.object({

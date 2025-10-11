@@ -29,6 +29,7 @@ import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
+import { gauge } from "@/vis/gauge/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { measure } from "@/vis/measure/aether";
@@ -75,6 +76,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
+    ...gauge.REGISTRY,
     ...flux.createRegistry({ storeConfig: STORE_CONFIG }),
   };
 

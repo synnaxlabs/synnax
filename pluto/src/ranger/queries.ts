@@ -59,7 +59,7 @@ const retrieveSingle = async ({
     const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
     const next: ranger.Payload = { ...cached.payload, labels };
     if (parent != null) {
-      const cached = store.ranges.get(parent);
+      const cached = store.ranges.get(parent.key);
       if (cached != null) next.parent = cached.payload;
     }
     return client.ranges.sugarOne(next);
@@ -106,7 +106,7 @@ const retrieveMultiple = async ({
       const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
       const next: ranger.Payload = { ...cached.payload, labels };
       if (parent != null) {
-        const cachedParent = store.ranges.get(parent);
+        const cachedParent = store.ranges.get(parent.key);
         if (cachedParent != null) next.parent = cachedParent.payload;
       }
       ranges.push(client.ranges.sugarOne(next));
@@ -638,7 +638,7 @@ export const useList = Flux.createList<
           });
         });
       }),
-      store.ranges.onDelete(async (key) => onDelete(key)),
+      store.ranges.onDelete(onDelete),
       store.relationships.onSet(async (rel) => {
         await handleListParentRelationshipSet(rel, onChange, client, store);
         await handleListLabelRelationshipSet(rel, onChange, client, store);

@@ -23,6 +23,34 @@ update_version_file() {
     echo "Updated VERSION file to $VERSION"
 }
 
+# Function to update the version in MODULE.bazel
+update_module_bazel() {
+    local version=$1
+    local module_file="../MODULE.bazel"
+
+    if [[ -f "$module_file" ]]; then
+        # Only update the version within the module() declaration, not bazel_dep versions
+        # This matches the pattern: module(...version = "X.Y.Z"...)
+        sed -i '' "/^module(/,/^)/ s/version = \".*\"/version = \"$version\"/" "$module_file"
+        echo "Updated version in MODULE.bazel to $version"
+    else
+        echo "MODULE.bazel not found!"
+    fi
+}
+
+# Function to update the version in console/src-tauri/Cargo.toml
+update_cargo_toml() {
+    local version=$1
+    local cargo_file="../console/src-tauri/Cargo.toml"
+
+    if [[ -f "$cargo_file" ]]; then
+        sed -i '' "s/^version = \".*\"/version = \"$version\"/" "$cargo_file"
+        echo "Updated version in console/src-tauri/Cargo.toml to $version"
+    else
+        echo "console/src-tauri/Cargo.toml not found!"
+    fi
+}
+
 # Combined function to update the version in either a TypeScript package.json or Python pyproject.toml file
 update_version() {
     local path=$1
@@ -40,6 +68,8 @@ update_version() {
 }
 
 update_version_file
+update_module_bazel "$VERSION"
+update_cargo_toml "$VERSION"
 
 paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py" "../integration")
 

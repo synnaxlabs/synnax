@@ -60,7 +60,7 @@ var certNode = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(certCmd)
+	root.AddCommand(certCmd)
 
 	certCmd.AddCommand(certCA)
 	certCmd.AddCommand(certNode)

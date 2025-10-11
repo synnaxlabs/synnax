@@ -147,7 +147,7 @@ const itemRenderProp = Component.renderProp(
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
         onDoubleClick={handleDoubleClick}
-        icon={icon as Icon.ReactElement}
+        icon={icon}
         resource={resource}
         loading={loading}
       />
@@ -166,26 +166,29 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const client = Synnax.use();
 
   const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: ({ data: resources, variant }, { id }) => {
-      if (variant == "success") {
-        const converted = resources.map((r) => ({
-          key: ontology.idToString(r.id),
-          children: services[r.id.type].hasChildren ? [] : undefined,
-        }));
-        const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
-        setNodes((prevNodes) => [
-          ...Core.updateNodeChildren({
-            tree: prevNodes,
-            parent: ontology.idToString(id),
-            updater: (prevNodes) => [
-              ...prevNodes.filter(({ key }) => !ids.has(key)),
-              ...converted,
-            ],
-          }),
-        ]);
-      }
-      setLoading(false);
-    },
+    onChange: useCallback(
+      ({ data: resources, variant }, { id }) => {
+        if (variant == "success") {
+          const converted = resources.map((r) => ({
+            key: ontology.idToString(r.id),
+            children: services[r.id.type].hasChildren ? [] : undefined,
+          }));
+          const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
+          setNodes((prevNodes) => [
+            ...Core.updateNodeChildren({
+              tree: prevNodes,
+              parent: ontology.idToString(id),
+              updater: (prevNodes) => [
+                ...prevNodes.filter(({ key }) => !ids.has(key)),
+                ...converted,
+              ],
+            }),
+          ]);
+        }
+        setLoading(false);
+      },
+      [services],
+    ),
   });
 
   const useLoading = useCallback(

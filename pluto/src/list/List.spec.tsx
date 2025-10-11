@@ -50,15 +50,18 @@ describe("List", () => {
         });
 
         it("should allow the caller to provide a custom item getter", () => {
-          const getItem = ((
-            key: string | string[],
-          ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
-            if (Array.isArray(key)) return key.map((k) => ({ key: k, name: k }));
-            if (key === "1") return { key: "1", name: "one" };
-            if (key === "2") return { key: "2", name: "two" };
-            if (key === "3") return { key: "3", name: "three" };
-            return undefined;
-          }) as List.GetItem<string, record.KeyedNamed<string>>;
+          const ITEMS: record.KeyedNamed<string>[] = [
+            { key: "1", name: "one" },
+            { key: "2", name: "two" },
+            { key: "3", name: "three" },
+          ];
+          const getItem = List.createGetItem(
+            (key) => ITEMS.find((item) => item.key === key),
+            (keys) =>
+              keys
+                .map((key) => ITEMS.find((item) => item.key === key))
+                .filter((item) => item != null),
+          );
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}

@@ -253,6 +253,58 @@ describe("queries", () => {
       expect(retrievedChannel?.virtual).toBe(true);
     });
 
+    it("should update the channel alias when a range alias is set", async () => {
+      const range = await client.ranges.create({
+        name: "range",
+        timeRange: { start: 1n, end: 1000n },
+      });
+      const channel = await client.channels.create({
+        name: "channel",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await client.ranges.setAlias(range.key, channel.key, "alias");
+      const { result } = renderHook(() => Channel.useList(), {
+        wrapper,
+      });
+      act(() => {
+        result.current.retrieve({ rangeKey: range.key }, { signal: controller.signal });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.getItem(channel.key)?.alias).toEqual("alias");
+
+      await act(async () => {
+        await client.ranges.setAlias(range.key, channel.key, "new_alias");
+      });
+      await waitFor(() =>
+        expect(result.current.getItem(channel.key)?.alias).toEqual("new_alias"),
+      );
+    });
+
+    it("should correctly retrieve the alias when an initial query is provided, and getItem is called but not retrieve", async () => {
+      const range = await client.ranges.create({
+        name: "range",
+        timeRange: { start: 1n, end: 1000n },
+      });
+      const channel = await client.channels.create({
+        name: "channel",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await client.ranges.setAlias(range.key, channel.key, "alias");
+      const { result } = renderHook(
+        () =>
+          Channel.useList({
+            initialQuery: { rangeKey: range.key },
+            useCachedList: false,
+          }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.getItem(channel.key)?.alias).toEqual("alias"),
+      );
+    });
+
     describe("retrieveCached", () => {
       it("should use cached data on initial mount when no searchTerm", async () => {
         const ch = await client.channels.create({
@@ -809,7 +861,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveMany", () => {
+  describe("useRetrieveMultiple", () => {
     it("should retrieve multiple channels by keys", async () => {
       const ch1 = await client.channels.create({
         name: "retrieve_many_1",
@@ -1109,7 +1161,9 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.retrieve.variant).toEqual("success");
+      });
       const ch1Before = result.current.retrieve.data?.find((c) => c.key === ch1.key);
       const ch2Before = result.current.retrieve.data?.find((c) => c.key === ch2.key);
       expect(ch1Before?.alias).toEqual("multi_alias_1");

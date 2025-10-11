@@ -210,6 +210,7 @@ import { CSS } from "@/css";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
+import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
 import { OPC } from "@/icon/OPC";
 import { Process } from "@/icon/Process";
@@ -277,6 +278,7 @@ export const Logo = {
   LabJack,
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
+  Modbus,
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),

@@ -131,7 +131,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	}
 
 	stateSvc, err := tracker.Open(ctx, tracker.Config{
-		Instrumentation: cfg.Instrumentation.Child("tracker"),
+		Instrumentation: cfg.Child("tracker"),
 		DB:              cfg.DB,
 		Rack:            rackSvc,
 		Task:            taskSvc,
