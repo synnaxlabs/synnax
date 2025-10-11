@@ -20,7 +20,7 @@
 common::ConfigureResult configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<util::ConnectionPool> &pool
+    const std::shared_ptr<opc::conn::Pool> &pool
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
@@ -46,7 +46,7 @@ common::ConfigureResult configure_read(
 common::ConfigureResult configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<util::ConnectionPool> &pool
+    const std::shared_ptr<opc::conn::Pool> &pool
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);

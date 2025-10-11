@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// external
+#include "driver/opc/conn/conn.h"
 #include "glog/logging.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
@@ -19,10 +20,10 @@
 #include "x/cpp/xerrors/errors.h"
 
 /// internal
-#include "driver/opc/util/util.h"
+#include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
 
-namespace util {
+namespace opc::conn {
 using ClientDeleter = void (*)(UA_Client *);
 
 ClientDeleter client_deleter() {
@@ -158,10 +159,8 @@ priv_key_pass_callback(UA_ClientConfig *_, [[maybe_unused]] UA_ByteString *__) {
 
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
-xerrors::Error configure_encryption(
-    const ConnectionConfig &cfg,
-    const std::shared_ptr<UA_Client> &client
-) {
+xerrors::Error
+configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client) {
     const auto client_config = UA_Client_getConfig(client.get());
     if (cfg.security_mode == "Sign")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGN;
@@ -251,8 +250,7 @@ void fetch_endpoint_diagnostic_info(
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(
-                    INFO
+                LOG(INFO
                 ) << "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
@@ -266,7 +264,7 @@ void fetch_endpoint_diagnostic_info(
 
 
 std::pair<std::shared_ptr<UA_Client>, xerrors::Error>
-connect(const ConnectionConfig &cfg, std::string log_prefix) {
+connect(const Config &cfg, std::string log_prefix) {
     auto client = std::shared_ptr<UA_Client>(UA_Client_new(), client_deleter());
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = custom_logger;
@@ -284,7 +282,7 @@ connect(const ConnectionConfig &cfg, std::string log_prefix) {
 
     configure_encryption(cfg, client);
     if (!cfg.username.empty() || !cfg.password.empty()) {
-        if (const auto err = parse_error(UA_ClientConfig_setAuthenticationUsername(
+        if (const auto err = errors::parse(UA_ClientConfig_setAuthenticationUsername(
                 config,
                 cfg.username.c_str(),
                 cfg.password.c_str()
@@ -292,14 +290,15 @@ connect(const ConnectionConfig &cfg, std::string log_prefix) {
             return {nullptr, err};
     }
 
-    const auto err = parse_error(UA_Client_connect(client.get(), cfg.endpoint.c_str()));
+    const auto err = errors::parse(UA_Client_connect(client.get(), cfg.endpoint.c_str())
+    );
     return {std::move(client), err};
 }
 
 xerrors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint) {
-    const auto err = parse_error(UA_Client_connect(client.get(), endpoint.c_str()));
+    const auto err = errors::parse(UA_Client_connect(client.get(), endpoint.c_str()));
     if (!err) return xerrors::NIL;
-    return parse_error(UA_Client_connect(client.get(), endpoint.c_str()));
+    return errors::parse(UA_Client_connect(client.get(), endpoint.c_str()));
 }
 }

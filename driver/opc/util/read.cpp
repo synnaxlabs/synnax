@@ -23,8 +23,8 @@
 namespace util {
 std::pair<telem::Series, xerrors::Error>
 simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
-    // Parse the node ID string directly
-    auto [ua_node_id, parse_err] = parse_node_id(node_id);
+    // Parse the node ID string - returns allocated UA_NodeId
+    auto [ua_node_id, parse_err] = opc::NodeId::parse(node_id);
     if (parse_err) return {telem::Series(0), parse_err};
 
     // Read the value from the node - RAII wrapper handles cleanup
@@ -36,16 +36,19 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
         value.ptr()
     );
 
+    // Clean up the allocated NodeId
+    UA_NodeId_clear(&ua_node_id);
+
     if (status != UA_STATUSCODE_GOOD) {
-        return {telem::Series(0), util::parse_error(status)};
+        return {telem::Series(0), opc::errors::parse(status)};
     }
 
     // Convert the value to a telemetry series
-    telem::DataType data_type = util::ua_to_data_type(value.get().type);
+    telem::DataType data_type = opc::telem::ua_to_data_type(value.get().type);
     telem::Series series(data_type, 1);
 
     // Write the value to the series
-    size_t count = util::write_to_series(series, value.get());
+    size_t count = opc::telem::write_to_series(series, value.get());
 
     if (count == 0) {
         return {

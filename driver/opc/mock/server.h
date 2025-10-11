@@ -24,7 +24,7 @@
 
 
 /// internal
-#include "driver/opc/util/util.h"
+#include "driver/opc/types/types.h"
 
 
 namespace mock {
@@ -177,7 +177,7 @@ public:
         if (running) this->stop();
     }
 
-    void run() const {
+    void run() {
         UA_Server *server = UA_Server_new();
         auto server_config = UA_Server_getConfig(server);
         server_config->maxSessionTimeout = 3600000;
@@ -199,7 +199,7 @@ public:
             attr.displayName = displayName.get();
 
             opc::NodeId nodeId(UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str()));
-            LOG(INFO) << "Creating OPC UA node: " << util::node_id_to_string(nodeId.get());
+            LOG(INFO) << "Creating OPC UA node: " << opc::NodeId::to_string(nodeId.get());
 
             opc::QualifiedName nodeName(node.ns, node.node_id.c_str());
             UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
@@ -217,8 +217,18 @@ public:
                 NULL
             );
         }
-        volatile UA_Boolean running_flag = running.load();
-        UA_StatusCode retval = UA_Server_run(server, &running_flag);
+
+        UA_StatusCode status = UA_Server_run_startup(server);
+        if (status != UA_STATUSCODE_GOOD) {
+            UA_Server_delete(server);
+            return;
+        }
+
+        while (running.load()) {
+            UA_Server_run_iterate(server, true);
+        }
+
+        UA_Server_run_shutdown(server);
         UA_Server_delete(server);
     }
 };

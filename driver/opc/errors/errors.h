@@ -7,26 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
-
-/// std
-#include <memory>
-#include <string>
-#include <utility>
-
 /// external
-#include "open62541/client.h"
+#include "open62541/types.h"
 
 /// module
-#include "x/cpp/telem/series.h"
 #include "x/cpp/xerrors/errors.h"
 
 /// internal
-#include "driver/opc/errors/errors.h"
-#include "driver/opc/telem/telem.h"
-#include "driver/opc/types/types.h"
+#include "driver/errors/errors.h"
 
-namespace util {
-std::pair<telem::Series, xerrors::Error>
-simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id);
+namespace opc::errors {
+const xerrors::Error CRITICAL = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
+const xerrors::Error TEMPORARY = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
+const xerrors::Error UNREACHABLE = CRITICAL.sub("unreachable");
+const xerrors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
+
+xerrors::Error parse(const UA_StatusCode &status);
 }

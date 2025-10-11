@@ -9,8 +9,16 @@
 
 #pragma once
 
+/// std
+#include <string>
+#include <utility>
+
 /// external
 #include "open62541/types.h"
+
+/// module
+#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace opc {
 /// @brief RAII wrapper for UA_NodeId that automatically manages memory.
@@ -22,14 +30,20 @@ public:
     /// @brief Default constructor - creates a null NodeId
     NodeId() { UA_NodeId_init(&id_); }
 
-    /// @brief Construct from a raw UA_NodeId (takes ownership)
-    explicit NodeId(const UA_NodeId &id) { UA_NodeId_copy(&id, &id_); }
+    /// @brief Construct from a raw UA_NodeId (makes a deep copy)
+    explicit NodeId(const UA_NodeId &id) {
+        UA_NodeId_init(&id_);
+        UA_NodeId_copy(&id, &id_);
+    }
 
     /// @brief Destructor - automatically cleans up allocated memory
     ~NodeId() { UA_NodeId_clear(&id_); }
 
     /// @brief Copy constructor - creates a deep copy
-    NodeId(const NodeId &other) { UA_NodeId_copy(&other.id_, &id_); }
+    NodeId(const NodeId &other) {
+        UA_NodeId_init(&id_);
+        UA_NodeId_copy(&other.id_, &id_);
+    }
 
     /// @brief Copy assignment - creates a deep copy
     NodeId &operator=(const NodeId &other) {
@@ -65,7 +79,28 @@ public:
 
     /// @brief Check if this is a null NodeId
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
+
+    /// @brief Parse NodeId from a JSON field
+    /// @param field_name The JSON field name to parse
+    /// @param parser The JSON parser
+    /// @return A NodeId wrapper (may be null if parsing fails)
+    static NodeId parse(const std::string &field_name, xjson::Parser &parser);
+
+    /// @brief Parse NodeId from a string representation
+    /// @param node_id_str String in format "NS=<ns>;(I|S|G|B)=<identifier>"
+    /// @return Pair of raw UA_NodeId and error (if any)
+    static std::pair<UA_NodeId, xerrors::Error> parse(const std::string &node_id_str);
+
+    /// @brief Convert NodeId to string representation
+    /// @param node_id The NodeId to convert
+    /// @return String in format "NS=<ns>;(I|S|G|B)=<identifier>"
+    static std::string to_string(const UA_NodeId &node_id);
 };
+
+/// @brief Convert UA_NodeClass to string representation
+/// @param node_class The NodeClass to convert
+/// @return String representation (e.g., "Variable", "Object", etc.)
+std::string node_class_to_string(const UA_NodeClass &node_class);
 
 /// @brief RAII wrapper for UA_Variant that automatically manages memory.
 class Variant {
@@ -73,10 +108,16 @@ class Variant {
 
 public:
     Variant() { UA_Variant_init(&var_); }
-    explicit Variant(const UA_Variant &var) { UA_Variant_copy(&var, &var_); }
+    explicit Variant(const UA_Variant &var) {
+        UA_Variant_init(&var_);
+        UA_Variant_copy(&var, &var_);
+    }
     ~Variant() { UA_Variant_clear(&var_); }
 
-    Variant(const Variant &other) { UA_Variant_copy(&other.var_, &var_); }
+    Variant(const Variant &other) {
+        UA_Variant_init(&var_);
+        UA_Variant_copy(&other.var_, &var_);
+    }
     Variant &operator=(const Variant &other) {
         if (this != &other) {
             UA_Variant_clear(&var_);
@@ -158,6 +199,45 @@ public:
     UA_WriteResponse &get_mut() { return res_; }
 };
 
+/// @brief RAII wrapper for UA_WriteRequest that manages memory while allowing
+/// borrowed NodeIds. This prevents double-free when NodeIds are borrowed from
+/// long-lived objects (e.g., OutputChan).
+class WriteRequest {
+    UA_WriteRequest req_;
+    size_t allocated_size_;
+
+public:
+    explicit WriteRequest(size_t size): allocated_size_(size) {
+        UA_WriteRequest_init(&req_);
+        req_.nodesToWrite = static_cast<UA_WriteValue *>(
+            UA_Array_new(size, &UA_TYPES[UA_TYPES_WRITEVALUE])
+        );
+        for (size_t i = 0; i < size; ++i)
+            UA_WriteValue_init(&req_.nodesToWrite[i]);
+        req_.nodesToWriteSize = 0; // Set by caller as items are added
+    }
+
+    ~WriteRequest() {
+        // Manually clear each WriteValue, zeroing out borrowed NodeIds first
+        for (size_t i = 0; i < allocated_size_; i++) {
+            // Zero out the NodeId to prevent double-free (it's borrowed)
+            UA_NodeId_init(&req_.nodesToWrite[i].nodeId);
+            // Clear the variant (which we do own)
+            UA_DataValue_clear(&req_.nodesToWrite[i].value);
+        }
+        // Free the array itself
+        UA_free(req_.nodesToWrite);
+    }
+
+    WriteRequest(const WriteRequest &) = delete;
+    WriteRequest &operator=(const WriteRequest &) = delete;
+    WriteRequest(WriteRequest &&) = delete;
+    WriteRequest &operator=(WriteRequest &&) = delete;
+
+    [[nodiscard]] UA_WriteRequest &get_mut() { return req_; }
+    [[nodiscard]] const UA_WriteRequest &get() const { return req_; }
+};
+
 /// @brief RAII wrapper for UA_LocalizedText that automatically manages memory.
 class LocalizedText {
     UA_LocalizedText text_;
@@ -170,6 +250,7 @@ public:
     ~LocalizedText() { UA_LocalizedText_clear(&text_); }
 
     LocalizedText(const LocalizedText &other) {
+        UA_LocalizedText_init(&text_);
         UA_LocalizedText_copy(&other.text_, &text_);
     }
     LocalizedText &operator=(const LocalizedText &other) {
@@ -208,6 +289,7 @@ public:
     ~QualifiedName() { UA_QualifiedName_clear(&name_); }
 
     QualifiedName(const QualifiedName &other) {
+        UA_QualifiedName_init(&name_);
         UA_QualifiedName_copy(&other.name_, &name_);
     }
     QualifiedName &operator=(const QualifiedName &other) {
@@ -243,7 +325,10 @@ public:
     explicit String(const char *s) { str_ = UA_STRING_ALLOC(s); }
     ~String() { UA_String_clear(&str_); }
 
-    String(const String &other) { UA_String_copy(&other.str_, &str_); }
+    String(const String &other) {
+        UA_String_init(&str_);
+        UA_String_copy(&other.str_, &str_);
+    }
     String &operator=(const String &other) {
         if (this != &other) {
             UA_String_clear(&str_);
@@ -278,6 +363,7 @@ public:
     ~ByteString() { UA_ByteString_clear(&str_); }
 
     ByteString(const ByteString &other) {
+        UA_ByteString_init(&str_);
         UA_ByteString_copy(&other.str_, &str_);
     }
     ByteString &operator=(const ByteString &other) {

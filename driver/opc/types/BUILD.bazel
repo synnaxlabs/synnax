@@ -1,0 +1,21 @@
+cc_library(
+    name = "types",
+    hdrs = ["types.h"],
+    srcs = ["types.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/open62541",
+        "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "types_test",
+    srcs = ["types_test.cpp"],
+    deps = [
+        ":types",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

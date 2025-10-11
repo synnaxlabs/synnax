@@ -9,21 +9,20 @@
 
 /// std
 #include <iomanip>
+#include <map>
 #include <regex>
 #include <sstream>
-
-/// module
-#include "x/cpp/xjson/xjson.h"
 
 /// external
 #include "open62541/types.h"
 
 /// internal
-#include "driver/opc/util/util.h"
+#include "driver/opc/types/types.h"
 
-namespace util {
-///@brief Helper function to convert string GUID to UA_Guid
-inline UA_Guid string_to_guid(const std::string &guidStr) {
+namespace opc {
+namespace {
+/// @brief Helper function to convert string GUID to UA_Guid
+UA_Guid string_to_guid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
     std::sscanf(
@@ -46,8 +45,7 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
     return guid;
 }
 
-
-///@brief Helper function to convert a GUID to a string
+/// @brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0') << std::setw(8) << guid.data1 << "-"
@@ -60,21 +58,23 @@ std::string guid_to_string(const UA_Guid &guid) {
            << (guid.data4[7] & 0xFF);
     return stream.str();
 }
+}  // namespace
 
-/// @brief Parses a string NodeId into an opc::NodeId wrapper with automatic memory
-/// management
-opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
-    const std::string nodeIdStr = parser.required<std::string>(path);
-    if (!parser.ok()) return opc::NodeId();
-    auto [node_id, err] = parse_node_id(nodeIdStr);
+NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
+    const std::string nodeIdStr = parser.required<std::string>(field_name);
+    if (!parser.ok()) return NodeId();
+    auto [node_id, err] = parse(nodeIdStr);
     if (err) {
-        parser.field_err(path, err.message());
-        return opc::NodeId();
+        parser.field_err(field_name, err.message());
+        return NodeId();
     }
-    return opc::NodeId(node_id);
+    // Constructor makes a deep copy, so we need to free the original
+    NodeId result(node_id);
+    UA_NodeId_clear(&node_id);
+    return result;
 }
 
-std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
+std::pair<UA_NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
@@ -105,8 +105,7 @@ std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_st
     return {node_id, xerrors::NIL};
 }
 
-
-std::string node_id_to_string(const UA_NodeId &node_id) {
+std::string NodeId::to_string(const UA_NodeId &node_id) {
     std::ostringstream node_id_str;
     node_id_str << "NS=" << node_id.namespaceIndex << ";";
     switch (node_id.identifierType) {
@@ -150,4 +149,4 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
-}
+}  // namespace opc
