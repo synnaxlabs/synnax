@@ -41,12 +41,12 @@ telemetry systems. The monorepo includes:
 ### TypeScript Development
 
 ```bash
-pnpm build                  # Build all packages
-pnpm dev:console            # Start Console (Tauri)
-pnpm dev:console-vite       # Start Console (Vite only)
-pnpm test                   # Run all tests
-pnpm lint                   # Lint all packages
-pnpm fix                    # Auto-fix linting issues
+pnpm build            # Build all packages
+pnpm dev:console      # Start Console (Tauri)
+pnpm dev:console-vite # Start Console (Vite only)
+pnpm test             # Run all tests
+pnpm lint             # Lint all packages
+pnpm fix              # Auto-fix linting issues
 ```
 
 ### Go Development
@@ -60,17 +60,17 @@ cd <module> && go build ./...  # Build module
 
 ```bash
 cd client/py
-poetry install              # Install dependencies
-poetry run pytest           # Run tests
-poetry run black .          # Format code
+poetry install     # Install dependencies
+poetry run pytest  # Run tests
+poetry run black . # Format code
 ```
 
 ### C++ Development
 
 ```bash
-bazel build //...           # Build all C++
-bazel test //driver/...     # Run driver tests
-bazel build //driver/cmd:driver  # Build driver binary
+bazel build //...               # Build all C++
+bazel test //driver/...         # Run driver tests
+bazel build //driver/cmd:driver # Build driver binary
 ```
 
 ## Development Workflow

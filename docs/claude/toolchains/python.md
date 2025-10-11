@@ -17,9 +17,9 @@ All packages use **Poetry** for dependency management.
 
 ```bash
 cd client/py
-poetry install           # Install dependencies
-poetry add package-name  # Add a dependency
-poetry run pytest        # Run tests
+poetry install          # Install dependencies
+poetry add package-name # Add a dependency
+poetry run pytest       # Run tests
 poetry build            # Build distribution
 ```
 
@@ -130,12 +130,12 @@ Defined in `pyproject.toml`:
 ```toml
 [tool.pytest.ini_options]
 markers = [
-    "access: mark test as an access test",
-    "auth: mark test as an auth test",
-    "channel: mark test as a channel test",
-    "framer: mark test as a framer test",
-    "multi_node: mark test as a multi_node test",
-    # ... many more
+  "access: mark test as an access test",
+  "auth: mark test as an auth test",
+  "channel: mark test as a channel test",
+  "framer: mark test as a framer test",
+  "multi_node: mark test as a multi_node test",
+  # ... many more
 ]
 ```
 

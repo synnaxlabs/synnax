@@ -172,8 +172,8 @@ package-name/
 Use `madge` to detect circular dependencies:
 
 ```bash
-pnpm madge           # Check all packages
-pnpm madge:console   # Check only Console
+pnpm madge         # Check all packages
+pnpm madge:console # Check only Console
 ```
 
 ## Common Gotchas

@@ -32,6 +32,7 @@ describe("Feature", () => {
 **Files**: `*.spec.ts` co-located with source
 
 **Key Features**:
+
 - Mocking: `vi.fn()`
 - React Testing: `@testing-library/react`
 - Assertions: `expect().toEqual()`, `toBe()`, `toHaveBeenCalled()`
@@ -53,6 +54,7 @@ var _ = Describe("Feature", func() {
 **Files**: `*_test.go` with suite in `*_suite_test.go`
 
 **Key Features**:
+
 - BDD: `Describe`, `Context`, `It`, `Specify`
 - Matchers: `Equal`, `BeTrue`, `Eventually`, `Succeed`
 - Lifecycle: `BeforeAll`, `AfterAll`, `BeforeEach`, `AfterEach`
@@ -77,6 +79,7 @@ class TestChannel:
 **Files**: `test_*.py` in `tests/` directory
 
 **Key Features**:
+
 - Fixtures: Defined in `conftest.py`
 - Markers: `@pytest.mark.channel`, `@pytest.mark.framer`, etc.
 - Exceptions: `with pytest.raises(Exception)`
@@ -105,6 +108,7 @@ TEST_F(MyFixture, TestMethod) {
 **Files**: `*_test.cpp` co-located with source
 
 **Key Features**:
+
 - Assertions: `EXPECT_*`, `ASSERT_*`
 - Fixtures: `TEST_F` with `SetUp`/`TearDown`
 - Eventually: `ASSERT_EVENTUALLY_*` for async tests
@@ -182,6 +186,7 @@ package/
 ### Async Testing
 
 **TypeScript:**
+
 ```typescript
 it("should handle async", async () => {
   const result = await asyncOperation();
@@ -190,6 +195,7 @@ it("should handle async", async () => {
 ```
 
 **Go:**
+
 ```go
 It("Should handle async", func() {
     Eventually(func() bool {
@@ -199,6 +205,7 @@ It("Should handle async", func() {
 ```
 
 **Python:**
+
 ```python
 @pytest.mark.asyncio
 async def test_async_operation():
@@ -207,6 +214,7 @@ async def test_async_operation():
 ```
 
 **C++:**
+
 ```cpp
 TEST(AsyncTest, EventuallySucceeds) {
     ASSERT_EVENTUALLY_TRUE(async_condition());
@@ -216,12 +224,14 @@ TEST(AsyncTest, EventuallySucceeds) {
 ### Mocking
 
 **TypeScript:**
+
 ```typescript
 const mockFn = vi.fn().mockReturnValue(42);
 expect(mockFn()).toBe(42);
 ```
 
 **Go:**
+
 ```go
 // Interface-based mocking
 type MockReader struct{}
@@ -231,6 +241,7 @@ func (m *MockReader) Read(ctx context.Context) (Frame, error) {
 ```
 
 **Python:**
+
 ```python
 # Use fixtures for dependency injection
 @pytest.fixture
@@ -239,6 +250,7 @@ def mock_client():
 ```
 
 **C++:**
+
 ```cpp
 // Mock implementations
 class MockSource : public Source {
@@ -251,6 +263,7 @@ class MockSource : public Source {
 ### Setup/Teardown
 
 **TypeScript:**
+
 ```typescript
 beforeEach(() => {
   // Setup before each test
@@ -262,6 +275,7 @@ afterAll(() => {
 ```
 
 **Go:**
+
 ```go
 BeforeEach(func() {
     // Setup
@@ -273,6 +287,7 @@ AfterAll(func() {
 ```
 
 **Python:**
+
 ```python
 @pytest.fixture
 def setup_data():
@@ -282,6 +297,7 @@ def setup_data():
 ```
 
 **C++:**
+
 ```cpp
 class MyTest : public ::testing::Test {
 protected:
