@@ -57,20 +57,24 @@ Windows are managed declaratively via Redux actions:
 
 ```typescript
 // Create a new window
-dispatch(Drift.createWindow({
-  key: "schematic-1",
-  type: "schematic",
-  loc: "mosaic",  // Where to render in layout
-}));
+dispatch(
+  Drift.createWindow({
+    key: "schematic-1",
+    type: "schematic",
+    loc: "mosaic", // Where to render in layout
+  }),
+);
 
 // Close a window
 dispatch(Drift.closeWindow({ key: "schematic-1" }));
 
 // Update window properties
-dispatch(Drift.setWindowProps({
-  key: "schematic-1",
-  props: { title: "New Title", width: 800 }
-}));
+dispatch(
+  Drift.setWindowProps({
+    key: "schematic-1",
+    props: { title: "New Title", width: 800 },
+  }),
+);
 ```
 
 ### Pre-rendering Optimization
@@ -118,15 +122,15 @@ Redux store uses modular slices:
 
 ```typescript
 const store = {
-  cluster: ClusterState,      // Cluster connections
-  layout: LayoutState,        // Window layouts (mosaic)
-  linePlot: LinePlotState,    // Line plot visualizations
-  schematic: SchematicState,  // Schematic editor
-  table: TableState,          // Table views
-  workspace: WorkspaceState,  // Workspace management
-  drift: DriftState,          // Window state
+  cluster: ClusterState, // Cluster connections
+  layout: LayoutState, // Window layouts (mosaic)
+  linePlot: LinePlotState, // Line plot visualizations
+  schematic: SchematicState, // Schematic editor
+  table: TableState, // Table views
+  workspace: WorkspaceState, // Workspace management
+  drift: DriftState, // Window state
   // ... more slices
-}
+};
 ```
 
 ### Slice Pattern
@@ -151,10 +155,16 @@ const slice = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    add: (state, action) => { /* ... */ },
-    remove: (state, action) => { /* ... */ },
-    setActive: (state, action) => { /* ... */ },
-  }
+    add: (state, action) => {
+      /* ... */
+    },
+    remove: (state, action) => {
+      /* ... */
+    },
+    setActive: (state, action) => {
+      /* ... */
+    },
+  },
 });
 ```
 
@@ -171,9 +181,9 @@ Only the **main window** persists state to disk:
 
 ```typescript
 const PERSIST_EXCLUDE = [
-  "layout.**.nav",           // Navigation drawer state
-  "layout.**.hauling",       // Drag-and-drop state
-  "palette.activeTheme",     // Active theme
+  "layout.**.nav", // Navigation drawer state
+  "layout.**.hauling", // Drag-and-drop state
+  "palette.activeTheme", // Active theme
 ];
 ```
 
@@ -186,11 +196,11 @@ Console uses a **mosaic tree** structure for tab layouts:
 ```typescript
 type MosaicNode = {
   key: string;
-  tabs?: Tab[];           // Leaf node with tabs
-  first?: MosaicNode;     // Split node - first child
-  second?: MosaicNode;    // Split node - second child
+  tabs?: Tab[]; // Leaf node with tabs
+  first?: MosaicNode; // Split node - first child
+  second?: MosaicNode; // Split node - second child
   direction?: "row" | "column";
-  size?: number;          // Split ratio
+  size?: number; // Split ratio
 };
 ```
 
@@ -218,11 +228,13 @@ type NavDrawerState = {
 Workspaces are saved layouts that can be quickly switched:
 
 ```typescript
-dispatch(Layout.setWorkspace({
-  key: "workspace-1",
-  name: "Telemetry Dashboard",
-  layout: mosaicTree,
-}));
+dispatch(
+  Layout.setWorkspace({
+    key: "workspace-1",
+    name: "Telemetry Dashboard",
+    layout: mosaicTree,
+  }),
+);
 ```
 
 - Preserves window configurations
@@ -252,17 +264,21 @@ useWindowLifecycle({
 Prevent window closure during long-running operations:
 
 ```typescript
-dispatch(Drift.registerProcess({
-  windowKey: "schematic-1",
-  processKey: "saving",
-  blocking: true,
-}));
+dispatch(
+  Drift.registerProcess({
+    windowKey: "schematic-1",
+    processKey: "saving",
+    blocking: true,
+  }),
+);
 
 // Later...
-dispatch(Drift.unregisterProcess({
-  windowKey: "schematic-1",
-  processKey: "saving",
-}));
+dispatch(
+  Drift.unregisterProcess({
+    windowKey: "schematic-1",
+    processKey: "saving",
+  }),
+);
 ```
 
 ### Selecting Window State
