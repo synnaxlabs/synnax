@@ -49,19 +49,13 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     telem::Series series(data_type, 1);
 
     // Write the value to the series
-    size_t count = util::write_to_series(series, value);
+    auto [count, write_err] = util::write_to_series(series, value);
 
     // Clean up the variant
     UA_Variant_clear(&value);
 
-    if (count == 0) {
-        return {
-            telem::Series(0),
-            xerrors::Error(
-                xerrors::VALIDATION,
-                "Failed to convert OPC UA value to series"
-            )
-        };
+    if (write_err) {
+        return {telem::Series(0), write_err};
     }
 
     return {std::move(series), xerrors::NIL};
