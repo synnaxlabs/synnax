@@ -58,7 +58,7 @@ std::string guid_to_string(const UA_Guid &guid) {
            << (guid.data4[7] & 0xFF);
     return stream.str();
 }
-}  // namespace
+} // namespace
 
 NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
     const std::string nodeIdStr = parser.required<std::string>(field_name);
@@ -149,4 +149,4 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
-}  // namespace opc
+} // namespace opc

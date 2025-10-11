@@ -18,7 +18,10 @@
 
 TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_FLOAT]), telem::FLOAT32_T);
-    EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_DOUBLE]), telem::FLOAT64_T);
+    EXPECT_EQ(
+        opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_DOUBLE]),
+        telem::FLOAT64_T
+    );
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_SBYTE]), telem::INT8_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_INT16]), telem::INT16_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_INT32]), telem::INT32_T);
@@ -28,7 +31,10 @@ TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_UINT32]), telem::UINT32_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_UINT64]), telem::UINT64_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_STRING]), telem::STRING_T);
-    EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_DATETIME]), telem::TIMESTAMP_T);
+    EXPECT_EQ(
+        opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_DATETIME]),
+        telem::TIMESTAMP_T
+    );
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_GUID]), telem::UUID_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_BOOLEAN]), telem::UINT8_T);
     EXPECT_EQ(opc::telem::ua_to_data_type(nullptr), telem::UNKNOWN_T);
@@ -36,7 +42,10 @@ TEST(TelemTest, testUAToDataType) {
 
 TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::FLOAT32_T), &UA_TYPES[UA_TYPES_FLOAT]);
-    EXPECT_EQ(opc::telem::data_type_to_ua(telem::FLOAT64_T), &UA_TYPES[UA_TYPES_DOUBLE]);
+    EXPECT_EQ(
+        opc::telem::data_type_to_ua(telem::FLOAT64_T),
+        &UA_TYPES[UA_TYPES_DOUBLE]
+    );
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::INT8_T), &UA_TYPES[UA_TYPES_SBYTE]);
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::INT16_T), &UA_TYPES[UA_TYPES_INT16]);
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::INT32_T), &UA_TYPES[UA_TYPES_INT32]);
@@ -45,9 +54,15 @@ TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::UINT32_T), &UA_TYPES[UA_TYPES_UINT32]);
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::UINT64_T), &UA_TYPES[UA_TYPES_UINT64]);
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::STRING_T), &UA_TYPES[UA_TYPES_STRING]);
-    EXPECT_EQ(opc::telem::data_type_to_ua(telem::TIMESTAMP_T), &UA_TYPES[UA_TYPES_DATETIME]);
+    EXPECT_EQ(
+        opc::telem::data_type_to_ua(telem::TIMESTAMP_T),
+        &UA_TYPES[UA_TYPES_DATETIME]
+    );
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::UUID_T), &UA_TYPES[UA_TYPES_GUID]);
-    EXPECT_EQ(opc::telem::data_type_to_ua(telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
+    EXPECT_EQ(
+        opc::telem::data_type_to_ua(telem::UNKNOWN_T),
+        &UA_TYPES[UA_TYPES_VARIANT]
+    );
 }
 
 TEST(TelemTest, testUAFloatArrayToSeries) {

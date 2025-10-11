@@ -184,9 +184,9 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
     auto [conn2, err2] = pool.acquire(cfg_with_user, "[test] ");
     if (err2) {
-        GTEST_SKIP(
-        ) << "Skipping credentials test - server doesn't support alternate security: "
-          << err2.message();
+        GTEST_SKIP()
+            << "Skipping credentials test - server doesn't support alternate security: "
+            << err2.message();
     }
 
     EXPECT_NE(conn1.get(), conn2.get());

@@ -55,9 +55,7 @@ public:
     }
 
     /// @brief Move constructor - transfers ownership
-    NodeId(NodeId &&other) noexcept: id_(other.id_) {
-        UA_NodeId_init(&other.id_);
-    }
+    NodeId(NodeId &&other) noexcept: id_(other.id_) { UA_NodeId_init(&other.id_); }
 
     /// @brief Move assignment - transfers ownership
     NodeId &operator=(NodeId &&other) noexcept {
@@ -337,9 +335,7 @@ public:
         return *this;
     }
 
-    String(String &&other) noexcept: str_(other.str_) {
-        UA_String_init(&other.str_);
-    }
+    String(String &&other) noexcept: str_(other.str_) { UA_String_init(&other.str_); }
     String &operator=(String &&other) noexcept {
         if (this != &other) {
             UA_String_clear(&str_);

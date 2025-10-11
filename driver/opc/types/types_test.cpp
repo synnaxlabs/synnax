@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "gtest/gtest.h"
 #include "open62541/types.h"
+#include "gtest/gtest.h"
 
 /// module
 #include "x/cpp/xjson/xjson.h"
@@ -75,13 +75,13 @@ TEST(TypesTest, NodeIdMoveSemantics) {
     // Test move constructor
     opc::NodeId nodeId2(std::move(nodeId1));
     EXPECT_FALSE(nodeId2.is_null());
-    EXPECT_TRUE(nodeId1.is_null());  // Original should be null after move
+    EXPECT_TRUE(nodeId1.is_null()); // Original should be null after move
 
     // Test move assignment
     opc::NodeId nodeId3;
     nodeId3 = std::move(nodeId2);
     EXPECT_FALSE(nodeId3.is_null());
-    EXPECT_TRUE(nodeId2.is_null());  // Original should be null after move
+    EXPECT_TRUE(nodeId2.is_null()); // Original should be null after move
 }
 
 // Test NodeId parsing
@@ -276,12 +276,12 @@ TEST(TypesTest, NoDoubleFree) {
     // Create multiple wrappers that will all be destroyed
     {
         opc::NodeId nodeId1(string_id);
-        opc::NodeId nodeId2(nodeId1);  // Copy
+        opc::NodeId nodeId2(nodeId1); // Copy
         opc::NodeId nodeId3;
-        nodeId3 = nodeId1;  // Copy assign
+        nodeId3 = nodeId1; // Copy assign
 
         // All three will have independent copies and clean up independently
-    }  // No double-free should occur here
+    } // No double-free should occur here
 
     UA_NodeId_clear(&string_id);
 }

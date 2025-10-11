@@ -235,10 +235,9 @@ public:
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
-        opc::ReadResponse ua_res(UA_Client_Service_read(
-            this->conn.get(),
-            this->request.base
-        ));
+        opc::ReadResponse ua_res(
+            UA_Client_Service_read(this->conn.get(), this->request.base)
+        );
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -292,16 +291,18 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::telem::TimeStamp::now();
-            opc::ReadResponse ua_res(UA_Client_Service_read(
-                this->conn.get(),
-                this->request.base
-            ));
-            if (res.error = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
+            opc::ReadResponse ua_res(
+                UA_Client_Service_read(this->conn.get(), this->request.base)
+            );
+            if (res.error = opc::errors::parse(
+                    ua_res.get().responseHeader.serviceResult
+                );
                 res.error)
                 return res;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get_mut().results[j];
-                if (res.error = opc::errors::parse(result.status); res.error) return res;
+                if (res.error = opc::errors::parse(result.status); res.error)
+                    return res;
                 opc::telem::write_to_series(fr.series->at(j), result.value);
             }
             const auto end = ::telem::TimeStamp::now();

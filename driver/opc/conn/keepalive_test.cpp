@@ -11,8 +11,8 @@
 
 #include <thread>
 
-#include "driver/opc/mock/server.h"
 #include "driver/opc/conn/conn.h"
+#include "driver/opc/mock/server.h"
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 

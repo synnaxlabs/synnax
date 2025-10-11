@@ -298,7 +298,10 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Connect and read back the values to verify they were written
-    auto [client, conn_err] = opc::conn::connect(conn_cfg, "[test.write_verification] ");
+    auto [client, conn_err] = opc::conn::connect(
+        conn_cfg,
+        "[test.write_verification] "
+    );
     ASSERT_FALSE(conn_err) << conn_err;
 
     // Verify boolean value (should be 1)

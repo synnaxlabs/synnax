@@ -199,7 +199,8 @@ public:
             attr.displayName = displayName.get();
 
             opc::NodeId nodeId(UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str()));
-            LOG(INFO) << "Creating OPC UA node: " << opc::NodeId::to_string(nodeId.get());
+            LOG(INFO) << "Creating OPC UA node: "
+                      << opc::NodeId::to_string(nodeId.get());
 
             opc::QualifiedName nodeName(node.ns, node.node_id.c_str());
             UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
