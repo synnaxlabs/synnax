@@ -85,20 +85,25 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 return 0;
             }
 
-            auto result = xlua::to_series(cL, 2, channel.data_type);
-            if (result.second) {
-                // Error case - don't use structured binding to avoid leak
-                // The Series in result.first will be destroyed when result goes out of
-                // scope
-                const std::string err_msg = result.second.message();
-                // Explicitly reset/destroy the result before lua_error's longjmp
-                result.first = telem::Series(telem::UNKNOWN_T, 0);
-                lua_pushstring(cL, err_msg.c_str());
+            // Use nested scope to ensure Series destructor runs before lua_error
+            bool had_error = false;
+            {
+                auto result = xlua::to_series(cL, 2, channel.data_type);
+                if (result.second) {
+                    // Push error to Lua stack while result is still alive
+                    lua_pushstring(cL, result.second.message().c_str());
+                    had_error = true;
+                    // result (and its Series) are destroyed when scope exits here
+                } else {
+                    // Success - move value into frame
+                    op->frame.emplace(channel.key, std::move(result.first));
+                }
+            }
+            // Now it's safe to call lua_error - all C++ objects are destroyed
+            if (had_error) {
                 lua_error(cL);
                 return 0;
             }
-            // Success - move value into frame
-            op->frame.emplace(channel.key, std::move(result.first));
             return 0;
         },
         1
