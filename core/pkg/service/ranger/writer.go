@@ -146,12 +146,12 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 	return gorp.
 		NewUpdate[uuid.UUID, Range]().
 		WhereKeys(key).
-		Change(func(r Range) Range { r.Name = name; return r }).
+		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
 }
 
 func (w Writer) swapRanges(ctx context.Context) error {
-	return gorp.NewUpdate[uuid.UUID, Range]().Change(func(r Range) Range {
+	return gorp.NewUpdate[uuid.UUID, Range]().Change(func(_ gorp.Context, r Range) Range {
 		r.TimeRange = r.TimeRange.MakeValid()
 		return r
 	}).Exec(ctx, w.tx)

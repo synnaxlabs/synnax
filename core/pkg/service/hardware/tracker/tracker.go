@@ -491,7 +491,7 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 	}
 }
 
-func (t *Tracker) checkRackState(_ context.Context) {
+func (t *Tracker) checkRackState(ctx context.Context) {
 	rackStatuses := make([]rack.Status, 0, len(t.mu.Racks))
 	taskStatuses := make([]task.Status, 0, len(t.mu.Racks))
 	deviceStatuses := make([]device.Status, 0)
@@ -509,7 +509,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 		if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
 			WhereKeys(rackStatus.Details.Rack).
 			Entry(&rck).
-			Exec(context.Background(), t.cfg.DB); err != nil {
+			Exec(ctx, t.cfg.DB); err != nil {
 			t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 			continue
 		}
