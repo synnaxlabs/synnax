@@ -27,15 +27,15 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
-func (d Delete[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Delete[K, E] {
-	addFilter[K](d.params, filter, opts)
+func (d Delete[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Delete[K, E] {
+	addFilter[K, E](d.params, filter, opts)
 	return d
 }
 
 // Guard executes the given function on each entry matching the query. If the function
 // returns an error, the query will fail and no further entries will be processed. If
 // the provided guard function is nil, no guard will be applied.
-func (d Delete[K, E]) Guard(filter func(E) error) Delete[K, E] {
+func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	if filter == nil {
 		return d
 	}
@@ -64,7 +64,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
-	if err := checkGuards[K](d.params, entries); err != nil {
+	if err := checkGuards[K](Context{Context: ctx, Tx: tx}, d.params, entries); err != nil {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
@@ -73,18 +73,20 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 
 const deleteGuardKey = "deleteGuard"
 
-type guards[K Key, E Entry[K]] []func(E) error
+type guards[K Key, E Entry[K]] []GuardFunc[K, E]
 
-func (g guards[K, E]) exec(entry E) error {
+func (g guards[K, E]) exec(ctx Context, entry E) error {
 	for _, f := range g {
-		if err := f(entry); err != nil {
+		if err := f(ctx, entry); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func addGuard[K Key, E Entry[K]](q query.Parameters, guard func(E) error) {
+type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
+
+func addGuard[K Key, E Entry[K]](q query.Parameters, guard GuardFunc[K, E]) {
 	var g guards[K, E]
 	rg, ok := q.Get(deleteGuardKey)
 	if !ok {
@@ -96,14 +98,14 @@ func addGuard[K Key, E Entry[K]](q query.Parameters, guard func(E) error) {
 	q.Set(deleteGuardKey, g)
 }
 
-func checkGuards[K Key, E Entry[K]](q query.Parameters, entries []E) error {
+func checkGuards[K Key, E Entry[K]](ctx Context, q query.Parameters, entries []E) error {
 	g, ok := q.Get(deleteGuardKey)
 	if !ok {
 		return nil
 	}
 	guards_ := g.(guards[K, E])
 	for _, entry := range entries {
-		if err := guards_.exec(entry); err != nil {
+		if err := guards_.exec(ctx, entry); err != nil {
 			return err
 		}
 	}
