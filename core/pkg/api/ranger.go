@@ -282,7 +282,7 @@ func (s *RangeService) KVGet(
 		err error
 	)
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.ListKV()
+		res.Pairs, err = r.ListKV(ctx)
 		if err != nil {
 			return RangeKVGetResponse{}, err
 		}

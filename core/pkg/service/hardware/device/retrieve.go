@@ -39,43 +39,40 @@ func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 
 // WhereRacks filters for devices whose rack matches the provided racks.
 func (r Retrieve) WhereRacks(racks ...rack.Key) Retrieve {
-	r.gorp = r.gorp.Where(
-		func(d *Device) bool { return lo.Contains(racks, d.Rack) },
-		gorp.Required(),
-	)
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+		return lo.Contains(racks, d.Rack), nil
+	}, gorp.Required())
 	return r
 }
 
-// WhereMakes filters for devices whose make matches the provided makes.
-func (r Retrieve) WhereMakes(makes ...string) Retrieve {
-	r.gorp = r.gorp.Where(
-		func(d *Device) bool { return lo.Contains(makes, d.Make) },
-		gorp.Required(),
-	)
+func (r Retrieve) WhereMakes(make ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+		return lo.Contains(make, d.Make), nil
+	}, gorp.Required())
 	return r
 }
 
 // WhereLocations filters for devices whose location matches the provided locations.
 func (r Retrieve) WhereLocations(locations ...string) Retrieve {
-	r.gorp = r.gorp.Where(
-		func(d *Device) bool { return lo.Contains(locations, d.Location) },
-		gorp.Required(),
-	)
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+		return lo.Contains(locations, d.Location), nil
+	}, gorp.Required())
 	return r
 }
 
 // WhereModels filters for devices whose model matches the provided models.
 func (r Retrieve) WhereModels(models ...string) Retrieve {
-	r.gorp = r.gorp.Where(
-		func(d *Device) bool { return lo.Contains(models, d.Model) },
-		gorp.Required(),
-	)
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+		return lo.Contains(models, d.Model), nil
+	}, gorp.Required())
 	return r
 }
 
 // WhereNames filters for devices whose name matches the provided names.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(names, d.Name) })
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+		return lo.Contains(names, d.Name), nil
+	})
 	return r
 }
 

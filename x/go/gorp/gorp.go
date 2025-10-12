@@ -83,6 +83,14 @@ type Tx interface {
 	Tools
 }
 
+// Context is an extension of the built-in context.Context type that adds additional
+// fields useful in gorp callbacks.
+type Context struct {
+	context.Context
+	// Tx is the transaction the query is operating under.
+	Tx Tx
+}
+
 type tx struct {
 	kv.Tx
 	options
