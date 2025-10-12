@@ -43,8 +43,8 @@ func OntologyIDsFromTables(tables []Table) []ontology.ID {
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
-func newResource(l Table) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+func newResource(t Table) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
 }
 
 var _ ontology.Service = (*Service)(nil)

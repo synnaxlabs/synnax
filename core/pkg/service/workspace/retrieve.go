@@ -40,7 +40,9 @@ func (r Retrieve) Entries(workspaces *[]Workspace) Retrieve {
 }
 
 func (r Retrieve) WhereAuthor(author uuid.UUID) Retrieve {
-	r.gorp = r.gorp.Where(func(ws *Workspace) bool { return ws.Author == author })
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, ws *Workspace) (bool, error) {
+		return ws.Author == author, nil
+	})
 	return r
 }
 

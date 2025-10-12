@@ -87,10 +87,11 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).Change(func(p Schematic) Schematic {
-		p.Name = name
-		return p
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
+		Change(func(_ gorp.Context, s Schematic) Schematic {
+			s.Name = name
+			return s
+		}).Exec(ctx, w.tx)
 }
 
 // Copy creates a copy of the log with the given key and name. If the snapshot flag is
@@ -104,13 +105,15 @@ func (w Writer) Copy(
 	result *Schematic,
 ) error {
 	newKey := uuid.New()
-	if err := gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).Change(func(s Schematic) Schematic {
-		s.Key = newKey
-		s.Name = name
-		s.Snapshot = snapshot
-		*result = s
-		return s
-	}).Exec(ctx, w.tx); err != nil {
+	if err := gorp.NewUpdate[uuid.UUID, Schematic]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, s Schematic) Schematic {
+			s.Key = newKey
+			s.Name = name
+			s.Snapshot = snapshot
+			*result = s
+			return s
+		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	ws, ok, err := w.findParentWorkspace(ctx, key)
@@ -138,13 +141,14 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).ChangeErr(func(s Schematic) (Schematic, error) {
-		if s.Snapshot {
-			return s, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
-		}
-		s.Data = data
-		return s, nil
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
+		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
+			if s.Snapshot {
+				return s, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
+			}
+			s.Data = data
+			return s, nil
+		}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the logs with the given keys.

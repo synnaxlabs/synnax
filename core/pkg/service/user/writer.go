@@ -65,7 +65,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 	if usernameExists {
 		return auth.RepeatedUsername
 	}
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(u User) User {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		u.Username = newUsername
 		return u
 	}).Exec(ctx, w.tx)
@@ -74,7 +74,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 // ChangeName updates the first and last name of the user with the given key. If either
 // first or last is an empty string, the corresponding field will not be updated.
 func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(u User) User {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		if first != "" {
 			u.FirstName = first
 		}
@@ -85,12 +85,12 @@ func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, las
 	}).Exec(ctx, w.tx)
 }
 
-// Delete removes the users with the given keys keys from the key-value store.
+// Delete removes the users with the given keys from the key-value store.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := gorp.NewDelete[uuid.UUID, User]().WhereKeys(keys...).Guard(func(u User) error {
+	if err := gorp.NewDelete[uuid.UUID, User]().WhereKeys(keys...).Guard(func(_ gorp.Context, u User) error {
 		if u.RootUser {
 			return errors.New("cannot delete root user")
 		}
@@ -115,7 +115,7 @@ func (w Writer) MaybeSetRootUser(
 	if len(users) != 1 {
 		return nil
 	}
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(u User) User {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(_ gorp.Context, u User) User {
 		u.RootUser = true
 		return u
 	}).Exec(ctx, w.tx)

@@ -47,14 +47,14 @@ func (r Retrieve) WhereIDs(keys ...ID) Retrieve {
 }
 
 // Where filters resources by the provided predicate.
-func (r Retrieve) Where(filter func(r *Resource) bool) Retrieve {
+func (r Retrieve) Where(filter gorp.FilterFunc[ID, Resource]) Retrieve {
 	r.query.Current().Where(filter)
 	return r
 }
 
 func (r Retrieve) WhereTypes(types ...Type) Retrieve {
-	r.query.Current().Where(func(r *Resource) bool {
-		return lo.Contains(types, r.ID.Type)
+	r.query.Current().Where(func(ctx gorp.Context, r *Resource) (bool, error) {
+		return lo.Contains(types, r.ID.Type), nil
 	})
 	return r
 }
@@ -233,12 +233,12 @@ func (r Retrieve) traverse(
 ) ([]ID, error) {
 	var nextIDs []ID
 	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
-		Where(func(rel *Relationship) bool {
+		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 			for _, resource := range resources {
 				if traverse.Filter(&resource, rel) {
 					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
 				}
 			}
-			return false
+			return false, nil
 		}).Exec(ctx, tx)
 }

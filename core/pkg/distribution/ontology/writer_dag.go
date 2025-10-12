@@ -186,26 +186,26 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 }
 
 func (d dagWriter) deleteIncomingRelationships(ctx context.Context, id ID) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(rel *Relationship) bool {
-		return rel.To == id
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		return rel.To == id, nil
 	}).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, from ID) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(rel *Relationship) bool {
-		return rel.From == from
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		return rel.From == from, nil
 	}).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(rel *Relationship) bool {
-		return rel.From == from && rel.Type == type_
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		return rel.From == from && rel.Type == type_, nil
 	}).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(rel *Relationship) bool {
-		return rel.To == to && rel.Type == type_
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		return rel.To == to && rel.Type == type_, nil
 	}).Exec(ctx, d.tx)
 }
 

@@ -100,6 +100,8 @@ func (s *Service) NewRetrieve() Retrieve {
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
 	return gorp.NewRetrieve[uuid.UUID, User]().
-		Where(func(u *User) bool { return u.Username == username }).
+		Where(func(_ gorp.Context, u *User) (bool, error) {
+			return u.Username == username, nil
+		}).
 		Exists(ctx, s.DB)
 }
