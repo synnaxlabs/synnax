@@ -116,6 +116,7 @@ std::string app_uri_from_cert(const std::string &certPath) {
     UA_ByteString certData = load_file(certPath.c_str());
     if (certData.length == 0) {
         LOG(ERROR) << "Failed to load certificate from " << certPath;
+        UA_ByteString_clear(&certData);
         return "";
     }
 
@@ -172,11 +173,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
 
     client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
-    // Clean up existing strings before allocating new ones
-    UA_String_clear(&client_config->securityPolicyUri);
-    UA_String_clear(&client_config->authSecurityPolicyUri);
-    UA_String_clear(&client_config->clientDescription.applicationUri);
-
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
@@ -201,6 +197,11 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
         nullptr,
         0
     );
+
+    // Clean up ByteStrings allocated by load_file
+    UA_ByteString_clear(const_cast<UA_ByteString *>(&certificate));
+    UA_ByteString_clear(const_cast<UA_ByteString *>(&priv_key));
+    if (!cfg.server_cert.empty()) UA_ByteString_clear(&trustList[0]);
 
     if (e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: "
