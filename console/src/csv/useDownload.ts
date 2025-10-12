@@ -10,11 +10,10 @@
 import {
   type channel,
   DisconnectedError,
-  type framer,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { runtime, TimeRange, unique } from "@synnaxlabs/x";
+import { TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -70,6 +69,13 @@ const download = async ({
   const indexes = unique.unique(channels.map(({ index }) => index));
   const indexChannels = await client.channels.retrieve(indexes);
   onPercentDownloadedChange?.(20);
+  const channelGroups = new Map<channel.Key, Set<channel.Key>>();
+  indexChannels.forEach(({ key }) => {
+    channelGroups.set(key, new Set([key]));
+  });
+  channels.forEach(({ key, index }) => {
+    channelGroups.get(index)?.add(key);
+  });
   const columns = new Map<channel.Key, string>();
   indexChannels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
   channels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
@@ -81,6 +87,7 @@ const download = async ({
   const frames = await Promise.all(
     simplifiedTimeRanges.map(async (tr) => {
       const frame = await client.read(tr, allKeys);
+      console.log(frame);
       percentDownloaded += delta;
       if (percentDownloaded >= 80) percentDownloaded = 80;
       onPercentDownloadedChange?.(percentDownloaded);
@@ -91,7 +98,7 @@ const download = async ({
     acc.push(curr);
     return acc;
   });
-  const csv = frameToCSV(columns, frame);
+  const csv = frame.toCSV(columns);
   const data = new TextEncoder().encode(csv);
   if (savePath == null) Runtime.downloadFromBrowser(csv, "text/csv", `${fileName}.csv`);
   else {
@@ -103,23 +110,4 @@ const download = async ({
   }
   onPercentDownloadedChange?.(100);
   afterDownload?.();
-};
-
-const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): string => {
-  if (frame.series.length === 0) throw new Error("No data selected");
-  const count = frame.series[0].length;
-  const rows: string[] = [];
-  const header: string[] = [];
-  for (let i = 1; i < count; i++) {
-    const row: string[] = [];
-    columns.forEach((name, key) => {
-      const d = frame.get(key).at(i, true);
-      if (i === 1) header.push(name);
-      row.push(d.toString());
-    });
-    if (i === 1) rows.push(header.join(","));
-    rows.push(row.join(","));
-  }
-  const os = runtime.getOS();
-  return rows.join(os === "Windows" ? "\r\n" : "\n");
 };
