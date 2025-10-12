@@ -68,10 +68,12 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).Change(func(l Log) Log {
-		l.Name = name
-		return l
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Log]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, l Log) Log {
+			l.Name = name
+			return l
+		}).Exec(ctx, w.tx)
 }
 
 // SetData sets the data of the log with the given key to the provided data.
@@ -80,10 +82,12 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).Change(func(l Log) Log {
-		l.Data = data
-		return l
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, Log]().
+		WhereKeys(key).
+		Change(func(ctx gorp.Context, l Log) Log {
+			l.Data = data
+			return l
+		}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the logs with the given keys.
