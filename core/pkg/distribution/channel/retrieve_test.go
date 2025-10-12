@@ -15,7 +15,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const internalChannelCount = 1
@@ -179,6 +181,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 				g.Expect(resChannels[0].Name).To(Equal("catalina"))
 			}).Should(Succeed())
 		})
+
+		It("Should return an error when retrieving a channel with a key of 0", func() {
+			var resChannels []channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.
+				NewRetrieve().
+				WhereKeys(0).
+				Entries(&resChannels).
+				Exec(ctx, nil)).To(HaveOccurredAs(query.NotFound))
+		})
+
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
