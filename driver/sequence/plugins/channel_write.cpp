@@ -85,7 +85,8 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             const char *channel_name = lua_tostring(cL, 1);
             const auto [channel, err] = op->resolve(channel_name);
             if (err) {
-                luaL_error(cL, err.message().c_str());
+                lua_pushstring(cL, err.message().c_str());
+                lua_error(cL);
                 return 0;
             }
 
@@ -141,7 +142,8 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
                 const auto [channel, err] = op->resolve(channel_name);
                 if (err) {
-                    luaL_error(cL, err.message().c_str());
+                    lua_pushstring(cL, err.message().c_str());
+                    lua_error(cL);
                     return 0;
                 }
                 keys.push_back(channel.key);
@@ -156,7 +158,8 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                     const char *channel_name = lua_tostring(cL, -1);
                     const auto [channel, err] = op->resolve(channel_name);
                     if (err) {
-                        luaL_error(cL, err.message().c_str());
+                        lua_pushstring(cL, err.message().c_str());
+                        lua_error(cL);
                         return 0;
                     }
                     keys.push_back(channel.key);
@@ -172,7 +175,8 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
 
                     const auto [channel, err] = op->resolve(channel_name);
                     if (err) {
-                        luaL_error(cL, err.message().c_str());
+                        lua_pushstring(cL, err.message().c_str());
+                        lua_error(cL);
                         return 0;
                     }
                     keys.push_back(channel.key);
@@ -185,7 +189,8 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             }
 
             if (auto err = op->sink->set_authority(keys, authorities)) {
-                luaL_error(cL, err.message().c_str());
+                lua_pushstring(cL, err.message().c_str());
+                lua_error(cL);
                 return 0;
             }
             return 0;
