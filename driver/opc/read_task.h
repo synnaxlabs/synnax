@@ -43,6 +43,18 @@ struct InputChan {
         node(opc::NodeId::parse("node_id", parser)),
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
 
+    // Move constructor - needed because NodeId is move-only
+    InputChan(InputChan &&other) noexcept:
+        enabled(other.enabled),
+        node(std::move(other.node)),
+        synnax_key(other.synnax_key),
+        ch(std::move(other.ch)) {}
+
+    // Delete copy constructor - NodeId is move-only
+    InputChan(const InputChan &) = delete;
+    InputChan &operator=(const InputChan &) = delete;
+    InputChan &operator=(InputChan &&) = delete;
+
     // No manual destructor needed - opc::NodeId handles cleanup automatically
 };
 
@@ -89,8 +101,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_size(parser.optional<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
-            const auto ch = InputChan(cp);
-            if (ch.enabled) channels.push_back(std::make_unique<InputChan>(ch));
+            auto ch = InputChan(cp);
+            if (ch.enabled)
+                channels.push_back(std::make_unique<InputChan>(std::move(ch)));
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -160,35 +173,23 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-struct ReadRequest {
-    UA_ReadRequest base;
-    std::vector<UA_ReadValueId> read_value_ids;
-
-    explicit ReadRequest(const ReadTaskConfig &cfg) {
-        UA_ReadRequest_init(&this->base);
-        read_value_ids.reserve(cfg.channels.size());
-        for (const auto &ch: cfg.channels) {
-            if (!ch->enabled) continue;
-            UA_ReadValueId rvid;
-            UA_ReadValueId_init(&rvid);
-            // Zero-copy borrowing: Safe because cfg outlives this ReadRequest
-            // (member destruction order is reverse of declaration)
-            rvid.nodeId = ch->node.get();
-            rvid.attributeId = UA_ATTRIBUTEID_VALUE;
-            read_value_ids.push_back(rvid);
-        }
-        base.nodesToRead = read_value_ids.data();
-        base.nodesToReadSize = read_value_ids.size();
+/// @brief Helper to create a ReadRequestBuilder from config.
+/// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
+static opc::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
+    opc::ReadRequestBuilder builder;
+    for (const auto &ch: cfg.channels) {
+        if (!ch->enabled) continue;
+        builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
     }
-    // No destructor needed - we're borrowing NodeIds, not owning them
-};
+    return builder;
+}
 
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
     std::shared_ptr<opc::conn::Pool> pool;
     opc::conn::Pool::Conn conn;
-    ReadRequest request;
+    opc::ReadRequestBuilder request_builder;
     loop::Timer timer;
 
     BaseReadTaskSource(
@@ -199,7 +200,7 @@ protected:
         cfg(std::move(cfg)),
         pool(std::move(pool)),
         conn(nullptr, nullptr, ""),
-        request(this->cfg),
+        request_builder(create_read_request(this->cfg)),
         timer(rate) {}
 
     synnax::WriterConfig writer_config() const override {
@@ -236,7 +237,7 @@ public:
         common::ReadResult res;
         this->timer.wait(breaker);
         opc::ReadResponse ua_res(
-            UA_Client_Service_read(this->conn.get(), this->request.base)
+            UA_Client_Service_read(this->conn.get(), this->request_builder.build())
         );
         common::initialize_frame(
             fr,
@@ -245,7 +246,7 @@ public:
             this->cfg.array_size
         );
         for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
-            auto &result = ua_res.get_mut().results[i];
+            const auto &result = ua_res.get().results[i];
             if (res.error = opc::errors::parse(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
@@ -292,7 +293,7 @@ public:
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::telem::TimeStamp::now();
             opc::ReadResponse ua_res(
-                UA_Client_Service_read(this->conn.get(), this->request.base)
+                UA_Client_Service_read(this->conn.get(), this->request_builder.build())
             );
             if (res.error = opc::errors::parse(
                     ua_res.get().responseHeader.serviceResult
@@ -300,7 +301,7 @@ public:
                 res.error)
                 return res;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
-                UA_DataValue &result = ua_res.get_mut().results[j];
+                const auto &result = ua_res.get().results[j];
                 if (res.error = opc::errors::parse(result.status); res.error)
                     return res;
                 opc::telem::write_to_series(fr.series->at(j), result.value);

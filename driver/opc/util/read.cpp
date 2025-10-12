@@ -23,21 +23,19 @@
 namespace util {
 std::pair<telem::Series, xerrors::Error>
 simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
-    // Parse the node ID string - returns allocated UA_NodeId
-    auto [ua_node_id, parse_err] = opc::NodeId::parse(node_id);
+    // Parse the node ID string - returns RAII-wrapped NodeId
+    auto [node_id_wrapper, parse_err] = opc::NodeId::parse(node_id);
     if (parse_err) return {telem::Series(0), parse_err};
 
     // Read the value from the node - RAII wrapper handles cleanup
     opc::Variant value;
 
+    // Implicit conversion from NodeId to const UA_NodeId&
     UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
-        ua_node_id,
+        node_id_wrapper, // Implicit conversion
         value.ptr()
     );
-
-    // Clean up the allocated NodeId
-    UA_NodeId_clear(&ua_node_id);
 
     if (status != UA_STATUSCODE_GOOD) {
         return {telem::Series(0), opc::errors::parse(status)};

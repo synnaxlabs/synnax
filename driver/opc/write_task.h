@@ -95,6 +95,7 @@ class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
     std::shared_ptr<opc::conn::Pool> pool;
     opc::conn::Pool::Conn conn;
+    opc::WriteRequestBuilder builder;
 
 public:
     WriteTaskSink(std::shared_ptr<opc::conn::Pool> pool, WriteTaskConfig cfg):
@@ -136,36 +137,19 @@ public:
 private:
     xerrors::Error perform_write(const synnax::Frame &frame) {
         if (!this->conn) return opc::errors::NO_CONNECTION;
-
-        // RAII wrapper handles cleanup, including proper handling of borrowed NodeIds
-        opc::WriteRequest req(frame.size());
-        size_t actual_writes = 0;
-
+        this->builder.clear();
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
-            const auto &ch = it->second;
-            auto [val, err] = opc::telem::series_to_variant(s);
-            if (err) {
-                LOG(ERROR) << "[opc.write_task] failed to convert series to variant: "
-                           << err;
+            if (auto err = this->builder.add_value(it->second->node, s); err) {
+                LOG(ERROR) << "[opc.write_task] failed to add value: " << err;
                 continue;
             }
-            UA_WriteValue &node = req.get_mut().nodesToWrite[actual_writes];
-            node.attributeId = UA_ATTRIBUTEID_VALUE;
-            // Zero-copy borrowing: Safe because cfg.channels outlives this request
-            node.nodeId = ch->node.get();
-            node.value.hasValue = true;
-            node.value.value = val;
-            // transfer ownership - zero out val to prevent double free.
-            UA_Variant_init(&val);
-            actual_writes++;
         }
-
-        req.get_mut().nodesToWriteSize = actual_writes;
-        if (req.get().nodesToWriteSize == 0) return xerrors::NIL;
-
-        opc::WriteResponse res(UA_Client_Service_write(this->conn.get(), req.get()));
+        if (this->builder.empty()) return xerrors::NIL;
+        opc::WriteResponse res(
+            UA_Client_Service_write(this->conn.get(), this->builder.build())
+        );
         return opc::errors::parse(res.get().responseHeader.serviceResult);
     }
 };

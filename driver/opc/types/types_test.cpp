@@ -49,21 +49,20 @@ TEST(TypesTest, NodeIdRAII) {
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     opc::NodeId nodeId1(string_id);
-    UA_NodeId_clear(&string_id);
+    UA_NodeId_init(&string_id); // Zero out, nodeId1 now owns it
 
-    // Test copy constructor
-    opc::NodeId nodeId2(nodeId1);
-    EXPECT_EQ(nodeId2.get().namespaceIndex, nodeId1.get().namespaceIndex);
-    EXPECT_EQ(nodeId2.get().identifierType, nodeId1.get().identifierType);
+    // NodeIds are move-only, test move constructor
+    opc::NodeId nodeId2(std::move(nodeId1));
+    EXPECT_FALSE(nodeId2.is_null());
+    EXPECT_TRUE(nodeId1.is_null()); // Moved-from object is null
 
-    // Test copy assignment
+    // Test move assignment
     opc::NodeId nodeId3;
-    nodeId3 = nodeId1;
-    EXPECT_EQ(nodeId3.get().namespaceIndex, nodeId1.get().namespaceIndex);
-    EXPECT_EQ(nodeId3.get().identifierType, nodeId1.get().identifierType);
+    nodeId3 = std::move(nodeId2);
+    EXPECT_FALSE(nodeId3.is_null());
+    EXPECT_TRUE(nodeId2.is_null()); // Moved-from object is null
 
-    // All three NodeIds should have their own copies of the string
-    // Destructors will clean them up independently
+    // Destructor will clean up nodeId3 automatically
 }
 
 // Test NodeId move semantics
@@ -89,22 +88,22 @@ TEST(TypesTest, NodeIdParsing) {
     // Test numeric NodeId
     auto [numeric, err1] = opc::NodeId::parse("NS=1;I=1000");
     ASSERT_NIL(err1);
-    EXPECT_EQ(numeric.namespaceIndex, 1);
-    EXPECT_EQ(numeric.identifierType, UA_NODEIDTYPE_NUMERIC);
-    EXPECT_EQ(numeric.identifier.numeric, 1000);
-    UA_NodeId_clear(&numeric);
+    EXPECT_EQ(numeric.get().namespaceIndex, 1);
+    EXPECT_EQ(numeric.get().identifierType, UA_NODEIDTYPE_NUMERIC);
+    EXPECT_EQ(numeric.get().identifier.numeric, 1000);
+    // No manual cleanup needed - RAII handles it
 
     // Test string NodeId
     auto [string_node, err2] = opc::NodeId::parse("NS=2;S=TestNode");
     ASSERT_NIL(err2);
-    EXPECT_EQ(string_node.namespaceIndex, 2);
-    EXPECT_EQ(string_node.identifierType, UA_NODEIDTYPE_STRING);
-    UA_NodeId_clear(&string_node);
+    EXPECT_EQ(string_node.get().namespaceIndex, 2);
+    EXPECT_EQ(string_node.get().identifierType, UA_NODEIDTYPE_STRING);
+    // No manual cleanup needed - RAII handles it
 
     // Test invalid NodeId
     auto [invalid, err3] = opc::NodeId::parse("InvalidFormat");
     EXPECT_TRUE(err3.matches(xerrors::VALIDATION));
-    EXPECT_TRUE(UA_NodeId_isNull(&invalid));
+    EXPECT_TRUE(invalid.is_null());
 }
 
 // Test NodeId to_string
@@ -153,7 +152,7 @@ TEST(TypesTest, VariantCopyMoveSemantics) {
     UA_Variant_clear(&ua_var);
 
     // Test copy
-    opc::Variant var2(var1);
+    opc::Variant var2(std::move(var1)); // Move-only
     EXPECT_TRUE(UA_Variant_hasScalarType(&var2.get(), &UA_TYPES[UA_TYPES_FLOAT]));
 
     // Test move
@@ -202,11 +201,12 @@ TEST(TypesTest, LocalizedTextRAII) {
     opc::LocalizedText text2("en", "Hello");
     EXPECT_GT(text2.get().text.length, 0);
 
-    // Test copy
-    opc::LocalizedText text3(text2);
-    EXPECT_EQ(text3.get().text.length, text2.get().text.length);
+    // Test move - after move, moved-from object should be empty
+    opc::LocalizedText text3(std::move(text2)); // Move-only
+    EXPECT_GT(text3.get().text.length, 0); // Moved-to object has the data
+    EXPECT_EQ(text2.get().text.length, 0); // Moved-from object is empty
 
-    // Test move
+    // Test move again
     opc::LocalizedText text4(std::move(text3));
     EXPECT_GT(text4.get().text.length, 0);
     EXPECT_EQ(text3.get().text.length, 0);
@@ -223,11 +223,13 @@ TEST(TypesTest, QualifiedNameRAII) {
     EXPECT_EQ(name2.get().namespaceIndex, 1);
     EXPECT_GT(name2.get().name.length, 0);
 
-    // Test copy
-    opc::QualifiedName name3(name2);
-    EXPECT_EQ(name3.get().namespaceIndex, name2.get().namespaceIndex);
+    // Test move - after move, moved-from object should be empty
+    opc::QualifiedName name3(std::move(name2)); // Move-only
+    EXPECT_EQ(name3.get().namespaceIndex, 1); // Moved-to object has the data
+    EXPECT_EQ(name2.get().namespaceIndex, 0); // Moved-from object is empty
+    EXPECT_EQ(name2.get().name.length, 0);
 
-    // Test move
+    // Test move again
     opc::QualifiedName name4(std::move(name3));
     EXPECT_EQ(name4.get().namespaceIndex, 1);
     EXPECT_EQ(name3.get().name.length, 0);
@@ -243,11 +245,12 @@ TEST(TypesTest, StringRAII) {
     opc::String str2("Hello");
     EXPECT_GT(str2.get().length, 0);
 
-    // Test copy
-    opc::String str3(str2);
-    EXPECT_EQ(str3.get().length, str2.get().length);
+    // Test move - after move, moved-from object should be empty
+    opc::String str3(std::move(str2)); // Move-only
+    EXPECT_GT(str3.get().length, 0); // Moved-to object has the data
+    EXPECT_EQ(str2.get().length, 0); // Moved-from object is empty
 
-    // Test move
+    // Test move again
     opc::String str4(std::move(str3));
     EXPECT_GT(str4.get().length, 0);
     EXPECT_EQ(str3.get().length, 0);
@@ -260,7 +263,7 @@ TEST(TypesTest, ByteStringRAII) {
     EXPECT_EQ(bytes1.get().length, 0);
 
     // Test copy semantics
-    opc::ByteString bytes2(bytes1);
+    opc::ByteString bytes2(std::move(bytes1)); // Move-only
     EXPECT_EQ(bytes2.get().length, 0);
 
     // Test move semantics
@@ -273,17 +276,16 @@ TEST(TypesTest, NoDoubleFree) {
     // Create a string NodeId with allocated memory
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
 
-    // Create multiple wrappers that will all be destroyed
+    // Create wrappers that will be moved
     {
         opc::NodeId nodeId1(string_id);
-        opc::NodeId nodeId2(nodeId1); // Copy
+        UA_NodeId_init(&string_id); // Zero out, nodeId1 owns it
+        opc::NodeId nodeId2(std::move(nodeId1)); // Move
         opc::NodeId nodeId3;
-        nodeId3 = nodeId1; // Copy assign
+        nodeId3 = std::move(nodeId2); // Move assign
 
-        // All three will have independent copies and clean up independently
+        // nodeId3 owns the data, will clean up automatically
     } // No double-free should occur here
-
-    UA_NodeId_clear(&string_id);
 }
 
 // Test parsing numeric NodeId from JSON

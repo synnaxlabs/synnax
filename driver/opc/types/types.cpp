@@ -17,6 +17,7 @@
 #include "open62541/types.h"
 
 /// internal
+#include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
 namespace opc {
@@ -68,41 +69,40 @@ NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
         parser.field_err(field_name, err.message());
         return NodeId();
     }
-    // Constructor makes a deep copy, so we need to free the original
-    NodeId result(node_id);
-    UA_NodeId_clear(&node_id);
-    return result;
+    return std::move(node_id);
 }
 
-std::pair<UA_NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
+std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {
-            UA_NODEID_NULL,
-            xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
-        };
+        return {NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
 
     int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
-    UA_NodeId node_id = UA_NODEID_NULL;
+    UA_NodeId raw_id = UA_NODEID_NULL;
     if (type == "I")
-        node_id = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
+        raw_id = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
     else if (type == "S")
-        node_id = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
+        raw_id = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
     else if (type == "G")
-        node_id = UA_NODEID_GUID(nsIndex, string_to_guid(identifier));
+        raw_id = UA_NODEID_GUID(nsIndex, string_to_guid(identifier));
     else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        node_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
+        raw_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
         UA_free(data);
     }
-    return {node_id, xerrors::NIL};
+
+    // Wrap in RAII type - NodeId constructor will take ownership
+    NodeId result(raw_id);
+    // Clear the raw_id to prevent double-free (NodeId now owns it)
+    UA_NodeId_init(&raw_id);
+    return {std::move(result), xerrors::NIL};
 }
 
 std::string NodeId::to_string(const UA_NodeId &node_id) {
@@ -148,5 +148,15 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
+}
+
+xerrors::Error WriteRequestBuilder::add_value(
+    const UA_NodeId &node_id,
+    const ::telem::Series &series
+) {
+    auto [variant, err] = opc::telem::series_to_variant(series);
+    if (err) return err;
+    add_value(node_id, variant);
+    return xerrors::NIL;
 }
 } // namespace opc

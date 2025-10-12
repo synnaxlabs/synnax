@@ -4,6 +4,7 @@ cc_library(
     srcs = ["types.cpp"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/opc/telem",
         "//vendor/open62541",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",

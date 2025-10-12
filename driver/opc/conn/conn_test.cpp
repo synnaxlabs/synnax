@@ -162,7 +162,7 @@ TEST(ConnTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id;
+    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -174,8 +174,7 @@ TEST(ConnTest, serverStopDuringConnection) {
     EXPECT_NE(res.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     UA_ReadResponse_clear(&res);
 
-    // Clean up allocated node_id memory
-    UA_NodeId_clear(&node_id);
+    // node_id automatically cleaned up by RAII destructor
 }
 
 TEST(ConnTest, connectionAfterServerRestart) {

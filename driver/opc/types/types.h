@@ -17,47 +17,29 @@
 #include "open62541/types.h"
 
 /// module
+#include "x/cpp/telem/series.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace opc {
-/// @brief RAII wrapper for UA_NodeId that automatically manages memory.
-/// This eliminates manual UA_NodeId_clear() calls and prevents double-free bugs.
 class NodeId {
     UA_NodeId id_;
 
 public:
-    /// @brief Default constructor - creates a null NodeId
     NodeId() { UA_NodeId_init(&id_); }
 
-    /// @brief Construct from a raw UA_NodeId (makes a deep copy)
     explicit NodeId(const UA_NodeId &id) {
         UA_NodeId_init(&id_);
         UA_NodeId_copy(&id, &id_);
     }
 
-    /// @brief Destructor - automatically cleans up allocated memory
     ~NodeId() { UA_NodeId_clear(&id_); }
 
-    /// @brief Copy constructor - creates a deep copy
-    NodeId(const NodeId &other) {
-        UA_NodeId_init(&id_);
-        UA_NodeId_copy(&other.id_, &id_);
-    }
+    NodeId(const NodeId &) = delete;
+    NodeId &operator=(const NodeId &) = delete;
 
-    /// @brief Copy assignment - creates a deep copy
-    NodeId &operator=(const NodeId &other) {
-        if (this != &other) {
-            UA_NodeId_clear(&id_);
-            UA_NodeId_copy(&other.id_, &id_);
-        }
-        return *this;
-    }
-
-    /// @brief Move constructor - transfers ownership
     NodeId(NodeId &&other) noexcept: id_(other.id_) { UA_NodeId_init(&other.id_); }
 
-    /// @brief Move assignment - transfers ownership
     NodeId &operator=(NodeId &&other) noexcept {
         if (this != &other) {
             UA_NodeId_clear(&id_);
@@ -67,40 +49,18 @@ public:
         return *this;
     }
 
-    /// @brief Get const reference to underlying UA_NodeId (for read-only
-    /// operations)
+    operator const UA_NodeId &() const { return id_; }
+
     [[nodiscard]] const UA_NodeId &get() const { return id_; }
-
-    /// @brief Get mutable reference to underlying UA_NodeId (use with caution -
-    /// caller must not call UA_NodeId_clear on the returned reference)
-    UA_NodeId &get_mut() { return id_; }
-
-    /// @brief Check if this is a null NodeId
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
 
-    /// @brief Parse NodeId from a JSON field
-    /// @param field_name The JSON field name to parse
-    /// @param parser The JSON parser
-    /// @return A NodeId wrapper (may be null if parsing fails)
     static NodeId parse(const std::string &field_name, xjson::Parser &parser);
-
-    /// @brief Parse NodeId from a string representation
-    /// @param node_id_str String in format "NS=<ns>;(I|S|G|B)=<identifier>"
-    /// @return Pair of raw UA_NodeId and error (if any)
-    static std::pair<UA_NodeId, xerrors::Error> parse(const std::string &node_id_str);
-
-    /// @brief Convert NodeId to string representation
-    /// @param node_id The NodeId to convert
-    /// @return String in format "NS=<ns>;(I|S|G|B)=<identifier>"
+    static std::pair<NodeId, xerrors::Error> parse(const std::string &node_id_str);
     static std::string to_string(const UA_NodeId &node_id);
 };
 
-/// @brief Convert UA_NodeClass to string representation
-/// @param node_class The NodeClass to convert
-/// @return String representation (e.g., "Variable", "Object", etc.)
 std::string node_class_to_string(const UA_NodeClass &node_class);
 
-/// @brief RAII wrapper for UA_Variant that automatically manages memory.
 class Variant {
     UA_Variant var_;
 
@@ -112,17 +72,8 @@ public:
     }
     ~Variant() { UA_Variant_clear(&var_); }
 
-    Variant(const Variant &other) {
-        UA_Variant_init(&var_);
-        UA_Variant_copy(&other.var_, &var_);
-    }
-    Variant &operator=(const Variant &other) {
-        if (this != &other) {
-            UA_Variant_clear(&var_);
-            UA_Variant_copy(&other.var_, &var_);
-        }
-        return *this;
-    }
+    Variant(const Variant &) = delete;
+    Variant &operator=(const Variant &) = delete;
 
     Variant(Variant &&other) noexcept: var_(other.var_) {
         UA_Variant_init(&other.var_);
@@ -136,17 +87,16 @@ public:
         return *this;
     }
 
+    operator const UA_Variant &() const { return var_; }
     [[nodiscard]] const UA_Variant &get() const { return var_; }
-    UA_Variant &get_mut() { return var_; }
     UA_Variant *ptr() { return &var_; }
 };
 
-/// @brief RAII wrapper for UA_ReadResponse that automatically manages memory.
 class ReadResponse {
     UA_ReadResponse res_;
 
 public:
-    ReadResponse() = default;
+    ReadResponse() { UA_ReadResponse_init(&res_); }
     explicit ReadResponse(const UA_ReadResponse &res) { res_ = res; }
     ~ReadResponse() { UA_ReadResponse_clear(&res_); }
 
@@ -165,16 +115,15 @@ public:
         return *this;
     }
 
+    operator const UA_ReadResponse &() const { return res_; }
     [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
-    UA_ReadResponse &get_mut() { return res_; }
 };
 
-/// @brief RAII wrapper for UA_WriteResponse that automatically manages memory.
 class WriteResponse {
     UA_WriteResponse res_;
 
 public:
-    WriteResponse() = default;
+    WriteResponse() { UA_WriteResponse_init(&res_); }
     explicit WriteResponse(const UA_WriteResponse &res) { res_ = res; }
     ~WriteResponse() { UA_WriteResponse_clear(&res_); }
 
@@ -193,50 +142,97 @@ public:
         return *this;
     }
 
+    operator const UA_WriteResponse &() const { return res_; }
     [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
-    UA_WriteResponse &get_mut() { return res_; }
 };
 
-/// @brief RAII wrapper for UA_WriteRequest that manages memory while allowing
-/// borrowed NodeIds. This prevents double-free when NodeIds are borrowed from
-/// long-lived objects (e.g., OutputChan).
-class WriteRequest {
-    UA_WriteRequest req_;
-    size_t allocated_size_;
+class WriteRequestBuilder {
+    std::vector<UA_Variant> owned_variants_;
+    std::vector<UA_WriteValue> values_;
 
 public:
-    explicit WriteRequest(size_t size): allocated_size_(size) {
-        UA_WriteRequest_init(&req_);
-        req_.nodesToWrite = static_cast<UA_WriteValue *>(
-            UA_Array_new(size, &UA_TYPES[UA_TYPES_WRITEVALUE])
-        );
-        for (size_t i = 0; i < size; ++i)
-            UA_WriteValue_init(&req_.nodesToWrite[i]);
-        req_.nodesToWriteSize = 0; // Set by caller as items are added
-    }
-
-    ~WriteRequest() {
-        // Manually clear each WriteValue, zeroing out borrowed NodeIds first
-        for (size_t i = 0; i < allocated_size_; i++) {
-            // Zero out the NodeId to prevent double-free (it's borrowed)
-            UA_NodeId_init(&req_.nodesToWrite[i].nodeId);
-            // Clear the variant (which we do own)
-            UA_DataValue_clear(&req_.nodesToWrite[i].value);
+    WriteRequestBuilder() = default;
+    ~WriteRequestBuilder() {
+        for (auto &variant: owned_variants_) {
+            UA_Variant_clear(&variant);
         }
-        // Free the array itself
-        UA_free(req_.nodesToWrite);
     }
 
-    WriteRequest(const WriteRequest &) = delete;
-    WriteRequest &operator=(const WriteRequest &) = delete;
-    WriteRequest(WriteRequest &&) = delete;
-    WriteRequest &operator=(WriteRequest &&) = delete;
+    WriteRequestBuilder(const WriteRequestBuilder &) = delete;
+    WriteRequestBuilder &operator=(const WriteRequestBuilder &) = delete;
+    WriteRequestBuilder(WriteRequestBuilder &&) = delete;
+    WriteRequestBuilder &operator=(WriteRequestBuilder &&) = delete;
 
-    [[nodiscard]] UA_WriteRequest &get_mut() { return req_; }
-    [[nodiscard]] const UA_WriteRequest &get() const { return req_; }
+    void clear() {
+        for (auto &variant: owned_variants_) {
+            UA_Variant_clear(&variant);
+        }
+        owned_variants_.clear();
+        values_.clear();
+    }
+
+    WriteRequestBuilder &add_value(const UA_NodeId &node_id, UA_Variant variant) {
+        owned_variants_.push_back(variant);
+        UA_Variant_init(&variant);
+
+        UA_WriteValue wv;
+        UA_WriteValue_init(&wv);
+        wv.nodeId = node_id;
+        wv.attributeId = UA_ATTRIBUTEID_VALUE;
+        wv.value.hasValue = true;
+        wv.value.value = owned_variants_.back();
+        values_.push_back(wv);
+        return *this;
+    }
+
+    xerrors::Error add_value(const UA_NodeId &node_id, const ::telem::Series &series);
+
+    UA_WriteRequest build() const {
+        UA_WriteRequest req;
+        UA_WriteRequest_init(&req);
+        req.nodesToWrite = const_cast<UA_WriteValue *>(values_.data());
+        req.nodesToWriteSize = values_.size();
+        return req;
+    }
+
+    [[nodiscard]] size_t size() const { return values_.size(); }
+    [[nodiscard]] bool empty() const { return values_.empty(); }
 };
 
-/// @brief RAII wrapper for UA_LocalizedText that automatically manages memory.
+class ReadRequestBuilder {
+    std::vector<UA_ReadValueId> ids_;
+
+public:
+    ReadRequestBuilder() = default;
+    ~ReadRequestBuilder() = default;
+
+    ReadRequestBuilder(const ReadRequestBuilder &) = delete;
+    ReadRequestBuilder &operator=(const ReadRequestBuilder &) = delete;
+    ReadRequestBuilder(ReadRequestBuilder &&) = default;
+    ReadRequestBuilder &operator=(ReadRequestBuilder &&) = default;
+
+    ReadRequestBuilder &
+    add_node(const UA_NodeId &node_id, UA_AttributeId attr = UA_ATTRIBUTEID_VALUE) {
+        UA_ReadValueId rvid;
+        UA_ReadValueId_init(&rvid);
+        rvid.nodeId = node_id;
+        rvid.attributeId = attr;
+        ids_.push_back(rvid);
+        return *this;
+    }
+
+    UA_ReadRequest build() const {
+        UA_ReadRequest req;
+        UA_ReadRequest_init(&req);
+        req.nodesToRead = const_cast<UA_ReadValueId *>(ids_.data());
+        req.nodesToReadSize = ids_.size();
+        return req;
+    }
+
+    [[nodiscard]] size_t size() const { return ids_.size(); }
+    [[nodiscard]] bool empty() const { return ids_.empty(); }
+};
+
 class LocalizedText {
     UA_LocalizedText text_;
 
@@ -247,17 +243,8 @@ public:
     }
     ~LocalizedText() { UA_LocalizedText_clear(&text_); }
 
-    LocalizedText(const LocalizedText &other) {
-        UA_LocalizedText_init(&text_);
-        UA_LocalizedText_copy(&other.text_, &text_);
-    }
-    LocalizedText &operator=(const LocalizedText &other) {
-        if (this != &other) {
-            UA_LocalizedText_clear(&text_);
-            UA_LocalizedText_copy(&other.text_, &text_);
-        }
-        return *this;
-    }
+    LocalizedText(const LocalizedText &) = delete;
+    LocalizedText &operator=(const LocalizedText &) = delete;
 
     LocalizedText(LocalizedText &&other) noexcept: text_(other.text_) {
         UA_LocalizedText_init(&other.text_);
@@ -271,11 +258,10 @@ public:
         return *this;
     }
 
+    operator const UA_LocalizedText &() const { return text_; }
     [[nodiscard]] const UA_LocalizedText &get() const { return text_; }
-    UA_LocalizedText &get_mut() { return text_; }
 };
 
-/// @brief RAII wrapper for UA_QualifiedName that automatically manages memory.
 class QualifiedName {
     UA_QualifiedName name_;
 
@@ -286,17 +272,8 @@ public:
     }
     ~QualifiedName() { UA_QualifiedName_clear(&name_); }
 
-    QualifiedName(const QualifiedName &other) {
-        UA_QualifiedName_init(&name_);
-        UA_QualifiedName_copy(&other.name_, &name_);
-    }
-    QualifiedName &operator=(const QualifiedName &other) {
-        if (this != &other) {
-            UA_QualifiedName_clear(&name_);
-            UA_QualifiedName_copy(&other.name_, &name_);
-        }
-        return *this;
-    }
+    QualifiedName(const QualifiedName &) = delete;
+    QualifiedName &operator=(const QualifiedName &) = delete;
 
     QualifiedName(QualifiedName &&other) noexcept: name_(other.name_) {
         UA_QualifiedName_init(&other.name_);
@@ -310,11 +287,12 @@ public:
         return *this;
     }
 
+    operator const UA_QualifiedName &() const { return name_; }
     [[nodiscard]] const UA_QualifiedName &get() const { return name_; }
-    UA_QualifiedName &get_mut() { return name_; }
 };
 
 /// @brief RAII wrapper for UA_String that automatically manages memory.
+/// This class is move-only to prevent expensive copies.
 class String {
     UA_String str_;
 
@@ -323,17 +301,8 @@ public:
     explicit String(const char *s) { str_ = UA_STRING_ALLOC(s); }
     ~String() { UA_String_clear(&str_); }
 
-    String(const String &other) {
-        UA_String_init(&str_);
-        UA_String_copy(&other.str_, &str_);
-    }
-    String &operator=(const String &other) {
-        if (this != &other) {
-            UA_String_clear(&str_);
-            UA_String_copy(&other.str_, &str_);
-        }
-        return *this;
-    }
+    String(const String &) = delete;
+    String &operator=(const String &) = delete;
 
     String(String &&other) noexcept: str_(other.str_) { UA_String_init(&other.str_); }
     String &operator=(String &&other) noexcept {
@@ -345,12 +314,14 @@ public:
         return *this;
     }
 
+    operator const UA_String &() const { return str_; }
     [[nodiscard]] const UA_String &get() const { return str_; }
-    UA_String &get_mut() { return str_; }
+    /// @brief Get mutable pointer for output parameters
     UA_String *ptr() { return &str_; }
 };
 
 /// @brief RAII wrapper for UA_ByteString that automatically manages memory.
+/// This class is move-only to prevent expensive copies.
 class ByteString {
     UA_ByteString str_;
 
@@ -358,17 +329,8 @@ public:
     ByteString() { UA_ByteString_init(&str_); }
     ~ByteString() { UA_ByteString_clear(&str_); }
 
-    ByteString(const ByteString &other) {
-        UA_ByteString_init(&str_);
-        UA_ByteString_copy(&other.str_, &str_);
-    }
-    ByteString &operator=(const ByteString &other) {
-        if (this != &other) {
-            UA_ByteString_clear(&str_);
-            UA_ByteString_copy(&other.str_, &str_);
-        }
-        return *this;
-    }
+    ByteString(const ByteString &) = delete;
+    ByteString &operator=(const ByteString &) = delete;
 
     ByteString(ByteString &&other) noexcept: str_(other.str_) {
         UA_ByteString_init(&other.str_);
@@ -382,8 +344,9 @@ public:
         return *this;
     }
 
+    operator const UA_ByteString &() const { return str_; }
     [[nodiscard]] const UA_ByteString &get() const { return str_; }
-    UA_ByteString &get_mut() { return str_; }
+    /// @brief Get mutable pointer for output parameters
     UA_ByteString *ptr() { return &str_; }
 };
 }
