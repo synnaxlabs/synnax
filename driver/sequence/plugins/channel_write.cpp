@@ -85,24 +85,15 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 return 0;
             }
 
-            // Create Series in a nested scope to ensure cleanup before luaL_error
-            std::string error_msg;
-            bool has_error = false;
-            {
-                auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
-                if (s_err) {
-                    error_msg = s_err.message();
-                    has_error = true;
-                    // value is destroyed here when exiting scope
-                } else {
-                    op->frame.emplace(channel.key, std::move(value));
-                }
-            } // Series is destroyed here if there was an error
-
-            if (has_error) {
-                luaL_error(cL, error_msg.c_str());
+            auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
+            if (s_err) {
+                // Use a static error message to avoid C++ string allocation
+                // which would leak when lua_error() longjmps
+                lua_pushstring(cL, "Failed to convert Lua value to series");
+                lua_error(cL);
                 return 0;
             }
+            op->frame.emplace(channel.key, std::move(value));
             return 0;
         },
         1
@@ -184,7 +175,9 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             }
 
             if (auto err = op->sink->set_authority(keys, authorities)) {
-                lua_pushstring(cL, err.message().c_str());
+                // Use a static error message to avoid C++ string allocation
+                // which would leak when lua_error() longjmps
+                lua_pushstring(cL, "Failed to set channel authority");
                 lua_error(cL);
                 return 0;
             }
