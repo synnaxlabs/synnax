@@ -169,7 +169,7 @@ public:
         const std::vector<synnax::Channel> &channels
     );
 
-    std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
+    std::pair<synnax::Channel, bool> resolve(const std::string &name);
 
     xerrors::Error before_all(lua_State *L) override;
 
