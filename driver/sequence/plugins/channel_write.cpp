@@ -58,16 +58,11 @@ plugins::ChannelWrite::ChannelWrite(
     }
 }
 
-/// @brief resolves a channel key by its name.
-std::pair<synnax::Channel, xerrors::Error>
+std::pair<synnax::Channel, bool>
 plugins::ChannelWrite::resolve(const std::string &name) {
     const auto it = this->names_to_keys.find(name);
-    if (it == this->names_to_keys.end())
-        return {
-            synnax::Channel(),
-            xerrors::Error(xerrors::NOT_FOUND, "Channel" + name + " not found")
-        };
-    return {this->channels[it->second], xerrors::NIL};
+    if (it == this->names_to_keys.end()) return {synnax::Channel(), false};
+    return {this->channels[it->second], true};
 }
 
 /// @brief implements sequence::Operator to bind channel set functions to the
@@ -83,9 +78,9 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_touserdata(cL, lua_upvalueindex(1))
             );
             const char *channel_name = lua_tostring(cL, 1);
-            const auto [channel, err] = op->resolve(channel_name);
-            if (err) {
-                lua_pushstring(cL, err.message().c_str());
+            const auto [channel, found] = op->resolve(channel_name);
+            if (!found) {
+                lua_pushfstring(cL, "Channel %s not found", channel_name);
                 lua_error(cL);
                 return 0;
             }
@@ -140,9 +135,9 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 // set_authority(channel_name string, auth number)
                 const char *channel_name = lua_tostring(cL, 1);
                 auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
-                const auto [channel, err] = op->resolve(channel_name);
-                if (err) {
-                    lua_pushstring(cL, err.message().c_str());
+                const auto [channel, found] = op->resolve(channel_name);
+                if (!found) {
+                    lua_pushfstring(cL, "Channel %s not found", channel_name);
                     lua_error(cL);
                     return 0;
                 }
@@ -156,9 +151,9 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
                     const char *channel_name = lua_tostring(cL, -1);
-                    const auto [channel, err] = op->resolve(channel_name);
-                    if (err) {
-                        lua_pushstring(cL, err.message().c_str());
+                    const auto [channel, found] = op->resolve(channel_name);
+                    if (!found) {
+                        lua_pushfstring(cL, "Channel %s not found", channel_name);
                         lua_error(cL);
                         return 0;
                     }
@@ -173,9 +168,9 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                     const char *channel_name = lua_tostring(cL, -2);
                     auto auth = static_cast<telem::Authority>(lua_tonumber(cL, -1));
 
-                    const auto [channel, err] = op->resolve(channel_name);
-                    if (err) {
-                        lua_pushstring(cL, err.message().c_str());
+                    const auto [channel, found] = op->resolve(channel_name);
+                    if (!found) {
+                        lua_pushfstring(cL, "Channel %s not found", channel_name);
                         lua_error(cL);
                         return 0;
                     }
