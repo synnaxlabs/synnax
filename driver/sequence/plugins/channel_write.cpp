@@ -85,15 +85,20 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 return 0;
             }
 
-            auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
-            if (s_err) {
-                // Use a static error message to avoid C++ string allocation
-                // which would leak when lua_error() longjmps
-                lua_pushstring(cL, "Failed to convert Lua value to series");
+            auto result = xlua::to_series(cL, 2, channel.data_type);
+            if (result.second) {
+                // Error case - don't use structured binding to avoid leak
+                // The Series in result.first will be destroyed when result goes out of
+                // scope
+                const std::string err_msg = result.second.message();
+                // Explicitly reset/destroy the result before lua_error's longjmp
+                result.first = telem::Series(telem::UNKNOWN_T, 0);
+                lua_pushstring(cL, err_msg.c_str());
                 lua_error(cL);
                 return 0;
             }
-            op->frame.emplace(channel.key, std::move(value));
+            // Success - move value into frame
+            op->frame.emplace(channel.key, std::move(result.first));
             return 0;
         },
         1

@@ -172,10 +172,14 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
 
     client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
+    // Clean up existing strings before allocating new ones
+    UA_String_clear(&client_config->securityPolicyUri);
+    UA_String_clear(&client_config->authSecurityPolicyUri);
+    UA_String_clear(&client_config->clientDescription.applicationUri);
+
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    UA_String_clear(&client_config->clientDescription.applicationUri);
 
     std::string app_uri = app_uri_from_cert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
