@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <map>
 #include <string>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/scale.h"
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
@@ -337,7 +334,6 @@ struct DI final : Digital, Input {
 struct DO final : Digital, Output {
     explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {}
 
-
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
@@ -357,7 +353,6 @@ struct Analog : virtual Base {
     const double min_val;
     const double max_val;
     int32_t units;
-
 
     explicit Analog(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
@@ -1594,7 +1589,6 @@ struct AOFunctionGenerator final : AO {
         cfg.field_err("", "invalid wave type: " + type);
         return DAQmx_Val_Sine;
     }
-
 
     explicit AOFunctionGenerator(xjson::Parser &cfg):
         Analog(cfg),

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "freighter/cpp/freighter.h"
 #include "gtest/gtest.h"
+
+#include "freighter/cpp/freighter.h"
 
 class BasicMiddleware final : public freighter::PassthroughMiddleware {
     std::string value;
@@ -30,7 +31,6 @@ public:
         return {context, xerrors::NIL, req + 1};
     }
 };
-
 
 TEST(testFreighter, testMiddlewareCollector) {
     auto collector = freighter::MiddlewareCollector<int, int>();

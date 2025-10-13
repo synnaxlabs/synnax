@@ -9,23 +9,19 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <mutex>
 #include <string>
 
-/// protos
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
-
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
+
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.

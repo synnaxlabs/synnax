@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/task/task.h"
 
 namespace common {

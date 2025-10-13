@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <iostream>
 #include <optional>
 #include <string>

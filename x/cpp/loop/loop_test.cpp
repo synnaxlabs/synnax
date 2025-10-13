@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/loop/loop.h"
 #include "gtest/gtest.h"
+
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
 /// @brief it should correctly wait for an expended number of requests.

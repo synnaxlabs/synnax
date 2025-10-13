@@ -9,10 +9,8 @@
 
 #include <vector>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "x/cpp/binary/binary.h"
 
 TEST(BinaryWriter, testUint8Write) {

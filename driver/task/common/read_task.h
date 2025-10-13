@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/common.h"

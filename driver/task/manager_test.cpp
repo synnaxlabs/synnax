@@ -7,19 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-/// module
-#include "x/cpp/breaker/breaker.h"
-
-/// internal
 #include "client/cpp/testutil/testutil.h"
-#include "driver/task/task.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "driver/task/task.h"
 
 using json = nlohmann::json;
 

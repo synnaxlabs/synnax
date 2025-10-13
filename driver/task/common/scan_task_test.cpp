@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
-#include "driver/task/common/scan_task.h"
-
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/task/common/scan_task.h"
 
 class MockScanner final : public common::Scanner {
 public:
@@ -333,7 +331,6 @@ TEST(TestScanTask, TestStatePropagation) {
         } else
             FAIL() << "Unexpected device key: " << state["key"];
     }
-
 
     ASSERT_NIL(scan_task.scan());
     ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 2);

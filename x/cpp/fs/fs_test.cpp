@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
-#include "gtest/gtest.h"
-
-/// std
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 
-/// internal
+#include "gtest/gtest.h"
+
 #include "x/cpp/fs/fs.h"
 
 class FSTest : public ::testing::Test {

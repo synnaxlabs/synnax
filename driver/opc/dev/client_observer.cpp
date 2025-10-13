@@ -11,7 +11,6 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
-
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>

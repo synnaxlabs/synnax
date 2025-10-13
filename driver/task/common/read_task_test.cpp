@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/read_task.h"
-
-#include "x/cpp/xtest/xtest.h"
 
 class MockSource final : public common::Source {
     size_t start_count = 0;

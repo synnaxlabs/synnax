@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/opc/util/conn_pool.h"
-#include "open62541/client_config_default.h"
-#include "open62541/client_highlevel.h"
-
 #include <algorithm>
 
 #include "glog/logging.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
+
+#include "driver/opc/util/conn_pool.h"
 
 namespace util {
 
