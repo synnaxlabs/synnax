@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <fstream>
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -19,13 +18,10 @@
 #endif
 #include <filesystem>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// internal
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/xerrors/errors.h"
-
 
 using json = nlohmann::json;
 

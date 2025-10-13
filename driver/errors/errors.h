@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 namespace driver {

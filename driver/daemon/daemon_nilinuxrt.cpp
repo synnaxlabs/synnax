@@ -16,12 +16,10 @@
 #include <fstream>
 #include <thread>
 
-/// external.
+#include "glog/logging.h"
 #include <signal.h>
 #include <sys/stat.h>
-#include "glog/logging.h"
 
-/// internal
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;

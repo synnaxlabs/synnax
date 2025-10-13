@@ -10,14 +10,16 @@
 #pragma once
 
 #include <condition_variable>
+#include <iostream>
+#include <mutex>
+#include <string>
+
 #include <grpc/grpc.h>
 #include <grpcpp/security/server_credentials.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
-#include <iostream>
-#include <mutex>
-#include <string>
+
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are
@@ -70,7 +72,6 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
         return grpc::Status::OK;
     }
 };
-
 
 /// @brief Meant to be call within a thread. Simple
 /// GRPCUnaryClient server.

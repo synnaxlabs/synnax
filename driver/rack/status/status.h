@@ -9,16 +9,14 @@
 
 #pragma once
 
-/// internal
-#include "driver/pipeline/acquisition.h"
-#include "driver/task/task.h"
-
-/// module
 #include "client/cpp/synnax.h"
-#include "driver/task/common/factory.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
+
+#include "driver/pipeline/acquisition.h"
+#include "driver/task/common/factory.h"
+#include "driver/task/task.h"
 
 namespace rack::status {
 const std::string INTEGRATION_NAME = "rack_status";

@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <vector>
 
-/// module
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
 

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "open62541/client.h"
+
 #include "x/cpp/xerrors/errors.h"
 
 #include "driver/opc/util/util.h"

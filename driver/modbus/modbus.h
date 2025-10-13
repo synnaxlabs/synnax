@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "driver/modbus/device/device.h"
 #include "driver/task/task.h"
 

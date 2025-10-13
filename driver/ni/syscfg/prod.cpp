@@ -11,15 +11,15 @@
 #include <cstdarg>
 #include <cstring>
 #include <iostream>
+
 #include <stdio.h>
 
 /// internal.
+#include "x/cpp/xos/xos.h"
+
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "driver/ni/syscfg/prod.h"
-
-/// module
-#include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nisyscfg.dll";
