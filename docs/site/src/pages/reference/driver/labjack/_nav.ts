@@ -14,23 +14,23 @@ export const LABJACK_NAV: PageNavNode = {
   name: "LabJack",
   children: [
     {
-      key: "/reference/device-drivers/labjack/get-started",
-      href: "/reference/device-drivers/labjack/get-started",
+      key: "/reference/driver/labjack/get-started",
+      href: "/reference/driver/labjack/get-started",
       name: "Get Started",
     },
     {
-      key: "/reference/device-drivers/labjack/configure-device",
-      href: "/reference/device-drivers/labjack/configure-device",
+      key: "/reference/driver/labjack/configure-device",
+      href: "/reference/driver/labjack/configure-device",
       name: "Configure a Device",
     },
     {
-      key: "/reference/device-drivers/labjack/read-task",
-      href: "/reference/device-drivers/labjack/read-task",
+      key: "/reference/driver/labjack/read-task",
+      href: "/reference/driver/labjack/read-task",
       name: "Read Task",
     },
     {
-      key: "/reference/device-drivers/labjack/write-task",
-      href: "/reference/device-drivers/labjack/write-task",
+      key: "/reference/driver/labjack/write-task",
+      href: "/reference/driver/labjack/write-task",
       name: "Write Task",
     },
   ],

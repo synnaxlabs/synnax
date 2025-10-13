@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "OPC UA Write Task"
 description: "Write data to OPC UA servers with the Synnax Driver."
 prev: "Read Task"
-prevURL: "/reference/device-drivers/opc-ua/read-task"
+prevURL: "/reference/driver/opc-ua/read-task"
 ---
 
 import { Divider, Note, Icon } from "@synnaxlabs/pluto";
@@ -20,7 +20,7 @@ walk you through the steps to create an OPC UA Write Task in Synnax.
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to an OPC UA server](/reference/device-drivers/opc-ua/connect-server).
+[connected to an OPC UA server](/reference/driver/opc-ua/connect-server).
 
 <Divider.Divider x />
 
@@ -155,7 +155,7 @@ To configure the task, just click the "Configure" button. This will save the tas
 configuration, and you will be able to pause and resume the tasks whenever you want.
 Note that configuring a write task here will only create
 [command channels](#how-commands-work-in-synnax). In order to create state channels, you
-must configure a [read task](/reference/device-drivers/opc-ua/read-task).
+must configure a [read task](/reference/driver/opc-ua/read-task).
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/add-channels-to-task" />
 
@@ -175,8 +175,8 @@ configuration window.
 
 Configuring a write task will only create command channels. To create state channels to
 access the states of the nodes you are writing to, you must configure a
-[read task](/reference/device-drivers/opc-ua/read-task). You can then use the read task
-to read back states of the nodes you are writing to.
+[read task](/reference/driver/opc-ua/read-task). You can then use the read task to read
+back states of the nodes you are writing to.
 
 <Divider.Divider x />
 

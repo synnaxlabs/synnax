@@ -29,7 +29,7 @@ There are two ways to write control sequences in Synnax: via our
 Python control sequences are ideal for complex automations requiring a high degree of
 customization. Embedded control sequences are simple, but can be run on real-time OSs
 such as National Instruments cRIOs through our
-[NI Linux Real-Time Driver](/reference/device-drivers/installation?platform=ni-linux-rt).
+[NI Linux Real-Time Driver](/reference/driver/installation?platform=ni-linux-rt).
 Embedded control sequences can be edited and deployed directly from within the
 [Synnax Console](/reference/console/get-started).
 
@@ -88,7 +88,7 @@ deployment that communicates with National Instruments devices:
   </thead>
   <tbody>
     <tr>
-      <td>[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task)</td>
+      <td>[NI Analog Read Task](/reference/driver/ni/analog-read-task)</td>
       <td>Reads data from the analog input ports of an
         [NI-9205](https://www.ni.com/en-us/shop/model/ni-9205.html) at a fixed sample
         rate. Scaling and calibration information is configured within this task. The
@@ -96,7 +96,7 @@ deployment that communicates with National Instruments devices:
         sequence and Console for visualization.</td>
     </tr>
     <tr>
-      <td>[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task)</td>
+      <td>[NI Digital Write Task](/reference/driver/ni/digital-write-task)</td>
       <td>Writes to the digital output ports of a
         [NI-9375](https://www.ni.com/en-us/shop/model/ni-9375.html) based on commands
         sent to the `di_X_cmd` channels by the control sequence. The task also

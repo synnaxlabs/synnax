@@ -41,9 +41,13 @@ been updated to match any changes in the release candidate:
 - [ ] `reference/concepts`
 - [ ] `reference/console`
 - [ ] `reference/control`
-- [ ] `reference/device-drivers/labjack`
-- [ ] `reference/device-drivers/ni`
-- [ ] `reference/device-drivers/opc-ua`
+- [ ] `reference/control/python`
+- [ ] `reference/control/embedded`
+- [ ] `reference/driver`
+- [ ] `reference/driver/labjack`
+- [ ] `reference/driver/modbus`
+- [ ] `reference/driver/ni`
+- [ ] `reference/driver/opc-ua`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 

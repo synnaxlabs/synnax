@@ -17,7 +17,7 @@ import { CONCEPTS_NAV } from "@/pages/reference/concepts/_nav";
 import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
-import { DEVICE_DRIVERS_NAV } from "@/pages/reference/device-drivers/_nav";
+import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
 import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
 import { PYTHON_CLIENT_NAV } from "@/pages/reference/python-client/_nav";
 import { TYPESCRIPT_CLIENT_NAV } from "@/pages/reference/typescript-client/_nav";
@@ -30,7 +30,7 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   PYTHON_CLIENT_NAV,
   CONTROL_NAV,
   CONSOLE_NAV,
-  DEVICE_DRIVERS_NAV,
+  DRIVER_NAV,
   PLUTO_NAV,
 ];
 

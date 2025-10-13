@@ -73,7 +73,7 @@ const ICONS: Record<string, Icon.ReactElement> = {
   guides: <Icon.Guide />,
   "opc-ua": <Icon.Logo.OPC />,
   ni: <Icon.Logo.NI />,
-  "device-drivers": <Icon.Device />,
+  driver: <Icon.Device />,
   pluto: <Icon.Table />,
   releases: <Icon.Release />,
 };

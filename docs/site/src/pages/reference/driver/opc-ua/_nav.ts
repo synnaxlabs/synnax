@@ -14,18 +14,18 @@ export const OPC_UA_NAV: PageNavNode = {
   name: "OPC UA",
   children: [
     {
-      key: "/reference/device-drivers/opc-ua/connect-server",
-      href: "/reference/device-drivers/opc-ua/connect-server",
+      key: "/reference/driver/opc-ua/connect-server",
+      href: "/reference/driver/opc-ua/connect-server",
       name: "Connect to a Server",
     },
     {
-      key: "/reference/device-drivers/opc-ua/read-task",
-      href: "/reference/device-drivers/opc-ua/read-task",
+      key: "/reference/driver/opc-ua/read-task",
+      href: "/reference/driver/opc-ua/read-task",
       name: "Read Task",
     },
     {
-      key: "/reference/device-drivers/opc-ua/write-task",
-      href: "/reference/device-drivers/opc-ua/write-task",
+      key: "/reference/driver/opc-ua/write-task",
+      href: "/reference/driver/opc-ua/write-task",
       name: "Write Task",
     },
   ],

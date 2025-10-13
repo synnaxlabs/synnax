@@ -1,41 +1,41 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Digital Write Task"
-description: "Learn how to create a digital write task for NI hardware."
-prev: "Digital Read Task"
-prevURL: "/reference/device-drivers/ni/digital-read-task"
+title: "LabJack Write Task"
+description: "Learn how to control LabJack devices using Synnax."
+prev: "Read Task"
+prevURL: "/reference/driver/labjack/read-task"
 ---
 
 import { Divider, Note, Icon } from "@synnaxlabs/pluto";
-import StepText from "@/components/StepText.astro";
+
 import { Video, Image } from "@/components/Media";
+import StepText from "@/components/StepText.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The NI Digital Write Task is used for sending commands to the digital outputs of your NI
-cards. In this guide, we'll walk you through the steps to create a Digital Write Task in
-Synnax.
+The LabJack Write Task is used to control LabJack devices from Synnax. In this guide,
+we'll walk you through the steps to create a LabJack Write Task in Synnax.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected and configured an NI device](/reference/device-drivers/ni/configure-device).
+[connected and configured a LabJack device](/reference/driver/labjack/configure-device)
+in Synnax.
 
 <Divider.Divider x />
 
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the NI
-Driver, a digital write task defines a background process that writes to the digital
-outputs of your device based on values written to Synnax
-[command channels](#how-commands-work-in-synnax).
+can be used for both control and data acquisition purposes. In the context of the
+LabJack driver, a write task defines a background process that writes data to the analog
+or digital outputs on a particular LabJack device.
 
-A digital write task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+A write task can be started, stopped, and re-configured at any time. Synnax permanently
+stores the configuration of each task, so it's easy to set up multiple tasks for
+different purposes.
 
 <Divider.Divider x />
 
@@ -65,7 +65,7 @@ State channels are typically suffixed with `_state`. A state channel maintains t
 format as its corresponding command channel, but suffixed with `_state` instead of
 `_cmd`.
 
-As an example, to configure a valve in the [schematic](/reference/console/schematics) to
+As an example, to configure a valve in a [schematic](/reference/console/schematics) to
 write to a digital output, you would set the `command` field to the command channel of
 the digital output and the `state` field to the state channel of the digital output.
 Clicking the valve would send a command to the digital output, and the valve would turn
@@ -80,66 +80,64 @@ running task.
 
 ### From the Devices Toolbar
 
-To create a digital write task from the Devices Toolbar, open the Console and click on
+To create a write task from the Devices Toolbar, open the Synnax Console and click on
 the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
-you'd like to create the task for, right-click on it, and select "Create digital write
-task".
+you'd like to create the task for, right-click on it, and select "Create write task".
 
 <Video
   client:only="react"
-  id="device-drivers/ni/digital-write-task/device-create-digital-write-task"
+  id="device-drivers/labjack/write-task/device-create-write-task"
 />
 
 ### From the Command Palette
 
-To create a digital write task from the command palette, open the Console and click on
-the Search and Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
+To create a write task from the command palette, open the Synnax Console and click on
+the Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
+Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create an NI Digital Write Task". Select this option to
-open the digital write task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "LabJack".
+You'll see an option called "Create a LabJack Write Task". Select this option to open
+the write task configuration dialog.
 
 <Video
   client:only="react"
-  id="device-drivers/ni/digital-write-task/palette-create-digital-write-task"
+  id="device-drivers/labjack/write-task/palette-create-write-task"
 />
 
 ### From The Layout Selector
 
-To create a digital write task from the layout selector, click on the add icon
-(<Icon.Add />) in the top-right corner and select "NI Digital Write Task".
+To create a write task from the layout selector, click on the add icon (<Icon.Add />) in
+the top-right corner and select "LabJack Write Task".
 
 <Video
   client:only="react"
-  id="device-drivers/ni/digital-write-task/layout-create-digital-write-task"
+  id="device-drivers/labjack/write-task/layout-create-write-task"
 />
 
 <Divider.Divider x />
 
 ## Configure the Task
 
-### <StepText level="h3" step={1}>Select your NI Device</StepText>
+### <StepText level="h3" step={1}>Select your LabJack Device</StepText>
 
-The first step is to select the NI device you'd like to write to the outputs of. Use the
-dropdown menu in the top-left corner to do so.
+The first step is to select the LabJack device you'd like to write to the outputs of.
+Use the dropdown menu in the top-left corner to do so.
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-select-device"
-/>
+<Video client:only="react" id="device-drivers/labjack/write-task/select-device" />
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add the channels you'd like to write to. Click the add icon
-(<Icon.Add />) in the channels section. Then, click on the new channel in the list to
+Next, you'll need to add the channels you'd like to write to. Click the Add (<Icon.Add
+/>) button in the channels section. Then, click on the new channel in the list to
 configure it.
 
-You'll need to select both a digital output port and line to write to.
+You'll need to select an output port to write to. You'll also need to select the command
+channel the task will listen to, and the state channel that will be updated when the
+command is processed.
 
 <Video
   client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-add-channel"
+  id="device-drivers/labjack/write-task/write-task-create-channel"
 />
 
 ### <StepText level="h3" step={3}>Configure the State Update Rate</StepText>
@@ -164,10 +162,7 @@ the "Configure" button. If there are no errors, Synnax will acknowledge the conf
 task and enable the Play (<Icon.Play />) button in the dialog. Click this button to
 start the task.
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-start"
-/>
+<Video client:only="react" id="device-drivers/labjack/write-task/start-task" />
 
 <Note.Note variant="info">
   Starting and stopping a task does not re-apply the task configuration. If you've made
