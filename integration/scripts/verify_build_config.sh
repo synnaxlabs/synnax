@@ -12,20 +12,21 @@
 # Verify and display build configuration
 
 VERSION=$1
-BUILD_UBUNTU=$2
-BUILD_WINDOWS=$3
-BUILD_MACOS=$4
-BUILD_DRIVER=$5
-BUILD_CONSOLE=$6
-BUILD_CORE=$7
+BUILD_WINDOWS=$2
+BUILD_MACOS=$3
+BUILD_UBUNTU=$4
+BUILD_UBUNTU_22_04=$5
+BUILD_DRIVER=$6
+BUILD_CONSOLE=$7
+BUILD_CORE=$8
 
-# Validate that at least one OS is selected
-if [ "$BUILD_UBUNTU" != "true" ] && [ "$BUILD_WINDOWS" != "true" ] && [ "$BUILD_MACOS" != "true" ]; then
+# Verify that at least one OS is selected
+if [ "$BUILD_WINDOWS" != "true" ] && [ "$BUILD_MACOS" != "true" ] && [ "$BUILD_UBUNTU" != "true" ] && [ "$BUILD_UBUNTU_22_04" != "true" ]; then
     echo "Error: No operating systems selected. Please select at least one OS to build for."
     exit 1
 fi
 
-# Validate that at least one binary is selected
+# Verify that at least one binary is selected
 if [ "$BUILD_DRIVER" != "true" ] && [ "$BUILD_CONSOLE" != "true" ] && [ "$BUILD_CORE" != "true" ]; then
     echo "Error: No binaries selected. Please select at least one binary to build."
     exit 1
@@ -38,25 +39,42 @@ echo ""
 echo "Version: $VERSION"
 echo ""
 echo "Operating Systems:"
-if [ "$BUILD_UBUNTU" = "true" ]; then
-    echo "  ✓ Ubuntu"
-fi
 if [ "$BUILD_WINDOWS" = "true" ]; then
     echo "  ✓ Windows"
+else
+    echo "  X Windows"
 fi
 if [ "$BUILD_MACOS" = "true" ]; then
     echo "  ✓ macOS"
+else
+    echo "  X macOS"
+fi
+if [ "$BUILD_UBUNTU" = "true" ]; then
+    echo "  ✓ Ubuntu"
+else
+    echo "  X Ubuntu"
+fi
+if [ "$BUILD_UBUNTU_22_04" = "true" ]; then
+    echo "  ✓ Ubuntu 22.04 (NI Linux RT)"
+else
+    echo "  X Ubuntu 22.04 (NI Linux RT)"
 fi
 echo ""
 echo "Binaries:"
 if [ "$BUILD_DRIVER" = "true" ]; then
     echo "  ✓ Driver"
+else
+    echo "  X Driver"
 fi
 if [ "$BUILD_CONSOLE" = "true" ]; then
     echo "  ✓ Console"
+else
+    echo "  X Console"
 fi
 if [ "$BUILD_CORE" = "true" ]; then
     echo "  ✓ Core"
+else
+    echo "  X Core"
 fi
 echo ""
 echo "─────────────────────────────────────────"

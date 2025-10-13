@@ -6,16 +6,20 @@ run-name:
 on:
   workflow_dispatch:
     inputs:
-      ubuntu:
-        description: "OS: Ubuntu"
-        type: boolean
-        default: false
       windows:
         description: "OS: Windows"
         type: boolean
         default: false
       macos:
         description: "OS: macOS"
+        type: boolean
+        default: false
+      ubuntu:
+        description: "OS: Ubuntu"
+        type: boolean
+        default: false
+      ubuntu_22_04:
+        description: "OS: NI Linux RT (Ubuntu 22.04)"
         type: boolean
         default: false
       driver:
@@ -66,16 +70,17 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(integration/scripts/generate_os_matrix.sh "${{ inputs.ubuntu }}" "${{ inputs.windows }}" "${{ inputs.macos }}")
+          MATRIX=$(integration/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.ubuntu_22_04 }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Verify Build Configuration
         run: |
           integration/scripts/verify_build_config.sh \
             "${{ steps.version.outputs.VERSION }}" \
-            "${{ inputs.ubuntu }}" \
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
+            "${{ inputs.ubuntu }}" \
+            "${{ inputs.ubuntu_22_04 }}" \
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
             "${{ inputs.core }}"
@@ -100,11 +105,11 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Deps On Ubuntu
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Determine Executable Name
         id: executable
@@ -126,7 +131,11 @@ jobs:
       - name: Build Driver
         if: inputs.driver && matrix.os != 'windows-latest'
         run: |
-          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+          if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures //driver
+          else
+            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures //driver
+          fi
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-latest'
