@@ -59,6 +59,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
 
@@ -67,6 +68,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
 	validate.NotNil(v, "channel", cfg.Channel)
+	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
 

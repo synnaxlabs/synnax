@@ -245,7 +245,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		if ch.IsCalculated() && ch.LocalIndex == 0 {
 			// Find the matching index channel by name
 			indexName := ch.Name + calculatedIndexNameSuffix
-			for j, potentialIndex := range toCreate {
+			for _, potentialIndex := range toCreate {
 				if potentialIndex.Name == indexName && potentialIndex.IsIndex {
 					toCreate[i].LocalIndex = potentialIndex.LocalKey
 					// Also update in the input channels slice so caller sees the link

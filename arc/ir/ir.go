@@ -60,8 +60,7 @@ type Stage struct {
 	// StatefulVariables are names and types for the stateful variables on
 	// the stage.
 	StatefulVariables maps.Ordered[string, Type] `json:"stateful_variables"`
-	//
-	Channels Channels `json:"channels"`
+	Channels          Channels                   `json:"channels"`
 	// Body is the logical body of the stage.
 	Body Body
 }

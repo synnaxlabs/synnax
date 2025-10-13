@@ -96,10 +96,7 @@ func OpenCalculator(
 		return nil, err
 	}
 
-	telemState := &ntelem.State{
-		Data:    make(map[uint32]telem.MultiSeries),
-		Readers: make(map[uint32][]string),
-	}
+	telemState := ntelem.NewState()
 	telemFactory := ntelem.NewTelemFactory(telemState)
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()

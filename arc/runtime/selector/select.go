@@ -71,10 +71,9 @@ func (s *selectNode) Next(ctx context.Context, onOutput func(string)) {
 	falseOutputSeries.Data.Resize(falseCount)
 	falseOutputSeries.Time.Resize(falseCount)
 
-	// Filter data and time into true/false outputs
 	var trueIdx, falseIdx int64 = 0, 0
 	for i, v := range inputSeries.Data.Data {
-		timeOffset := int64(i) * 8 // 8 bytes per timestamp
+		timeOffset := int64(i) * 8
 		if v == 1 {
 			trueOutputSeries.Data.Data[trueIdx] = 1
 			copy(trueOutputSeries.Time.Data[trueIdx*8:(trueIdx+1)*8], inputSeries.Time.Data[timeOffset:timeOffset+8])

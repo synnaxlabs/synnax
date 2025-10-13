@@ -313,25 +313,42 @@ var _ = Describe("Create", Ordered, func() {
 			calcID1 := lo.Must(uuid.NewUUID())
 			calcID2 := lo.Must(uuid.NewUUID())
 
+			// Create index channels for regular channels first
+			indexCh1 := channel.Channel{
+				Name:        "regular1_idx",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			indexCh2 := channel.Channel{
+				Name:        "regular2_idx",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &indexCh1)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &indexCh2)).To(Succeed())
+
+			// Now create channels with proper indexes
 			channels := []channel.Channel{
-				{Name: "regular1", DataType: telem.Float64T, Leaseholder: 1},
+				{Name: "regular1", DataType: telem.Float64T, Leaseholder: 1, LocalIndex: indexCh1.LocalKey},
 				{Name: "calculated1", DataType: telem.Float64T, Calculation: calcID1},
-				{Name: "regular2", DataType: telem.Int32T, Leaseholder: 1},
+				{Name: "regular2", DataType: telem.Int32T, Leaseholder: 1, LocalIndex: indexCh2.LocalKey},
 				{Name: "calculated2", DataType: telem.Float32T, Calculation: calcID2},
 			}
 			for i := range channels {
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channels[i])).To(Succeed())
 			}
 
-			// Check calculated channels have indexes
+			// Check calculated channels have auto-created indexes
 			Expect(channels[1].LocalIndex).ToNot(BeZero())
 			Expect(channels[3].LocalIndex).ToNot(BeZero())
 
-			// Check regular channels don't have indexes
-			Expect(channels[0].LocalIndex).To(BeZero())
-			Expect(channels[2].LocalIndex).To(BeZero())
+			// Check regular channels have the indexes we specified
+			Expect(channels[0].LocalIndex).To(Equal(indexCh1.LocalKey))
+			Expect(channels[2].LocalIndex).To(Equal(indexCh2.LocalKey))
 
-			// Verify index channels exist
+			// Verify auto-created index channels exist for calculated channels
 			var indexChannels []channel.Channel
 			err := mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereNames("calculated1_time", "calculated2_time").
