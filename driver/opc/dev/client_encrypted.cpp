@@ -20,6 +20,7 @@
 #include <open62541/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -65,7 +66,7 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-static UA_INLINE UA_StatusCode
+[[maybe_unused]] static UA_INLINE UA_StatusCode
 
 writeFile(const char *const path, const UA_ByteString buffer) {
     FILE *fp = NULL;
@@ -109,7 +110,7 @@ int main(int argc, char *argv[]) {
     /* Load the trustList. Load revocationList is not supported now */
     size_t trustListSize = 0;
     if (argc > MIN_ARGS) trustListSize = (size_t) argc - MIN_ARGS;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    std::vector<UA_ByteString> trustList(trustListSize + 1);
     for (size_t trustListCount = 0; trustListCount < trustListSize; trustListCount++)
         trustList[trustListCount] = load_file(argv[trustListCount + 4]);
 
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]) {
         cc,
         certificate,
         privateKey,
-        trustList,
+        trustList.data(),
         trustListSize,
         revocationList,
         revocationListSize

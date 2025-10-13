@@ -212,7 +212,7 @@ public:
                 NULL
             );
         }
-        UA_StatusCode retval = UA_Server_run(server, running);
+        [[maybe_unused]] UA_StatusCode retval = UA_Server_run(server, running);
         UA_Server_delete(server);
     }
 };

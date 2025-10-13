@@ -45,7 +45,6 @@ build --per_file_copt=vendor/.*@-w
 # Keep strict warnings for workspace code
 build --copt=-Wall
 build --cxxopt=-Wall
-build --copt=-Wunknown-pragmas
 
 # ===== Optimization Flags (used with -c opt) =====
 

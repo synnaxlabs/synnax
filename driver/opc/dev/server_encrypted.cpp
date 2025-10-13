@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 // #include <unistd.h> // For getcwd
 #include <iostream>
 
@@ -68,7 +69,7 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-static UA_INLINE UA_StatusCode
+[[maybe_unused]] static UA_INLINE UA_StatusCode
 
 writeFile(const char *const path, const UA_ByteString buffer) {
     FILE *fp = NULL;
@@ -174,7 +175,7 @@ int main(int argc, char *argv[]) {
     /* Load the trustlist */
     size_t trustListSize = 0;
     if (argc > 3) trustListSize = (size_t) argc - 3;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    std::vector<UA_ByteString> trustList(trustListSize + 1);
     for (size_t i = 0; i < trustListSize; i++)
         trustList[i] = load_file(argv[i + 3]);
 
@@ -195,7 +196,7 @@ int main(int argc, char *argv[]) {
         4841,
         &certificate,
         &privateKey,
-        trustList,
+        trustList.data(),
         trustListSize,
         issuerList,
         issuerListSize,
@@ -212,7 +213,7 @@ int main(int argc, char *argv[]) {
     // set the security policy URI
     char securityPolicyUriString
         [] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
-    UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
+    [[maybe_unused]] UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
