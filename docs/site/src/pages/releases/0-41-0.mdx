@@ -17,7 +17,7 @@ export const components = mdxOverrides;
 <Image client:only="react" id="releases/0-41-0/thumbnail" themed={false} />
 
 Synnax v0.41.0 introduces the first major overhaul fo the Console UI since it's initial
-release. In the new device toolbar, we've added real-time information on device health.
+release. In the new Devices Toolbar, we've added real-time information on device health.
 It also includes a number of minor improvements to the Synnax Driver, and various bug
 fixes.
 
@@ -30,7 +30,7 @@ simplify navigation and improve workflows.
 
 #### Deprecation and Eventual Removal of the Resources Toolbar
 
-The resources toolbar was the single stop for accessing all of Synnax's main data
+The Resources Toolbar was the single stop for accessing all of Synnax's main data
 structures. Channels, ranges, workspaces, users, and more are all available from this
 location. While this has advantages for flexibility, it has been a common source of
 confusion for understanding how Synnax's data model is organized. Displaying all
@@ -38,11 +38,11 @@ resources in one place also posed a challenge for various resource-specific layo
 customizations we wanted to make.
 
 To address these issues, we've decided to split the resources pane into a series of
-independent, category specific toolbars. There are new devices, users, channels, and
-workspace toolbars. The range and task toolbars have also been moved to the left-hand
-side of the Console.
+independent, category specific toolbars. There are new toolbars for devices, users,
+channels, and workspaces. workspace toolbars. The Ranges Toolbar and Tasks Toolbar have
+also been moved to the left-hand side of the Console.
 
-We're leaving the original resources toolbar in the Console for now, but we'll be
+We're leaving the original Resources Toolbar in the Console for now, but we'll be
 removing it in a future release once the new toolbars can meet all necessary
 functionality.
 
@@ -72,9 +72,9 @@ and double pressing `C` will open toolbar permanently.
 
 <Divider.Divider x />
 
-### Device Toolbar
+### Devices Toolbar
 
-The new device toolbar provides real-time information on the status of Synnax Drivers
+The new Devices Toolbar provides real-time information on the status of Synnax Drivers
 and the devices connected to them. Synnax Drivers that are actively running will now
 show a blue heartbeat, and devices have a status indicators that shows the health of
 their connection.
@@ -91,8 +91,8 @@ the task will **automatically start** on configuration and **Driver startup**.
 
 ### Renaming Channels within Tasks
 
-Previously, the only way to rename a channel bound to a task was within the resources
-toolbar. We've added a new context menu item within all task configuration dialogs that
+Previously, the only way to rename a channel bound to a task was within the Resources
+Toolbar. We've added a new context menu item within all task configuration dialogs that
 allows you to rename a particular channel from within the dialog itself.
 
 ### Schematic Symbols
