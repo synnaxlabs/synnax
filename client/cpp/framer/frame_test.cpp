@@ -160,8 +160,9 @@ TEST(FrameTests, testIteration) {
     count = 0;
     for (auto [key, s]: const_frame) {
         count++;
-        if (key == 65537)
+        if (key == 65537) {
             ASSERT_EQ(s.at<float>(0), 10.0f); // Should see the modified value
+        }
     }
     ASSERT_EQ(count, 3);
 
