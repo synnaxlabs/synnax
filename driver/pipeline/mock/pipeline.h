@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 

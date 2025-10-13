@@ -24,9 +24,7 @@ from framework.utils import get_machine_info, get_memory_info, get_synnax_versio
 
 
 class BenchReport(TestCase):
-
     def setup(self) -> None:
-
         self.set_manual_timeout(15)
 
         self.report_client = sy.Synnax(

@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <set>
 
-/// internal
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"

@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
-#include "x/cpp/xtest/xtest.h"
-
-/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xtest/xtest.h"
 
 void test_downsample(
     const std::vector<int> &raw_data,

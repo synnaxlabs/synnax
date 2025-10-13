@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/status/status.h"
 
 /// @brief it should correctly convert a status to its JSON representation.
@@ -28,7 +26,6 @@ TEST(StatusTest, TestToJSON) {
     ASSERT_EQ(j["description"], "a longer description of the dog's status");
     ASSERT_GT(j["time"], 0);
 }
-
 
 /// @brief it should correctly parse a status from its JSON representation.
 TEST(StatusTest, TestParse) {

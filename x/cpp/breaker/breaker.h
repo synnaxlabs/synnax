@@ -9,17 +9,14 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
 #include <iomanip>
 #include <memory>
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
@@ -55,7 +52,6 @@ struct Config {
         };
     }
 };
-
 
 /// @brief implements a general purpose circuit breaker that allows for retry at a
 /// scaled interval, with a set number of maximum retries before giving up.
@@ -155,7 +151,6 @@ public:
             this->interval = this->config.max_interval;
         return true;
     }
-
 
     /// @brief waits for the given time duration. If the breaker stopped before the
     /// specified time, the method will return immediately to ensure graceful exit

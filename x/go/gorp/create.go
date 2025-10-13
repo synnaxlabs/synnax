@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -28,7 +29,7 @@ func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 // the existing entry and should return an error if the entry should not be overwritten.
 // If no entry with a matching GorpKey is found, the function is not called. MergeExisting
 // adds overhead to the query, as a retrieval is required to check for existing entries.
-func (c Create[K, E]) MergeExisting(filter func(creating E, existing E) (E, error)) Create[K, E] {
+func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating E, existing E) (E, error)) Create[K, E] {
 	addMergeExisting[K, E](c.params, filter)
 	return c
 }
@@ -54,7 +55,10 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 			if err != nil {
 				return err
 			}
-			if e, err = mergeExisting.exec(entry, e); err != nil {
+			if e, err = mergeExisting.exec(Context{
+				Context: ctx,
+				Tx:      tx,
+			}, entry, e); err != nil {
 				return err
 			}
 			entries.Set(i, e)
@@ -65,19 +69,21 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 
 const mergeExistingKey = "mergeExisting"
 
-type onUpdate[K Key, E Entry[K]] []func(creating E, existing E) (E, error)
+type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
 
-func (o onUpdate[K, E]) exec(creating E, existing E) (E, error) {
+type onUpdate[K Key, E Entry[K]] []MergeExistingFunc[K, E]
+
+func (o onUpdate[K, E]) exec(ctx Context, creating, existing E) (E, error) {
 	var err error
 	for _, f := range o {
-		if creating, err = f(creating, existing); err != nil {
+		if creating, err = f(ctx, creating, existing); err != nil {
 			return creating, err
 		}
 	}
 	return creating, nil
 }
 
-func addMergeExisting[K Key, E Entry[K]](q query.Parameters, f func(creating E, existing E) (E, error)) {
+func addMergeExisting[K Key, E Entry[K]](q query.Parameters, f MergeExistingFunc[K, E]) {
 	var o onUpdate[K, E]
 	ro, ok := q.Get(mergeExistingKey)
 	if !ok {

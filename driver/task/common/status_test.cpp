@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/task/common/status.h"
 
 /// @brief it should correctly communicate the starting state of a task.

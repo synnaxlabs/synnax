@@ -6,20 +6,20 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
 #pragma once
 
-/// std
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
 
-/// module
+#include "glog/logging.h"
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
@@ -28,8 +28,6 @@
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/transform/transform.h"
-#include "glog/logging.h"
-
 
 namespace labjack {
 constexpr int SINGLE_ENDED = 199; // default negative channel for single ended signals
@@ -75,7 +73,6 @@ parse_temperature_units(xjson::Parser &parser, const std::string &path) {
         parser.field_err(path, "Invalid temperature units: " + units);
     return v->second;
 }
-
 
 /// @brief parses the thermocouple type from the configuration and converts it to
 /// the appropriate LJM type.
@@ -166,7 +163,6 @@ struct ThermocoupleChan final : InputChan {
 
     ///@brief units for the thermocouple reading
     LJM_TemperatureUnits units;
-
 
     explicit ThermocoupleChan(xjson::Parser &parser):
         InputChan(parser),

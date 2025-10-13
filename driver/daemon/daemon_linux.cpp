@@ -14,12 +14,10 @@
 #include <mutex>
 #include <thread>
 
-/// external.
+#include "glog/logging.h"
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
-#include "glog/logging.h"
 
-/// internal
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;

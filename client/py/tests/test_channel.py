@@ -428,6 +428,16 @@ class TestChannel:
             assert channel.key != ""
             assert isinstance(channel.data_type.density, sy.Density)
 
+    def test_retrieve_zero_key_single(self, client: sy.Synnax):
+        """Should retrieve a channel with a key of zero"""
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(0)
+
+    def test_retrieve_zero_key_multiple(self, client: sy.Synnax):
+        """Should retrieve a list of channels with a key of zero"""
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve([0, 0, 0])
+
 
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble

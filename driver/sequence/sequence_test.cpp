@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/mock/plugins.h"
 #include "driver/sequence/plugins/plugins.h"
@@ -55,7 +52,6 @@ TEST(Sequence, nominal) {
             ch_write_plugin
         }
     );
-
 
     const auto script = R"(
         if read_channel == nil then

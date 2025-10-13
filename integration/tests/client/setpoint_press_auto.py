@@ -18,7 +18,6 @@ class Setpoint_Press_Auto(TestCase):
     """
 
     def setup(self) -> None:
-
         self.set_manual_timeout(120)
         self.subscribe(
             [
@@ -98,7 +97,6 @@ class Setpoint_Press_Auto(TestCase):
             mode = "hold"
             setpoint_prev = None
             while test_active():
-
                 setpoint = ctrl["press_setpoint_cmd"]
                 pressure = ctrl["press_pt"]
                 end_test_state = ctrl["end_test_state"]
