@@ -14,25 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-[[maybe_unused]] static UA_StatusCode node_iter(
-    UA_NodeId childId,
-    UA_Boolean isInverse,
-    UA_NodeId referenceTypeId,
-    void *handle
-) {
-    if (isInverse) return UA_STATUSCODE_GOOD;
-    UA_NodeId *parent = (UA_NodeId *) handle;
-    printf(
-        "%u, %u --- %u ---> NodeId %u, %u\n",
-        parent->namespaceIndex,
-        parent->identifier.numeric,
-        referenceTypeId.identifier.numeric,
-        childId.namespaceIndex,
-        childId.identifier.numeric
-    );
-    return UA_STATUSCODE_GOOD;
-}
-
 int main(int argc, char *argv[]) {
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));

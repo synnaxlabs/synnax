@@ -212,7 +212,10 @@ public:
                 NULL
             );
         }
-        [[maybe_unused]] UA_StatusCode retval = UA_Server_run(server, running);
+        UA_StatusCode retval = UA_Server_run(server, running);
+        if (retval != UA_STATUSCODE_GOOD)
+            LOG(WARNING) << "Mock OPC UA server stopped with status: "
+                         << UA_StatusCode_name(retval);
         UA_Server_delete(server);
     }
 };
