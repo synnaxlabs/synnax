@@ -15,7 +15,6 @@
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
-
 /// internal
 #include "driver/opc/conn/conn.h"
 

@@ -22,10 +22,8 @@
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
-
 /// internal
 #include "driver/opc/types/types.h"
-
 
 namespace mock {
 struct TestNode {
@@ -183,7 +181,6 @@ public:
         server_config->maxSessionTimeout = 3600000;
         UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
 
-
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
 
@@ -221,13 +218,14 @@ public:
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {
+            LOG(WARNING) << "Mock OPC UA server stopped with status: "
+                         << UA_StatusCode_name(retval);
             UA_Server_delete(server);
             return;
         }
 
-        while (running.load()) {
+        while (running.load())
             UA_Server_run_iterate(server, true);
-        }
 
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);

@@ -9,16 +9,17 @@
 
 #include <utility>
 
-#include "driver/opc/util/util.h"
-#include "x/cpp/telem/series.h"
-#include "x/cpp/xerrors/errors.h"
-
 #include "glog/logging.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
+
+#include "x/cpp/telem/series.h"
+#include "x/cpp/xerrors/errors.h"
+
+#include "driver/opc/util/util.h"
 
 namespace util {
 std::pair<telem::Series, xerrors::Error>

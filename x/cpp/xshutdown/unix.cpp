@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <csignal>
 #include <mutex>
-#include <poll.h>
 #include <string>
+
+#include <poll.h>
 #include <unistd.h>
 
-/// internal
 #include "x/cpp/xshutdown/xshutdown.h"
 
 namespace xshutdown::priv {
