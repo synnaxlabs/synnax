@@ -80,9 +80,8 @@ values written to one or more channels.
 
 ##### Python
 
-In Python, simply call `read_latest` with the channels and the number of values you want
-to read. Additional documentation can be found
-[here](/reference/python-client/read-data).
+In Python, simply [call `read_latest`](/reference/python-client/read-data) with the
+channels and the number of values you want to read.
 
 ```python
 import synnax as sy
@@ -98,8 +97,9 @@ print(client.read_latest(["daq_time", "ox_pt_1"], 1))
 
 ##### TypeScript
 
-The TypeScript client has a `readLatest` method that works in the same way. Additional
-documentation can be found [here](/reference/typescript-client/read-data).
+The TypeScript client has a
+[`readLatest` method](/reference/typescript-client/read-data) that works in the same
+way.
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
