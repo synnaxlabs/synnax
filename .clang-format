@@ -51,15 +51,15 @@ IncludeCategories:
       Priority: 2
       SortPriority: 2
     # external - Third-party libraries with quotes (from MODULE.bazel and vendor/)
-    - Regex: "^\"(google|glog|gtest|gmock|grpc|gflags|nlohmann|lua|open62541|mbedtls|modbus)/"
+    - Regex: '^"(google|glog|gtest|gmock|grpc|gflags|nlohmann|lua|open62541|mbedtls|modbus)/'
       Priority: 2
       SortPriority: 2
     # module - Synnax cross-component headers (x/cpp, client, freighter)
-    - Regex: "^\"(x/cpp|client|freighter)/"
+    - Regex: '^"(x/cpp|client|freighter)/'
       Priority: 3
       SortPriority: 3
     # internal - Same-directory/module headers (includes protos)
-    - Regex: "^\".*\"$"
+    - Regex: '^".*"$'
       Priority: 4
       SortPriority: 4
 IncludeIsMainRegex: "$^"
