@@ -81,9 +81,9 @@ func (r *reduction) Init(_ context.Context, _ func(output string)) {
 func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) {
 	shouldReset := false
 	if r.reset != nil {
-		resetSeries := r.state.Outputs[r.reset.Source]
-		if resetSeries.Len() > 0 {
-			resetValue := telem.ValueAt[uint8](resetSeries, -1)
+		resetOutput := r.state.Outputs[r.reset.Source]
+		if resetOutput.Data.Len() > 0 {
+			resetValue := telem.ValueAt[uint8](resetOutput.Data, -1)
 			if resetValue == 1 {
 				shouldReset = true
 			}
@@ -106,14 +106,16 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 		r.sampleCount = 0
 	}
 
-	inputSeries := r.state.Outputs[r.input.Source]
-	if inputSeries.Len() == 0 {
+	inputOutput := r.state.Outputs[r.input.Source]
+	if inputOutput.Data.Len() == 0 {
 		return
 	}
 
-	outputSeries := r.state.Outputs[r.output]
-	r.sampleCount = r.reductionFn(inputSeries, r.sampleCount, &outputSeries)
-	r.state.Outputs[r.output] = outputSeries
+	outputState := r.state.Outputs[r.output]
+	r.sampleCount = r.reductionFn(inputOutput.Data, r.sampleCount, &outputState.Data)
+	// Copy time from input to output
+	outputState.Time = inputOutput.Time
+	r.state.Outputs[r.output] = outputState
 	onOutputChange(ir.DefaultOutputParam)
 }
 
@@ -135,8 +137,8 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 
 	inputEdge := cfg.Module.IR.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultInputParam})
 	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
-	inputSeries := cfg.State.Outputs[inputEdge.Source]
-	reductionFn := reductionMap[inputSeries.DataType]
+	inputOutput := cfg.State.Outputs[inputEdge.Source]
+	reductionFn := reductionMap[inputOutput.Data.DataType]
 
 	// Optional reset signal
 	var resetEdge *ir.Edge

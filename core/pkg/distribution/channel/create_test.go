@@ -10,8 +10,10 @@
 package channel_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -237,83 +239,129 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
-	Context("Calculated Channel", func() {
-		It("Should create a calculated channel without error", func() {
-			baseCh := channel.Channel{
-				Name:     "time",
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
+	Context("Calculated Channel with Auto-Created Index", func() {
+		It("Should automatically create an index channel for calculated channels", func() {
+			calcID := uuid.New()
+			calcCh := channel.Channel{
+				Name:        "calculated_temp",
+				DataType:    telem.Float64T,
+				Calculation: calcID,
 			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &baseCh)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
-			ch := channel.Channel{
-				Name:       "SG0001",
-				DataType:   telem.Float64T,
-				Expression: "return 1",
-				Requires:   []channel.Key{baseCh.Key()},
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-		})
-		It("Should return an error if the requires field is empty", func() {
-			ch := channel.Channel{
-				Name:       "SG0001",
-				DataType:   telem.Float64T,
-				Expression: "return 1",
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: calculated channels must require at least one channel")))
-		})
-		It("Should return an error if the calculated channel depends on both a virtual and index channel", func() {
-			vCH := channel.Channel{
-				Name:     "SG0001",
-				DataType: telem.Float64T,
-				Virtual:  true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &vCH)).To(Succeed())
-			idxCH := channel.Channel{
-				Name:     "time",
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &idxCH)).To(Succeed())
-			ch := channel.Channel{
-				Name:       "SG0002",
-				DataType:   telem.Float64T,
-				Expression: "return 1",
-				Requires:   []channel.Key{vCH.Key(), idxCH.Key()},
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: cannot use a mix of virtual and non-virtual channels in calculations")))
-		})
-		It("Should return an error if the calculated channel depends on a channel that does not exist", func() {
-			ch := channel.Channel{
-				Name:       "SG0001",
-				DataType:   telem.Float64T,
-				Expression: "return 1",
-				Requires:   []channel.Key{111111111},
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(MatchError(query.NotFound))
-		})
-		It("Should return an error if all required channels do not share the same index", func() {
-			idxCH1 := channel.Channel{
-				Name:     "time1",
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
-			}
-			idxCH2 := channel.Channel{
-				Name:     "time2",
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &idxCH1)).To(Succeed())
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &idxCH2)).To(Succeed())
-			ch := channel.Channel{
-				Name:       "SG0001",
-				DataType:   telem.Float64T,
-				Expression: "return 1",
-				Requires:   []channel.Key{idxCH1.Key(), idxCH2.Key()},
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: all required channels must share the same index")))
+			// Verify calculated channel properties
+			Expect(calcCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(calcCh.Virtual).To(BeTrue())
+			Expect(calcCh.LocalIndex).ToNot(BeZero())
+
+			// Verify index channel was created
+			indexName := "calculated_temp_time"
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(indexName).
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(1))
+
+			indexCh := indexChannels[0]
+			Expect(indexCh.IsIndex).To(BeTrue())
+			Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
+			Expect(indexCh.Virtual).To(BeTrue())
+			Expect(indexCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
 		})
 
+		It("Should reject calculated channel with manually-specified index", func() {
+			calcID := lo.Must(uuid.NewUUID())
+			calcCh := channel.Channel{
+				Name:        "calculated_bad",
+				DataType:    telem.Float64T,
+				Calculation: calcID,
+				LocalIndex:  channel.LocalKey(999),
+			}
+			err := mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)
+			Expect(err).To(MatchError(ContainSubstring("calculated channels cannot specify an index manually")))
+		})
+
+		It("Should retrieve existing calculated channel with its index", func() {
+			// Create first
+			calcID := lo.Must(uuid.NewUUID())
+			calcCh := channel.Channel{
+				Name:        "calculated_retrieve_test",
+				DataType:    telem.Float64T,
+				Calculation: calcID,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+			originalKey := calcCh.Key()
+			originalIndexKey := calcCh.LocalIndex
+
+			// Try to create again with RetrieveIfNameExists
+			calcCh2 := channel.Channel{
+				Name:        "calculated_retrieve_test",
+				DataType:    telem.Float64T,
+				Calculation: lo.Must(uuid.NewUUID()), // Different UUID
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh2, channel.RetrieveIfNameExists(true))).To(Succeed())
+
+			// Should return existing channel with same index
+			Expect(calcCh2.Key()).To(Equal(originalKey))
+			Expect(calcCh2.LocalIndex).To(Equal(originalIndexKey))
+		})
+
+		It("Should handle batch create with calculated and regular channels", func() {
+			calcID1 := lo.Must(uuid.NewUUID())
+			calcID2 := lo.Must(uuid.NewUUID())
+
+			channels := []channel.Channel{
+				{Name: "regular1", DataType: telem.Float64T, Leaseholder: 1},
+				{Name: "calculated1", DataType: telem.Float64T, Calculation: calcID1},
+				{Name: "regular2", DataType: telem.Int32T, Leaseholder: 1},
+				{Name: "calculated2", DataType: telem.Float32T, Calculation: calcID2},
+			}
+			for i := range channels {
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channels[i])).To(Succeed())
+			}
+
+			// Check calculated channels have indexes
+			Expect(channels[1].LocalIndex).ToNot(BeZero())
+			Expect(channels[3].LocalIndex).ToNot(BeZero())
+
+			// Check regular channels don't have indexes
+			Expect(channels[0].LocalIndex).To(BeZero())
+			Expect(channels[2].LocalIndex).To(BeZero())
+
+			// Verify index channels exist
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames("calculated1_time", "calculated2_time").
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(2))
+		})
+
+		It("Should create internal index for internal calculated channel", func() {
+			calcID := lo.Must(uuid.NewUUID())
+			calcCh := channel.Channel{
+				Name:        "internal_calculated",
+				DataType:    telem.Float64T,
+				Calculation: calcID,
+				Internal:    true,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+
+			// Verify index is also internal
+			indexName := "internal_calculated_time"
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(indexName).
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(1))
+			Expect(indexChannels[0].Internal).To(BeTrue())
+		})
 	})
 	Context("Updating a channel", func() {
 		var ch channel.Channel
@@ -343,29 +391,6 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal("SG0002"))
-		})
-		It("Should update the channel expression without error", func() {
-			ch.Requires = []channel.Key{ch2.Key()}
-			ch.Expression = "sin(x)"
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Expression).To(Equal("sin(x)"))
-
-			var resChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resChannels).To(HaveLen(1))
-			Expect(resChannels[0].Expression).To(Equal("sin(x)"))
-		})
-		It("Should update the requires without error", func() {
-			ch.Requires = []channel.Key{ch2.Key()}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Requires).To(ContainElement(ch2.Key()))
-
-			var resChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resChannels).To(HaveLen(1))
-			Expect(resChannels[0].Requires).To(ContainElement(ch2.Key()))
 		})
 		It("Should not update the channel if it already exists by name", func() {
 			ch.Name = "SG0003"

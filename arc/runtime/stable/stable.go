@@ -57,12 +57,12 @@ func (s *stableFor) Init(context.Context, func(string)) {}
 
 func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
 	inputSeries := s.state.Outputs[s.input.Source]
-	if inputSeries.Len() == 0 {
+	if inputSeries.Data.Len() == 0 {
 		return
 	}
 
 	// Check all values in the input series
-	for _, currentValue := range inputSeries.Data {
+	for _, currentValue := range inputSeries.Data.Data {
 		// Check if value has changed
 		if s.value == nil || *s.value != currentValue {
 			s.value = &currentValue
@@ -80,8 +80,12 @@ func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
 		if s.lastSent == nil || *s.lastSent != currentValue {
 			// Output the stable value
 			outputSeries := s.state.Outputs[s.output]
-			outputSeries.Resize(1)
-			outputSeries.Data[0] = currentValue
+			outputSeries.Data.Resize(1)
+			outputSeries.Data.Data[0] = currentValue
+			outputSeries.Time.Resize(1)
+			now := s.now()
+			marshalF := telem.MarshalF[telem.TimeStamp](telem.TimeStampT)
+			marshalF(outputSeries.Time.Data[0:8], now)
 			s.state.Outputs[s.output] = outputSeries
 
 			s.lastSent = &currentValue

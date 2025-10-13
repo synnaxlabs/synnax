@@ -17,16 +17,22 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Output struct {
+	Data telem.Series
+	Time telem.Series
+}
+
 type State struct {
-	Outputs map[ir.Handle]telem.Series
+	Outputs map[ir.Handle]Output
 }
 
 func NewState(_ context.Context, program ir.IR) (*State, error) {
-	state := &State{Outputs: map[ir.Handle]telem.Series{}}
+	state := &State{Outputs: map[ir.Handle]Output{}}
 	for _, node := range program.Nodes {
 		for key, t := range node.Outputs.Iter() {
-			state.Outputs[ir.Handle{Node: node.Key, Param: key}] = telem.Series{
-				DataType: arctelem.IRTypeToDataType(t),
+			state.Outputs[ir.Handle{Node: node.Key, Param: key}] = Output{
+				Data: telem.Series{DataType: arctelem.IRTypeToDataType(t)},
+				Time: telem.Series{DataType: telem.TimeStampT},
 			}
 		}
 	}

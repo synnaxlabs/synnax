@@ -25,10 +25,10 @@ var _ = Describe("Constant", func() {
 				expectedOutput telem.Series,
 			) {
 				f := constant.NewFactory()
-				s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+				s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 				outputHandle := ir.Handle{Node: "constant", Param: ir.DefaultOutputParam}
-				s.Outputs[outputHandle] = telem.Series{DataType: outputDataType}
+				s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: outputDataType}}
 
 				inter := ir.IR{Edges: []ir.Edge{}}
 				irNode := ir.Node{
@@ -50,7 +50,7 @@ var _ = Describe("Constant", func() {
 
 				Expect(changedOutputs).To(ConsistOf([]string{ir.DefaultOutputParam}))
 
-				result := s.Outputs[outputHandle]
+				result := s.Outputs[outputHandle].Data
 				Expect(result).To(telem.MatchSeries(expectedOutput))
 			},
 			Entry("int constant - positive",
@@ -112,10 +112,10 @@ var _ = Describe("Constant", func() {
 
 		It("should not change outputs on Next", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			outputHandle := ir.Handle{Node: "constant", Param: ir.DefaultOutputParam}
-			s.Outputs[outputHandle] = telem.Series{DataType: telem.Int64T}
+			s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
@@ -142,17 +142,17 @@ var _ = Describe("Constant", func() {
 			Expect(changedOutputs).To(BeEmpty())
 
 			// Verify output remains unchanged
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[int64](100)))
 		})
 
 		It("should cast input value to output type", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			outputHandle := ir.Handle{Node: "constant", Param: ir.DefaultOutputParam}
 			// Output type is float64, but we'll pass an int value
-			s.Outputs[outputHandle] = telem.Series{DataType: telem.Float64T}
+			s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
@@ -170,17 +170,17 @@ var _ = Describe("Constant", func() {
 			runtimeNode.Init(ctx, func(output string) {})
 
 			// Should be cast to float64
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](42.0)))
 		})
 
 		It("should cast float to int type", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			outputHandle := ir.Handle{Node: "constant", Param: ir.DefaultOutputParam}
 			// Output type is int32, but we'll pass a float value
-			s.Outputs[outputHandle] = telem.Series{DataType: telem.Int32T}
+			s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: telem.Int32T}}
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
@@ -198,16 +198,16 @@ var _ = Describe("Constant", func() {
 			runtimeNode.Init(ctx, func(output string) {})
 
 			// Should be cast to int32 (truncated)
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
 		})
 
 		It("should only produce output during Init, not Next", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			outputHandle := ir.Handle{Node: "constant", Param: ir.DefaultOutputParam}
-			s.Outputs[outputHandle] = telem.Series{DataType: telem.Float64T}
+			s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
@@ -239,7 +239,7 @@ var _ = Describe("Constant", func() {
 	Describe("Constant Factory", func() {
 		It("should return NotFound for wrong node type", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			irNode := ir.Node{
 				Key:    "wrong",
@@ -258,7 +258,7 @@ var _ = Describe("Constant", func() {
 
 		It("should create constant node for correct type", func() {
 			f := constant.NewFactory()
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			irNode := ir.Node{
 				Key:    "constant",

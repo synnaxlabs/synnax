@@ -208,9 +208,7 @@ func (c Channel) IsCalculated() bool {
 	return c.Calculation != uuid.Nil
 }
 
-// Equals returns true if the two channels are meaningfully equal to each other. This
-// function should be used instead of a direct comparison, as it takes into account
-// the contents of the Requires field, ignoring the order of the keys.
+// Equals returns true if the two channels are meaningfully equal to each other.
 // If the exclude parameter is provided, the function will ignore the fields specified
 // in the exclude parameter.
 func (c Channel) Equals(other Channel, exclude ...string) bool {

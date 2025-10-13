@@ -20,6 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Key as ArcKey } from "@/arc/payload";
 import {
   type Key,
   type KeyOrName,
@@ -112,11 +113,7 @@ export class Channel {
    * Only used for calculated channels. Specifies the Lua expression used to evaluate
    * the calculated value
    */
-  readonly expression: string;
-  /**
-   * Only used for calculated channels. Specifies the channels required for calculation
-   */
-  readonly requires: Key[];
+  readonly calculation: ArcKey;
   /**
    * The status of the channel.
    */
@@ -134,8 +131,7 @@ export class Channel {
     frameClient,
     alias,
     status: argsStatus,
-    expression = "",
-    requires = [],
+    calculation = "",
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
@@ -151,8 +147,7 @@ export class Channel {
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
-    this.expression = expression;
-    this.requires = keyZ.array().parse(requires ?? []);
+    this.calculation = calculation;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -178,8 +173,7 @@ export class Channel {
       isIndex: this.isIndex,
       internal: this.internal,
       virtual: this.virtual,
-      expression: this.expression,
-      requires: this.requires,
+      calculation: this.calculation,
       status: this.status,
     });
   }
@@ -432,29 +426,8 @@ export class Client {
   }
 }
 
-export const isCalculated = ({ virtual, expression }: Payload): boolean =>
-  virtual && expression !== "";
-
-export const resolveCalculatedIndex = async (
-  retrieve: (key: Key) => Promise<Payload | null>,
-  channel: Payload,
-): Promise<Key | null> => {
-  if (!isCalculated(channel)) return channel.index;
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (!requiredChannel.virtual) return requiredChannel.index;
-  }
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (isCalculated(requiredChannel)) {
-      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
-      if (index != null) return index;
-    }
-  }
-  return null;
-};
+export const isCalculated = ({ virtual, calculation }: Payload): boolean =>
+  virtual && calculation !== "";
 
 export const ontologyID = (key: Key): ontology.ID => ({
   type: "channel",

@@ -48,30 +48,49 @@ type selectNode struct {
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(ctx context.Context, onOutput func(string)) {
-	var trueCount int64 = 0
 	inputSeries := s.state.Outputs[s.input.Source]
-	for _, v := range inputSeries.Data {
+	if inputSeries.Data.Len() == 0 {
+		return
+	}
+
+	// Count true and false values
+	var trueCount int64 = 0
+	for _, v := range inputSeries.Data.Data {
 		if v == 1 {
 			trueCount++
 		}
 	}
-	falseCount := inputSeries.Len() - trueCount
+	falseCount := inputSeries.Data.Len() - trueCount
 
+	// Allocate output series
 	trueOutputSeries := s.state.Outputs[s.outputs.true]
-	trueOutputSeries.Resize(trueCount)
-	for i := range trueOutputSeries.Data {
-		trueOutputSeries.Data[i] = 1
+	trueOutputSeries.Data.Resize(trueCount)
+	trueOutputSeries.Time.Resize(trueCount)
+
+	falseOutputSeries := s.state.Outputs[s.outputs.false]
+	falseOutputSeries.Data.Resize(falseCount)
+	falseOutputSeries.Time.Resize(falseCount)
+
+	// Filter data and time into true/false outputs
+	var trueIdx, falseIdx int64 = 0, 0
+	for i, v := range inputSeries.Data.Data {
+		timeOffset := int64(i) * 8 // 8 bytes per timestamp
+		if v == 1 {
+			trueOutputSeries.Data.Data[trueIdx] = 1
+			copy(trueOutputSeries.Time.Data[trueIdx*8:(trueIdx+1)*8], inputSeries.Time.Data[timeOffset:timeOffset+8])
+			trueIdx++
+		} else {
+			falseOutputSeries.Data.Data[falseIdx] = 0
+			copy(falseOutputSeries.Time.Data[falseIdx*8:(falseIdx+1)*8], inputSeries.Time.Data[timeOffset:timeOffset+8])
+			falseIdx++
+		}
 	}
+
 	s.state.Outputs[s.outputs.true] = trueOutputSeries
 	if trueCount > 0 {
 		onOutput(trueParamName)
 	}
 
-	falseOutputSeries := s.state.Outputs[s.outputs.false]
-	falseOutputSeries.Resize(falseCount)
-	for i := range falseOutputSeries.Data {
-		falseOutputSeries.Data[i] = 0
-	}
 	s.state.Outputs[s.outputs.false] = falseOutputSeries
 	if falseCount > 0 {
 		onOutput(falseParamName)

@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator/calculation"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -33,7 +33,7 @@ func newCalculationTransform(
 }
 
 func (t *calculationTransform) transform(
-	_ context.Context,
+	ctx context.Context,
 	res framer.IteratorResponse,
 ) (framer.IteratorResponse, bool, error) {
 	if res.Command == Error {
@@ -48,7 +48,7 @@ func (t *calculationTransform) transform(
 	}
 
 	for _, c := range t.calculators {
-		s, err := c.Next(res.Frame)
+		s, err := c.Next(ctx, res.Frame)
 		if err != nil {
 			t.accumulatedError = err
 			continue

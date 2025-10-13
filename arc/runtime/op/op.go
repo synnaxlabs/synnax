@@ -31,13 +31,18 @@ func (n *binaryOperator) Init(context.Context, func(string)) {}
 func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)) {
 	seriesA := n.state.Outputs[n.inputs.lhs.Source]
 	seriesB := n.state.Outputs[n.inputs.rhs.Source]
-	aLength := seriesA.Len()
-	bLength := seriesB.Len()
+	aLength := seriesA.Data.Len()
+	bLength := seriesB.Data.Len()
 	if aLength == 0 || bLength == 0 {
 		return
 	}
 	outputSeries := n.state.Outputs[n.output]
-	n.compare(seriesA, seriesB, &outputSeries)
+	n.compare(seriesA.Data, seriesB.Data, &outputSeries.Data)
+	if aLength >= bLength {
+		outputSeries.Time = seriesA.Time
+	} else {
+		outputSeries.Time = seriesB.Time
+	}
 	n.state.Outputs[n.output] = outputSeries
 	markChanged(ir.DefaultOutputParam)
 }
@@ -53,7 +58,7 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	rhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.RHSInputParam})
 	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	seriesA := cfg.State.Outputs[lhsEdge.Source]
-	comp := opCat[seriesA.DataType]
+	comp := opCat[seriesA.Data.DataType]
 	n := &binaryOperator{state: cfg.State, output: outputHandle, compare: comp}
 	n.inputs.lhs = lhsEdge
 	n.inputs.rhs = rhsEdge

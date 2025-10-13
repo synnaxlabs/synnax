@@ -14,11 +14,13 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator/calculation"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -41,6 +43,7 @@ type ServiceConfig struct {
 	// Channel is used to retrieve information about channels.
 	// [REQUIRED]
 	Channel channel.Readable
+	Arc     *svcarc.Service
 }
 
 var (
@@ -147,12 +150,30 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
+func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculation.Calculator, error) {
+	var prog svcarc.Arc
+	if err := s.cfg.Arc.NewRetrieve().WhereKeys(ch.Calculation).Entry(&prog).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	compiled, err := arc.CompileGraph(ctx, prog.Graph, arc.WithResolver(s.cfg.Arc.SymbolResolver()))
+	if err != nil {
+		return nil, err
+	}
+	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
+		Channel: ch,
+		Module:  compiled,
+	})
+	return c, err
+}
+
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
-		channels   []channel.Channel
-		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
-		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
+		channels    []channel.Channel
+		calculators []*calculation.Calculator
+		required    = make(set.Set[channel.Key], len(channels))
+		calculated  = make(set.Set[channel.Key], len(channels))
 	)
+
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
@@ -161,33 +182,19 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	}
 	for _, ch := range channels {
 		if ch.IsCalculated() {
-			calculated[ch.Key()] = ch
-			required.Add(ch.Requires...)
+			calculator, err := s.openCalculator(ctx, ch)
+			if err != nil {
+				return nil, err
+			}
+			calculators = append(calculators, calculator)
+			calculated.Add(ch.Key())
+			required.Add(calculator.ReadFrom()...)
 		}
 	}
-	hasCalculated := len(calculated) > 0
-	if !hasCalculated {
-		return nil, nil
-	}
+	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculated.Contains(item)
 	})
-	cfg.Keys = append(cfg.Keys, required.Keys()...)
-	var requiredCh []channel.Channel
-	err := s.cfg.Channel.NewRetrieve().
-		WhereKeys(required.Keys()...).
-		Entries(&requiredCh).
-		Exec(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	calculators := make([]*calculation.Calculator, len(calculated))
-	for i, v := range calculated.Values() {
-		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return newCalculationTransform(calculators), nil
 }
 

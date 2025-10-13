@@ -22,21 +22,34 @@ var _ = Describe("Select", func() {
 		expectedOutputs []string,
 	) {
 		f := selector.NewFactory()
-		s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+		s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 		inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 		trueOutputHandle := ir.Handle{Node: "select", Param: "true"}
 		falseOutputHandle := ir.Handle{Node: "select", Param: "false"}
 
-		s.Outputs[inputSourceHandle] = input
-		s.Outputs[trueOutputHandle] = expectedTrue
-		s.Outputs[falseOutputHandle] = expectedFalse
+		// Create time series for input (8 bytes per timestamp)
+		timestamps := make([]telem.TimeStamp, input.Len())
+		for i := int64(0); i < input.Len(); i++ {
+			timestamps[i] = telem.TimeStamp(i)
+		}
+		inputTime := telem.NewSeriesV[telem.TimeStamp](timestamps...)
+
+		s.Outputs[inputSourceHandle] = state.Output{Data: input, Time: inputTime}
+		s.Outputs[trueOutputHandle] = state.Output{
+			Data: expectedTrue,
+			Time: telem.Series{DataType: telem.TimeStampT},
+		}
+		s.Outputs[falseOutputHandle] = state.Output{
+			Data: expectedFalse,
+			Time: telem.Series{DataType: telem.TimeStampT},
+		}
 
 		inter := ir.IR{
 			Edges: []ir.Edge{
 				{
 					Source: inputSourceHandle,
-					Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+					Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 				},
 			},
 		}
@@ -48,17 +61,17 @@ var _ = Describe("Select", func() {
 			Module: module.Module{IR: inter},
 		}))
 
-		changedOutputs := []string{}
+		var changedOutputs []string
 		runtimeNode.Next(ctx, func(output string) {
 			changedOutputs = append(changedOutputs, output)
 		})
 
 		Expect(changedOutputs).To(ConsistOf(expectedOutputs))
 
-		trueResult := s.Outputs[trueOutputHandle]
+		trueResult := s.Outputs[trueOutputHandle].Data
 		Expect(trueResult).To(telem.MatchSeries(expectedTrue))
 
-		falseResult := s.Outputs[falseOutputHandle]
+		falseResult := s.Outputs[falseOutputHandle].Data
 		Expect(falseResult).To(telem.MatchSeries(expectedFalse))
 	},
 		Entry("all true",

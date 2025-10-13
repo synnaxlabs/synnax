@@ -31,20 +31,35 @@ func (n *node) Init(context.Context, func(output string)) {}
 
 func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	var maxLength int64
+	var maxLengthInput ir.Edge
 	for _, o := range n.inputs {
-		if oLen := n.state.Outputs[o.Source].Len(); oLen > maxLength {
+		if oLen := n.state.Outputs[o.Source].Data.Len(); oLen > maxLength {
 			maxLength = oLen
+			maxLengthInput = o
 		}
 	}
+	// Get time series from the longest input
+	var outputTime telem.Series
+	if maxLength > 0 {
+		outputTime = n.state.Outputs[maxLengthInput.Source].Time
+	}
+
 	for i := range maxLength {
 		for inputIdx, o := range n.inputs {
-			n.params[inputIdx] = valueAt(n.state.Outputs[o.Source], int(i))
+			n.params[inputIdx] = valueAt(n.state.Outputs[o.Source].Data, int(i))
 		}
 		res, err := n.wasm.Call(ctx, n.params...)
 		if err != nil {
 		}
 		for param, value := range res {
-			setValueAt(n.state.Outputs[ir.Handle{Param: param, Node: n.ir.Key}], int(i), value)
+			outputHandle := ir.Handle{Param: param, Node: n.ir.Key}
+			outputState := n.state.Outputs[outputHandle]
+			setValueAt(outputState.Data, int(i), value)
+			// Set time from the longest input
+			if outputState.Time.Len() == 0 && maxLength > 0 {
+				outputState.Time = outputTime
+			}
+			n.state.Outputs[outputHandle] = outputState
 			markChanged(param)
 		}
 	}

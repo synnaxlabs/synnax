@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	rstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
@@ -131,6 +133,7 @@ func (w *writerSeg) Close() error {
 type Runtime struct {
 	scheduler *runtime.Scheduler
 	streamer  *streamerSeg
+	writer    *writerSeg
 	telem     *ntelem.State
 	close     io.Closer
 }
@@ -145,21 +148,25 @@ func (r *Runtime) Close() error {
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	r.telem.Ingest(res.Frame.ToStorage(), r.scheduler.MarkNodesChange)
 	r.scheduler.Next(ctx)
-	return nil
+	fr := core.AllocFrame(len(r.telem.Writes))
+	for k, v := range r.telem.Writes {
+		fr.Append(channel.Key(k), v)
+	}
+	err := r.writer.Write(ctx, fr)
+	clear(r.telem.Writes)
+	return err
 }
 
-func retrieveReadChannels(
+func retrieveChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
 	telemState *ntelem.State,
+	getKeys func(telemState *ntelem.State) set.Set[channel.Key],
 ) ([]channel.Channel, error) {
-	keys := make(set.Set[channel.Key])
-	for k := range telemState.Deps {
-		keys.Add(channel.Key(k))
-	}
+	keys := getKeys(telemState).Keys()
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys.Keys()...).
+		WhereKeys(keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
@@ -197,6 +204,34 @@ func createStreamPipeline(
 	return p, requests, nil
 }
 
+func createWritePipeline(
+	ctx context.Context,
+	name string,
+	r *Runtime,
+	frameSvc *framer.Service,
+	writeChannelKeys []channel.Key,
+) (confluence.Flow, error) {
+	p := plumber.New()
+	w, err := frameSvc.NewStreamWriter(
+		ctx,
+		framer.WriterConfig{
+			ControlSubject:   control.Subject{Name: name},
+			Start:            telem.Now(),
+			Keys:             writeChannelKeys,
+			EnableAutoCommit: config.True(),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	r.writer.Sink = r.writer.sink
+	plumber.SetSegment(p, writerAddr, w)
+	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
+	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
+	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
+	return p, nil
+}
+
 func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -208,8 +243,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	telemState := &ntelem.State{
-		Data: make(map[uint32]telem.MultiSeries),
-		Deps: make(map[uint32][]string),
+		Data:    make(map[uint32]telem.MultiSeries),
+		Readers: make(map[uint32][]string),
 	}
 	telemFactory := ntelem.NewTelemFactory(telemState)
 	selectFactory := selector.NewFactory()
@@ -255,7 +290,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		streamer:  &streamerSeg{},
 	}
 
-	readChannels, err := retrieveReadChannels(ctx, cfg.Channel, telemState)
+	readChannels, err := retrieveChannels(
+		ctx,
+		cfg.Channel,
+		telemState,
+		func(telemState *ntelem.State) set.Set[channel.Key] {
+			keys := make(set.Set[channel.Key])
+			for k := range telemState.Readers {
+				keys.Add(channel.Key(k))
+			}
+			return keys
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +315,35 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 	r.streamer.requests = requests
+	writeChannels, err := retrieveChannels(
+		ctx,
+		cfg.Channel,
+		telemState,
+		func(telemState *ntelem.State) set.Set[channel.Key] {
+			keys := make(set.Set[channel.Key])
+			for k := range telemState.Writers {
+				keys.Add(channel.Key(k))
+			}
+			return keys
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	var writePipeline confluence.Flow
+	if len(writeChannels) > 0 {
+		writePipeline, err = createWritePipeline(
+			ctx,
+			cfg.Name,
+			r,
+			cfg.Framer,
+			channel.KeysFromChannels(readChannels),
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	sCtx, cancel := signal.Isolated()
 	r.scheduler.Init(ctx)
 	streamPipeline.Flow(
@@ -276,6 +351,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
+	if writePipeline != nil {
+		writePipeline.Flow(
+			sCtx,
+			confluence.CloseOutputInletsOnExit(),
+			confluence.RecoverWithErrOnPanic(),
+		)
+	}
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)
 	return r, err
 }

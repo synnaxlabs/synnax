@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -52,6 +53,7 @@ type Config struct {
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel channel.Service
+	Arc     *arc.Service
 }
 
 var (
@@ -116,10 +118,10 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Child("calculated"),
-		Channel:           cfg.Channel,
-		Framer:            cfg.Framer,
-		ChannelObservable: cfg.Channel.NewObservable(),
+		Instrumentation: cfg.Child("calculated"),
+		Channel:         cfg.Channel,
+		Framer:          cfg.Framer,
+		Arc:             cfg.Arc,
 	})
 	if err != nil {
 		return nil, err

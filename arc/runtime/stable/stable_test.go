@@ -23,13 +23,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -56,7 +56,7 @@ var _ = Describe("StableFor", func() {
 
 			// First tick: value becomes 1
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -65,7 +65,7 @@ var _ = Describe("StableFor", func() {
 
 			// Second tick: still 1, but not enough time
 			currentTime = 500
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -74,13 +74,13 @@ var _ = Describe("StableFor", func() {
 
 			// Third tick: still 1, now enough time
 			currentTime = 1000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
 			})
 			Expect(changedOutputs).To(ConsistOf(ir.DefaultOutputParam))
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 
@@ -89,13 +89,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -122,7 +122,7 @@ var _ = Describe("StableFor", func() {
 
 			// First tick: value becomes 1
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -131,7 +131,7 @@ var _ = Describe("StableFor", func() {
 
 			// Second tick: value changes to 2 before duration
 			currentTime = 500
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](2)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](2)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -140,7 +140,7 @@ var _ = Describe("StableFor", func() {
 
 			// Third tick: still 2, not enough time since change
 			currentTime = 1000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](2)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](2)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -153,13 +153,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -186,7 +186,7 @@ var _ = Describe("StableFor", func() {
 
 			// First tick: series with changing values [1, 2, 3]
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1, 2, 3)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1, 2, 3)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -195,7 +195,7 @@ var _ = Describe("StableFor", func() {
 
 			// Second tick: value is now stable at 3
 			currentTime = 500
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](3)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](3)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -204,13 +204,13 @@ var _ = Describe("StableFor", func() {
 
 			// Third tick: still 3, enough time has passed
 			currentTime = 1000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](3)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](3)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
 			})
 			Expect(changedOutputs).To(ConsistOf(ir.DefaultOutputParam))
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[uint8](3)))
 		})
 
@@ -219,13 +219,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -252,11 +252,11 @@ var _ = Describe("StableFor", func() {
 
 			// Get to stable state
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			runtimeNode.Next(ctx, func(output string) {})
 
 			currentTime = 1000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -265,7 +265,7 @@ var _ = Describe("StableFor", func() {
 
 			// Try again with same value - should not output
 			currentTime = 2000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -278,13 +278,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -311,16 +311,16 @@ var _ = Describe("StableFor", func() {
 
 			// Get to stable state with value 1
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			runtimeNode.Next(ctx, func(output string) {})
 
 			currentTime = 1000
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			runtimeNode.Next(ctx, func(output string) {})
 
 			// Change to value 2
 			currentTime = 1500
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](2)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](2)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
@@ -329,13 +329,13 @@ var _ = Describe("StableFor", func() {
 
 			// Wait for stabilization
 			currentTime = 2500
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](2)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](2)}
 			changedOutputs = []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
 			})
 			Expect(changedOutputs).To(ConsistOf(ir.DefaultOutputParam))
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[uint8](2)))
 		})
 
@@ -344,13 +344,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -387,13 +387,13 @@ var _ = Describe("StableFor", func() {
 			f := stable.NewFactory(stable.FactoryConfig{
 				Now: func() telem.TimeStamp { return currentTime },
 			})
-			s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			inputSourceHandle := ir.Handle{Node: "inputSource", Param: ir.DefaultOutputParam}
 			outputHandle := ir.Handle{Node: "stable", Param: ir.DefaultOutputParam}
 
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8]()
-			s.Outputs[outputHandle] = telem.NewSeriesV[uint8]()
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
+			s.Outputs[outputHandle] = state.Output{Data: telem.NewSeriesV[uint8](), Time: telem.Series{DataType: telem.TimeStampT}}
 
 			inter := ir.IR{
 				Edges: []ir.Edge{
@@ -420,13 +420,13 @@ var _ = Describe("StableFor", func() {
 
 			// With zero duration, should output immediately
 			currentTime = 0
-			s.Outputs[inputSourceHandle] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputSourceHandle] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			changedOutputs := []string{}
 			runtimeNode.Next(ctx, func(output string) {
 				changedOutputs = append(changedOutputs, output)
 			})
 			Expect(changedOutputs).To(ConsistOf(ir.DefaultOutputParam))
-			result := s.Outputs[outputHandle]
+			result := s.Outputs[outputHandle].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})

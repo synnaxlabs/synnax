@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	xtypes "github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -43,8 +44,9 @@ type leaseProxy struct {
 }
 
 const (
-	leasedCounterSuffix = ".distribution.channel.leasedCounter"
-	freeCounterSuffix   = ".distribution.channel.counter.free"
+	leasedCounterSuffix       = ".distribution.channel.leasedCounter"
+	freeCounterSuffix         = ".distribution.channel.counter.free"
+	calculatedIndexNameSuffix = "_time"
 )
 
 func newLeaseProxy(
@@ -125,13 +127,40 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
-		if ch.Expression != "" {
+		if ch.IsCalculated() {
+			// Reject manually-specified indexes on calculated channels
+			if ch.LocalIndex != 0 {
+				return validate.PathedError(
+					errors.Wrap(validate.Error, "calculated channels cannot specify an index manually"),
+					"local_index",
+				)
+			}
 			channels[i].Leaseholder = cluster.Free
 			channels[i].Virtual = true
 		} else if ch.LocalKey != 0 {
 			channels[i].LocalKey = 0
 		}
 	}
+
+	// Auto-create index channels for calculated channels
+	indexChannels := make([]Channel, 0, len(channels))
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			indexCh := Channel{
+				Name:        ch.Name + calculatedIndexNameSuffix,
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Internal:    ch.Internal,
+			}
+			indexChannels = append(indexChannels, indexCh)
+		}
+	}
+
+	// Append index channels to be created alongside calculated channels
+	channels = append(channels, indexChannels...)
+
 	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
@@ -178,7 +207,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
-	// If existing channels are passed in, update the name, required channels and calc expression
+	// If existing channels are passed in, update the name
 	keys := KeysFromChannels(*channels)
 	if err := gorp.NewUpdate[Key, Channel]().
 		WhereKeys(keys...).
@@ -194,8 +223,6 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					return c, nil
 				}
 				c.Name = ic.Name
-				c.Requires = ic.Requires
-				c.Expression = ic.Expression
 				return c, nil
 			}).
 		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
@@ -213,6 +240,27 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
+	// Link calculated channels to their auto-created indexes
+	for i, ch := range toCreate {
+		if ch.IsCalculated() && ch.LocalIndex == 0 {
+			// Find the matching index channel by name
+			indexName := ch.Name + calculatedIndexNameSuffix
+			for j, potentialIndex := range toCreate {
+				if potentialIndex.Name == indexName && potentialIndex.IsIndex {
+					toCreate[i].LocalIndex = potentialIndex.LocalKey
+					// Also update in the input channels slice so caller sees the link
+					for k := range *channels {
+						if (*channels)[k].Name == ch.Name && (*channels)[k].IsCalculated() {
+							(*channels)[k].LocalIndex = potentialIndex.LocalKey
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
 		tx); err != nil {
 		return err
@@ -228,33 +276,6 @@ func (lp *leaseProxy) validateFreeVirtual(
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
 			return validate.PathedError(validate.RequiredError, "name")
-		}
-		if ch.IsCalculated() {
-			if len(ch.Requires) == 0 {
-				return validate.PathedError(
-					errors.Wrap(validate.RequiredError, "calculated channels must require at least one channel"),
-					"requires",
-				)
-			}
-			var required []Channel
-			if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&required).Exec(ctx, tx); err != nil {
-				return err
-			}
-			idx := required[0].LocalIndex
-			for _, r := range required {
-				if (r.Virtual && idx != 0) || (!r.Virtual && idx == 0) {
-					return validate.PathedError(
-						errors.Wrap(validate.Error, "cannot use a mix of virtual and non-virtual channels in calculations"),
-						"requires",
-					)
-				}
-				if r.LocalIndex != idx {
-					return validate.PathedError(
-						errors.Wrap(validate.Error, "all required channels must share the same index"),
-						"requires",
-					)
-				}
-			}
 		}
 	}
 	return nil

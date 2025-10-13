@@ -106,6 +106,10 @@ type Service struct {
 	}
 }
 
+func (s *Service) SymbolResolver() arc.SymbolResolver {
+	return s.symbolResolver
+}
+
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -115,6 +119,24 @@ func (s *Service) Close() error {
 		c.Exec(e.runtime.Close)
 	}
 	return c.Error()
+}
+
+func (s *Service) Deploy(ctx context.Context, key uuid.UUID) error {
+	var prog Arc
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
+		return nil
+	}
+	prog.Deploy = true
+	return s.NewWriter(nil).Create(ctx, &prog)
+}
+
+func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
+	var prog Arc
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
+		return nil
+	}
+	prog.Deploy = false
+	return s.NewWriter(nil).Create(ctx, &prog)
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

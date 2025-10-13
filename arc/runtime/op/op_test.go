@@ -21,13 +21,13 @@ var _ = Describe("OP", func() {
 		a, b, expectedOutput telem.Series,
 	) {
 		f := op.NewFactory()
-		s := &state.State{Outputs: map[ir.Handle]telem.Series{}}
+		s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 		lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
 		rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
 		outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
-		s.Outputs[lhsSourceHandle] = a
-		s.Outputs[rhsSourceHandle] = b
-		s.Outputs[outputHandle] = telem.Series{DataType: expectedOutput.DataType}
+		s.Outputs[lhsSourceHandle] = state.Output{Data: a}
+		s.Outputs[rhsSourceHandle] = state.Output{Data: b}
+		s.Outputs[outputHandle] = state.Output{Data: telem.Series{DataType: expectedOutput.DataType}}
 		inter := ir.IR{
 			Edges: []ir.Edge{
 				{
@@ -55,7 +55,7 @@ var _ = Describe("OP", func() {
 			changed = output
 		})
 		Expect(changed).To(Equal(ir.DefaultOutputParam))
-		res := s.Outputs[outputHandle]
+		res := s.Outputs[outputHandle].Data
 		Expect(res).To(telem.MatchSeries(expectedOutput))
 	},
 		// Greater Than (gt)
@@ -296,4 +296,256 @@ var _ = Describe("OP", func() {
 			telem.NewSeriesV[float64](6.0, 8.0, 10.0),
 		),
 	)
+
+	Describe("Time Propagation", func() {
+		It("Should use LHS time when LHS is longer", func() {
+			f := op.NewFactory()
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
+			lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+			rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+			outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
+
+			lhsData := telem.NewSeriesV[float64](1.0, 2.0, 3.0, 4.0)
+			lhsTime := telem.NewSeriesV[telem.TimeStamp](100, 200, 300, 400)
+			rhsData := telem.NewSeriesV[float64](5.0, 6.0)
+			rhsTime := telem.NewSeriesV[telem.TimeStamp](150, 250)
+
+			s.Outputs[lhsSourceHandle] = state.Output{Data: lhsData, Time: lhsTime}
+			s.Outputs[rhsSourceHandle] = state.Output{Data: rhsData, Time: rhsTime}
+			s.Outputs[outputHandle] = state.Output{
+				Data: telem.Series{DataType: telem.Float64T},
+				Time: telem.Series{DataType: telem.TimeStampT},
+			}
+
+			inter := ir.IR{
+				Edges: []ir.Edge{
+					{
+						Source: lhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: rhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+
+			irNode := ir.Node{Key: "op", Type: "add"}
+			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
+				State:  s,
+				Node:   irNode,
+				Module: module.Module{IR: inter},
+			}))
+
+			changed := ""
+			runtimeNode.Next(ctx, func(output string) {
+				changed = output
+			})
+
+			Expect(changed).To(Equal(ir.DefaultOutputParam))
+			res := s.Outputs[outputHandle]
+			Expect(res.Data).To(telem.MatchSeries(telem.NewSeriesV[float64](6.0, 8.0, 9.0, 10.0)))
+			Expect(res.Time).To(telem.MatchSeries(lhsTime))
+		})
+
+		It("Should use RHS time when RHS is longer", func() {
+			f := op.NewFactory()
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
+			lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+			rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+			outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
+
+			lhsData := telem.NewSeriesV[float64](1.0, 2.0)
+			lhsTime := telem.NewSeriesV[telem.TimeStamp](100, 200)
+			rhsData := telem.NewSeriesV[float64](5.0, 6.0, 7.0, 8.0)
+			rhsTime := telem.NewSeriesV[telem.TimeStamp](150, 250, 350, 450)
+
+			s.Outputs[lhsSourceHandle] = state.Output{Data: lhsData, Time: lhsTime}
+			s.Outputs[rhsSourceHandle] = state.Output{Data: rhsData, Time: rhsTime}
+			s.Outputs[outputHandle] = state.Output{
+				Data: telem.Series{DataType: telem.Float64T},
+				Time: telem.Series{DataType: telem.TimeStampT},
+			}
+
+			inter := ir.IR{
+				Edges: []ir.Edge{
+					{
+						Source: lhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: rhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+
+			irNode := ir.Node{Key: "op", Type: "add"}
+			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
+				State:  s,
+				Node:   irNode,
+				Module: module.Module{IR: inter},
+			}))
+
+			changed := ""
+			runtimeNode.Next(ctx, func(output string) {
+				changed = output
+			})
+
+			Expect(changed).To(Equal(ir.DefaultOutputParam))
+			res := s.Outputs[outputHandle]
+			Expect(res.Data).To(telem.MatchSeries(telem.NewSeriesV[float64](6.0, 8.0, 9.0, 10.0)))
+			Expect(res.Time).To(telem.MatchSeries(rhsTime))
+		})
+
+		It("Should use LHS time when lengths are equal", func() {
+			f := op.NewFactory()
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
+			lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+			rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+			outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
+
+			lhsData := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+			lhsTime := telem.NewSeriesV[telem.TimeStamp](100, 200, 300)
+			rhsData := telem.NewSeriesV[float64](4.0, 5.0, 6.0)
+			rhsTime := telem.NewSeriesV[telem.TimeStamp](150, 250, 350)
+
+			s.Outputs[lhsSourceHandle] = state.Output{Data: lhsData, Time: lhsTime}
+			s.Outputs[rhsSourceHandle] = state.Output{Data: rhsData, Time: rhsTime}
+			s.Outputs[outputHandle] = state.Output{
+				Data: telem.Series{DataType: telem.Uint8T},
+				Time: telem.Series{DataType: telem.TimeStampT},
+			}
+
+			inter := ir.IR{
+				Edges: []ir.Edge{
+					{
+						Source: lhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: rhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+
+			irNode := ir.Node{Key: "op", Type: "gt"}
+			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
+				State:  s,
+				Node:   irNode,
+				Module: module.Module{IR: inter},
+			}))
+
+			changed := ""
+			runtimeNode.Next(ctx, func(output string) {
+				changed = output
+			})
+
+			Expect(changed).To(Equal(ir.DefaultOutputParam))
+			res := s.Outputs[outputHandle]
+			Expect(res.Data).To(telem.MatchSeries(telem.NewSeriesV[uint8](0, 0, 0)))
+			Expect(res.Time).To(telem.MatchSeries(lhsTime))
+		})
+
+		It("Should not produce output when LHS is empty", func() {
+			f := op.NewFactory()
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
+			lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+			rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+			outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
+
+			lhsData := telem.NewSeriesV[float64]()
+			lhsTime := telem.NewSeriesV[telem.TimeStamp]()
+			rhsData := telem.NewSeriesV[float64](5.0, 6.0)
+			rhsTime := telem.NewSeriesV[telem.TimeStamp](150, 250)
+
+			s.Outputs[lhsSourceHandle] = state.Output{Data: lhsData, Time: lhsTime}
+			s.Outputs[rhsSourceHandle] = state.Output{Data: rhsData, Time: rhsTime}
+			s.Outputs[outputHandle] = state.Output{
+				Data: telem.Series{DataType: telem.Float64T},
+				Time: telem.Series{DataType: telem.TimeStampT},
+			}
+
+			inter := ir.IR{
+				Edges: []ir.Edge{
+					{
+						Source: lhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: rhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+
+			irNode := ir.Node{Key: "op", Type: "add"}
+			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
+				State:  s,
+				Node:   irNode,
+				Module: module.Module{IR: inter},
+			}))
+
+			changed := ""
+			runtimeNode.Next(ctx, func(output string) {
+				changed = output
+			})
+
+			Expect(changed).To(Equal(""))
+			res := s.Outputs[outputHandle]
+			Expect(res.Data.Len()).To(Equal(int64(0)))
+			Expect(res.Time.Len()).To(Equal(int64(0)))
+		})
+
+		It("Should not produce output when RHS is empty", func() {
+			f := op.NewFactory()
+			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
+			lhsSourceHandle := ir.Handle{Node: "lhsSource", Param: ir.DefaultOutputParam}
+			rhsSourceHandle := ir.Handle{Node: "rhsSource", Param: ir.DefaultOutputParam}
+			outputHandle := ir.Handle{Node: "op", Param: ir.DefaultOutputParam}
+
+			lhsData := telem.NewSeriesV[float64](1.0, 2.0)
+			lhsTime := telem.NewSeriesV[telem.TimeStamp](100, 200)
+			rhsData := telem.NewSeriesV[float64]()
+			rhsTime := telem.NewSeriesV[telem.TimeStamp]()
+
+			s.Outputs[lhsSourceHandle] = state.Output{Data: lhsData, Time: lhsTime}
+			s.Outputs[rhsSourceHandle] = state.Output{Data: rhsData, Time: rhsTime}
+			s.Outputs[outputHandle] = state.Output{
+				Data: telem.Series{DataType: telem.Float64T},
+				Time: telem.Series{DataType: telem.TimeStampT},
+			}
+
+			inter := ir.IR{
+				Edges: []ir.Edge{
+					{
+						Source: lhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: rhsSourceHandle,
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+
+			irNode := ir.Node{Key: "op", Type: "mul"}
+			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
+				State:  s,
+				Node:   irNode,
+				Module: module.Module{IR: inter},
+			}))
+
+			changed := ""
+			runtimeNode.Next(ctx, func(output string) {
+				changed = output
+			})
+
+			Expect(changed).To(Equal(""))
+			res := s.Outputs[outputHandle]
+			Expect(res.Data.Len()).To(Equal(int64(0)))
+			Expect(res.Time.Len()).To(Equal(int64(0)))
+		})
+	})
 })

@@ -37,7 +37,7 @@ var _ = Describe("Avg", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		s = &state.State{
-			Outputs: make(map[ir.Handle]telem.Series),
+			Outputs: make(map[ir.Handle]state.Output),
 		}
 
 		inputKey = ir.Handle{Node: "input", Param: "output"}
@@ -48,8 +48,8 @@ var _ = Describe("Avg", func() {
 			return nowTime
 		}
 
-		s.Outputs[inputKey] = telem.Series{DataType: telem.Float64T}
-		s.Outputs[outputKey] = telem.Series{DataType: telem.Float64T}
+		s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
+		s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
 	})
 
 	Describe("Basic averaging", func() {
@@ -80,7 +80,7 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](1.0, 2.0, 3.0, 4.0, 5.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](1.0, 2.0, 3.0, 4.0, 5.0)}
 
 			changed := false
 			avgNode.Next(ctx, func(output string) {
@@ -88,7 +88,7 @@ var _ = Describe("Avg", func() {
 			})
 
 			Expect(changed).To(BeTrue())
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](3.0)))
 		})
 
@@ -117,16 +117,16 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](1.0, 2.0, 3.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](2.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](4.0, 5.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](4.0, 5.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](3.0)))
 		})
 	})
@@ -157,18 +157,18 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 20.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 20.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](15.0)))
 
 			nowTime += telem.TimeStamp(6 * telem.Second)
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](100.0, 200.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](100.0, 200.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](150.0)))
 		})
 
@@ -197,18 +197,18 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](5.0)))
 
 			nowTime += telem.TimeStamp(3 * telem.Second)
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](15.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](15.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
 		})
 	})
@@ -239,7 +239,7 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.Series{DataType: telem.Float64T}
+			s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
 
 			changed := false
 			avgNode.Next(ctx, func(output string) {
@@ -252,8 +252,8 @@ var _ = Describe("Avg", func() {
 
 	Describe("Different data types", func() {
 		It("should work with int64", func() {
-			s.Outputs[inputKey] = telem.Series{DataType: telem.Int64T}
-			s.Outputs[outputKey] = telem.Series{DataType: telem.Int64T}
+			s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
+			s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
 
 			factory := stat.NewFactory(stat.Config{Now: nowFn})
 			inter := ir.IR{
@@ -279,16 +279,16 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[int64](10, 20, 30)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[int64](10, 20, 30)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[int64](20)))
 		})
 
 		It("should work with float32", func() {
-			s.Outputs[inputKey] = telem.Series{DataType: telem.Float32T}
-			s.Outputs[outputKey] = telem.Series{DataType: telem.Float32T}
+			s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Float32T}}
+			s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Float32T}}
 
 			factory := stat.NewFactory(stat.Config{Now: nowFn})
 			inter := ir.IR{
@@ -314,10 +314,10 @@ var _ = Describe("Avg", func() {
 
 			avgNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float32](2.5, 3.5, 4.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float32](2.5, 3.5, 4.0)}
 			avgNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(telem.ValueAt[float32](result, 0)).To(BeNumerically("~", 3.333, 0.001))
 		})
 	})
@@ -338,7 +338,7 @@ var _ = Describe("Min", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		s = &state.State{
-			Outputs: make(map[ir.Handle]telem.Series),
+			Outputs: make(map[ir.Handle]state.Output),
 		}
 
 		inputKey = ir.Handle{Node: "input", Param: "output"}
@@ -350,9 +350,9 @@ var _ = Describe("Min", func() {
 			return nowTime
 		}
 
-		s.Outputs[inputKey] = telem.Series{DataType: telem.Float64T}
-		s.Outputs[outputKey] = telem.Series{DataType: telem.Float64T}
-		s.Outputs[resetKey] = telem.Series{DataType: telem.Uint8T}
+		s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
+		s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
+		s.Outputs[resetKey] = state.Output{Data: telem.Series{DataType: telem.Uint8T}}
 	})
 
 	Describe("Basic min tracking", func() {
@@ -379,10 +379,10 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 2.0, 8.0, 1.0, 9.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 2.0, 8.0, 1.0, 9.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](1.0)))
 		})
 
@@ -409,22 +409,22 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 3.0, 7.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 3.0, 7.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](3.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](4.0, 2.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](4.0, 2.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](2.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 8.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 8.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](2.0)))
 		})
 	})
@@ -457,18 +457,18 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 3.0)
-			s.Outputs[resetKey] = telem.NewSeriesV[uint8](0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 3.0)}
+			s.Outputs[resetKey] = state.Output{Data: telem.NewSeriesV[uint8](0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](3.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 8.0, 6.0)
-			s.Outputs[resetKey] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 8.0, 6.0)}
+			s.Outputs[resetKey] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](6.0)))
 		})
 	})
@@ -499,18 +499,18 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 5.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 5.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](5.0)))
 
 			nowTime += telem.TimeStamp(6 * telem.Second)
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](20.0, 15.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](20.0, 15.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](15.0)))
 		})
 	})
@@ -541,30 +541,30 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 5.0, 8.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 5.0, 8.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](5.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](7.0, 3.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](7.0, 3.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](3.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](20.0, 15.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](20.0, 15.0)}
 			minNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](15.0)))
 		})
 	})
 
 	Describe("Different data types", func() {
 		It("should work with int64", func() {
-			s.Outputs[inputKey] = telem.Series{DataType: telem.Int64T}
-			s.Outputs[outputKey] = telem.Series{DataType: telem.Int64T}
+			s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
+			s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
 
 			factory := stat.NewFactory(stat.Config{Now: nowFn})
 			inter := ir.IR{
@@ -588,10 +588,10 @@ var _ = Describe("Min", func() {
 
 			minNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[int64](30, 10, 20)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[int64](30, 10, 20)}
 			minNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[int64](10)))
 		})
 	})
@@ -612,7 +612,7 @@ var _ = Describe("Max", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		s = &state.State{
-			Outputs: make(map[ir.Handle]telem.Series),
+			Outputs: make(map[ir.Handle]state.Output),
 		}
 
 		inputKey = ir.Handle{Node: "input", Param: "output"}
@@ -624,9 +624,9 @@ var _ = Describe("Max", func() {
 			return nowTime
 		}
 
-		s.Outputs[inputKey] = telem.Series{DataType: telem.Float64T}
-		s.Outputs[outputKey] = telem.Series{DataType: telem.Float64T}
-		s.Outputs[resetKey] = telem.Series{DataType: telem.Uint8T}
+		s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
+		s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Float64T}}
+		s.Outputs[resetKey] = state.Output{Data: telem.Series{DataType: telem.Uint8T}}
 	})
 
 	Describe("Basic max tracking", func() {
@@ -653,10 +653,10 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 2.0, 8.0, 1.0, 9.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 2.0, 8.0, 1.0, 9.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](9.0)))
 		})
 
@@ -683,22 +683,22 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 3.0, 7.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 3.0, 7.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](7.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 8.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 8.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](2.0, 4.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](2.0, 4.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
 		})
 	})
@@ -731,18 +731,18 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 10.0)
-			s.Outputs[resetKey] = telem.NewSeriesV[uint8](0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 10.0)}
+			s.Outputs[resetKey] = state.Output{Data: telem.NewSeriesV[uint8](0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](2.0, 4.0, 6.0)
-			s.Outputs[resetKey] = telem.NewSeriesV[uint8](1)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](2.0, 4.0, 6.0)}
+			s.Outputs[resetKey] = state.Output{Data: telem.NewSeriesV[uint8](1)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](6.0)))
 		})
 	})
@@ -773,18 +773,18 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 20.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 20.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](20.0)))
 
 			nowTime += telem.TimeStamp(6 * telem.Second)
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 8.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 8.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](8.0)))
 		})
 	})
@@ -815,30 +815,30 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](10.0, 20.0, 15.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](10.0, 20.0, 15.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](20.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](18.0, 25.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](18.0, 25.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](25.0)))
 
-			s.Outputs[inputKey] = telem.NewSeriesV[float64](5.0, 10.0)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[float64](5.0, 10.0)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result = s.Outputs[outputKey]
+			result = s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[float64](10.0)))
 		})
 	})
 
 	Describe("Different data types", func() {
 		It("should work with int64", func() {
-			s.Outputs[inputKey] = telem.Series{DataType: telem.Int64T}
-			s.Outputs[outputKey] = telem.Series{DataType: telem.Int64T}
+			s.Outputs[inputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
+			s.Outputs[outputKey] = state.Output{Data: telem.Series{DataType: telem.Int64T}}
 
 			factory := stat.NewFactory(stat.Config{Now: nowFn})
 			inter := ir.IR{
@@ -862,10 +862,10 @@ var _ = Describe("Max", func() {
 
 			maxNode.Init(ctx, func(output string) {})
 
-			s.Outputs[inputKey] = telem.NewSeriesV[int64](30, 50, 20)
+			s.Outputs[inputKey] = state.Output{Data: telem.NewSeriesV[int64](30, 50, 20)}
 			maxNode.Next(ctx, func(output string) {})
 
-			result := s.Outputs[outputKey]
+			result := s.Outputs[outputKey].Data
 			Expect(result).To(telem.MatchSeries(telem.NewSeriesV[int64](50)))
 		})
 	})

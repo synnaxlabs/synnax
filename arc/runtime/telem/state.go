@@ -11,13 +11,33 @@ package telem
 
 import "github.com/synnaxlabs/x/telem"
 
-type State struct {
-	Data map[uint32]telem.MultiSeries
-	Deps map[uint32][]string
+type Data struct {
+	telem.MultiSeries
+	IndexKey uint32
 }
 
-func (s *State) register(channel uint32, nodeKey string) {
-	s.Deps[channel] = append(s.Deps[channel], nodeKey)
+type State struct {
+	Data    map[uint32]Data
+	Writes  map[uint32]telem.Series
+	Readers map[uint32][]string
+	Writers map[uint32][]string
+}
+
+func NewState() *State {
+	return &State{
+		Data:    make(map[uint32]Data),
+		Writes:  make(map[uint32]telem.Series),
+		Readers: make(map[uint32][]string),
+		Writers: make(map[uint32][]string),
+	}
+}
+
+func (s *State) registerReader(channel uint32, nodeKey string) {
+	s.Readers[channel] = append(s.Readers[channel], nodeKey)
+}
+
+func (s *State) registerWriter(channel uint32, nodeKey string) {
+	s.Writers[channel] = append(s.Writers[channel], nodeKey)
 }
 
 func (s *State) Ingest(
@@ -28,8 +48,10 @@ func (s *State) Ingest(
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		s.Data[key] = s.Data[key].Append(fr.RawSeriesAt(rawI))
-		for _, dep := range s.Deps[key] {
+		e := s.Data[key]
+		e.MultiSeries = e.Append(fr.RawSeriesAt(rawI))
+		s.Data[key] = e
+		for _, dep := range s.Readers[key] {
 			markDirty(dep)
 		}
 	}

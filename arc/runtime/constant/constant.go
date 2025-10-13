@@ -45,8 +45,10 @@ type constant struct {
 }
 
 func (c constant) Init(_ context.Context, onOutputChange func(output string)) {
-	outputType := c.state.Outputs[c.output].DataType
-	c.state.Outputs[c.output] = telem.NewSeriesFromAny(c.value, outputType)
+	outputState := c.state.Outputs[c.output]
+	outputState.Data = telem.NewSeriesFromAny(c.value, outputState.Data.DataType)
+	outputState.Time = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	c.state.Outputs[c.output] = outputState
 	onOutputChange(ir.DefaultOutputParam)
 }
 
