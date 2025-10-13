@@ -204,7 +204,7 @@ void test_downsample(
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
-    for (int i = 0; i < expected.size(); i++)
+    for (size_t i = 0; i < expected.size(); i++)
         ASSERT_EQ(res_frame.series->at(0).values<int>()[i], expected[i]);
 
     ASSERT_NIL(writer.close());
