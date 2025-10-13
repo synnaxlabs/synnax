@@ -35,6 +35,12 @@ Make sure to use the plural when referring to these ("Ranges Toolbar" not "Range
 Toolbar"). After referring to these once, you should use the lower case of the component
 type when referring to it ("toolbar", "dropdown", "palette").
 
+### Task Names
+
+When referring to the full name of a task, capitalize everything ("NI Digital Read Task"
+not "NI digital read task"). When referring to the general category of a task, use
+lowercase, ("write tasks let the Driver control hardware").
+
 ## Documentation Site Conventions
 
 ### Title Case

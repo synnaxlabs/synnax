@@ -27,7 +27,7 @@ ai_time = client.channels.create(
 )
 # Create two synnax channels that will be used to store the input data. Notice
 # how these channels aren't specifically bound to the device. You'll do that in a
-# later step when you create the Digital Read Task.
+# later step when you create the task.
 di_0 = client.channels.create(
     name="di_0",
     # Pass in the index key here to associate the channel with the index channel.

@@ -15,8 +15,9 @@ import { Video, Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Digital Read Task is used for acquiring data from analog inputs on your NI devices.
-In this guide, we'll walk you through the steps to create a digital read Task in Synnax.
+The NI Digital Read Task is used for acquiring data from digital inputs on your NI
+devices. In this guide, we'll walk you through the steps to create a digital read task
+in Synnax.
 
 <Divider.Divider x />
 
@@ -65,7 +66,7 @@ reads from the same channel.
 
 To create a digital read task from the resources toolbar, open the Synnax Console and
 click on the "Resources" tab in the left sidebar. Find the device you'd like to create
-the task for, right-click on it, and select "Create Digital Read Task".
+the task for, right-click on it, and select "Create NI Digital Read Task".
 
 <Video
   client:only="react"
@@ -79,7 +80,7 @@ click on the Search and Command Palette at the top. You can also open this palet
 with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create a New Digital Read Task". Select this option to open
+You'll see an option called "Create an NI Digital Read Task". Select this option to open
 the read task configuration dialog.
 
 <Video
