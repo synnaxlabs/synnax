@@ -613,9 +613,11 @@ public:
             if (res.error.matches(ljm::TEMPORARILY_UNREACHABLE)) this->restart(true);
             return res;
         }
-        if (device_scan_backlog > this->cfg.device_scan_backlog_warn_on_count)
+        if (static_cast<size_t>(device_scan_backlog) >
+            this->cfg.device_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(device_scan_backlog);
-        if (ljm_scan_backlog > this->cfg.ljm_scan_backlog_warn_on_count)
+        if (static_cast<size_t>(ljm_scan_backlog) >
+            this->cfg.ljm_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(ljm_scan_backlog);
         const auto end = this->sample_clock.end();
         common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
