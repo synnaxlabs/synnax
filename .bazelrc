@@ -17,16 +17,18 @@ build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidd
 build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
+build:macos --copt=-Werror
 
 # Linux
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
-build:linux --copt=-Wno-error
+build:linux --copt=-Werror
 
 # Windows (MSVC)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++20
 build:windows --host_cxxopt=/std:c++20
+build:windows --copt=/WX
 build:windows --per_file_copt=external/.*@/w
 build:windows --per_file_copt=vendor/.*@/w
 
@@ -43,6 +45,7 @@ build --per_file_copt=vendor/.*@-w
 # Keep strict warnings for workspace code
 build --copt=-Wall
 build --cxxopt=-Wall
+build --copt=-Wunknown-pragmas
 
 # ===== Optimization Flags (used with -c opt) =====
 
