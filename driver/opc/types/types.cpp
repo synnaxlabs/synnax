@@ -84,17 +84,29 @@ std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) 
 
     UA_NodeId raw_id = UA_NODEID_NULL;
     if (type == "I")
-        raw_id = UA_NODEID_NUMERIC(static_cast<UA_UInt16>(nsIndex), std::stoul(identifier));
+        raw_id = UA_NODEID_NUMERIC(
+            static_cast<UA_UInt16>(nsIndex),
+            std::stoul(identifier)
+        );
     else if (type == "S")
-        raw_id = UA_NODEID_STRING_ALLOC(static_cast<UA_UInt16>(nsIndex), identifier.c_str());
+        raw_id = UA_NODEID_STRING_ALLOC(
+            static_cast<UA_UInt16>(nsIndex),
+            identifier.c_str()
+        );
     else if (type == "G")
-        raw_id = UA_NODEID_GUID(static_cast<UA_UInt16>(nsIndex), string_to_guid(identifier));
+        raw_id = UA_NODEID_GUID(
+            static_cast<UA_UInt16>(nsIndex),
+            string_to_guid(identifier)
+        );
     else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        raw_id = UA_NODEID_BYTESTRING(static_cast<UA_UInt16>(nsIndex), reinterpret_cast<char *>(data));
+        raw_id = UA_NODEID_BYTESTRING(
+            static_cast<UA_UInt16>(nsIndex),
+            reinterpret_cast<char *>(data)
+        );
         UA_free(data);
     }
 
