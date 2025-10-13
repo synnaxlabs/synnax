@@ -123,9 +123,8 @@ xerrors::Error install_service() {
     LOG(INFO) << "Checking for existing service";
     if (fs::exists(SYSTEMD_SERVICE_PATH)) {
         LOG(INFO) << "Existing service found, stopping and removing it";
-        if (int result = system("systemctl stop synnax-driver"); result != 0) {
+        if (int result = system("systemctl stop synnax-driver"); result != 0)
             LOG(WARNING) << "Failed to stop existing service (may not be running)";
-        }
         // Give it a moment to stop
         std::this_thread::sleep_for(std::chrono::seconds(2));
         // Uninstall the existing service
