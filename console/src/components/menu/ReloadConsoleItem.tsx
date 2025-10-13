@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 
 import { SHOULD_IGNORE_KEY as SHOULD_IGNORE_LINK_KEY } from "@/link/types";
 
-export const HardReloadItem = (): ReactElement => {
+export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = useDispatch();
   const handleClick = useCallback(() => {
     localStorage.setItem(SHOULD_IGNORE_LINK_KEY, "true");
@@ -23,7 +23,7 @@ export const HardReloadItem = (): ReactElement => {
   return (
     <Menu.Item onClick={handleClick} size="small" itemKey="hardReload">
       <Icon.Refresh />
-      Hard Reload
+      Reload Console
     </Menu.Item>
   );
 };

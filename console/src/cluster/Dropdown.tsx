@@ -202,7 +202,7 @@ export const Dropdown = (): ReactElement => {
           </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
-          <Menu.HardReloadItem />
+          <Menu.ReloadConsoleItem />
         </PMenu.Menu>
       );
     },
