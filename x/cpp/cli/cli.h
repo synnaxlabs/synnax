@@ -77,7 +77,9 @@ confirm(const std::string &message, std::optional<bool> default_value = std::nul
                 : std::nullopt
         );
         if (input.empty() || input.size() > 1) continue;
-        const char response = static_cast<char>(std::toupper(static_cast<unsigned char>(input[0])));
+        const char response = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(input[0]))
+        );
         if (response == 'Y') return true;
         if (response == 'N') return false;
         std::cout << "Please enter Y or N" << std::endl;
