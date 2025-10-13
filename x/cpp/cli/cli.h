@@ -42,7 +42,9 @@ inline std::string prompt(
         GetConsoleMode(h_stdin, &mode);
         if (hide_input) SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
 #else
-        if (hide_input) system("stty -echo");
+        if (hide_input)
+            if (int result = system("stty -echo"); result != 0)
+                std::cerr << "warning: failed to hide input" << std::endl;
 #endif
 
         std::string input;
@@ -54,7 +56,8 @@ inline std::string prompt(
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else
-            system("stty echo");
+            if (int result = system("stty echo"); result != 0)
+                std::cerr << "warning: failed to restore terminal echo" << std::endl;
 #endif
         }
 
