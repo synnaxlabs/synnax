@@ -21,11 +21,9 @@ type State struct {
 	Outputs map[ir.Handle]telem.Series
 }
 
-func NewState(ctx context.Context, program ir.IR) (*State, error) {
+func NewState(_ context.Context, program ir.IR) (*State, error) {
 	state := &State{Outputs: map[ir.Handle]telem.Series{}}
 	for _, node := range program.Nodes {
-		// Use the resolved output types from the node instance
-		// For polymorphic stages, these are the concrete types after unification
 		for key, t := range node.Outputs.Iter() {
 			state.Outputs[ir.Handle{Node: node.Key, Param: key}] = telem.Series{
 				DataType: arctelem.IRTypeToDataType(t),

@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 
@@ -199,17 +200,12 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal bool `json:"internal" msgpack:"internal"`
-	// Requires is only used for calculated channels, and specifies the channels that
-	// are required for the calculation.
-	Requires Keys `json:"requires" msgpack:"requires"`
-	// Expression is only used for calculated channels, and specifies the Lua expression
-	// to evaluate the calculated value.
-	Expression string `json:"expression" msgpack:"expression"`
+	Internal    bool      `json:"internal" msgpack:"internal"`
+	Calculation uuid.UUID `json:"calculation" msgpack:"calculation"`
 }
 
 func (c Channel) IsCalculated() bool {
-	return c.Virtual && c.Expression != ""
+	return c.Calculation != uuid.Nil
 }
 
 // Equals returns true if the two channels are meaningfully equal to each other. This
@@ -231,19 +227,10 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"Virtual", c.Virtual == other.Virtual},
 		{"Concurrency", c.Concurrency == other.Concurrency},
 		{"Internal", c.Internal == other.Internal},
-		{"Expression", c.Expression == other.Expression},
 	}
 
 	for _, comp := range comparisons {
 		if !comp.equal && !lo.Contains(exclude, comp.field) {
-			return false
-		}
-	}
-
-	if !lo.Contains(exclude, "Requires") {
-		slices.Sort(c.Requires)
-		slices.Sort(other.Requires)
-		if !slices.Equal(c.Requires, other.Requires) {
 			return false
 		}
 	}

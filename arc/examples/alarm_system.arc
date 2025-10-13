@@ -1,1 +1,4 @@
-[ox_pt_1, ox_pt_2] -> (ox_pt_1 + ox_pt_2) / 2 -> round{} -> ox_pt_final
+
+
+
+max(ox_pt_1, ox_pt_2) -> output_channel
