@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
-import { debounce } from "@synnaxlabs/x/debounce";
-import { DataType } from "@synnaxlabs/x/telem";
+import { array, DataType, debounce } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 

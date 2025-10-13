@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
-
 #include <thread>
+
+#include "gtest/gtest.h"
+#include "open62541/client.h"
+#include "open62541/client_highlevel.h"
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/util/conn_pool.h"
-#include "open62541/client.h"
-#include "open62541/client_highlevel.h"
 
 using namespace util;
 

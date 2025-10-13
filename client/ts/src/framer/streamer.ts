@@ -34,8 +34,6 @@ const resZ = z.object({ frame: frameZ });
  */
 export interface StreamerResponse extends z.infer<typeof resZ> {}
 
-const ENDPOINT = "/frame/stream";
-
 const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
   channels: paramsZ,
@@ -106,7 +104,7 @@ export const createStreamOpener =
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
-    const stream = await client.stream(ENDPOINT, reqZ, resZ);
+    const stream = await client.stream("/frame/stream", reqZ, resZ);
     const streamer = new CoreStreamer(stream, adapter);
     stream.send({ keys: adapter.keys, downsampleFactor: cfg.downsampleFactor ?? 1 });
     const [, err] = await stream.receive();

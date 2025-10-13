@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <iomanip>
 #include <regex>
 #include <sstream>
 
-/// module
-#include "x/cpp/xjson/xjson.h"
-
-/// external
 #include "open62541/types.h"
 
-/// internal
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/util/util.h"
 
 namespace util {
@@ -45,7 +41,6 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
         guid.data4[i] = static_cast<UA_Byte>(data4[i]);
     return guid;
 }
-
 
 ///@brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
@@ -103,7 +98,6 @@ std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_st
     }
     return {node_id, xerrors::NIL};
 }
-
 
 std::string node_id_to_string(const UA_NodeId &node_id) {
     std::ostringstream node_id_str;

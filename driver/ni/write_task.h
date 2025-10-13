@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <map>
 #include <set>
 #include <string>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
@@ -155,7 +152,6 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         return xerrors::NIL;
     }
 };
-
 
 /// @brief sink is passed to the command pipeline in order to receive incoming
 /// data from Synnax, write it to the device, and update the state.

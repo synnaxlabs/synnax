@@ -11,7 +11,6 @@
 #include <memory>
 #include <utility>
 
-/// external.
 #include "gtest/gtest.h"
 extern "C" {
 #include <lualib.h>

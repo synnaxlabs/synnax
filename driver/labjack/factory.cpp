@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/scan_task.h"
@@ -19,7 +17,6 @@
 
 const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries are not "
                                 "installed on this System.";
-
 
 common::ConfigureResult configure_read(
     const std::shared_ptr<device::Manager> &devs,

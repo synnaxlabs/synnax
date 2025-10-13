@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <set>
 #include <string>
 #include <vector>
 
-/// module
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"

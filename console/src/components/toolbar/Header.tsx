@@ -12,20 +12,12 @@ import "@/components/toolbar/Header.css";
 import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 
-export interface ContentProps extends Flex.BoxProps {
-  disableClusterBoundary?: boolean;
-}
+export interface ContentProps extends Flex.BoxProps {}
 
-export const Content = ({
-  disableClusterBoundary,
-  ...rest
-}: ContentProps): ReactElement => (
-  <Cluster.NoneConnectedBoundary disabled={disableClusterBoundary}>
-    <Flex.Box empty y pack full {...rest} />
-  </Cluster.NoneConnectedBoundary>
+export const Content = (props: ContentProps): ReactElement => (
+  <Flex.Box empty y pack full {...props} />
 );
 
 export interface HeaderProps extends PHeader.HeaderProps {

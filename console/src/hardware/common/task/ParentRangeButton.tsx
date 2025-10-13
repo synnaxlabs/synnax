@@ -11,7 +11,7 @@ import { type ranger, task } from "@synnaxlabs/client";
 import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
-import { useKey } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 

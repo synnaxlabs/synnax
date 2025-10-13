@@ -17,15 +17,11 @@
 #include <winsock2.h>
 #endif
 
+#include "nlohmann/json.hpp"
 
-/// module
 #include "x/cpp/xargs/xargs.h"
 #include "x/cpp/xlog/xlog.h"
 
-/// external
-#include "nlohmann/json.hpp"
-
-/// internal
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"

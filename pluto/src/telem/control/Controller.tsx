@@ -14,6 +14,7 @@ import {
   type ReactElement,
   use,
   useEffect,
+  useMemo,
 } from "react";
 import { type z } from "zod";
 
@@ -54,9 +55,9 @@ export const Controller = ({
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
   useEffect(() => () => onStatusChange?.("released"), []);
-
+  const value = useMemo(() => ({ needsControlOf }), [needsControlOf]);
   return (
-    <Context value={{ needsControlOf }}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>;
     </Context>
   );
