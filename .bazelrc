@@ -29,8 +29,8 @@ build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++20
 build:windows --host_cxxopt=/std:c++20
 build:windows --copt=/WX
-build:windows --per_file_copt=external/.*@/w
-build:windows --per_file_copt=vendor/.*@/w
+build:windows --per_file_copt=external/.*@/WX-,/w
+build:windows --per_file_copt=vendor/.*@/WX-,/w
 
 # ===== Warning Suppression for External Dependencies =====
 
