@@ -43,7 +43,7 @@ synnax start -l localhost:9090 -im
   data={[
     {
       option: "--listen/-l",
-      default: "localhost:9090",
+      default: '"localhost:9090"',
       description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes.`,
     },
     {
@@ -55,7 +55,7 @@ synnax start -l localhost:9090 -im
     },
     {
       option: "--data/-d",
-      default: "synnax-data",
+      default: '"synnax-data"',
       description: "The file path to the folder where Synnax will keep its data.",
     },
     {
@@ -84,7 +84,7 @@ synnax start -l localhost:9090 -im
     },
     {
       option: "--config/c",
-      default: "~/.synnax.yaml",
+      default: '"/usr/local/synnax/config.yaml"',
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
                 See <a href="#configuration-files">Configuration Files</a> for more information.`,
@@ -96,33 +96,33 @@ synnax start -l localhost:9090 -im
     },
     {
       option: "--certs-dir",
-      default: "/usr/local/synnax/certs",
+      default: '"/usr/local/synnax/certs"',
       description:
         "Path to the directory containing the TLS certificates for the node.",
     },
     {
       option: "--ca-cert",
-      default: "ca.crt",
+      default: '"ca.crt"',
       description: "Path to the CA certificate file relative to the certs-dir.",
     },
     {
       option: "--node-cert",
-      default: "node.crt",
+      default: '"node.crt"',
       description: "Path to the node certificate file relative to the certs-dir.",
     },
     {
       option: "--node-key",
-      default: "node.key",
+      default: '"node.key"',
       description: "Path to the node key file relative to the certs-dir.",
     },
     {
       option: "--username",
-      default: "synnax",
+      default: '"synnax"',
       description: "Username for the database root user.",
     },
     {
       option: "--password",
-      default: "seldon",
+      default: '"seldon"',
       description: "Password for the database root user.",
     },
     {
@@ -138,9 +138,9 @@ synnax start -l localhost:9090 -im
     },
     {
       option: "--slow-consumer-timeout",
-      default: "2.5s",
+      default: "2500000000",
       description:
-        "The duration after which a telemetry streamer will be closed by the Core if it stops receiving messages. It's rarely necessary to change this value.",
+        "The duration, in ns, after which a telemetry streamer will be closed by the Core if it stops receiving messages. It's rarely necessary to change this value. The default is 2.5s.",
     },
     {
       option: "--no-driver",
@@ -162,7 +162,7 @@ synnax start -l localhost:9090 -im
     },
     {
       option: "--log-file-path",
-      default: "./synnax-logs/synnax.log",
+      default: `"./synnax-logs/synnax.log"`,
       description:
         "The path to the file in which the Synnax Core should store its logs",
     },
@@ -175,7 +175,7 @@ synnax start -l localhost:9090 -im
       option: "--log-file-max-backups",
       default: "5",
       description:
-        "The maximum number of log files of size --log-file-max-size that should be kept before they are deleted",
+        "The maximum number of log files that should be kept before they are deleted",
     },
     {
       option: "--log-file-max-age",

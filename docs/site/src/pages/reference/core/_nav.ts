@@ -41,7 +41,7 @@ export const CORE_NAV: PageNavNode = {
     {
       key: "/reference/core/systemd-service",
       href: "/reference/core/systemd-service",
-      name: "Systemd Service",
+      name: "systemd Service",
     },
   ],
 };
