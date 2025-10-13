@@ -1,7 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI | Analog Read Task"
-heading: "NI Analog Read Task"
+title: "NI  Analog Read Task"
 description: "Learn how to create an analog read task for NI hardware."
 next: "Analog Write Task"
 nextURL: "/reference/device-drivers/ni/analog-write-task"
@@ -16,18 +15,16 @@ import { Video, Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The analog read task is used for acquiring data from analog inputs on your NI devices.
-In this guide, we'll walk you through the steps for creating an analog read task using
-the Synnax Console.
+The NI Analog Read Task is used for acquiring data from analog inputs on your NI
+devices. In this guide, we'll walk you through the steps for creating an analog read
+task using the Synnax Console.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the
-[Configure Device](/reference/device-drivers/ni/configure-device) guide for more
-information.
+Before configuring the task, you'll need to have
+[connected and configured an NI device](/reference/device-drivers/ni/configure-device).
 
 <Divider.Divider x />
 
@@ -38,9 +35,9 @@ can be used for both control and data acquisition purposes. In the context of th
 Driver, an analog read task defines a background process that reads data from the analog
 inputs on a particular DAQ card.
 
-An analog read task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+An analog read task can be started, stopped, and re-configured at any time. Synnax
+permanently stores the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -63,12 +60,12 @@ same time.
 
 ## Open the Task Configuration Dialog
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create an analog read task from the resources toolbar, open the Synnax Console and
-click on the resources (<Icon.Resources />) tab in the left sidebar. Find the device
-you'd like to create the task for, right-click on it, and select "Create Analog Read
-Task".
+To create an analog read task from the Devices Toolbar, open the Console and click on
+the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
+you'd like to create the task for, right-click on it, and select "Create analog read
+task".
 
 <Video
   client:only="react"
@@ -77,13 +74,13 @@ Task".
 
 ### From the Command Palette
 
-To create an analog read task from the command palette, open the Synnax Console and
-click on the Search and Command Palette at the top. You can also open this palette with
+To create an analog read task from the command palette, open the Console and click on
+the Search and Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create a New Analog Read Task". Select this option to open
-the read task configuration dialog.
+You'll see an option called "Create an NI Analog Read Task". Select this option to open
+the analog read task configuration dialog.
 
 <Video
   client:only="react"
@@ -92,8 +89,8 @@ the read task configuration dialog.
 
 ### From The Layout Selector
 
-To create an analog read task from the layout selector, click on the "+" button in the
-top-right corner of the central mosaic and select "NI Analog Read Task".
+To create an analog read task from the layout selector, click on the add icon (<Icon.Add
+/>) in the top-right corner of the central mosaic and select "NI Analog Read Task".
 
 <Video
   client:only="react"
@@ -116,8 +113,8 @@ menu in the top-left corner to do so.
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add channels to read data from. Click on the "+" button in the
-channels section. Then, click on the new channel in the list to configure it.
+Next, you'll need to add channels to read data from. Click on the add icon (<Icon.Add
+/>) in the channels section. Then, click on the new channel in the list to configure it.
 
 <Video
   client:only="react"
@@ -135,10 +132,10 @@ For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Sy
 will read a batch of 10 samples every second, and then forward the entire batch to the
 Synnax database.
 
-For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same
+For very low rate tasks (&lt; 50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's typically best to keep the stream rate below
-50Hz unless you need to quickly process incoming data in real-time.
+significantly improve performance. It's typically best to keep the stream rate below 50
+Hz unless you need to quickly process incoming data in real-time.
 
 <div style={{ display: "flex", justifyContent: "center" }}>
   <Image
@@ -162,10 +159,10 @@ operations where historical data saving is not important.
 
 ## Start the Task
 
-Once you'd added all of the channels you need and have configured task
-PerformanceTiming, hit the "Configure" button. If there are no errors, Synnax will
-acknowledge the configured task and enable the Play (<Icon.Play />) button in the
-dialog. Click this button to start the task.
+Once you'd added all of the channels you need and have configured task timing, hit the
+"Configure" button. If there are no errors, Synnax will acknowledge the configured task
+and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the
+task.
 
 <Video
   client:only="react"

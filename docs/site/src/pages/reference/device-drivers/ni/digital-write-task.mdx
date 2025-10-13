@@ -1,7 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI | Digital Write Task"
-heading: "NI Digital Write Task"
+title: "NI Digital Write Task"
 description: "Learn how to create a digital write task for NI hardware."
 prev: "Digital Read Task"
 prevURL: "/reference/device-drivers/ni/digital-read-task"
@@ -13,7 +12,7 @@ import { Video, Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Digital Write Task is used for sending commands to the digital outputs of your NI
+The NI Digital Write Task is used for sending commands to the digital outputs of your NI
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in
 Synnax.
 
@@ -21,10 +20,8 @@ Synnax.
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the
-[Configure Device](/reference/device-drivers/ni/configure-device) guide for more
-information.
+Before configuring the task, you'll need to have
+[connected and configured an NI device](/reference/device-drivers/ni/configure-device).
 
 <Divider.Divider x />
 
@@ -81,12 +78,12 @@ running task.
 
 ## Open the Task Configuration Dialog
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create a digital write task from the resources toolbar, open the Synnax Console and
-click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device
-you'd like to create the task for, right-click on it, and select "Create Digital Write
-Task".
+To create a digital write task from the Devices Toolbar, open the Console and click on
+the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
+you'd like to create the task for, right-click on it, and select "Create digital write
+task".
 
 <Video
   client:only="react"
@@ -95,13 +92,13 @@ Task".
 
 ### From the Command Palette
 
-To create a digital write task from the command palette, open the Synnax Console and
-click on the Search and Command Palette at the top. You can also open this palette with
+To create a digital write task from the command palette, open the Console and click on
+the Search and Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create a New Digital Write Task". Select this option to
-open the read task configuration dialog.
+You'll see an option called "Create an NI Digital Write Task". Select this option to
+open the digital write task configuration dialog.
 
 <Video
   client:only="react"
@@ -110,8 +107,8 @@ open the read task configuration dialog.
 
 ### From The Layout Selector
 
-To create a digital write task from the layout selector, click on the "+" button in the
-top-right corner and select "NI Digital Write Task".
+To create a digital write task from the layout selector, click on the add icon
+(<Icon.Add />) in the top-right corner and select "NI Digital Write Task".
 
 <Video
   client:only="react"
@@ -134,12 +131,11 @@ dropdown menu in the top-left corner to do so.
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add the channels you'd like to write to. Click the "+" button in
-the channels section. Then, click on the new channel in the list to configure it.
+Next, you'll need to add the channels you'd like to write to. Click the add icon
+(<Icon.Add />) in the channels section. Then, click on the new channel in the list to
+configure it.
 
-You'll need to select both a digital output port and line to write to. You'll also need
-to select the command channel the task will listen to, and the state channel that will
-be updated when the command is processed.
+You'll need to select both a digital output port and line to write to.
 
 <Video
   client:only="react"

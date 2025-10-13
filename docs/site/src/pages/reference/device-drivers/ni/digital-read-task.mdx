@@ -1,7 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI | Digital Read Task"
-heading: "NI Digital Read Task"
+title: "NI Digital Read Task"
 description: "Learn how to create a digital read task for NI hardware."
 prev: "Analog Write Task"
 prevURL: "/reference/device-drivers/ni/analog-write-task"
@@ -23,10 +22,8 @@ in Synnax.
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the
-[Configure Device](/reference/device-drivers/ni/configure-device) guide for more
-information.
+Before configuring the task, you'll need to have
+[connected and configured an NI device](/reference/device-drivers/ni/configure-device).
 
 <Divider.Divider x />
 
@@ -37,9 +34,9 @@ can be used for both control and data acquisition purposes. In the context of th
 Driver, a digital read task defines a background process that reads data from the
 digital inputs on a particular DAQ card.
 
-A digital read task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+A digital read task can be started, stopped, and re-configured at any time. Synnax
+permanently stores the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -62,11 +59,12 @@ reads from the same channel.
 
 ## Open the Task Configuration Dialog
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create a digital read task from the resources toolbar, open the Synnax Console and
-click on the "Resources" tab in the left sidebar. Find the device you'd like to create
-the task for, right-click on it, and select "Create NI Digital Read Task".
+To create a digital read task from the Devices Toolbar, open the Console and click on
+the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
+you'd like to create the task for, right-click on it, and select "Create digital read
+task".
 
 <Video
   client:only="react"
@@ -75,13 +73,13 @@ the task for, right-click on it, and select "Create NI Digital Read Task".
 
 ### From the Command Palette
 
-To create a digital read task from the command palette, open the Synnax Console and
-click on the Search and Command Palette at the top. You can also open this palette with
-with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
+To create a digital read task from the command palette, open the Console and click on
+the Search and Command Palette at the top. You can also open this palette with with
+`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "NI".
 You'll see an option called "Create an NI Digital Read Task". Select this option to open
-the read task configuration dialog.
+the digital read task configuration dialog.
 
 <Video
   client:only="react"
@@ -90,8 +88,8 @@ the read task configuration dialog.
 
 ### From The Layout Selector
 
-To create a digital read task from the layout selector, click on the "+" button in the
-top-right corner and select "NI Digital Read Task".
+To create a digital read task from the layout selector, click on the add icon (<Icon.Add
+/>) in the top-right corner and select "NI Digital Read Task".
 
 <Video
   client:only="react"
@@ -114,8 +112,8 @@ menu in the top-left corner to do so.
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add channels to read data from. Click on the "+" button in the
-channels section. Then, click on the new channel in the list to configure it.
+Next, you'll need to add channels to read data from. Click on the add icon (<Icon.Add
+/>) in the channels section. Then, click on the new channel in the list to configure it.
 
 <Video
   client:only="react"
@@ -133,10 +131,10 @@ For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Sy
 will read a batch of 10 samples every second, and then forward the entire batch to the
 Core.
 
-For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same
+For very low rate tasks (&lt; 50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's typically best to keep the stream rate below
-50Hz unless you need to quickly process incoming data in real-time.
+significantly improve performance. It's typically best to keep the stream rate below 50
+Hz unless you need to quickly process incoming data in real-time.
 
 <div style={{ display: "flex", justifyContent: "center" }}>
   <Image
