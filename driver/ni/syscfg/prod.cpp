@@ -133,10 +133,14 @@ NISYSCFGCDECL ProdAPI::SetFilterProperty(
     // Note: Enum types undergo default argument promotion to int in varargs.
     // This is a known limitation of C varargs but is how the NI API is designed.
     // Suppressing the warning to maintain semantic type safety of the enum.
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvarargs"
+#endif
     va_start(args, propertyID);
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
     NISysCfgStatus status = SetFilterPropertyV(filterHandle, propertyID, args);
     va_end(args);
     return status;
