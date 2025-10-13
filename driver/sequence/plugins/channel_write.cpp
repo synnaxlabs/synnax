@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/sequence/plugins/plugins.h"
 #include "x/cpp/xlua/xlua.h"
+
+#include "driver/sequence/plugins/plugins.h"
 
 /// @brief an implementation of Sink backed by a Synnax writer.
 plugins::SynnaxFrameSink::SynnaxFrameSink(
@@ -58,16 +59,11 @@ plugins::ChannelWrite::ChannelWrite(
     }
 }
 
-/// @brief resolves a channel key by its name.
-std::pair<synnax::Channel, xerrors::Error>
+std::pair<synnax::Channel, bool>
 plugins::ChannelWrite::resolve(const std::string &name) {
     const auto it = this->names_to_keys.find(name);
-    if (it == this->names_to_keys.end())
-        return {
-            synnax::Channel(),
-            xerrors::Error(xerrors::NOT_FOUND, "Channel" + name + " not found")
-        };
-    return {this->channels[it->second], xerrors::NIL};
+    if (it == this->names_to_keys.end()) return {synnax::Channel(), false};
+    return {this->channels[it->second], true};
 }
 
 /// @brief implements sequence::Operator to bind channel set functions to the
@@ -83,28 +79,30 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_touserdata(cL, lua_upvalueindex(1))
             );
             const char *channel_name = lua_tostring(cL, 1);
-            const auto [channel, err] = op->resolve(channel_name);
-            if (err) {
-                luaL_error(cL, err.message().c_str());
+            const auto [channel, found] = op->resolve(channel_name);
+            if (!found) {
+                lua_pushfstring(cL, "Channel %s not found", channel_name);
+                lua_error(cL);
                 return 0;
             }
 
-            // Create Series in a nested scope to ensure cleanup before luaL_error
-            std::string error_msg;
-            bool has_error = false;
+            // Use nested scope to ensure Series destructor runs before lua_error
+            bool had_error = false;
             {
-                auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
-                if (s_err) {
-                    error_msg = s_err.message();
-                    has_error = true;
-                    // value is destroyed here when exiting scope
+                auto result = xlua::to_series(cL, 2, channel.data_type);
+                if (result.second) {
+                    // Push error to Lua stack while result is still alive
+                    lua_pushstring(cL, result.second.message().c_str());
+                    had_error = true;
+                    // result (and its Series) are destroyed when scope exits here
                 } else {
-                    op->frame.emplace(channel.key, std::move(value));
+                    // Success - move value into frame
+                    op->frame.emplace(channel.key, std::move(result.first));
                 }
-            } // Series is destroyed here if there was an error
-
-            if (has_error) {
-                luaL_error(cL, error_msg.c_str());
+            }
+            // Now it's safe to call lua_error - all C++ objects are destroyed
+            if (had_error) {
+                lua_error(cL);
                 return 0;
             }
             return 0;
@@ -139,9 +137,10 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 // set_authority(channel_name string, auth number)
                 const char *channel_name = lua_tostring(cL, 1);
                 auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
-                const auto [channel, err] = op->resolve(channel_name);
-                if (err) {
-                    luaL_error(cL, err.message().c_str());
+                const auto [channel, found] = op->resolve(channel_name);
+                if (!found) {
+                    lua_pushfstring(cL, "Channel %s not found", channel_name);
+                    lua_error(cL);
                     return 0;
                 }
                 keys.push_back(channel.key);
@@ -154,9 +153,10 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
                     const char *channel_name = lua_tostring(cL, -1);
-                    const auto [channel, err] = op->resolve(channel_name);
-                    if (err) {
-                        luaL_error(cL, err.message().c_str());
+                    const auto [channel, found] = op->resolve(channel_name);
+                    if (!found) {
+                        lua_pushfstring(cL, "Channel %s not found", channel_name);
+                        lua_error(cL);
                         return 0;
                     }
                     keys.push_back(channel.key);
@@ -170,9 +170,10 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                     const char *channel_name = lua_tostring(cL, -2);
                     auto auth = static_cast<telem::Authority>(lua_tonumber(cL, -1));
 
-                    const auto [channel, err] = op->resolve(channel_name);
-                    if (err) {
-                        luaL_error(cL, err.message().c_str());
+                    const auto [channel, found] = op->resolve(channel_name);
+                    if (!found) {
+                        lua_pushfstring(cL, "Channel %s not found", channel_name);
+                        lua_error(cL);
                         return 0;
                     }
                     keys.push_back(channel.key);
@@ -185,7 +186,10 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             }
 
             if (auto err = op->sink->set_authority(keys, authorities)) {
-                luaL_error(cL, err.message().c_str());
+                // Use a static error message to avoid C++ string allocation
+                // which would leak when lua_error() longjmps
+                lua_pushstring(cL, "Failed to set channel authority");
+                lua_error(cL);
                 return 0;
             }
             return 0;

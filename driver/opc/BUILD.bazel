@@ -20,6 +20,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/opc/conn",
+        "//driver/opc/telem",
+        "//driver/opc/types",
         "//driver/opc/util",
         "//driver/pipeline",
         "//driver/task",

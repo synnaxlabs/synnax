@@ -15,6 +15,7 @@
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
+#include "driver/opc/conn/conn.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/util/util.h"
 
@@ -39,13 +40,13 @@ TEST(ConnTest, testBasicConn) {
     mock::Server server(server_cfg);
     server.start();
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
     auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "opc"),
+        opc::conn::connect(cfg, "opc"),
         (5 * telem::SECOND).chrono(),
         (250 * telem::MILLISECOND).chrono()
     );
@@ -62,42 +63,42 @@ TEST(ConnTest, testBasicConn) {
 }
 
 TEST(ConnTest, connectionRefused) {
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:9999";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
 TEST(ConnTest, invalidEndpointFormat) {
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "not-a-valid-endpoint";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
 TEST(ConnTest, emptyEndpoint) {
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
 TEST(ConnTest, invalidHostname) {
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://nonexistent.invalid.hostname:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
@@ -106,17 +107,15 @@ TEST(ConnTest, disconnectAndReconnect) {
     server_cfg.port = 4841;
     mock::Server server(server_cfg);
     server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
+    auto [client, err1] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err1);
     ASSERT_NE(client, nullptr);
 
     UA_SessionState session_state;
@@ -129,7 +128,7 @@ TEST(ConnTest, disconnectAndReconnect) {
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
-    auto err2 = util::reconnect(client, cfg.endpoint);
+    auto err2 = opc::conn::reconnect(client, cfg.endpoint);
     ASSERT_FALSE(err2);
 
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
@@ -143,29 +142,27 @@ TEST(ConnTest, serverStopDuringConnection) {
     server_cfg.port = 4842;
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
+    auto [client, err1] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err1);
     ASSERT_NE(client, nullptr);
 
     server->stop();
     server.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto [node_id, parse_err] = util::parse_node_id("NS=1;S=TestFloat");
+    auto [node_id, parse_err] = opc::NodeId::parse("NS=1;S=TestFloat");
     ASSERT_FALSE(parse_err);
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id.get();
+    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -176,6 +173,8 @@ TEST(ConnTest, serverStopDuringConnection) {
     UA_ReadResponse res = UA_Client_Service_read(client.get(), req);
     EXPECT_NE(res.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     UA_ReadResponse_clear(&res);
+
+    // node_id automatically cleaned up by RAII destructor
 }
 
 TEST(ConnTest, connectionAfterServerRestart) {
@@ -184,17 +183,15 @@ TEST(ConnTest, connectionAfterServerRestart) {
 
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client1 = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
+    auto [client1, err1] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err1);
     ASSERT_NE(client1, nullptr);
 
     server->stop();
@@ -203,12 +200,10 @@ TEST(ConnTest, connectionAfterServerRestart) {
 
     server = std::make_unique<mock::Server>(server_cfg);
     server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    auto client2 = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
+    auto [client2, err2] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err2);
     ASSERT_NE(client2, nullptr);
 
     server->stop();
@@ -219,18 +214,15 @@ TEST(ConnTest, readAfterDisconnect) {
     server_cfg.port = 4845;
     mock::Server server(server_cfg);
     server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
-    ASSERT_NE(client, nullptr);
+    auto [client, err] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err);
 
     auto [ser1, read_err1] = util::simple_read(client, "NS=1;S=TestFloat");
     ASSERT_FALSE(read_err1);
@@ -250,18 +242,15 @@ TEST(ConnTest, multipleDisconnects) {
     server_cfg.port = 4846;
     mock::Server server(server_cfg);
     server.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(cfg, "test"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
-    );
-    ASSERT_NE(client, nullptr);
+    auto [client, err] = opc::conn::connect(cfg, "test");
+    ASSERT_FALSE(err);
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
@@ -277,14 +266,14 @@ TEST(ConnTest, invalidUsernamePassword) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4847";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "invalid_user";
     cfg.password = "wrong_password";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
@@ -297,14 +286,14 @@ TEST(ConnTest, signModeWithNoEncryptionServer) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
@@ -317,14 +306,14 @@ TEST(ConnTest, signAndEncryptModeWithNoEncryptionServer) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "SignAndEncrypt";
     cfg.security_policy = "Basic256Sha256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
@@ -337,14 +326,14 @@ TEST(ConnTest, missingClientCertificate) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4850";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/path/to/missing/cert.pem";
     cfg.client_private_key = "/path/to/missing/key.pem";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
@@ -357,14 +346,14 @@ TEST(ConnTest, emptyUsernameWithPassword) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4851";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "";
     cfg.password = "password";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
@@ -377,14 +366,14 @@ TEST(ConnTest, usernameWithEmptyPassword) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4852";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "username";
     cfg.password = "";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
@@ -397,14 +386,14 @@ TEST(ConnTest, invalidSecurityPolicy) {
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    util::ConnectionConfig cfg;
+    opc::conn::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4853";
     cfg.security_mode = "Sign";
     cfg.security_policy = "InvalidPolicy999";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = util::connect(cfg, "test");
+    auto [client, err] = opc::conn::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();

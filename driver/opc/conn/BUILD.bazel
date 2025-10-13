@@ -1,0 +1,39 @@
+cc_library(
+    name = "conn",
+    hdrs = [
+        "conn.h",
+    ],
+    srcs = [
+        "conn.cpp",
+        "pool.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/opc/errors",
+        "//driver/task",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
+        "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+        "@glog",
+        "@nlohmann_json//:json",
+    ],
+)
+
+
+cc_test(
+    name = "conn_test",
+    srcs = [
+        "conn_test.cpp",
+        "pool_test.cpp",
+        "keepalive_test.cpp",
+    ],
+    deps = [
+        ":conn",
+        "//driver/opc/mock",
+        "//driver/opc/util",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

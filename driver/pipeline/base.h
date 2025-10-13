@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <thread>
 
-/// module
 #include "x/cpp/breaker/breaker.h"
 
 namespace pipeline {

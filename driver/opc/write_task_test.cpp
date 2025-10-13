@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include <thread>
+
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/write_task.h"
@@ -30,7 +28,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<util::ConnectionPool> conn_pool;
+    std::shared_ptr<opc::conn::Pool> conn_pool;
 
     // Command channels for different data types
     synnax::Channel bool_cmd_channel;
@@ -81,7 +79,7 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
 
-        util::ConnectionConfig conn_cfg;
+        opc::conn::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -246,7 +244,7 @@ protected:
             reads
         );
 
-        conn_pool = std::make_shared<util::ConnectionPool>();
+        conn_pool = std::make_shared<opc::conn::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
@@ -305,7 +303,10 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Connect and read back the values to verify they were written
-    auto [client, conn_err] = util::connect(conn_cfg, "[test.write_verification] ");
+    auto [client, conn_err] = opc::conn::connect(
+        conn_cfg,
+        "[test.write_verification] "
+    );
     ASSERT_FALSE(conn_err) << conn_err;
 
     // Verify boolean value (should be 1)
@@ -352,7 +353,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     );
     auto write_err2 = sink->write(fr2);
     EXPECT_TRUE(write_err2) << "Write should fail when server is down";
-    EXPECT_TRUE(write_err2.matches(util::UNREACHABLE_ERROR))
+    EXPECT_TRUE(write_err2.matches(opc::errors::UNREACHABLE))
         << "Error should be UNREACHABLE_ERROR, got: " << write_err2;
 
     // Restart the server and wait for it to be ready
@@ -374,7 +375,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     EXPECT_FALSE(write_err3) << "Write after reconnect should succeed: " << write_err3;
 
     // Verify the third value was written
-    auto [client, conn_err] = util::connect(conn_cfg, "[test.reconnect] ");
+    auto [client, conn_err] = opc::conn::connect(conn_cfg, "[test.reconnect] ");
     ASSERT_FALSE(conn_err) << conn_err;
 
     auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");
@@ -406,7 +407,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     }
 
     // Verify the final value
-    auto [client, conn_err] = util::connect(conn_cfg, "[test.multi_write] ");
+    auto [client, conn_err] = opc::conn::connect(conn_cfg, "[test.multi_write] ");
     ASSERT_FALSE(conn_err) << conn_err;
 
     auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");

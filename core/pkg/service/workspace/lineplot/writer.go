@@ -11,6 +11,7 @@ package lineplot
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -62,10 +63,12 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, LinePlot]().WhereKeys(key).Change(func(p LinePlot) LinePlot {
-		p.Name = name
-		return p
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, LinePlot]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, p LinePlot) LinePlot {
+			p.Name = name
+			return p
+		}).Exec(ctx, w.tx)
 }
 
 func (w Writer) SetData(
@@ -73,10 +76,12 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, LinePlot]().WhereKeys(key).Change(func(p LinePlot) LinePlot {
-		p.Data = data
-		return p
-	}).Exec(ctx, w.tx)
+	return gorp.NewUpdate[uuid.UUID, LinePlot]().
+		WhereKeys(key).
+		Change(func(_ gorp.Context, p LinePlot) LinePlot {
+			p.Data = data
+			return p
+		}).Exec(ctx, w.tx)
 }
 
 func (w Writer) Delete(

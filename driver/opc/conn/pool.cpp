@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/opc/util/conn_pool.h"
+/// std
+#include <algorithm>
+
+/// external
+#include "glog/logging.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
-#include <algorithm>
+/// internal
+#include "driver/opc/conn/conn.h"
 
-#include "glog/logging.h"
-
-namespace util {
-
-std::pair<ConnectionPool::Connection, xerrors::Error>
-ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_prefix) {
+namespace opc::conn {
+std::pair<Pool::Conn, xerrors::Error>
+Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
                             cfg.security_mode + "|" + cfg.security_policy;
 
@@ -44,7 +46,7 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
                         UA_Client_run_iterate(entry.client.get(), 0);
                         VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
-                        return {Connection(entry.client, this, key), xerrors::NIL};
+                        return {Conn(entry.client, this, key), xerrors::NIL};
                     } else {
                         VLOG(1) << log_prefix << "Removing stale connection from pool";
                         entry.client.reset();
@@ -56,7 +58,7 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
                 std::remove_if(
                     it->second.begin(),
                     it->second.end(),
-                    [](const PoolEntry &e) { return !e.client; }
+                    [](const Entry &e) { return !e.client; }
                 ),
                 it->second.end()
             );
@@ -64,7 +66,7 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
     }
 
     auto [client, err] = connect(cfg, log_prefix);
-    if (err) { return {Connection(nullptr, nullptr, ""), err}; }
+    if (err) { return {Conn(nullptr, nullptr, ""), err}; }
 
     // Perform initial connection maintenance
     UA_Client_run_iterate(client.get(), 0);
@@ -75,13 +77,10 @@ ConnectionPool::acquire(const ConnectionConfig &cfg, const std::string &log_pref
     }
 
     VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
-    return {Connection(client, this, key), xerrors::NIL};
+    return {Conn(client, this, key), xerrors::NIL};
 }
 
-void ConnectionPool::release(
-    const std::string &key,
-    std::shared_ptr<UA_Client> client
-) {
+void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = connections_.find(key);
@@ -107,7 +106,7 @@ void ConnectionPool::release(
         std::remove_if(
             it->second.begin(),
             it->second.end(),
-            [](const PoolEntry &e) { return !e.client; }
+            [](const Entry &e) { return !e.client; }
         ),
         it->second.end()
     );
@@ -115,7 +114,7 @@ void ConnectionPool::release(
     if (it->second.empty()) connections_.erase(it);
 }
 
-size_t ConnectionPool::size() const {
+size_t Pool::size() const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t total = 0;
     for (const auto &[_, entries]: connections_)
@@ -123,7 +122,7 @@ size_t ConnectionPool::size() const {
     return total;
 }
 
-size_t ConnectionPool::available_count(const std::string &endpoint) const {
+size_t Pool::available_count(const std::string &endpoint) const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)

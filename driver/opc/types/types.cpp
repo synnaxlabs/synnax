@@ -9,21 +9,21 @@
 
 /// std
 #include <iomanip>
+#include <map>
 #include <regex>
 #include <sstream>
-
-/// module
-#include "x/cpp/xjson/xjson.h"
 
 /// external
 #include "open62541/types.h"
 
 /// internal
-#include "driver/opc/util/util.h"
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/types/types.h"
 
-namespace util {
-///@brief Helper function to convert string GUID to UA_Guid
-inline UA_Guid string_to_guid(const std::string &guidStr) {
+namespace opc {
+namespace {
+/// @brief Helper function to convert string GUID to UA_Guid
+UA_Guid string_to_guid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
     std::sscanf(
@@ -46,8 +46,7 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
     return guid;
 }
 
-
-///@brief Helper function to convert a GUID to a string
+/// @brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0') << std::setw(8) << guid.data1 << "-"
@@ -60,55 +59,65 @@ std::string guid_to_string(const UA_Guid &guid) {
            << (guid.data4[7] & 0xFF);
     return stream.str();
 }
+} // namespace
 
-/// @brief Parses a string NodeId into an opc::NodeId wrapper with automatic memory
-/// management
-opc::NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
-    const std::string nodeIdStr = parser.required<std::string>(path);
-    if (!parser.ok()) return opc::NodeId();
-    auto [node_id, err] = parse_node_id(nodeIdStr);
+NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
+    const std::string nodeIdStr = parser.required<std::string>(field_name);
+    if (!parser.ok()) return NodeId();
+    auto [node_id, err] = parse(nodeIdStr);
     if (err) {
-        parser.field_err(path, err.message());
-        return opc::NodeId();
+        parser.field_err(field_name, err.message());
+        return NodeId();
     }
-    return node_id;
+    return std::move(node_id);
 }
 
-std::pair<opc::NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
+std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {
-            opc::NodeId(),
-            xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
-        };
+        return {NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
 
-    uint16_t nsIndex = std::stoi(matches[1].str());
+    int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
-    // Use factory methods for automated memory management
-    if (type == "I") {
-        return {opc::NodeId::numeric(nsIndex, std::stoul(identifier)), xerrors::NIL};
-    } else if (type == "S") {
-        return {opc::NodeId::string(nsIndex, identifier), xerrors::NIL};
-    } else if (type == "G") {
-        return {opc::NodeId::guid(nsIndex, string_to_guid(identifier)), xerrors::NIL};
-    } else if (type == "B") {
+    UA_NodeId raw_id = UA_NODEID_NULL;
+    if (type == "I")
+        raw_id = UA_NODEID_NUMERIC(
+            static_cast<UA_UInt16>(nsIndex),
+            std::stoul(identifier)
+        );
+    else if (type == "S")
+        raw_id = UA_NODEID_STRING_ALLOC(
+            static_cast<UA_UInt16>(nsIndex),
+            identifier.c_str()
+        );
+    else if (type == "G")
+        raw_id = UA_NODEID_GUID(
+            static_cast<UA_UInt16>(nsIndex),
+            string_to_guid(identifier)
+        );
+    else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        auto node_id = opc::NodeId::bytestring(nsIndex, data, len);
+        raw_id = UA_NODEID_BYTESTRING(
+            static_cast<UA_UInt16>(nsIndex),
+            reinterpret_cast<char *>(data)
+        );
         UA_free(data);
-        return {std::move(node_id), xerrors::NIL};
     }
 
-    return {opc::NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId type")};
+    // Wrap in RAII type - NodeId constructor will take ownership
+    NodeId result(raw_id);
+    // Clear the raw_id to prevent double-free (NodeId now owns it)
+    UA_NodeId_init(&raw_id);
+    return {std::move(result), xerrors::NIL};
 }
 
-
-std::string node_id_to_string(const UA_NodeId &node_id) {
+std::string NodeId::to_string(const UA_NodeId &node_id) {
     std::ostringstream node_id_str;
     node_id_str << "NS=" << node_id.namespaceIndex << ";";
     switch (node_id.identifierType) {
@@ -152,4 +161,14 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
+
+xerrors::Error WriteRequestBuilder::add_value(
+    const UA_NodeId &node_id,
+    const ::telem::Series &series
+) {
+    auto [variant, err] = opc::telem::series_to_variant(series);
+    if (err) return err;
+    add_value(node_id, variant);
+    return xerrors::NIL;
 }
+} // namespace opc

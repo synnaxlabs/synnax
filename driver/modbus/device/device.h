@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// external
 #include <utility>
 
 #include "glog/logging.h"
@@ -19,12 +18,10 @@
 #include "modbus/modbus.h"
 #endif
 
-/// module
 #include "x/cpp/xerrors/errors.h"
-
-/// internal
-#include "driver/errors/errors.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "driver/errors/errors.h"
 
 const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("modbus");
 const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("modbus");

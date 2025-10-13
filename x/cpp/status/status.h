@@ -9,11 +9,10 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// internal
 #include "nlohmann/json.hpp"
+
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 

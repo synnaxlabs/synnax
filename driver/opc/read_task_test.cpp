@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
@@ -28,7 +25,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<util::ConnectionPool> conn_pool;
+    std::shared_ptr<opc::conn::Pool> conn_pool;
     synnax::Channel index_channel;
     synnax::Channel bool_channel;
     synnax::Channel uint16_channel;
@@ -91,7 +88,7 @@ protected:
             client->hardware.create_rack("opc_read_task_test_rack")
         );
 
-        util::ConnectionConfig conn_cfg;
+        opc::conn::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -207,7 +204,7 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<util::ConnectionPool>();
+        conn_pool = std::make_shared<opc::conn::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();

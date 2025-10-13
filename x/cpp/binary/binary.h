@@ -48,10 +48,10 @@ public:
     /// @return The number of bytes written (0-4)
     size_t uint32(const uint32_t value) {
         size_t written = 0;
-        written += this->uint8(value);
-        written += this->uint8(value >> 8);
-        written += this->uint8(value >> 16);
-        written += this->uint8(value >> 24);
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
         return written;
     }
 
@@ -60,14 +60,14 @@ public:
     /// @return The number of bytes written (0-8)
     size_t uint64(const uint64_t value) {
         size_t written = 0;
-        written += this->uint8(value);
-        written += this->uint8(value >> 8);
-        written += this->uint8(value >> 16);
-        written += this->uint8(value >> 24);
-        written += this->uint8(value >> 32);
-        written += this->uint8(value >> 40);
-        written += this->uint8(value >> 48);
-        written += this->uint8(value >> 56);
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
+        written += this->uint8(static_cast<uint8_t>(value >> 32));
+        written += this->uint8(static_cast<uint8_t>(value >> 40));
+        written += this->uint8(static_cast<uint8_t>(value >> 48));
+        written += this->uint8(static_cast<uint8_t>(value >> 56));
         return written;
     }
 

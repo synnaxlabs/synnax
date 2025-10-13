@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
-
 #include <thread>
 
-#include "driver/opc/mock/server.h"
-#include "driver/opc/util/conn_pool.h"
+#include "gtest/gtest.h"
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
-using namespace util;
+#include "driver/opc/conn/conn.h"
+#include "driver/opc/mock/server.h"
+
+using namespace opc::conn;
 
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
@@ -38,12 +38,12 @@ protected:
 
     mock::ServerConfig server_cfg_;
     std::unique_ptr<mock::Server> server_;
-    ConnectionConfig conn_cfg_;
+    Config conn_cfg_;
 };
 
 // Test that connections remain healthy when repeatedly acquired/released
 TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Acquire and release 100 times over ~10 seconds
     // This simulates normal task operation patterns
@@ -78,7 +78,7 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
 
 // Test that connections stay alive during idle periods between acquisitions
 TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Initial acquisition
     {
@@ -107,7 +107,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
 
 // Test concurrent access with keep-alive
 TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
     std::atomic<int> success_count{0};
     std::atomic<int> failure_count{0};
 
@@ -151,7 +151,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
 // Test that run_iterate doesn't break existing functionality
 TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Acquire connection multiple times to trigger keep-alive
     for (int i = 0; i < 10; ++i) {
@@ -178,10 +178,10 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
 
 // Test keep-alive with very short timeouts (for fast testing)
 TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Configure very short timeouts for testing
-    ConnectionConfig short_cfg = conn_cfg_;
+    Config short_cfg = conn_cfg_;
     short_cfg.secure_channel_lifetime_ms = 15000; // 15 seconds
     short_cfg.session_timeout_ms = 30000; // 30 seconds
     short_cfg.client_timeout_ms = 15000; // 15 seconds

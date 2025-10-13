@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "client/cpp/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
@@ -163,8 +160,9 @@ TEST(FrameTests, testIteration) {
     count = 0;
     for (auto [key, s]: const_frame) {
         count++;
-        if (key == 65537)
+        if (key == 65537) {
             ASSERT_EQ(s.at<float>(0), 10.0f); // Should see the modified value
+        }
     }
     ASSERT_EQ(count, 3);
 
