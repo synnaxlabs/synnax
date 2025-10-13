@@ -87,7 +87,7 @@ type (
 		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
-		IncludeStatus *bool      `json:"include_status" msgpack:"include_status"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -129,7 +129,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 		return res, err
 	}
 
-	if req.IncludeStatus != nil && *req.IncludeStatus {
+	if req.IncludeStatus {
 		for i := range resRacks {
 			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
 				resRacks[i].Status = &s.Status
@@ -231,7 +231,7 @@ type (
 		Keys          []task.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
 		Types         []string   `json:"types" msgpack:"types"`
-		IncludeStatus *bool      `json:"include_status" msgpack:"include_status"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 		Internal      *bool      `json:"internal" msgpack:"internal"`
 		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
@@ -287,7 +287,7 @@ func (svc *HardwareService) RetrieveTask(
 	if err != nil {
 		return res, err
 	}
-	if req.IncludeStatus != nil && *req.IncludeStatus {
+	if req.IncludeStatus {
 		for i := range res.Tasks {
 			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
 			if ok {

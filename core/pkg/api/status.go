@@ -115,9 +115,11 @@ type StatusRetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
-	// IncludeLabels
-	IncludeLabels *bool       `json:"include_labels" msgpack:"include_labels"`
-	HasLabels     []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
+	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
+	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+	// HasLabels retrieves statuses that are labeled by one or more labels with the
+	// given keys.
+	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 }
 
 type StatusRetrieveResponse struct {
@@ -152,7 +154,7 @@ func (s *StatusService) Retrieve(
 	}
 	res.Statuses = translateStatusesFromService(resStatuses)
 	ids := statusAccessOntologyIDs(res.Statuses)
-	if req.IncludeLabels != nil && *req.IncludeLabels {
+	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
 			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
 			if err != nil {

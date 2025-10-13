@@ -42,7 +42,7 @@ type (
 		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
 		Children         *bool           `json:"children" msgpack:"children"`
 		Parents          *bool           `json:"parents" msgpack:"parents"`
-		ExcludeFieldData *bool           `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
 		SearchTerm       string          `json:"search_term" msgpack:"search_term"`
 		Limit            int             `json:"limit" msgpack:"limit"`
@@ -77,11 +77,7 @@ func (o *OntologyService) Retrieve(
 	if len(req.Types) > 0 {
 		q = q.WhereTypes(req.Types...)
 	}
-	excludeFieldData := false
-	if req.ExcludeFieldData != nil {
-		excludeFieldData = *req.ExcludeFieldData
-	}
-	q.ExcludeFieldData(excludeFieldData)
+	q.ExcludeFieldData(req.ExcludeFieldData)
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
