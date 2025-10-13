@@ -192,9 +192,25 @@ await writer.write(
 
 ### Auto-Commit
 
-You can configure a writer to automatically commit written data after each write, making
-it immediately available for read access. To do this, set the `enableAutoCommit` option
-to `true` when opening the writer:
+By default, writers are configured with auto-commit enabled, meaning each write is
+immediately committed and available for read access. This is ideal for real-time data
+acquisition where you want data to be immediately available for monitoring and analysis.
+
+#### When to Disable Auto-Commit
+
+You may want to disable auto-commit in the following scenarios:
+
+- **Chunk-based file ingestion**: When loading historical data from files, you may want
+  to commit data in logical chunks (e.g., after processing each file) to ensure atomic
+  visibility of complete datasets.
+- **Batch processing**: When ingesting large volumes of historical data where real-time
+  visibility is not required and you want to optimize performance by reducing commit
+  overhead.
+- **Atomic transactions**: When you need multiple writes to appear together atomically
+  to maintain data consistency across channels.
+
+To disable auto-commit, set the `enableAutoCommit` option to `false` when opening the
+writer:
 
 ```typescript
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
@@ -202,17 +218,21 @@ import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
-  enableAutoCommit: true,
+  enableAutoCommit: false, // Disable auto-commit for manual control
 });
 
 try {
-  for (let i = 0; i < 100; i++) {
-    const start = TimeStamp.now();
-    await writer.write({
-      time: start,
-      temperature: Math.sin(i / 100),
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  // Write data in chunks
+  for (let chunk = 0; chunk < 10; chunk++) {
+    for (let i = 0; i < 1000; i++) {
+      const start = TimeStamp.now();
+      await writer.write({
+        time: start,
+        temperature: Math.sin(i / 100),
+      });
+    }
+    // Commit after each chunk of 1000 samples
+    await writer.commit();
   }
 } finally {
   await writer.close();
@@ -362,12 +382,12 @@ try {
 
 ### Calling Commit on Every Write
 
-If you're not using auto-commit, it's important to call `commit` on the writer
+If you've disabled auto-commit, it's important to call `commit` on the writer
 periodically to ensure that the data is persisted to the cluster. However, calling
 `commit` on every write is a bad idea. This is because `commit` requires a round-trip to
 the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
-on auto-commit.
+writing a lot of data. If you're writing a lot of data, commit every few seconds or use
+auto-commit (which is enabled by default).
 
 This is a bad idea:
 
@@ -389,13 +409,13 @@ try {
 }
 ```
 
-Instead, use auto-commit:
+Instead, use auto-commit (which is enabled by default):
 
 ```typescript
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
-  enableAutoCommit: true,
+  // Auto-commit is enabled by default
 });
 try {
   for (let i = 0; i < 100; i++)

@@ -133,7 +133,7 @@ There are also a few optional arguments we can provide when opening a writer:
       <td>Auto-Commit</td>
       {/* prettier-ignore */}
       <td>Whether writes should be immediately committed to the Synnax
-            Cluster.</td>
+            Cluster. Defaults to true.</td>
     </tr>
   </tbody>
 </Table>
@@ -187,9 +187,10 @@ either write more frames to the cluster and commit again, or we can close the wr
 
 #### Auto-commit
 
-If the writer is configured with auto-commit on, every write is immediately committed
-and available for reads. This method is useful for real-time data that does not need to
-be applied atomically.
+By default, writers are configured with auto-commit enabled. When auto-commit is on,
+every write is immediately committed and available for reads. This method is useful for
+real-time data that does not need to be applied atomically. You can disable auto-commit
+if you need to apply writes atomically in batches.
 
 ### Close Phase
 
