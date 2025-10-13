@@ -320,7 +320,7 @@ TEST(TestScanTask, TestStatePropagation) {
     ASSERT_EQ(first_states.size(), 2);
 
     json state;
-    for (auto i = 0; i < first_states.size(); i++) {
+    for (size_t i = 0; i < first_states.size(); i++) {
         first_states.at(0, state);
         if (state["key"] == "device1") {
             ASSERT_EQ(state["variant"], status::variant::SUCCESS);
@@ -337,7 +337,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &second_states = cluster_api_ptr->propagated_states[1];
     ASSERT_EQ(second_states.size(), 2);
 
-    for (auto i = 0; i < second_states.size(); i++) {
+    for (size_t i = 0; i < second_states.size(); i++) {
         second_states.at(0, state);
         if (state["key"] == "device1") {
             ASSERT_EQ(state["variant"], status::variant::SUCCESS);
