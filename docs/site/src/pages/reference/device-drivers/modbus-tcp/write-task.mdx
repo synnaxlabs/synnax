@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus TCP | Write Task"
-heading: "Modbus TCP Write Task"
-description: "Write data to Modbus TCP devices with write tasks."
+title: "Modbus | Write Task"
+heading: "Modbus Write Task"
+description: "Write data to Modbus devices with write tasks."
 prev: "Read Task"
 prevURL: "/reference/device-drivers/modbus-tcp/read-task"
 ---
@@ -13,26 +13,26 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Write tasks are the primary method for sending control commands to a Modbus TCP device
-from Synnax.
+Write tasks are the primary method for sending control commands to a Modbus device from
+Synnax.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to a Modbus TCP device](/reference/device-drivers/modbus-tcp/connect-device).
+[connected to a Modbus device](/reference/device-drivers/modbus-tcp/connect-device).
 
 <Divider.Divider x />
 
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
-for both control and data acquisition purposes. A Modbus TCP write task defines a
-background process that writes data to registers or coils on the Modbus device based on
-values written to Synnax [command channels](#how-commands-work-in-synnax).
+for both control and data acquisition purposes. A Modbus write task defines a background
+process that writes data to registers or coils on the Modbus device based on values
+written to Synnax [command channels](#how-commands-work-in-synnax).
 
-A Modbus TCP write task can be started, stopped, and re-configured at any time. We
+A Modbus write task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
@@ -69,7 +69,7 @@ the Quick Search & Command Palette at the top. You can also open this palette wi
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "Modbus".
-You'll see an option called "Create a New Write Task". Select this option to open the
+You'll see an option called "Create a Modbus Write Task". Select this option to open the
 write task configuration dialog.
 
 <Video client:only="react" id="device-drivers/modbus-tcp/write-task/open" />
@@ -92,7 +92,7 @@ write task configuration dialog.
     </tr>
     <tr>
       <td>Modbus Device</td>
-      <td>Which Modbus TCP device the task will write to.</td>
+      <td>Which Modbus device the task will write to.</td>
     </tr>
     <tr>
       <td>Data Saving</td>

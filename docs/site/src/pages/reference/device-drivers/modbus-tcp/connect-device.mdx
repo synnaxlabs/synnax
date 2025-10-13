@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus TCP | Connect Server"
-heading: "Connect to a Modbus TCP Server"
-description: "Connect to a Modbus TCP server using Synnax."
+title: "Modbus | Connect Server"
+heading: "Connect to a Modbus Server"
+description: "Connect to a Modbus server using Synnax."
 next: "Read Task"
 nextURL: "/reference/device-drivers/modbus-tcp/read-task"
 ---
@@ -14,27 +14,25 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The first step to acquiring data from your Modbus TCP server is to establish a
-connection to the server.
+The first step to acquiring data from your Modbus server is to establish a connection to
+the server.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you can connect to a Modbus TCP server, you'll need to have the following
-configured:
+Before you can connect to a Modbus server, you'll need to have the following configured:
 
 1. A [Synnax Core](/reference/cluster/quick-start) running on your network.
 2. The [Synnax Console](/reference/console/get-started) installed on your machine.
-3. A Modbus TCP server running on your network. This server must be reachable by the
-   Core.
+3. A Modbus server running on your network. This server must be reachable by the Core.
 
 <Divider.Divider x />
 
 ## <StepText level="h2" step={1}> Open the Connection Dialog </StepText>
 
-We'll use the console's configuration workflow to connect to your server. To kick things
-off, open the console and click on the search and command palette at the top. You can
+We'll use the Console's configuration workflow to connect to your server. To kick things
+off, open the Console and click on the search and command palette at the top. You can
 also open this palette with `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
 In command mode (enabled when the first character in the input is `>`), type "Modbus".
@@ -62,7 +60,7 @@ reference for each of the fields you'll need to fill:
       <td>Name</td>
       <td>
         A name for your Modbus server. We'll use this to identify and manage the server
-        in the console.
+        in the Console.
       </td>
     </tr>
     <tr>
@@ -78,9 +76,7 @@ reference for each of the fields you'll need to fill:
     </tr>
     <tr>
       <td>Port</td>
-      <td>
-        The TCP port number for the Modbus server. The default Modbus TCP port is `502`.
-      </td>
+      <td>The TCP port for the Modbus server.</td>
     </tr>
     <tr>
       <td>Swap Bytes</td>
