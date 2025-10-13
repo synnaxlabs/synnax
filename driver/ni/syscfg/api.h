@@ -12,7 +12,6 @@
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 
-
 namespace syscfg {
 class API {
 public:
@@ -74,7 +73,6 @@ public:
         NISysCfgStatus status,
         wchar_t **detailedDescription
     ) = 0;
-
 
     virtual NISYSCFGCFUNC SetFilterPropertyV(
         NISysCfgFilterHandle filterHandle,

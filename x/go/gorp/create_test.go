@@ -99,7 +99,7 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(c entry, e entry) (entry, error) {
+			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
 				Expect(e.GorpKey()).To(Equal(42))
 				return entry{}, validate.Error
 			}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
@@ -110,7 +110,7 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			c := 0
-			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(creating entry, _ entry) (entry, error) {
+			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, creating, _ entry) (entry, error) {
 				c++
 				return creating, validate.Error
 			}).Exec(ctx, tx)).To(Succeed())
@@ -122,7 +122,7 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(c entry, e entry) (entry, error) {
+			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, c entry, e entry) (entry, error) {
 				Expect(e.GorpKey()).To(Equal(42))
 				return entry{ID: e.ID, Data: e.Data + "!"}, nil
 			}).Exec(ctx, tx)).To(Succeed())

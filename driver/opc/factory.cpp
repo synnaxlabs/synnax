@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
 #include "driver/opc/scan_task.h"
@@ -63,7 +61,6 @@ common::ConfigureResult configure_write(
     );
     return result;
 }
-
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,

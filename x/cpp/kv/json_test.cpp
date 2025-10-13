@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
+
 #include <gtest/gtest.h>
+
 #include "x/cpp/kv/kv.h"
 
 class JSONTest : public ::testing::Test {

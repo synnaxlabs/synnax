@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <vector>
+
+#include <errno.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/accesscontrol_default.h>
 #include <open62541/plugin/create_certificate.h>
@@ -14,15 +17,12 @@
 #include <open62541/plugin/securitypolicy.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
-
-#include <errno.h>
 #include <open62541/types.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 // #include <unistd.h> // For getcwd
 #include <iostream>
-
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -70,7 +70,7 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-static UA_INLINE UA_StatusCode
+[[maybe_unused]] static UA_INLINE UA_StatusCode
 
 writeFile(const char *const path, const UA_ByteString buffer) {
     FILE *fp = NULL;
@@ -96,7 +96,6 @@ static void stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
 }
-
 
 static UA_Boolean allowAddNode(
     UA_Server *server,
@@ -177,7 +176,7 @@ int main(int argc, char *argv[]) {
     /* Load the trustlist */
     size_t trustListSize = 0;
     if (argc > 3) trustListSize = (size_t) argc - 3;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    std::vector<UA_ByteString> trustList(trustListSize + 1);
     for (size_t i = 0; i < trustListSize; i++)
         trustList[i] = load_file(argv[i + 3]);
 
@@ -198,7 +197,7 @@ int main(int argc, char *argv[]) {
         4841,
         &certificate,
         &privateKey,
-        trustList,
+        trustList.data(),
         trustListSize,
         issuerList,
         issuerListSize,
@@ -215,7 +214,7 @@ int main(int argc, char *argv[]) {
     // set the security policy URI
     char securityPolicyUriString
         [] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
-    UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
+    [[maybe_unused]] UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
@@ -279,7 +278,6 @@ int main(int argc, char *argv[]) {
         NULL
     );
 
-
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
@@ -290,7 +288,6 @@ int main(int argc, char *argv[]) {
     if (!running) goto cleanup; /* received ctrl-c already */
 
     // add a variable node to the adresspace
-
 
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);

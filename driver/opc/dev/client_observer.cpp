@@ -11,7 +11,6 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
-
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -51,7 +50,7 @@ static void handler_TheAnswer3Changed(
     }
 }
 
-static UA_StatusCode node_iter(
+[[maybe_unused]] static UA_StatusCode node_iter(
     UA_NodeId childId,
     UA_Boolean isInverse,
     UA_NodeId referenceTypeId,
@@ -140,7 +139,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer" */
     UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, "the.answer")
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer"))
     );
 
     UA_MonitoredItemCreateResult
@@ -159,7 +158,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer3" */
     UA_MonitoredItemCreateRequest monRequest3 = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, "the.answer3")
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer3"))
     );
 
     UA_MonitoredItemCreateResult

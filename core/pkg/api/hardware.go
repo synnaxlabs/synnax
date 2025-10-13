@@ -152,7 +152,7 @@ type HardwareDeleteRackRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func embeddedGuard(r Rack) error {
+func embeddedGuard(_ gorp.Context, r Rack) error {
 	if !r.Embedded {
 		return nil
 	}

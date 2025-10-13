@@ -49,12 +49,15 @@ func (r Retrieve) Entries(s *[]Status) Retrieve { r.gorp.Entries(s); return r }
 func (r Retrieve) WhereKeys(keys ...string) Retrieve { r.gorp.WhereKeys(keys...); return r }
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
-	r.gorp.Where(func(s *Status) bool {
-		labels, _ := r.label.RetrieveFor(context.Background(), OntologyID(s.Key), nil)
+	r.gorp.Where(func(ctx gorp.Context, s *Status) (bool, error) {
+		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
+		if err != nil {
+			return false, err
+		}
 		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
 		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
 			return lo.Contains(matchLabels, l)
-		})
+		}), nil
 	})
 	return r
 }

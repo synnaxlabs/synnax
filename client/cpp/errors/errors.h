@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 inline xerrors::Error unexpected_missing(const std::string &name) {

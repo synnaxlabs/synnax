@@ -11,11 +11,10 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 
-static UA_StatusCode node_iter(
+[[maybe_unused]] static UA_StatusCode node_iter(
     UA_NodeId childId,
     UA_Boolean isInverse,
     UA_NodeId referenceTypeId,
@@ -93,7 +92,7 @@ int main(int argc, char *argv[]) {
     UA_Variant *val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(
         client,
-        UA_NODEID_STRING(1, "the.answer"),
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer")),
         val
     );
     if (retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
@@ -107,9 +106,12 @@ int main(int argc, char *argv[]) {
     value += 3;
     UA_Variant *myVariant = UA_Variant_new();
     UA_Variant_setScalarCopy(myVariant, &value, &UA_TYPES[UA_TYPES_INT32]);
-    UA_Client_writeValueAttribute(client, UA_NODEID_STRING(1, "the.answer"), myVariant);
+    UA_Client_writeValueAttribute(
+        client,
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer")),
+        myVariant
+    );
     UA_Variant_delete(myVariant);
-
 
     /* Read attribute for "the.answer3" */
     UA_Byte value3 = 0;
@@ -117,7 +119,7 @@ int main(int argc, char *argv[]) {
     UA_Variant *val3 = UA_Variant_new();
     retval = UA_Client_readValueAttribute(
         client,
-        UA_NODEID_STRING(1, "the.answer3"),
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer3")),
         val3
     );
     if (retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val3) &&
@@ -133,7 +135,7 @@ int main(int argc, char *argv[]) {
     UA_Variant_setScalarCopy(myVariant3, &value3, &UA_TYPES[UA_TYPES_BYTE]);
     retval = UA_Client_writeValueAttribute(
         client,
-        UA_NODEID_STRING(1, "the.answer3"),
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer3")),
         myVariant3
     );
     if (retval == UA_STATUSCODE_GOOD) {
