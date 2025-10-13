@@ -13,15 +13,18 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "nlohmann/json.hpp"
+#include "open62541/types.h"
+
 #include "client/cpp/synnax.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/conn/conn.h"
 #include "driver/opc/types/types.h"
 #include "driver/task/task.h"
-#include "nlohmann/json.hpp"
 #include "opc.h"
-#include "open62541/types.h"
-#include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
 using json = nlohmann::json;
 

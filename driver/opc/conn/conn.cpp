@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "driver/opc/conn/conn.h"
 #include "glog/logging.h"
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
+
+#include "driver/opc/conn/conn.h"
 
 /// module
 #include "x/cpp/xerrors/errors.h"
@@ -106,7 +107,6 @@ UA_ByteString ua_byte_string(const std::string &certString) {
 // defined in RFC 5280.
 #define MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER 6
 #endif
-
 
 std::string app_uri_from_cert(const std::string &certPath) {
     mbedtls_x509_crt crt;
@@ -272,7 +272,6 @@ void fetch_endpoint_diagnostic_info(
         }
     }
 }
-
 
 std::pair<std::shared_ptr<UA_Client>, xerrors::Error>
 connect(const Config &cfg, std::string log_prefix) {

@@ -9,10 +9,12 @@
 
 #pragma once
 
+#include "open62541/types.h"
+
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/conn/conn.h"
 #include "driver/task/task.h"
-#include "open62541/types.h"
-#include "x/cpp/xjson/xjson.h"
 
 namespace opc {
 const std::string INTEGRATION_NAME = "opc";

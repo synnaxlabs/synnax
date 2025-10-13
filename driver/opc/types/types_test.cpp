@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "open62541/types.h"
 #include "gtest/gtest.h"
+#include "open62541/types.h"
 
 /// module
 #include "x/cpp/xjson/xjson.h"

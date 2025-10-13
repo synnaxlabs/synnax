@@ -19,12 +19,13 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "x/cpp/defer/defer.h"
+
 #include "driver/opc/conn/conn.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
-#include "x/cpp/defer/defer.h"
 
 namespace opc {
 struct InputChan {
