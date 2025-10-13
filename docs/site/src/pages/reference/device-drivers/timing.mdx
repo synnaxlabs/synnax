@@ -19,7 +19,7 @@ samples are as accurate as possible.
 The Synnax Driver is used for low-latency control. For this reason, the Driver will
 always prefer collecting the most recent samples over collecting all samples. This is
 particularly relevant when collecting samples from devices whose communication
-mechanisms fluctuate or can be unstable (i.e. USB).
+mechanisms can fluctuate or be unstable (i.e. USB).
 
 Under heavy load, the Driver will intentionally drop samples in order to keep up with
 the acquisition rate of the device.
@@ -98,4 +98,4 @@ are timestamped when they are received by the Driver, rather than when they are 
 the hardware.
 
 Software timed clocks are used for NI Digital Read Tasks, NI Digital Write Tasks,
-LabJack Write Tasks, and OPC-UA Read Tasks.
+LabJack Write Tasks, OPC UA Read Tasks, and Modbus Read Tasks.

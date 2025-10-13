@@ -23,10 +23,12 @@ The first step to acquiring data from your PLC is to connect to an OPC UA server
 Before you can connect to an OPC UA server, you'll need to have the following
 configured:
 
-1. A [Synnax Core](/reference/core/quick-start) running on your network.
-2. The [Synnax Console](/reference/console/get-started) installed on your machine.
-3. An OPC UA server running on your network. This OPC UA server must be reachable by the
-   Synnax Core.
+1. The [Synnax Core](/reference/core/quick-start) running on your network.
+2. The [Synnax Driver](/reference/device-drivers/get-started) running on your network.
+   Note that the Core comes with an embedded Driver that could be used for this purpose.
+3. The [Synnax Console](/reference/console/get-started) installed on your machine.
+4. An OPC UA server running on your network. This OPC UA server must be reachable by the
+   Synnax Driver.
 
 <Divider.Divider x />
 
@@ -37,7 +39,7 @@ off, open the Console and click on the Search and Command Palette at the top. Yo
 also open this palette with `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
-You'll see an option called "Connect an OPC UA Server". Select this open to open the
+You'll see an option called "Connect an OPC UA Server". Select this option to open the
 server configuration dialog.
 
 <Video client:only="react" id="device-drivers/opc-ua/connect-server/open-modal" />

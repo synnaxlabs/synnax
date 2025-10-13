@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA | Write Task"
-heading: "OPC UA Write Task"
-description: "Write data to OPC UA servers with write tasks."
+title: "OPC UA Write Task"
+description: "Write data to OPC UA servers with the Synnax Driver."
 prev: "Read Task"
 prevURL: "/reference/device-drivers/opc-ua/read-task"
 ---
@@ -13,8 +12,8 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Write tasks are the primary method for acquiring data from an OPC UA server and starting
-it in Synnax.
+The OPC UA Write Task is used for writing data to an OPC UA server. In this guide, we'll
+walk you through the steps to create an OPC UA Write Task in Synnax.
 
 <Divider.Divider x />
 
@@ -28,13 +27,13 @@ Before configuring the task, you'll need to have
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
-for both control and data acquisition purposes. An OPC UA write task defines a
+for both control and data acquisition purposes. An OPC UA Write Task defines a
 background process that writes data to nodes on the OPC UA server based on values
 written to Synnax [command channels](#how-commands-work-in-synnax).
 
-An OPC UA write task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+An OPC UA Write Task can be started, stopped, and re-configured at any time. Synnax
+permanently store the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -77,13 +76,13 @@ running task.
 
 ## Open the Task Configuration Dialog
 
-There are several ways to create OPC UA write tasks in the Synnax Console.
+There are several ways to create OPC UA Write Tasks in the Synnax Console.
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create a write task from the resources toolbar, open the Synnax Console and click on
-the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device you'd
-like to create the task for, right-click on it, and select "Create a Write Task".
+To create a write task from the devices toolbar, open the Console and click on the
+device icon (<Icon.Device />) on the left-hand side of the screen. Find the device you'd
+like to create the task for, right-click on it, and select "Create write task".
 
 <Video
   client:only="react"
@@ -97,15 +96,15 @@ the Search and Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
-You'll see an option called "Create a New Write Task". Select this option to open the
-write task configuration dialog.
+You'll see an option called "Create an OPC UA Write Task". Select this option to open
+the write task configuration dialog.
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/create-from-palette" />
 
 ### From The Layout Selector
 
-To create a write task from the layout selector, click on the "+" button in the
-top-right corner and select "OPC UA write Task".
+To create a write task from the layout selector, click on the add icon (<Icon.Add />) in
+the top-right corner and select "OPC UA Write Task".
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/create-from-selector" />
 
@@ -164,7 +163,7 @@ must configure a [read task](/reference/device-drivers/opc-ua/read-task).
 
 ## Stopping and Starting Tasks
 
-To stop and start a task, you can open up the task toolbar on the left-hand side and
+To stop and start a task, you can open up the Tasks Toolbar on the left-hand side and
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 

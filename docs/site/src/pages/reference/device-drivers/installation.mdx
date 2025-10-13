@@ -43,10 +43,11 @@ NI Linux Real-Time 2024 Q1 and later.
 Data acquisition hardware connected to the cRIO must be configured to use the NI-DAQmx
 real-time programming mode.
 
-To change the programming mode, use NI Measurement & Automation Explorer (MAX). For
+To change the programming mode, use NI Measurement & Automation Explorer (NI MAX). For
 detailed instructions, see the
 [NI CompactRIO User Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html)
-and the [NI-DAQmx on CompactRIO](https://knowledge.ni.com/KnowledgeArticleDetails)
+and the
+[NI-DAQmx on CompactRIO](https://www.ni.com/en/shop/compactrio/what-are-compactrio-controllers/what-is-compactrio-with-ni-daqmx-.html)
 guide.
 
 #### SSH Access
@@ -58,7 +59,7 @@ install updates and manage the Driver.
 #### Network Available Synnax Core
 
 In order to function properly, the Driver must be able to connect to a Synnax Core
-running on the same local network. Make sure you have a
+running on the same network. Make sure you have a
 [Core running](/reference/core/quick-start) and have the connection parameters on hand.
 
 ### Install and Run the Driver
@@ -135,7 +136,7 @@ After downloading, move the `synnax-driver.exe` file to a location on your syste
 as `C:\Program Files\Synnax\`.
 
 To make the Driver accessible from any command prompt, add the directory to your
-system's PATH environment variable:
+system's `PATH`:
 
 1. Open the Start menu and search for "Environment Variables"
 2. Click "Edit the system environment variables"
@@ -329,6 +330,8 @@ export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
 export SYNNAX_DRIVER_CORRECT_SKEW=true
 ```
 
+<Divider.Divider x />
+
 ## CLI Reference
 
 ### Start
@@ -363,7 +366,7 @@ synnax-driver start --standalone
     },
     {
       option: "--config/-c",
-      default: "config.json",
+      default: '"config.json"',
       description: "The path to the configuration file to use for the Driver.",
     },
     {
@@ -373,7 +376,7 @@ synnax-driver start --standalone
     },
     {
       option: "--host",
-      default: "localhost",
+      default: '"localhost"',
       description: "The host of the Synnax Core.",
     },
     {
@@ -383,29 +386,29 @@ synnax-driver start --standalone
     },
     {
       option: "--username",
-      default: "synnax",
+      default: '"synnax"',
       description: "The username to use when logging in to the Synnax Core.",
     },
     {
       option: "--password",
-      default: "seldon",
+      default: '"seldon"',
       description: "The password to use when logging in to the Synnax Core.",
     },
     {
       option: "--ca-cert-file",
-      default: "",
+      default: '""',
       description:
         "The path to the CA certificate file to use when connecting to the Synnax Core.",
     },
     {
       option: "--client-cert-file",
-      default: "",
+      default: '""',
       description:
         "The path to the client certificate file to use when connecting to the Synnax Core.",
     },
     {
       option: "--client-key-file",
-      default: "",
+      default: '""',
       description:
         "The path to the client key file to use when connecting to the Synnax Core.",
     },

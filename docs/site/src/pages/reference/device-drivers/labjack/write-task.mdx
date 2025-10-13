@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack | Write Task"
-heading: "LabJack Write Task"
-description: "Learn how to create a write task for LabJack hardware."
+title: "LabJack Write Task"
+description: "Learn how to control LabJack devices using Synnax."
 prev: "Read Task"
 prevURL: "/reference/device-drivers/labjack/read-task"
 ---
@@ -14,18 +13,16 @@ import StepText from "@/components/StepText.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A write task is used for sending commands to your digital outputs and writing analog
-signals out from your LabJack. In this guide, we'll walk you through the steps to create
-a write task in Synnax.
+The LabJack Write Task is used to control LabJack devices from Synnax. In this guide,
+we'll walk you through the steps to create a LabJack Write Task in Synnax.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured a LabJack
-device and created the relevant channels in Synnax. Check out the
-[Configure Device](/reference/device-drivers/labjack/configure-device) guide for more
-information.
+Before configuring the task, you'll need to have
+[connected and configured a LabJack device](/reference/device-drivers/labjack/configure-device)
+in Synnax.
 
 <Divider.Divider x />
 
@@ -81,11 +78,11 @@ running task.
 
 ## Open the Task Configuration Dialog
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create a write task from the resources toolbar, open the Synnax Console and click on
-the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device you'd
-like to create the task for, right-click on it, and select "Create Write Task".
+To create a write task from the Devices Toolbar, open the Synnax Console and click on
+the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
+you'd like to create the task for, right-click on it, and select "Create write task".
 
 <Video
   client:only="react"
@@ -98,9 +95,9 @@ To create a write task from the command palette, open the Synnax Console and cli
 the Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
 Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is "`>`"), type
-"LabJack". You'll see an option called "Create a LabJack Write Task". Select this option
-to open the read task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "LabJack".
+You'll see an option called "Create a LabJack Write Task". Select this option to open
+the write task configuration dialog.
 
 <Video
   client:only="react"
@@ -109,8 +106,8 @@ to open the read task configuration dialog.
 
 ### From The Layout Selector
 
-To create a write task from the layout selector, click on the Add (<Icon.Add />) button
-in the top-right corner and select "LabJack Write Task".
+To create a write task from the layout selector, click on the add icon (<Icon.Add />) in
+the top-right corner and select "LabJack Write Task".
 
 <Video
   client:only="react"

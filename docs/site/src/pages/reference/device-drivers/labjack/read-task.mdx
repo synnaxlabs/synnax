@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack | Read Task"
-heading: "LabJack Read Task"
-description: "Learn how to create a read task for LabJack hardware."
+title: "LabJack Read Task"
+description: "Learn how to read data from LabJack devices using Synnax."
 prev: "Configure a Device"
 prevURL: "/reference/device-drivers/labjack/configure-device"
 next: "Write Task"
@@ -16,24 +15,24 @@ import { Video, Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The read task is used for acquiring analog and digital data from LabJack devices. In
-this guide, we'll walk you through the steps to create a LabJack read task in Synnax.
+The LabJack Read Task is used for acquiring analog and digital data from LabJack
+devices. In this guide, we'll walk you through the steps to create a LabJack Read Task
+in Synnax.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured a LabJack
-device and created the relevant channels in Synnax. Check out the
-[device configuration](/reference/device-drivers/labjack/configure-device) guide for
-more information.
+Before configuring the task, you'll need to have
+[connected and configured a LabJack device](/reference/device-drivers/labjack/configure-device)
+and created the relevant channels in Synnax.
 
 <Divider.Divider x />
 
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. A LabJack read task defines
+can be used for both control and data acquisition purposes. A LabJack Read Task defines
 a background process that reads data from the analog or digital inputs on a particular
 LabJack device.
 
@@ -60,7 +59,7 @@ compared to a task with only analog or digital input channels.
 
 ### One Running Task Per Channel
 
-Synnax can only accept live data from a channel from one source at a time. If you have a
+Synnax can only accept live data for a channel from one source at a time. If you have a
 task running that reads from a `pressure` channel, you cannot start another task that
 reads from the same channel.
 
@@ -68,11 +67,11 @@ reads from the same channel.
 
 ## Open the Task Configuration Dialog
 
-### From the Resources Toolbar
+### From the Devices Toolbar
 
-To create a read task from the resources toolbar, open the Synnax Console and click on
-the "Resources" tab in the left sidebar. Find the device you'd like to create the task
-for, right-click on it, and select "Create Read Task".
+To create a read task from the Devices Toolbar, open the Synnax Console and click on the
+device icon (<Icon.Device />) on the left-hand side of the screen. Find the device you'd
+like to create the task for, right-click on it, and select "Create read task".
 
 <Video
   client:only="react"
@@ -85,9 +84,9 @@ To create a read task from the command palette, open the Synnax Console and clic
 Search and Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is "`>`"), type
-"LabJack". You'll see an option called "Create a LabJack Read Task". Select this option
-to open the read task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "LabJack".
+You'll see an option called "Create a LabJack Read Task". Select this option to open the
+read task configuration dialog.
 
 <Video
   client:only="react"
@@ -96,7 +95,7 @@ to open the read task configuration dialog.
 
 ### From The Layout Selector
 
-To create a read task from the layout selector, click on the "<Icon.Add />" button in
+To create a read task from the layout selector, click on the add icon (<Icon.Add />) in
 the top-right corner and select "LabJack Read Task".
 
 <Video
@@ -106,7 +105,7 @@ the top-right corner and select "LabJack Read Task".
 
 <Divider.Divider x />
 
-## Configuring the Task
+## Configure the Task
 
 ### <StepText level="h3" step={1}>Select your LabJack Device</StepText>
 
@@ -117,9 +116,8 @@ dropdown menu in the top-left corner to do so.
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add channels to read data from. Click on the Add (<Icon.Add />)
-button in the channels section. Then, click on the new channel in the list to configure
-it.
+Next, you'll need to add channels to read data from. Click on the add icon (<Icon.Add
+/>) in the channels section. Then, click on the new channel in the list to configure it.
 
 <Video client:only="react" id="device-drivers/labjack/read-task/add-channels" />
 
@@ -134,9 +132,9 @@ For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Sy
 will read a batch of 10 samples every second, and then forward the entire batch to the
 Synnax database.
 
-For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same
+For very low rate tasks (&lt; 50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's best to keep the stream rate below 50Hz unless
+significantly improve performance. It's best to keep the stream rate below 50 Hz unless
 you need to quickly process incoming data in real-time.
 
 <div style={{ display: "flex", justifyContent: "center" }}>

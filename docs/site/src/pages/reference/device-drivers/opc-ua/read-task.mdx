@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA | Read Task"
-heading: "OPC UA Read Task"
-description: "Read data from OPC UA servers with read tasks."
+title: "OPC UA Read Task"
+description: "Read data from OPC UA servers with the Synnax Driver."
 next: "Write Task"
 nextURL: "/reference/device-drivers/opc-ua/write-task"
 prev: "Connect Server"
@@ -16,8 +15,8 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Read tasks are the primary method for acquiring data from an OPC UA server and storing
-it in Synnax.
+The OPC UA Read Task is used for acquiring data from an OPC UA server and storing it in
+Synnax.
 
 <Divider.Divider x />
 
@@ -35,9 +34,9 @@ for both control and data acquisition purposes. In the context of OPC UA, a read
 defines a background process that reads data from your server at a specified sampling
 rate.
 
-An OPC UA read task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+An OPC UA read task can be started, stopped, and re-configured at any time. Synnax
+permanently store the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -65,7 +64,7 @@ efficient.
 
 ### One Running Task per Channel
 
-Synnax can only accept live data from a channel from one source at a time. If you have a
+Synnax can only accept live data for a channel from one source at a time. If you have a
 task running that reads from a `pressure` channel, you cannot create another task that
 also reads from `pressure`.
 
@@ -74,18 +73,18 @@ also reads from `pressure`.
 ## Open the Task Configuration Dialog
 
 To configure a read task, open the Synnax Console and click on the Search and Command
-Palette at the top. You can also open this palette with Command Palette at the top. You
-can also open this palette with `Ctrl+Shift+P` on Windows or `Cmd+Shift+P` on macOS.
+Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows or
+`Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
-You'll see an option called "Create a New Read Task". Select this option to open the
+You'll see an option called "Create an OPC UA Read Task". Select this option to open the
 read task configuration dialog.
 
 <Video client:only="react" id="device-drivers/opc-ua/read-task/open" />
 
 You can also open the dialog by clicking in the top-right corner of the window and
-selecting the add <Icon.Add /> icon, or opening the context menu on an OPC UA server
-from the resources toolbar.
+selecting the add icon (<Icon.Add />), or opening the context menu on an OPC UA server
+from the Devices Toolbar.
 
 <Divider.Divider x />
 
@@ -218,7 +217,7 @@ configuration, and you will be able to pause and resume the tasks whenever you w
 
 ## Stopping and Starting Tasks
 
-To stop and start a task, you can open up the task toolbar on the left-hand side and
+To stop and start a task, you can open up the Tasks Toolbar on the left-hand side and
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 

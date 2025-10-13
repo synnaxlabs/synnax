@@ -16,7 +16,7 @@ import { Image, Video } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The first step to start acquiring data and sending commands to your LabJack hardware is
+The first step to start acquiring data and sending commands to your LabJack devices is
 to connect and configure your device.
 
 <Divider.Divider x />
@@ -26,12 +26,15 @@ to connect and configure your device.
 Before you can start using your LabJack hardware with Synnax, you will need the
 following:
 
-1. A Synnax [Core](/reference/core/quick-start) running on your network. This Core must
-   be running on the same Windows machine that is connected to your LabJack hardware.
-2. The
+1. A [Synnax Core](/reference/core/quick-start) running on your network.
+2. A [Synnax Driver](/reference/device-drivers/get-started) running on your network.
+   This Driver must be connected to the Core and running on the same machine as your
+   LabJack hardware is connected to.
+3. The
    [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
-   installed on the machine running the Synnax deployment.
-3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+   installed on the machine running the Synnax Driver.
+4. The [Synnax Console](/reference/console/get-started) installed on your local machine
+   and connected to the Core.
 
 <Divider.Divider x />
 
@@ -39,7 +42,7 @@ following:
 
 Synnax will automatically detect new LabJack devices, and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
-in the resources toolbar, right click on the device and select "Configure".
+in the Devices Toolbar, right click on the device and select "Configure".
 
 <Video client:only="react" id="device-drivers/labjack/configure-device/open" />
 
