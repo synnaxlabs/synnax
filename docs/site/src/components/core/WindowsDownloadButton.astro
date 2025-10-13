@@ -1,10 +1,8 @@
 ---
 import { Button, Icon } from "@synnaxlabs/pluto";
+import { fetchVersion } from "@/util/fetchVersion";
 
-const VERSION_URL =
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/core/pkg/version/VERSION";
-
-const version = await (await fetch(VERSION_URL)).text();
+const version = await fetchVersion();
 const url = `https://github.com/synnaxlabs/synnax/releases/download/synnax-v${version}/synnax-setup-v${version}.exe`;
 ---
 
