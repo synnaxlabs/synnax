@@ -218,13 +218,14 @@ public:
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {
+            LOG(WARNING) << "Mock OPC UA server stopped with status: "
+                         << UA_StatusCode_name(retval);
             UA_Server_delete(server);
             return;
         }
 
-        while (running.load()) {
+        while (running.load())
             UA_Server_run_iterate(server, true);
-        }
 
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);

@@ -70,26 +70,6 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-[[maybe_unused]] static UA_INLINE UA_StatusCode
-
-writeFile(const char *const path, const UA_ByteString buffer) {
-    FILE *fp = NULL;
-
-    fp = fopen(path, "wb");
-    if (fp == NULL) return UA_STATUSCODE_BADINTERNALERROR;
-
-    for (UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
-        int retVal = fputc(buffer.data[bufIndex], fp);
-        if (retVal == EOF) {
-            fclose(fp);
-            return UA_STATUSCODE_BADINTERNALERROR;
-        }
-    }
-
-    fclose(fp);
-    return UA_STATUSCODE_GOOD;
-}
-
 UA_Boolean running = true;
 
 static void stopHandler(int sig) {
@@ -211,10 +191,6 @@ int main(int argc, char *argv[]) {
             "Error setting up the server with security policies"
         );
     }
-    // set the security policy URI
-    char securityPolicyUriString
-        [] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
-    [[maybe_unused]] UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
