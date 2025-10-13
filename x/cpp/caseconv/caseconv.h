@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <algorithm>
 #include <string>
 

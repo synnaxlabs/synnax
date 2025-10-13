@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <memory>
 #include <utility>
 
-/// external
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/opc/scan_task.h"
 #include "driver/opc/util/util.h"
 

@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// module
 #include <utility>
 
 #include "client/cpp/synnax.h"
@@ -71,7 +70,6 @@ public:
 
     telem::TimeStamp end() override { return telem::TimeStamp::now(); }
 };
-
 
 struct HardwareTimedSampleClockConfig {
     /// @brief allows the sample clock to use a custom time function for testing.
@@ -217,7 +215,6 @@ public:
         return sample_end;
     }
 };
-
 
 inline void generate_index_data(
     const synnax::Frame &f,

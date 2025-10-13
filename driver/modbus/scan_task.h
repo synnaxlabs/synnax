@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <utility>
 
-/// module
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/modbus/device/device.h"
 #include "driver/task/task.h"
 

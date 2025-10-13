@@ -132,7 +132,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 			if !errors.Is(err, kv.NotFound) {
 				return nil, err
 			}
-			cfg.Instrumentation.L.Info(useFreeLog)
+			cfg.L.Info(useFreeLog)
 			return service, nil
 		}
 		startLogMonitor()
@@ -142,7 +142,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err = service.create(ctx, cfg.Verifier); err != nil {
 		return nil, err
 	}
-	cfg.Instrumentation.L.Infof(newRegisteredTemplate, service.info.numCh)
+	cfg.L.Infof(newRegisteredTemplate, service.numCh)
 	startLogMonitor()
 	return service, nil
 }
@@ -152,20 +152,20 @@ func (s *Service) Close() error { return s.shutdown.Close() }
 
 // IsOverflowed tells if inUse causes the service to overflow.
 func (s *Service) IsOverflowed(inUse types.Uint20) error {
-	if s.info.numCh == 0 {
+	if s.numCh == 0 {
 		if inUse > FreeCount {
 			return ErrFree
 		}
 		return nil
 	}
-	if s.info.exprTime.Before(time.Now()) {
+	if s.exprTime.Before(time.Now()) {
 		if inUse > FreeCount {
 			return ErrStale
 		}
 		return nil
 	}
-	if inUse > s.info.numCh {
-		return newErrTooMany(s.info.numCh)
+	if inUse > s.numCh {
+		return newErrTooMany(s.numCh)
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ var (
 )
 
 func (s *Service) loadCache(ctx context.Context) error {
-	key, closer, err := s.cfg.DB.Get(ctx, retrieveKey)
+	key, closer, err := s.cfg.Get(ctx, retrieveKey)
 	if err != nil {
 		return err
 	}
@@ -192,9 +192,9 @@ func (s *Service) loadCache(ctx context.Context) error {
 		return err
 	}
 	if licenseInf.exprTime.Before(time.Now()) {
-		s.cfg.Instrumentation.L.Warn(expiredLog)
+		s.cfg.L.Warn(expiredLog)
 	} else {
-		s.cfg.Instrumentation.L.Infof(existingLogTemplate, licenseInf.numCh)
+		s.cfg.L.Infof(existingLogTemplate, licenseInf.numCh)
 	}
 	s.info = licenseInf
 	return nil
@@ -205,7 +205,7 @@ func (s *Service) create(ctx context.Context, toCreate string) error {
 	if err != nil {
 		return err
 	}
-	if err = s.cfg.DB.Set(ctx, retrieveKey, []byte(toCreate)); err != nil {
+	if err = s.cfg.Set(ctx, retrieveKey, []byte(toCreate)); err != nil {
 		return err
 	}
 	s.info = licenseInf
@@ -225,7 +225,7 @@ var (
 )
 
 func (s *Service) log(ctx context.Context) error {
-	if s.info.exprTime.IsZero() {
+	if s.exprTime.IsZero() {
 		return nil
 	}
 	ticker := time.NewTicker(s.cfg.CheckInterval)
@@ -234,15 +234,15 @@ func (s *Service) log(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if s.info.exprTime.Before(time.Now()) {
-				s.cfg.Instrumentation.L.Error(
+			if s.exprTime.Before(time.Now()) {
+				s.cfg.L.Error(
 					hadExpiredLog,
-					zap.String("expired_at", s.info.exprTime.String()),
+					zap.String("expired_at", s.exprTime.String()),
 				)
 			} else if timeLeft := time.Until(
-				s.info.exprTime,
+				s.exprTime,
 			); timeLeft <= s.cfg.WarningTime {
-				s.cfg.Instrumentation.L.Warn(
+				s.cfg.L.Warn(
 					fmt.Sprintf(willExpireLogTemplate, timeLeft),
 					zap.String("expires_in", timeLeft.String()),
 				)

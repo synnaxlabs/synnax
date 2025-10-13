@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/cmd/cmd.h"
 #include "x/cpp/cli/cli.h"
+
+#include "driver/cmd/cmd.h"
 
 int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;

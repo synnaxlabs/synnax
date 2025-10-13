@@ -12,20 +12,15 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <string>
 #include <thread>
 
-/// external
 #include "glog/logging.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
-
-/// internal
 #include "driver/opc/util/util.h"
-
 
 namespace mock {
 struct TestNode {
@@ -179,7 +174,6 @@ public:
         auto server_config = UA_Server_getConfig(server);
         server_config->maxSessionTimeout = 3600000;
         UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
-
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;

@@ -379,9 +379,7 @@ func (impl *httpStreamImplementation) stop() error {
 	return impl.app.Shutdown()
 }
 
-type mockStreamImplementation struct {
-	net *fmock.Network[request, response]
-}
+type mockStreamImplementation struct{}
 
 func (impl *mockStreamImplementation) name() string { return "Mock" }
 

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <errno.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/accesscontrol_default.h>
 #include <open62541/plugin/create_certificate.h>
@@ -14,15 +15,12 @@
 #include <open62541/plugin/securitypolicy.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
-
-#include <errno.h>
 #include <open62541/types.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 // #include <unistd.h> // For getcwd
 #include <iostream>
-
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -96,7 +94,6 @@ static void stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
 }
-
 
 static UA_Boolean allowAddNode(
     UA_Server *server,
@@ -279,7 +276,6 @@ int main(int argc, char *argv[]) {
         NULL
     );
 
-
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
@@ -290,7 +286,6 @@ int main(int argc, char *argv[]) {
     if (!running) goto cleanup; /* received ctrl-c already */
 
     // add a variable node to the adresspace
-
 
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);

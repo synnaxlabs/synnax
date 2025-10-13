@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <algorithm>
 #include <memory>
 #include <sstream>
 #include <vector>
 
-/// internal
 #include "client/cpp/framer/framer.h"
 
 namespace synnax {
@@ -194,7 +192,6 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
 std::pair<Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data) const {
     return this->decode(data.data(), data.size());
 }
-
 
 std::pair<Frame, xerrors::Error>
 Codec::decode(const uint8_t *data, const size_t size) const {

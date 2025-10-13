@@ -9,6 +9,7 @@
 
 import { Header, type Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
+
 export interface TitleProps extends Pick<Header.TitleProps, "children"> {
   icon: Icon.ReactElement;
 }

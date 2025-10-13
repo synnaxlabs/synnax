@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <vector>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/write_task.h"

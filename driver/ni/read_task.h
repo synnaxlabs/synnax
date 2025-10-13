@@ -1,6 +1,6 @@
 // Copyright 2025 Synnax Labs, Inc.
 //
-// Use of this is governed by the Business Source License included in the file
+// Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
 //
 // As of the Change Date specified in that file, in accordance with the Business Source
@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <set>
 #include <string>
 #include <vector>
 
-/// module
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"

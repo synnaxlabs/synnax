@@ -9,19 +9,17 @@
 
 #pragma once
 
-/// std
 #include <cstddef>
 #include <iostream>
 #include <string>
 #include <variant>
 #include <vector>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// internal
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
+
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;

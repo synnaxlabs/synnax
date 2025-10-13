@@ -11,7 +11,6 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -109,7 +108,6 @@ int main(int argc, char *argv[]) {
     UA_Variant_setScalarCopy(myVariant, &value, &UA_TYPES[UA_TYPES_INT32]);
     UA_Client_writeValueAttribute(client, UA_NODEID_STRING(1, "the.answer"), myVariant);
     UA_Variant_delete(myVariant);
-
 
     /* Read attribute for "the.answer3" */
     UA_Byte value3 = 0;

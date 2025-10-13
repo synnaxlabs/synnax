@@ -12,7 +12,6 @@
 #endif
 #include <windows.h>
 
-/// internal
 #include "x/cpp/xshutdown/xshutdown.h"
 
 namespace xshutdown::priv {

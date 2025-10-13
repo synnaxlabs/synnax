@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/loop/loop.h"
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"

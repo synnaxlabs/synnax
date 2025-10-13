@@ -11,7 +11,8 @@ import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
-import { Select } from "@/select";
+import { type Select } from "@/select";
+import { Static as SelectStatic } from "@/select/Static";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
 
@@ -46,5 +47,5 @@ export const SelectDataType = ({
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  return <Select.Static {...rest} data={data} resourceName="Data Type" />;
+  return <SelectStatic {...rest} data={data} resourceName="Data Type" />;
 };

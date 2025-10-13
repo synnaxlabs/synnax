@@ -9,20 +9,16 @@
 
 #pragma once
 
-/// std
 #include <optional>
 #include <regex>
 #include <string>
 #include <thread>
 #include <vector>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"

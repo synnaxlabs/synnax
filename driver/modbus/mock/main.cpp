@@ -9,6 +9,7 @@
 
 #include <csignal>
 #include <iostream>
+
 #include "driver/modbus/mock/slave.h"
 
 std::atomic running(true);
