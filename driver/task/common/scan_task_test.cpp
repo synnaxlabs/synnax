@@ -185,7 +185,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     ASSERT_NIL(scan_task.scan());
 
     EXPECT_EQ(created_devices->size(), 1);
-    if (!created_devices->empty()) EXPECT_EQ((*created_devices)[0].key, "device2");
+    if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
