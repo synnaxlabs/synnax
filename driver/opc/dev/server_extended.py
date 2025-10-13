@@ -63,13 +63,13 @@ async def main():
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
     for i in range(5):
-        # add 30 float variables t OPC
+        # add 30 float variables to the server
         my_float = await myobj.add_variable(
             idx, f"my_float_{i}", i, ua.VariantType.Float
         )
         await my_float.set_writable()
     for i in range(5):
-        # add 30 float variables t OPC
+        # add 30 boolean variables to the server
         my_float = await myobj.add_variable(
             idx, f"my_bool_{i}", i, ua.VariantType.Boolean
         )
