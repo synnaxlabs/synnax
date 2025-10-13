@@ -42,7 +42,7 @@ URL::URL(const std::string &address) {
 
     ip = address.substr(0, colon);
     const auto path_start = address.find('/', colon + 1);
-    port = std::atoi(address.substr(colon + 1, path_start - colon - 1).c_str());
+    port = static_cast<uint16_t>(std::atoi(address.substr(colon + 1, path_start - colon - 1).c_str()));
     path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
                                            : "";
 }

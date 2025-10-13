@@ -77,7 +77,7 @@ std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_st
             xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
         };
 
-    int nsIndex = std::stoi(matches[1].str());
+    auto nsIndex = static_cast<UA_UInt16>(std::stoi(matches[1].str()));
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 

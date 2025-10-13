@@ -19,7 +19,8 @@ namespace caseconv {
 /// @example caseconv::snake_to_scream("hello_world") returns "HELLO_WORLD"
 inline std::string snake_to_scream(const std::string &input) {
     std::string result = input;
-    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+    std::transform(result.begin(), result.end(), result.begin(),
+        [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
     return result;
 }
 

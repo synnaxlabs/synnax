@@ -584,9 +584,10 @@ template<typename T>
             value
         );
     }
-    if (std::holds_alternative<TimeStamp>(value))
+    if (std::holds_alternative<TimeStamp>(value)) {
         if constexpr (std::is_arithmetic_v<T>)
             return static_cast<T>(std::get<TimeStamp>(value).nanoseconds());
+    }
     if (std::holds_alternative<std::string>(value)) {
         const auto &str = std::get<std::string>(value);
         if constexpr (std::is_arithmetic_v<T>) {

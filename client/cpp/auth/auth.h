@@ -47,7 +47,7 @@ struct ClusterInfo {
     /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
     /// @brief the key of the node within the cluster.
-    std::uint16_t node_key = 0;
+    std::uint32_t node_key = 0;
     /// @brief the time of the node at the midpoint of the server processing the
     /// request.
     telem::TimeStamp node_time = telem::TimeStamp(0);

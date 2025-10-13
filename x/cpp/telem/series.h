@@ -759,7 +759,7 @@ public:
             this->data_.get() + this->size() * this->data_type().density()
         );
 #pragma omp simd
-        for (int64_t i = 0; i < write_count; i++)
+        for (int64_t i = 0; i < static_cast<int64_t>(write_count); i++)
             data_ptr[i] = start_ns + step_ns * i;
         this->size_ += write_count;
         return write_count;

@@ -105,7 +105,7 @@ public:
             .name = TASK_NAME,
             .base_interval = 1 * telem::SECOND,
             .max_retries = breaker::RETRY_INFINITELY,
-            .scale = 1.05,
+            .scale = 1.05f,
             .max_interval = 5 * telem::SECOND,
         };
         return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);

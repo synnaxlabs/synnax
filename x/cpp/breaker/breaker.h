@@ -38,7 +38,7 @@ struct Config {
     /// @brief sets the rate at which the base_interval will scale on each
     /// successive call to wait(). We do not recommend setting this factor lower
     /// than 1.
-    float scale = 1.1;
+    float scale = 1.1f;
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
@@ -81,7 +81,7 @@ public:
                 "default",
                 telem::TimeSpan(1 * telem::SECOND),
                 10,
-                1.1,
+                1.1f,
                 telem::TimeSpan(1 * telem::MINUTE)
             }
         ) {}
