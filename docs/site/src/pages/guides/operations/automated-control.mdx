@@ -136,8 +136,9 @@ controller[PRESS_VALVE] = False
 ```
 
 <Note.Note variant="info">
-    Lambda functions are short, anonymous functions in Python. This lambda function can
-    be equivalent to writing a function like this:
+    [Lambda functions](/reference/control/python/get-started#lambda-expressions) are
+    short, anonymous functions in Python. This lambda function is equivalent to writing
+    a function like this:
 
     ```python
     def if_pressure_reached(controller):
@@ -149,9 +150,6 @@ controller[PRESS_VALVE] = False
     ```python
     controller.wait_until(if_pressure_reached, timeout = 20 * sy.TimeSpan.Second)
     ```
-
-    For more information on lambda functions, you can visit our [reference
-    page](/reference/control/python/get-started#lambda-expressions) on controllers.
 
 </Note.Note>
 
