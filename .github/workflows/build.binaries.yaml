@@ -70,12 +70,12 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(integration/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.ubuntu_22_04 }}")
+          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.ubuntu_22_04 }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Verify Build Configuration
         run: |
-          integration/scripts/verify_build_config.sh \
+          scripts/verify_build_config.sh \
             "${{ steps.version.outputs.VERSION }}" \
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
