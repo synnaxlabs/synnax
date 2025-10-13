@@ -29,89 +29,59 @@ controls.
 
 To kick things off, we'll walk you through each of the toolbars and their functionality.
 
-### <Icon.Resources /> Resources
+### <Icon.Channel /> Channels
 
-The resource toolbar displays a file tree with folders for channels, ranges, users, and
-workspaces.
-
-<Video client:only="react" id="console/ui-overview/resources-toolbar" />
-
-<Table>
-  <thead>
-    <tr>
-      <th>Resource</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>[Channels](/reference/concepts/channels)</td>
-      <td>All channels in the the Synnax Core.</td>
-    </tr>
-    <tr>
-      <td>[Devices](/reference/driver)</td>
-      <td>The list of devices that are connected to the Core.</td>
-    </tr>
-    <tr>
-      <td>[Ranges](/reference/console/ranges)</td>
-      <td>Saved times that you can use when loading data to view.</td>
-    </tr>
-    <tr>
-      <td>[Tasks](/reference/driver)</td>
-      {
-        <td>
-          The current data acquisition and controls tasks running on devices connected
-          to the Core.
-        </td>
-      }
-    </tr>
-    <tr>
-      <td>[Users](/reference/console/users)</td>
-      {
-        <td>
-          A list of all users registered in the Core. The workspaces created by the
-          users can be found underneath their name.
-        </td>
-      }
-    </tr>
-    <tr>
-      <td>[Workspaces](/reference/console/workspaces)</td>
-      {
-        <td>
-          All created workspaces in the Core. This tree includes workspaces created by
-          all users.
-        </td>
-      }
-    </tr>
-  </tbody>
-</Table>
+The [Channels Toolbar](/reference/console/channels) allows you to create, view, and
+access the channels you're interested in visualizing.
 
 ### <Icon.Range /> Ranges
 
-The [range toolbar](/reference/console/ranges) allows you to create, view, and access
-the ranges you're interested in visualizing.
+The [Ranges Toolbar](/reference/console/ranges) allows you to create, view, and access
+ranges that you have favorited in the Console.
 
 <Video client:only="react" id="console/ui-overview/range-toolbar" />
 
+### <Icon.Workspace /> Workspaces
+
+The [Workspaces Toolbar](/reference/console/workspaces) allows you to create and view
+workspaces that have been made by users in your Synnax deployment.
+
+### <Icon.Device /> Devices
+
+The [Devices Toolbar](/reference/driver) allows you to view and track the health of the
+devices you're interested in visualizing.
+
 ### <Icon.Task /> Tasks
 
-The [task toolbar](/reference/driver) allows you to view, pause, and resume the current
-tasks running on the Core.
+The [Tasks Toolbar](/reference/driver) allows you to view, pause, and resume the current
+tasks running on a Driver.
 
 <Video client:only="react" id="console/ui-overview/task-toolbar" />
 
+### <Icon.User /> Users
+
+The [Users Toolbar](/reference/console/users) allows you to view and change permissions
+for users in your Synnax deployment.
+
 ### <Icon.Visualize /> Visualizations
 
-The visualization toolbar allows you to edit the properties of
+The Visualizations Toolbar allows you to edit the properties of
 [line plots](/reference/console/line-plots), [logs](/reference/console/logs),
 [schematics](/reference/console/schematics), and [tables](/reference/console/tables).
 
 <Video client:only="react" id="console/ui-overview/visualization-toolbar" />
 
+## Dropdowns
+
+### <Icon.Workspace /> Workspaces
+
+The [Workspaces Dropdown](/reference/console/workspaces) allows you to create and view
+workspaces that you have favorited in the Console.
+
 ### <Icon.Cluster /> Cores
 
-The [Core toolbar](/reference/console/cores) allows you to switch the current Core that
-you are connected to and add new Cores.
+The [Cores Dropdown](/reference/console/cores) allows you to switch the current Core
+that you are connected to and add new Cores.
 
 <Video client:only="react" id="console/ui-overview/cluster-toolbar" />
 
