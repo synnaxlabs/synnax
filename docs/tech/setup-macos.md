@@ -1,4 +1,4 @@
-# Macos Tooling Setup Guide
+# macOS Tooling Setup Guide
 
 # 0 - Summary
 

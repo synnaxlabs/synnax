@@ -83,3 +83,14 @@ a Synnax Core. You can find more information on ranges on this
 ```
 
 This helps with readability and SEO.
+
+### External Product Reference
+
+When referring to external products, please use proper capitalization:
+
+- macOS, not Mac OS
+- PowerShell, not Power Shell
+- NI-DAQmx, not DAQ Mx
+- OPC UA driver, not OPC driver
+
+Using shorthand ("DAQmx") is acceptable after the first reference.
