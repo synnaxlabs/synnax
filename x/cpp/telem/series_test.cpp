@@ -914,7 +914,7 @@ TEST(TestSeries, testJSONValuesEmpty) {
 
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const telem::Series non_json_series(std::vector<int>{1, 2, 3});
-    ASSERT_THROW((void)non_json_series.json_values(), std::runtime_error);
+    ASSERT_THROW((void) non_json_series.json_values(), std::runtime_error);
 }
 
 TEST(TestSeries, testFillFromFixedSize) {

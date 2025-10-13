@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <vector>
+
 #include <errno.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/accesscontrol_default.h>
@@ -19,7 +21,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
 // #include <unistd.h> // For getcwd
 #include <iostream>
 

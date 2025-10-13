@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer" */
     UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, const_cast<char*>("the.answer"))
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer"))
     );
 
     UA_MonitoredItemCreateResult
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer3" */
     UA_MonitoredItemCreateRequest monRequest3 = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, const_cast<char*>("the.answer3"))
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer3"))
     );
 
     UA_MonitoredItemCreateResult
