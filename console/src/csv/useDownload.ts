@@ -10,6 +10,7 @@
 import {
   type channel,
   DisconnectedError,
+  type Frame,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
@@ -101,14 +102,23 @@ const download = async ({
   let percentDownloaded = 20;
   const delta = intervalCount > 0 ? 70 / intervalCount : 0;
 
-  for (const tr of simplifiedTimeRanges) {
-    const csvGroups: CSVGroup[] = [];
-    for (const [index, keys] of channelGroupsAsArrays) {
+  const readPromiseResults: Record<string, Frame> = {};
+  const promises = simplifiedTimeRanges.flatMap((tr) =>
+    Array.from(channelGroupsAsArrays.entries()).map(async ([index, keys]) => {
       const frame = await client.read(tr, keys);
-      csvGroups.push({ index, frame });
       percentDownloaded += delta;
       if (percentDownloaded >= 90) percentDownloaded = 90;
       onPercentDownloadedChange?.(percentDownloaded);
+      readPromiseResults[getKey(tr, index)] = frame;
+    }),
+  );
+  await Promise.all(promises);
+
+  for (const tr of simplifiedTimeRanges) {
+    const csvGroups: CSVGroup[] = [];
+    for (const [index] of channelGroupsAsArrays) {
+      const frame = readPromiseResults[getKey(tr, index)];
+      csvGroups.push({ index, frame });
     }
     if (!headerWritten) {
       const headers: string[] = [];
@@ -134,3 +144,6 @@ const download = async ({
   onPercentDownloadedChange?.(100);
   afterDownload?.();
 };
+
+const getKey = (tr: TimeRange, index: channel.Key): string =>
+  `${tr.toString()}${index}`;

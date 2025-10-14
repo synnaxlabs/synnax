@@ -69,7 +69,7 @@ export const convertFrameGroups = (
   });
 
   const columnCounts: number[] = bodyEntries.map((entry) => entry.columnCount);
-  const parsedBodyEntries: BodyEntryParsedInfo[] = bodyEntries.map((entry, i) => ({
+  const parsedBodyEntries: ParsedBodyEntryInfo[] = bodyEntries.map((entry, i) => ({
     beforeCommaCount: columnCounts.slice(0, i).reduce((acc, curr) => acc + curr, 0),
     afterCommaCount: columnCounts.slice(i + 1).reduce((acc, curr) => acc + curr, 0),
     records: entry.records,
@@ -122,7 +122,7 @@ type BodyEntryInfo = {
   columnCount: number;
 };
 
-type BodyEntryParsedInfo = {
+type ParsedBodyEntryInfo = {
   beforeCommaCount: number;
   afterCommaCount: number;
   records: SeveralValueEntryInfo[];
