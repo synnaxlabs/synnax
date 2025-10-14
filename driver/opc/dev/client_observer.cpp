@@ -11,7 +11,6 @@
 #include <open62541/client_highlevel.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
-
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -49,25 +48,6 @@ static void handler_TheAnswer3Changed(
     } else {
         printf("The Answer 3 has changed, but the new value is not a Byte.\n");
     }
-}
-
-static UA_StatusCode node_iter(
-    UA_NodeId childId,
-    UA_Boolean isInverse,
-    UA_NodeId referenceTypeId,
-    void *handle
-) {
-    if (isInverse) return UA_STATUSCODE_GOOD;
-    UA_NodeId *parent = (UA_NodeId *) handle;
-    printf(
-        "%u, %u --- %u ---> NodeId %u, %u\n",
-        parent->namespaceIndex,
-        parent->identifier.numeric,
-        referenceTypeId.identifier.numeric,
-        childId.namespaceIndex,
-        childId.identifier.numeric
-    );
-    return UA_STATUSCODE_GOOD;
 }
 
 static volatile bool running = true;
@@ -140,7 +120,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer" */
     UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, "the.answer")
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer"))
     );
 
     UA_MonitoredItemCreateResult
@@ -159,7 +139,7 @@ int main(int argc, char *argv[]) {
 
     /* Monitor "the.answer3" */
     UA_MonitoredItemCreateRequest monRequest3 = UA_MonitoredItemCreateRequest_default(
-        UA_NODEID_STRING(1, "the.answer3")
+        UA_NODEID_STRING(1, const_cast<char *>("the.answer3"))
     );
 
     UA_MonitoredItemCreateResult

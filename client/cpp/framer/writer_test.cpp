@@ -7,19 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
-#include "x/cpp/xtest/xtest.h"
-
-/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-
+#include "x/cpp/xtest/xtest.h"
 
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(WriterTests, testWriteBasic) {
@@ -52,7 +46,6 @@ TEST(WriterTests, testWriteBasic) {
         )
     );
     frame.emplace(data.key, telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9}));
-
 
     ASSERT_NIL(writer.write(frame));
     auto end = ASSERT_NIL_P(writer.commit());
@@ -195,7 +188,6 @@ TEST(WriterTests, testSetAuthority) {
     ASSERT_NIL(writer.close());
 }
 
-
 /// @brief close can be called as many times as desired and should not return an error
 /// when the writer has a nominaly shutdown.
 TEST(WriterTests, testCloseIdempotency) {
@@ -214,7 +206,6 @@ TEST(WriterTests, testCloseIdempotency) {
     auto frame = synnax::Frame(2);
     frame.emplace(time.key, telem::Series(now));
     frame.emplace(data.key, telem::Series(std::vector<float>{2}));
-
 
     ASSERT_NIL(writer.write(frame));
     auto end = ASSERT_NIL_P(writer.commit());

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/rack/rack.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
+
+#include "driver/rack/rack.h"
 
 xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
     std::pair<synnax::Rack, xerrors::Error> res;

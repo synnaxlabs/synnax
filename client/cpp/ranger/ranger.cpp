@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// module
-#include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/go/telem/x/go/telem/telem.pb.h"
-
-/// internal
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
 
-/// protos
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 
 namespace synnax {
 Range::Range(std::string name, telem::TimeRange time_range):
@@ -146,7 +142,6 @@ RangeClient::create(const std::string &name, telem::TimeRange time_range) const 
 const std::string KV_SET_ENDPOINT = "/range/kv/set";
 const std::string KV_GET_ENDPOINT = "/range/kv/get";
 const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
-
 
 std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();

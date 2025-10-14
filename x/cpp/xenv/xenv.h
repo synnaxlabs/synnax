@@ -9,13 +9,12 @@
 
 #pragma once
 
-/// std
 #include <cstdlib>
 #include <string>
 #include <type_traits>
 
-/// external
 #include "glog/logging.h"
+
 #include "x/cpp/caseconv/caseconv.h"
 
 namespace xenv {

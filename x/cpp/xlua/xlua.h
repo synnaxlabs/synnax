@@ -9,17 +9,14 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// external
 extern "C" {
 #include "lua.h"
 }
 
 #include "nlohmann/json.hpp"
 
-/// internal
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"

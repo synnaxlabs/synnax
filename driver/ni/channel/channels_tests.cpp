@@ -9,8 +9,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/ni/channel/channels.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "driver/ni/channel/channels.h"
 
 using json = nlohmann::json;
 

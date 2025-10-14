@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "google/protobuf/empty.pb.h"
 
-/// protos
+#include "client/cpp/transport.h"
+#include "freighter/cpp/fgrpc/fgrpc.h"
+
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.grpc.pb.h"
@@ -21,10 +22,6 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
-
-/// module
-#include "client/cpp/transport.h"
-#include "freighter/cpp/fgrpc/fgrpc.h"
 
 synnax::Transport synnax::Transport::configure(
     const uint16_t port,

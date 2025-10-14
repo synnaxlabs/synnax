@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "freighter/cpp/fgrpc/fgrpc.h"
 #include <thread>
+
+#include "gtest/gtest.h"
+
+#include "freighter/cpp/fgrpc/fgrpc.h"
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter.h"
-#include "gtest/gtest.h"
 
 /// Internal response type uses message.
 using RQ = test::Message;
@@ -232,7 +234,6 @@ TEST(testGRPC, testStreamError) {
     auto [res, err2] = streamer->receive();
     ASSERT_FALSE(err2.ok());
 }
-
 
 void client_send(
     int num,

@@ -19,20 +19,16 @@
 #endif
 // END OF MISSION CRITICAL CODE BLOCK.
 
-/// std
 #include <iostream>
 #include <string>
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "client/cpp/synnax.h"
-#include "core/pkg/version/version.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xshutdown/xshutdown.h"
 
-/// internal
+#include "core/pkg/version/version.h"
 #include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"
 #include "driver/rack/rack.h"

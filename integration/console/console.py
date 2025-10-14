@@ -10,7 +10,6 @@
 import os
 import random
 import re
-import time
 from typing import Any, Dict, Literal, Optional
 
 from playwright.sync_api import Locator, Page
@@ -20,6 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
+from .task import AnalogRead, AnalogWrite, NITask
 
 # Define literal types for page creation
 PageType = Literal[
@@ -45,8 +45,10 @@ class Console:
     Parallel to synnax client structure.
     """
 
+    # SY-3078
     console_pages: list[ConsolePage]
     channels: ChannelClient
+    page: Page
 
     def __init__(self, page: Page):
         # Playwright
@@ -55,10 +57,13 @@ class Console:
         self.schematic = Schematic(page, self)
         self.plot = Plot(page, self)
         self.log = Log(page, self)
+        self.ni_ai = AnalogRead(page, self)
+        self.ni_ao = AnalogWrite(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.wait_for_timeout(100)
         self.click(command)
 
     @property
@@ -68,6 +73,10 @@ class Console:
     @property
     def ENTER(self) -> None:
         self.page.keyboard.press("Enter")
+
+    @property
+    def META_ENTER(self) -> None:
+        self.page.keyboard.press("ControlOrMeta+Enter")
 
     @property
     def DELETE(self) -> None:
@@ -92,13 +101,16 @@ class Console:
         if placeholder is not None:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
             if search_input.count() > 0:
+                search_input.wait_for(state="attached", timeout=5000)
                 search_input.fill(text)
                 self.page.wait_for_timeout(100)
 
         for attempt in range(10):
             try:
                 self.page.wait_for_selector(target_item, timeout=100)
-                self.page.locator(target_item).first.click()
+                item = self.page.locator(target_item).first
+                item.wait_for(state="attached", timeout=5000)
+                item.click()
                 return
             except Exception:
                 continue
@@ -157,7 +169,6 @@ class Console:
         page_command = f"Create {article} {page_type}"
 
         self.command_palette(page_command)
-        self.page.wait_for_timeout(100)
         page_tab, page_id = self._handle_new_page(page_type, page_name)
 
         return page_tab, page_id
@@ -203,8 +214,8 @@ class Console:
             self.page.get_by_role("button", name="Confirm").click()
 
     def check_for_error_screen(self) -> None:
-        self.page.wait_for_timeout(300)
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
+        self.page.wait_for_timeout(300)
         if self.page.get_by_text("Something went wrong").is_visible():
             self.page.wait_for_timeout(200)
             self.page.get_by_text("Try again").click()
@@ -215,7 +226,6 @@ class Console:
         Check for notifications in the bottom right corner.
         Returns a list of notification dictionaries with details.
         """
-        self.page.wait_for_timeout(100)
 
         notifications = []
         notification_elements = self.page.locator(".pluto-notification").all()
@@ -281,6 +291,7 @@ class Console:
             close_button = notification.locator(".pluto-notification__silence")
 
             if close_button.count() > 0:
+                close_button.wait_for(state="attached", timeout=500)
                 close_button.click()
                 return True
             return False
@@ -327,7 +338,18 @@ class Console:
             .locator("button")
             .first
         )
+        button.wait_for(state="attached", timeout=300)
         button.click(force=True)
+
+    def get_toggle(self, toggle_label: str) -> bool:
+        """Get the value of a toggle by label."""
+        toggle = (
+            self.page.locator(f"text={toggle_label}")
+            .locator("..")
+            .locator("input[type='checkbox']")
+            .first
+        )
+        return toggle.is_checked()
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -337,6 +359,7 @@ class Console:
             .locator("input[type='checkbox']")
             .first
         )
+        checkbox.wait_for(state="attached", timeout=300)
         checkbox.click()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
@@ -347,6 +370,7 @@ class Console:
             .locator("input")
             .first
         )
+        input_field.wait_for(state="attached", timeout=300)
         input_field.fill(value)
 
     def get_input_field(self, input_label: str) -> str:
@@ -357,9 +381,44 @@ class Console:
             .locator("input")
             .first
         )
-        return input_field.input_value()
+        input_field.wait_for(state="attached", timeout=400)
+        return input_field.input_value(timeout=200)
 
-    def click(self, selector: str, timeout: Optional[int] = 3000) -> None:
+    def get_dropdown_value(self, dropdown_label: str) -> str:
+        """Get the current value of a dropdown by label."""
+        dropdown_button = (
+            self.page.locator(f"text={dropdown_label}")
+            .locator("..")
+            .locator("button")
+            .first
+        )
+        dropdown_button.wait_for(state="attached", timeout=300)
+        return dropdown_button.inner_text().strip()
+
+    def get_selected_button(self, button_options: list[str]) -> str:
+        """Get the currently selected button from a button group (no label)."""
+        for option in button_options:
+            button = self.page.get_by_text(option).first
+            if button.count() > 0:
+                button.wait_for(state="attached", timeout=300)
+                class_name = button.get_attribute("class") or ""
+                if "pluto-btn--filled" in class_name:
+                    return option
+
+        raise RuntimeError(f"No selected button found from options: {button_options}")
+
+    def click(self, selector: str, timeout: Optional[int] = 5000) -> None:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
-        self.page.get_by_text(selector, exact=True).first.click()
+        element = self.page.get_by_text(selector, exact=True).first
+        element.wait_for(state="attached", timeout=300)
+        element.click()
+
+    def check_for_modal(self) -> bool:
+        """Check for a modal"""
+        return (
+            self.page.locator(
+                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+            ).count()
+            > 0
+        )

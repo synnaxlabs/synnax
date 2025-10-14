@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <fstream>
 #include <sstream>
 #include <string>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// internal
 #include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;
@@ -105,14 +102,12 @@ public:
         parse_with_err_handling([&stream] { return json::parse(stream); });
     }
 
-
     /// @brief default constructor constructs a parser that will fail fast.
     Parser(): noop(true), errors(std::make_shared<std::vector<json>>()) {}
 
     /// @brief constructs a valid, empty parser {
     explicit Parser(const bool noop):
         noop(noop), errors(std::make_shared<std::vector<json>>()) {}
-
 
     /// @brief gets the field at the given path. If the field is not found,
     /// accumulates an error in the builder.

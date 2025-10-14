@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <stdexcept>
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/defer/defer.h"
 
 /// @brief it should call the function when the scope ends.

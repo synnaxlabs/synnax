@@ -7,19 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// std
 #include <utility>
 #include <vector>
 
-/// module
+#include "client/cpp/channel/channel.h"
+#include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/xerrors/errors.h"
-
-/// internal
-#include "client/cpp/channel/channel.h"
-
-#include "client/cpp/errors/errors.h"
 
 const std::string CREATE_ENDPOINT = "/api/v1/channel/create";
 const std::string RETRIEVE_ENDPOINT = "/api/v1/channel/retrieve";

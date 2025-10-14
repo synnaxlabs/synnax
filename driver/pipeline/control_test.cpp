@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
-#include "x/cpp/xtest/xtest.h"
 
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = synnax::Frame(1);

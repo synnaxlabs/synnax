@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// internal
-#include "driver/task/common/factory.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
+#include "driver/task/common/factory.h"
 
 namespace modbus {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";

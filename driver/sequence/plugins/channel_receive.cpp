@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "x/cpp/xlua/xlua.h"
 
-/// internal
 #include "driver/sequence/plugins/plugins.h"
 
 plugins::ChannelReceive::ChannelReceive(
@@ -54,7 +51,7 @@ xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
 /// into the latest values state.
 xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
-    for (int i = 0; i < frame.size(); i++) {
+    for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
         if (!frame.series->at(i).empty())
             this->receiver.latest_values[key] = {frame.series->at(i).at(-1), true};

@@ -9,13 +9,11 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-/// internal
 #include "x/cpp/caseconv/caseconv.h"
 #include "x/cpp/xerrors/errors.h"
 

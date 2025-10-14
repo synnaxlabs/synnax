@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
-#include "x/cpp/xtest/xtest.h"
-
-/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xtest/xtest.h"
 
 void test_downsample(
     const std::vector<int> &raw_data,
@@ -209,7 +204,7 @@ void test_downsample(
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
-    for (int i = 0; i < expected.size(); i++)
+    for (size_t i = 0; i < expected.size(); i++)
         ASSERT_EQ(res_frame.series->at(0).values<int>()[i], expected[i]);
 
     ASSERT_NIL(writer.close());

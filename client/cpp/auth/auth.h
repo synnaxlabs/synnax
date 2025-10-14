@@ -9,23 +9,19 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <mutex>
 #include <string>
 
-/// protos
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
-
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
+
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
@@ -50,9 +46,9 @@ struct ClusterInfo {
     std::string cluster_key;
     /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
-    /// @brief the key of the node within the core.
-    std::uint16_t node_key = 0;
-    /// @brief the time of the node at the midpoint of the core processing the request.
+    /// @brief the key of the node within the Core.
+    std::uint32_t node_key = 0;
+    /// @brief the time of the node at the midpoint of the Core processing the request.
     telem::TimeStamp node_time = telem::TimeStamp(0);
 
     ClusterInfo() = default;
