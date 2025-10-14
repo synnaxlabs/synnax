@@ -10,10 +10,7 @@
 import { type channel, type Frame, UnexpectedError } from "@synnaxlabs/client";
 import { DataType, type MultiSeries, type TimeStamp } from "@synnaxlabs/x/telem";
 
-export type CSVGroup = {
-  index: channel.KeyOrName;
-  frame: Frame;
-};
+export type CSVGroup = { index: channel.Key; frame: Frame };
 
 export const convertFrameGroups = (
   // use maps instead of objects to avoid the key being converted to a string
@@ -21,20 +18,18 @@ export const convertFrameGroups = (
   newline: "\r\n" | "\n" = "\n",
 ): string => {
   // step1: validate that keys are not repeated between frames.
-  const keyOrNamesSet = new Set<channel.KeyOrName>();
+  const keySet = new Set<channel.Key>();
   for (const { frame } of groups)
-    for (const keyOrName of frame.uniqueColumns) {
-      if (keyOrNamesSet.has(keyOrName))
-        throw new Error(`Channel ${keyOrName} is repeated between multiple frames`);
-      keyOrNamesSet.add(keyOrName);
+    for (const key of frame.uniqueKeys) {
+      if (keySet.has(key))
+        throw new Error(`Channel ${key} is repeated between multiple frames`);
+      keySet.add(key);
     }
 
   // step2: validate that all frames have an index key corresponding to a timestamp and
   // the right length for each series.
   for (const { index, frame } of groups) {
     const indexSeries = frame.get(index);
-    if (indexSeries.length === 0)
-      throw new Error(`No data found for index channel ${index}`);
     if (!indexSeries.dataType.equals(DataType.TIMESTAMP))
       throw new Error(`Index channel ${index} is not of type timestamp`);
     if (!frame.isVertical)
@@ -71,42 +66,86 @@ export const convertFrameGroups = (
   const columnCounts: number[] = bodyEntries.map((entry) => entry.columnCount);
   const parsedBodyEntries: ParsedBodyEntryInfo[] = bodyEntries.map((entry, i) => ({
     beforeCommaCount: columnCounts.slice(0, i).reduce((acc, curr) => acc + curr, 0),
+    columnCount: columnCounts[i],
     afterCommaCount: columnCounts.slice(i + 1).reduce((acc, curr) => acc + curr, 0),
     records: entry.records,
   }));
 
+  const filteredParsedBodyEntries = parsedBodyEntries.filter(
+    (entry) => entry.records.length > 0,
+  );
+
+  filteredParsedBodyEntries.sort((a, b) =>
+    Number(a.records[0].time.valueOf() - b.records[0].time.valueOf()),
+  );
+
   const rows: string[] = [];
   while (true) {
-    const currentEntry = parsedBodyEntries.shift();
+    const currentEntries: ParsedBodyEntryInfo[] = [];
+    const currentEntry = filteredParsedBodyEntries.shift();
     if (currentEntry == null) break;
-    const { beforeCommaCount, afterCommaCount, records } = currentEntry;
-    const currentRecord = records.shift();
-    if (currentRecord == null) throw new UnexpectedError("No records left");
-    const string = currentRecord.records;
-    const row = ",".repeat(beforeCommaCount) + string + ",".repeat(afterCommaCount);
+    currentEntries.push(currentEntry);
+    while (true) {
+      const nextEntry = filteredParsedBodyEntries[0];
+      if (nextEntry == null) break;
+      if (nextEntry.records[0].time !== currentEntry.records[0].time) break;
+      currentEntries.push(nextEntry);
+      filteredParsedBodyEntries.shift();
+    }
+
+    currentEntries.sort((a, b) => a.beforeCommaCount - b.beforeCommaCount);
+    let row = ",".repeat(currentEntries[0].beforeCommaCount);
+    currentEntries.forEach((entry, i) => {
+      const record = entry.records.shift();
+      if (record == null) throw new UnexpectedError("No records left");
+      row += record.records;
+      const nextEntry = currentEntries.at(i + 1);
+      if (nextEntry == null) {
+        row += ",".repeat(entry.afterCommaCount);
+        return;
+      }
+      row += ",".repeat(
+        nextEntry.beforeCommaCount - (entry.columnCount - 1 + entry.beforeCommaCount),
+      );
+    });
     rows.push(row);
-    if (records.length === 0) continue;
+
     // insert the record into the correct place in the array based off of the
     // timestamps using binary search.
-    const nextTime = records[0].time;
-    let left = 0;
-    let right = parsedBodyEntries.length;
-    while (left < right) {
-      const mid = Math.floor((left + right) / 2);
-      if (parsedBodyEntries[mid].records[0].time.valueOf() > nextTime.valueOf())
-        right = mid;
-      else left = mid + 1;
+    for (const entry of currentEntries) {
+      if (entry.records.length === 0) continue;
+      const nextTime = entry.records[0].time;
+      let left = 0;
+      let right = filteredParsedBodyEntries.length;
+      while (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        if (
+          filteredParsedBodyEntries[mid].records[0].time.valueOf() > nextTime.valueOf()
+        )
+          right = mid;
+        else left = mid + 1;
+      }
+      if (left === filteredParsedBodyEntries.length)
+        filteredParsedBodyEntries.push(entry);
+      else filteredParsedBodyEntries.splice(left, 0, entry);
     }
-    if (left === parsedBodyEntries.length) parsedBodyEntries.push(currentEntry);
-    else parsedBodyEntries.splice(left, 0, currentEntry);
   }
+  if (rows.length === 0) return "";
   return rows.join(newline) + newline;
 };
 
+/**
+ * Escapes a CSV value by wrapping it in double quotes if it contains
+ * a comma, double quote, or newline. Also escapes any internal double quotes by doubling them.
+ * For example, the value foo"bar,baz
+ * becomes "foo""bar,baz"
+ *
+ * @param value -  The string value to sanitize for CSV output.
+ * @returns The sanitized CSV-safe string.
+ */
+
 export const sanitizeValue = (value: string): string => {
   if (!/[",\n]/.test(value)) return value;
-  // If value contains a comma, quote, or newline, wrap in double quotes and escape
-  // existing double quotes.
   const escaped = value.replace(/"/g, '""');
   return `"${escaped}"`;
 };
@@ -124,6 +163,7 @@ type BodyEntryInfo = {
 
 type ParsedBodyEntryInfo = {
   beforeCommaCount: number;
+  columnCount: number;
   afterCommaCount: number;
   records: SeveralValueEntryInfo[];
 };
