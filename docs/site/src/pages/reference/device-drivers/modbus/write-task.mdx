@@ -1,8 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus | Write Task"
-heading: "Modbus Write Task"
-description: "Write data to Modbus devices with write tasks."
+title: "Modbus Write Task"
+description: "Write data to Modbus servers with write tasks."
 prev: "Read Task"
 prevURL: "/reference/device-drivers/modbus/read-task"
 ---
@@ -13,7 +12,7 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Write tasks are the primary method for sending control commands to a Modbus device from
+Write tasks are the primary method for sending control commands to a Modbus server from
 Synnax.
 
 <Divider.Divider x />
@@ -21,30 +20,30 @@ Synnax.
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to a Modbus device](/reference/device-drivers/modbus/connect-server).
+[connected to a Modbus server](/reference/device-drivers/modbus/connect-server).
 
 <Divider.Divider x />
 
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
-for both control and data acquisition purposes. A Modbus write task defines a background
-process that writes data to registers or coils on the Modbus device based on values
+for both control and data acquisition purposes. A Modbus Write Task defines a background
+process that writes data to Holding Registers or Coils on the Modbus server based on values
 written to Synnax [command channels](#how-commands-work-in-synnax).
 
-A Modbus write task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+A Modbus Write Task can be started, stopped, and re-configured at any time. Synnax
+permanently stores the configuration of the task, so it's easy to set up multiple
+tasks for different purposes.
 
 <Divider.Divider x />
 
 ## How Commands Work in Synnax
 
 Commands in Synnax use command channels to signal a task to write values to the device.
-For example, to set a holding register to a specific value, you would write that value
+For example, to set a Holding Register to a specific value, you would write that value
 to the corresponding command channel.
 
-A command channel for a holding register might be
+A command channel for a Holding Register might be
 `modbus_server_holding_register_100_cmd`, where `modbus_server` is the device
 identifier, `holding_register` is the register type, `100` is the register address, and
 `_cmd` indicates that it's a command channel.
@@ -65,7 +64,7 @@ new values as they are received.
 ## Open the Task Configuration Dialog
 
 To create a write task from the command palette, open the Synnax Console and click on
-the Quick Search & Command Palette at the top. You can also open this palette with
+the Search and Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "Modbus".
@@ -92,7 +91,7 @@ write task configuration dialog.
     </tr>
     <tr>
       <td>Modbus Device</td>
-      <td>Which Modbus device the task will write to.</td>
+      <td>Which Modbus server the task will write to.</td>
     </tr>
     <tr>
       <td>Data Saving</td>
@@ -125,7 +124,7 @@ For write tasks, you can write to two types of Modbus registers:
     <tr>
       <td>Coil Output</td>
       <td>
-        Write to discrete output coils. Used for binary control signals like turning
+        Write to discrete output Coils. Used for binary control signals like turning
         devices on/off.
       </td>
       <td>1 bit (boolean)</td>
@@ -151,7 +150,7 @@ For write tasks, you can write to two types of Modbus registers:
 
 ## Data Types for Holding Registers
 
-For holding register outputs, you can specify the data type for each channel. Synnax
+For Holding Register outputs, you can specify the data type for each channel. Synnax
 supports the following data types:
 
 <Table>
@@ -164,38 +163,38 @@ supports the following data types:
   </thead>
   <tbody>
     <tr>
-      <td>INT16</td>
+      <td>`int16`</td>
       <td>16-bit signed integer</td>
       <td>1 register (2 bytes)</td>
     </tr>
     <tr>
-      <td>UINT16</td>
+      <td>`uint16`</td>
       <td>16-bit unsigned integer</td>
       <td>1 register (2 bytes)</td>
     </tr>
     <tr>
-      <td>INT32</td>
+      <td>`int32`</td>
       <td>32-bit signed integer</td>
       <td>2 registers (4 bytes)</td>
     </tr>
     <tr>
-      <td>UINT32</td>
+      <td>`uint32`</td>
       <td>32-bit unsigned integer</td>
       <td>2 registers (4 bytes)</td>
     </tr>
     <tr>
-      <td>FLOAT32</td>
+      <td>`float32`</td>
       <td>32-bit IEEE 754 floating point</td>
       <td>2 registers (4 bytes)</td>
     </tr>
   </tbody>
 </Table>
 
-Coil outputs are always boolean values and do not require a data type specification.
+Coil Outputs are always boolean values and do not require a data type specification.
 
 <Note.Note variant="info">
-  For multi-register data types (INT32, UINT32, FLOAT32), make sure the byte and word
-  ordering matches your device's configuration. Use the "Swap Bytes" and "Swap Words"
+  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and word
+  ordering matches your server's configuration. Use the "Swap Bytes" and "Swap Words"
   settings in the device connection configuration if needed.
 </Note.Note>
 
@@ -208,8 +207,8 @@ dialog. For each channel, you'll need to specify:
 
 1. **Register Type** - Select from Coil Output or Holding Register Output
 2. **Address** - The Modbus register address (e.g., 0, 100, 40001)
-3. **Data Type** - For holding registers, select the data type (INT16, UINT16, INT32,
-   UINT32, FLOAT32)
+3. **Data Type** - For Holding Registers, select the data type (`int16`, `uint16`, `int32`,
+   `uint32`, `float32`)
 4. **Channel Name** - A descriptive name for the command channel
 
 You can enable or disable individual channels using the toggle button to the right of
@@ -228,7 +227,7 @@ channels for each of your Modbus outputs and prepare the task for execution.
 
 Note that configuring a write task will only create
 [command channels](#how-commands-work-in-synnax). The task will process commands from
-these channels and write the values to the Modbus device.
+these channels and write the values to the Modbus server.
 
 After configuration, you can start and stop the task at any time. The task configuration
 is permanently stored, so you can easily resume command processing later.
@@ -248,10 +247,10 @@ configuration window.
 ## Using a Schematic to Control Write Tasks
 
 Once the write task is configured and running, you can use a
-[schematic](/reference/console/schematics) to send commands to the Modbus device. Simply
+[schematic](/reference/console/schematics) to send commands to the Modbus server. Simply
 connect schematic controls (like buttons, sliders, or valves) to the command channels
 created by your write task.
 
-For example, to control a valve connected to a coil output, you would set the valve's
-`command` field to the command channel of the coil output. Clicking the valve in the
-schematic would send a command to toggle the coil state.
+For example, to control a valve connected to a Coil Output, you would set the valve's
+`command` field to the command channel of the Coil Output. Clicking the valve in the
+schematic would send a command to toggle the Coil state.

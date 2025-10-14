@@ -1,11 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus | Read Task"
-heading: "Modbus Read Task"
-description: "Read data from Modbus devices with read tasks."
+title: "Modbus Read Task"
+description: "Read data from Modbus servers with read tasks."
 next: "Write Task"
 nextURL: "/reference/device-drivers/modbus/write-task"
-prev: "Connect Device"
+prev: "Connect to a Server"
 prevURL: "/reference/device-drivers/modbus/connect-server"
 ---
 
@@ -16,7 +15,7 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Read tasks are the primary method for acquiring data from a Modbus device and storing it
+Read tasks are the primary method for acquiring data from a Modbus server and storing it
 in Synnax.
 
 <Divider.Divider x />
@@ -24,7 +23,7 @@ in Synnax.
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to a Modbus device](/reference/device-drivers/modbus/connect-server).
+[connected to a Modbus server](/reference/device-drivers/modbus/connect-server).
 
 <Divider.Divider x />
 
@@ -32,12 +31,12 @@ Before configuring the task, you'll need to have
 
 Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
 for both control and data acquisition purposes. In the context of Modbus, a read task
-defines a background process that reads data from your device at a specified sampling
+defines a background process that reads data from your server at a specified sampling
 rate.
 
-A Modbus read task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+A Modbus Read Task can be started, stopped, and re-configured at any time. Synnax
+permanently stores the configuration of the task, so it's easy to set up multiple
+tasks for different purposes.
 
 <Divider.Divider x />
 
@@ -48,8 +47,8 @@ multiple tasks for different purposes.
 All channels in a read task are sampled at the same rate. If you'd like to sample
 different channels at different rates, create a separate task to do so.
 
-Synnax uses software timing to read from your Modbus device, and typically delivers
-precision on the order of 100 microseconds. Under heavy load, this timing precision may
+Synnax uses software timing to read from your Modbus server, and typically delivers
+precision on the order of 100 μs. Under heavy load, this timing precision may
 degrade.
 
 For low rate (&lt;50 Hz) tasks, we recommend setting the stream rate to the same value
@@ -66,9 +65,9 @@ also reads from `pressure`.
 
 ## Open the Task Configuration Dialog
 
-To configure a read task, open the Synnax Console and click on the Quick Search &
-Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
-Windows or `Cmd+Shift+P` on macOS.
+To configure a read task, open the Synnax Console and click on the Search and Command
+Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows or
+`Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "Modbus".
 You'll see an option called "Create a Modbus Read Task". Select this option to open the
@@ -77,7 +76,7 @@ read task configuration dialog.
 <Video client:only="react" id="device-drivers/modbus/read-task/open" />
 
 You can also open the dialog by clicking in the top-right corner of the window and
-selecting the add <Icon.Add /> icon, or opening the context menu on a Modbus device from
+selecting the add icon (<Icon.Add />), or opening the context menu on a Modbus server from
 the resources toolbar.
 
 <Divider.Divider x />
@@ -98,7 +97,7 @@ the resources toolbar.
     </tr>
     <tr>
       <td>Modbus Server</td>
-      <td>Which Modbus device the task will read from.</td>
+      <td>Which Modbus server the task will read from.</td>
     </tr>
     <tr>
       <td>Auto Start </td>
@@ -106,7 +105,7 @@ the resources toolbar.
     </tr>
     <tr>
       <td>Sample Rate</td>
-      <td>How often, in Hz, Synnax polls data from the Modbus device.</td>
+      <td>How often, in Hz, Synnax polls data from the Modbus server.</td>
     </tr>
     <tr>
       <td>Stream Rate</td>
@@ -124,11 +123,11 @@ the resources toolbar.
 ### Sample Rate vs. Stream Rate
 
 There are two parameters to control the timing of the task: the sample rate and the
-stream rate. The sample rate defines how often Synnax will poll the Modbus device for
+stream rate. The sample rate defines how often Synnax will poll the Modbus server for
 new data, while the stream rate defines how often the task will stream data into Synnax.
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
-will poll the Modbus device every 100 ms, collect 10 samples, and then forward these
+will poll the Modbus server every 100 ms, collect 10 samples, and then forward these
 samples to the server.
 
 For very low rate tasks (&lt;50 Hz), we recommend setting the stream rate to the same
@@ -162,7 +161,7 @@ Modbus supports four types of data storage areas, each with a specific purpose:
     </tr>
     <tr>
       <td>Discrete Input</td>
-      <td>Discrete inputs that can only be read. Used for binary sensor inputs.</td>
+      <td>Discrete Inputs that can only be read. Used for binary sensor inputs.</td>
       <td>Read Only</td>
       <td>1 bit (boolean)</td>
     </tr>
@@ -198,7 +197,7 @@ For read tasks, you can read from all four register types:
 
 ## Data Types for Registers
 
-For holding registers and input registers, you can specify the data type for each
+For Holding Registers and Input Registers, you can specify the data type for each
 channel. Synnax supports the following data types:
 
 <Table>
@@ -238,12 +237,12 @@ channel. Synnax supports the following data types:
   </tbody>
 </Table>
 
-Coils and discrete inputs are always boolean values and do not require a data type
+Coils and Discrete Inputs are always boolean values and do not require a data type
 specification.
 
 <Note.Note variant="info">
-  For multi-register data types (INT32, UINT32, FLOAT32), make sure the byte and word
-  ordering matches your device's configuration. Use the "Swap Bytes" and "Swap Words"
+  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and word
+  ordering matches your server's configuration. Use the "Swap Bytes" and "Swap Words"
   settings in the device connection configuration if needed.
 </Note.Note>
 
@@ -257,8 +256,8 @@ dialog. For each channel, you'll need to specify:
 1. **Register Type** - Select from Coil Input, Discrete Input, Holding Register Input,
    or Input Register
 2. **Address** - The Modbus register address (e.g., 0, 100, 40001)
-3. **Data Type** - For register types, select the data type (INT16, UINT16, INT32,
-   UINT32, FLOAT32)
+3. **Data Type** - For register types, select the data type (`int16`, `uint16`, `int32`,
+   `uint32`, `float32`)
 4. **Channel Name** - A descriptive name for the channel
 
 You can enable or disable individual channels using the toggle button to the right of
