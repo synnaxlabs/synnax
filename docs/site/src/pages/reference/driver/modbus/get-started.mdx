@@ -1,0 +1,95 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Modbus | Get Started"
+heading: "Modbus Device Driver"
+description:
+  "Learn how to acquire data from and control Modbus TCP servers using Synnax."
+next: "Connect to a Server"
+nextURL: "/reference/driver/modbus/connect-server"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The [Modbus](https://modbus.org) protocol allows the Synnax Driver to connect to a wide
+range of industrial devices and PLCs that support Modbus TCP/IP communication. This page
+will walk you through some of the important prerequisites necessary to get started with
+the Modbus driver.
+
+<Divider.Divider x />
+
+## Supported Protocol
+
+**The Synnax Driver supports Modbus TCP/IP**, which is the Ethernet-based variant of the
+Modbus protocol. The Driver does not currently support Modbus RTU (serial) or Modbus
+ASCII.
+
+Modbus TCP is one of the most widely supported industrial protocols and is commonly used
+for:
+
+- Programmable logic controllers (PLCs)
+- Variable-frequency drives (VFDs)
+- Power meters and energy monitoring devices
+- Temperature and humidity controllers
+- Industrial I/O modules
+- Building automation systems
+
+<Divider.Divider x />
+
+## Network Requirements
+
+To connect to a Modbus TCP server, you'll need:
+
+1. **Network connectivity** - The machine running the Synnax Driver must be able to
+   reach the Modbus server over TCP/IP (typically port 502)
+2. **Server IP address** - The IP address or hostname of the Modbus server
+3. **Register documentation** - Documentation for your device's Modbus register map,
+   which specifies which addresses correspond to which measurements or control points
+
+<Note.Note variant="info">
+  Many Modbus devices use the default port 502, but some may use alternative ports.
+  Check your device's documentation for the correct port number.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Installation
+
+Every instance of the [Synnax Core](/reference/cluster/quick-start) comes with the
+Synnax Driver embedded inside, which will automatically support Modbus connections
+without any additional software installation.
+
+The Driver can also be installed as a separate binary to acquire data from Modbus
+servers on host machines separate from the Synnax Core. For details on when this is
+useful, see the [getting started guide](/reference/driver/get-started). For installation
+instructions, see the [Driver installation](/reference/driver/installation) page.
+
+## Supported Operating Systems
+
+The Modbus driver supports Linux, Windows, and macOS machines. The driver can run within
+containerized environments as long as the container has network access to the Modbus
+servers.
+
+<Note.Note variant="warning">
+  The Modbus driver is **not available** on NI Linux Real-Time controllers (CompactRIO,
+  PXI systems). For these platforms, use the [NI
+  driver](/reference/driver/ni/get-started) or [OPC
+  UA](/reference/driver/opc-ua/connect-server) if your device supports it.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Register Types and Data Types
+
+Modbus supports four types of data storage areas:
+
+- **Coils** - Read/write discrete outputs (1-bit boolean)
+- **Discrete Inputs** - Read-only discrete inputs (1-bit boolean)
+- **Holding Registers** - Read/write analog values (16-bit, configurable data types)
+- **Input Registers** - Read-only analog values (16-bit, configurable data types)
+
+For Holding Registers and Input Registers, Synnax supports multiple data types including
+`int16`, `uint16`, `int32`, `uint32`, and `float32`. See the
+[Read Task documentation](/reference/driver/modbus/read-task#data-types-for-registers)
+for more details.

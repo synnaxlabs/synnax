@@ -10,10 +10,11 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver has developed a number of device drivers for a variety of vendors,
-including [National Instruments](https://www.ni.com), [LabJack](https://labjack.com),
-and [OPC UA](https://opcfoundation.org) servers. Synnax also supports building custom
-drivers for devices that are not natively supported.
+The Synnax Driver supports hardware from a a variety of vendors, including
+[National Instruments](https://www.ni.com), [LabJack](https://labjack.com),
+[OPC UA](https://opcfoundation.org) servers, and [Modbus TCP](https://modbus.org)
+servers. Synnax also supports building custom drivers for devices that are not natively
+supported.
 
 <Divider.Divider x />
 
@@ -21,7 +22,8 @@ drivers for devices that are not natively supported.
 
 The Synnax Driver natively supports reading and writing data for
 [National Instruments](/reference/driver/ni/get-started) hardware,
-[OPC UA](/reference/driver/opc-ua/connect-server) servers, and
+[OPC UA](/reference/driver/opc-ua/connect-server) servers,
+[Modbus](/reference/driver/modbus/get-started) servers, and
 [LabJack](/reference/driver/labjack/get-started) devices.
 
 ### Embedded Driver
