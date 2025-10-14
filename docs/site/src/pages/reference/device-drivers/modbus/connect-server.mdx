@@ -59,39 +59,51 @@ reference for each of the fields you'll need to fill:
     <tr>
       <td>Name</td>
       <td>
-        A name for your Modbus server. We'll use this to identify and manage the server
-        in the Console.
+        <p>
+          A name for your Modbus server. We'll use this to identify and manage the server
+          in the Console.
+        </p>
       </td>
     </tr>
     <tr>
       <td>Connect From</td>
-      <td>The Synnax driver that will connect to the Modbus server.</td>
+      <td>
+        <p>The Synnax driver that will connect to the Modbus server.</p>
+      </td>
     </tr>
     <tr>
       <td>Host</td>
       <td>
-        The IP address or hostname of your Modbus server. This should be its reachable
-        address on the network (e.g., `192.168.1.100` or `localhost`).
+        <p>
+          The IP address or hostname of your Modbus server. This should be its reachable
+          address on the network (e.g., `192.168.1.100` or `localhost`).
+        </p>
       </td>
     </tr>
     <tr>
       <td>Port</td>
-      <td>The TCP port for the Modbus server.</td>
+      <td>
+        <p>The TCP port for the Modbus server. The default Modbus port is `502`.</p>
+      </td>
     </tr>
     <tr>
       <td>Swap Bytes</td>
       <td>
-        Enable byte swapping for 16-bit values. This is used to handle different
-        endianness between the server and Synnax. Only applicable for register types
-        (holding registers and input registers).
+        <p>
+          Enable byte swapping for 16-bit values. This is used to handle different
+          endianness between the server and Synnax. Only applicable for register types
+          (holding registers and input registers).
+        </p>
       </td>
     </tr>
     <tr>
       <td>Swap Words</td>
       <td>
-        Enable word swapping for 32-bit and 64-bit values. This reorders 16-bit words
-        within multi-register values to handle different word ordering conventions. Only
-        applicable for 32-bit and 64-bit data types in registers.
+        <p>
+          Enable word swapping for 32-bit and 64-bit values. This reorders 16-bit words
+          within multi-register values to handle different word ordering conventions. Only
+          applicable for 32-bit and 64-bit data types in registers.
+        </p>
       </td>
     </tr>
   </tbody>
