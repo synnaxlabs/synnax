@@ -10,6 +10,8 @@
 /* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
  * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
 
+#include <vector>
+
 #include <errno.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
@@ -65,26 +67,6 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-static UA_INLINE UA_StatusCode
-
-writeFile(const char *const path, const UA_ByteString buffer) {
-    FILE *fp = NULL;
-
-    fp = fopen(path, "wb");
-    if (fp == NULL) return UA_STATUSCODE_BADINTERNALERROR;
-
-    for (UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
-        int retVal = fputc(buffer.data[bufIndex], fp);
-        if (retVal == EOF) {
-            fclose(fp);
-            return UA_STATUSCODE_BADINTERNALERROR;
-        }
-    }
-
-    fclose(fp);
-    return UA_STATUSCODE_GOOD;
-}
-
 #define MIN_ARGS 4
 
 int main(int argc, char *argv[]) {
@@ -109,7 +91,7 @@ int main(int argc, char *argv[]) {
     /* Load the trustList. Load revocationList is not supported now */
     size_t trustListSize = 0;
     if (argc > MIN_ARGS) trustListSize = (size_t) argc - MIN_ARGS;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    std::vector<UA_ByteString> trustList(trustListSize + 1);
     for (size_t trustListCount = 0; trustListCount < trustListSize; trustListCount++)
         trustList[trustListCount] = load_file(argv[trustListCount + 4]);
 
@@ -127,7 +109,7 @@ int main(int argc, char *argv[]) {
         cc,
         certificate,
         privateKey,
-        trustList,
+        trustList.data(),
         trustListSize,
         revocationList,
         revocationListSize
