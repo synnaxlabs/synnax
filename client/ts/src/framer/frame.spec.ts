@@ -543,12 +543,4 @@ describe("framer.Frame", () => {
       expect(digest[13][0]).toEqual(s3.digest);
     });
   });
-  describe.only("get", () => {
-    it("should return the series for the given key", () => {
-      const f = new framer.Frame({
-        12: new Series({ data: new Float32Array([1, 2, 3]) }),
-      });
-      expect(f.get("12").length).toEqual(3);
-    });
-  });
 });
