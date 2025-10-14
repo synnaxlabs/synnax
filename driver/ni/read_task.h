@@ -187,7 +187,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 &min_rate
             );
             if (err) {
-                LOG(WARNING) << "[ni.read_task] failed to query min rate for device "
+                LOG(WARNING) << "[ni] failed to query minimum sample rate for device "
                              << location << ": " << err.message();
                 continue;
             }

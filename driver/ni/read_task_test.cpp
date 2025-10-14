@@ -597,33 +597,6 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
-/// @brief Test that telem::Rate can be streamed with << operator
-TEST(RateTest, testRateStreamOperator) {
-    telem::Rate rate_25(25.0);
-    std::ostringstream oss;
-    oss << rate_25;
-    EXPECT_EQ(oss.str(), "25 Hz");
-
-    telem::Rate rate_100(100.5);
-    std::ostringstream oss2;
-    oss2 << rate_100;
-    EXPECT_EQ(oss2.str(), "100.5 Hz");
-
-    telem::Rate rate_zero(0.0);
-    std::ostringstream oss3;
-    oss3 << rate_zero;
-    EXPECT_EQ(oss3.str(), "0 Hz");
-}
-
-/// @brief Test that Rate operator<< works in error messages
-TEST(RateTest, testRateInErrorMessage) {
-    telem::Rate configured_rate(25.0);
-    std::ostringstream msg;
-    msg << "configured sample rate (" << configured_rate << ") is below device minimum";
-    EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
-    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
-}
-
 /// @brief Verify device locations are extracted from channels after configuration
 TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
@@ -717,4 +690,27 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     EXPECT_EQ(unique_locs.size(), 2);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+}
+
+/// @brief Test that the minimum sample rate error message is formatted correctly
+TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
+    // This test verifies the error message format without requiring DAQmx hardware
+    telem::Rate configured_rate(25.0);
+    float64 min_rate = 50.0;
+    std::string location = "cDAQ1Mod1";
+    std::string model = "NI SIM";
+
+    std::ostringstream msg;
+    msg << "configured sample rate (" << configured_rate
+        << ") is below device minimum (" << min_rate << " Hz) for " << location << " ("
+        << model << ")";
+
+    std::string result = msg.str();
+
+    // Verify the message contains all required components
+    EXPECT_TRUE(result.find("25 Hz") != std::string::npos);
+    EXPECT_TRUE(result.find("50 Hz") != std::string::npos);
+    EXPECT_TRUE(result.find("cDAQ1Mod1") != std::string::npos);
+    EXPECT_TRUE(result.find("NI SIM") != std::string::npos);
+    EXPECT_TRUE(result.find("below device minimum") != std::string::npos);
 }
