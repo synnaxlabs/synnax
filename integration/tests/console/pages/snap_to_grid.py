@@ -12,7 +12,7 @@ import time
 from console.case import ConsoleCase
 
 
-class Snap_Pages_To_Grid(ConsoleCase):
+class SnapToGrid(ConsoleCase):
     """
     Open all pages in the "New Component" window and close them
     """

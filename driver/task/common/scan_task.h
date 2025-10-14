@@ -295,6 +295,8 @@ public:
 
     std::string name() const override { return this->task_name; }
 
+    using pipeline::Base::stop;
+
     void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
 };
 }

@@ -49,8 +49,8 @@ struct BaseScale : Scale {
 
     explicit BaseScale(xjson::Parser &cfg):
         type(cfg.required<std::string>("type")),
-        pre_scaled_units(parse_units(cfg, "pre_scaled_units")),
-        scaled_units(cfg.optional<std::string>("scaled_units", "Volts")) {}
+        scaled_units(cfg.optional<std::string>("scaled_units", "Volts")),
+        pre_scaled_units(parse_units(cfg, "pre_scaled_units")) {}
 };
 
 /// @brief Linear scaling that applies y = mx + b transformation

@@ -41,23 +41,23 @@ public:
     /// @brief Writes a 32-bit unsigned integer to the buffer
     /// @param value The uint32 to write
     void uint32(const uint32_t value) {
-        this->uint8(value);
-        this->uint8(value >> 8);
-        this->uint8(value >> 16);
-        this->uint8(value >> 24);
+        this->uint8(static_cast<uint8_t>(value));
+        this->uint8(static_cast<uint8_t>(value >> 8));
+        this->uint8(static_cast<uint8_t>(value >> 16));
+        this->uint8(static_cast<uint8_t>(value >> 24));
     }
 
     /// @brief Writes a 64-bit unsigned integer to the buffer
     /// @param value The uint64 to write
     void uint64(const uint64_t value) {
-        this->uint8(value);
-        this->uint8(value >> 8);
-        this->uint8(value >> 16);
-        this->uint8(value >> 24);
-        this->uint8(value >> 32);
-        this->uint8(value >> 40);
-        this->uint8(value >> 48);
-        this->uint8(value >> 56);
+        this->uint8(static_cast<uint8_t>(value));
+        this->uint8(static_cast<uint8_t>(value >> 8));
+        this->uint8(static_cast<uint8_t>(value >> 16));
+        this->uint8(static_cast<uint8_t>(value >> 24));
+        this->uint8(static_cast<uint8_t>(value >> 32));
+        this->uint8(static_cast<uint8_t>(value >> 40));
+        this->uint8(static_cast<uint8_t>(value >> 48));
+        this->uint8(static_cast<uint8_t>(value >> 56));
     }
 
     /// @brief Writes a 64-bit signed integer to the buffer
