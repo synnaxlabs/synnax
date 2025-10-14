@@ -450,8 +450,8 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     rt2->stop("stop2", true);
 }
 
-TEST_F(TestReadTask, testNullVariantDataHandling) {
-    // Test that null variant data is properly handled without crashing
+TEST_F(TestReadTask, testNullVariantTypeHandling) {
+    // Test that null variant type is properly handled without crashing
     telem::Series series(telem::FLOAT32_T, 10);
 
     UA_Variant null_variant;
@@ -464,7 +464,24 @@ TEST_F(TestReadTask, testNullVariantDataHandling) {
     EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
     EXPECT_EQ(series.size(), 0);
-    EXPECT_TRUE(err.message().find("null type or data") != std::string::npos);
+    EXPECT_TRUE(err.message().find("null type") != std::string::npos);
+}
+
+TEST_F(TestReadTask, testNullVariantDataHandling) {
+    // Test that null data with valid type is properly handled
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant null_data_variant;
+    UA_Variant_init(&null_data_variant);
+    null_data_variant.type = &UA_TYPES[UA_TYPES_FLOAT];
+    null_data_variant.data = nullptr;
+
+    auto [written, err] = util::write_to_series(series, null_data_variant);
+
+    EXPECT_TRUE(err);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+    EXPECT_TRUE(err.message().find("null data") != std::string::npos);
 }
 
 TEST_F(TestReadTask, testZeroLengthArrayHandling) {
