@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <utility>
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"

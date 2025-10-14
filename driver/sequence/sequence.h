@@ -12,7 +12,6 @@
 /// std.
 #include <string>
 
-/// external.
 #include "nlohmann/json.hpp"
 
 extern "C" {
@@ -20,7 +19,6 @@ extern "C" {
 #include <lua.h>
 }
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xerrors/errors.h"
 

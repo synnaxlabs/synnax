@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 namespace fs {

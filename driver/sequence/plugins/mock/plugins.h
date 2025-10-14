@@ -9,13 +9,10 @@
 
 #pragma once
 
-/// std
 #include <vector>
 
-/// module
 #include "x/cpp/telem/control.h"
 
-/// internal
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 

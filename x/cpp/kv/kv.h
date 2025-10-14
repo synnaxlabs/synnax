@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;
-
 
 namespace kv {
 class KV {

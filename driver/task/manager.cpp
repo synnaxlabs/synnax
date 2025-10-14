@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <memory>
 #include <thread>
 #include <utility>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
-#include "driver/task/task.h"
-
-/// module
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
+
+#include "driver/task/task.h"
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";

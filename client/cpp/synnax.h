@@ -9,20 +9,15 @@
 
 #pragma once
 
-/// std
 #include <memory>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/transport.h"
-
-/// module
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xpath/xpath.h"

@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
 #include <unordered_map>
 
-/// external
 #include "open62541/types.h"
 
-/// internal
 #include "driver/opc/util/util.h"
 
 namespace util {

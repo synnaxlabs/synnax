@@ -35,20 +35,40 @@ NamespaceIndentation: None
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
 IncludeCategories:
-    - Regex: "^<.*"
+    # std - C++ standard library headers without extensions
+    - Regex: "^<[a-z_]+>$"
       Priority: 1
-    - Regex: '^".*'
+      SortPriority: 1
+    # external - System C headers (with .h extension)
+    - Regex: "^<[a-z_]+\\.h>$"
       Priority: 2
-    - Regex: ".*"
+      SortPriority: 2
+    # external - Other angle bracket includes
+    - Regex: "^<.*>$"
+      Priority: 2
+      SortPriority: 2
+    # external - Third-party libraries with quotes (from MODULE.bazel and vendor/)
+    - Regex: '^"(google|glog|gtest|gmock|grpc|gflags|nlohmann|lua|open62541|mbedtls|modbus)/'
+      Priority: 2
+      SortPriority: 2
+    # module - Synnax cross-component headers (x/cpp, client, freighter)
+    - Regex: '^"(x/cpp|client|freighter)/'
       Priority: 3
-IncludeIsMainRegex: "([-_](test|unittest))?$"
+      SortPriority: 3
+    # internal - Same-directory/module headers (includes protos)
+    - Regex: '^".*"$'
+      Priority: 4
+      SortPriority: 4
+IncludeIsMainRegex: "$^"
 IndentCaseLabels: true
 IndentWidth: 4
 InsertNewlineAtEOF: true
 MacroBlockBegin: ""
 MacroBlockEnd: ""
-MaxEmptyLinesToKeep: 2
+MaxEmptyLinesToKeep: 1
 SpaceAfterCStyleCast: true
 SpaceAfterTemplateKeyword: false
 SpaceBeforeRangeBasedForLoopColon: false

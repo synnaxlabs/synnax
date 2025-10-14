@@ -44,8 +44,8 @@ class CheckConnectionBasic(TestCase):
 
         # Stuff goes here
         wait_time = self.params.get("wait_time", 0)
-        self._log_message(f"Waiting for {wait_time} seconds")
-        self._log_message(f"Expected timeout: {self._timeout_limit} seconds")
+        self.log(f"Waiting for {wait_time} seconds")
+        self.log(f"Expected timeout: {self._timeout_limit} seconds")
         time.sleep(wait_time)
 
         # Or induce a failure

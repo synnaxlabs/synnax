@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <sstream>
 #include <vector>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"

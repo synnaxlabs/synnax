@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
 
-/// internal
 #include "client/cpp/framer/framer.h"
 
 const std::string STREAM_ENDPOINT = "/frame/stream";

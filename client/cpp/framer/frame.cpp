@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <memory>
 #include <vector>
 
-/// protos
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
-
-/// internal
 #include "client/cpp/framer/framer.h"
 #include "x/cpp/telem/series.h"
+
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace synnax {
 Frame::Frame(const size_t size):

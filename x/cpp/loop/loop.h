@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <chrono>
 #include <cmath>
 #include <thread>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 

@@ -9,14 +9,13 @@
 
 #pragma once
 
-/// std
 #include <memory>
 
-/// internal
-#include "driver/ni/daqmx/api.h"
-#include "driver/ni/daqmx/nidaqmx.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xlib/xlib.h"
+
+#include "driver/ni/daqmx/api.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 
 namespace daqmx {
 class ProdAPI final : public API {

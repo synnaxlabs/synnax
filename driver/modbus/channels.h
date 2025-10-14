@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 

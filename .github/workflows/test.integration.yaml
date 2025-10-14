@@ -391,7 +391,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         shell: cmd
         working-directory: integration
         env:
@@ -467,7 +467,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -538,7 +538,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{

@@ -9,17 +9,14 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
 #include <iomanip>
 #include <memory>
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
@@ -41,7 +38,7 @@ struct Config {
     /// @brief sets the rate at which the base_interval will scale on each
     /// successive call to wait(). We do not recommend setting this factor lower
     /// than 1.
-    float scale = 1.1;
+    float scale = 1.1f;
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
@@ -55,7 +52,6 @@ struct Config {
         };
     }
 };
-
 
 /// @brief implements a general purpose circuit breaker that allows for retry at a
 /// scaled interval, with a set number of maximum retries before giving up.
@@ -85,7 +81,7 @@ public:
                 "default",
                 telem::TimeSpan(1 * telem::SECOND),
                 10,
-                1.1,
+                1.1f,
                 telem::TimeSpan(1 * telem::MINUTE)
             }
         ) {}
@@ -124,7 +120,7 @@ public:
         }
         this->retries++;
         if (this->config.max_retries != -1 &&
-            this->retries > this->config.max_retries) {
+            this->retries > static_cast<size_t>(this->config.max_retries)) {
             LOG(ERROR) << "[" << this->config.name
                        << "] exceeded the maximum retry count of "
                        << this->config.max_retries << ". Exiting."
@@ -155,7 +151,6 @@ public:
             this->interval = this->config.max_interval;
         return true;
     }
-
 
     /// @brief waits for the given time duration. If the breaker stopped before the
     /// specified time, the method will return immediately to ensure graceful exit

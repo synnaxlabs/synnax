@@ -17,15 +17,11 @@
 #include <winsock2.h>
 #endif
 
+#include "nlohmann/json.hpp"
 
-/// module
 #include "x/cpp/xargs/xargs.h"
 #include "x/cpp/xlog/xlog.h"
 
-/// external
-#include "nlohmann/json.hpp"
-
-/// internal
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
@@ -207,7 +203,7 @@ class Rack {
         .name = "driver",
         .base_interval = telem::SECOND,
         .max_retries = 200,
-        .scale = 1.1,
+        .scale = 1.1f,
         .max_interval = telem::MINUTE,
     });
     xerrors::Error run_err = xerrors::NIL;

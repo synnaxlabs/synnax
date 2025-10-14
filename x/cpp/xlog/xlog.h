@@ -9,8 +9,9 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include <string>
+
+#include <glog/logging.h>
 
 namespace xlog {
 inline std::string get_color(const std::string &color) {

@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <functional>
 
-/// internal
 #include "x/cpp/telem/telem.h"
 
 namespace telem {

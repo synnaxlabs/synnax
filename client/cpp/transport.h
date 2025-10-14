@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"

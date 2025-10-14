@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <set>
 
-/// internal
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
@@ -240,14 +238,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        for (auto i = 0; i < holding_registers.size(); i++)
+        for (size_t i = 0; i < holding_registers.size(); i++)
             holding_registers[i].ch = synnax_channels[i];
-        for (auto i = 0; i < input_registers.size(); i++)
+        for (size_t i = 0; i < input_registers.size(); i++)
             input_registers[i].ch = synnax_channels[i + holding_registers.size()];
-        for (auto i = 0; i < coils.size(); i++)
+        for (size_t i = 0; i < coils.size(); i++)
             coils[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size()];
-        for (auto i = 0; i < discrete_inputs.size(); i++)
+        for (size_t i = 0; i < discrete_inputs.size(); i++)
             discrete_inputs[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size() + coils.size()];
 

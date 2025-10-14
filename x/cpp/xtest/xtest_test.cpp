@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <atomic>
-/// external
+
 #include "gtest/gtest.h"
 
-/// internal
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xtest/xtest.h"
 

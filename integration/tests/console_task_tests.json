@@ -1,0 +1,52 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "NI Form Input Verification 1",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/task/ni_analog_write_forms"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_a"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_b"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_c"
+        }
+      ]
+    },
+    {
+      "sequence_name": "NI Form Input Verification 2",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_d"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_e"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms",
+          "name": "ni_analog_read_forms_f"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Task Status Verification",
+      "tests": [
+        {
+          "case": "console/task/no_device"
+        }
+      ]
+    }
+  ]
+}

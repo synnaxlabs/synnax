@@ -12,7 +12,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Simple_Press(TestCase):
+class SimplePress(TestCase):
     """
     Test a basic press control sequence
     """
@@ -47,7 +47,8 @@ class Simple_Press(TestCase):
             write=[PRESS_VALVE, VENT_VALVE, END_TEST_CMD],
             read=[PRESSURE],
         ) as ctrl:
-            target_pressure = 20
+
+            target_pressure = 30
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False
 
@@ -62,12 +63,13 @@ class Simple_Press(TestCase):
                     (lambda c: c[PRESSURE] > target_pressure),
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
-                    self._log_message(
+                    self.log(
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
                     ctrl[PRESS_VALVE] = False
                     self.assert_states(press_state=0, vent_state=0)
-                    target_pressure += 20
+                    target_pressure += 30
+                    sy.sleep(1)  # Give "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
                     return

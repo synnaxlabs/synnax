@@ -88,6 +88,7 @@ class Value(Symbol):
 
     def get_properties(self) -> Dict[str, Any]:
         """Get the current properties of the symbol"""
+        console = self.console
         self._click_symbol()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
@@ -109,32 +110,23 @@ class Value(Symbol):
             props["channel"] = channel_display.inner_text().strip()
 
         # Precision
-        props["precision"] = int(self.console.get_input_field("Precision"))
+        props["precision"] = int(console.get_input_field("Precision"))
 
         # Averaging Window
-        props["averaging_window"] = int(
-            self.console.get_input_field("Averaging Window")
-        )
+        props["averaging_window"] = int(console.get_input_field("Averaging Window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.console.get_input_field("Stale Timeout"))
+        props["stale_timeout"] = int(console.get_input_field("Stale Timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
-        for option in notation_options:
-            try:
-                button = self.page.get_by_text(option).first
-                if button.count() > 0:
-                    class_name = button.get_attribute("class") or ""
-                    if "pluto-btn--filled" in class_name:
-                        props["notation"] = str(option).lower()
-                        break
-            except:
-                continue
+
+        notation = console.get_selected_button(notation_options)
+        props["notation"] = notation.lower()
 
         # Staleness Color - get hex value from color picker
-        self.console.click_btn("Color")
-        hex_value = self.console.get_input_field("Hex")
+        console.click_btn("Color")
+        hex_value = console.get_input_field("Hex")
         if hex_value:
             props["stale_color"] = (
                 f"#{hex_value}" if not hex_value.startswith("#") else hex_value

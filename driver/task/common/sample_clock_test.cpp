@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <random>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "driver/task/common/sample_clock.h"
 
 /// @brief it should correctly use the system clock to time samples.
@@ -266,7 +263,6 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
 
         const auto system_end = this->now_func();
         const auto end = clock.end();
-
 
         // Calculate timing error (difference between expected and actual period)
         if (i > 0) {

@@ -40,8 +40,8 @@ func NewOntologyService(p Provider) *OntologyService {
 type (
 	OntologyRetrieveRequest struct {
 		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
-		Children         bool            `json:"children" msgpack:"children"`
-		Parents          bool            `json:"parents" msgpack:"parents"`
+		Children         *bool           `json:"children" msgpack:"children"`
+		Parents          *bool           `json:"parents" msgpack:"parents"`
 		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
 		SearchTerm       string          `json:"search_term" msgpack:"search_term"`
@@ -68,10 +68,10 @@ func (o *OntologyService) Retrieve(
 	if len(req.IDs) > 0 {
 		q = q.WhereIDs(req.IDs...)
 	}
-	if req.Children {
+	if req.Children != nil && *req.Children {
 		q = q.TraverseTo(ontology.Children)
 	}
-	if req.Parents {
+	if req.Parents != nil && *req.Parents {
 		q = q.TraverseTo(ontology.Parents)
 	}
 	if len(req.Types) > 0 {

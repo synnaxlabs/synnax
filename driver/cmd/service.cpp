@@ -27,7 +27,6 @@ int exec_svc_cmd(
     return 0;
 }
 
-
 int cmd::sub::service_start(xargs::Parser &args) {
     return exec_svc_cmd(daemond::start_service, "start", "started");
 }

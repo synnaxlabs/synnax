@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <algorithm>
 #include <atomic>
 #include <memory>
@@ -31,19 +30,15 @@
 #include <unistd.h>
 #endif
 
-/// external
 #include "modbus/modbus.h"
 
-/// internal
-#include "driver/modbus/util/util.h"
-
-/// module
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
+#include "driver/modbus/util/util.h"
+
 /// glog
 #include "glog/logging.h"
-
 
 namespace modbus::mock {
 /// @brief Configuration for a mock Modbus slave

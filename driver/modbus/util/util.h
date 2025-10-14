@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 

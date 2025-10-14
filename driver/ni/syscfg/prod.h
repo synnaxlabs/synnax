@@ -9,10 +9,11 @@
 
 #pragma once
 
+#include "x/cpp/xlib/xlib.h"
+
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_wide.h"
-#include "x/cpp/xlib/xlib.h"
 
 namespace syscfg {
 class ProdAPI final : public API {
