@@ -4,7 +4,7 @@ title: "Modbus | Write Task"
 heading: "Modbus Write Task"
 description: "Write data to Modbus devices with write tasks."
 prev: "Read Task"
-prevURL: "/reference/device-drivers/modbus-tcp/read-task"
+prevURL: "/reference/device-drivers/modbus/read-task"
 ---
 
 import { Divider, Note, Icon } from "@synnaxlabs/pluto";
@@ -21,7 +21,7 @@ Synnax.
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to a Modbus device](/reference/device-drivers/modbus-tcp/connect-device).
+[connected to a Modbus device](/reference/device-drivers/modbus/connect-device).
 
 <Divider.Divider x />
 
@@ -72,7 +72,7 @@ In command mode (enabled when the first character in the input is ">"), type "Mo
 You'll see an option called "Create a Modbus Write Task". Select this option to open the
 write task configuration dialog.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/write-task/open" />
+<Video client:only="react" id="device-drivers/modbus/write-task/open" />
 
 <Divider.Divider x />
 
@@ -144,7 +144,7 @@ For write tasks, you can write to two types of Modbus registers:
 <Note.Note variant="info">
   Input Registers and Discrete Inputs are read-only register types and cannot be used in
   write tasks. To read from these registers, use a [read
-  task](/reference/device-drivers/modbus-tcp/read-task).
+  task](/reference/device-drivers/modbus/read-task).
 </Note.Note>
 
 <Divider.Divider x />
@@ -216,7 +216,7 @@ You can enable or disable individual channels using the toggle button to the rig
 each channel. This is useful for temporarily stopping command processing for specific
 channels without removing them from the task.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/write-task/channels" />
+<Video client:only="react" id="device-drivers/modbus/write-task/channels" />
 
 <Divider.Divider x />
 
@@ -241,7 +241,7 @@ To stop and start a task, you can open up the task toolbar on the left-hand side
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/write-task/start-stop" />
+<Video client:only="react" id="device-drivers/modbus/write-task/start-stop" />
 
 <Divider.Divider x />
 

@@ -4,9 +4,9 @@ title: "Modbus | Read Task"
 heading: "Modbus Read Task"
 description: "Read data from Modbus devices with read tasks."
 next: "Write Task"
-nextURL: "/reference/device-drivers/modbus-tcp/write-task"
+nextURL: "/reference/device-drivers/modbus/write-task"
 prev: "Connect Device"
-prevURL: "/reference/device-drivers/modbus-tcp/connect-device"
+prevURL: "/reference/device-drivers/modbus/connect-device"
 ---
 
 import { Divider, Note, Icon } from "@synnaxlabs/pluto";
@@ -24,7 +24,7 @@ in Synnax.
 ## Prerequisites
 
 Before configuring the task, you'll need to have
-[connected to a Modbus device](/reference/device-drivers/modbus-tcp/connect-device).
+[connected to a Modbus device](/reference/device-drivers/modbus/connect-device).
 
 <Divider.Divider x />
 
@@ -74,7 +74,7 @@ In command mode (enabled when the first character in the input is ">"), type "Mo
 You'll see an option called "Create a Modbus Read Task". Select this option to open the
 read task configuration dialog.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/read-task/open" />
+<Video client:only="react" id="device-drivers/modbus/read-task/open" />
 
 You can also open the dialog by clicking in the top-right corner of the window and
 selecting the add <Icon.Add /> icon, or opening the context menu on a Modbus device from
@@ -265,7 +265,7 @@ You can enable or disable individual channels using the toggle button to the rig
 each channel. This is useful for temporarily stopping data acquisition from specific
 channels without removing them from the task.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/read-task/channels" />
+<Video client:only="react" id="device-drivers/modbus/read-task/channels" />
 
 <Divider.Divider x />
 
@@ -286,4 +286,4 @@ To stop and start a task, you can open up the task toolbar on the left-hand side
 click play and pause. You can also click the play/pause icon in the bottom of the task
 configuration window.
 
-<Video client:only="react" id="device-drivers/modbus-tcp/read-task/start-stop" />
+<Video client:only="react" id="device-drivers/modbus/read-task/start-stop" />
