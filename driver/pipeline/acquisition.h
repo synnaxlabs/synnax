@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 
-/// internal
 #include "driver/pipeline/base.h"
 
 namespace pipeline {

@@ -9,22 +9,17 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <set>
 #include <utility>
 #include <vector>
 
-/// internal
 #include "client/cpp/channel/channel.h"
-
-/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-/// protos
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace synnax {
@@ -184,7 +179,6 @@ public:
     }
 };
 
-
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
     ZeroAlignments = 5,
@@ -280,7 +274,6 @@ public:
     [[nodiscard]] std::pair<Frame, xerrors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
-
 
 /// @brief configuration for opening a new streamer.
 class StreamerConfig {
@@ -564,7 +557,6 @@ private:
     friend class FrameClient;
 };
 
-
 class FrameClient {
 public:
     FrameClient(
@@ -606,6 +598,5 @@ private:
     /// cluster.
     ChannelClient channel_client;
 };
-
 
 }

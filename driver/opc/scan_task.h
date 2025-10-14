@@ -12,14 +12,17 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#include "nlohmann/json.hpp"
+#include "open62541/types.h"
+
 #include "client/cpp/synnax.h"
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/task/task.h"
-#include "nlohmann/json.hpp"
 #include "opc.h"
-#include "open62541/types.h"
-#include "x/cpp/xjson/xjson.h"
 
 using json = nlohmann::json;
 

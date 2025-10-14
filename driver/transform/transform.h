@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <functional>
 #include <map>
 #include <memory>
@@ -18,10 +17,8 @@
 #include <variant>
 #include <vector>
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"

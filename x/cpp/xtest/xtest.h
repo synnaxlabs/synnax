@@ -15,8 +15,8 @@
 #include <sstream>
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
+
 #include "x/cpp/xerrors/errors.h"
 
 /// @brief xtest is a testing utility package that extends Google Test with eventual

@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/scan_task.h"

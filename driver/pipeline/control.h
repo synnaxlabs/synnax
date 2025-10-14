@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <memory>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 
-/// internal
 #include "driver/pipeline/base.h"
 
 namespace pipeline {
@@ -86,7 +83,6 @@ public:
     virtual ~StreamerFactory() = default;
 };
 
-
 /// @brief an implementation of the pipeline::Streamer interface that is backed
 /// by a Synnax streamer that receives data from a cluster.
 class SynnaxStreamer final : public Streamer {
@@ -124,7 +120,6 @@ public:
     std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
     open_streamer(synnax::StreamerConfig config) override;
 };
-
 
 /// @brief A pipeline that reads incoming data over the network and writes to a
 /// sink. The pipeline should be used as a utility for implementing a broader

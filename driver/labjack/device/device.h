@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <map>
 #include <mutex>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"
@@ -284,7 +281,6 @@ public:
             )
         );
     }
-
 
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const std::string &serial_number) {

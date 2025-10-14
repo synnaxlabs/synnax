@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <condition_variable>
 #include <mutex>
 

@@ -13,6 +13,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+
 #include "driver/labjack/device/device.h"
 
 namespace device {

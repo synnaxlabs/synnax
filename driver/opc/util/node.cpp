@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <iomanip>
 #include <regex>
 #include <sstream>
 
-/// module
-#include "x/cpp/xjson/xjson.h"
-
-/// external
 #include "open62541/types.h"
 
-/// internal
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/util/util.h"
 
 namespace util {
@@ -45,7 +41,6 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
         guid.data4[i] = static_cast<UA_Byte>(data4[i]);
     return guid;
 }
-
 
 ///@brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
@@ -82,28 +77,27 @@ std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_st
             xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
         };
 
-    int nsIndex = std::stoi(matches[1].str());
+    auto ns_index = static_cast<UA_UInt16>(std::stoi(matches[1].str()));
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
     UA_NodeId node_id = UA_NODEID_NULL;
     if (type == "I")
-        node_id = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
+        node_id = UA_NODEID_NUMERIC(ns_index, std::stoul(identifier));
     else if (type == "S")
-        node_id = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
+        node_id = UA_NODEID_STRING_ALLOC(ns_index, identifier.c_str());
     else if (type == "G")
-        node_id = UA_NODEID_GUID(nsIndex, string_to_guid(identifier));
+        node_id = UA_NODEID_GUID(ns_index, string_to_guid(identifier));
     else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        node_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
+        node_id = UA_NODEID_BYTESTRING(ns_index, reinterpret_cast<char *>(data));
         UA_free(data);
     }
     return {node_id, xerrors::NIL};
 }
-
 
 std::string node_id_to_string(const UA_NodeId &node_id) {
     std::ostringstream node_id_str;

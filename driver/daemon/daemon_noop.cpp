@@ -9,9 +9,9 @@
 
 /// @brief noop implementation of daemon functions that do nothing on macOS and Windows.
 
-/// internal
-#include "driver/daemon/daemon.h"
 #include "x/cpp/xos/xos.h"
+
+#include "driver/daemon/daemon.h"
 
 namespace daemond {
 void run(const Config &config, const int argc, char *argv[]) {

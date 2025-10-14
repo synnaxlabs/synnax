@@ -9,20 +9,16 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// external
-#include "ljm/LJM_Utilities.h"
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/scan_task.h"
+#include "ljm/LJM_Utilities.h"
 
 namespace labjack {
 /// @brief the default rate for scanning devices
@@ -46,7 +42,6 @@ struct ScanTaskConfig {
         enabled(cfg.optional<bool>("enabled", true)),
         tcp_scan_multiplier(cfg.optional<int>("tcp_scan_multiplier", 10)) {}
 };
-
 
 class Scanner final : public common::Scanner {
     /// @brief the raw synnax task configuration

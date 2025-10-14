@@ -9,16 +9,14 @@
 
 #pragma once
 
-/// internal
-#include "driver/pipeline/acquisition.h"
-#include "driver/task/task.h"
-
-/// module
 #include "client/cpp/synnax.h"
-#include "driver/task/common/factory.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
+
+#include "driver/pipeline/acquisition.h"
+#include "driver/task/common/factory.h"
+#include "driver/task/task.h"
 
 namespace rack::status {
 const std::string INTEGRATION_NAME = "rack_status";
@@ -107,7 +105,7 @@ public:
             .name = TASK_NAME,
             .base_interval = 1 * telem::SECOND,
             .max_retries = breaker::RETRY_INFINITELY,
-            .scale = 1.05,
+            .scale = 1.05f,
             .max_interval = 5 * telem::SECOND,
         };
         return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);

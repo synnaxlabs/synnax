@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xos/xos.h"
 
-/// internal
 #include "driver/labjack/ljm/LabJackM.h"
 
 namespace ljm {
@@ -116,7 +114,6 @@ public:
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamStart"))
         );
     }
-
 
     static std::pair<std::shared_ptr<API>, xerrors::Error> load() {
         auto lib = std::make_unique<xlib::SharedLib>(LJM_LIBRARY_NAME);

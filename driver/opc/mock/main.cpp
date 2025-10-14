@@ -11,6 +11,7 @@
 #include <csignal>
 #include <iostream>
 #include <thread>
+
 #include "driver/opc/mock/server.h"
 
 std::atomic<bool> running(true);

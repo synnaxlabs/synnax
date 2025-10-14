@@ -9,18 +9,15 @@
 
 #pragma once
 
-/// std
 #include <future>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include <utility>
 
-/// external
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
@@ -278,7 +275,6 @@ private:
         synnax::Channel task_delete;
         synnax::Channel task_cmd;
     } channels;
-
 
     [[nodiscard]] bool skip_foreign_rack(const synnax::TaskKey &task_key) const;
 

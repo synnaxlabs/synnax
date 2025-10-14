@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// internal
-#include "client/cpp/hardware/hardware.h"
-
-/// module
 #include "client/cpp/errors/errors.h"
+#include "client/cpp/hardware/hardware.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace synnax {
@@ -25,7 +22,6 @@ void Rack::to_proto(api::v1::Rack *rack) const {
     rack->set_key(key);
     rack->set_name(name);
 }
-
 
 const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
@@ -81,7 +77,6 @@ HardwareClient::retrieve_rack(const std::string &name) const {
     );
     return {rack, err};
 }
-
 
 xerrors::Error HardwareClient::create_rack(Rack &rack) const {
     auto req = api::v1::HardwareCreateRackRequest();
@@ -220,7 +215,6 @@ TaskClient::retrieve(const std::vector<std::string> &names) const {
     return {tasks, err};
 }
 
-
 std::pair<Task, xerrors::Error>
 TaskClient::retrieve_by_type(const std::string &type) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
@@ -246,7 +240,6 @@ TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
-
 
 xerrors::Error TaskClient::create(Task &task) const {
     auto req = api::v1::HardwareCreateTaskRequest();

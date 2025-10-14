@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/telem/clock_skew.h"
 #include "gtest/gtest.h"
+
+#include "x/cpp/telem/clock_skew.h"
 
 namespace {
 // A mock global time variable to simulate custom time behavior.

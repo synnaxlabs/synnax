@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// internal
-#include "driver/rack/rack.h"
-
-/// module
 #include "x/cpp/xos/xos.h"
 #include "x/cpp/xpath/xpath.h"
+
+#include "driver/rack/rack.h"
 
 xerrors::Error
 rack::Config::load_config_file(xargs::Parser &args, breaker::Breaker &breaker) {

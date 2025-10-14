@@ -9,13 +9,11 @@
 
 #pragma once
 
-/// std
 #include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
 
-/// protos
 #include "x/go/errors/x/go/errors/errors.pb.h"
 
 namespace xerrors {

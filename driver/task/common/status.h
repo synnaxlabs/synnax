@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "driver/task/common/common.h"
 #include "driver/task/task.h"
 

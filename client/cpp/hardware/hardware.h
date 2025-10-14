@@ -9,21 +9,17 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <utility>
 #include <vector>
 
-/// external
 #include "google/protobuf/empty.pb.h"
 
-/// module
 #include "freighter/cpp/freighter.h"
-
-/// protos
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.
@@ -618,6 +614,5 @@ private:
     /// @brief Device deletion transport.
     std::shared_ptr<HardwareDeleteDeviceClient> device_delete_client;
 };
-
 
 }

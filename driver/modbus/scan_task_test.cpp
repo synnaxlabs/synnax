@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
-#include "driver/modbus/scan_task.h"
+#include "x/cpp/xtest/xtest.h"
 
 #include "driver/modbus/mock/slave.h"
-#include "x/cpp/xtest/xtest.h"
+#include "driver/modbus/scan_task.h"
 
 TEST(ScanTask, testConnection) {
     auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
