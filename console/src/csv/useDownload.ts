@@ -13,10 +13,11 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { TimeRange, unique } from "@synnaxlabs/x";
+import { runtime, TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
+import { convertFrameGroups, type CSVGroup, sanitizeValue } from "@/csv/util";
 import { Runtime } from "@/runtime";
 
 export interface DownloadArgs {
@@ -74,31 +75,53 @@ const download = async ({
     channelGroups.set(key, new Set([key]));
   });
   channels.forEach(({ key, index }) => {
-    channelGroups.get(index)?.add(key);
+    const channelGroup = channelGroups.get(index);
+    if (channelGroup == null) throw new Error(`Index channel ${index} not found`);
+    channelGroup.add(key);
   });
-  const columns = new Map<channel.Key, string>();
-  indexChannels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
-  channels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
-  const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
-  const allKeys = unique.unique([...keys, ...indexes]);
-  let percentDownloaded = 20;
-  const totalFrames = simplifiedTimeRanges.length;
-  const delta = totalFrames > 0 ? 60 / totalFrames : 0;
-  const frames = await Promise.all(
-    simplifiedTimeRanges.map(async (tr) => {
-      const frame = await client.read(tr, allKeys);
-      console.log(frame);
-      percentDownloaded += delta;
-      if (percentDownloaded >= 80) percentDownloaded = 80;
-      onPercentDownloadedChange?.(percentDownloaded);
-      return frame;
-    }),
+  const keysToColumnHeaders = new Map<channel.Key, string>();
+  indexChannels.forEach(({ key, name }) =>
+    keysToColumnHeaders.set(key, keysToNames[key] ?? name),
   );
-  const frame = frames.reduce((acc, curr) => {
-    acc.push(curr);
-    return acc;
-  });
-  const csv = frame.toCSV(columns);
+  channels.forEach(({ key, name }) =>
+    keysToColumnHeaders.set(key, keysToNames[key] ?? name),
+  );
+
+  const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
+  // turn the channel groups into arrays
+  const channelGroupsAsArrays: Map<channel.Key, channel.Keys> = new Map(
+    Array.from(channelGroups.entries()).map(([key, group]) => [key, Array.from(group)]),
+  );
+
+  let headerWritten = false;
+  let csv = "";
+  const newlineSeparator = runtime.getOS() === "Windows" ? "\r\n" : "\n";
+
+  const intervalCount = simplifiedTimeRanges.length * channelGroupsAsArrays.size;
+  let percentDownloaded = 20;
+  const delta = intervalCount > 0 ? 70 / intervalCount : 0;
+
+  for (const tr of simplifiedTimeRanges) {
+    const csvGroups: CSVGroup[] = [];
+    for (const [index, keys] of channelGroupsAsArrays) {
+      const frame = await client.read(tr, keys);
+      csvGroups.push({ index, frame });
+      percentDownloaded += delta;
+      if (percentDownloaded >= 90) percentDownloaded = 90;
+      onPercentDownloadedChange?.(percentDownloaded);
+    }
+    if (!headerWritten) {
+      const headers: string[] = [];
+      for (const { frame } of csvGroups)
+        for (const key of frame.uniqueKeys) {
+          const header = keysToColumnHeaders.get(key) ?? key.toString();
+          headers.push(sanitizeValue(header));
+        }
+      csv += `${headers.join(",")}${newlineSeparator}`;
+      headerWritten = true;
+    }
+    csv += convertFrameGroups(csvGroups, newlineSeparator);
+  }
   const data = new TextEncoder().encode(csv);
   if (savePath == null) Runtime.downloadFromBrowser(csv, "text/csv", `${fileName}.csv`);
   else {

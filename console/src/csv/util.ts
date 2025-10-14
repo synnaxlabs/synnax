@@ -64,48 +64,26 @@ export const convertFrameGroups = (
     bodyEntries.push({
       indexKey: index,
       records,
-      emptyCommaCount: frame.uniqueColumns.length - 1,
+      columnCount: frame.uniqueColumns.length,
     });
   });
 
-  // step4: now that we have all of the index series and records, we can construct the
-  // csv. This is done by looking at the body entries and appending the records for each
-  // one.
-  bodyEntries.sort((a, b) =>
-    Number(a.records[0].time.valueOf() - b.records[0].time.valueOf()),
-  );
-
-  const emptyCommaCounts: number[] = bodyEntries.map((entry) => entry.emptyCommaCount);
+  const columnCounts: number[] = bodyEntries.map((entry) => entry.columnCount);
   const parsedBodyEntries: BodyEntryParsedInfo[] = bodyEntries.map((entry, i) => ({
-    beforeEmptyCommaCount: emptyCommaCounts
-      .slice(0, i)
-      .reduce((acc, curr) => acc + curr, 0),
-    afterEmptyCommaCount: emptyCommaCounts
-      .slice(i + 1)
-      .reduce((acc, curr) => acc + curr, 0),
+    beforeCommaCount: columnCounts.slice(0, i).reduce((acc, curr) => acc + curr, 0),
+    afterCommaCount: columnCounts.slice(i + 1).reduce((acc, curr) => acc + curr, 0),
     records: entry.records,
   }));
 
   const rows: string[] = [];
-  let i = 0;
-  console.log("about to enter while loop");
-  console.log(parsedBodyEntries);
   while (true) {
     const currentEntry = parsedBodyEntries.shift();
     if (currentEntry == null) break;
-    const { beforeEmptyCommaCount, afterEmptyCommaCount, records } = currentEntry;
-    console.log(
-      i,
-      currentEntry.records[0].time.valueOf(),
-      beforeEmptyCommaCount,
-      afterEmptyCommaCount,
-    );
-    i++;
+    const { beforeCommaCount, afterCommaCount, records } = currentEntry;
     const currentRecord = records.shift();
     if (currentRecord == null) throw new UnexpectedError("No records left");
     const string = currentRecord.records;
-    const row =
-      ",".repeat(beforeEmptyCommaCount) + string + ",".repeat(afterEmptyCommaCount);
+    const row = ",".repeat(beforeCommaCount) + string + ",".repeat(afterCommaCount);
     rows.push(row);
     if (records.length === 0) continue;
     // insert the record into the correct place in the array based off of the
@@ -125,7 +103,7 @@ export const convertFrameGroups = (
   return rows.join(newline) + newline;
 };
 
-const sanitizeValue = (value: string): string => {
+export const sanitizeValue = (value: string): string => {
   if (!/[",\n]/.test(value)) return value;
   // If value contains a comma, quote, or newline, wrap in double quotes and escape
   // existing double quotes.
@@ -141,11 +119,11 @@ type SeveralValueEntryInfo = {
 type BodyEntryInfo = {
   indexKey: channel.KeyOrName;
   records: SeveralValueEntryInfo[];
-  emptyCommaCount: number;
+  columnCount: number;
 };
 
 type BodyEntryParsedInfo = {
-  beforeEmptyCommaCount: number;
-  afterEmptyCommaCount: number;
+  beforeCommaCount: number;
+  afterCommaCount: number;
   records: SeveralValueEntryInfo[];
 };
