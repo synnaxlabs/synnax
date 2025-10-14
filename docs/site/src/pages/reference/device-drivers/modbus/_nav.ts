@@ -14,6 +14,11 @@ export const MODBUS_NAV: PageNavNode = {
   name: "Modbus",
   children: [
     {
+      key: "/reference/device-drivers/modbus/get-started",
+      href: "/reference/device-drivers/modbus/get-started",
+      name: "Get Started",
+    },
+    {
       key: "/reference/device-drivers/modbus/connect-server",
       href: "/reference/device-drivers/modbus/connect-server",
       name: "Connect to a Server",

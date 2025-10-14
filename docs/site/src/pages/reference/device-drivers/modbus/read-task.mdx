@@ -35,8 +35,8 @@ defines a background process that reads data from your server at a specified sam
 rate.
 
 A Modbus Read Task can be started, stopped, and re-configured at any time. Synnax
-permanently stores the configuration of the task, so it's easy to set up multiple
-tasks for different purposes.
+permanently stores the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -48,8 +48,7 @@ All channels in a read task are sampled at the same rate. If you'd like to sampl
 different channels at different rates, create a separate task to do so.
 
 Synnax uses software timing to read from your Modbus server, and typically delivers
-precision on the order of 100 μs. Under heavy load, this timing precision may
-degrade.
+precision on the order of 100 μs. Under heavy load, this timing precision may degrade.
 
 For low rate (&lt;50 Hz) tasks, we recommend setting the stream rate to the same value
 as the sample rate. For higher rate tasks, lowering the stream rate can significantly
@@ -76,8 +75,8 @@ read task configuration dialog.
 <Video client:only="react" id="device-drivers/modbus/read-task/open" />
 
 You can also open the dialog by clicking in the top-right corner of the window and
-selecting the add icon (<Icon.Add />), or opening the context menu on a Modbus server from
-the resources toolbar.
+selecting the add icon (<Icon.Add />), or opening the context menu on a Modbus server
+from the resources toolbar.
 
 <Divider.Divider x />
 
@@ -241,9 +240,9 @@ Coils and Discrete Inputs are always boolean values and do not require a data ty
 specification.
 
 <Note.Note variant="info">
-  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and word
-  ordering matches your server's configuration. Use the "Swap Bytes" and "Swap Words"
-  settings in the device connection configuration if needed.
+  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and
+  word ordering matches your server's configuration. Use the "Swap Bytes" and "Swap
+  Words" settings in the device connection configuration if needed.
 </Note.Note>
 
 <Divider.Divider x />

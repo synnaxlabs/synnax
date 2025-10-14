@@ -28,12 +28,12 @@ Before configuring the task, you'll need to have
 
 Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
 for both control and data acquisition purposes. A Modbus Write Task defines a background
-process that writes data to Holding Registers or Coils on the Modbus server based on values
-written to Synnax [command channels](#how-commands-work-in-synnax).
+process that writes data to Holding Registers or Coils on the Modbus server based on
+values written to Synnax [command channels](#how-commands-work-in-synnax).
 
 A Modbus Write Task can be started, stopped, and re-configured at any time. Synnax
-permanently stores the configuration of the task, so it's easy to set up multiple
-tasks for different purposes.
+permanently stores the configuration of the task, so it's easy to set up multiple tasks
+for different purposes.
 
 <Divider.Divider x />
 
@@ -193,9 +193,9 @@ supports the following data types:
 Coil Outputs are always boolean values and do not require a data type specification.
 
 <Note.Note variant="info">
-  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and word
-  ordering matches your server's configuration. Use the "Swap Bytes" and "Swap Words"
-  settings in the device connection configuration if needed.
+  For multi-register data types (`int32`, `uint32`, `float32`), make sure the byte and
+  word ordering matches your server's configuration. Use the "Swap Bytes" and "Swap
+  Words" settings in the device connection configuration if needed.
 </Note.Note>
 
 <Divider.Divider x />
@@ -207,8 +207,8 @@ dialog. For each channel, you'll need to specify:
 
 1. **Register Type** - Select from Coil Output or Holding Register Output
 2. **Address** - The Modbus register address (e.g., 0, 100, 40001)
-3. **Data Type** - For Holding Registers, select the data type (`int16`, `uint16`, `int32`,
-   `uint32`, `float32`)
+3. **Data Type** - For Holding Registers, select the data type (`int16`, `uint16`,
+   `int32`, `uint32`, `float32`)
 4. **Channel Name** - A descriptive name for the command channel
 
 You can enable or disable individual channels using the toggle button to the right of
