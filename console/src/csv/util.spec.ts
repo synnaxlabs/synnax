@@ -10,7 +10,7 @@
 import { DataType, Frame, Series } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { convertFrameGroups, type CSVGroup, sanitizeValue } from "@/csv/util";
+import { convertFrameGroups, type FrameGroup, sanitizeValue } from "@/csv/util";
 
 describe("csv.util", () => {
   describe("convertFrameGroups", () => {
@@ -18,7 +18,7 @@ describe("csv.util", () => {
       it("should correctly convert a frame with multiple channels", () => {
         const s1 = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
         const s2 = new Series({ dataType: DataType.FLOAT32, data: [10, 20, 30] });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 12, frame: new Frame({ 12: s1, 13: s2 }) },
         ];
         expect(convertFrameGroups(groups)).toEqual(`1,10
@@ -29,7 +29,7 @@ describe("csv.util", () => {
       it("should convert a frame with a single channel", () => {
         const series = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
         const frame = new Frame(12, series);
-        const groups: CSVGroup[] = [{ index: 12, frame }];
+        const groups: FrameGroup[] = [{ index: 12, frame }];
         expect(convertFrameGroups(groups)).toEqual(`1
 2
 3
@@ -38,7 +38,7 @@ describe("csv.util", () => {
       it("should correctly convert multiple frames with multiple channels that are not aligned", () => {
         const s1 = new Series({ dataType: DataType.TIMESTAMP, data: [10, 20, 30] });
         const s2 = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 13, frame: new Frame({ 13: s1 }) },
           { index: 12, frame: new Frame({ 12: s2 }) },
         ];
@@ -57,7 +57,7 @@ describe("csv.util", () => {
         const g2s2 = new Series({ dataType: DataType.FLOAT32, data: [20, 21, 22] });
         const g3s1 = new Series({ dataType: DataType.TIMESTAMP, data: [3, 5, 7] });
         const g3s2 = new Series({ dataType: DataType.FLOAT32, data: [30, 31, 32] });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 1, frame: new Frame({ 1: g1s1, 2: g1s2 }) },
           { index: 3, frame: new Frame({ 3: g2s1, 4: g2s2 }) },
           { index: 5, frame: new Frame({ 5: g3s1, 6: g3s2 }) },
@@ -75,7 +75,9 @@ describe("csv.util", () => {
       });
       it("should correctly work with empty series", () => {
         const emptySeries = new Series({ dataType: DataType.TIMESTAMP });
-        const groups: CSVGroup[] = [{ index: 1, frame: new Frame({ 1: emptySeries }) }];
+        const groups: FrameGroup[] = [
+          { index: 1, frame: new Frame({ 1: emptySeries }) },
+        ];
         expect(convertFrameGroups(groups)).toEqual("");
       });
       it("should correctly work with empty series and filled series", () => {
@@ -84,7 +86,7 @@ describe("csv.util", () => {
           dataType: DataType.TIMESTAMP,
           data: [1, 2, 3],
         });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 1, frame: new Frame({ 1: emptySeries }) },
           {
             index: 2,
@@ -99,7 +101,7 @@ describe("csv.util", () => {
       it("should switch line endings if specified", () => {
         const s = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
         const frame = new Frame({ 1: s });
-        const groups: CSVGroup[] = [{ index: 1, frame }];
+        const groups: FrameGroup[] = [{ index: 1, frame }];
         expect(convertFrameGroups(groups, "\r\n")).toEqual("1\r\n2\r\n3\r\n");
         expect(convertFrameGroups(groups, "\n")).toEqual("1\n2\n3\n");
       });
@@ -108,7 +110,7 @@ describe("csv.util", () => {
         const g1s2 = new Series({ dataType: DataType.FLOAT32, data: [100, 200, 300] });
         const g2s1 = new Series({ dataType: DataType.TIMESTAMP, data: [2, 3, 4] });
         const g2s2 = new Series({ dataType: DataType.FLOAT32, data: [10, 20, 30] });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 1, frame: new Frame({ 1: g1s1, 2: g1s2 }) },
           { index: 3, frame: new Frame({ 3: g2s1, 4: g2s2 }) },
         ];
@@ -123,7 +125,7 @@ describe("csv.util", () => {
     describe("invalid", () => {
       it("should throw an error if the groups have repeated keys", () => {
         const s = new Series({ dataType: DataType.TIMESTAMP });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 12, frame: new Frame({ 12: s }) },
           { index: 13, frame: new Frame({ 12: s, 13: s }) },
         ];
@@ -133,14 +135,14 @@ describe("csv.util", () => {
       });
       it("should throw an error if the specified index is not found", () => {
         const s = new Series({ dataType: DataType.TIMESTAMP });
-        const groups: CSVGroup[] = [{ index: 13, frame: new Frame({ 12: s }) }];
+        const groups: FrameGroup[] = [{ index: 13, frame: new Frame({ 12: s }) }];
         expect(() => convertFrameGroups(groups)).toThrow(
           "Index channel 13 is not of type timestamp",
         );
       });
       it("should throw an error if the index series is not a timestamp", () => {
         const s = new Series({ dataType: DataType.FLOAT32 });
-        const groups: CSVGroup[] = [{ index: 12, frame: new Frame(12, s) }];
+        const groups: FrameGroup[] = [{ index: 12, frame: new Frame(12, s) }];
         expect(() => convertFrameGroups(groups)).toThrow(
           "Index channel 12 is not of type timestamp",
         );
@@ -149,7 +151,7 @@ describe("csv.util", () => {
         const s = new Series({ dataType: DataType.TIMESTAMP });
         const frame = new Frame({ 12: s });
         frame.push(12, s);
-        const groups: CSVGroup[] = [{ index: 12, frame }];
+        const groups: FrameGroup[] = [{ index: 12, frame }];
         expect(() => convertFrameGroups(groups)).toThrow(
           "Frame with index channel 12 is not vertical",
         );
@@ -157,7 +159,7 @@ describe("csv.util", () => {
       it("should throw an error if a series is not the same length as the index series", () => {
         const s1 = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
         const s2 = new Series({ dataType: DataType.FLOAT32, data: [1, 2, 3, 4] });
-        const groups: CSVGroup[] = [
+        const groups: FrameGroup[] = [
           { index: 12, frame: new Frame({ 12: s1, 13: s2 }) },
         ];
         expect(() => convertFrameGroups(groups)).toThrow(

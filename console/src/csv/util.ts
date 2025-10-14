@@ -8,27 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type Frame, UnexpectedError } from "@synnaxlabs/client";
-import { DataType, type MultiSeries, type TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType } from "@synnaxlabs/x/telem";
 
-export type CSVGroup = { index: channel.Key; frame: Frame };
+export interface FrameGroup {
+  frame: Frame;
+  index: channel.Key;
+}
+
+export type Newline = "\r\n" | "\n";
 
 export const convertFrameGroups = (
-  // use maps instead of objects to avoid the key being converted to a string
-  groups: CSVGroup[],
-  newline: "\r\n" | "\n" = "\n",
+  frameGroups: FrameGroup[],
+  newline: Newline = "\n",
 ): string => {
-  // step1: validate that keys are not repeated between frames.
+  // validate that keys are not repeated between frames.
   const keySet = new Set<channel.Key>();
-  for (const { frame } of groups)
+  for (const { frame } of frameGroups)
     for (const key of frame.uniqueKeys) {
       if (keySet.has(key))
         throw new Error(`Channel ${key} is repeated between multiple frames`);
       keySet.add(key);
     }
 
-  // step2: validate that all frames have an index key corresponding to a timestamp and
-  // the right length for each series.
-  for (const { index, frame } of groups) {
+  // validate that all frames have an index key corresponding to a timestamp and the
+  // right length for each series.
+  for (const { index, frame } of frameGroups) {
     const indexSeries = frame.get(index);
     if (!indexSeries.dataType.equals(DataType.TIMESTAMP))
       throw new Error(`Index channel ${index} is not of type timestamp`);
@@ -42,70 +46,70 @@ export const convertFrameGroups = (
         );
     });
   }
-  // step3: For each group, iterate through the index series
-  const bodyEntries: BodyEntryInfo[] = [];
-  groups.forEach(({ index, frame }) => {
-    const records: SeveralValueEntryInfo[] = [];
-    const indexSeries = frame.get(index) as MultiSeries<TimeStamp>;
+
+  // For each group, iterate through the index series
+  const rawBodyEntries: RawBodyEntryInfo[] = [];
+  frameGroups.forEach(({ frame, index }) => {
+    const records: RecordInfo[] = [];
+    const indexSeries = frame.get(index).as("bigint");
     for (let i = 0; i < indexSeries.length; i++) {
       const time = indexSeries.at(i, true);
       const entries: string[] = [];
-      frame.uniqueColumns.forEach((col) => {
-        const value = frame.get(col).at(i, true);
+      frame.uniqueKeys.forEach((key) => {
+        const value = frame.get(key).at(i, true);
         entries.push(sanitizeValue(value.toString()));
       });
       records.push({ time, records: entries.join(",") });
     }
-    bodyEntries.push({
+    rawBodyEntries.push({
       indexKey: index,
       records,
       columnCount: frame.uniqueColumns.length,
     });
   });
 
-  const columnCounts: number[] = bodyEntries.map((entry) => entry.columnCount);
-  const parsedBodyEntries: ParsedBodyEntryInfo[] = bodyEntries.map((entry, i) => ({
-    beforeCommaCount: columnCounts.slice(0, i).reduce((acc, curr) => acc + curr, 0),
-    columnCount: columnCounts[i],
-    afterCommaCount: columnCounts.slice(i + 1).reduce((acc, curr) => acc + curr, 0),
-    records: entry.records,
-  }));
+  const columnCounts: number[] = rawBodyEntries.map(({ columnCount }) => columnCount);
+  const bodyEntries: ParsedBodyEntryInfo[] = rawBodyEntries.flatMap((entry, i) => {
+    if (entry.records.length === 0) return [];
+    return {
+      beforeColumnCount: columnCounts.slice(0, i).reduce((acc, curr) => acc + curr, 0),
+      columnCount: columnCounts[i],
+      afterColumnCount: columnCounts.slice(i + 1).reduce((acc, curr) => acc + curr, 0),
+      records: entry.records,
+    };
+  });
 
-  const filteredParsedBodyEntries = parsedBodyEntries.filter(
-    (entry) => entry.records.length > 0,
-  );
-
-  filteredParsedBodyEntries.sort((a, b) =>
+  bodyEntries.sort((a, b) =>
     Number(a.records[0].time.valueOf() - b.records[0].time.valueOf()),
   );
 
   const rows: string[] = [];
   while (true) {
     const currentEntries: ParsedBodyEntryInfo[] = [];
-    const currentEntry = filteredParsedBodyEntries.shift();
+    const currentEntry = bodyEntries.shift();
     if (currentEntry == null) break;
     currentEntries.push(currentEntry);
     while (true) {
-      const nextEntry = filteredParsedBodyEntries[0];
+      const nextEntry = bodyEntries[0];
       if (nextEntry == null) break;
       if (nextEntry.records[0].time !== currentEntry.records[0].time) break;
       currentEntries.push(nextEntry);
-      filteredParsedBodyEntries.shift();
+      bodyEntries.shift();
     }
 
-    currentEntries.sort((a, b) => a.beforeCommaCount - b.beforeCommaCount);
-    let row = ",".repeat(currentEntries[0].beforeCommaCount);
+    currentEntries.sort((a, b) => a.beforeColumnCount - b.beforeColumnCount);
+    let row = ",".repeat(currentEntries[0].beforeColumnCount);
     currentEntries.forEach((entry, i) => {
       const record = entry.records.shift();
       if (record == null) throw new UnexpectedError("No records left");
       row += record.records;
       const nextEntry = currentEntries.at(i + 1);
       if (nextEntry == null) {
-        row += ",".repeat(entry.afterCommaCount);
+        row += ",".repeat(entry.afterColumnCount);
         return;
       }
       row += ",".repeat(
-        nextEntry.beforeCommaCount - (entry.columnCount - 1 + entry.beforeCommaCount),
+        nextEntry.beforeColumnCount - (entry.columnCount - 1 + entry.beforeColumnCount),
       );
     });
     rows.push(row);
@@ -116,18 +120,15 @@ export const convertFrameGroups = (
       if (entry.records.length === 0) continue;
       const nextTime = entry.records[0].time;
       let left = 0;
-      let right = filteredParsedBodyEntries.length;
+      let right = bodyEntries.length;
       while (left < right) {
         const mid = Math.floor((left + right) / 2);
-        if (
-          filteredParsedBodyEntries[mid].records[0].time.valueOf() > nextTime.valueOf()
-        )
+        if (bodyEntries[mid].records[0].time.valueOf() > nextTime.valueOf())
           right = mid;
         else left = mid + 1;
       }
-      if (left === filteredParsedBodyEntries.length)
-        filteredParsedBodyEntries.push(entry);
-      else filteredParsedBodyEntries.splice(left, 0, entry);
+      if (left === bodyEntries.length) bodyEntries.push(entry);
+      else bodyEntries.splice(left, 0, entry);
     }
   }
   if (rows.length === 0) return "";
@@ -150,20 +151,20 @@ export const sanitizeValue = (value: string): string => {
   return `"${escaped}"`;
 };
 
-type SeveralValueEntryInfo = {
-  time: TimeStamp;
+interface RecordInfo {
   records: string;
-};
+  time: bigint;
+}
 
-type BodyEntryInfo = {
-  indexKey: channel.KeyOrName;
-  records: SeveralValueEntryInfo[];
+interface RawBodyEntryInfo {
+  indexKey: channel.Key;
+  records: RecordInfo[];
   columnCount: number;
-};
+}
 
-type ParsedBodyEntryInfo = {
-  beforeCommaCount: number;
+interface ParsedBodyEntryInfo {
+  beforeColumnCount: number;
   columnCount: number;
-  afterCommaCount: number;
-  records: SeveralValueEntryInfo[];
-};
+  afterColumnCount: number;
+  records: RecordInfo[];
+}

@@ -12,13 +12,14 @@ import {
   DisconnectedError,
   type Frame,
   type Synnax as Client,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { runtime, TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
-import { convertFrameGroups, type CSVGroup, sanitizeValue } from "@/csv/util";
+import { convertFrameGroups, type FrameGroup, sanitizeValue } from "@/csv/util";
 import { Runtime } from "@/runtime";
 
 export interface DownloadArgs {
@@ -71,58 +72,53 @@ const download = async ({
   const indexes = unique.unique(channels.map(({ index }) => index));
   const indexChannels = await client.channels.retrieve(indexes);
   onPercentDownloadedChange?.(20);
-  const channelGroups = new Map<channel.Key, Set<channel.Key>>();
+  const channelGroups = new Map<channel.Key, channel.Keys>();
   indexChannels.forEach(({ key }) => {
-    channelGroups.set(key, new Set([key]));
+    channelGroups.set(key, [key]);
   });
   channels.forEach(({ key, index }) => {
     const channelGroup = channelGroups.get(index);
-    if (channelGroup == null) throw new Error(`Index channel ${index} not found`);
-    channelGroup.add(key);
+    if (channelGroup == null)
+      throw new UnexpectedError(`Index channel ${index} not found`);
+    channelGroup.push(key);
   });
-  const keysToColumnHeaders = new Map<channel.Key, string>();
-  indexChannels.forEach(({ key, name }) =>
-    keysToColumnHeaders.set(key, keysToNames[key] ?? name),
-  );
-  channels.forEach(({ key, name }) =>
-    keysToColumnHeaders.set(key, keysToNames[key] ?? name),
-  );
+  for (const [index, channels] of channelGroups.entries())
+    channelGroups.set(index, unique.unique(channels));
 
   const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
-  // turn the channel groups into arrays
-  const channelGroupsAsArrays: Map<channel.Key, channel.Keys> = new Map(
-    Array.from(channelGroups.entries()).map(([key, group]) => [key, Array.from(group)]),
-  );
 
-  let headerWritten = false;
-  let csv = "";
-  const newlineSeparator = runtime.getOS() === "Windows" ? "\r\n" : "\n";
-
-  const intervalCount = simplifiedTimeRanges.length * channelGroupsAsArrays.size;
+  const intervalCount = simplifiedTimeRanges.length * channelGroups.size;
   let percentDownloaded = 20;
   const delta = intervalCount > 0 ? 70 / intervalCount : 0;
-
   const readPromiseResults: Record<string, Frame> = {};
   const promises = simplifiedTimeRanges.flatMap((tr) =>
-    Array.from(channelGroupsAsArrays.entries()).map(async ([index, keys]) => {
+    Array.from(channelGroups.entries()).map(async ([index, keys]) => {
       const frame = await client.read(tr, keys);
       percentDownloaded += delta;
-      if (percentDownloaded >= 90) percentDownloaded = 90;
+      if (percentDownloaded > 90) percentDownloaded = 90;
       onPercentDownloadedChange?.(percentDownloaded);
       readPromiseResults[getKey(tr, index)] = frame;
     }),
   );
   await Promise.all(promises);
 
+  let headerWritten = false;
+  const keysToColumnHeaders = new Map<channel.Key, string>();
+  [...channels, ...indexChannels].forEach(({ key, name }) =>
+    keysToColumnHeaders.set(key, keysToNames[key] ?? name),
+  );
+  let csv = "";
+  const newlineSeparator = runtime.getOS() === "Windows" ? "\r\n" : "\n";
+
   for (const tr of simplifiedTimeRanges) {
-    const csvGroups: CSVGroup[] = [];
-    for (const [index] of channelGroupsAsArrays) {
+    const frameGroups: FrameGroup[] = [];
+    for (const index of channelGroups.keys()) {
       const frame = readPromiseResults[getKey(tr, index)];
-      csvGroups.push({ index, frame });
+      frameGroups.push({ index, frame });
     }
     if (!headerWritten) {
       const headers: string[] = [];
-      for (const { frame } of csvGroups)
+      for (const { frame } of frameGroups)
         for (const key of frame.uniqueKeys) {
           const header = keysToColumnHeaders.get(key) ?? key.toString();
           headers.push(sanitizeValue(header));
@@ -130,12 +126,12 @@ const download = async ({
       csv += `${headers.join(",")}${newlineSeparator}`;
       headerWritten = true;
     }
-    csv += convertFrameGroups(csvGroups, newlineSeparator);
+    csv += convertFrameGroups(frameGroups, newlineSeparator);
   }
-  const data = new TextEncoder().encode(csv);
+
   if (savePath == null) Runtime.downloadFromBrowser(csv, "text/csv", `${fileName}.csv`);
   else {
-    await writeFile(savePath, data);
+    await writeFile(savePath, new TextEncoder().encode(csv));
     addStatus({
       variant: "success",
       message: `Downloaded ${fileName} to ${savePath}`,
