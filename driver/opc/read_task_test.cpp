@@ -554,7 +554,7 @@ TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     // Check boolean channel data
     const auto &fr = mock_factory->writes->at(0);
     ASSERT_TRUE(fr.contains(this->bool_channel.key));
-    EXPECT_GE(fr.at(this->bool_channel.key).size(), 1);
+    EXPECT_GT(fr.length(), 0);
 }
 
 TEST_F(TestReadTask, testFloatChannelDataHandling) {
@@ -569,7 +569,7 @@ TEST_F(TestReadTask, testFloatChannelDataHandling) {
     // Check float channel data
     const auto &fr = mock_factory->writes->at(0);
     ASSERT_TRUE(fr.contains(this->float_channel.key));
-    EXPECT_GE(fr.at(this->float_channel.key).size(), 1);
+    EXPECT_GT(fr.length(), 0);
 }
 
 TEST_F(TestReadTask, testDoubleChannelDataHandling) {
@@ -584,7 +584,7 @@ TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     // Check double channel data
     const auto &fr = mock_factory->writes->at(0);
     ASSERT_TRUE(fr.contains(this->double_channel.key));
-    EXPECT_GE(fr.at(this->double_channel.key).size(), 1);
+    EXPECT_GT(fr.length(), 0);
 }
 
 TEST_F(TestReadTask, testIntegerChannelDataHandling) {
@@ -755,8 +755,6 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
 
     rt->stop("stop_cmd", true);
 
-    // Verify that frames written are not empty (they should be cleared on error, not
-    // written)
     if (mock_factory->writes->size() > 0) {
         for (const auto &fr: *mock_factory->writes) {
             EXPECT_GT(fr.length(), 0);
@@ -773,7 +771,6 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_server->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    // Stop the normal server and use the invalid one
     server->stop();
     server.reset();
 
@@ -816,7 +813,6 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // This tests the skip_sample logic in read_task.h line 332-334
     if (mock_factory->writes->size() > 0) {
         for (const auto &fr: *mock_factory->writes) {
-            // Frames should either be skipped entirely or have length 0 after clearing
             EXPECT_EQ(fr.length(), 0);
         }
     }
@@ -925,7 +921,6 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
-    // Verify frames were cleared - this tests read_task.h line 268
     if (mock_factory->writes->size() > 0) {
         for (const auto &fr: *mock_factory->writes) {
             EXPECT_EQ(fr.length(), 0);
