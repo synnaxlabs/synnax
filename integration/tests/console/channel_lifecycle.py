@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Channel_Lifecycle(ConsoleCase):
+class ChannelLifecycle(ConsoleCase):
     """
     Test the lifecycle of channels
     """
@@ -27,7 +27,7 @@ class Channel_Lifecycle(ConsoleCase):
         self.delete_channels(ch_renamed)
 
     def create_channels(self) -> tuple[list[sy.Channel], list[sy.DataType]]:
-        self._log_message("Creating channels")
+        self.log("Creating channels")
         console = self.console
         client = self.client
         ch_list = list[sy.Channel]()
@@ -53,9 +53,9 @@ class Channel_Lifecycle(ConsoleCase):
             name=INDEX_NAME,
             is_index=True,
         ):
-            self._log_message(f"Created index channel: {INDEX_NAME}")
+            self.log(f"Created index channel: {INDEX_NAME}")
         else:
-            self._log_message(f"Index channel already exists: {INDEX_NAME}")
+            self.log(f"Index channel already exists: {INDEX_NAME}")
         ch_list.append(INDEX_NAME)
 
         index_ch = self.client.channels.retrieve(INDEX_NAME)
@@ -69,9 +69,9 @@ class Channel_Lifecycle(ConsoleCase):
                 data_type=data_type,
                 index=INDEX_NAME,
             ):
-                self._log_message(f"Created channel: {ch_name}")
+                self.log(f"Created channel: {ch_name}")
             else:
-                self._log_message(f"Channel already exists: {ch_name}")
+                self.log(f"Channel already exists: {ch_name}")
             ch_list.append(ch_name)
             ch = client.channels.retrieve(ch_name)
             assert data_type == ch.data_type
@@ -85,7 +85,7 @@ class Channel_Lifecycle(ConsoleCase):
     def rename_channels(
         self, ch_list: list[sy.Channel], data_types: list[sy.DataType]
     ) -> list[sy.Channel]:
-        self._log_message("Renaming channels")
+        self.log("Renaming channels")
 
         # Rename the channels
         ch_list_renamed = [f"{ch}_renamed" for ch in ch_list]
@@ -99,7 +99,7 @@ class Channel_Lifecycle(ConsoleCase):
         return ch_list_renamed
 
     def delete_channels(self, ch_list: list[sy.Channel]) -> None:
-        self._log_message("Deleting channels")
+        self.log("Deleting channels")
         self.console.channels.delete(ch_list)
 
         for ch in ch_list:

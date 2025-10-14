@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Setpoint_Press_User(ConsoleCase):
+class SetpointPressUser(ConsoleCase):
     """
     Test the setpoint symbol. A separate case will
     read the setpoints and determine whether to
@@ -38,7 +38,7 @@ class Setpoint_Press_User(ConsoleCase):
         SETPOINT = "press_setpoint_cmd"
         PRESSURE = "press_pt"
 
-        self._log_message("Creating plot page")
+        self.log("Creating plot page")
         console.plot.new()
         console.plot.add_Y(
             "Y1",
@@ -47,7 +47,7 @@ class Setpoint_Press_User(ConsoleCase):
         console.plot.add_Y("Y2", ["press_pt", "press_setpoint_state"])
         console.plot.add_ranges(["30s"])
 
-        self._log_message("Creating schematic symbols")
+        self.log("Creating schematic symbols")
         console.schematic.new()
         console.schematic.move("left")
 
@@ -58,10 +58,10 @@ class Setpoint_Press_User(ConsoleCase):
         # Setpoint control
         setpoint = console.schematic.create_setpoint(SETPOINT)
 
-        self._log_message("Starting test")
+        self.log("Starting test")
         setpoints = [30, 15, 60, 30, 0]
         for target in setpoints:
-            self._log_message(f"Target pressure: {target}")
+            self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
 
             while self.should_continue:
@@ -69,9 +69,7 @@ class Setpoint_Press_User(ConsoleCase):
                 if pressure_value is not None:
                     delta = abs(pressure_value - target)
                     if delta < 0.5:
-                        self._log_message(
-                            f"Target pressure reached: {pressure_value:.2f}"
-                        )
+                        self.log(f"Target pressure reached: {pressure_value:.2f}")
                         sy.sleep(1)
                         break
 
