@@ -137,20 +137,30 @@ jobs:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
+      - name: Rename Driver Binary
+        if: inputs.driver
+        shell: bash
+        run: |
+          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-driver-${{ matrix.binary-suffix }}
-          path: bazel-bin/driver/driver${{ matrix.executable }}
+          name:
+            synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
+            }}
+          path:
+            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{
+            matrix.executable }}
           retention-days: 7
           if-no-files-found: error
 
-      - name: Move Driver to Assets
+      - name: Copy Driver to Assets
         if: inputs.driver && inputs.core
         shell: bash
         run: |
-          mv bazel-bin/driver/driver${{ matrix.executable }} core/pkg/service/hardware/embedded/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/hardware/embedded/assets/driver${{ matrix.executable }}
 
       - name: Set up Go
         if: inputs.core
@@ -184,7 +194,9 @@ jobs:
         if: inputs.console
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-console-${{ matrix.binary-suffix }}
+          name:
+            synnax-console-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
+            }}
           path: console/dist/
           retention-days: 7
           if-no-files-found: error
@@ -203,15 +215,14 @@ jobs:
           ${{ inputs.console == true }} && TAGS="console"
           ${{ inputs.driver == true }} && TAGS="${TAGS:+$TAGS,}driver"
           [ -n "$TAGS" ] && TAGS="-tags $TAGS"
-          go build $TAGS -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          go build $TAGS -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
-          path:
-            core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          name: synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
 
