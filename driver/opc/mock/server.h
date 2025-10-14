@@ -32,6 +32,72 @@ struct TestNode {
     UA_DataType *data_type;
     UA_Variant initial_value;
     std::string description;
+
+    // Constructor
+    TestNode(
+        std::int32_t ns,
+        std::string node_id,
+        UA_DataType *data_type,
+        const UA_Variant &initial_value,
+        std::string description
+    ):
+        ns(ns),
+        node_id(std::move(node_id)),
+        data_type(data_type),
+        description(std::move(description)) {
+        UA_Variant_init(&this->initial_value);
+        UA_Variant_copy(&initial_value, &this->initial_value);
+    }
+
+    // Destructor - clean up the variant
+    ~TestNode() { UA_Variant_clear(&initial_value); }
+
+    // Copy constructor
+    TestNode(const TestNode &other):
+        ns(other.ns),
+        node_id(other.node_id),
+        data_type(other.data_type),
+        description(other.description) {
+        UA_Variant_init(&initial_value);
+        UA_Variant_copy(&other.initial_value, &initial_value);
+    }
+
+    // Copy assignment operator
+    TestNode &operator=(const TestNode &other) {
+        if (this != &other) {
+            ns = other.ns;
+            node_id = other.node_id;
+            data_type = other.data_type;
+            description = other.description;
+            UA_Variant_clear(&initial_value);
+            UA_Variant_copy(&other.initial_value, &initial_value);
+        }
+        return *this;
+    }
+
+    // Move constructor
+    TestNode(TestNode &&other) noexcept:
+        ns(other.ns),
+        node_id(std::move(other.node_id)),
+        data_type(other.data_type),
+        initial_value(other.initial_value),
+        description(std::move(other.description)) {
+        UA_Variant_init(&other.initial_value);
+    }
+
+    // Move assignment operator
+    TestNode &operator=(TestNode &&other) noexcept {
+        if (this != &other) {
+            ns = other.ns;
+            node_id = std::move(other.node_id);
+            data_type = other.data_type;
+            description = std::move(other.description);
+            UA_Variant_clear(&initial_value);
+            initial_value = other.initial_value;
+            UA_Variant_init(&other.initial_value);
+        }
+        return *this;
+    }
 };
 
 struct ServerConfig {
