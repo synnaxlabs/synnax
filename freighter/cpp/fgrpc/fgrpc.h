@@ -9,9 +9,9 @@
 
 #pragma once
 
-/// external.
 #include "glog/logging.h"
 #include "grpc/grpc.h"
+
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/security/credentials.h"
@@ -116,7 +116,6 @@ public:
         return channel;
     }
 };
-
 
 /// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing
 /// transport. Safe to be shared between threads.

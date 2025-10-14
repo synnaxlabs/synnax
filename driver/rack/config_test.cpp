@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
-#include "driver/rack/rack.h"
-
-/// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xenv/xenv.h"
+
+#include "driver/rack/rack.h"
 
 class RackConfigTest : public ::testing::Test {
 protected:

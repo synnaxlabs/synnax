@@ -11,7 +11,7 @@ import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
 import { Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -75,17 +75,19 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch, layoutKey],
   );
   const downloadAsCSV = useDownloadPlotAsCSV(layoutKey);
+  const value = useMemo(
+    () => ({
+      tabs: TABS,
+      selected: state.toolbar.activeTab,
+      content,
+      onSelect: handleTabSelect,
+    }),
+    [state.toolbar.activeTab, content, handleTabSelect],
+  );
   if (state == null) return null;
   return (
-    <Core.Content className={CSS.B("line-plot-toolbar")} disableClusterBoundary>
-      <Tabs.Provider
-        value={{
-          tabs: TABS,
-          selected: state.toolbar.activeTab,
-          content,
-          onSelect: handleTabSelect,
-        }}
-      >
+    <Core.Content className={CSS.B("line-plot-toolbar")}>
+      <Tabs.Provider value={value}>
         <Core.Header>
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
           <Flex.Box x align="center" empty>

@@ -9,22 +9,19 @@
 
 #pragma once
 
-/// external
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
 
-/// module
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
-#include "x/cpp/defer/defer.h"
 
 namespace opc {
 struct InputChan {

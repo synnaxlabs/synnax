@@ -9,19 +9,17 @@
 
 #pragma once
 
-/// std
 #include <cstddef>
 #include <iostream>
 #include <string>
 #include <variant>
 #include <vector>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// internal
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
+
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;
@@ -33,7 +31,6 @@ namespace telem {
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
-#pragma omp simd
     for (size_t i = 0; i < count; i++)
         typed_dest[i] = static_cast<DestType>(src[i]);
 }
@@ -760,9 +757,8 @@ public:
         auto *data_ptr = reinterpret_cast<int64_t *>(
             this->data_.get() + this->size() * this->data_type().density()
         );
-#pragma omp simd
-        for (int64_t i = 0; i < write_count; i++)
-            data_ptr[i] = start_ns + step_ns * i;
+        for (size_t i = 0; i < write_count; i++)
+            data_ptr[i] = start_ns + step_ns * static_cast<int64_t>(i);
         this->size_ += write_count;
         return write_count;
     }
