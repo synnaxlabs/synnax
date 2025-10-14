@@ -54,9 +54,7 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     // Clean up the variant
     UA_Variant_clear(&value);
 
-    if (write_err) {
-        return {telem::Series(0), write_err};
-    }
+    if (write_err) { return {telem::Series(0), write_err}; }
 
     return {std::move(series), xerrors::NIL};
 }

@@ -539,7 +539,12 @@ TEST_F(TestReadTask, testArraySizeMismatchDetection) {
     UA_Variant_setArray(&array_variant, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
 
     // Try to write to series expecting array size of 5 (but we have 3)
-    auto [written, err] = util::ua_array_write_to_series(series, &array_variant, 5, "test_channel");
+    auto [written, err] = util::ua_array_write_to_series(
+        series,
+        &array_variant,
+        5,
+        "test_channel"
+    );
 
     EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
@@ -557,7 +562,12 @@ TEST_F(TestReadTask, testArraySizeTooLarge) {
     UA_Variant_setArray(&array_variant, floats, 5, &UA_TYPES[UA_TYPES_FLOAT]);
 
     // Try to write to series expecting array size of 3 (but we have 5)
-    auto [written, err] = util::ua_array_write_to_series(series, &array_variant, 3, "test_channel");
+    auto [written, err] = util::ua_array_write_to_series(
+        series,
+        &array_variant,
+        3,
+        "test_channel"
+    );
 
     EXPECT_TRUE(err);
     EXPECT_EQ(written, 0);
