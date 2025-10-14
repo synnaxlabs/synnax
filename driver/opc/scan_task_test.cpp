@@ -40,12 +40,12 @@ protected:
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        util::ConnectionConfig test_conn_cfg;
+        opc::conn::Config test_conn_cfg;
         test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            util::connect(test_conn_cfg, "test"),
+            opc::conn::connect(test_conn_cfg, "test"),
             (5 * telem::SECOND).chrono(),
             (250 * telem::MILLISECOND).chrono()
         );

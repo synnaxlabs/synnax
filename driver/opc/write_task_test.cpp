@@ -251,7 +251,7 @@ protected:
 
         // Wait for server to be ready by attempting to connect
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            util::connect(conn_cfg, "test"),
+            opc::conn::connect(conn_cfg, "test"),
             (5 * telem::SECOND).chrono(),
             (250 * telem::MILLISECOND).chrono()
         );
@@ -359,7 +359,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Restart the server and wait for it to be ready
     server->start();
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        util::connect(conn_cfg, "test"),
+        opc::conn::connect(conn_cfg, "test"),
         (5 * telem::SECOND).chrono(),
         (250 * telem::MILLISECOND).chrono()
     );
