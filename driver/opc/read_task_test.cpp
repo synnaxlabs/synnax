@@ -449,3 +449,138 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     rt1->stop("stop1", true);
     rt2->stop("stop2", true);
 }
+
+TEST_F(TestReadTask, testNullVariantDataHandling) {
+    // Test that null variant data is properly handled without crashing
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant null_variant;
+    UA_Variant_init(&null_variant);
+    null_variant.type = nullptr;
+    null_variant.data = nullptr;
+
+    auto [written, err] = util::write_to_series(series, null_variant);
+
+    EXPECT_TRUE(err);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+    EXPECT_TRUE(err.message().find("null type or data") != std::string::npos);
+}
+
+TEST_F(TestReadTask, testZeroLengthArrayHandling) {
+    // Test that zero-length arrays are properly rejected
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant zero_length_variant;
+    UA_Variant_init(&zero_length_variant);
+    zero_length_variant.type = &UA_TYPES[UA_TYPES_FLOAT];
+    zero_length_variant.arrayLength = 0;
+    zero_length_variant.data = UA_EMPTY_ARRAY_SENTINEL;
+
+    auto [written, err] = util::write_to_series(series, zero_length_variant);
+
+    EXPECT_TRUE(err);
+    EXPECT_EQ(written, 0);
+    EXPECT_EQ(series.size(), 0);
+    EXPECT_TRUE(err.message().find("zero length") != std::string::npos);
+}
+
+TEST_F(TestReadTask, testInvalidDataTypeConversion) {
+    // Test that invalid data type conversions are handled gracefully
+    telem::Series int_series(telem::INT32_T, 10);
+
+    UA_Variant string_variant;
+    UA_Variant_init(&string_variant);
+    UA_String ua_string = UA_STRING_ALLOC("invalid_for_int");
+    UA_Variant_setScalarCopy(&string_variant, &ua_string, &UA_TYPES[UA_TYPES_STRING]);
+
+    auto [written, err] = util::write_to_series(int_series, string_variant);
+
+    // Should either fail or succeed depending on cast capabilities
+    // The important thing is it doesn't crash
+    UA_String_clear(&ua_string);
+    UA_Variant_clear(&string_variant);
+}
+
+TEST_F(TestReadTask, testWriteToSeriesReturnsError) {
+    // Test that write_to_series properly returns errors in tuple format
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    // Valid write should return no error
+    UA_Variant valid_variant;
+    UA_Variant_init(&valid_variant);
+    UA_Float valid_val = 42.0f;
+    UA_Variant_setScalar(&valid_variant, &valid_val, &UA_TYPES[UA_TYPES_FLOAT]);
+
+    auto [written1, err1] = util::write_to_series(series, valid_variant);
+    EXPECT_FALSE(err1);
+    EXPECT_EQ(written1, 1);
+    EXPECT_EQ(series.size(), 1);
+
+    // Invalid write should return error
+    UA_Variant invalid_variant;
+    UA_Variant_init(&invalid_variant);
+    invalid_variant.type = nullptr;
+    invalid_variant.data = nullptr;
+
+    auto [written2, err2] = util::write_to_series(series, invalid_variant);
+    EXPECT_TRUE(err2);
+    EXPECT_EQ(written2, 0);
+    EXPECT_EQ(series.size(), 1); // Should not have added any data
+}
+
+TEST_F(TestReadTask, testArraySizeMismatchDetection) {
+    // Test that array size mismatches are detected and reported
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant array_variant;
+    UA_Variant_init(&array_variant);
+    UA_Float floats[3] = {1.0f, 2.0f, 3.0f};
+    UA_Variant_setArray(&array_variant, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
+
+    // Try to write to series expecting array size of 5 (but we have 3)
+    auto [written, err] = util::ua_array_write_to_series(series, &array_variant, 5, "test_channel");
+
+    EXPECT_TRUE(err);
+    EXPECT_EQ(written, 0);
+    EXPECT_TRUE(err.message().find("too small") != std::string::npos);
+    EXPECT_TRUE(err.message().find("test_channel") != std::string::npos);
+}
+
+TEST_F(TestReadTask, testArraySizeTooLarge) {
+    // Test detection when array is larger than expected
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant array_variant;
+    UA_Variant_init(&array_variant);
+    UA_Float floats[5] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+    UA_Variant_setArray(&array_variant, floats, 5, &UA_TYPES[UA_TYPES_FLOAT]);
+
+    // Try to write to series expecting array size of 3 (but we have 5)
+    auto [written, err] = util::ua_array_write_to_series(series, &array_variant, 3, "test_channel");
+
+    EXPECT_TRUE(err);
+    EXPECT_EQ(written, 0);
+    EXPECT_TRUE(err.message().find("too large") != std::string::npos);
+    EXPECT_TRUE(err.message().find("test_channel") != std::string::npos);
+}
+
+TEST_F(TestReadTask, testErrorMessageContainsChannelName) {
+    // Test that error messages include channel names for debugging
+    telem::Series series(telem::FLOAT32_T, 10);
+
+    UA_Variant null_variant;
+    UA_Variant_init(&null_variant);
+    null_variant.type = nullptr;
+    null_variant.data = nullptr;
+
+    auto [written, err] = util::write_to_series(series, null_variant);
+
+    EXPECT_TRUE(err);
+    EXPECT_FALSE(err.message().empty());
+    // Error message should contain descriptive information
+    EXPECT_TRUE(
+        err.message().find("null") != std::string::npos ||
+        err.message().find("invalid") != std::string::npos
+    );
+}

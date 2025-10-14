@@ -121,12 +121,22 @@ std::pair<size_t, xerrors::Error> write_to_series(telem::Series &s, const UA_Var
         return {s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt))), xerrors::NIL};
     }
 
-    if (v.type == nullptr || v.data == nullptr) {
+    if (v.type == nullptr) {
         return {
             0,
             xerrors::Error(
                 xerrors::VALIDATION,
-                "variant has null type or data"
+                "variant has null type"
+            )
+        };
+    }
+
+    if (v.data == nullptr) {
+        return {
+            0,
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "variant has null data"
             )
         };
     }
@@ -150,14 +160,6 @@ std::pair<size_t, xerrors::Error> write_to_series(telem::Series &s, const UA_Var
             xerrors::Error(
                 xerrors::VALIDATION,
                 "exception during cast/write: " + std::string(e.what())
-            )
-        };
-    } catch (...) {
-        return {
-            0,
-            xerrors::Error(
-                xerrors::VALIDATION,
-                "unknown exception during cast/write"
             )
         };
     }
