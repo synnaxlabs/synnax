@@ -11,22 +11,22 @@ import { type PageNavNode } from "@/components/PageNav/PageNav";
 
 export const MODBUS_NAV: PageNavNode = {
   key: "modbus",
-  name: "Modbus TCP",
+  name: "Modbus",
   children: [
     {
-      key: "/reference/device-drivers/modbus/connect-device",
-      href: "/reference/device-drivers/modbus/connect-device",
+      key: "/reference/device-drivers/modbus/connect-server",
+      href: "/reference/device-drivers/modbus/connect-server",
       name: "Connect to a Server",
     },
     {
       key: "/reference/device-drivers/modbus/read-task",
       href: "/reference/device-drivers/modbus/read-task",
-      name: "Configure a Read Task",
+      name: "Read Task",
     },
     {
       key: "/reference/device-drivers/modbus/write-task",
       href: "/reference/device-drivers/modbus/write-task",
-      name: "Configure a Write Task",
+      name: "Write Task",
     },
   ],
 };
