@@ -51,7 +51,7 @@ xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
 /// into the latest values state.
 xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
-    for (int i = 0; i < frame.size(); i++) {
+    for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
         if (!frame.series->at(i).empty())
             this->receiver.latest_values[key] = {frame.series->at(i).at(-1), true};

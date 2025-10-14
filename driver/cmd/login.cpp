@@ -14,7 +14,7 @@
 int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;
     config.host = cli::prompt("Host", "localhost");
-    config.port = cli::prompt<uint16_t>("Port", 9090);
+    config.port = cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
     config.username = cli::prompt("Username");
     config.password = cli::prompt("Password", std::nullopt, true);
     if (cli::confirm("Secure", false)) {
