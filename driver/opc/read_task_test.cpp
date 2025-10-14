@@ -763,3 +763,174 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
         }
     }
 }
+
+TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
+    // Test that UnaryReadTaskSource skips samples when boolean data is invalid
+    // This creates a mock server that returns null data for boolean channel
+    auto invalid_server = std::make_unique<mock::Server>(
+        mock::ServerConfig::create_with_invalid_data()
+    );
+    invalid_server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    // Stop the normal server and use the invalid one
+    server->stop();
+    server.reset();
+
+    // Create a task that reads from the invalid boolean node
+    json invalid_bool_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "invalid_bool_test"},
+               {"node_name", "InvalidBoolean"},
+               {"node_id", "NS=1;S=InvalidBoolean"},
+               {"channel", this->bool_channel.key},
+               {"enabled", true},
+               {"use_as_index", false},
+               {"data_type", "uint8"}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(invalid_bool_cfg);
+    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+
+    auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    rt->stop("stop_cmd", true);
+
+    // Verify that either no frames were written (skipped) or frames are empty (cleared)
+    // This tests the skip_sample logic in read_task.h line 332-334
+    if (mock_factory->writes->size() > 0) {
+        for (const auto &fr: *mock_factory->writes) {
+            // Frames should either be skipped entirely or have length 0 after clearing
+            EXPECT_EQ(fr.length(), 0);
+        }
+    }
+
+    invalid_server->stop();
+}
+
+TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
+    // Test that UnaryReadTaskSource skips samples when float data has null data pointer
+    auto invalid_server = std::make_unique<mock::Server>(
+        mock::ServerConfig::create_with_invalid_data()
+    );
+    invalid_server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    server->stop();
+    server.reset();
+
+    json invalid_float_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         json::array(
+             {{{"key", "NS=2;I=2"},
+               {"name", "invalid_float_test"},
+               {"node_name", "InvalidFloat"},
+               {"node_id", "NS=1;S=InvalidFloat"},
+               {"channel", this->float_channel.key},
+               {"enabled", true},
+               {"use_as_index", false},
+               {"data_type", "float32"}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(invalid_float_cfg);
+    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+
+    auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    rt->stop("stop_cmd", true);
+
+    // Verify frames were cleared due to invalid data
+    if (mock_factory->writes->size() > 0) {
+        for (const auto &fr: *mock_factory->writes) {
+            EXPECT_EQ(fr.length(), 0);
+        }
+    }
+
+    invalid_server->stop();
+}
+
+TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
+    // Test that ArrayReadTaskSource clears frames when double array has zero length
+    auto invalid_server = std::make_unique<mock::Server>(
+        mock::ServerConfig::create_with_invalid_data()
+    );
+    invalid_server->start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    server->stop();
+    server.reset();
+
+    json invalid_double_cfg{
+        {"data_saving", true},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         json::array(
+             {{{"key", "NS=2;I=3"},
+               {"name", "invalid_double_test"},
+               {"node_name", "InvalidDouble"},
+               {"node_id", "NS=1;S=InvalidDouble"},
+               {"channel", this->double_channel.key},
+               {"enabled", true},
+               {"use_as_index", false},
+               {"data_type", "float64"}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", true},
+        {"array_size", 5},
+        {"stream_rate", 25}
+    };
+
+    auto p = xjson::Parser(invalid_double_cfg);
+    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+
+    auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    rt->stop("stop_cmd", true);
+
+    // Verify frames were cleared - this tests read_task.h line 268
+    if (mock_factory->writes->size() > 0) {
+        for (const auto &fr: *mock_factory->writes) {
+            EXPECT_EQ(fr.length(), 0);
+        }
+    }
+
+    invalid_server->stop();
+}
