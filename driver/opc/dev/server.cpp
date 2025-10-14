@@ -28,7 +28,6 @@ int main() {
     cout << "New timeout: " << server_config->maxSessionTimeout << endl;
     UA_ServerConfig_setDefault(server_config);
 
-
     // add a variable node to the adresspace
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 41;
@@ -73,7 +72,6 @@ int main() {
         NULL
     );
 
-
     // add a uint8 variable node to the adresspace
     UA_VariableAttributes attr3 = UA_VariableAttributes_default;
     UA_Byte myUInt8 = 0;
@@ -94,7 +92,6 @@ int main() {
         NULL,
         NULL
     );
-
 
     // add a boolean variable node to the adresspace
     UA_VariableAttributes attr4 = UA_VariableAttributes_default;

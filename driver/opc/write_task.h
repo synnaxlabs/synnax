@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// external
 #include "open62541/client.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
-/// module
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/opc/util/conn_pool.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/control.h"

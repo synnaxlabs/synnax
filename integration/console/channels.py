@@ -176,7 +176,7 @@ class ChannelClient:
                     channel_name_element.click()
                     channel_name_element.fill(new_name)
                     self.page.keyboard.press("Enter")
-                    self.page.wait_for_timeout(200)
+                    self.page.wait_for_timeout(100)
                     break
         self.hide_channels()
 
@@ -216,9 +216,10 @@ class ChannelClient:
                     delete_option.click()
 
                     # Delete button in Modal
-                    self.page.get_by_role(
-                        "button", name="Delete", exact=True
-                    ).first.click()
+                    if self.console.check_for_modal():
+                        self.page.get_by_role(
+                            "button", name="Delete", exact=True
+                        ).first.click()
 
                     # Check for notifications and close them if there's an error
                     i = -1

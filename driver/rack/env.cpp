@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// internal
-#include "driver/rack/rack.h"
 #include "x/cpp/xenv/xenv.h"
+
+#include "driver/rack/rack.h"
 
 const std::string ENV_PREFIX = "SYNNAX_DRIVER_";
 

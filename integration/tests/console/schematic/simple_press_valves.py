@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Simple_Press_Valves(ConsoleCase):
+class SimplePressValves(ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """
@@ -40,16 +40,7 @@ class Simple_Press_Valves(ConsoleCase):
         END_CMD = "end_test_cmd"
         PRESSURE = "press_pt"
 
-        self._log_message("Creating plot page")
-        console.plot.new()
-        console.plot.add_Y(
-            "Y1",
-            ["press_vlv_state", "vent_vlv_state"],
-        )
-        console.plot.add_Y("Y2", ["press_pt"])
-        console.plot.add_ranges(["30s"])
-
-        self._log_message("Creating schematic symbols")
+        self.log("Creating schematic symbols")
         console.schematic.new()
         console.schematic.move("left")
 
@@ -62,11 +53,11 @@ class Simple_Press_Valves(ConsoleCase):
         vent_valve = console.schematic.create_valve("vent_vlv")
         console.schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
-        self._log_message("Starting test")
+        self.log("Starting test")
         target_Pressure = 20
 
         for i in range(3):
-            self._log_message(f"Target pressure: {target_Pressure}")
+            self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)
             while self.should_continue:
@@ -78,19 +69,19 @@ class Simple_Press_Valves(ConsoleCase):
                     return
 
             # Configure next cycle
-            self._log_message("Closing press valve")
+            self.log("Closing press valve")
             press_valve.press()
             self.assert_states(press_state=0, vent_state=0)
             target_Pressure += 20
 
         # Safe the system
-        self._log_message("Venting the system")
+        self.log("Venting the system")
         vent_valve.press()
         self.assert_states(press_state=0, vent_state=1)
         while self.should_continue:
             pressure_value = self.get_value(PRESSURE)
             if pressure_value is not None and pressure_value < 5:
-                self._log_message("Closing vent valve")
+                self.log("Closing vent valve")
                 vent_valve.press()
                 self.assert_states(press_state=0, vent_state=0)
                 end_test_cmd.press()

@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
-#include "driver/task/common/scan_task.h"
-
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/task/common/scan_task.h"
 
 class MockScanner final : public common::Scanner {
 public:
@@ -187,7 +185,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     ASSERT_NIL(scan_task.scan());
 
     EXPECT_EQ(created_devices->size(), 1);
-    if (!created_devices->empty()) EXPECT_EQ((*created_devices)[0].key, "device2");
+    if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
@@ -322,7 +320,7 @@ TEST(TestScanTask, TestStatePropagation) {
     ASSERT_EQ(first_states.size(), 2);
 
     json state;
-    for (auto i = 0; i < first_states.size(); i++) {
+    for (size_t i = 0; i < first_states.size(); i++) {
         first_states.at(0, state);
         if (state["key"] == "device1") {
             ASSERT_EQ(state["variant"], status::variant::SUCCESS);
@@ -334,13 +332,12 @@ TEST(TestScanTask, TestStatePropagation) {
             FAIL() << "Unexpected device key: " << state["key"];
     }
 
-
     ASSERT_NIL(scan_task.scan());
     ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 2);
     auto &second_states = cluster_api_ptr->propagated_states[1];
     ASSERT_EQ(second_states.size(), 2);
 
-    for (auto i = 0; i < second_states.size(); i++) {
+    for (size_t i = 0; i < second_states.size(); i++) {
         second_states.at(0, state);
         if (state["key"] == "device1") {
             ASSERT_EQ(state["variant"], status::variant::SUCCESS);

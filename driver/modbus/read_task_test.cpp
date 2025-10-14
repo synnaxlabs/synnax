@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
 #include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
-
-/// module
-#include "client/cpp/testutil/testutil.h"
-#include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
 
 class ModbusReadTest : public ::testing::Test {
 protected:

@@ -9,21 +9,15 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <string>
 #include <vector>
 
-/// external
 #include "google/protobuf/empty.pb.h"
 
-/// module
 #include "freighter/cpp/freighter.h"
-
-/// internal
 #include "x/cpp/telem/telem.h"
 
-/// protos
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
 
 using Key = std::string;
@@ -68,7 +62,6 @@ public:
         kv_get_client(std::move(kv_get_client)),
         kv_set_client(std::move(kv_set_client)),
         kv_delete_client(std::move(kv_delete_client)) {}
-
 
     /// @brief gets the value of the given key.
     /// @param key - the key to get the value of.
