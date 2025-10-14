@@ -9,22 +9,22 @@ BUILD_UBUNTU_22_04=$4
 OS_LIST=""
 
 if [ "$BUILD_WINDOWS" = "true" ]; then
-    OS_LIST="{\"os\":\"windows-latest\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows.exe\"}"
+    OS_LIST="{\"os\":\"windows-latest\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows.exe\",\"executable\":\".exe\"}"
 fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"artifact-name\":\"synnax-core-macos\",\"binary-suffix\":\"macos\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"artifact-name\":\"synnax-core-macos\",\"binary-suffix\":\"macos\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-latest\",\"artifact-name\":\"synnax-core-linux\",\"binary-suffix\":\"linux\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-latest\",\"artifact-name\":\"synnax-core-linux\",\"binary-suffix\":\"linux\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU_22_04" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-22.04\",\"artifact-name\":\"synnax-core-nilinuxrt\",\"binary-suffix\":\"nilinuxrt\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-22.04\",\"artifact-name\":\"synnax-core-nilinuxrt\",\"binary-suffix\":\"nilinuxrt\",\"executable\":\"\"}"
 fi
 
 echo "[${OS_LIST}]"

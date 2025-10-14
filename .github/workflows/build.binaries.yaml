@@ -61,10 +61,14 @@ jobs:
         id: version
         working-directory: core
         run: |
+          BASE_VERSION=$(cat pkg/version/VERSION)
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+            echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=${BASE_VERSION}-rc" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            echo "VERSION=${BASE_VERSION}-${BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate OS Matrix
@@ -111,16 +115,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
-      - name: Determine Executable Name
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-          else
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
@@ -148,7 +142,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: synnax-driver-${{ matrix.binary-suffix }}
-          path: bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }}
+          path: bazel-bin/driver/driver${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
 
@@ -156,9 +150,10 @@ jobs:
         if: inputs.driver && inputs.core
         shell: bash
         run: |
-          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          mv bazel-bin/driver/driver${{ matrix.executable }} core/pkg/service/hardware/embedded/assets/driver${{ matrix.executable }}
 
       - name: Set up Go
+        if: inputs.core
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
