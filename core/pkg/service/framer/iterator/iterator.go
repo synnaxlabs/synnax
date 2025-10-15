@@ -193,7 +193,17 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 			required.Add(calculator.ReadFrom()...)
 		}
 	}
+	var requiredChans []channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Entries(&requiredChans).
+		WhereKeys(required.Keys()...).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
+	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(requiredChans, func(item channel.Channel, index int) (channel.Key, bool) {
+		return item.Index(), item.Index() != 0
+	})...))
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculated.Contains(item)
 	})

@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	arctelem "github.com/synnaxlabs/arc/runtime/util"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -31,7 +31,7 @@ func NewState(_ context.Context, program ir.IR) (*State, error) {
 	for _, node := range program.Nodes {
 		for key, t := range node.Outputs.Iter() {
 			state.Outputs[ir.Handle{Node: node.Key, Param: key}] = Output{
-				Data: telem.Series{DataType: arctelem.IRTypeToDataType(t)},
+				Data: telem.Series{DataType: types.ToTelem(t)},
 				Time: telem.Series{DataType: telem.TimeStampT},
 			}
 		}

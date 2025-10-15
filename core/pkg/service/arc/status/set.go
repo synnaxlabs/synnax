@@ -30,17 +30,22 @@ var (
 	symbolName = "set_status"
 	symbolSet  = symbol.Symbol{
 		Name: "set_status",
-		Kind: symbol.KindStage,
-		Type: ir.Stage{
-			Config: types.Params{
-				Keys:   []string{"status_key", "variant", "message", "name"},
-				Values: []types.Type{types.String{}, types.String{}, types.String{}, types.String{}},
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Config: &types.Params{
+				Keys: []string{"status_key", "variant", "message", "name"},
+				Values: []types.Type{
+					types.String(),
+					types.String(),
+					types.String(),
+					types.String(),
+				},
 			},
-			Params: types.Params{
+			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.U8{}},
+				Values: []types.Type{types.U8()},
 			},
-		},
+		}),
 	}
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
 )
@@ -51,7 +56,7 @@ type setStatus struct {
 	ins       alamos.Instrumentation
 }
 
-func (s *setStatus) Init(ctx context.Context, _ func(string)) {}
+func (s *setStatus) Init(context.Context, func(string)) {}
 
 func (s *setStatus) Next(ctx context.Context, _ func(string)) {
 	s.stat.Time = telem.Now()

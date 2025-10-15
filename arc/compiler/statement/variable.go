@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// compileVariableDeclaration handles both local (:=) and stateful ($=) variable declarations
 func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) error {
 	if localVar := ctx.AST.LocalVariable(); localVar != nil {
 		return compileLocalVariable(context.Child(ctx, localVar))
@@ -30,7 +29,6 @@ func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationC
 	return errors.New("unknown variable declaration type")
 }
 
-// compileLocalVariable handles local variable declarations (x := expr)
 func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) error {
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)

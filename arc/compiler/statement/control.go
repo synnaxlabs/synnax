@@ -89,16 +89,13 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	return nil
 }
 
-// compileChannelOperation handles channel writes and piping
 func compileChannelOperation(ctx context.Context[parser.IChannelOperationContext]) error {
 	if chanWrite := ctx.AST.ChannelWrite(); chanWrite != nil {
 		return compileChannelWrite(context.Child(ctx, chanWrite))
 	}
-
 	if chanRead := ctx.AST.ChannelRead(); chanRead != nil {
 		return compileChannelRead(context.Child(ctx, chanRead))
 	}
-
 	return errors.New("unknown channel operation")
 }
 
@@ -136,7 +133,6 @@ func compileChannelRead(_ context.Context[parser.IChannelReadContext]) error {
 	return errors.New("standalone channel reads not implemented")
 }
 
-// compileFunctionCall handles function calls (may return a value)
 func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (types.Type, error) {
 	// TODO: Implement function calls
 	return types.Type{}, errors.New("function calls not yet implemented")

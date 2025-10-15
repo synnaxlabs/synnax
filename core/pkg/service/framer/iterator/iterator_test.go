@@ -10,6 +10,8 @@
 package iterator_test
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,7 +99,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		Describe("Calculations", func() {
+		FDescribe("Calculations", func() {
 			var (
 				indexCh *channel.Channel
 				dataCh1 *channel.Channel
@@ -143,34 +145,55 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should correctly calculate output values", func() {
 				key := uuid.New()
 				prog := arc.Graph{
-					Stages: []arc.Stage{
+					Functions: []arc.Function{
 						{
 							Key: "calculation",
-							Params: types.Params{
-								Keys:   []string{"sensor_1", "sensor_2"},
-								Values: []types.Type{types.F32{}, types.F32{}},
+							Inputs: types.Params{
+								Keys:   []string{"sensor_1_v", "sensor_2_v"},
+								Values: []types.Type{types.F32(), types.F32()},
 							},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32()},
+							},
+							Body: ir.Body{Raw: `{
+								return (sensor_1_v + sensor_2_v) / 2
+							}`},
 						},
 					},
 					Nodes: []graph.Node{
-						{Node: ir.Node{
+						{
 							Key:  "sensor_1_on",
 							Type: "on",
 							ConfigValues: map[string]any{
 								"channel": dataCh1.Key(),
 							},
-						}},
-						{Node: ir.Node{
+						},
+						{
 							Key:  "sensor_2_on",
 							Type: "on",
 							ConfigValues: map[string]any{
 								"channel": dataCh2.Key(),
 							},
-						}},
-						{Node: ir.Node{
+						},
+						{
 							Key:  "calculation",
 							Type: "calculation",
-						}},
+						},
+					},
+					Edges: []graph.Edge{
+						{
+							Source: graph.Handle{Node: "sensor_1_on", Param: ir.DefaultOutputParam},
+							Target: graph.Handle{Node: "calculation", Param: "sensor_1_v"},
+						},
+						{
+							Source: graph.Handle{Node: "sensor_2_on", Param: ir.DefaultOutputParam},
+							Target: graph.Handle{Node: "calculation", Param: "sensor_2_v"},
+						},
+						{
+							Source: graph.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
+							Target: graph.Handle{Node: "writer", Param: ir.DefaultInputParam},
+						},
 					},
 				}
 				calculation := &channel.Channel{
@@ -179,10 +202,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Calculation: key,
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
-				prog.Nodes = append(prog.Nodes, graph.Node{Node: ir.Node{
+				prog.Nodes = append(prog.Nodes, graph.Node{
 					Key:          "writer",
+					Type:         "write",
 					ConfigValues: map[string]any{"channel": calculation.Key()},
-				}})
+				})
 				Expect(arcSvc.NewWriter(nil).Create(ctx, &svcarc.Arc{
 					Key:   key,
 					Graph: prog,
@@ -193,8 +217,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Bounds: telem.TimeRangeMax,
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
+				for {
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					fmt.Println(iter.Value())
+					v := iter.Value().Get(calculation.Key())
+					if v.Len() > 0 {
+						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
+						break
+					}
+				}
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
 			})

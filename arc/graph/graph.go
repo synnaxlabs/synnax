@@ -31,6 +31,7 @@ type (
 	Function = ir.Function
 	Edge     = ir.Edge
 	Edges    = ir.Edges
+	Handle   = ir.Handle
 )
 
 type Node struct {

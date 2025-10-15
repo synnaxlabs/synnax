@@ -70,6 +70,10 @@ func (s *source) Init(context.Context, func(output string)) {}
 
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	entry := s.telem.Data[s.key]
+	indexData := s.telem.Data[entry.IndexKey]
+	if len(entry.Series) == 0 || len(indexData.Series) == 0 {
+		return
+	}
 	for i, ser := range entry.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Upper > s.highWaterMark {
@@ -104,7 +108,7 @@ type telemFactory struct {
 
 func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type == sourceSymbolName {
-		key := cfg.Node.Channels.Read.Keys()[0]
+		key := uint32(cfg.Node.ConfigValues["channel"].(float64))
 		t.telem.registerReader(key, cfg.Node.Key)
 		return &source{
 			node:          cfg.Node,
@@ -115,7 +119,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 		}, nil
 	}
 	if cfg.Node.Type == sinkSymbolName {
-		key := cfg.Node.Channels.Write.Keys()[0]
+		key := uint32(cfg.Node.ConfigValues["channel"].(float64))
 		t.telem.registerWriter(key, cfg.Node.Key)
 		inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
 			Node:  cfg.Node.Key,

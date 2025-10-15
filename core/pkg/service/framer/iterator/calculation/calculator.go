@@ -102,6 +102,12 @@ func OpenCalculator(
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
+	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		Module: cfg.Module,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	f := node.MultiFactory{
 		opFactory,
@@ -109,6 +115,7 @@ func OpenCalculator(
 		selectFactory,
 		constantFactory,
 		stableFactory,
+		wasmFactory,
 	}
 	if len(cfg.Module.WASM) > 0 {
 		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
@@ -133,7 +140,7 @@ func OpenCalculator(
 	}
 
 	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
-	c := &Calculator{scheduler: scheduler}
+	c := &Calculator{scheduler: scheduler, telem: telemState, ch: cfg.Channel}
 	return c, nil
 }
 

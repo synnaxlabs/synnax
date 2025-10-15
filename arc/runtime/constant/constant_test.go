@@ -252,27 +252,22 @@ var _ = Describe("Constant", func() {
 				Node:   irNode,
 				Module: module.Module{IR: ir.IR{}},
 			})
-
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should create constant node for correct type", func() {
 			f := constant.NewFactory()
 			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
-
 			irNode := ir.Node{
 				Key:          "constant",
 				Type:         "constant",
 				ConfigValues: map[string]any{"value": int(42)},
 			}
-
-			n, err := f.Create(ctx, node.Config{
+			n := MustSucceed(f.Create(ctx, node.Config{
 				State:  s,
 				Node:   irNode,
 				Module: module.Module{IR: ir.IR{}},
-			})
-
-			Expect(err).NotTo(HaveOccurred())
+			}))
 			Expect(n).NotTo(BeNil())
 		})
 	})

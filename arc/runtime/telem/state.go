@@ -54,5 +54,12 @@ func (s *State) Ingest(
 		for _, dep := range s.Readers[key] {
 			markDirty(dep)
 		}
+		for k, n := range s.Readers {
+			if s.Data[k].IndexKey == key {
+				for _, v := range n {
+					markDirty(v)
+				}
+			}
+		}
 	}
 }

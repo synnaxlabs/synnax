@@ -242,10 +242,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 
-	telemState := &ntelem.State{
-		Data:    make(map[uint32]ntelem.Data),
-		Readers: make(map[uint32][]string),
-	}
+	telemState := ntelem.NewState()
 	telemFactory := ntelem.NewTelemFactory(telemState)
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
