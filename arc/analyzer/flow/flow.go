@@ -13,11 +13,11 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/analyzer/types"
+	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
-	types2 "github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -84,16 +84,16 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		}
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
-			chanType := types2.Chan(channelSym.Type)
-			if err = types.Check(
+			chanType := types.Chan(channelSym.Type)
+			if err = atypes.Check(
 				ctx.Constraints,
 				*chanType.ValueType,
 				paramType,
 				ctx.AST,
-				"channel to stage parameter connection",
+				"channel to func parameter connection",
 			); err != nil {
 				ctx.Diagnostics.AddError(errors.Newf(
-					"channel %s value type %s does not match stage %s parameter type %s",
+					"channel %s value type %s does not match func %s parameter type %s",
 					channelName,
 					chanType.ValueType,
 					name,
@@ -103,18 +103,18 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 			}
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
-		exprType := types.InferFromExpression(context.Child(ctx, prevExpr))
+		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
-			if err := types.Check(
+			if err := atypes.Check(
 				ctx.Constraints,
 				exprType,
 				paramType,
 				ctx.AST,
-				"expression to stage parameter connection",
+				"expression to func parameter connection",
 			); err != nil {
 				ctx.Diagnostics.AddError(errors.Newf(
-					"expression type %s does not match stage %s parameter type %s",
+					"expression type %s does not match func %s parameter type %s",
 					exprType,
 					name,
 					paramType,
@@ -148,17 +148,17 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		}
 		if !hasRoutingTableBetween && stageType.Type.Inputs.Count() > 0 {
 			_, t := stageType.Type.Inputs.At(0)
-			var prevOutputType types2.Type
+			var prevOutputType types.Type
 			if outputType, ok := prevStageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				prevOutputType = outputType
 			} else if prevStageType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
-					"stage '%s' has named outputs and requires a routing table",
+					"func '%s' has named outputs and requires a routing table",
 					prevStageName,
 				), ctx.AST)
 				return false
 			}
-			if err := types.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
+			if err := atypes.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
 				"flow connection between stages"); err != nil {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"return type %s of %s is not equal to argument type %s of %s",
@@ -203,7 +203,7 @@ func resolveStage[T antlr.ParserRuleContext](
 func validateStageConfig[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	stageName string,
-	stageType types2.Type,
+	stageType types.Type,
 	configBlock parser.IConfigValuesContext,
 	configNode antlr.ParserRuleContext,
 ) (map[string]bool, bool) {
@@ -219,7 +219,7 @@ func validateStageConfig[T antlr.ParserRuleContext](
 			expectedType, exists := stageType.Config.Get(key)
 			if !exists {
 				ctx.Diagnostics.AddError(
-					errors.Newf("unknown config parameter '%s' for stage '%s'", key, stageName),
+					errors.Newf("unknown config parameter '%s' for func '%s'", key, stageName),
 					configVal,
 				)
 				return nil, false
@@ -229,9 +229,9 @@ func validateStageConfig[T antlr.ParserRuleContext](
 				if !expression.Analyze(childCtx) {
 					return nil, false
 				}
-				exprType := types.InferFromExpression(childCtx)
-				if err := types.Check(ctx.Constraints, expectedType, exprType, configVal,
-					"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
+				exprType := atypes.InferFromExpression(childCtx)
+				if err := atypes.Check(ctx.Constraints, expectedType, exprType, configVal,
+					"config parameter '"+key+"' for func '"+stageName+"'"); err != nil {
 					ctx.Diagnostics.AddError(
 						errors.Newf(
 							"type mismatch: config parameter '%s' expects %s but got %s",
@@ -256,7 +256,7 @@ func validateStageConfig[T antlr.ParserRuleContext](
 	for paramName := range stageType.Config.Iter() {
 		if !configParams[paramName] {
 			ctx.Diagnostics.AddError(
-				errors.Newf("missing required config parameter '%s' for stage '%s'", paramName, stageName),
+				errors.Newf("missing required config parameter '%s' for func '%s'", paramName, stageName),
 				configNode,
 			)
 			return nil, false
@@ -309,20 +309,20 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 }
 
 func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodesBefore []parser.IFlowNodeContext, nodesAfter []parser.IFlowNodeContext) bool {
-	var prevStage parser.IStageInvocationContext
+	var PrevFunc parser.IStageInvocationContext
 	for i := len(nodesBefore) - 1; i >= 0; i-- {
 		if stageInv := nodesBefore[i].StageInvocation(); stageInv != nil {
-			prevStage = stageInv
+			PrevFunc = stageInv
 			break
 		}
 	}
 
-	if prevStage == nil {
-		ctx.Diagnostics.AddError(errors.New("output routing table must follow a stage invocation"), ctx.AST)
+	if PrevFunc == nil {
+		ctx.Diagnostics.AddError(errors.New("output routing table must follow a func invocation"), ctx.AST)
 		return false
 	}
 
-	stageName := prevStage.IDENTIFIER().GetText()
+	stageName := PrevFunc.IDENTIFIER().GetText()
 	stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
 		return false
@@ -332,20 +332,20 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	hasNamedOutputs := stageType.Type.Outputs.Count() > 1 || (stageType.Type.Outputs.Count() == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
 		ctx.Diagnostics.AddError(
-			errors.Newf("stage '%s' does not have named outputs, cannot use routing table", stageName),
+			errors.Newf("func '%s' does not have named outputs, cannot use routing table", stageName),
 			ctx.AST,
 		)
 		return false
 	}
 
 	var (
-		nextStage     parser.IStageInvocationContext
-		nextStageType types2.Type
+		nextFunc      parser.IStageInvocationContext
+		nextStageType types.Type
 	)
 	for _, node := range nodesAfter {
 		if stageInv := node.StageInvocation(); stageInv != nil {
-			nextStage = stageInv
-			nextStageName := nextStage.IDENTIFIER().GetText()
+			nextFunc = stageInv
+			nextStageName := nextFunc.IDENTIFIER().GetText()
 			nextStageScope, err := ctx.Scope.Resolve(ctx, nextStageName)
 			if err == nil && nextStageScope.Kind == symbol.KindFunction {
 				nextStageType = nextStageScope.Type
@@ -361,7 +361,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		outputType, exists := stageType.Type.Outputs.Get(outputName)
 		if !exists {
 			ctx.Diagnostics.AddError(
-				errors.Newf("stage '%s' does not have output '%s'", stageName, outputName),
+				errors.Newf("func '%s' does not have output '%s'", stageName, outputName),
 				entry,
 			)
 			return false
@@ -371,9 +371,9 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		if len(entry.AllIDENTIFIER()) > 1 {
 			targetParamName = entry.IDENTIFIER(1).GetText()
 
-			if nextStage == nil {
+			if nextFunc == nil {
 				ctx.Diagnostics.AddError(
-					errors.New("parameter mapping requires a stage after the routing table"),
+					errors.New("parameter mapping requires a func after the routing table"),
 					entry,
 				)
 				return false
@@ -382,8 +382,8 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 			if _, exists := nextStageType.Inputs.Get(targetParamName); !exists {
 				ctx.Diagnostics.AddError(
 					errors.Newf(
-						"stage '%s' does not have parameter '%s'",
-						nextStage.IDENTIFIER().GetText(),
+						"func '%s' does not have parameter '%s'",
+						nextFunc.IDENTIFIER().GetText(),
 						targetParamName,
 					),
 					entry,
@@ -410,20 +410,20 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 }
 
 func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodes []parser.IFlowNodeContext) bool {
-	var nextStage parser.IStageInvocationContext
+	var nextfunc parser.IStageInvocationContext
 	for i := 0; i < len(nodes); i++ {
 		if stageInv := nodes[i].StageInvocation(); stageInv != nil {
-			nextStage = stageInv
+			nextfunc = stageInv
 			break
 		}
 	}
 
-	if nextStage == nil {
-		ctx.Diagnostics.AddError(errors.New("input routing table must precede a stage invocation"), ctx.AST)
+	if nextfunc == nil {
+		ctx.Diagnostics.AddError(errors.New("input routing table must precede a func invocation"), ctx.AST)
 		return false
 	}
 
-	stageName := nextStage.IDENTIFIER().GetText()
+	stageName := nextfunc.IDENTIFIER().GetText()
 	stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
 		return false
@@ -450,7 +450,7 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		paramType, exists := stageType.Type.Inputs.Get(paramName)
 		if !exists {
 			ctx.Diagnostics.AddError(
-				errors.Newf("stage '%s' does not have parameter '%s'", stageName, paramName),
+				errors.Newf("func '%s' does not have parameter '%s'", stageName, paramName),
 				lastNode,
 			)
 			return false
@@ -473,11 +473,11 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 
 func analyzeRoutingTargetWithParam(
 	ctx context.Context[parser.IFlowNodeContext],
-	sourceType types2.Type,
-	nextStageType types2.Type,
+	sourceType types.Type,
+	nextStageType types.Type,
 	targetParam *string,
 ) bool {
-	// Handle stage invocation target
+	// Handle func invocation target
 	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
 		stageName := stageInv.IDENTIFIER().GetText()
 		stageType, ok := resolveStage(ctx, stageName)
@@ -496,22 +496,22 @@ func analyzeRoutingTargetWithParam(
 		}
 
 		if targetParam != nil {
-			var outputType types2.Type
+			var outputType types.Type
 			if outType, ok := stageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType
 			} else if stageType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
-					"stage '%s' has named outputs and requires explicit output selection",
+					"func '%s' has named outputs and requires explicit output selection",
 					stageName,
 				), ctx.AST)
 				return false
 			}
 
 			if paramType, exists := nextStageType.Inputs.Get(*targetParam); exists {
-				if err := types.Check(ctx.Constraints, outputType, paramType, ctx.AST,
+				if err := atypes.Check(ctx.Constraints, outputType, paramType, ctx.AST,
 					"routing table parameter mapping"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
-						"type mismatch: stage %s output type %s does not match target parameter %s type %s",
+						"type mismatch: func %s output type %s does not match target parameter %s type %s",
 						stageName,
 						outputType,
 						*targetParam,
@@ -523,10 +523,10 @@ func analyzeRoutingTargetWithParam(
 		} else {
 			if stageType.Type.Inputs.Count() > 0 {
 				_, paramType := stageType.Type.Inputs.At(0)
-				if err := types.Check(ctx.Constraints, sourceType, paramType, ctx.AST,
-					"routing table output to stage parameter"); err != nil {
+				if err := atypes.Check(ctx.Constraints, sourceType, paramType, ctx.AST,
+					"routing table output to func parameter"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
-						"type mismatch: output type %s does not match stage %s parameter type %s",
+						"type mismatch: output type %s does not match func %s parameter type %s",
 						sourceType,
 						stageName,
 						paramType,
@@ -552,7 +552,7 @@ func analyzeRoutingTargetWithParam(
 		}
 
 		valueType := channelSym.Type.ValueType
-		if err = types.Check(
+		if err = atypes.Check(
 			ctx.Constraints,
 			sourceType,
 			*valueType,

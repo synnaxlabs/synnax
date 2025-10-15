@@ -64,7 +64,7 @@ func extractType(typeCtx parser.ITypeContext) types.Type {
 				if floatType.F32() != nil {
 					return types.F32{}
 				} else if floatType.F64() != nil {
-					return types.F64{}
+					return types.F64()
 				}
 			}
 		}

@@ -248,7 +248,7 @@ var _ = Describe("Graph", func() {
 				Expect(inter.Edges).To(HaveLen(2))
 
 				// Check that each node instance has concrete resolved types
-				// The stage definition remains polymorphic, but each node gets concrete types
+				// The func definition remains polymorphic, but each node gets concrete types
 				adderNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "adder" })
 
 				// The adder node should have concrete F32 types resolved from edges
@@ -347,7 +347,7 @@ var _ = Describe("Graph", func() {
 							Key: "f64_source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F64{}},
+								Values: []types.Type{types.F64()},
 							},
 						},
 					},
@@ -379,11 +379,11 @@ var _ = Describe("Graph", func() {
 				// Both node instances should have concrete F64 types
 				add1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "add1" })
 				addReturnType, _ := add1Node.Outputs.Get(ir.DefaultOutputParam)
-				Expect(addReturnType).To(Equal(types.F64{}))
+				Expect(addReturnType).To(Equal(types.F64()))
 
 				scale1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "scale1" })
 				inputType, _ := scale1Node.Inputs.Get("input")
-				Expect(inputType).To(Equal(types.F64{}))
+				Expect(inputType).To(Equal(types.F64()))
 			})
 
 			It("Should detect type mismatches in polymorphic edge connections", func() {
@@ -694,9 +694,9 @@ var _ = Describe("Graph", func() {
 					},
 				}
 
-				// First, define the stage signatures that this graph expects
+				// First, define the func signatures that this graph expects
 				// Using polymorphic types for constant, ge, and stable_for
-				// Each stage gets its own type variables
+				// Each func gets its own type variables
 
 				stages := []ir.Stage{
 					{
@@ -707,7 +707,7 @@ var _ = Describe("Graph", func() {
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64{}},
+							Values: []types.Type{types.F64()},
 						}, // Returns sensor reading
 					},
 					{
@@ -821,21 +821,21 @@ var _ = Describe("Graph", func() {
 				Expect(stableForNode.ConfigValues).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 				// Verify polymorphic node instances have concrete resolved types
-				// Stage definitions stay polymorphic, but each node instance gets concrete types
+				// func definitions stay polymorphic, but each node instance gets concrete types
 
 				// The constant node should have concrete F64 type
 				// (since it connects to "ge" which receives F64 from "on")
 				constantIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "constant" })
 				constantReturnType, _ := constantIRNode.Outputs.Get(ir.DefaultOutputParam)
-				Expect(constantReturnType).To(Equal(types.F64{}))
+				Expect(constantReturnType).To(Equal(types.F64()))
 
 				// The ge node should have concrete F64 parameters
 				// (since it receives F64 inputs from "on" and "constant")
 				geIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "ge" })
 				aType, _ := geIRNode.Inputs.Get("a")
-				Expect(aType).To(Equal(types.F64{}))
+				Expect(aType).To(Equal(types.F64()))
 				bType, _ := geIRNode.Inputs.Get("b")
-				Expect(bType).To(Equal(types.F64{}))
+				Expect(bType).To(Equal(types.F64()))
 
 				// The stable_for node should have concrete U8 types
 				// (since it receives U8 from "ge" comparison result)

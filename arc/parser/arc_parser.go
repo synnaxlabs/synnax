@@ -361,7 +361,7 @@ func NewArcParser(input antlr.TokenStream) *ArcParser {
 const (
 	ArcParserEOF                 = antlr.TokenEOF
 	ArcParserFUNC                = 1
-	ArcParserSTAGE               = 2
+	ArcParserfunc               = 2
 	ArcParserIF                  = 3
 	ArcParserELSE                = 4
 	ArcParserRETURN              = 5

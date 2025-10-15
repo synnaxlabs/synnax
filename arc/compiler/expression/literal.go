@@ -56,7 +56,7 @@ func compileNumericLiteral(
 		case types.F64:
 			// Coerce integer literal to f64
 			ctx.Writer.WriteF64Const(float64(value))
-			return types.F64{}, nil
+			return types.F64(), nil
 		case types.I32:
 			// Coerce to i32
 			ctx.Writer.WriteI32Const(int32(value))
@@ -83,7 +83,7 @@ func compileNumericLiteral(
 		default:
 			// Default to f64
 			ctx.Writer.WriteF64Const(value)
-			return types.F64{}, nil
+			return types.F64(), nil
 		}
 	}
 	return nil, errors.New("unknown numeric literal")

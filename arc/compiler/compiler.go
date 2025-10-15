@@ -50,7 +50,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	outputMemoryBases := make(map[string]uint32)
 
 	for _, i := range program.Stages {
-		params := slices.Concat(i.Config.Values, i.Params.Values)
+		params := slices.Concat(i.Config.Values, i.Inputs.Values)
 		// Get return type - check for single ir.DefaultOutputParam vs multi-output
 		var returnType types.Type
 		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
@@ -103,7 +103,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 			outputMemoryCounter += size
 		}
 
-		if err := compileItem(ctx, i.Key, i.Body.AST, i.Params.Values, returnType, i.Outputs, outputMemoryBase); err != nil {
+		if err := compileItem(ctx, i.Key, i.Body.AST, i.Inputs.Values, returnType, i.Outputs, outputMemoryBase); err != nil {
 			return Output{}, err
 		}
 	}

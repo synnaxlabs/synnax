@@ -59,7 +59,7 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	// Push stage ID (0 for now - would be provided at runtime)
+	// Push func ID (0 for now - would be provided at runtime)
 	ctx.Writer.WriteI32Const(0)
 	// Push variable key
 	ctx.Writer.WriteI32Const(int32(idx))

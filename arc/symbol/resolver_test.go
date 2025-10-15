@@ -22,14 +22,14 @@ var _ = Describe("MapResolver", func() {
 	Describe("Resolve", func() {
 		It("Should resolve existing symbol", func() {
 			resolver := symbol.MapResolver{
-				"pi":    Symbol{Name: "pi", Kind: SymbolKindConfigParam, Type: types.F64{}},
+				"pi":    Symbol{Name: "pi", Kind: SymbolKindConfigParam, Type: types.F64()},
 				"count": Symbol{Name: "count", Kind: SymbolKindVariable, Type: types.I32{}},
 			}
 			sym, err := resolver.Resolve(ir.ctx, "pi")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sym.Name).To(Equal("pi"))
 			Expect(sym.Kind).To(Equal(SymbolKindConfigParam))
-			Expect(sym.Type).To(Equal(types.F64{}))
+			Expect(sym.Type).To(Equal(types.F64()))
 		})
 
 		It("Should return error for non-existent symbol", func() {

@@ -58,7 +58,7 @@ type stableFor struct {
 func (s *stableFor) Init(context.Context, func(string)) {}
 
 func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.input.Source]
+	inputSeries := s.state.Outputs[s.Inputs.Source]
 	if inputSeries.Data.Len() == 0 {
 		return
 	}

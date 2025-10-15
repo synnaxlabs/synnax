@@ -60,7 +60,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 addition",
 			"1.5 + 2.5",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(1.5),
 			OpF64Const,
@@ -99,7 +99,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 subtraction",
 			"5.0 - 2.0",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(5.0),
 			OpF64Const,
@@ -123,7 +123,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 multiplication",
 			"2.5 * 4.0",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(2.5),
 			OpF64Const,
@@ -160,7 +160,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 division",
 			"10.0 / 2.0",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(10.0),
 			OpF64Const,

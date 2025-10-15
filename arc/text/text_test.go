@@ -25,11 +25,11 @@ var _ = Describe("Text", func() {
 				return a + b
 			}
 
-			stage adder{} (a i64, b i64) i64 {
+			func adder{} (a i64, b i64) i64 {
 				return add(a, b)
 			}
 
-			stage print{} () {
+			func print{} () {
 			}
 
 			adder{} -> print{}
@@ -46,11 +46,11 @@ var _ = Describe("Text", func() {
 				return a + b
 			}
 
-			stage adder{} (a i64, b i64) i64 {
+			func adder{} (a i64, b i64) i64 {
 				return a + b
 			}
 
-			stage print{} () {
+			func print{} () {
 			}
 
 			adder{} -> print{}
@@ -66,21 +66,21 @@ var _ = Describe("Text", func() {
 
 			f := inter.Functions[0]
 			Expect(f.Key).To(Equal("add"))
-			Expect(f.Params.Count()).To(Equal(2))
-			v, ok := f.Params.Get("a")
+			Expect(f.Inputs.Count()).To(Equal(2))
+			v, ok := f.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(types.I64{}))
-			v, ok = f.Params.Get("b")
+			v, ok = f.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(types.I64{}))
 
 			s := inter.Stages[0]
 			Expect(s.Key).To(Equal("adder"))
-			Expect(s.Params.Count()).To(Equal(2))
-			v, ok = s.Params.Get("a")
+			Expect(s.Inputs.Count()).To(Equal(2))
+			v, ok = s.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(types.I64{}))
-			v, ok = s.Params.Get("b")
+			v, ok = s.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(types.I64{}))
 

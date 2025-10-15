@@ -52,9 +52,9 @@ var _ = Describe("Identifier Compilation", func() {
 		It("Should compile complex expressions with local variables", func() {
 			ctx := NewContext(bCtx)
 			// Add variables with different types
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.F64{}}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.F64{}}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "z", Kind: symbol.KindVariable, Type: types.F64{}}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.F64()}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.F64()}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "z", Kind: symbol.KindVariable, Type: types.F64()}))
 			bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
 			expected := WASM(
 				OpLocalGet, 0, // Resolve 'x'
@@ -64,7 +64,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpF64Mul, // (x + y) * z
 			)
 			Expect(bytecode).To(Equal(expected))
-			Expect(exprType).To(Equal(types.F64{}))
+			Expect(exprType).To(Equal(types.F64()))
 		})
 
 		It("Should compile comparisons using local variables", func() {
@@ -148,12 +148,12 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "value",
 				Kind: symbol.KindParam,
-				Type: types.F64{},
+				Type: types.F64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "value")
 			expected := WASM(OpLocalGet, 0)
 			Expect(bytecode).To(Equal(expected))
-			Expect(exprType).To(Equal(types.F64{}))
+			Expect(exprType).To(Equal(types.F64()))
 		})
 	})
 })

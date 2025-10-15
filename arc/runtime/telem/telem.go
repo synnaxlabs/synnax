@@ -94,7 +94,7 @@ type sink struct {
 func (s *sink) Init(context.Context, func(output string)) {}
 
 func (s *sink) Next(_ context.Context, _ func(param string)) {
-	data := s.state.Outputs[s.input.Source]
+	data := s.state.Outputs[s.Inputs.Source]
 	s.telem.Writes[s.key] = data.Data
 }
 

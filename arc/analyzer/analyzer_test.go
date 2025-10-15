@@ -107,7 +107,7 @@ var _ = Describe("Analyzer", func() {
 				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
-				Expect(varScope.Type).To(Equal(types.I64{}))
+				Expect(varScope.Type).To(Equal(types.I64()))
 			})
 
 			It("Should infer types from a float literal", func() {
@@ -126,7 +126,7 @@ var _ = Describe("Analyzer", func() {
 				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
-				Expect(varScope.Type).To(Equal(types.F64{}))
+				Expect(varScope.Type).To(Equal(types.F64()))
 			})
 
 			It("Should automatically cast an int literal to a floating point type", func() {
@@ -145,7 +145,7 @@ var _ = Describe("Analyzer", func() {
 				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
-				Expect(varScope.Type).To(Equal(types.F32{}))
+				Expect(varScope.Type).To(Equal(types.F32()))
 			})
 
 			It("Should not allow assignment of a float literal to an int type", func() {
@@ -236,33 +236,31 @@ var _ = Describe("Analyzer", func() {
 				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("add"))
-				funcType, ok := funcScope.Type.(ir.Function)
-				Expect(ok).To(BeTrue())
-				output, _ := funcType.Outputs.Get(ir.DefaultOutputParam)
-				Expect(output).To(Equal(types.F64{}))
-				Expect(funcType.Params.Count()).To(Equal(2))
-				name, t := funcType.Params.At(0)
+				output := MustBeOk(funcScope.Type.Outputs.Get(ir.DefaultOutputParam))
+				Expect(output).To(Equal(types.F64()))
+				Expect(funcScope.Type.Inputs.Count()).To(Equal(2))
+				name, t := funcScope.Type.Inputs.At(0)
 				Expect(name).To(Equal("x"))
-				Expect(t).To(Equal(types.F64{}))
-				name, t = funcType.Params.At(1)
-				Expect(t).To(Equal(types.F64{}))
+				Expect(t).To(Equal(types.F64()))
+				name, t = funcScope.Type.Inputs.At(1)
+				Expect(t).To(Equal(types.F64()))
 				Expect(name).To(Equal("y"))
 				Expect(funcScope.Children).To(HaveLen(3))
 				paramChildren := funcScope.FilterChildrenByKind(symbol.KindInput)
 				Expect(paramChildren).To(HaveLen(2))
 				Expect(paramChildren[0].Name).To(Equal("x"))
-				Expect(paramChildren[1].Type).To(Equal(types.F64{}))
+				Expect(paramChildren[1].Type).To(Equal(types.F64()))
 				Expect(paramChildren[1].Name).To(Equal("y"))
-				Expect(paramChildren[1].Type).To(Equal(types.F64{}))
+				Expect(paramChildren[1].Type).To(Equal(types.F64()))
 				blockChildren := funcScope.FilterChildrenByKind(symbol.KindBlock)
 				Expect(blockChildren).To(HaveLen(1))
 			})
 		})
 
 		Describe("Tasks", func() {
-			It("Should bind stage config, runtime params and return types to the stage signature", func() {
+			It("Should bind func config, runtime params and return types to the func signature", func() {
 				prog := MustSucceed(parser.Parse(`
-				stage controller{
+				func controller{
 					setpoint f64
 					sensor <-chan f64
 					actuator ->chan f64
@@ -273,35 +271,33 @@ var _ = Describe("Analyzer", func() {
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				stageScope := MustSucceed(ctx.Scope.Resolve(ctx, "controller"))
-				Expect(stageScope.ID).To(Equal(0))
-				Expect(stageScope.Name).To(Equal("controller"))
-				taskT, ok := stageScope.Type.(ir.Stage)
-				Expect(ok).To(BeTrue())
-				output, _ := taskT.Outputs.Get(ir.DefaultOutputParam)
-				Expect(output).To(Equal(types.F64{}))
+				fScope := MustSucceed(ctx.Scope.Resolve(ctx, "controller"))
+				Expect(fScope.ID).To(Equal(0))
+				Expect(fScope.Name).To(Equal("controller"))
+				output, _ := fScope.Type.Outputs.Get(ir.DefaultOutputParam)
+				Expect(output).To(Equal(types.F64()))
 
 				By("Having the correct config parameters")
-				Expect(taskT.Config.Count()).To(Equal(3))
-				name, t := taskT.Config.At(0)
+				Expect(fScope.Type.Config.Count()).To(Equal(3))
+				name, t := fScope.Type.Config.At(0)
 				Expect(name).To(Equal("setpoint"))
-				Expect(t).To(Equal(types.F64{}))
-				name, t = taskT.Config.At(1)
+				Expect(t).To(Equal(types.F64()))
+				name, t = fScope.Type.Config.At(1)
 				Expect(name).To(Equal("sensor"))
-				Expect(t).To(Equal(types.Chan{ValueType: types.F64{}}))
-				name, t = taskT.Config.At(2)
+				Expect(t).To(Equal(types.Chan(types.F64())))
+				name, t = fScope.Type.Config.At(2)
 				Expect(name).To(Equal("actuator"))
-				Expect(t).To(Equal(types.Chan{ValueType: types.F64{}}))
+				Expect(t).To(Equal(types.Chan(types.F64())))
 
 				By("Having the correct parameters")
-				Expect(taskT.Params.Count()).To(Equal(1))
-				name, t = taskT.Params.At(0)
+				Expect(fScope.Type.Inputs.Count()).To(Equal(1))
+				name, t = fScope.Type.Inputs.At(0)
 				Expect(name).To(Equal("enable"))
-				Expect(t).To(Equal(types.U8{}))
+				Expect(t).To(Equal(types.U8()))
 
 				By("Having the correct symbols")
-				Expect(len(stageScope.Children)).To(Equal(5))
-				configScopeParamScopes := stageScope.FilterChildrenByKind(symbol.KindConfigParam)
+				Expect(len(fScope.Children)).To(Equal(5))
+				configScopeParamScopes := fScope.FilterChildrenByKind(symbol.KindConfig)
 				Expect(configScopeParamScopes).To(HaveLen(3))
 				Expect(configScopeParamScopes[0].Name).To(Equal("setpoint"))
 				Expect(configScopeParamScopes[0].ID).To(Equal(0))
@@ -379,7 +375,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(ContainSubstring("unexpected return value in function/stage with void return type"))
+			Expect(first.Message).To(ContainSubstring("unexpected return value in function/func with void return type"))
 		})
 
 		It("Should return an error for a missing return with a function that has a return type", func() {

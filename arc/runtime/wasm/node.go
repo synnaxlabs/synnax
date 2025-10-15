@@ -48,7 +48,7 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		for inputIdx, o := range n.inputs {
 			n.params[inputIdx] = valueAt(n.state.Outputs[o.Source].Data, int(i))
 		}
-		res, err := n.wasm.Call(ctx, n.params...)
+		res, err := n.wasm.Call(ctx, n.Inputs...)
 		if err != nil {
 		}
 		for param, value := range res {

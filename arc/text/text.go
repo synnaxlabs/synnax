@@ -45,13 +45,13 @@ func Analyze(
 	resolver symbol.Resolver,
 ) (ir.IR, analyzer.Diagnostics) {
 	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
-	// Stage 1: Analyse the AST.
+	// func 1: Analyse the AST.
 	if !analyzer.AnalyzeProgram(ctx) {
 		return ir.IR{}, *ctx.Diagnostics
 	}
 	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
 
-	// Stage 2: Iterate through the root scope children to assemble
+	// func 2: Iterate through the root scope children to assemble
 	// functions and stages.
 	for _, c := range i.Symbols.Children {
 		switch c.Kind {
@@ -126,7 +126,8 @@ func analyzeNode(
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return analyzeChannel(acontext.Child(ctx, channel), generateKey)
 	}
-	if stage := ctx.AST.StageInvocation(); stage != nil {
+	if func := ctx.AST.StageInvocation()
+	func != nil{
 		return analyzeStage(acontext.Child(ctx, stage), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -174,7 +175,7 @@ func extractConfigValues(
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			key, _ := stageType.Params.At(i)
+			key, _ := stageType.Inputs.At(i)
 			config[key] = getExpressionText(expr)
 		}
 	}

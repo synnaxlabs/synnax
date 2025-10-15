@@ -68,7 +68,7 @@ func (s *Server) getCompletionItems(prefix string, line string, pos protocol.Pos
 		insert string
 	}{
 		{"func", "Function declaration", "Declares a function", "func ${1:name}($2) $3 {\n\t$0\n}"},
-		{"stage", "Stage declaration", "Declares a reactive stage", "stage ${1:name}{\n\t$2\n} ($3) $4 {\n\t$0\n}"},
+		{"stage", "func declaration", "Declares a reactive stage", "func ${1:name}{\n\t$2\n} ($3) $4 {\n\t$0\n}"},
 		{"if", "If statement", "Conditional statement", "if ${1:condition} {\n\t$0\n}"},
 		{"else", "Else clause", "Alternative branch", "else {\n\t$0\n}"},
 		{"else if", "Else-if clause", "Alternative conditional branch", "else if ${1:condition} {\n\t$0\n}"},

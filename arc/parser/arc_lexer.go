@@ -314,7 +314,7 @@ func NewArcLexer(input antlr.CharStream) *ArcLexer {
 // ArcLexer tokens.
 const (
 	ArcLexerFUNC                = 1
-	ArcLexerSTAGE               = 2
+	ArcLexerfunc               = 2
 	ArcLexerIF                  = 3
 	ArcLexerELSE                = 4
 	ArcLexerRETURN              = 5

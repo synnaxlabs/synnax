@@ -52,7 +52,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to f64",
 			"f64(42)",
-			types.F64{},
+			types.F64(),
 			OpI64Const,
 			int64(42),
 			OpF64ConvertI64S,
@@ -90,7 +90,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f32 expression to f64",
 			"f64(f32(3.14))",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(3.14),
 			OpF32DemoteF64,

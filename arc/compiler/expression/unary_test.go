@@ -69,7 +69,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"f64 negation",
 			"-2.5",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(2.5),
 			OpF64Neg,

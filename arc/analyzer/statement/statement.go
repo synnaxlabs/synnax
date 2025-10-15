@@ -307,7 +307,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
 		if expectedReturnType.IsValid() {
 			ctx.Diagnostics.AddError(
-				errors.New("unexpected return value in function/stage with void return type"),
+				errors.New("unexpected return value in function/func with void return type"),
 				ctx.AST,
 			)
 			return false

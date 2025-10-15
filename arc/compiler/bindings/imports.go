@@ -246,14 +246,14 @@ func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	// Load state
 	funcName := fmt.Sprintf("state_load_%s", t)
 	idx.StateLoad[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // stage ID, var ID
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // func ID, var ID
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Store state
 	funcName = fmt.Sprintf("state_store_%s", t)
 	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // stage ID, var ID, value
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, value
 		Results: []wasm.ValueType{},
 	})
 }

@@ -49,11 +49,11 @@ func NewMockPolymorphicResolver() symbol.Resolver {
 	}
 }
 
-var _ = Describe("Polymorphic Stage Analysis", func() {
+var _ = Describe("Polymorphic func Analysis", func() {
 	resolver := NewMockPolymorphicResolver()
 
 	Context("Simple Polymorphic Flow", func() {
-		It("should infer types for add stage from channel inputs", func() {
+		It("should infer types for add func from channel inputs", func() {
 			src := `sensor_f32 -> simple{}`
 			ast := MustSucceed(parser.Parse(src))
 			ctx := acontext.CreateRoot(context.Background(), ast, resolver)

@@ -65,7 +65,7 @@ var _ = Describe("Scope", func() {
 			Expect(*funcScope.Counter).To(Equal(0))
 		})
 
-		It("Should add a new stage scope", func() {
+		It("Should add a new func scope", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			stageScope := MustSucceed(rootScope.Add(
 				ir.ctx,
@@ -256,7 +256,7 @@ var _ = Describe("Scope", func() {
 
 		It("Should resolve from global resolver", func() {
 			globalResolver := symbol.MapResolver{
-				"pi": Symbol{Name: "pi", Kind: SymbolKindConfigParam, Type: types.F64{}},
+				"pi": Symbol{Name: "pi", Kind: SymbolKindConfigParam, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
 			resolved := MustSucceed(rootScope.Resolve(ir.ctx, "pi"))

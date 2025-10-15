@@ -50,7 +50,7 @@ type selectNode struct {
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(ctx context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.input.Source]
+	inputSeries := s.state.Outputs[s.Inputs.Source]
 	if inputSeries.Data.Len() == 0 {
 		return
 	}

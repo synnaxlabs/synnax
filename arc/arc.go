@@ -20,19 +20,19 @@ import (
 )
 
 type (
-	IR             = ir.IR
-	Stage          = ir.Stage
-	Node           = ir.Node
-	Edge           = ir.Edge
-	Handle         = ir.Handle
-	Function       = ir.Function
-	SymbolResolver = symbol.Resolver
-	Symbol         = symbol.Symbol
-	Graph          = graph.Graph
-	Text           = text.Text
-	Module         = module.Module
-)
+	IR = ir.IR
 
+func = ir.Stage
+Node           = ir.Node
+Edge = ir.Edge
+Handle = ir.Handle
+Function = ir.Function
+SymbolResolver = symbol.Resolver
+Symbol         = symbol.Symbol
+Graph = graph.Graph
+Text = text.Text
+Module = module.Module
+)
 type options struct {
 	resolver SymbolResolver
 }

@@ -74,7 +74,7 @@ func compileStatefulVariable(
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
 	// Emit state store operation
-	// Push stage ID (0 for now - runtime will provide actual ID)
+	// Push func ID (0 for now - runtime will provide actual ID)
 	ctx.Writer.WriteI32Const(0)
 	// Push state key
 	ctx.Writer.WriteI32Const(int32(scope.ID))
@@ -126,7 +126,7 @@ func compileAssignment(
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}
-		ctx.Writer.WriteI32Const(0) // Stage ID
+		ctx.Writer.WriteI32Const(0) // func ID
 		ctx.Writer.WriteI32Const(int32(stateIdx.ID))
 		importIdx, err := ctx.Imports.GetStateStore(varType)
 		if err != nil {
@@ -196,7 +196,7 @@ func compileOutputAssignment(
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	case types.F32{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
-	case types.F64{}:
+	case types.F64():
 		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
 	default:
 		return errors.Newf("unsupported output type %v", scope.Type)

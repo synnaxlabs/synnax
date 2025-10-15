@@ -76,7 +76,7 @@ func sizeOf(t types.Type) uint32 {
 		return 2
 	case types.U32{}, types.I32{}, types.F32{}:
 		return 4
-	case types.U64{}, types.I64{}, types.F64{}, types.TimeStamp{}, types.TimeSpan{}:
+	case types.U64{}, types.I64{}, types.F64(), types.TimeStamp{}, types.TimeSpan{}:
 		return 8
 	default:
 		return 8

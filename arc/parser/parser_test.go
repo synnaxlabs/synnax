@@ -300,7 +300,7 @@ func doubler{
 		})
 	})
 
-	Describe("Inter-Stage Flow", func() {
+	Describe("Inter-func Flow", func() {
 		It("Should parse simple channel to funcflow", func() {
 			prog := parseProgram(`sensor -> controller{} -> actuator`)
 
@@ -855,7 +855,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 	})
 
 	Describe("Named Output Routing", func() {
-		Context("Multi-Output Stage Declarations", func() {
+		Context("Multi-Output func Declarations", func() {
 			It("Should parse func with multiple named outputs", func() {
 				prog := parseProgram(`
 func demux{

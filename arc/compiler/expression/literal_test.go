@@ -48,7 +48,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float literals as f64",
 			"3.14",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(3.14),
 		),
@@ -56,7 +56,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"simple decimals",
 			"2.5",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(2.5),
 		),
@@ -64,7 +64,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float with leading dot",
 			".5",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(0.5),
 		),
@@ -72,7 +72,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float with trailing dot",
 			"1.",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(1.0),
 		),
@@ -97,7 +97,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"parenthesized float",
 			"(3.14)",
-			types.F64{},
+			types.F64(),
 			OpF64Const,
 			float64(3.14),
 		),

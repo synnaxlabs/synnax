@@ -619,7 +619,7 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("valve_cmd")).To(Equal(4))
 		})
 
-		It("Should stratify a multi-stage alarm system with priorities", func() {
+		It("Should stratify a multi-func alarm system with priorities", func() {
 			// Pattern: Multiple alarm conditions with different priorities merging
 			nodes := []ir.Node{
 				// Sensors

@@ -108,7 +108,7 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 		r.sampleCount = 0
 	}
 
-	inputOutput := r.state.Outputs[r.input.Source]
+	inputOutput := r.state.Outputs[r.Inputs.Source]
 	if inputOutput.Data.Len() == 0 {
 		return
 	}

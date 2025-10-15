@@ -21,7 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Expression Stage Conversion", func() {
+var _ = Describe("Expression func Conversion", func() {
 	testResolver := symbol.MapResolver{
 		"temp_sensor": symbol.Symbol{
 			Name: "temp_sensor",
@@ -118,7 +118,7 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthStage).ToNot(BeNil())
 			output := MustBeOk(synthStage.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output).To(Equal(types.F64()))
@@ -174,7 +174,7 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthStage).ToNot(BeNil())
 		})
 	})
@@ -186,7 +186,7 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthStage).ToNot(BeNil())
 		})
 	})
