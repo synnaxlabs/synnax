@@ -271,7 +271,7 @@
         color: var(--pluto-warning-z);
     }
     &.pluto--status-success {
-        color: var(--pluto-primary-z);
+        color: var(--pluto-secondary-z);
     }
     &.pluto--status-disabled {
         color: var(--pluto-gray-l8);
