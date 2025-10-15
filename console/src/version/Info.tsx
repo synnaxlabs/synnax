@@ -149,7 +149,7 @@ export const Info: Layout.Renderer = () => {
             Version {update.version} available
           </Status.Summary>
           <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
-            Update & Restart
+            Update and Restart
           </Button.Button>
         </>
       );
