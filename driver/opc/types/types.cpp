@@ -121,7 +121,7 @@ std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) 
     // Wrap in RAII type - NodeId constructor will take ownership
     NodeId result(raw_id);
     // Clear the raw_id to prevent double-free (NodeId now owns it)
-    UA_NodeId_init(&raw_id);
+    UA_NodeId_clear(&raw_id);
     return {std::move(result), xerrors::NIL};
 }
 

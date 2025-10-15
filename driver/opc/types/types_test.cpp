@@ -49,7 +49,7 @@ TEST(TypesTest, NodeIdRAII) {
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     opc::NodeId nodeId1(string_id);
-    UA_NodeId_init(&string_id); // Zero out, nodeId1 now owns it
+    UA_NodeId_clear(&string_id); // Clear, nodeId1 now owns it
 
     // NodeIds are move-only, test move constructor
     opc::NodeId nodeId2(std::move(nodeId1));
@@ -279,13 +279,11 @@ TEST(TypesTest, NoDoubleFree) {
     // Create wrappers that will be moved
     {
         opc::NodeId nodeId1(string_id);
-        UA_NodeId_init(&string_id); // Zero out, nodeId1 owns it
-        opc::NodeId nodeId2(std::move(nodeId1)); // Move
+        UA_NodeId_clear(&string_id);
+        opc::NodeId nodeId2(std::move(nodeId1));
         opc::NodeId nodeId3;
-        nodeId3 = std::move(nodeId2); // Move assign
-
-        // nodeId3 owns the data, will clean up automatically
-    } // No double-free should occur here
+        nodeId3 = std::move(nodeId2);
+    }
 }
 
 // Test parsing numeric NodeId from JSON

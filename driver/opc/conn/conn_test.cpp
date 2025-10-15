@@ -25,13 +25,8 @@ TEST(ConnTest, testBasicConn) {
     UA_Float float_data = 5.0f;
     UA_Variant_setScalarCopy(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    mock::TestNode node{
-        .ns = 1,
-        .node_id = "test",
-        .data_type = &UA_TYPES[UA_TYPES_FLOAT],
-        .initial_value = float_val,
-        .description = "Test Float Node"
-    };
+    mock::TestNode
+        node(1, "test", &UA_TYPES[UA_TYPES_FLOAT], float_val, "Test Float Node");
 
     mock::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};

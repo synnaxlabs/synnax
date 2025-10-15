@@ -261,7 +261,12 @@ public:
             attr.description = description.get();
             attr.displayName = displayName.get();
 
-            opc::NodeId nodeId(UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str()));
+            UA_NodeId raw_node_id = UA_NODEID_STRING_ALLOC(
+                node.ns,
+                node.node_id.c_str()
+            );
+            opc::NodeId nodeId(raw_node_id);
+            UA_NodeId_clear(&raw_node_id);
             LOG(INFO) << "Creating OPC UA node: "
                       << opc::NodeId::to_string(nodeId.get());
 
