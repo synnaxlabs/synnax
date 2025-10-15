@@ -138,7 +138,7 @@ var _ = Describe("Compiler", func() {
 				"sensor": {
 					Name: "sensor",
 					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32()},
+					Type: types.Chan(types.I32()),
 				},
 			})
 
@@ -179,19 +179,19 @@ var _ = Describe("Compiler", func() {
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
 			printType := ir.Function{}
-			printType.Config.Put("message", types.String{})
+			printType.Config.Put("message", types.String())
 
 			resolver := symbol.MapResolver{
 				"ox_pt_1": symbol.Symbol{
 					Name: "ox_pt_1",
 					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32()},
+					Type: types.Chan(types.I32()),
 					ID:   12,
 				},
 				"print": symbol.Symbol{
 					Name: "print",
 					Kind: symbol.KindFunction,
-					Type: printType,
+					Type: printType.Type(),
 				},
 			}
 

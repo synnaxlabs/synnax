@@ -147,7 +147,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"unsigned u32 division",
 			"u32(20) / u32(4)",
-			types.U32{},
+			types.U32(),
 			OpI64Const,
 			int64(20),
 			OpI32WrapI64,
@@ -184,7 +184,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"unsigned u32 modulo",
 			"u32(17) % u32(5)",
-			types.U32{},
+			types.U32(),
 			OpI64Const,
 			int64(17),
 			OpI32WrapI64,

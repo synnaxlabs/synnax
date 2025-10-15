@@ -101,7 +101,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to u32",
 			"u32(42)",
-			types.U32{},
+			types.U32(),
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,

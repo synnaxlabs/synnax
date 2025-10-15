@@ -156,21 +156,21 @@ func Analyze(
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
 					query.NotFound,
-					"source param '%s' not found in node '%s'",
+					"output '%s' not found in node '%s'",
 					edge.Source.Param,
 					edge.Source.Node,
 				), nil)
 			return ir.IR{}, *ctx.Diagnostics
 		}
 
-		targetType, ok := targetStageSymbol.Type.Outputs.Get(edge.Target.Param)
+		targetType, ok := targetStageSymbol.Type.Inputs.Get(edge.Target.Param)
 		if !ok {
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
 					query.NotFound,
-					"target param '%s' not found in node '%s'",
+					"input '%s' not found in node '%s'",
 					edge.Target.Param,
-					edge.Source.Node,
+					edge.Target.Node,
 				), nil)
 			return ir.IR{}, *ctx.Diagnostics
 		}

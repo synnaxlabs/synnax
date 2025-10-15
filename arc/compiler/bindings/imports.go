@@ -108,14 +108,14 @@ func SetupImports(m *wasm.Module) *ImportIndex {
 	for _, typ := range types.Numerics {
 		setupChannelOps(m, idx, typ)
 	}
-	setupChannelOps(m, idx, types.String{})
+	setupChannelOps(m, idx, types.String())
 	for _, typ := range types.Numerics {
 		setupSeriesOps(m, idx, typ)
 	}
 	for _, typ := range types.Numerics {
 		setupStateOps(m, idx, typ)
 	}
-	setupStateOps(m, idx, types.String{})
+	setupStateOps(m, idx, types.String())
 	setupGenericOps(m, idx)
 	return idx
 }

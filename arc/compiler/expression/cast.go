@@ -83,6 +83,7 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	var (
 		opCode       wasm.Opcode
 		fromIsSigned = from.IsSignedInteger()
+		toIsSigned   = to.IsSignedInteger()
 	)
 	switch fromWasm {
 	case wasm.I32:
@@ -106,18 +107,18 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	case wasm.F32:
 		switch toWasm {
 		case wasm.I32:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpI32TruncF32S, wasm.OpI32TruncF32U)
+			opCode = lo.Ternary(toIsSigned, wasm.OpI32TruncF32S, wasm.OpI32TruncF32U)
 		case wasm.I64:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpI64TruncF32S, wasm.OpI64TruncF32U)
+			opCode = lo.Ternary(toIsSigned, wasm.OpI64TruncF32S, wasm.OpI64TruncF32U)
 		case wasm.F64:
 			opCode = wasm.OpF64PromoteF32
 		}
 	case wasm.F64:
 		switch toWasm {
 		case wasm.I32:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpI32TruncF64S, wasm.OpI32TruncF64U)
+			opCode = lo.Ternary(toIsSigned, wasm.OpI32TruncF64S, wasm.OpI32TruncF64U)
 		case wasm.I64:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpI64TruncF64S, wasm.OpI64TruncF64U)
+			opCode = lo.Ternary(toIsSigned, wasm.OpI64TruncF64S, wasm.OpI64TruncF64U)
 		case wasm.F32:
 			opCode = wasm.OpF32DemoteF64
 		}

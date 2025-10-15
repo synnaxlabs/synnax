@@ -20,5 +20,5 @@ type Module struct {
 }
 
 func (m Module) IsZero() bool {
-	return len(m.Nodes) == 0 && len(m.Stages) == 0 && len(m.Functions) == 0 && len(m.Edges) == 0 && len(m.WASM) == 0 && m.Symbols == nil
+	return len(m.Nodes) == 0 && len(m.Functions) == 0 && len(m.Edges) == 0 && len(m.WASM) == 0 && m.Symbols == nil
 }

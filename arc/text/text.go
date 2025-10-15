@@ -49,24 +49,19 @@ func Analyze(
 	if !analyzer.AnalyzeProgram(ctx) {
 		return ir.IR{}, *ctx.Diagnostics
 	}
-	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
+	i := ir.IR{Symbols: ctx.Scope}
 
 	// func 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
 		if c.Kind == symbol.KindFunction {
-			// Convert types.Type + AST → ir.Function
-			typeFunc, ok := c.Type.(types.Type)
-			if !ok || typeFunc.Kind != types.KindFunction {
-				continue
-			}
-			fn := ir.Function{
+			funcDecl := c.AST.(parser.IFunctionDeclarationContext)
+			i.Functions = append(i.Functions, ir.Function{
 				Key:     c.Name,
-				Body:    types.Body{Raw: "", AST: c.AST},
-				Config:  *typeFunc.Config,
-				Inputs:  *typeFunc.Inputs,
-				Outputs: *typeFunc.Outputs,
-			}
-			i.Functions = append(i.Functions, fn)
+				Body:    ir.Body{Raw: "", AST: funcDecl.Block()},
+				Config:  *c.Type.Config,
+				Inputs:  *c.Type.Inputs,
+				Outputs: *c.Type.Outputs,
+			})
 		}
 	}
 
@@ -168,7 +163,7 @@ func analyzeChannel(
 
 func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
-	stageType ir.Stage,
+	fnType types.Type,
 	node ir.Node,
 ) (map[string]any, bool) {
 	config := make(map[string]any)
@@ -182,16 +177,16 @@ func extractConfigValues(
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			key, _ := stageType.Inputs.At(i)
+			key, _ := fnType.Inputs.At(i)
 			config[key] = getExpressionText(expr)
 		}
 	}
 	for k, v := range config {
-		t, ok := stageType.Config.Get(k)
+		t, ok := fnType.Config.Get(k)
 		if !ok {
-			panic("config key not found in stage")
+			panic("config key not found in function")
 		}
-		if _, ok = t.(types.Chan); ok {
+		if t.Kind == types.KindChan {
 			sym, err := ctx.Scope.Resolve(ctx, v.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
@@ -218,19 +213,19 @@ func analyzeFunction(
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := types.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+	fnType := sym.Type
+	if fnType.Kind != types.KindFunction {
+		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: ir.NewChannels(),
 	}
 	config, ok := extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),
-		stageType,
+		fnType,
 		n,
 	)
 	if !ok {
@@ -253,15 +248,10 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := types.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
-		return ir.Node{}, ir.Handle{}, false
-	}
 	n := ir.Node{
 		Key:      sym.Name,
 		Type:     sym.Name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: ir.NewChannels(),
 	}
 	h := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
 	return n, h, true

@@ -146,39 +146,42 @@ func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
 
 // getTypeSuffix extracts the type suffix for import lookups
 func getTypeSuffix(t types.Type) string {
-	switch t := t.(type) {
-	case types.I8:
+	switch t.Kind {
+	case types.KindI8:
 		return "i8"
-	case types.I16:
+	case types.KindI16:
 		return "i16"
-	case types.I32:
+	case types.KindI32:
 		return "i32"
-	case types.I64:
+	case types.KindI64:
 		return "i64"
-	case types.U8:
+	case types.KindU8:
 		return "u8"
-	case types.U16:
+	case types.KindU16:
 		return "u16"
-	case types.U32:
+	case types.KindU32:
 		return "u32"
-	case types.U64:
+	case types.KindU64:
 		return "u64"
-	case types.F32:
+	case types.KindF32:
 		return "f32"
-	case types.F64:
+	case types.KindF64:
 		return "f64"
-	case types.String:
+	case types.KindString:
 		return "string"
-	case types.TimeStamp, types.TimeSpan:
+	case types.KindTimeStamp, types.KindTimeSpan:
 		return "i64"
-	case types.Series:
-		// For series, we need the element type
-		return getTypeSuffix(t.ValueType)
-	case types.Chan:
-		// For channels, we need the element type
-		return getTypeSuffix(t.ValueType)
+	case types.KindSeries:
+		if t.ValueType != nil {
+			return getTypeSuffix(*t.ValueType)
+		}
+		return "i32"
+	case types.KindChan:
+		if t.ValueType != nil {
+			return getTypeSuffix(*t.ValueType)
+		}
+		return "i32"
 	default:
-		// Default fallback
 		return "i32"
 	}
 }

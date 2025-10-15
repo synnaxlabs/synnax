@@ -48,14 +48,17 @@ func compileNumericLiteral(
 		switch ctx.Hint.Kind {
 		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
+			return types.F32(), nil
 		case types.KindF64:
 			ctx.Writer.WriteF64Const(float64(value))
+			return types.F64(), nil
 		case types.KindI32:
 			ctx.Writer.WriteI32Const(int32(value))
+			return types.I32(), nil
 		default:
 			ctx.Writer.WriteI64Const(value)
+			return types.I64(), nil
 		}
-		return ctx.Hint, nil
 	}
 	if floatLit := ctx.AST.FLOAT_LITERAL(); floatLit != nil {
 		text := floatLit.GetText()
@@ -64,12 +67,13 @@ func compileNumericLiteral(
 			return types.Type{}, errors.Newf("invalid float literal: %s", text)
 		}
 		switch ctx.Hint.Kind {
-		case types.KindF64:
+		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
+			return types.F32(), nil
 		default:
 			ctx.Writer.WriteF64Const(value)
+			return types.F64(), nil
 		}
-		return ctx.Hint, nil
 	}
 	return types.Type{}, errors.New("unknown numeric literal")
 }

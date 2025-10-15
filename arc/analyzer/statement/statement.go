@@ -146,7 +146,6 @@ func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
 	return primary != nil && primary.Literal() != nil
 }
 
-// analyzeLocalVariable analyzes a local variable declaration
 func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
@@ -377,14 +376,6 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	}
-
-	if channelSym.Kind != symbol.KindChannel && channelSym.Kind != symbol.KindConfig && channelSym.Kind != symbol.KindInput && channelSym.Kind != symbol.KindOutput {
-		ctx.Diagnostics.AddError(
-			errors.Newf("%s is not a channel", channelName),
-			ctx.AST,
-		)
 		return false
 	}
 

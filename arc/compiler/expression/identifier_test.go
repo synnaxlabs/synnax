@@ -112,7 +112,7 @@ var _ = Describe("Identifier Compilation", func() {
 	Context("Channel Reads", func() {
 		It("Should compile a channel read", func() {
 			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.I32()}}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
@@ -126,7 +126,7 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should correctly compile a channel read inside of an addition expression", func() {
 			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.I32()}}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
@@ -147,7 +147,7 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "value",
-				Kind: symbol.KindParam,
+				Kind: symbol.KindInput,
 				Type: types.F64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "value")
