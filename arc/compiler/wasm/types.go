@@ -12,9 +12,8 @@ package wasm
 import (
 	"strings"
 
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/maps"
 )
 
 // WASM binary format constants
@@ -51,49 +50,38 @@ const (
 
 var MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
 
-func ConvertType(t ir.Type) ValueType {
-	switch t {
-	case ir.I8{}, ir.I16{}, ir.I32{}, ir.U8{}, ir.U16{}, ir.U32{}:
-		return I32
-	case ir.I64{}, ir.U64{}:
-		return I64
-	case ir.F32{}:
-		return F32
-	case ir.F64{}:
+func ConvertType(t types.Type) ValueType {
+	if t.Kind == types.KindF64 {
 		return F64
-	default:
-		return I32
 	}
-}
-
-func ConvertParams(params maps.Ordered[string, ir.Type]) []ValueType {
-	wasmParams := make([]ValueType, 0, params.Count())
-	for _, paramType := range params.Iter() {
-		wasmParams = append(wasmParams, ConvertType(paramType))
+	if t.Is64Bit() {
+		return I64
 	}
-	return wasmParams
+	if t.Kind == types.KindF32 {
+		return F32
+	}
+	return I32
 }
 
 // SizeOf returns the size in bytes of an IR type when stored in linear memory
-func SizeOf(t ir.Type) uint32 {
-	switch t {
-	case ir.I8{}, ir.U8{}:
+func SizeOf(t types.Type) uint32 {
+	switch t.Kind {
+	case types.KindI8, types.KindU8:
 		return 1
-	case ir.I16{}, ir.U16{}:
+	case types.KindI16, types.KindU16:
 		return 2
-	case ir.I32{}, ir.U32{}, ir.F32{}:
+	case types.KindI32, types.KindU32, types.KindF32:
 		return 4
-	case ir.I64{}, ir.U64{}, ir.F64{}, ir.TimeStamp{}, ir.TimeSpan{}:
+	case types.KindI64, types.KindU64, types.KindF64, types.KindTimeStamp, types.KindTimeSpan:
 		return 8
 	default:
-		// Default to 4 bytes for unknown types
 		return 4
 	}
 }
 
-func binaryOpcode(op string, t ir.Type) (Opcode, error) {
-	isFloat := ir.IsFloat(t)
-	is64bit := ir.Is64Bit(t)
+func binaryOpcode(op string, t types.Type) (Opcode, error) {
+	isFloat := t.IsFloat()
+	is64bit := t.Is64Bit()
 	switch op {
 	case "+":
 		if isFloat {
@@ -139,7 +127,7 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 			return OpF32Div, nil
 		}
 		// Integer division - need to check if signed or unsigned
-		if ir.IsUnsignedInteger(t) {
+		if t.IsUnsignedInteger() {
 			if is64bit {
 				return OpI64DivU, nil
 			}
@@ -198,7 +186,7 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 			}
 			return OpF32Lt, nil
 		}
-		if ir.IsUnsignedInteger(t) {
+		if t.IsUnsignedInteger() {
 			if is64bit {
 				return OpI64LtU, nil
 			}
@@ -216,7 +204,7 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 			}
 			return OpF32Gt, nil
 		}
-		if ir.IsUnsignedInteger(t) {
+		if t.IsUnsignedInteger() {
 			if is64bit {
 				return OpI64GtU, nil
 			}
@@ -234,7 +222,7 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 			}
 			return OpF32Le, nil
 		}
-		if ir.IsUnsignedInteger(t) {
+		if t.IsUnsignedInteger() {
 			if is64bit {
 				return OpI64LeU, nil
 			}
@@ -252,7 +240,7 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 			}
 			return OpF32Ge, nil
 		}
-		if ir.IsUnsignedInteger(t) {
+		if t.IsUnsignedInteger() {
 			if is64bit {
 				return OpI64GeU, nil
 			}
@@ -263,7 +251,6 @@ func binaryOpcode(op string, t ir.Type) (Opcode, error) {
 		}
 		return OpI32GeS, nil
 	case "^":
-		// Exponentiation - needs host function call
 		return 0, errors.New("exponentiation not yet implemented")
 	default:
 		return 0, errors.Newf("unknown operator: %s", op)

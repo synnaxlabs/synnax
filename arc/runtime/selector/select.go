@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -22,21 +24,21 @@ var (
 	trueParamName  = "true"
 	falseParamName = "false"
 	symbolName     = "select"
-	symbolSelect   = ir.Symbol{
+	symbolSelect   = symbol.Symbol{
 		Name: symbolName,
-		Kind: ir.KindStage,
+		Kind: symbol.KindFunction,
 		Type: ir.Stage{
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []ir.Type{ir.U8{}},
+				Values: []types.Type{types.U8{}},
 			},
-			Outputs: ir.NamedTypes{
+			Outputs: types.Params{
 				Keys:   []string{"true", "false"},
-				Values: []ir.Type{ir.U8{}, ir.U8{}},
+				Values: []types.Type{types.U8{}, types.U8{}},
 			},
 		},
 	}
-	SymbolResolver = ir.MapResolver{symbolName: symbolSelect}
+	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
 type selectNode struct {

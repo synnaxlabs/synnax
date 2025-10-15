@@ -18,29 +18,31 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/maps"
 )
 
-func NewMockPolymorphicResolver() ir.SymbolResolver {
-	simpleParams := &maps.Ordered[string, ir.Type]{}
-	simpleParams.Put("a", ir.NewTypeVariable("T", ir.NumericConstraint{}))
-	return &ir.MapResolver{
+func NewMockPolymorphicResolver() symbol.Resolver {
+	simpleParams := &maps.Ordered[string, types.Type]{}
+	simpleParams.Put("a", types.NewTypeVariable("T", types.NumericConstraint{}))
+	return &symbol.MapResolver{
 		"simple": {
 			Name: "simple",
-			Kind: ir.KindStage,
+			Kind: symbol.KindFunction,
 			Type: ir.Stage{
 				Key:    "simple",
 				Params: *simpleParams,
-				Outputs: ir.NamedTypes{
-					Keys:   []string{"output"},
-					Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
 				},
 			},
 		},
 		"sensor_f32": {
 			Name: "sensor_f32",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.F32{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan{ValueType: types.F32{}},
 		},
 	}
 }
@@ -69,11 +71,11 @@ var _ = Describe("Polymorphic Stage Analysis", func() {
 			Expect(ok).To(BeTrue())
 
 			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
-			returnType, _ := simpleStage.Outputs.Get("output")
+			returnType, _ := simpleStage.Outputs.Get(ir.DefaultOutputParam)
 			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
 
-			Expect(resolvedParam).To(Equal(ir.F32{}))
-			Expect(resolvedReturn).To(Equal(ir.F32{}))
+			Expect(resolvedParam).To(Equal(types.F32{}))
+			Expect(resolvedReturn).To(Equal(types.F32{}))
 		})
 
 		It("should infer types from expression inputs", func() {
@@ -98,11 +100,11 @@ var _ = Describe("Polymorphic Stage Analysis", func() {
 
 			// Apply substitutions to get concrete types for this specific use
 			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
-			returnType, _ := simpleStage.Outputs.Get("output")
+			returnType, _ := simpleStage.Outputs.Get(ir.DefaultOutputParam)
 			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
 
-			Expect(resolvedParam).To(Equal(ir.F32{}))
-			Expect(resolvedReturn).To(Equal(ir.F32{}))
+			Expect(resolvedParam).To(Equal(types.F32{}))
+			Expect(resolvedReturn).To(Equal(types.F32{}))
 		})
 	})
 })

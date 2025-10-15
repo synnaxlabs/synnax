@@ -17,19 +17,21 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(source string, resolver ir.SymbolResolver) (compiler.Output, error) {
+func compile(source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
-func compileWithHostImports(source string, resolver ir.SymbolResolver) (compiler.Output, error) {
+func compileWithHostImports(source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
@@ -95,10 +97,10 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Stage Execution", func() {
-		It("Should execute a simple compiled addition stage", func() {
+	Describe("Function with Config Execution", func() {
+		It("Should execute a simple compiled addition function with config", func() {
 			output := MustSucceed(compile(`
-			stage add{
+			func add{
 				a i64
 			} (b i64) i64 {
 				return a + b
@@ -132,11 +134,11 @@ var _ = Describe("Compiler", func() {
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
 
-			resolver := ir.MapResolver(map[string]ir.Symbol{
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"sensor": {
 					Name: "sensor",
-					Kind: ir.KindChannel,
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Kind: symbol.KindChannel,
+					Type: types.Chan{ValueType: types.I32{}},
 				},
 			})
 
@@ -176,19 +178,19 @@ var _ = Describe("Compiler", func() {
 
 			// Bind the mock runtime
 			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
-			printType := ir.Stage{}
-			printType.Config.Put("message", ir.String{})
+			printType := ir.Function{}
+			printType.Config.Put("message", types.String{})
 
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
 					Name: "ox_pt_1",
-					Kind: ir.KindChannel,
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Kind: symbol.KindChannel,
+					Type: types.Chan{ValueType: types.I32{}},
 					ID:   12,
 				},
-				"print": ir.Symbol{
+				"print": symbol.Symbol{
 					Name: "print",
-					Kind: ir.KindStage,
+					Kind: symbol.KindFunction,
 					Type: printType,
 				},
 			}
@@ -207,9 +209,9 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Named Output Routing", func() {
-		It("Should compile a debug multi-param stage", func() {
+		It("Should compile a debug multi-param function", func() {
 			output := MustSucceed(compile(`
-			stage debug(x i64, y i64) {
+			func debug(x i64, y i64) {
 				out i64
 			} {
 				out = x + y
@@ -232,9 +234,9 @@ var _ = Describe("Compiler", func() {
 			Expect(outValue).To(Equal(uint64(13))) // Should be 10 + 3
 		})
 
-		It("Should compile a basic multi-output stage", func() {
+		It("Should compile a basic multi-output function", func() {
 			output := MustSucceed(compile(`
-			stage classifier(value i64) {
+			func classifier(value i64) {
 				high i64
 				low i64
 			} {
@@ -278,7 +280,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should handle conditional output routing", func() {
 			output := MustSucceed(compile(`
-			stage router(x i64, y i64) {
+			func router(x i64, y i64) {
 				sum i64
 				diff i64
 				both i64
@@ -332,7 +334,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should support mixed output types", func() {
 			output := MustSucceed(compile(`
-			stage converter(value i64) {
+			func converter(value i64) {
 				asFloat f64
 				asInt i32
 				original i64

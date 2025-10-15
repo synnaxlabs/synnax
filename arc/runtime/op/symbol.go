@@ -11,18 +11,20 @@ package op
 
 import (
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
-func createBinaryOpSymbol(name string, outputs ir.NamedTypes) ir.Symbol {
-	return ir.Symbol{
+func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
+	return symbol.Symbol{
 		Name: name,
-		Kind: ir.KindStage,
+		Kind: symbol.KindFunction,
 		Type: ir.Stage{
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys: []string{ir.LHSInputParam, ir.RHSInputParam},
-				Values: []ir.Type{
-					ir.NewTypeVariable("T", ir.NumericConstraint{}),
-					ir.NewTypeVariable("T", ir.NumericConstraint{}),
+				Values: []types.Type{
+					types.NewTypeVariable("T", types.NumericConstraint{}),
+					types.NewTypeVariable("T", types.NumericConstraint{}),
 				},
 			},
 			Outputs: outputs,
@@ -30,29 +32,29 @@ func createBinaryOpSymbol(name string, outputs ir.NamedTypes) ir.Symbol {
 	}
 }
 
-func createComparisonSymbol(name string) ir.Symbol {
+func createComparisonSymbol(name string) symbol.Symbol {
 	return createBinaryOpSymbol(
 		name,
-		ir.NamedTypes{
+		types.Params{
 			Keys:   []string{ir.DefaultOutputParam},
-			Values: []ir.Type{ir.U8{}},
+			Values: []types.Type{types.U8{}},
 		},
 	)
 }
 
-func createArithmeticSymbol(name string) ir.Symbol {
+func createArithmeticSymbol(name string) symbol.Symbol {
 	return createBinaryOpSymbol(
 		name,
-		ir.NamedTypes{
+		types.Params{
 			Keys: []string{ir.DefaultOutputParam},
-			Values: []ir.Type{
-				ir.NewTypeVariable("T", ir.NumericConstraint{}),
+			Values: []types.Type{
+				types.NewTypeVariable("T", types.NumericConstraint{}),
 			},
 		},
 	)
 }
 
-var SymbolResolver = ir.MapResolver{
+var SymbolResolver = symbol.MapResolver{
 	"ge":  createComparisonSymbol("ge"),
 	"le":  createComparisonSymbol("le"),
 	"lt":  createComparisonSymbol("lt"),

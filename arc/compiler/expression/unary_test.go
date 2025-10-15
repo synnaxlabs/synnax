@@ -12,7 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("Unary Operations", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"i32 negation",
 			"-i32(10)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -35,7 +35,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"i64 negation",
 			"-100",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(100),
 			OpI64Const,
@@ -46,7 +46,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"u32 negation",
 			"-u32(5)",
-			ir.U32{},
+			types.U32{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -59,7 +59,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"f32 negation",
 			"-f32(3.14)",
-			ir.F32{},
+			types.F32{},
 			OpF64Const,
 			float64(3.14),
 			OpF32DemoteF64,
@@ -69,7 +69,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"f64 negation",
 			"-2.5",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(2.5),
 			OpF64Neg,
@@ -79,7 +79,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"double negation",
 			"--i32(42)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -94,7 +94,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"negation in expression",
 			"i32(10) + -i32(5)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -109,7 +109,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"negated parenthesized expression",
 			"-(i32(10) + i32(5))",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -125,7 +125,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT of comparison",
 			"!(i32(5) > i32(3))",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -138,7 +138,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT of equality",
 			"!(i32(10) == i32(10))",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -151,7 +151,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"double NOT",
 			"!!(i32(5) < i32(10))",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -166,7 +166,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT with arithmetic comparison",
 			"!((i32(2) + i32(3)) > i32(4))",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(2),
 			OpI32WrapI64,
@@ -183,7 +183,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"negation and NOT in same expression",
 			"!(-i32(5) < i32(0))",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -199,7 +199,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"operator precedence with unary",
 			"-i32(2) * i32(3)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(2),
 			OpI32WrapI64,

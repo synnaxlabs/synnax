@@ -39,7 +39,7 @@ type Calculator struct {
 	scheduler *runtime.Scheduler
 }
 
-// Config is the configuration for an arc runtime.
+// ConfigValues is the configuration for an arc runtime.
 type CalculatorConfig struct {
 	Channel channel.Channel
 	// Module is the compiled arc module that needs to be executed.
@@ -52,7 +52,7 @@ var (
 	_ config.Config[CalculatorConfig] = CalculatorConfig{}
 	// DefaultConfig is the default configuration for opening a runtime. This
 	// configuration is not valid on its own. Fields must be set according to the
-	// Config documentation.
+	// ConfigValues documentation.
 	DefaultCalculatorConfig = CalculatorConfig{}
 )
 

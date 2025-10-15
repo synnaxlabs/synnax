@@ -13,15 +13,16 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	types2 "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // Analyze processes a flow statement and returns true if successful
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
-	// First analyze all flow nodes
 	for i, node := range ctx.AST.AllFlowNode() {
 		var prevNode parser.IFlowNodeContext
 		if i != 0 {
@@ -31,14 +32,11 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 			return false
 		}
 	}
-
-	// Then analyze routing tables
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		if !analyzeRoutingTable(context.Child(ctx, routingTable)) {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -58,20 +56,18 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 
 func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], prevNode parser.IFlowNodeContext) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	_, stageType, ok := resolveStage(ctx, name)
+	stageType, ok := resolveStage(ctx, name)
 	if !ok {
 		return false
 	}
 
-	if _, ok := validateStageConfig(ctx, name, stageType, ctx.AST.ConfigValues(), ctx.AST); !ok {
+	if _, ok := validateStageConfig(ctx, name, stageType.Type, ctx.AST.ConfigValues(), ctx.AST); !ok {
 		return false
 	}
 	if prevNode == nil {
 		return true
 	}
 
-	// Step 3: Validate that stage arguments are compatible with previous flow node.
-	// Check if previous node is a channel
 	if prevChannelNode := prevNode.ChannelIdentifier(); prevChannelNode != nil {
 		channelName := prevChannelNode.IDENTIFIER().GetText()
 		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
@@ -79,67 +75,61 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 			ctx.Diagnostics.AddError(err, prevChannelNode)
 			return false
 		}
-		if channelSym.Kind != ir.KindChannel {
+		if channelSym.Kind != symbol.KindChannel {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s is not a channel", channelName),
 				prevChannelNode,
 			)
 			return false
 		}
-		// If this stage has parameters, the channel's value type should match the first param
-		if stageType.Params.Count() > 0 {
-			_, paramType := stageType.Params.At(0)
-			chanType := channelSym.Type.(ir.Chan)
+		if stageType.Type.Inputs.Count() > 0 {
+			_, paramType := stageType.Type.Inputs.At(0)
+			chanType := types2.Chan(channelSym.Type)
 			// Create constraint between channel value type and parameter type
-			if err := atypes.CheckEqual(ctx.Constraints, chanType.ValueType, paramType, ctx.AST,
-				"channel to stage parameter connection"); err != nil {
-				// Only report error if neither type is a type variable
-				if !atypes.HasTypeVariables(chanType.ValueType) && !atypes.HasTypeVariables(paramType) {
-					ctx.Diagnostics.AddError(errors.Newf(
-						"channel %s value type %s does not match stage %s parameter type %s",
-						channelName,
-						chanType.ValueType,
-						name,
-						paramType,
-					), ctx.AST)
-					return false
-				}
+			if err := types.Check(
+				ctx.Constraints,
+				*chanType.ValueType,
+				paramType,
+				ctx.AST,
+				"channel to stage parameter connection",
+			); err != nil {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"channel %s value type %s does not match stage %s parameter type %s",
+					channelName,
+					chanType.ValueType,
+					name,
+					paramType,
+				), ctx.AST)
+				return false
 			}
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
-		// Handle expression -> stage connection
-		// The expression creates a synthetic stage, so we need to get its return type
-		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
-
-		// If this stage has parameters, the expression's type should match the first param
-		if stageType.Params.Count() > 0 {
-			_, paramType := stageType.Params.At(0)
-			// Create constraint between expression type and parameter type
-			if err := atypes.CheckEqual(ctx.Constraints, exprType, paramType, ctx.AST,
-				"expression to stage parameter connection"); err != nil {
-				// Only report error if neither type is a type variable
-				if !atypes.HasTypeVariables(exprType) && !atypes.HasTypeVariables(paramType) {
-					ctx.Diagnostics.AddError(errors.Newf(
-						"expression type %s does not match stage %s parameter type %s",
-						exprType,
-						name,
-						paramType,
-					), ctx.AST)
-					return false
-				}
+		exprType := types.InferFromExpression(context.Child(ctx, prevExpr))
+		if stageType.Type.Inputs.Count() > 0 {
+			_, paramType := stageType.Type.Inputs.At(0)
+			if err := types.Check(
+				ctx.Constraints,
+				exprType,
+				paramType,
+				ctx.AST,
+				"expression to stage parameter connection",
+			); err != nil {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"expression type %s does not match stage %s parameter type %s",
+					exprType,
+					name,
+					paramType,
+				), ctx.AST)
+				return false
 			}
 		}
-	} else if prevTaskNode := prevNode.StageInvocation(); prevTaskNode != nil {
-		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
-		_, prevTaskType, ok := resolveStage(ctx, prevTaskName)
+	} else if prevStageNode := prevNode.StageInvocation(); prevStageNode != nil {
+		prevStageName := prevStageNode.IDENTIFIER().GetText()
+		prevStageType, ok := resolveStage(ctx, prevStageName)
 		if !ok {
 			return false
 		}
-
-		// Check if there's a routing table between the previous stage and this stage
 		hasRoutingTableBetween := false
-		// Navigate up the AST to find the flow statement
-		// ctx.AST is StageInvocation -> parent is FlowNode -> grandparent is FlowStatement
 		if parent := ctx.AST.GetParent(); parent != nil {
 			if grandparent := parent.GetParent(); grandparent != nil {
 				if flowStmt, ok := grandparent.(parser.IFlowStatementContext); ok {
@@ -150,44 +140,35 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 			}
 		}
 
-		// Only enforce single-parameter restriction if there's no routing table
-		if !hasRoutingTableBetween && stageType.Params.Count() > 1 {
+		if !hasRoutingTableBetween && stageType.Type.Inputs.Count() > 1 {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s has more than one parameter", name),
 				ctx.AST,
 			)
 			return false
 		}
-		// Validate that the return type of the previous stage matches the arg type
-		// of the next stage (only if there's no routing table)
-		if !hasRoutingTableBetween && stageType.Params.Count() > 0 {
-			_, t := stageType.Params.At(0)
-			// Get the output type from previous stage (check "output" or first output)
-			var prevOutputType ir.Type
-			if outputType, ok := prevTaskType.Outputs.Get("output"); ok {
+		if !hasRoutingTableBetween && stageType.Type.Inputs.Count() > 0 {
+			_, t := stageType.Type.Inputs.At(0)
+			var prevOutputType types2.Type
+			if outputType, ok := prevStageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				prevOutputType = outputType
-			} else if prevTaskType.Outputs.Count() > 0 {
-				// Multi-output stage - can't directly chain without routing table
+			} else if prevStageType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"stage '%s' has named outputs and requires a routing table",
-					prevTaskName,
+					prevStageName,
 				), ctx.AST)
 				return false
 			}
-			// Use constraint-based checking for type variables
-			if err := atypes.CheckEqual(ctx.Constraints, prevOutputType, t, ctx.AST,
+			if err := types.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
 				"flow connection between stages"); err != nil {
-				// Only report error if neither type is a type variable
-				if !atypes.HasTypeVariables(prevOutputType) && !atypes.HasTypeVariables(t) {
-					ctx.Diagnostics.AddError(errors.Newf(
-						"return type %s of %s is not equal to argument type %s of %s",
-						prevOutputType,
-						prevTaskName,
-						t,
-						name,
-					), ctx.AST)
-					return false
-				}
+				ctx.Diagnostics.AddError(errors.Newf(
+					"return type %s of %s is not equal to argument type %s of %s",
+					prevOutputType,
+					prevStageName,
+					t,
+					name,
+				), ctx.AST)
+				return false
 			}
 		}
 	}
@@ -207,31 +188,23 @@ func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool 
 func resolveStage[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	name string,
-) (*ir.Scope, ir.Stage, bool) {
+) (*symbol.Scope, bool) {
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return nil, ir.Stage{}, false
+		return nil, false
 	}
-	if sym.Kind != ir.KindStage {
+	if sym.Kind != symbol.KindFunction {
 		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", name), ctx.AST)
-		return nil, ir.Stage{}, false
+		return nil, false
 	}
-	var stageType ir.Stage
-	if sym.Type != nil {
-		if st, ok := sym.Type.(ir.Stage); ok {
-			stageType = st
-		} else if st, ok := sym.Type.(*ir.Stage); ok {
-			stageType = *st
-		}
-	}
-	return sym, stageType, true
+	return sym, true
 }
 
 func validateStageConfig[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	stageName string,
-	stageType ir.Stage,
+	stageType types2.Type,
 	configBlock parser.IConfigValuesContext,
 	configNode antlr.ParserRuleContext,
 ) (map[string]bool, bool) {
@@ -257,23 +230,19 @@ func validateStageConfig[T antlr.ParserRuleContext](
 				if !expression.Analyze(childCtx) {
 					return nil, false
 				}
-				exprType := atypes.InferFromExpression(childCtx)
-				if exprType != nil && expectedType != nil {
-					if err := atypes.CheckEqual(ctx.Constraints, expectedType, exprType, configVal,
-						"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
-						if !atypes.HasTypeVariables(expectedType) && !atypes.HasTypeVariables(exprType) {
-							ctx.Diagnostics.AddError(
-								errors.Newf(
-									"type mismatch: config parameter '%s' expects %s but got %s",
-									key,
-									expectedType,
-									exprType,
-								),
-								configVal,
-							)
-							return nil, false
-						}
-					}
+				exprType := types.InferFromExpression(childCtx)
+				if err := types.Check(ctx.Constraints, expectedType, exprType, configVal,
+					"config parameter '"+key+"' for stage '"+stageName+"'"); err != nil {
+					ctx.Diagnostics.AddError(
+						errors.Newf(
+							"type mismatch: config parameter '%s' expects %s but got %s",
+							key,
+							expectedType,
+							exprType,
+						),
+						configVal,
+					)
+					return nil, false
 				}
 			}
 		}
@@ -346,7 +315,6 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 }
 
 func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodesBefore []parser.IFlowNodeContext, nodesAfter []parser.IFlowNodeContext) bool {
-	// Find the last stage invocation in the flow nodes before the routing table
 	var prevStage parser.IStageInvocationContext
 	for i := len(nodesBefore) - 1; i >= 0; i-- {
 		if stageInv := nodesBefore[i].StageInvocation(); stageInv != nil {
@@ -361,14 +329,13 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	}
 
 	stageName := prevStage.IDENTIFIER().GetText()
-	_, stageType, ok := resolveStage(ctx, stageName)
+	stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
 		return false
 	}
 
-	// Verify the stage has named outputs (not just a single "output")
-	_, hasDefaultOutput := stageType.Outputs.Get("output")
-	hasNamedOutputs := stageType.Outputs.Count() > 1 || (stageType.Outputs.Count() == 1 && !hasDefaultOutput)
+	_, hasDefaultOutput := stageType.Type.Outputs.Get(ir.DefaultOutputParam)
+	hasNamedOutputs := stageType.Type.Outputs.Count() > 1 || (stageType.Type.Outputs.Count() == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
 		ctx.Diagnostics.AddError(
 			errors.Newf("stage '%s' does not have named outputs, cannot use routing table", stageName),
@@ -378,16 +345,17 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	}
 
 	// Find the next stage after the routing table (if exists)
-	var nextStage parser.IStageInvocationContext
-	var nextStageType ir.Stage
+	var (
+		nextStage     parser.IStageInvocationContext
+		nextStageType types2.Type
+	)
 	for _, node := range nodesAfter {
 		if stageInv := node.StageInvocation(); stageInv != nil {
 			nextStage = stageInv
-			// Get next stage type
 			nextStageName := nextStage.IDENTIFIER().GetText()
 			nextStageScope, err := ctx.Scope.Resolve(ctx, nextStageName)
-			if err == nil && nextStageScope.Kind == ir.KindStage {
-				nextStageType = nextStageScope.Type.(ir.Stage)
+			if err == nil && nextStageScope.Kind == symbol.KindFunction {
+				nextStageType = nextStageScope.Type
 			}
 			break
 		}
@@ -398,7 +366,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		outputName := entry.IDENTIFIER(0).GetText()
 
 		// Verify the output exists in the stage
-		outputType, exists := stageType.Outputs.Get(outputName)
+		outputType, exists := stageType.Type.Outputs.Get(outputName)
 		if !exists {
 			ctx.Diagnostics.AddError(
 				errors.Newf("stage '%s' does not have output '%s'", stageName, outputName),
@@ -421,7 +389,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 				return false
 			}
 
-			if _, exists := nextStageType.Params.Get(targetParamName); !exists {
+			if _, exists := nextStageType.Inputs.Get(targetParamName); !exists {
 				ctx.Diagnostics.AddError(
 					errors.Newf(
 						"stage '%s' does not have parameter '%s'",
@@ -467,7 +435,7 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 	}
 
 	stageName := nextStage.IDENTIFIER().GetText()
-	_, stageType, ok := resolveStage(ctx, stageName)
+	stageType, ok := resolveStage(ctx, stageName)
 	if !ok {
 		return false
 	}
@@ -494,7 +462,7 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		paramName := lastNode.ChannelIdentifier().IDENTIFIER().GetText()
 
 		// Verify the parameter exists in the stage
-		paramType, exists := stageType.Params.Get(paramName)
+		paramType, exists := stageType.Type.Inputs.Get(paramName)
 		if !exists {
 			ctx.Diagnostics.AddError(
 				errors.Newf("stage '%s' does not have parameter '%s'", stageName, paramName),
@@ -521,31 +489,27 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 
 func analyzeRoutingTargetWithParam(
 	ctx context.Context[parser.IFlowNodeContext],
-	sourceType ir.Type,
-	nextStageType ir.Stage,
+	sourceType types2.Type,
+	nextStageType types2.Type,
 	targetParam *string,
 ) bool {
 	// Handle stage invocation target
 	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
 		stageName := stageInv.IDENTIFIER().GetText()
-		_, stageType, ok := resolveStage(ctx, stageName)
+		stageType, ok := resolveStage(ctx, stageName)
 		if !ok {
 			return false
 		}
 
-		if _, ok := validateStageConfig(ctx, stageName, stageType, stageInv.ConfigValues(), stageInv); !ok {
+		if _, ok := validateStageConfig(ctx, stageName, stageType.Type, stageInv.ConfigValues(), stageInv); !ok {
 			return false
 		}
 
-		// Type-check: if this is the last node and we have a targetParam, validate against next stage's parameter
-		// Otherwise, validate against this stage's first parameter
 		if targetParam != nil {
-			// This is the last node and we're mapping to a specific parameter of the next stage
-			// Get the output type of this stage
-			var outputType ir.Type
-			if outType, ok := stageType.Outputs.Get("output"); ok {
+			var outputType types2.Type
+			if outType, ok := stageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType
-			} else if stageType.Outputs.Count() > 0 {
+			} else if stageType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"stage '%s' has named outputs and requires explicit output selection",
 					stageName,
@@ -553,42 +517,35 @@ func analyzeRoutingTargetWithParam(
 				return false
 			}
 
-			// Validate against the target parameter of the next stage
-			if paramType, exists := nextStageType.Params.Get(*targetParam); exists {
-				if err := atypes.CheckEqual(ctx.Constraints, outputType, paramType, ctx.AST,
+			if paramType, exists := nextStageType.Inputs.Get(*targetParam); exists {
+				if err := types.Check(ctx.Constraints, outputType, paramType, ctx.AST,
 					"routing table parameter mapping"); err != nil {
-					if !atypes.HasTypeVariables(outputType) && !atypes.HasTypeVariables(paramType) {
-						ctx.Diagnostics.AddError(errors.Newf(
-							"type mismatch: stage %s output type %s does not match target parameter %s type %s",
-							stageName,
-							outputType,
-							*targetParam,
-							paramType,
-						), ctx.AST)
-						return false
-					}
+					ctx.Diagnostics.AddError(errors.Newf(
+						"type mismatch: stage %s output type %s does not match target parameter %s type %s",
+						stageName,
+						outputType,
+						*targetParam,
+						paramType,
+					), ctx.AST)
+					return false
 				}
 			}
 		} else {
-			// Standard validation: sourceType should match this stage's first parameter
-			if stageType.Params.Count() > 0 {
-				_, paramType := stageType.Params.At(0)
-				if err := atypes.CheckEqual(ctx.Constraints, sourceType, paramType, ctx.AST,
+			if stageType.Type.Inputs.Count() > 0 {
+				_, paramType := stageType.Type.Inputs.At(0)
+				if err := types.Check(ctx.Constraints, sourceType, paramType, ctx.AST,
 					"routing table output to stage parameter"); err != nil {
-					if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(paramType) {
-						ctx.Diagnostics.AddError(errors.Newf(
-							"type mismatch: output type %s does not match stage %s parameter type %s",
-							sourceType,
-							stageName,
-							paramType,
-						), ctx.AST)
-						return false
-					}
+					ctx.Diagnostics.AddError(errors.Newf(
+						"type mismatch: output type %s does not match stage %s parameter type %s",
+						sourceType,
+						stageName,
+						paramType,
+					), ctx.AST)
+					return false
 				}
 			}
 		}
 	} else if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
-		// Handle channel target
 		channelName := channelID.IDENTIFIER().GetText()
 		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 		if err != nil {
@@ -596,7 +553,7 @@ func analyzeRoutingTargetWithParam(
 			return false
 		}
 
-		if channelSym.Kind != ir.KindChannel {
+		if channelSym.Kind != symbol.KindChannel {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s is not a channel", channelName),
 				ctx.AST,
@@ -604,25 +561,26 @@ func analyzeRoutingTargetWithParam(
 			return false
 		}
 
-		chanType := channelSym.Type.(ir.Chan)
-		if err := atypes.CheckEqual(ctx.Constraints, sourceType, chanType.ValueType, ctx.AST,
-			"routing table output to channel"); err != nil {
-			if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(chanType.ValueType) {
-				ctx.Diagnostics.AddError(errors.Newf(
-					"type mismatch: output type %s does not match channel %s value type %s",
-					sourceType,
-					channelName,
-					chanType.ValueType,
-				), ctx.AST)
-				return false
-			}
+		valueType := channelSym.Type.ValueType
+		if err := types.Check(
+			ctx.Constraints,
+			sourceType,
+			*valueType,
+			ctx.AST,
+			"routing table output to channel",
+		); err != nil {
+			ctx.Diagnostics.AddError(errors.Newf(
+				"type mismatch: output type %s does not match channel %s value type %s",
+				sourceType,
+				channelName,
+				valueType,
+			), ctx.AST)
+			return false
 		}
 	} else if expr := ctx.AST.Expression(); expr != nil {
-		// Handle expression target
 		if !analyzeExpression(context.Child(ctx, expr)) {
 			return false
 		}
 	}
-
 	return true
 }

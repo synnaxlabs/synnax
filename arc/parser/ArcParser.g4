@@ -14,7 +14,6 @@ program
 
 topLevelItem
     : functionDeclaration
-    | stageDeclaration
     | flowStatement
     ;
 
@@ -23,20 +22,20 @@ topLevelItem
 // =============================================================================
 
 functionDeclaration
-    : FUNC IDENTIFIER LPAREN parameterList? RPAREN returnType? block
+    : FUNC IDENTIFIER configBlock? LPAREN inputList? RPAREN outputType? block
     ;
 
-parameterList
-    : parameter (COMMA parameter)*
+inputList
+    : input (COMMA input)*
     ;
 
-parameter
+input
     : IDENTIFIER type
     ;
 
-returnType
-    : type                      // Single return (existing)
-    | multiOutputBlock          // Multiple named outputs (NEW)
+outputType
+    : type                      // Single output (existing)
+    | multiOutputBlock          // Multiple named outputs
     ;
 
 multiOutputBlock
@@ -47,19 +46,11 @@ namedOutput
     : IDENTIFIER type
     ;
 
-// =============================================================================
-// Stage Declarations
-// =============================================================================
-
-stageDeclaration
-    : STAGE IDENTIFIER configBlock? LPAREN parameterList? RPAREN returnType? block
-    ;
-
 configBlock
-    : LBRACE configParameter* RBRACE
+    : LBRACE config* RBRACE
     ;
 
-configParameter
+config
     : IDENTIFIER type
     ;
 

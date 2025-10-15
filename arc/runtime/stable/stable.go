@@ -15,31 +15,33 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	symbol2 "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
 	symbolName = "stable_for"
-	symbol     = ir.Symbol{
+	symbol     = symbol2.Symbol{
 		Name: symbolName,
-		Kind: ir.KindStage,
+		Kind: symbol2.KindStage,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{"duration"},
-				Values: []ir.Type{ir.TimeSpan{}},
+				Values: []types.Type{types.TimeSpan{}},
 			},
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-			Outputs: ir.NamedTypes{
+			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
 		},
 	}
-	SymbolResolver = ir.MapResolver{symbolName: symbol}
+	SymbolResolver = symbol2.MapResolver{symbolName: symbol}
 )
 
 type stableFor struct {
@@ -112,7 +114,7 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	}
 
 	var duration telem.TimeSpan
-	switch v := cfg.Node.Config["duration"].(type) {
+	switch v := cfg.Node.ConfigValues["duration"].(type) {
 	case float64:
 		duration = telem.TimeSpan(v)
 	case int:

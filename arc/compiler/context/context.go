@@ -15,20 +15,21 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
 	Imports *bindings.ImportIndex
-	Scope   *ir.Scope
+	Scope   *symbol.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module
 	AST     ASTNode
-	Hint    ir.Type
+	Hint    types.Type
 	// Outputs and OutputMemoryBase are set for multi-output stages/functions
-	Outputs          ir.NamedTypes
+	Outputs          types.Params
 	OutputMemoryBase uint32
 }
 
@@ -45,12 +46,12 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		OutputMemoryBase: ctx.OutputMemoryBase,
 	}
 }
-func (c Context[AstNode]) WithHint(hint ir.Type) Context[AstNode] {
+func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 	c.Hint = hint
 	return c
 }
 
-func (c Context[AstNode]) WithScope(scope *ir.Scope) Context[AstNode] {
+func (c Context[AstNode]) WithScope(scope *symbol.Scope) Context[AstNode] {
 	c.Scope = scope
 	return c
 }
@@ -62,7 +63,7 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 
 func CreateRoot(
 	ctx_ context.Context,
-	symbols *ir.Scope,
+	symbols *symbol.Scope,
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
 	ctx := Context[antlr.ParserRuleContext]{

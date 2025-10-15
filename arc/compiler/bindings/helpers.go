@@ -10,12 +10,12 @@
 package bindings
 
 import (
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // GetChannelRead returns the import index for a channel read function
-func (idx *ImportIndex) GetChannelRead(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
 		return funcIdx, nil
@@ -24,7 +24,7 @@ func (idx *ImportIndex) GetChannelRead(t ir.Type) (uint32, error) {
 }
 
 // GetChannelWrite returns the import index for a channel write function
-func (idx *ImportIndex) GetChannelWrite(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
 		return funcIdx, nil
@@ -33,7 +33,7 @@ func (idx *ImportIndex) GetChannelWrite(t ir.Type) (uint32, error) {
 }
 
 // GetChannelBlockingRead returns the import index for a blocking channel read function
-func (idx *ImportIndex) GetChannelBlockingRead(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.ChannelBlockingRead[suffix]; ok {
 		return funcIdx, nil
@@ -42,7 +42,7 @@ func (idx *ImportIndex) GetChannelBlockingRead(t ir.Type) (uint32, error) {
 }
 
 // GetSeriesCreateEmpty returns the import index for creating an empty series
-func (idx *ImportIndex) GetSeriesCreateEmpty(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.SeriesCreateEmpty[suffix]; ok {
 		return funcIdx, nil
@@ -51,7 +51,7 @@ func (idx *ImportIndex) GetSeriesCreateEmpty(t ir.Type) (uint32, error) {
 }
 
 // GetSeriesIndex returns the import index for series indexing
-func (idx *ImportIndex) GetSeriesIndex(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.SeriesIndex[suffix]; ok {
 		return funcIdx, nil
@@ -60,7 +60,7 @@ func (idx *ImportIndex) GetSeriesIndex(t ir.Type) (uint32, error) {
 }
 
 // GetSeriesArithmetic returns the import index for series arithmetic operations
-func (idx *ImportIndex) GetSeriesArithmetic(op string, t ir.Type, isScalar bool) (uint32, error) {
+func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
 	suffix := getTypeSuffix(t)
 
 	var m map[string]uint32
@@ -99,7 +99,7 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t ir.Type, isScalar bool)
 }
 
 // GetSeriesComparison returns the import index for series comparison operations
-func (idx *ImportIndex) GetSeriesComparison(op string, t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 
 	var m map[string]uint32
@@ -127,7 +127,7 @@ func (idx *ImportIndex) GetSeriesComparison(op string, t ir.Type) (uint32, error
 }
 
 // GetStateLoad returns the import index for a state load function
-func (idx *ImportIndex) GetStateLoad(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.StateLoad[suffix]; ok {
 		return funcIdx, nil
@@ -136,7 +136,7 @@ func (idx *ImportIndex) GetStateLoad(t ir.Type) (uint32, error) {
 }
 
 // GetStateStore returns the import index for a state store function
-func (idx *ImportIndex) GetStateStore(t ir.Type) (uint32, error) {
+func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
 	if funcIdx, ok := idx.StateStore[suffix]; ok {
 		return funcIdx, nil
@@ -145,36 +145,36 @@ func (idx *ImportIndex) GetStateStore(t ir.Type) (uint32, error) {
 }
 
 // getTypeSuffix extracts the type suffix for import lookups
-func getTypeSuffix(t ir.Type) string {
+func getTypeSuffix(t types.Type) string {
 	switch t := t.(type) {
-	case ir.I8:
+	case types.I8:
 		return "i8"
-	case ir.I16:
+	case types.I16:
 		return "i16"
-	case ir.I32:
+	case types.I32:
 		return "i32"
-	case ir.I64:
+	case types.I64:
 		return "i64"
-	case ir.U8:
+	case types.U8:
 		return "u8"
-	case ir.U16:
+	case types.U16:
 		return "u16"
-	case ir.U32:
+	case types.U32:
 		return "u32"
-	case ir.U64:
+	case types.U64:
 		return "u64"
-	case ir.F32:
+	case types.F32:
 		return "f32"
-	case ir.F64:
+	case types.F64:
 		return "f64"
-	case ir.String:
+	case types.String:
 		return "string"
-	case ir.TimeStamp, ir.TimeSpan:
+	case types.TimeStamp, types.TimeSpan:
 		return "i64"
-	case ir.Series:
+	case types.Series:
 		// For series, we need the element type
 		return getTypeSuffix(t.ValueType)
-	case ir.Chan:
+	case types.Chan:
 		// For channels, we need the element type
 		return getTypeSuffix(t.ValueType)
 	default:

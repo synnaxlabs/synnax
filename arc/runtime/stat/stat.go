@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
@@ -29,22 +31,22 @@ const (
 	maxSymbolName = "max"
 )
 
-func createBaseSymbol(name string) ir.Symbol {
-	return ir.Symbol{
+func createBaseSymbol(name string) symbol.Symbol {
+	return symbol.Symbol{
 		Name: avgSymbolName,
-		Kind: ir.KindStage,
+		Kind: symbol.KindFunction,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{durationParam, countParam},
-				Values: []ir.Type{ir.TimeSpan{}, ir.I64{}},
+				Values: []types.Type{types.TimeSpan{}, types.I64{}},
 			},
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys:   []string{ir.DefaultInputParam, resetParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.U8{}},
+				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.U8{}},
 			},
-			Outputs: ir.NamedTypes{
+			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
 			},
 		},
 	}
@@ -54,7 +56,7 @@ var (
 	avgSymbol      = createBaseSymbol(avgSymbolName)
 	minSymbol      = createBaseSymbol(minSymbolName)
 	maxSymbol      = createBaseSymbol(maxSymbolName)
-	SymbolResolver = ir.MapResolver{
+	SymbolResolver = symbol.MapResolver{
 		avgSymbolName: avgSymbol,
 		minSymbolName: minSymbol,
 		maxSymbolName: maxSymbol,
@@ -148,13 +150,13 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 
 	// Optional duration (default 0 means no duration-based reset)
 	var duration telem.TimeSpan
-	if durationVal, ok := cfg.Node.Config[durationParam]; ok {
+	if durationVal, ok := cfg.Node.ConfigValues[durationParam]; ok {
 		duration = durationVal.(telem.TimeSpan)
 	}
 
 	// Optional count (default 0 means no count-based reset)
 	var resetCount int64
-	if countVal, ok := cfg.Node.Config[countParam]; ok {
+	if countVal, ok := cfg.Node.ConfigValues[countParam]; ok {
 		resetCount = countVal.(int64)
 	}
 

@@ -14,6 +14,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -26,21 +28,21 @@ import (
 
 var (
 	symbolName = "set_status"
-	symbolSet  = ir.Symbol{
+	symbolSet  = symbol.Symbol{
 		Name: "set_status",
-		Kind: ir.KindStage,
+		Kind: symbol.KindStage,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{"status_key", "variant", "message", "name"},
-				Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}, ir.String{}},
+				Values: []types.Type{types.String{}, types.String{}, types.String{}, types.String{}},
 			},
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []ir.Type{ir.U8{}},
+				Values: []types.Type{types.U8{}},
 			},
 		},
 	}
-	SymbolResolver = ir.MapResolver{symbolName: symbolSet}
+	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
 )
 
 type setStatus struct {
@@ -63,7 +65,7 @@ type statusFactory struct {
 }
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	key := cfg.Node.Config["status_key"].(string)
+	key := cfg.Node.ConfigValues["status_key"].(string)
 	var stat status.Status
 	if err := s.stat.NewRetrieve().
 		WhereKeys(key).
@@ -72,8 +74,8 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 		return nil, err
 	}
 	stat.Key = key
-	stat.Message = cfg.Node.Config["message"].(string)
-	stat.Variant = xstatus.Variant(cfg.Node.Config["variant"].(string))
+	stat.Message = cfg.Node.ConfigValues["message"].(string)
+	stat.Variant = xstatus.Variant(cfg.Node.ConfigValues["variant"].(string))
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
 }
 

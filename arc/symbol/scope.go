@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir
+package symbol
 
 import (
 	"context"
@@ -16,11 +16,12 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
-func CreateRootScope(globalResolver SymbolResolver) *Scope {
+func CreateRootScope(globalResolver Resolver) *Scope {
 	return &Scope{
 		GlobalResolver: globalResolver,
 		Symbol:         Symbol{Kind: KindBlock},
@@ -30,7 +31,7 @@ func CreateRootScope(globalResolver SymbolResolver) *Scope {
 
 type Scope struct {
 	Symbol
-	GlobalResolver SymbolResolver
+	GlobalResolver Resolver
 	Parent         *Scope
 	Children       []*Scope
 	Counter        *int
@@ -38,7 +39,7 @@ type Scope struct {
 }
 
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
-	res := s.FindChild(func(child *Scope) bool { return child.ParserRule == rule })
+	res := s.FindChild(func(child *Scope) bool { return child.AST == rule })
 	if res == nil {
 		return nil, errors.New("could not find symbol matching parser rule")
 	}
@@ -75,10 +76,10 @@ func (s *Scope) AutoName(prefix string) *Scope {
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
 		if existing, err := s.Resolve(ctx, sym.Name); err == nil {
-			if existing.ParserRule == nil {
+			if existing.AST == nil {
 				return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
 			}
-			tok := existing.ParserRule.GetStart()
+			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
 				"name %s conflicts with existing symbol at line %d, col %d",
 				sym.Name,
@@ -88,13 +89,13 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
-	if sym.Kind == KindFunction || sym.Kind == KindStage {
+	if sym.Kind == KindFunction {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
-		sym.Kind == KindParam ||
-		sym.Kind == KindConfigParam ||
+		sym.Kind == KindInput ||
+		sym.Kind == KindConfig ||
 		sym.Kind == KindOutput {
 		child.ID = s.addIndex()
 	}
@@ -182,7 +183,7 @@ func (s *Scope) stringWithIndent(indent string) string {
 	builder.WriteString("kind: ")
 	builder.WriteString(s.Kind.String())
 	builder.WriteString("\n")
-	if s.Type != nil {
+	if s.Type.Kind != types.KindInvalid {
 		builder.WriteString(indent)
 		builder.WriteString("type: ")
 		builder.WriteString(s.Type.String())

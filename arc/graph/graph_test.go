@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,15 +29,15 @@ var _ = Describe("Graph", func() {
 				Stages: []ir.Stage{
 					{
 						Key: "add",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []ir.Type{ir.I64{}, ir.I64{}},
+							Values: []types.Type{types.I64{}, types.I64{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
-						Body: ir.Body{Raw: `{
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64{}},
+						},
+						Body: types.Body{Raw: `{
 							return a + b
 						}`},
 					},
@@ -50,15 +52,15 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "add",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []ir.Type{ir.I64{}, ir.I64{}},
+							Values: []types.Type{types.I64{}, types.I64{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
-						Body: ir.Body{Raw: `{
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64{}},
+						},
+						Body: types.Body{Raw: `{
 							return a + b
 						}`},
 					},
@@ -75,15 +77,15 @@ var _ = Describe("Graph", func() {
 				Stages: []ir.Stage{
 					{
 						Key: "add",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []ir.Type{ir.I64{}, ir.I64{}},
+							Values: []types.Type{types.I64{}, types.I64{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
-						Body: ir.Body{Raw: `{
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64{}},
+						},
+						Body: types.Body{Raw: `{
 							return a + b
 						}`},
 					},
@@ -95,12 +97,12 @@ var _ = Describe("Graph", func() {
 			Expect(inter.Stages).To(HaveLen(1))
 			stageScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
 			Expect(stageScope.Children).To(HaveLen(3))
-			params := stageScope.FilterChildrenByKind(ir.KindParam)
+			params := stageScope.FilterChildrenByKind(symbol.KindParam)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))
-			Expect(params[0].Type).To(Equal(ir.I64{}))
+			Expect(params[0].Type).To(Equal(types.I64{}))
 			Expect(params[1].Name).To(Equal("b"))
-			Expect(params[1].Type).To(Equal(ir.I64{}))
+			Expect(params[1].Type).To(Equal(types.I64{}))
 		})
 
 		It("Should correctly analyze a single function", func() {
@@ -108,15 +110,15 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "add",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []ir.Type{ir.I64{}, ir.I64{}},
+							Values: []types.Type{types.I64{}, types.I64{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
-						Body: ir.Body{Raw: `{
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64{}},
+						},
+						Body: types.Body{Raw: `{
 							return a + b
 						}`},
 					},
@@ -128,12 +130,12 @@ var _ = Describe("Graph", func() {
 			Expect(inter.Functions).To(HaveLen(1))
 			funcScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
 			Expect(funcScope.Children).To(HaveLen(3))
-			params := funcScope.FilterChildrenByKind(ir.KindParam)
+			params := funcScope.FilterChildrenByKind(symbol.KindParam)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))
-			Expect(params[0].Type).To(Equal(ir.I64{}))
+			Expect(params[0].Type).To(Equal(types.I64{}))
 			Expect(params[1].Name).To(Equal("b"))
-			Expect(params[1].Type).To(Equal(ir.I64{}))
+			Expect(params[1].Type).To(Equal(types.I64{}))
 		})
 
 		It("Should correctly analyze a complete program", func() {
@@ -141,44 +143,44 @@ var _ = Describe("Graph", func() {
 				Stages: []ir.Stage{
 					{
 						Key: "on",
-						Config: ir.NamedTypes{
+						Config: types.Params{
 							Keys:   []string{"channel"},
-							Values: []ir.Type{ir.Chan{}},
+							Values: []types.Type{types.Chan{}},
 						},
-						Outputs: ir.NamedTypes{
-							Keys:   []string{"output"},
-							Values: []ir.Type{ir.F32{}},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F32{}},
 						},
 					},
 					{
 						Key:    "printer",
-						Config: ir.NamedTypes{},
-						Params: ir.NamedTypes{
+						Config: types.Params{},
+						Params: types.Params{
 							Keys:   []string{"input"},
-							Values: []ir.Type{ir.F32{}},
+							Values: []types.Type{types.F32{}},
 						},
 					},
 				},
 				Nodes: []graph.Node{
 					{Node: arc.Node{
-						Key:    "first",
-						Type:   "on",
-						Config: map[string]any{"channel": 12},
+						Key:          "first",
+						Type:         "on",
+						ConfigValues: map[string]any{"channel": 12},
 					}},
 					{Node: arc.Node{Key: "printer", Type: "printer"}},
 				},
 				Edges: []arc.Edge{
 					{
-						Source: arc.Handle{Node: "first", Param: "output"},
+						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
 						Target: arc.Handle{Node: "printer", Param: "input"},
 					},
 				},
 			}
-			resolver := ir.MapResolver{
-				"12": ir.Symbol{
+			resolver := symbol.MapResolver{
+				"12": symbol.Symbol{
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.F32{}},
-					Kind: ir.KindChannel,
+					Type: types.Chan{ValueType: types.F32{}},
+					Kind: symbol.KindChannel,
 					ID:   12,
 				},
 			}
@@ -192,7 +194,7 @@ var _ = Describe("Graph", func() {
 			firstNode := inter.Nodes[0]
 			Expect(firstNode.Key).To(Equal("first"))
 			Expect(firstNode.Type).To(Equal("on"))
-			Expect(firstNode.Config).To(HaveLen(1))
+			Expect(firstNode.ConfigValues).To(HaveLen(1))
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
@@ -202,21 +204,21 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key: "polymorphic_add",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"a", "b"},
-								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.NewTypeVariable("T", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+							},
 						},
 						{
-							Key:    "f32_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F32{}},
-					},
+							Key: "f32_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32{}},
+							},
 						},
 					},
 					Nodes: []graph.Node{
@@ -226,11 +228,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "source1", Param: "output"},
+							Source: ir.Handle{Node: "source1", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "adder", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "source2", Param: "output"},
+							Source: ir.Handle{Node: "source2", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "adder", Param: "b"},
 						},
 					},
@@ -250,15 +252,15 @@ var _ = Describe("Graph", func() {
 				adderNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "adder" })
 
 				// The adder node should have concrete F32 types resolved from edges
-				aType, _ := adderNode.Params.Get("a")
-				Expect(aType).To(Equal(ir.F32{}))
+				aType, _ := adderNode.Inputs.Get("a")
+				Expect(aType).To(Equal(types.F32{}))
 
-				bType, _ := adderNode.Params.Get("b")
-				Expect(bType).To(Equal(ir.F32{}))
+				bType, _ := adderNode.Inputs.Get("b")
+				Expect(bType).To(Equal(types.F32{}))
 
 				// Return type should also be concrete
-				returnType, _ := adderNode.Outputs.Get("output")
-				Expect(returnType).To(Equal(ir.F32{}))
+				returnType, _ := adderNode.Outputs.Get(ir.DefaultOutputParam)
+				Expect(returnType).To(Equal(types.F32{}))
 			})
 
 			It("Should correctly infer types for polymorphic stages from I64 inputs", func() {
@@ -266,21 +268,21 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key: "polymorphic_multiply",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"x", "y"},
-								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.NewTypeVariable("T", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+							},
 						},
 						{
-							Key:    "i64_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
+							Key: "i64_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.I64{}},
+							},
 						},
 					},
 					Nodes: []graph.Node{
@@ -290,11 +292,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "int_source1", Param: "output"},
+							Source: ir.Handle{Node: "int_source1", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "multiplier", Param: "x"},
 						},
 						{
-							Source: ir.Handle{Node: "int_source2", Param: "output"},
+							Source: ir.Handle{Node: "int_source2", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "multiplier", Param: "y"},
 						},
 					},
@@ -306,14 +308,14 @@ var _ = Describe("Graph", func() {
 				// Check that the multiplier node instance has concrete resolved types
 				multiplierNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "multiplier" })
 
-				xType, _ := multiplierNode.Params.Get("x")
-				Expect(xType).To(Equal(ir.I64{}))
+				xType, _ := multiplierNode.Inputs.Get("x")
+				Expect(xType).To(Equal(types.I64{}))
 
-				yType, _ := multiplierNode.Params.Get("y")
-				Expect(yType).To(Equal(ir.I64{}))
+				yType, _ := multiplierNode.Inputs.Get("y")
+				Expect(yType).To(Equal(types.I64{}))
 
-				returnType, _ := multiplierNode.Outputs.Get("output")
-				Expect(returnType).To(Equal(ir.I64{}))
+				returnType, _ := multiplierNode.Outputs.Get(ir.DefaultOutputParam)
+				Expect(returnType).To(Equal(types.I64{}))
 			})
 
 			It("Should handle chained polymorphic stages", func() {
@@ -321,32 +323,32 @@ var _ = Describe("Graph", func() {
 					Stages: []ir.Stage{
 						{
 							Key: "poly_add",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"a", "b"},
-								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.NewTypeVariable("T", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+							},
 						},
 						{
 							Key: "poly_scale",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"input"},
-								Values: []ir.Type{ir.NewTypeVariable("U", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("U", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("U", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("U", types.NumericConstraint{})},
+							},
 						},
 						{
-							Key:    "f64_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F64{}},
-					},
+							Key: "f64_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F64{}},
+							},
 						},
 					},
 					Nodes: []graph.Node{
@@ -357,15 +359,15 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src1", Param: "output"},
+							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "add1", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "src2", Param: "output"},
+							Source: ir.Handle{Node: "src2", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "add1", Param: "b"},
 						},
 						{
-							Source: ir.Handle{Node: "add1", Param: "output"},
+							Source: ir.Handle{Node: "add1", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "scale1", Param: "input"},
 						},
 					},
@@ -376,41 +378,41 @@ var _ = Describe("Graph", func() {
 
 				// Both node instances should have concrete F64 types
 				add1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "add1" })
-				addReturnType, _ := add1Node.Outputs.Get("output")
-				Expect(addReturnType).To(Equal(ir.F64{}))
+				addReturnType, _ := add1Node.Outputs.Get(ir.DefaultOutputParam)
+				Expect(addReturnType).To(Equal(types.F64{}))
 
 				scale1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "scale1" })
-				inputType, _ := scale1Node.Params.Get("input")
-				Expect(inputType).To(Equal(ir.F64{}))
+				inputType, _ := scale1Node.Inputs.Get("input")
+				Expect(inputType).To(Equal(types.F64{}))
 			})
 
 			It("Should detect type mismatches in polymorphic edge connections", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "f32_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F32{}},
-					},
+							Key: "f32_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32{}},
+							},
 						},
 						{
-							Key:    "i64_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.I64{}},
-					},
+							Key: "i64_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.I64{}},
+							},
 						},
 						{
 							Key: "poly_add",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"a", "b"},
-								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{}), ir.NewTypeVariable("T", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.NewTypeVariable("T", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+							},
 						},
 					},
 					Nodes: []graph.Node{
@@ -420,11 +422,11 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "float_src", Param: "output"},
+							Source: ir.Handle{Node: "float_src", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "adder", Param: "a"},
 						},
 						{
-							Source: ir.Handle{Node: "int_src", Param: "output"},
+							Source: ir.Handle{Node: "int_src", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "adder", Param: "b"},
 						},
 					},
@@ -440,22 +442,22 @@ var _ = Describe("Graph", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "string_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.String{}},
-					},
+							Key: "string_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.String{}},
+							},
 						},
 						{
 							Key: "poly_numeric",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"value"},
-								Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
 							},
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
-					},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+							},
 						},
 					},
 					Nodes: []graph.Node{
@@ -464,7 +466,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "str_src", Param: "output"},
+							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "numeric_stage", Param: "value"},
 						},
 					},
@@ -480,17 +482,17 @@ var _ = Describe("Graph", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F32{}},
-					},
+							Key: "source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32{}},
+							},
 						},
 						{
 							Key: "sink",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"input"},
-								Values: []ir.Type{ir.F32{}},
+								Values: []types.Type{types.F32{}},
 							},
 						},
 					},
@@ -500,8 +502,8 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: "output"},
-							Target: ir.Handle{Node: "nonexistent", Param: "output"}, // Invalid target node
+							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "nonexistent", Param: ir.DefaultOutputParam}, // Invalid target node
 						},
 					},
 				}
@@ -515,17 +517,17 @@ var _ = Describe("Graph", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F32{}},
-					},
+							Key: "source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32{}},
+							},
 						},
 						{
 							Key: "sink",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"input"},
-								Values: []ir.Type{ir.F32{}},
+								Values: []types.Type{types.F32{}},
 							},
 						},
 					},
@@ -535,7 +537,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: "output"},
+							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "snk", Param: "invalid_param"}, // Invalid parameter
 						},
 					},
@@ -550,17 +552,17 @@ var _ = Describe("Graph", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "string_source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.String{}},
-					},
+							Key: "string_source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.String{}},
+							},
 						},
 						{
 							Key: "number_sink",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"value"},
-								Values: []ir.Type{ir.F32{}},
+								Values: []types.Type{types.F32{}},
 							},
 						},
 					},
@@ -570,7 +572,7 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "str_src", Param: "output"},
+							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "num_snk", Param: "value"},
 						},
 					},
@@ -585,11 +587,11 @@ var _ = Describe("Graph", func() {
 				g := graph.Graph{
 					Stages: []ir.Stage{
 						{
-							Key:    "source",
-							Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F32{}},
-					},
+							Key: "source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32{}},
+							},
 						},
 						{
 							Key: "sink_with_no_params",
@@ -602,8 +604,8 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "src", Param: "output"},
-							Target: ir.Handle{Node: "sink", Param: "output"},
+							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "sink", Param: ir.DefaultOutputParam},
 						},
 					},
 				}
@@ -620,24 +622,24 @@ var _ = Describe("Graph", func() {
 				g := arc.Graph{
 					Nodes: []graph.Node{
 						{Node: arc.Node{
-							Key:    "on",
-							Type:   "on",
-							Config: map[string]any{"channel": 12},
+							Key:          "on",
+							Type:         "on",
+							ConfigValues: map[string]any{"channel": 12},
 						}},
 						{Node: arc.Node{
-							Key:    "constant",
-							Type:   "constant",
-							Config: map[string]any{"value": 10},
+							Key:          "constant",
+							Type:         "constant",
+							ConfigValues: map[string]any{"value": 10},
 						}},
 						{Node: arc.Node{
-							Key:    "ge",
-							Type:   "ge",
-							Config: map[string]any{},
+							Key:          "ge",
+							Type:         "ge",
+							ConfigValues: map[string]any{},
 						}},
 						{Node: arc.Node{
 							Key:  "stable_for",
 							Type: "stable_for",
-							Config: map[string]any{
+							ConfigValues: map[string]any{
 								"duration": int(telem.Millisecond * 1),
 							},
 						}},
@@ -648,7 +650,7 @@ var _ = Describe("Graph", func() {
 						{Node: arc.Node{
 							Key:  "status_success",
 							Type: "set_status",
-							Config: map[string]any{
+							ConfigValues: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "success",
 								"message": "OX Pressure Nominal",
@@ -657,7 +659,7 @@ var _ = Describe("Graph", func() {
 						{Node: arc.Node{
 							Key:  "status_error",
 							Type: "set_status",
-							Config: map[string]any{
+							ConfigValues: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "error",
 								"message": "OX Pressure Alarm",
@@ -666,19 +668,19 @@ var _ = Describe("Graph", func() {
 					},
 					Edges: []arc.Edge{
 						{
-							Source: arc.Handle{Node: "on", Param: "output"},
+							Source: arc.Handle{Node: "on", Param: ir.DefaultOutputParam},
 							Target: arc.Handle{Node: "ge", Param: "a"},
 						},
 						{
-							Source: arc.Handle{Node: "constant", Param: "output"},
+							Source: arc.Handle{Node: "constant", Param: ir.DefaultOutputParam},
 							Target: arc.Handle{Node: "ge", Param: "b"},
 						},
 						{
-							Source: arc.Handle{Node: "ge", Param: "output"},
-							Target: arc.Handle{Node: "stable_for", Param: "output"},
+							Source: arc.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+							Target: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 						},
 						{
-							Source: arc.Handle{Node: "stable_for", Param: "output"},
+							Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 							Target: arc.Handle{Node: "select", Param: "input"},
 						},
 						{
@@ -699,75 +701,75 @@ var _ = Describe("Graph", func() {
 				stages := []ir.Stage{
 					{
 						Key: "on",
-						Config: ir.NamedTypes{
+						Config: types.Params{
 							Keys:   []string{"channel"},
-							Values: []ir.Type{ir.U32{}},
+							Values: []types.Type{types.U32{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.F64{}},
-					}, // Returns sensor reading
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F64{}},
+						}, // Returns sensor reading
 					},
 					{
 						Key: "constant",
-						Config: ir.NamedTypes{
+						Config: types.Params{
 							Keys:   []string{"value"},
-							Values: []ir.Type{ir.NewTypeVariable("A", ir.NumericConstraint{})},
+							Values: []types.Type{types.NewTypeVariable("A", types.NumericConstraint{})},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("A", ir.NumericConstraint{})},
-					},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.NewTypeVariable("A", types.NumericConstraint{})},
+						},
 					},
 					{
 						Key: "ge",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys: []string{"a", "b"},
-							Values: []ir.Type{
-								ir.NewTypeVariable("B", ir.NumericConstraint{}),
-								ir.NewTypeVariable("B", ir.NumericConstraint{}),
+							Values: []types.Type{
+								types.NewTypeVariable("B", types.NumericConstraint{}),
+								types.NewTypeVariable("B", types.NumericConstraint{}),
 							},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.U8{}},
-					},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8{}},
+						},
 					},
 					{
 						Key: "stable_for",
-						Config: ir.NamedTypes{
+						Config: types.Params{
 							Keys:   []string{"duration"},
-							Values: []ir.Type{ir.TimeSpan{}},
+							Values: []types.Type{types.TimeSpan{}},
 						},
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"input"},
-							Values: []ir.Type{ir.NewTypeVariable("C", nil)},
+							Values: []types.Type{types.NewTypeVariable("C", nil)},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.NewTypeVariable("C", nil)},
-					},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.NewTypeVariable("C", nil)},
+						},
 					},
 					{
 						Key: "select",
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"input", "false", "true"},
-							Values: []ir.Type{ir.U8{}, ir.U8{}, ir.U8{}},
+							Values: []types.Type{types.U8{}, types.U8{}, types.U8{}},
 						},
-						Outputs: ir.NamedTypes{
-						Keys:   []string{"output"},
-						Values: []ir.Type{ir.U8{}},
-					},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8{}},
+						},
 					},
 					{
 						Key: "set_status",
-						Config: ir.NamedTypes{
+						Config: types.Params{
 							Keys:   []string{"key", "variant", "message"},
-							Values: []ir.Type{ir.String{}, ir.String{}, ir.String{}},
+							Values: []types.Type{types.String{}, types.String{}, types.String{}},
 						},
-						Params: ir.NamedTypes{
+						Params: types.Params{
 							Keys:   []string{"input"},
-							Values: []ir.Type{ir.U8{}},
+							Values: []types.Type{types.U8{}},
 						},
 					},
 				}
@@ -811,12 +813,12 @@ var _ = Describe("Graph", func() {
 				constantNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "constant"
 				})[0]
-				Expect(constantNode.Config).To(HaveKeyWithValue("value", 10))
+				Expect(constantNode.ConfigValues).To(HaveKeyWithValue("value", 10))
 
 				stableForNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "stable_for"
 				})[0]
-				Expect(stableForNode.Config).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
+				Expect(stableForNode.ConfigValues).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 				// Verify polymorphic node instances have concrete resolved types
 				// Stage definitions stay polymorphic, but each node instance gets concrete types
@@ -824,24 +826,24 @@ var _ = Describe("Graph", func() {
 				// The constant node should have concrete F64 type
 				// (since it connects to "ge" which receives F64 from "on")
 				constantIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "constant" })
-				constantReturnType, _ := constantIRNode.Outputs.Get("output")
-				Expect(constantReturnType).To(Equal(ir.F64{}))
+				constantReturnType, _ := constantIRNode.Outputs.Get(ir.DefaultOutputParam)
+				Expect(constantReturnType).To(Equal(types.F64{}))
 
 				// The ge node should have concrete F64 parameters
 				// (since it receives F64 inputs from "on" and "constant")
 				geIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "ge" })
-				aType, _ := geIRNode.Params.Get("a")
-				Expect(aType).To(Equal(ir.F64{}))
-				bType, _ := geIRNode.Params.Get("b")
-				Expect(bType).To(Equal(ir.F64{}))
+				aType, _ := geIRNode.Inputs.Get("a")
+				Expect(aType).To(Equal(types.F64{}))
+				bType, _ := geIRNode.Inputs.Get("b")
+				Expect(bType).To(Equal(types.F64{}))
 
 				// The stable_for node should have concrete U8 types
 				// (since it receives U8 from "ge" comparison result)
 				stableIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "stable_for" })
-				inputType, _ := stableIRNode.Params.Get("input")
-				Expect(inputType).To(Equal(ir.U8{}))
-				stableReturnType, _ := stableIRNode.Outputs.Get("output")
-				Expect(stableReturnType).To(Equal(ir.U8{}))
+				inputType, _ := stableIRNode.Inputs.Get("input")
+				Expect(inputType).To(Equal(types.U8{}))
+				stableReturnType, _ := stableIRNode.Outputs.Get(ir.DefaultOutputParam)
+				Expect(stableReturnType).To(Equal(types.U8{}))
 			})
 		})
 	})

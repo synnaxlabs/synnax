@@ -12,7 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("Literal Compilation", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"integer literals as i64",
 			"42",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(42),
 		),
@@ -31,7 +31,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"zero",
 			"0",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(0),
 		),
@@ -39,7 +39,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"large integers",
 			"1000000",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(1000000),
 		),
@@ -48,7 +48,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float literals as f64",
 			"3.14",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(3.14),
 		),
@@ -56,7 +56,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"simple decimals",
 			"2.5",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(2.5),
 		),
@@ -64,7 +64,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float with leading dot",
 			".5",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(0.5),
 		),
@@ -72,7 +72,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"float with trailing dot",
 			"1.",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(1.0),
 		),
@@ -81,7 +81,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"parenthesized integer",
 			"(42)",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(42),
 		),
@@ -89,7 +89,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"nested parentheses",
 			"((42))",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(42),
 		),
@@ -97,7 +97,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"parenthesized float",
 			"(3.14)",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(3.14),
 		),

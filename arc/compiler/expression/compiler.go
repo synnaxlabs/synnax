@@ -11,8 +11,8 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -32,7 +32,7 @@ func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
 // Compile compiles an expression and returns its type
 func Compile(
 	ctx context.Context[parser.IExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	// Main dispatch based on expression type. Grammar builds expressions in layers
 	// in order of precedence.
 	// Compilation order:
@@ -60,7 +60,7 @@ func Compile(
 // compileLogicalOr handles || operations
 func compileLogicalOr(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	ands := validateNonZeroArray(ctx.AST.AllLogicalAndExpression(), "logical OR")
 	if len(ands) == 1 {
 		return compileLogicalAnd(context.Child(ctx, ands[0]))
@@ -71,7 +71,7 @@ func compileLogicalOr(
 // compileLogicalAnd handles && operations
 func compileLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "logical AND")
 	if len(eqs) == 1 {
 		return compileEquality(context.Child(ctx, eqs[0]))
@@ -82,7 +82,7 @@ func compileLogicalAnd(
 // compileEquality handles == and != operations
 func compileEquality(
 	ctx context.Context[parser.IEqualityExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	rels := validateNonZeroArray(ctx.AST.AllRelationalExpression(), "equality")
 	if len(rels) == 1 {
 		return compileRelational(context.Child(ctx, rels[0]))
@@ -91,7 +91,7 @@ func compileEquality(
 }
 
 // compileRelational handles <, >, <=, >= operations
-func compileRelational(ctx context.Context[parser.IRelationalExpressionContext]) (ir.Type, error) {
+func compileRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
 	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
 		return compileAdditive(context.Child(ctx, adds[0]))
@@ -102,7 +102,7 @@ func compileRelational(ctx context.Context[parser.IRelationalExpressionContext])
 // compileAdditive handles + and - operations.
 func compileAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	muls := validateNonZeroArray(ctx.AST.AllMultiplicativeExpression(), "additive")
 	if len(muls) == 1 {
 		return compileMultiplicative(context.Child(ctx, muls[0]))
@@ -113,7 +113,7 @@ func compileAdditive(
 // compileMultiplicative handles *, /, and % operations
 func compileMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	pows := validateNonZeroArray(ctx.AST.AllPowerExpression(), "multiplicative")
 	if len(pows) == 1 {
 		return compilePower(context.Child(ctx, pows[0]))
@@ -124,7 +124,7 @@ func compileMultiplicative(
 // compilePower handles ^ operations
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	unary := ctx.AST.UnaryExpression()
 	validateNonZero(unary, "power")
 	if ctx.AST.CARET() != nil && ctx.AST.PowerExpression() != nil {
@@ -135,7 +135,7 @@ func compilePower(
 }
 
 // compilePostfix handles array indexing, slicing, and function calls
-func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (ir.Type, error) {
+func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
 	if primary == nil {
 		return nil, errors.New("empty postfix expression")
@@ -148,7 +148,7 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (ir.T
 }
 
 // compilePrimary handles literals, identifiers, parenthesized expressions, etc.
-func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (ir.Type, error) {
+func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
 	}

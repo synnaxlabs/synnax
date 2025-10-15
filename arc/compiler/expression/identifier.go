@@ -12,7 +12,8 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -20,7 +21,7 @@ import (
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	name string,
-) (ir.Type, error) {
+) (types.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -28,21 +29,21 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	}
 
 	switch scope.Kind {
-	case ir.KindVariable, ir.KindParam, ir.KindConfigParam:
+	case symbol.KindVariable, symbol.KindInput, symbol.KindConfig:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		return scope.Type, nil
-	case ir.KindStatefulVariable:
+	case symbol.KindStatefulVariable:
 		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
 			return nil, err
 		}
 		return scope.Type, nil
-	case ir.KindChannel:
+	case symbol.KindChannel:
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return nil, err
 		}
 		// After reading from a channel, we get the value type, not the channel type
-		chanType, ok := scope.Type.(ir.Chan)
+		chanType, ok := scope.Type.(types.Chan)
 		if !ok {
 			return nil, errors.Newf("expected channel type, got %T", scope.Type)
 		}
@@ -56,7 +57,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	idx int,
-	t ir.Type,
+	t types.Type,
 ) error {
 	// Push stage ID (0 for now - would be provided at runtime)
 	ctx.Writer.WriteI32Const(0)
@@ -74,7 +75,7 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 // emitChannelRead emits code for non-blocking channel read
 func emitChannelRead[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	t ir.Type,
+	t types.Type,
 ) error {
 	// Stack has channel ID
 	// Call appropriate channel read function based on type

@@ -15,42 +15,44 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	xtelem "github.com/synnaxlabs/x/telem"
 )
 
 var (
 	sourceSymbolName = "on"
-	sourceSymbol     = ir.Symbol{
+	sourceSymbol     = symbol.Symbol{
 		Name: sourceSymbolName,
-		Kind: ir.KindStage,
+		Kind: symbol.KindFunction,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{"channel"},
-				Values: []ir.Type{ir.Chan{ValueType: ir.NewTypeVariable("T", nil)}},
+				Values: []types.Type{types.Chan{ValueType: types.NewTypeVariable("T", nil)}},
 			},
-			Outputs: ir.NamedTypes{
+			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
 		},
 	}
 	sinkSymbolName = "write"
-	sinkSymbol     = ir.Symbol{
+	sinkSymbol     = symbol.Symbol{
 		Name: sinkSymbolName,
-		Kind: ir.KindStage,
+		Kind: symbol.KindFunction,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{"channel"},
-				Values: []ir.Type{ir.Chan{ValueType: ir.NewTypeVariable("T", nil)}},
+				Values: []types.Type{types.Chan{ValueType: types.NewTypeVariable("T", nil)}},
 			},
-			Params: ir.NamedTypes{
+			Params: types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
 		},
 	}
-	SymbolResolver = ir.MapResolver{
+	SymbolResolver = symbol.MapResolver{
 		sourceSymbolName: sourceSymbol,
 		sinkSymbolName:   sinkSymbol,
 	}

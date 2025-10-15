@@ -14,12 +14,13 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -46,8 +47,8 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	}
 	return arc.Symbol{
 		Name: name,
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.TypeFromTelem(ch.DataType)},
+		Kind: symbol.KindChannel,
+		Type: types.Chan{ValueType: types.TypeFromTelem(ch.DataType)},
 		ID:   int(ch.Key()),
 	}, nil
 }
@@ -57,7 +58,7 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := ir.CompoundResolver{
+	r := symbol.CompoundResolver{
 		constant.SymbolResolver,
 		op.SymbolResolver,
 		selector.SymbolResolver,

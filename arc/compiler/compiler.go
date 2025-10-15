@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -49,13 +51,13 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 
 	for _, i := range program.Stages {
 		params := slices.Concat(i.Config.Values, i.Params.Values)
-		// Get return type - check for single "output" vs multi-output
-		var returnType ir.Type
-		_, hasDefaultOutput := i.Outputs.Get("output")
+		// Get return type - check for single ir.DefaultOutputParam vs multi-output
+		var returnType types.Type
+		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
 		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
 		if !hasNamedOutputs {
 			// Single output case
-			returnType, _ = i.Outputs.Get("output")
+			returnType, _ = i.Outputs.Get(ir.DefaultOutputParam)
 		}
 
 		var outputMemoryBase uint32
@@ -78,13 +80,13 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	}
 
 	for _, i := range program.Functions {
-		// Get return type - check for single "output" vs multi-output
-		var returnType ir.Type
-		_, hasDefaultOutput := i.Outputs.Get("output")
+		// Get return type - check for single ir.DefaultOutputParam vs multi-output
+		var returnType types.Type
+		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
 		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
 		if !hasNamedOutputs {
 			// Single output case
-			returnType, _ = i.Outputs.Get("output")
+			returnType, _ = i.Outputs.Get(ir.DefaultOutputParam)
 		}
 
 		var outputMemoryBase uint32
@@ -121,9 +123,9 @@ func compileItem(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	key string,
 	body antlr.ParserRuleContext,
-	params []ir.Type,
-	results ir.Type,
-	outputs ir.NamedTypes,
+	params []types.Type,
+	results types.Type,
+	outputs types.Params,
 	outputMemoryBase uint32,
 ) error {
 	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
@@ -180,15 +182,15 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 	return err
 }
 
-func collectLocals(scope *ir.Scope) []wasm.ValueType {
+func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
-		if child.Kind == ir.KindVariable {
+		if child.Kind == symbol.KindVariable {
 			locals = append(locals, wasm.ConvertType(child.Type))
-		} else if child.Kind == ir.KindOutput {
+		} else if child.Kind == symbol.KindOutput {
 			// Named outputs are treated as local variables in the function body
 			locals = append(locals, wasm.ConvertType(child.Type))
-		} else if child.Kind == ir.KindBlock {
+		} else if child.Kind == symbol.KindBlock {
 			locals = append(locals, collectLocals(child)...)
 		}
 	}

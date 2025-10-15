@@ -12,11 +12,14 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	types2 "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
+
+func isBool(t types2.Type) bool    { return t.IsBool() }
+func isNumeric(t types2.Type) bool { return t.IsNumeric() }
 
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
@@ -90,12 +93,12 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func validateExpressionType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
+func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
-	infer func(ctx context.Context[T]) ir.Type,
-	check func(t ir.Type) bool,
+	infer func(ctx context.Context[T]) types2.Type,
+	check func(t types2.Type) bool,
 ) bool {
 	if len(items) <= 1 {
 		return true
@@ -111,7 +114,7 @@ func validateExpressionType[T antlr.ParserRuleContext, N antlr.ParserRuleContext
 	}
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType))
-		if firstType != nil && nextType != nil && !atypes.Compatible(firstType, nextType) {
+		if !types.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
 				ctx.AST,
@@ -129,12 +132,12 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) b
 			return false
 		}
 	}
-	return validateExpressionType(
+	return validateType(
 		ctx,
 		logicalAnds,
 		getLogicalOrOperator,
-		atypes.InferLogicalAnd,
-		ir.IsBool,
+		types.InferLogicalAnd,
+		func(t types2.Type) bool { return t.IsBool() },
 	)
 }
 
@@ -145,13 +148,7 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 			return false
 		}
 	}
-	return validateExpressionType(
-		ctx,
-		equalities,
-		getLogicalAndOperator,
-		atypes.InferEquality,
-		ir.IsBool,
-	)
+	return validateType(ctx, equalities, getLogicalAndOperator, types.InferEquality, isBool)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
@@ -161,12 +158,12 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) boo
 			return false
 		}
 	}
-	return validateExpressionType(
+	return validateType(
 		ctx,
 		rels,
 		getEqualityOperator,
-		atypes.InferRelational,
-		func(t ir.Type) bool { return true },
+		types.InferRelational,
+		isBool,
 	)
 }
 
@@ -177,12 +174,12 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 			return false
 		}
 	}
-	return validateExpressionType(
+	return validateType(
 		ctx,
 		additives,
 		getRelationalOperator,
-		atypes.InferAdditive,
-		ir.IsNumeric,
+		types.InferAdditive,
+		isNumeric,
 	)
 }
 
@@ -193,12 +190,12 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) boo
 			return false
 		}
 	}
-	return validateExpressionType[parser.IMultiplicativeExpressionContext](
+	return validateType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		mults,
 		getAdditiveOperator,
-		atypes.InferMultiplicative,
-		ir.IsNumeric,
+		types.InferMultiplicative,
+		isNumeric,
 	)
 }
 
@@ -209,12 +206,12 @@ func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionC
 			return false
 		}
 	}
-	return validateExpressionType[parser.IPowerExpressionContext](
+	return validateType[parser.IPowerExpressionContext](
 		ctx,
 		powers,
 		getMultiplicativeOperator,
-		atypes.InferPower,
-		ir.IsNumeric,
+		types.InferPower,
+		isNumeric,
 	)
 }
 
@@ -233,16 +230,14 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 }
 
 func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
-	// Check if this is a unary operator expression
 	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
-		// First validate the nested expression
 		childCtx := context.Child(ctx, innerUnary)
 		if !analyzeUnary(childCtx) {
 			return false
 		}
-		operandType := atypes.InferFromUnaryExpression(childCtx)
+		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
-			if operandType != nil && !ir.IsNumeric(operandType) {
+			if !operandType.IsNumeric() {
 				ctx.Diagnostics.AddError(
 					errors.Newf("operator - not supported for type %s", operandType),
 					ctx.AST,
@@ -250,7 +245,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 				return false
 			}
 		} else if ctx.AST.NOT() != nil {
-			if operandType != nil && !ir.IsBool(operandType) {
+			if !operandType.IsBool() {
 				ctx.Diagnostics.AddError(
 					errors.Newf("operator ! requires boolean operand, received %s", operandType),
 					ctx.AST,

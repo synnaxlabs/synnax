@@ -14,13 +14,14 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/tetratelabs/wazero/api"
 )
 
 type Function struct {
 	fn      api.Function
 	mem     api.Memory
-	outputs ir.NamedTypes
+	outputs types.Params
 	base    uint32
 	offsets []uint32
 	result  map[string]uint64
@@ -48,7 +49,7 @@ func (f *Function) Call(ctx context.Context, params ...uint64) (map[string]uint6
 func WrapFunction(
 	fn api.Function,
 	mem api.Memory,
-	outputs ir.NamedTypes,
+	outputs types.Params,
 	base uint32,
 ) *Function {
 	offsets := make([]uint32, outputs.Count())
@@ -67,15 +68,15 @@ func WrapFunction(
 	}
 }
 
-func sizeOf(t ir.Type) uint32 {
+func sizeOf(t types.Type) uint32 {
 	switch t {
-	case ir.U8{}, ir.I8{}:
+	case types.U8{}, types.I8{}:
 		return 1
-	case ir.U16{}, ir.I16{}:
+	case types.U16{}, types.I16{}:
 		return 2
-	case ir.U32{}, ir.I32{}, ir.F32{}:
+	case types.U32{}, types.I32{}, types.F32{}:
 		return 4
-	case ir.U64{}, ir.I64{}, ir.F64{}, ir.TimeStamp{}, ir.TimeSpan{}:
+	case types.U64{}, types.I64{}, types.F64{}, types.TimeStamp{}, types.TimeSpan{}:
 		return 8
 	default:
 		return 8

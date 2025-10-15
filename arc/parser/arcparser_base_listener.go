@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -47,23 +38,23 @@ func (s *BaseArcParserListener) EnterFunctionDeclaration(ctx *FunctionDeclaratio
 // ExitFunctionDeclaration is called when production functionDeclaration is exited.
 func (s *BaseArcParserListener) ExitFunctionDeclaration(ctx *FunctionDeclarationContext) {}
 
-// EnterParameterList is called when production parameterList is entered.
-func (s *BaseArcParserListener) EnterParameterList(ctx *ParameterListContext) {}
+// EnterInputList is called when production inputList is entered.
+func (s *BaseArcParserListener) EnterInputList(ctx *InputListContext) {}
 
-// ExitParameterList is called when production parameterList is exited.
-func (s *BaseArcParserListener) ExitParameterList(ctx *ParameterListContext) {}
+// ExitInputList is called when production inputList is exited.
+func (s *BaseArcParserListener) ExitInputList(ctx *InputListContext) {}
 
-// EnterParameter is called when production parameter is entered.
-func (s *BaseArcParserListener) EnterParameter(ctx *ParameterContext) {}
+// EnterInput is called when production input is entered.
+func (s *BaseArcParserListener) EnterInput(ctx *InputContext) {}
 
-// ExitParameter is called when production parameter is exited.
-func (s *BaseArcParserListener) ExitParameter(ctx *ParameterContext) {}
+// ExitInput is called when production input is exited.
+func (s *BaseArcParserListener) ExitInput(ctx *InputContext) {}
 
-// EnterReturnType is called when production returnType is entered.
-func (s *BaseArcParserListener) EnterReturnType(ctx *ReturnTypeContext) {}
+// EnterOutputType is called when production outputType is entered.
+func (s *BaseArcParserListener) EnterOutputType(ctx *OutputTypeContext) {}
 
-// ExitReturnType is called when production returnType is exited.
-func (s *BaseArcParserListener) ExitReturnType(ctx *ReturnTypeContext) {}
+// ExitOutputType is called when production outputType is exited.
+func (s *BaseArcParserListener) ExitOutputType(ctx *OutputTypeContext) {}
 
 // EnterMultiOutputBlock is called when production multiOutputBlock is entered.
 func (s *BaseArcParserListener) EnterMultiOutputBlock(ctx *MultiOutputBlockContext) {}
@@ -77,23 +68,17 @@ func (s *BaseArcParserListener) EnterNamedOutput(ctx *NamedOutputContext) {}
 // ExitNamedOutput is called when production namedOutput is exited.
 func (s *BaseArcParserListener) ExitNamedOutput(ctx *NamedOutputContext) {}
 
-// EnterStageDeclaration is called when production stageDeclaration is entered.
-func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
-
-// ExitStageDeclaration is called when production stageDeclaration is exited.
-func (s *BaseArcParserListener) ExitStageDeclaration(ctx *StageDeclarationContext) {}
-
 // EnterConfigBlock is called when production configBlock is entered.
 func (s *BaseArcParserListener) EnterConfigBlock(ctx *ConfigBlockContext) {}
 
 // ExitConfigBlock is called when production configBlock is exited.
 func (s *BaseArcParserListener) ExitConfigBlock(ctx *ConfigBlockContext) {}
 
-// EnterConfigParameter is called when production configParameter is entered.
-func (s *BaseArcParserListener) EnterConfigParameter(ctx *ConfigParameterContext) {}
+// EnterConfig is called when production config is entered.
+func (s *BaseArcParserListener) EnterConfig(ctx *ConfigContext) {}
 
-// ExitConfigParameter is called when production configParameter is exited.
-func (s *BaseArcParserListener) ExitConfigParameter(ctx *ConfigParameterContext) {}
+// ExitConfig is called when production config is exited.
+func (s *BaseArcParserListener) ExitConfig(ctx *ConfigContext) {}
 
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -145,9 +146,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Stages: []arc.Stage{
 						{
 							Key: "calculation",
-							Params: ir.NamedTypes{
+							Params: types.Params{
 								Keys:   []string{"sensor_1", "sensor_2"},
-								Values: []ir.Type{ir.F32{}, ir.F32{}},
+								Values: []types.Type{types.F32{}, types.F32{}},
 							},
 						},
 					},
@@ -155,14 +156,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						{Node: ir.Node{
 							Key:  "sensor_1_on",
 							Type: "on",
-							Config: map[string]any{
+							ConfigValues: map[string]any{
 								"channel": dataCh1.Key(),
 							},
 						}},
 						{Node: ir.Node{
 							Key:  "sensor_2_on",
 							Type: "on",
-							Config: map[string]any{
+							ConfigValues: map[string]any{
 								"channel": dataCh2.Key(),
 							},
 						}},
@@ -179,8 +180,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 				prog.Nodes = append(prog.Nodes, graph.Node{Node: ir.Node{
-					Key:    "writer",
-					Config: map[string]any{"channel": calculation.Key()},
+					Key:          "writer",
+					ConfigValues: map[string]any{"channel": calculation.Key()},
 				}})
 				Expect(arcSvc.NewWriter(nil).Create(ctx, &svcarc.Arc{
 					Key:   key,

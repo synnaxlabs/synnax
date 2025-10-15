@@ -16,13 +16,15 @@ import (
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func FunctionScope(ctx context.Context, t ir.Function) *ir.Scope {
-	symbols := &ir.Scope{}
-	s := MustSucceed(symbols.Add(ctx, ir.Symbol{Name: "func", Kind: ir.KindFunction, Type: ir.I32{}}))
-	return MustSucceed(s.Add(ctx, ir.Symbol{Kind: ir.KindBlock}))
+func FunctionScope(ctx context.Context, t ir.Function) *symbol.Scope {
+	symbols := &symbol.Scope{}
+	s := MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32{}}))
+	return MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {

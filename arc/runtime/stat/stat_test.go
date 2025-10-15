@@ -40,7 +40,7 @@ var _ = Describe("Avg", func() {
 			Outputs: make(map[ir.Handle]state.Output),
 		}
 
-		inputKey = ir.Handle{Node: "input", Param: "output"}
+		inputKey = ir.Handle{Node: "input", Param: ir.DefaultOutputParam}
 		outputKey = ir.Handle{Node: "avg", Param: ir.DefaultOutputParam}
 
 		nowTime = telem.TimeStamp(0)
@@ -66,7 +66,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -105,7 +105,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -145,7 +145,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 5,
 				},
 			}
@@ -185,7 +185,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -227,7 +227,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -267,7 +267,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -302,7 +302,7 @@ var _ = Describe("Avg", func() {
 			irNode := ir.Node{
 				Type: "avg",
 				Key:  "avg",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 10,
 				},
 			}
@@ -341,9 +341,9 @@ var _ = Describe("Min", func() {
 			Outputs: make(map[ir.Handle]state.Output),
 		}
 
-		inputKey = ir.Handle{Node: "input", Param: "output"}
+		inputKey = ir.Handle{Node: "input", Param: ir.DefaultOutputParam}
 		outputKey = ir.Handle{Node: "min", Param: ir.DefaultOutputParam}
-		resetKey = ir.Handle{Node: "reset", Param: "output"}
+		resetKey = ir.Handle{Node: "reset", Param: ir.DefaultOutputParam}
 
 		nowTime = telem.TimeStamp(0)
 		nowFn = func() telem.TimeStamp {
@@ -367,9 +367,9 @@ var _ = Describe("Min", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "min",
-				Key:    "min",
-				Config: map[string]any{},
+				Type:         "min",
+				Key:          "min",
+				ConfigValues: map[string]any{},
 			}
 			minNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -397,9 +397,9 @@ var _ = Describe("Min", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "min",
-				Key:    "min",
-				Config: map[string]any{},
+				Type:         "min",
+				Key:          "min",
+				ConfigValues: map[string]any{},
 			}
 			minNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -445,9 +445,9 @@ var _ = Describe("Min", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "min",
-				Key:    "min",
-				Config: map[string]any{},
+				Type:         "min",
+				Key:          "min",
+				ConfigValues: map[string]any{},
 			}
 			minNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -487,7 +487,7 @@ var _ = Describe("Min", func() {
 			irNode := ir.Node{
 				Type: "min",
 				Key:  "min",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 5,
 				},
 			}
@@ -529,7 +529,7 @@ var _ = Describe("Min", func() {
 			irNode := ir.Node{
 				Type: "min",
 				Key:  "min",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"count": int64(5),
 				},
 			}
@@ -576,9 +576,9 @@ var _ = Describe("Min", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "min",
-				Key:    "min",
-				Config: map[string]any{},
+				Type:         "min",
+				Key:          "min",
+				ConfigValues: map[string]any{},
 			}
 			minNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -615,9 +615,9 @@ var _ = Describe("Max", func() {
 			Outputs: make(map[ir.Handle]state.Output),
 		}
 
-		inputKey = ir.Handle{Node: "input", Param: "output"}
+		inputKey = ir.Handle{Node: "input", Param: ir.DefaultOutputParam}
 		outputKey = ir.Handle{Node: "max", Param: ir.DefaultOutputParam}
-		resetKey = ir.Handle{Node: "reset", Param: "output"}
+		resetKey = ir.Handle{Node: "reset", Param: ir.DefaultOutputParam}
 
 		nowTime = telem.TimeStamp(0)
 		nowFn = func() telem.TimeStamp {
@@ -641,9 +641,9 @@ var _ = Describe("Max", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "max",
-				Key:    "max",
-				Config: map[string]any{},
+				Type:         "max",
+				Key:          "max",
+				ConfigValues: map[string]any{},
 			}
 			maxNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -671,9 +671,9 @@ var _ = Describe("Max", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "max",
-				Key:    "max",
-				Config: map[string]any{},
+				Type:         "max",
+				Key:          "max",
+				ConfigValues: map[string]any{},
 			}
 			maxNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -719,9 +719,9 @@ var _ = Describe("Max", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "max",
-				Key:    "max",
-				Config: map[string]any{},
+				Type:         "max",
+				Key:          "max",
+				ConfigValues: map[string]any{},
 			}
 			maxNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,
@@ -761,7 +761,7 @@ var _ = Describe("Max", func() {
 			irNode := ir.Node{
 				Type: "max",
 				Key:  "max",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"duration": telem.Second * 5,
 				},
 			}
@@ -803,7 +803,7 @@ var _ = Describe("Max", func() {
 			irNode := ir.Node{
 				Type: "max",
 				Key:  "max",
-				Config: map[string]any{
+				ConfigValues: map[string]any{
 					"count": int64(5),
 				},
 			}
@@ -850,9 +850,9 @@ var _ = Describe("Max", func() {
 				},
 			}
 			irNode := ir.Node{
-				Type:   "max",
-				Key:    "max",
-				Config: map[string]any{},
+				Type:         "max",
+				Key:          "max",
+				ConfigValues: map[string]any{},
 			}
 			maxNode = MustSucceed(factory.Create(ctx, node.Config{
 				State:  s,

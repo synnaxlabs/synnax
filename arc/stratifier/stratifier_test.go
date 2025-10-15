@@ -54,7 +54,7 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				{
-					Source: ir.Handle{Node: "sensor", Param: "output"},
+					Source: ir.Handle{Node: "sensor", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "process", Param: "input"},
 				},
 			}
@@ -75,11 +75,11 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				{
-					Source: ir.Handle{Node: "sensor", Param: "output"},
+					Source: ir.Handle{Node: "sensor", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "filter", Param: "input"},
 				},
 				{
-					Source: ir.Handle{Node: "filter", Param: "output"},
+					Source: ir.Handle{Node: "filter", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "logger", Param: "input"},
 				},
 			}
@@ -103,11 +103,11 @@ var _ = Describe("Stratification", func() {
 				{Key: "sink", Type: "write"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "step1", Param: "input"}},
-				{Source: ir.Handle{Node: "step1", Param: "output"}, Target: ir.Handle{Node: "step2", Param: "input"}},
-				{Source: ir.Handle{Node: "step2", Param: "output"}, Target: ir.Handle{Node: "step3", Param: "input"}},
-				{Source: ir.Handle{Node: "step3", Param: "output"}, Target: ir.Handle{Node: "step4", Param: "input"}},
-				{Source: ir.Handle{Node: "step4", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "step1", Param: "input"}},
+				{Source: ir.Handle{Node: "step1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "step2", Param: "input"}},
+				{Source: ir.Handle{Node: "step2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "step3", Param: "input"}},
+				{Source: ir.Handle{Node: "step3", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "step4", Param: "input"}},
+				{Source: ir.Handle{Node: "step4", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -138,10 +138,10 @@ var _ = Describe("Stratification", func() {
 				{Key: "sink", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "left", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "right", Param: "input"}},
-				{Source: ir.Handle{Node: "left", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "a"}},
-				{Source: ir.Handle{Node: "right", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "b"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "left", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "right", Param: "input"}},
+				{Source: ir.Handle{Node: "left", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "a"}},
+				{Source: ir.Handle{Node: "right", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -169,11 +169,11 @@ var _ = Describe("Stratification", func() {
 				{Key: "sink", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "fast", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "slow1", Param: "input"}},
-				{Source: ir.Handle{Node: "slow1", Param: "output"}, Target: ir.Handle{Node: "slow2", Param: "input"}},
-				{Source: ir.Handle{Node: "fast", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "a"}},
-				{Source: ir.Handle{Node: "slow2", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "b"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "fast", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "slow1", Param: "input"}},
+				{Source: ir.Handle{Node: "slow1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "slow2", Param: "input"}},
+				{Source: ir.Handle{Node: "fast", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "a"}},
+				{Source: ir.Handle{Node: "slow2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -202,15 +202,15 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				// First diamond
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "d1_left", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "d1_right", Param: "input"}},
-				{Source: ir.Handle{Node: "d1_left", Param: "output"}, Target: ir.Handle{Node: "d1_merge", Param: "a"}},
-				{Source: ir.Handle{Node: "d1_right", Param: "output"}, Target: ir.Handle{Node: "d1_merge", Param: "b"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d1_left", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d1_right", Param: "input"}},
+				{Source: ir.Handle{Node: "d1_left", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d1_merge", Param: "a"}},
+				{Source: ir.Handle{Node: "d1_right", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d1_merge", Param: "b"}},
 				// Second diamond
-				{Source: ir.Handle{Node: "d1_merge", Param: "output"}, Target: ir.Handle{Node: "d2_left", Param: "input"}},
-				{Source: ir.Handle{Node: "d1_merge", Param: "output"}, Target: ir.Handle{Node: "d2_right", Param: "input"}},
-				{Source: ir.Handle{Node: "d2_left", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "a"}},
-				{Source: ir.Handle{Node: "d2_right", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "b"}},
+				{Source: ir.Handle{Node: "d1_merge", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d2_left", Param: "input"}},
+				{Source: ir.Handle{Node: "d1_merge", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "d2_right", Param: "input"}},
+				{Source: ir.Handle{Node: "d2_left", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "a"}},
+				{Source: ir.Handle{Node: "d2_right", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -236,8 +236,8 @@ var _ = Describe("Stratification", func() {
 				{Key: "process2", Type: "filter"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "sensor1", Param: "output"}, Target: ir.Handle{Node: "process1", Param: "input"}},
-				{Source: ir.Handle{Node: "sensor2", Param: "output"}, Target: ir.Handle{Node: "process2", Param: "input"}},
+				{Source: ir.Handle{Node: "sensor1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "process1", Param: "input"}},
+				{Source: ir.Handle{Node: "sensor2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "process2", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -265,11 +265,11 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				// Short chain
-				{Source: ir.Handle{Node: "short_src", Param: "output"}, Target: ir.Handle{Node: "short_sink", Param: "input"}},
+				{Source: ir.Handle{Node: "short_src", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "short_sink", Param: "input"}},
 				// Long chain
-				{Source: ir.Handle{Node: "long_src", Param: "output"}, Target: ir.Handle{Node: "long_step1", Param: "input"}},
-				{Source: ir.Handle{Node: "long_step1", Param: "output"}, Target: ir.Handle{Node: "long_step2", Param: "input"}},
-				{Source: ir.Handle{Node: "long_step2", Param: "output"}, Target: ir.Handle{Node: "long_sink", Param: "input"}},
+				{Source: ir.Handle{Node: "long_src", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "long_step1", Param: "input"}},
+				{Source: ir.Handle{Node: "long_step1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "long_step2", Param: "input"}},
+				{Source: ir.Handle{Node: "long_step2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "long_sink", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -300,9 +300,9 @@ var _ = Describe("Stratification", func() {
 				{Key: "sink3", Type: "write"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "sink1", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "sink2", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "sink3", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink1", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink2", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink3", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -327,9 +327,9 @@ var _ = Describe("Stratification", func() {
 				{Key: "combiner", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source1", Param: "output"}, Target: ir.Handle{Node: "combiner", Param: "a"}},
-				{Source: ir.Handle{Node: "source2", Param: "output"}, Target: ir.Handle{Node: "combiner", Param: "b"}},
-				{Source: ir.Handle{Node: "source3", Param: "output"}, Target: ir.Handle{Node: "combiner", Param: "c"}},
+				{Source: ir.Handle{Node: "source1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combiner", Param: "a"}},
+				{Source: ir.Handle{Node: "source2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combiner", Param: "b"}},
+				{Source: ir.Handle{Node: "source3", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combiner", Param: "c"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -350,8 +350,8 @@ var _ = Describe("Stratification", func() {
 				{Key: "node2", Type: "process"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "node1", Param: "output"}, Target: ir.Handle{Node: "node2", Param: "input"}},
-				{Source: ir.Handle{Node: "node2", Param: "output"}, Target: ir.Handle{Node: "node1", Param: "input"}},
+				{Source: ir.Handle{Node: "node1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "node2", Param: "input"}},
+				{Source: ir.Handle{Node: "node2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "node1", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -367,7 +367,7 @@ var _ = Describe("Stratification", func() {
 				{Key: "looper", Type: "process"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "looper", Param: "output"}, Target: ir.Handle{Node: "looper", Param: "input"}},
+				{Source: ir.Handle{Node: "looper", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "looper", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -385,9 +385,9 @@ var _ = Describe("Stratification", func() {
 				{Key: "c", Type: "process"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "a", Param: "output"}, Target: ir.Handle{Node: "b", Param: "input"}},
-				{Source: ir.Handle{Node: "b", Param: "output"}, Target: ir.Handle{Node: "c", Param: "input"}},
-				{Source: ir.Handle{Node: "c", Param: "output"}, Target: ir.Handle{Node: "a", Param: "input"}},
+				{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "b", Param: "input"}},
+				{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "c", Param: "input"}},
+				{Source: ir.Handle{Node: "c", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "a", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -416,12 +416,12 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				// Valid path
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "valid_chain", Param: "input"}},
-				{Source: ir.Handle{Node: "valid_chain", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "valid_chain", Param: "input"}},
+				{Source: ir.Handle{Node: "valid_chain", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "input"}},
 				// Cycle
-				{Source: ir.Handle{Node: "cycleA", Param: "output"}, Target: ir.Handle{Node: "cycleB", Param: "input"}},
-				{Source: ir.Handle{Node: "cycleB", Param: "output"}, Target: ir.Handle{Node: "cycleC", Param: "input"}},
-				{Source: ir.Handle{Node: "cycleC", Param: "output"}, Target: ir.Handle{Node: "cycleA", Param: "input"}},
+				{Source: ir.Handle{Node: "cycleA", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "cycleB", Param: "input"}},
+				{Source: ir.Handle{Node: "cycleB", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "cycleC", Param: "input"}},
+				{Source: ir.Handle{Node: "cycleC", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "cycleA", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -441,10 +441,10 @@ var _ = Describe("Stratification", func() {
 				{Key: "sink", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "left", Param: "input"}},
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "right", Param: "input"}},
-				{Source: ir.Handle{Node: "left", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "a"}},
-				{Source: ir.Handle{Node: "right", Param: "output"}, Target: ir.Handle{Node: "sink", Param: "b"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "left", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "right", Param: "input"}},
+				{Source: ir.Handle{Node: "left", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "a"}},
+				{Source: ir.Handle{Node: "right", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -502,8 +502,8 @@ var _ = Describe("Stratification", func() {
 				{Key: "listener2", Type: "write"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "broadcaster", Param: "output"}, Target: ir.Handle{Node: "listener1", Param: "input"}},
-				{Source: ir.Handle{Node: "broadcaster", Param: "output"}, Target: ir.Handle{Node: "listener2", Param: "input"}},
+				{Source: ir.Handle{Node: "broadcaster", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "listener1", Param: "input"}},
+				{Source: ir.Handle{Node: "broadcaster", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "listener2", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -521,8 +521,8 @@ var _ = Describe("Stratification", func() {
 				{Key: "aggregator", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source1", Param: "output"}, Target: ir.Handle{Node: "aggregator", Param: "a"}},
-				{Source: ir.Handle{Node: "source2", Param: "output"}, Target: ir.Handle{Node: "aggregator", Param: "b"}},
+				{Source: ir.Handle{Node: "source1", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "aggregator", Param: "a"}},
+				{Source: ir.Handle{Node: "source2", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "aggregator", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -541,7 +541,7 @@ var _ = Describe("Stratification", func() {
 				{Key: "child", Type: "process"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "orphan", Param: "output"}, Target: ir.Handle{Node: "child", Param: "input"}},
+				{Source: ir.Handle{Node: "orphan", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "child", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -579,19 +579,19 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				// Sensor -> Preprocessing
-				{Source: ir.Handle{Node: "temp_sensor", Param: "output"}, Target: ir.Handle{Node: "temp_filter", Param: "input"}},
-				{Source: ir.Handle{Node: "pressure_sensor", Param: "output"}, Target: ir.Handle{Node: "pressure_filter", Param: "input"}},
-				{Source: ir.Handle{Node: "flow_sensor", Param: "output"}, Target: ir.Handle{Node: "flow_calibrate", Param: "input"}},
+				{Source: ir.Handle{Node: "temp_sensor", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "temp_filter", Param: "input"}},
+				{Source: ir.Handle{Node: "pressure_sensor", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "pressure_filter", Param: "input"}},
+				{Source: ir.Handle{Node: "flow_sensor", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "flow_calibrate", Param: "input"}},
 				// Preprocessing -> Feature extraction
-				{Source: ir.Handle{Node: "temp_filter", Param: "output"}, Target: ir.Handle{Node: "temp_derivative", Param: "input"}},
-				{Source: ir.Handle{Node: "temp_filter", Param: "output"}, Target: ir.Handle{Node: "combined_state", Param: "temp"}},
-				{Source: ir.Handle{Node: "pressure_filter", Param: "output"}, Target: ir.Handle{Node: "combined_state", Param: "pressure"}},
-				{Source: ir.Handle{Node: "flow_calibrate", Param: "output"}, Target: ir.Handle{Node: "combined_state", Param: "flow"}},
+				{Source: ir.Handle{Node: "temp_filter", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "temp_derivative", Param: "input"}},
+				{Source: ir.Handle{Node: "temp_filter", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combined_state", Param: "temp"}},
+				{Source: ir.Handle{Node: "pressure_filter", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combined_state", Param: "pressure"}},
+				{Source: ir.Handle{Node: "flow_calibrate", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "combined_state", Param: "flow"}},
 				// Feature extraction -> Decision
-				{Source: ir.Handle{Node: "temp_derivative", Param: "output"}, Target: ir.Handle{Node: "control_logic", Param: "rate"}},
-				{Source: ir.Handle{Node: "combined_state", Param: "output"}, Target: ir.Handle{Node: "control_logic", Param: "state"}},
+				{Source: ir.Handle{Node: "temp_derivative", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "control_logic", Param: "rate"}},
+				{Source: ir.Handle{Node: "combined_state", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "control_logic", Param: "state"}},
 				// Decision -> Actuation
-				{Source: ir.Handle{Node: "control_logic", Param: "output"}, Target: ir.Handle{Node: "valve_cmd", Param: "input"}},
+				{Source: ir.Handle{Node: "control_logic", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "valve_cmd", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -641,20 +641,20 @@ var _ = Describe("Stratification", func() {
 			}
 			edges := []ir.Edge{
 				// Sensors to checks
-				{Source: ir.Handle{Node: "temp", Param: "output"}, Target: ir.Handle{Node: "temp_high", Param: "input"}},
-				{Source: ir.Handle{Node: "temp", Param: "output"}, Target: ir.Handle{Node: "temp_critical", Param: "input"}},
-				{Source: ir.Handle{Node: "vibration", Param: "output"}, Target: ir.Handle{Node: "vib_high", Param: "input"}},
-				{Source: ir.Handle{Node: "pressure", Param: "output"}, Target: ir.Handle{Node: "pressure_low", Param: "input"}},
+				{Source: ir.Handle{Node: "temp", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "temp_high", Param: "input"}},
+				{Source: ir.Handle{Node: "temp", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "temp_critical", Param: "input"}},
+				{Source: ir.Handle{Node: "vibration", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "vib_high", Param: "input"}},
+				{Source: ir.Handle{Node: "pressure", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "pressure_low", Param: "input"}},
 				// Checks to priority logic
-				{Source: ir.Handle{Node: "temp_critical", Param: "output"}, Target: ir.Handle{Node: "critical_alarm", Param: "a"}},
-				{Source: ir.Handle{Node: "pressure_low", Param: "output"}, Target: ir.Handle{Node: "critical_alarm", Param: "b"}},
-				{Source: ir.Handle{Node: "temp_high", Param: "output"}, Target: ir.Handle{Node: "warning_alarm", Param: "a"}},
-				{Source: ir.Handle{Node: "vib_high", Param: "output"}, Target: ir.Handle{Node: "warning_alarm", Param: "b"}},
+				{Source: ir.Handle{Node: "temp_critical", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "critical_alarm", Param: "a"}},
+				{Source: ir.Handle{Node: "pressure_low", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "critical_alarm", Param: "b"}},
+				{Source: ir.Handle{Node: "temp_high", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "warning_alarm", Param: "a"}},
+				{Source: ir.Handle{Node: "vib_high", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "warning_alarm", Param: "b"}},
 				// Priority to manager
-				{Source: ir.Handle{Node: "critical_alarm", Param: "output"}, Target: ir.Handle{Node: "alarm_manager", Param: "critical"}},
-				{Source: ir.Handle{Node: "warning_alarm", Param: "output"}, Target: ir.Handle{Node: "alarm_manager", Param: "warning"}},
+				{Source: ir.Handle{Node: "critical_alarm", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "alarm_manager", Param: "critical"}},
+				{Source: ir.Handle{Node: "warning_alarm", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "alarm_manager", Param: "warning"}},
 				// Manager to output
-				{Source: ir.Handle{Node: "alarm_manager", Param: "output"}, Target: ir.Handle{Node: "alarm_output", Param: "input"}},
+				{Source: ir.Handle{Node: "alarm_manager", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "alarm_output", Param: "input"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 
@@ -677,7 +677,7 @@ var _ = Describe("Stratification", func() {
 				{Key: "low_sink", Type: "write"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "source", Param: "output"}, Target: ir.Handle{Node: "splitter", Param: "input"}},
+				{Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "splitter", Param: "input"}},
 				{Source: ir.Handle{Node: "splitter", Param: "high"}, Target: ir.Handle{Node: "high_sink", Param: "input"}},
 				{Source: ir.Handle{Node: "splitter", Param: "low"}, Target: ir.Handle{Node: "low_sink", Param: "input"}},
 			}
@@ -700,11 +700,11 @@ var _ = Describe("Stratification", func() {
 				{Key: "merge", Type: "combine"},
 			}
 			edges := []ir.Edge{
-				{Source: ir.Handle{Node: "input", Param: "output"}, Target: ir.Handle{Node: "router", Param: "input"}},
+				{Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "router", Param: "input"}},
 				{Source: ir.Handle{Node: "router", Param: "true"}, Target: ir.Handle{Node: "true_path", Param: "input"}},
 				{Source: ir.Handle{Node: "router", Param: "false"}, Target: ir.Handle{Node: "false_path", Param: "input"}},
-				{Source: ir.Handle{Node: "true_path", Param: "output"}, Target: ir.Handle{Node: "merge", Param: "a"}},
-				{Source: ir.Handle{Node: "false_path", Param: "output"}, Target: ir.Handle{Node: "merge", Param: "b"}},
+				{Source: ir.Handle{Node: "true_path", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "merge", Param: "a"}},
+				{Source: ir.Handle{Node: "false_path", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "merge", Param: "b"}},
 			}
 			diag := &diagnostics.Diagnostics{}
 

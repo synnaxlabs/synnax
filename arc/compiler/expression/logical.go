@@ -13,14 +13,14 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 )
 
 // compileLogicalOrImpl handles || operations with short-circuit evaluation
 func compileLogicalOrImpl(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	ands := ctx.AST.AllLogicalAndExpression()
 
 	// Compile first operand
@@ -57,11 +57,11 @@ func compileLogicalOrImpl(
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return ir.U8{}, nil
+	return types.U8{}, nil
 }
 
 // compileLogicalAndImpl handles && operations with short-circuit evaluation
-func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionContext]) (ir.Type, error) {
+func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionContext]) (types.Type, error) {
 	eqs := ctx.AST.AllEqualityExpression()
 
 	// Compile first operand
@@ -99,7 +99,7 @@ func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionConte
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return ir.U8{}, nil
+	return types.U8{}, nil
 }
 
 // normalizeBoolean converts any non-zero i32 value to 1

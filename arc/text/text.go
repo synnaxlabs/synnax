@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 type Text struct {
@@ -40,7 +42,7 @@ func Parse(t Text) (Text, error) {
 func Analyze(
 	ctx_ context.Context,
 	t Text,
-	resolver ir.SymbolResolver,
+	resolver symbol.Resolver,
 ) (ir.IR, analyzer.Diagnostics) {
 	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
 	// Stage 1: Analyse the AST.
@@ -53,9 +55,9 @@ func Analyze(
 	// functions and stages.
 	for _, c := range i.Symbols.Children {
 		switch c.Kind {
-		case ir.KindStage:
+		case symbol.KindFunction:
 			i.Stages = append(i.Stages, c.Type.(ir.Stage))
-		case ir.KindFunction:
+		case symbol.KindFunction:
 			i.Functions = append(i.Functions, c.Type.(ir.Function))
 		}
 	}
@@ -146,13 +148,13 @@ func analyzeChannel(
 	}
 	chKey := uint32(sym.ID)
 	n := ir.Node{
-		Key:      nodeKey,
-		Type:     "on",
-		Config:   map[string]any{"channel": chKey},
-		Channels: ir.NewChannels(),
+		Key:          nodeKey,
+		Type:         "on",
+		ConfigValues: map[string]any{"channel": chKey},
+		Channels:     ir.NewChannels(),
 	}
 	n.Channels.Read.Add(chKey)
-	h := ir.Handle{Node: nodeKey, Param: "output"}
+	h := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
 	return n, h, true
 }
 
@@ -181,7 +183,7 @@ func extractConfigValues(
 		if !ok {
 			panic("config key not found in stage")
 		}
-		if _, ok = t.(ir.Chan); ok {
+		if _, ok = t.(types.Chan); ok {
 			sym, err := ctx.Scope.Resolve(ctx, v.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
@@ -208,7 +210,7 @@ func analyzeStage(
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
+	stageType, err := types.Assert[ir.Stage](sym.Type)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
@@ -243,7 +245,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
+	stageType, err := types.Assert[ir.Stage](sym.Type)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
@@ -253,7 +255,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		Type:     sym.Name,
 		Channels: ir.OverrideChannels(stageType.Channels),
 	}
-	h := ir.Handle{Node: sym.Name, Param: "output"}
+	h := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
 	return n, h, true
 }
 

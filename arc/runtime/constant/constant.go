@@ -15,27 +15,29 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	symbol2 "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
 	symbolName = "constant"
-	symbol     = ir.Symbol{
+	symbol     = symbol2.Symbol{
 		Name: symbolName,
-		Kind: ir.KindStage,
+		Kind: symbol2.KindStage,
 		Type: ir.Stage{
-			Config: ir.NamedTypes{
+			Config: types.Params{
 				Keys:   []string{"value"},
-				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
 			},
-			Outputs: ir.NamedTypes{
+			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []ir.Type{ir.NewTypeVariable("T", ir.NumericConstraint{})},
+				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
 			},
 		},
 	}
-	SymbolResolver = ir.MapResolver{symbolName: symbol}
+	SymbolResolver = symbol2.MapResolver{symbolName: symbol}
 )
 
 type constant struct {
@@ -63,7 +65,7 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	return constant{
 		output: ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam},
 		state:  cfg.State,
-		value:  cfg.Node.Config["value"],
+		value:  cfg.Node.ConfigValues["value"],
 	}, nil
 }
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir
+package symbol
 
 import (
 	"context"
@@ -16,13 +16,13 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-type SymbolResolver interface {
+type Resolver interface {
 	Resolve(ctx context.Context, name string) (Symbol, error)
 }
 
 type MapResolver map[string]Symbol
 
-var _ SymbolResolver = (*MapResolver)(nil)
+var _ Resolver = (*MapResolver)(nil)
 
 func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
@@ -31,7 +31,7 @@ func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	return Symbol{}, errors.Wrapf(query.NotFound, "symbol %s not found", name)
 }
 
-type CompoundResolver []SymbolResolver
+type CompoundResolver []Resolver
 
 func (c CompoundResolver) Resolve(ctx context.Context, name string) (Symbol, error) {
 	var (

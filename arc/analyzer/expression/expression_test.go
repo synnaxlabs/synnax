@@ -15,8 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -64,6 +65,7 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
+
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
@@ -473,16 +475,16 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
-				"ox_pt_2": ir.Symbol{
-					Kind: ir.KindChannel,
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_2",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -495,16 +497,16 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
-				"ox_pt_2": ir.Symbol{
-					Kind: ir.KindChannel,
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.F32{}},
+					Type: types.Chan(types.F32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -520,11 +522,11 @@ var _ = Describe("Expressions", func() {
 					return ox_pt_1 + 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)

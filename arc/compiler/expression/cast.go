@@ -15,12 +15,13 @@ import (
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 func compileTypeCast(
 	ctx context.Context[parser.ITypeCastContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	targetType := extractType(ctx.AST.Type_())
 	if targetType == nil {
 		return nil, errors.New("unknown cast target type")
@@ -38,32 +39,32 @@ func compileTypeCast(
 	return targetType, nil
 }
 
-func extractType(typeCtx parser.ITypeContext) ir.Type {
+func extractType(typeCtx parser.ITypeContext) types.Type {
 	if prim := typeCtx.PrimitiveType(); prim != nil {
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {
 				if intType.I8() != nil {
-					return ir.I8{}
+					return types.I8{}
 				} else if intType.I16() != nil {
-					return ir.I16{}
+					return types.I16{}
 				} else if intType.I32() != nil {
-					return ir.I32{}
+					return types.I32{}
 				} else if intType.I64() != nil {
-					return ir.I64{}
+					return types.I64{}
 				} else if intType.U8() != nil {
-					return ir.U8{}
+					return types.U8{}
 				} else if intType.U16() != nil {
-					return ir.U16{}
+					return types.U16{}
 				} else if intType.U32() != nil {
-					return ir.U32{}
+					return types.U32{}
 				} else if intType.U64() != nil {
-					return ir.U64{}
+					return types.U64{}
 				}
 			} else if floatType := num.FloatType(); floatType != nil {
 				if floatType.F32() != nil {
-					return ir.F32{}
+					return types.F32{}
 				} else if floatType.F64() != nil {
-					return ir.F64{}
+					return types.F64{}
 				}
 			}
 		}
@@ -73,7 +74,7 @@ func extractType(typeCtx parser.ITypeContext) ir.Type {
 
 func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	from, to ir.Type,
+	from, to types.Type,
 ) error {
 	fromWasm := wasm.ConvertType(from)
 	toWasm := wasm.ConvertType(to)

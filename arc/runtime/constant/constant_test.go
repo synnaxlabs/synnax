@@ -32,9 +32,9 @@ var _ = Describe("Constant", func() {
 
 				inter := ir.IR{Edges: []ir.Edge{}}
 				irNode := ir.Node{
-					Key:    "constant",
-					Type:   "constant",
-					Config: map[string]any{"value": value},
+					Key:          "constant",
+					Type:         "constant",
+					ConfigValues: map[string]any{"value": value},
 				}
 
 				runtimeNode := MustSucceed(f.Create(ctx, node.Config{
@@ -119,9 +119,9 @@ var _ = Describe("Constant", func() {
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
-				Key:    "constant",
-				Type:   "constant",
-				Config: map[string]any{"value": int(100)},
+				Key:          "constant",
+				Type:         "constant",
+				ConfigValues: map[string]any{"value": int(100)},
 			}
 
 			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
@@ -156,9 +156,9 @@ var _ = Describe("Constant", func() {
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
-				Key:    "constant",
-				Type:   "constant",
-				Config: map[string]any{"value": int(42)}, // int input
+				Key:          "constant",
+				Type:         "constant",
+				ConfigValues: map[string]any{"value": int(42)}, // int input
 			}
 
 			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
@@ -184,9 +184,9 @@ var _ = Describe("Constant", func() {
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
-				Key:    "constant",
-				Type:   "constant",
-				Config: map[string]any{"value": float64(3.7)}, // float input
+				Key:          "constant",
+				Type:         "constant",
+				ConfigValues: map[string]any{"value": float64(3.7)}, // float input
 			}
 
 			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
@@ -211,9 +211,9 @@ var _ = Describe("Constant", func() {
 
 			inter := ir.IR{Edges: []ir.Edge{}}
 			irNode := ir.Node{
-				Key:    "constant",
-				Type:   "constant",
-				Config: map[string]any{"value": float64(2.5)},
+				Key:          "constant",
+				Type:         "constant",
+				ConfigValues: map[string]any{"value": float64(2.5)},
 			}
 
 			runtimeNode := MustSucceed(f.Create(ctx, node.Config{
@@ -242,9 +242,9 @@ var _ = Describe("Constant", func() {
 			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			irNode := ir.Node{
-				Key:    "wrong",
-				Type:   "not_constant",
-				Config: map[string]any{},
+				Key:          "wrong",
+				Type:         "not_constant",
+				ConfigValues: map[string]any{},
 			}
 
 			_, err := f.Create(ctx, node.Config{
@@ -261,9 +261,9 @@ var _ = Describe("Constant", func() {
 			s := &state.State{Outputs: map[ir.Handle]state.Output{}}
 
 			irNode := ir.Node{
-				Key:    "constant",
-				Type:   "constant",
-				Config: map[string]any{"value": int(42)},
+				Key:          "constant",
+				Type:         "constant",
+				ConfigValues: map[string]any{"value": int(42)},
 			}
 
 			n, err := f.Create(ctx, node.Config{

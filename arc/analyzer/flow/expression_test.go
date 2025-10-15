@@ -16,76 +16,83 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Expression Stage Conversion", func() {
 	// Create a resolver with some test channels
-	testResolver := ir.MapResolver{
-		"temp_sensor": ir.Symbol{
+	testResolver := symbol.MapResolver{
+		"temp_sensor": symbol.Symbol{
 			Name: "temp_sensor",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.F32{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
 			ID:   10,
 		},
-		"pressure": ir.Symbol{
+		"pressure": symbol.Symbol{
 			Name: "pressure",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.F64{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
 			ID:   11,
 		},
-		"ox_pt_1": ir.Symbol{
+		"ox_pt_1": symbol.Symbol{
 			Name: "ox_pt_1",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.F64{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
 			ID:   12,
 		},
-		"ox_pt_2": ir.Symbol{
+		"ox_pt_2": symbol.Symbol{
 			Name: "ox_pt_2",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.F64{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
 			ID:   13,
 		},
-		"alarm": ir.Symbol{
+		"alarm": symbol.Symbol{
 			Name: "alarm",
-			Kind: ir.KindStage,
-			Type: &ir.Stage{
-				Config: maps.Ordered[string, ir.Type]{
+			Kind: symbol.KindFunction,
+			Type: types.Function(
+				types.Params{},
+				types.Params{},
+				types.Params{
 					Keys:   []string{"input"},
-					Values: []ir.Type{ir.Chan{ValueType: ir.U8{}}},
+					Values: []types.Type{types.Chan(types.U8())},
 				},
-			},
+			),
 		},
-		"logger": ir.Symbol{
+		"logger": symbol.Symbol{
 			Name: "logger",
-			Kind: ir.KindStage,
-			Type: &ir.Stage{
-				Config: maps.Ordered[string, ir.Type]{
+			Kind: symbol.KindFunction,
+			Type: types.Function(
+				types.Params{},
+				types.Params{},
+				types.Params{
 					Keys:   []string{"input"},
-					Values: []ir.Type{ir.Chan{ValueType: ir.U8{}}},
+					Values: []types.Type{types.Chan(types.U8())},
 				},
-			},
+			),
 		},
-		"display": ir.Symbol{
+		"display": symbol.Symbol{
 			Name: "display",
-			Kind: ir.KindStage,
-			Type: &ir.Stage{
-				Config: maps.Ordered[string, ir.Type]{
+			Kind: symbol.KindFunction,
+			Type: types.Function(
+				types.Params{},
+				types.Params{},
+				types.Params{
 					Keys:   []string{"input"},
-					Values: []ir.Type{ir.Chan{ValueType: ir.U8{}}},
+					Values: []types.Type{types.Chan(types.U8())},
 				},
-			},
+			),
 		},
-		"warning": ir.Symbol{
+		"warning": symbol.Symbol{
 			Name: "warning",
-			Kind: ir.KindStage,
-			Type: &ir.Stage{},
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
 		},
-		"alarm_ch": ir.Symbol{
+		"alarm_ch": symbol.Symbol{
 			Name: "alarm_ch",
-			Kind: ir.KindChannel,
-			Type: ir.Chan{ValueType: ir.U8{}},
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
 			ID:   14,
 		},
 	}
@@ -97,19 +104,13 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			taskSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			Expect(taskSymbol.Name).To(Equal("__expr_0"))
-			Expect(taskSymbol.Kind).To(Equal(ir.KindStage))
-			stage, ok := taskSymbol.Type.(ir.Stage)
-			Expect(ok).To(BeTrue())
-			Expect(stage.Channels.Read).To(HaveLen(1))
-			Expect(stage.Channels.Read.Contains(12)).To(BeTrue())
-			Expect(stage.Channels.Write).To(BeEmpty())
-			Expect(stage.Key).To(Equal("__expr_0"))
-			Expect(stage.Config.Keys).To(BeEmpty())
-			Expect(stage.Params.Keys).To(BeEmpty())
-			output, _ := stage.Outputs.Get("output")
-			Expect(output).To(Equal(ir.U8{}))
+			stageSym := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(stageSym.Name).To(Equal("__expr_0"))
+			Expect(stageSym.Kind).To(Equal(symbol.KindFunction))
+			Expect(stageSym.Type.Kind).To(Equal(types.KindFunction))
+			Expect(stageSym.Type.Config.Count()).To(Equal(0))
+			output, _ := stageSym.Type.Outputs.Get(ir.DefaultOutputParam)
+			Expect(output).To(Equal(types.U8()))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -118,15 +119,10 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
-			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
-			Expect(err).To(BeNil())
-			Expect(synthTask).ToNot(BeNil())
-			stageType, ok := synthTask.Type.(ir.Stage)
-			Expect(ok).To(BeTrue())
-			// Return type should be F64 (result of arithmetic)
-			output, _ := stageType.Outputs.Get("output")
-			Expect(output).To(Equal(ir.F64{}))
+			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthStage).ToNot(BeNil())
+			output := MustBeOk(synthStage.Type.Outputs.Get(ir.DefaultOutputParam))
+			Expect(output).To(Equal(types.F64()))
 		})
 	})
 
@@ -137,13 +133,9 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
-			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
-			Expect(err).To(BeNil())
+			synthTask := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthTask).ToNot(BeNil())
-
-			_, ok := synthTask.Type.(ir.Stage)
-			Expect(ok).To(BeTrue())
+			Expect(synthTask.Type.Kind).To(Equal(types.KindFunction))
 		})
 	})
 
@@ -170,17 +162,12 @@ var _ = Describe("Expression Stage Conversion", func() {
 
 			// May have warnings about type mismatches, but should still create tasks
 			// Check that multiple synthetic tasks were created
-			task0, err0 := ctx.Scope.Resolve(ctx, "__expr_0")
-			task1, err1 := ctx.Scope.Resolve(ctx, "__expr_1")
-			task2, err2 := ctx.Scope.Resolve(ctx, "__expr_2")
-
-			Expect(err0).To(BeNil())
-			Expect(err1).To(BeNil())
-			Expect(err2).To(BeNil())
-
-			Expect(task0).ToNot(BeNil())
-			Expect(task1).ToNot(BeNil())
-			Expect(task2).ToNot(BeNil())
+			stage0 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			stage1 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_1"))
+			stage2 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_2"))
+			Expect(stage0).ToNot(BeNil())
+			Expect(stage1).ToNot(BeNil())
+			Expect(stage2).ToNot(BeNil())
 		})
 	})
 
@@ -192,9 +179,8 @@ var _ = Describe("Expression Stage Conversion", func() {
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
-			Expect(err).To(BeNil())
-			Expect(synthTask).ToNot(BeNil())
+			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthStage).ToNot(BeNil())
 		})
 	})
 
@@ -205,11 +191,8 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			// May have type warning since display expects f64 but temp_sensor is f32
-
-			synthTask, err := ctx.Scope.Resolve(ctx, "__expr_0")
-			Expect(err).To(BeNil())
-			Expect(synthTask).ToNot(BeNil())
+			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthStage).ToNot(BeNil())
 		})
 	})
 })

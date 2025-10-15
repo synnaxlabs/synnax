@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
 
@@ -25,8 +26,8 @@ type (
 	Edge           = ir.Edge
 	Handle         = ir.Handle
 	Function       = ir.Function
-	SymbolResolver = ir.SymbolResolver
-	Symbol         = ir.Symbol
+	SymbolResolver = symbol.Resolver
+	Symbol         = symbol.Symbol
 	Graph          = graph.Graph
 	Text           = text.Text
 	Module         = module.Module

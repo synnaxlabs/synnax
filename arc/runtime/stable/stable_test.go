@@ -43,7 +43,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000), // 1000 ns
 				},
 			}
@@ -109,7 +109,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000),
 				},
 			}
@@ -173,7 +173,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000),
 				},
 			}
@@ -239,7 +239,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000),
 				},
 			}
@@ -298,7 +298,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000),
 				},
 			}
@@ -364,7 +364,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(1000),
 				},
 			}
@@ -407,7 +407,7 @@ var _ = Describe("StableFor", func() {
 			irNode := ir.Node{
 				Key:  "stable",
 				Type: "stable_for",
-				Config: map[string]interface{}{
+				ConfigValues: map[string]interface{}{
 					"duration": int64(0),
 				},
 			}

@@ -17,55 +17,58 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var resolver = ir.MapResolver{
-	"on": ir.Symbol{
+var resolver = symbol.MapResolver{
+	"on": symbol.Symbol{
 		Name: "on",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{
-			Config: maps.Ordered[string, ir.Type]{
+		Kind: symbol.KindFunction,
+		Type: types.Function(
+			types.Params{},
+			types.Params{},
+			types.Params{
 				Keys:   []string{"channel"},
-				Values: []ir.Type{ir.String{}},
+				Values: []types.Type{types.String()},
 			},
-		},
+		),
 	},
-	"once": ir.Symbol{
+	"once": symbol.Symbol{
 		Name: "once",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{},
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
 	},
-	"processor": ir.Symbol{
+	"processor": symbol.Symbol{
 		Name: "processor",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{},
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
 	},
-	"sensor_chan": ir.Symbol{
+	"sensor_chan": symbol.Symbol{
 		Name: "sensor_chan",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"output_chan": ir.Symbol{
+	"output_chan": symbol.Symbol{
 		Name: "output_chan",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"temp_sensor": ir.Symbol{
+	"temp_sensor": symbol.Symbol{
 		Name: "temp_sensor",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"valve_cmd": ir.Symbol{
+	"valve_cmd": symbol.Symbol{
 		Name: "valve_cmd",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"temperature": ir.Symbol{
+	"temperature": symbol.Symbol{
 		Name: "temperature",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
 }
 
@@ -330,11 +333,11 @@ var _ = Describe("Flow Statements", func() {
 
 		It("Using channel as source", func() {
 			// Create a resolver without the "on" stage
-			noOnResolver := ir.MapResolver{
-				"sensor_chan": ir.Symbol{
+			noOnResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
 					Name: "sensor_chan",
-					Kind: ir.KindChannel,
-					Type: ir.Chan{ValueType: ir.F64{}},
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
 				},
 			}
 
@@ -421,24 +424,22 @@ sensor_chan > threshold -> alarm{}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
-			// Verify the stage has named outputs
 			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
 			Expect(err).To(BeNil())
-			demuxStage := demuxSymbol.Type.(ir.Stage)
-			hasNamedOutputs := demuxStage.Outputs.Count() > 1 || (demuxStage.Outputs.Count() == 1 && func() bool {
-				_, exists := demuxStage.Outputs.Get("output")
+			hasNamedOutputs := demuxSymbol.Type.Outputs.Count() > 1 || (demuxSymbol.Type.Outputs.Count() == 1 && func() bool {
+				_, exists := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
 				return !exists
 			}())
 			Expect(hasNamedOutputs).To(BeTrue())
-			Expect(demuxStage.Outputs.Count()).To(Equal(2))
+			Expect(demuxSymbol.Type.Outputs.Count()).To(Equal(2))
 
-			highType, exists := demuxStage.Outputs.Get("high")
+			highType, exists := demuxSymbol.Type.Outputs.Get("high")
 			Expect(exists).To(BeTrue())
-			Expect(highType).To(Equal(ir.F32{}))
+			Expect(highType).To(Equal(types.F32()))
 
-			lowType, exists := demuxStage.Outputs.Get("low")
+			lowType, exists := demuxSymbol.Type.Outputs.Get("low")
 			Expect(exists).To(BeTrue())
-			Expect(lowType).To(Equal(ir.F32{}))
+			Expect(lowType).To(Equal(types.F32()))
 		})
 
 		It("Should analyze routing table with named outputs", func() {

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -80,24 +81,24 @@ var _ = Describe("Runtime", Ordered, func() {
 			graph := arc.Graph{
 				Nodes: []graph.Node{
 					{Node: arc.Node{
-						Key:    "on",
-						Type:   "on",
-						Config: map[string]any{"channel": ch.Key()},
+						Key:          "on",
+						Type:         "on",
+						ConfigValues: map[string]any{"channel": ch.Key()},
 					}},
 					{Node: arc.Node{
-						Key:    "constant",
-						Type:   "constant",
-						Config: map[string]any{"value": 10},
+						Key:          "constant",
+						Type:         "constant",
+						ConfigValues: map[string]any{"value": 10},
 					}},
 					{Node: arc.Node{
-						Key:    "ge",
-						Type:   "ge",
-						Config: map[string]any{},
+						Key:          "ge",
+						Type:         "ge",
+						ConfigValues: map[string]any{},
 					}},
 					{Node: arc.Node{
 						Key:  "stable_for",
 						Type: "stable_for",
-						Config: map[string]any{
+						ConfigValues: map[string]any{
 							"duration": int(telem.Millisecond * 1),
 						},
 					}},
@@ -108,7 +109,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{Node: arc.Node{
 						Key:  "status_success",
 						Type: "set_status",
-						Config: map[string]any{
+						ConfigValues: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "success",
 							"name":       "OX Alarm",
@@ -118,7 +119,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{Node: arc.Node{
 						Key:  "status_error",
 						Type: "set_status",
-						Config: map[string]any{
+						ConfigValues: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "error",
 							"name":       "OX Alarm",
@@ -157,7 +158,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(cfg.Module.Nodes).To(HaveLen(7))
 			Expect(cfg.Module.Edges).To(HaveLen(6))
 			v, _ := cfg.Module.Nodes[1].Outputs.Get("output")
-			Expect(v).To(Equal(ir.F32{}))
+			Expect(v).To(Equal(types.F32{}))
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
 			time.Sleep(time.Millisecond * 20)

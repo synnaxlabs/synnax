@@ -13,8 +13,9 @@ import (
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -113,14 +114,14 @@ func compileAssignment(
 	}
 	// Handle based on variable kind
 	switch sym.Kind {
-	case ir.KindVariable, ir.KindParam:
-		// Regular local variable or parameter
+	case symbol.KindVariable, symbol.KindInput:
+		// Regular local variable or input
 		local, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
 			return errors.Newf("local variable '%s' not allocated", name)
 		}
 		ctx.Writer.WriteLocalSet(local.ID)
-	case ir.KindStatefulVariable:
+	case symbol.KindStatefulVariable:
 		stateIdx, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
@@ -132,7 +133,7 @@ func compileAssignment(
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
-	case ir.KindOutput:
+	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {
 			return err
@@ -146,12 +147,13 @@ func compileAssignment(
 
 // compileOutputAssignment handles assignment to named outputs in multi-output stages/functions
 // Memory layout at OutputMemoryBase:
-//   [0:8]   dirty_flags (i64 bitmap)
-//   [8:..] output values in declaration order
+//
+//	[0:8]   dirty_flags (i64 bitmap)
+//	[8:..] output values in declaration order
 func compileOutputAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	outputName string,
-	scope *ir.Scope,
+	scope *symbol.Scope,
 ) error {
 	// Value is already on stack from expression compilation
 
@@ -184,17 +186,17 @@ func compileOutputAssignment(
 
 	// Write the appropriate store instruction based on type
 	switch scope.Type {
-	case ir.I8{}, ir.U8{}:
+	case types.I8{}, types.U8{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
-	case ir.I16{}, ir.U16{}:
+	case types.I16{}, types.U16{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
-	case ir.I32{}, ir.U32{}:
+	case types.I32{}, types.U32{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
-	case ir.I64{}, ir.U64{}, ir.TimeStamp{}, ir.TimeSpan{}:
+	case types.I64{}, types.U64{}, types.TimeStamp{}, types.TimeSpan{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
-	case ir.F32{}:
+	case types.F32{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
-	case ir.F64{}:
+	case types.F64{}:
 		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
 	default:
 		return errors.Newf("unsupported output type %v", scope.Type)

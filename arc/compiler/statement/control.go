@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -86,20 +88,14 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if err != nil {
 		return errors.Wrap(err, "failed to compile return expression")
 	}
-	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(ir.KindFunction)
+	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
-		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(ir.KindStage)
-		if err != nil {
-			return errors.New("return statement not in function or stage")
-		}
+		return errors.New("return statement not in function")
 	}
-	var returnType ir.Type
-	if enclosingScope.Kind == ir.KindFunction {
+	var returnType types.Type
+	if enclosingScope.Kind == symbol.KindFunction {
 		fType := enclosingScope.Type.(ir.Function)
-		returnType, _ = fType.Outputs.Get("output")
-	} else if enclosingScope.Kind == ir.KindStage {
-		fType := enclosingScope.Type.(ir.Stage)
-		returnType, _ = fType.Outputs.Get("output")
+		returnType, _ = fType.Outputs.Get(ir.DefaultOutputParam)
 	}
 	if returnType != exprType {
 		return expression.EmitCast(ctx, exprType, returnType)
@@ -172,7 +168,7 @@ func compileChannelRead(_ context.Context[parser.IChannelReadContext]) error {
 }
 
 // compileFunctionCall handles function calls (may return a value)
-func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (ir.Type, error) {
+func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (types.Type, error) {
 	// TODO: Implement function calls
 	return nil, errors.New("function calls not yet implemented")
 }

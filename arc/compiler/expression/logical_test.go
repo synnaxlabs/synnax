@@ -12,7 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("Logical Operations", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"simple AND of comparisons",
 			"(i32(5) > i32(3)) && (i32(10) < i32(20))",
-			ir.U8{},
+			types.U8{},
 			// First comparison: 5 > 3
 			OpI64Const, int64(5), OpI32WrapI64,
 			OpI32Const, int32(3),
@@ -48,7 +48,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"AND with false left operand (short-circuits)",
 			"(i32(2) < i32(1)) && (i32(10) / i32(0))",
-			ir.U8{},
+			types.U8{},
 			// First comparison: 2 < 1 (false)
 			OpI64Const, int64(2), OpI32WrapI64,
 			OpI32Const, int32(1),
@@ -73,7 +73,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"chained AND operations",
 			"(i32(1) == i32(1)) && (i32(2) == i32(2)) && (i32(3) == i32(3))",
-			ir.U8{},
+			types.U8{},
 			// First: 1 == 1
 			OpI64Const, int64(1), OpI32WrapI64,
 			OpI32Const, int32(1),
@@ -110,7 +110,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"simple OR of comparisons",
 			"(i32(5) < i32(3)) || (i32(10) < i32(20))",
-			ir.U8{},
+			types.U8{},
 			// First comparison: 5 < 3 (false)
 			OpI64Const, int64(5), OpI32WrapI64,
 			OpI32Const, int32(3),
@@ -134,7 +134,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"OR with true left operand (short-circuits)",
 			"(i32(5) > i32(3)) || (i32(10) / i32(0))",
-			ir.U8{},
+			types.U8{},
 			// First comparison: 5 > 3 (true)
 			OpI64Const, int64(5), OpI32WrapI64,
 			OpI32Const, int32(3),
@@ -158,7 +158,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"chained OR operations",
 			"(i32(1) == i32(0)) || (i32(2) == i32(0)) || (i32(3) == i32(3))",
-			ir.U8{},
+			types.U8{},
 			// First: 1 == 0 (false)
 			OpI64Const, int64(1), OpI32WrapI64,
 			OpI32Const, int32(0),
@@ -193,7 +193,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"mixed AND and OR",
 			"(i32(1) == i32(1)) && ((i32(2) < i32(1)) || (i32(3) > i32(2)))",
-			ir.U8{},
+			types.U8{},
 			// First: 1 == 1
 			OpI64Const, int64(1), OpI32WrapI64,
 			OpI32Const, int32(1),
@@ -232,7 +232,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"AND normalizes non-boolean values",
 			"i32(42) && i32(100)",
-			ir.U8{},
+			types.U8{},
 			// First: 42 (truthy)
 			OpI64Const, int64(42), OpI32WrapI64,
 			// Normalize to 1
@@ -252,7 +252,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"OR normalizes non-boolean values",
 			"i32(0) || i32(42)",
-			ir.U8{},
+			types.U8{},
 			// First: 0 (falsy)
 			OpI64Const, int64(0), OpI32WrapI64,
 			// Normalize to 0

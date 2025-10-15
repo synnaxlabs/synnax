@@ -11,14 +11,14 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 )
 
 // compileBinaryAdditive handles + and - operations
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	muls := ctx.AST.AllMultiplicativeExpression()
 	resultType, err := compileMultiplicative(context.Child(ctx, muls[0]))
 	if err != nil {
@@ -51,7 +51,7 @@ func compileBinaryAdditive(
 // compileBinaryMultiplicative handles *, /, % operations
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
-) (ir.Type, error) {
+) (types.Type, error) {
 	pows := ctx.AST.AllPowerExpression()
 	// Compile first operand
 	resultType, err := compilePower(context.Child(ctx, pows[0]))
@@ -87,7 +87,7 @@ func compileBinaryMultiplicative(
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (ir.Type, error) {
+func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
 
 	// Compile left operand
@@ -120,11 +120,11 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	}
 
 	// Comparisons return u8 (boolean)
-	return ir.U8{}, nil
+	return types.U8{}, nil
 }
 
 // compileBinaryEquality handles == and != operations
-func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (ir.Type, error) {
+func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
 
 	// Compile left operand
@@ -153,5 +153,5 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	}
 
 	// Equality comparisons return u8 (boolean)
-	return ir.U8{}, nil
+	return types.U8{}, nil
 }

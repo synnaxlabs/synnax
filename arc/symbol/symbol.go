@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir
+package symbol
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/types"
 )
 
 type Kind int
@@ -19,19 +20,18 @@ type Kind int
 const (
 	KindVariable Kind = iota
 	KindStatefulVariable
-	KindParam
+	KindInput
 	KindFunction
-	KindStage
 	KindChannel
-	KindConfigParam
+	KindConfig
 	KindBlock
 	KindOutput
 )
 
 type Symbol struct {
-	Name       string
-	Kind       Kind
-	Type       Type
-	ParserRule antlr.ParserRuleContext
-	ID         int
+	Type types.Type
+	Name string
+	Kind Kind
+	AST  antlr.ParserRuleContext
+	ID   int
 }

@@ -12,7 +12,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +25,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i32 addition",
 			"i32(10) + i32(20)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -36,7 +37,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i64 addition",
 			"100 + 200",
-			ir.I64{},
+			types.I64{},
 			OpI64Const,
 			int64(100),
 			OpI64Const,
@@ -47,7 +48,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f32 addition",
 			"f32(1.5) + f32(2.5)",
-			ir.F32{},
+			types.F32{},
 			OpF64Const,
 			float64(1.5),
 			OpF32DemoteF64,
@@ -59,7 +60,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 addition",
 			"1.5 + 2.5",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(1.5),
 			OpF64Const,
@@ -70,7 +71,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"multiple additions (left-associative)",
 			"i32(1) + i32(2) + i32(3)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(1),
 			OpI32WrapI64,
@@ -86,7 +87,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i32 subtraction",
 			"i32(20) - i32(10)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(20),
 			OpI32WrapI64,
@@ -98,7 +99,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 subtraction",
 			"5.0 - 2.0",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(5.0),
 			OpF64Const,
@@ -110,7 +111,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i32 multiplication",
 			"i32(3) * i32(4)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(3),
 			OpI32WrapI64,
@@ -122,7 +123,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 multiplication",
 			"2.5 * 4.0",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(2.5),
 			OpF64Const,
@@ -134,7 +135,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"signed i32 division",
 			"i32(20) / i32(4)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(20),
 			OpI32WrapI64,
@@ -146,7 +147,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"unsigned u32 division",
 			"u32(20) / u32(4)",
-			ir.U32{},
+			types.U32{},
 			OpI64Const,
 			int64(20),
 			OpI32WrapI64,
@@ -159,7 +160,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 division",
 			"10.0 / 2.0",
-			ir.F64{},
+			types.F64{},
 			OpF64Const,
 			float64(10.0),
 			OpF64Const,
@@ -171,7 +172,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"signed i32 modulo",
 			"i32(17) % i32(5)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(17),
 			OpI32WrapI64,
@@ -183,7 +184,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"unsigned u32 modulo",
 			"u32(17) % u32(5)",
-			ir.U32{},
+			types.U32{},
 			OpI64Const,
 			int64(17),
 			OpI32WrapI64,
@@ -197,7 +198,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"multiplication over addition",
 			"i32(2) + i32(3) * i32(4)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(2),
 			OpI32WrapI64,
@@ -212,7 +213,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"parentheses precedence",
 			"(i32(2) + i32(3)) * i32(4)",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(2),
 			OpI32WrapI64,
@@ -228,7 +229,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i32 equality",
 			"i32(10) == i32(10)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -240,7 +241,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 equality",
 			"3.14 == 3.14",
-			ir.U8{},
+			types.U8{},
 			OpF64Const,
 			float64(3.14),
 			OpF64Const,
@@ -251,7 +252,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"i32 inequality",
 			"i32(10) != i32(20)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -264,7 +265,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"signed i32 less than",
 			"i32(5) < i32(10)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -276,7 +277,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"unsigned u32 less than",
 			"u32(5) < u32(10)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(5),
 			OpI32WrapI64,
@@ -289,7 +290,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"f64 greater than",
 			"5.0 > 2.0",
-			ir.U8{},
+			types.U8{},
 			OpF64Const,
 			float64(5.0),
 			OpF64Const,
@@ -300,7 +301,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"less than or equal",
 			"i32(3) <= i32(3)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(3),
 			OpI32WrapI64,
@@ -312,7 +313,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"greater than or equal",
 			"i32(10) >= i32(5)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -325,7 +326,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"nested arithmetic",
 			"(i32(10) + i32(20)) * (i32(30) - i32(10))",
-			ir.I32{},
+			types.I32{},
 			OpI64Const,
 			int64(10),
 			OpI32WrapI64,
@@ -343,7 +344,7 @@ var _ = Describe("Binary Operations", func() {
 		Entry(
 			"comparison with arithmetic",
 			"(i32(2) + i32(3)) > i32(4)",
-			ir.U8{},
+			types.U8{},
 			OpI64Const,
 			int64(2),
 			OpI32WrapI64,
@@ -359,13 +360,13 @@ var _ = Describe("Binary Operations", func() {
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func() {
 			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, ir.Symbol{
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "x",
-				Kind: ir.KindVariable,
-				Type: ir.F32{},
+				Kind: symbol.KindVariable,
+				Type: types.F32{},
 			}))
 			compiled, t := compileWithCtx(ctx, "x + 1")
-			Expect(t).To(Equal(ir.F32{}))
+			Expect(t).To(Equal(types.F32{}))
 			Expect(compiled).To(Equal(WASM(
 				OpLocalGet, 0,
 				OpF32Const,

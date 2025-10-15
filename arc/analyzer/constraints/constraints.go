@@ -11,50 +11,40 @@ package constraints
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/arc/types"
 )
 
-// Kind represents the type of constraint
 type Kind int
 
 const (
-	// KindEquality means two types must be equal
 	KindEquality Kind = iota
-	// KindCompatible means types must be compatible (e.g., for numeric promotion)
 	KindCompatible
 )
 
-// Constraint represents a type constraint between two types
 type Constraint struct {
 	Kind   Kind
-	Left   ir.Type
-	Right  ir.Type
-	Source antlr.ParserRuleContext // Where this constraint came from (for error reporting)
-	Reason string                  // Human-readable reason for this constraint
+	Left   types.Type
+	Right  types.Type
+	Source antlr.ParserRuleContext
+	Reason string
 }
 
-// System manages type constraints and their resolution
 type System struct {
-	constraints []Constraint
-	// Substitutions maps type variable names to resolved types
-	substitutions map[string]ir.Type
-	// Track which type variables we've seen
-	typeVars map[string]*ir.TypeVariable
+	constraints   []Constraint
+	substitutions map[string]types.Type
+	typeVars      map[string]types.Type
 }
 
-// New creates a new constraint system
 func New() *System {
 	return &System{
 		constraints:   make([]Constraint, 0),
-		substitutions: make(map[string]ir.Type),
-		typeVars:      make(map[string]*ir.TypeVariable),
+		substitutions: make(map[string]types.Type),
+		typeVars:      make(map[string]types.Type),
 	}
 }
 
-// AddEquality adds an equality constraint between two types
 func (s *System) AddEquality(
-	left, right ir.Type,
+	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
 ) {
@@ -68,9 +58,8 @@ func (s *System) AddEquality(
 	})
 }
 
-// AddCompatible adds a compatibility constraint (types must be compatible for operations)
 func (s *System) AddCompatible(
-	left, right ir.Type,
+	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
 ) {
@@ -84,140 +73,85 @@ func (s *System) AddCompatible(
 	})
 }
 
-// recordTypeVars tracks any type variables we see
-func (s *System) recordTypeVars(types ...ir.Type) {
-	for _, t := range types {
-		if tv, ok := t.(ir.TypeVariable); ok {
-			if _, exists := s.typeVars[tv.Name]; !exists {
-				s.typeVars[tv.Name] = &tv
+func (s *System) recordTypeVars(toRecord ...types.Type) {
+	for _, t := range toRecord {
+		if t.Kind == types.KindTypeVariable {
+			if _, exists := s.typeVars[t.Name]; !exists {
+				s.typeVars[t.Name] = t
 			}
 		}
-		// Also check inside compound types like Chan or Series
-		if ch, ok := t.(ir.Chan); ok {
-			s.recordTypeVars(ch.ValueType)
+		if t.Kind == types.KindChan && t.ValueType != nil {
+			s.recordTypeVars(*t.ValueType)
 		}
-		if series, ok := t.(ir.Series); ok {
-			s.recordTypeVars(series.ValueType)
+		if t.Kind == types.KindSeries && t.ValueType != nil {
+			s.recordTypeVars(*t.ValueType)
 		}
 	}
 }
 
-// GetSubstitution returns the resolved type for a type variable, if any
-func (s *System) GetSubstitution(name string) (ir.Type, bool) {
+func (s *System) GetSubstitution(name string) (types.Type, bool) {
 	t, ok := s.substitutions[name]
 	return t, ok
 }
 
-// SetSubstitution records a resolved type for a type variable
-func (s *System) SetSubstitution(name string, t ir.Type) {
+func (s *System) SetSubstitution(name string, t types.Type) {
 	s.substitutions[name] = t
 }
 
-// Constraints returns all collected constraints
 func (s *System) Constraints() []Constraint {
 	return s.constraints
 }
 
-// TypeVariables returns all type variables seen by the system
-func (s *System) TypeVariables() map[string]*ir.TypeVariable {
+func (s *System) TypeVariables() map[string]types.Type {
 	return s.typeVars
 }
 
-// HasTypeVariables returns true if the system has encountered any type variables
 func (s *System) HasTypeVariables() bool {
 	return len(s.typeVars) > 0
 }
 
-// ApplySubstitutions replaces all type variables in a type with their resolved types
-func (s *System) ApplySubstitutions(t ir.Type) ir.Type {
-	visited := make(map[string]bool)
-	return s.applySubstitutionsWithVisited(t, visited)
+func (s *System) ApplySubstitutions(t types.Type) types.Type {
+	return s.applySubstitutionsWithVisited(t, make(map[string]bool))
 }
 
-// applySubstitutionsWithVisited is the internal recursive function with cycle detection
-func (s *System) applySubstitutionsWithVisited(t ir.Type, visited map[string]bool) ir.Type {
-	if t == nil {
-		return nil
-	}
-
-	// If it's a type variable, substitute it
-	if tv, ok := t.(ir.TypeVariable); ok {
-		// Check for cycles
-		if visited[tv.Name] {
-			// We've seen this type variable before in this recursion - stop to avoid infinite loop
+func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]bool) types.Type {
+	if t.Kind == types.KindTypeVariable {
+		if visited[t.Name] {
 			return t
 		}
-
-		if sub, exists := s.substitutions[tv.Name]; exists {
-			// Mark as visited before recursing
-			visited[tv.Name] = true
-			// Recursively apply substitutions in case the substitution contains type variables
+		if sub, exists := s.substitutions[t.Name]; exists {
+			visited[t.Name] = true
 			result := s.applySubstitutionsWithVisited(sub, visited)
-			// Unmark after recursion
-			visited[tv.Name] = false
+			visited[t.Name] = false
 			return result
 		}
-		// No substitution found, return as-is (will be caught as error later)
 		return t
 	}
-
-	// Handle compound types
-	if ch, ok := t.(ir.Chan); ok {
-		return ir.Chan{ValueType: s.applySubstitutionsWithVisited(ch.ValueType, visited)}
+	if t.Kind == types.KindChan && t.ValueType != nil {
+		freshValue := s.applySubstitutionsWithVisited(*t.ValueType, visited)
+		return types.Chan(freshValue)
 	}
-	if series, ok := t.(ir.Series); ok {
-		return ir.Series{ValueType: s.applySubstitutionsWithVisited(series.ValueType, visited)}
+	if t.Kind == types.KindSeries && t.ValueType != nil {
+		freshValue := s.applySubstitutionsWithVisited(*t.ValueType, visited)
+		return types.Series(freshValue)
 	}
 
-	// Handle Stage type - resolve type variables in params, config, and outputs
-	if stage, ok := t.(ir.Stage); ok {
-		// Create new maps for config and params with resolved types
-		newConfig := &maps.Ordered[string, ir.Type]{}
-		for k, v := range stage.Config.Iter() {
-			newConfig.Put(k, s.applySubstitutionsWithVisited(v, visited))
+	if t.Kind == types.KindFunction {
+		newInputs := &types.Params{}
+		for k, v := range t.Inputs.Iter() {
+			newInputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
-
-		newParams := &maps.Ordered[string, ir.Type]{}
-		for k, v := range stage.Params.Iter() {
-			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
-		}
-
-		newOutputs := &maps.Ordered[string, ir.Type]{}
-		for k, v := range stage.Outputs.Iter() {
+		newOutputs := &types.Params{}
+		for k, v := range t.Outputs.Iter() {
 			newOutputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
-
-		return ir.Stage{
-			Key:               stage.Key,
-			Config:            *newConfig,
-			Params:            *newParams,
-			Outputs:           *newOutputs,
-			StatefulVariables: stage.StatefulVariables,
-			Channels:          stage.Channels,
-			Body:              stage.Body,
+		newConfig := &types.Params{}
+		if t.Config != nil {
+			for k, v := range t.Config.Iter() {
+				newConfig.Put(k, s.applySubstitutionsWithVisited(v, visited))
+			}
 		}
+		return types.Function(*newInputs, *newOutputs, *newConfig)
 	}
-
-	// Handle Function type - resolve type variables in params and outputs
-	if fn, ok := t.(ir.Function); ok {
-		newParams := &maps.Ordered[string, ir.Type]{}
-		for k, v := range fn.Params.Iter() {
-			newParams.Put(k, s.applySubstitutionsWithVisited(v, visited))
-		}
-
-		newOutputs := &maps.Ordered[string, ir.Type]{}
-		for k, v := range fn.Outputs.Iter() {
-			newOutputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
-		}
-
-		return ir.Function{
-			Key:     fn.Key,
-			Params:  *newParams,
-			Outputs: *newOutputs,
-			Body:    fn.Body,
-		}
-	}
-
-	// Concrete type, return as-is
 	return t
 }

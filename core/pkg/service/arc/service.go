@@ -141,7 +141,7 @@ func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
+// See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
