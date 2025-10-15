@@ -100,40 +100,39 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		return nil
 	}
 
-	if tv.Constraint != nil {
-		if tv.Constraint.Kind == types.KindNumericConstant {
-			if !other.IsNumeric() {
-				return errors.Newf("type %v does not satisfy constraint %v", other, tv)
-			}
-		} else if !types.Equal(*tv.Constraint, other) {
-			if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
-				if tv.Constraint.IsFloat() || other.IsFloat() {
-					if tv.Constraint.Is64Bit() || other.Is64Bit() {
-						other = types.F64()
-					} else {
-						other = types.F32()
-					}
-				} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
-					if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-						other = types.F64()
-					} else {
-						other = types.U64()
-					}
-				} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-					other = types.I32()
+	if tv.Constraint == nil {
+		if occursIn(tv, other) {
+			return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
+		}
+		s.substitutions[tv.Name] = other
+	}
+	if tv.Constraint.Kind == types.KindNumericConstant {
+		if !other.IsNumeric() {
+			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
+		}
+	} else if !types.Equal(*tv.Constraint, other) {
+		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
+			if tv.Constraint.IsFloat() || other.IsFloat() {
+				if tv.Constraint.Is64Bit() || other.Is64Bit() {
+					other = types.F64()
 				} else {
-					other = types.U32()
+					other = types.F32()
 				}
+			} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
+				if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+					other = types.F64()
+				} else {
+					other = types.U64()
+				}
+			} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+				other = types.I32()
 			} else {
-				return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
+				other = types.U32()
 			}
+		} else {
+			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
 		}
 	}
-
-	if occursIn(tv, other) {
-		return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
-	}
-	s.substitutions[tv.Name] = other
 	return nil
 }
 

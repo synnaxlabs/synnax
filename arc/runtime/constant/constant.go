@@ -15,29 +15,26 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	symbol2 "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
-	symbolName = "constant"
-	symbol     = symbol2.Symbol{
-		Name: symbolName,
-		Kind: symbol2.KindStage,
-		Type: ir.Stage{
-			Config: types.Params{
-				Keys:   []string{"value"},
-				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
-			},
-			Outputs: types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
-			},
-		},
+	symName    = "constant"
+	constraint = types.NumericConstraint()
+	typeVar    = types.NewTypeVariable("T", &constraint)
+	sym        = symbol.Symbol{
+		Name: symName,
+		Kind: symbol.KindFunction,
+		Type: types.Function(
+			types.Params{},
+			types.Params{Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{typeVar}},
+			types.Params{Keys: []string{"value"}, Values: []types.Type{typeVar}},
+		),
 	}
-	SymbolResolver = symbol2.MapResolver{symbolName: symbol}
+	SymbolResolver = symbol.MapResolver{symName: sym}
 )
 
 type constant struct {
@@ -59,7 +56,7 @@ func (c constant) Next(context.Context, func(output string)) {}
 type constantFactory struct{}
 
 func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
 	return constant{
