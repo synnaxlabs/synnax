@@ -139,6 +139,9 @@ jobs:
         run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
-        run:
-          bazel test --config=asan-leak --test_output=all //driver/... --jobs=1
-          --test_tag_filters=-hardware --nocache_test_results
+        run: |
+          SUPPRESSIONS_PATH="${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt"
+          bazel test --config=asan-leak --test_output=all //driver/... \
+            --test_env=LSAN_OPTIONS="suppressions=${SUPPRESSIONS_PATH}" \
+            --spawn_strategy=local \
+            --jobs=1 --test_tag_filters=-hardware --nocache_test_results

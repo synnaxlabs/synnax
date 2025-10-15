@@ -4,20 +4,7 @@
 
 # ===== External Hardware SDKs =====
 
-# LabJack LJM SDK
-interceptor_via_fun:LJM_*
-interceptor_via_lib:libLabJackM
-
-# National Instruments DAQmx
-interceptor_via_fun:DAQmx*
-interceptor_via_lib:libnidaqmx
-interceptor_via_lib:libnicaiu
-
 # ===== Third-Party Libraries =====
-
-# gRPC - Suppress known issues in gRPC internals
-interceptor_via_fun:grpc::*
-interceptor_via_fun:grpc_*
 
 # open62541 OPC UA
 interceptor_via_fun:UA_*
