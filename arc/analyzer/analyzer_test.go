@@ -63,7 +63,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
-			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
+			Expect(diagnostic.Message).To(Equal("duplicate input age"))
 		})
 	})
 

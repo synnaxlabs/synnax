@@ -104,9 +104,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		if occursIn(tv, other) {
 			return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
 		}
-		s.substitutions[tv.Name] = other
-	}
-	if tv.Constraint.Kind == types.KindNumericConstant {
+	} else if tv.Constraint.Kind == types.KindNumericConstant {
 		if !other.IsNumeric() {
 			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
 		}
@@ -133,6 +131,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
 		}
 	}
+	s.substitutions[tv.Name] = other
 	return nil
 }
 

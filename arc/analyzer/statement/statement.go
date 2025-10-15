@@ -305,24 +305,43 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return false
 		}
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
-		if expectedReturnType.IsValid() {
+		if !expectedReturnType.IsValid() {
 			ctx.Diagnostics.AddError(
 				errors.New("unexpected return value in function/func with void return type"),
 				ctx.AST,
 			)
 			return false
 		}
-		if actualReturnType.IsValid() && !atypes.Compatible(expectedReturnType, actualReturnType) {
-			ctx.Diagnostics.AddError(
-				errors.Newf(
-					"type mismatch: cannot return %s, expected %s",
-					actualReturnType,
-					expectedReturnType,
-				),
-				ctx.AST,
-			)
-			return false
+		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
+			isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
+			useLiteralRules := isLiteral || (actualReturnType.IsNumeric() && expectedReturnType.IsNumeric())
+			if useLiteralRules {
+				if !atypes.LiteralAssignmentCompatible(expectedReturnType, actualReturnType) {
+					ctx.Diagnostics.AddError(
+						errors.Newf(
+							"cannot return %s, expected %s",
+							actualReturnType,
+							expectedReturnType,
+						),
+						ctx.AST,
+					)
+					return false
+				}
+			} else {
+				if !atypes.Compatible(expectedReturnType, actualReturnType) {
+					ctx.Diagnostics.AddError(
+						errors.Newf(
+							"cannot return %s, expected %s",
+							actualReturnType,
+							expectedReturnType,
+						),
+						ctx.AST,
+					)
+					return false
+				}
+			}
 		}
+		return true
 	}
 	if expectedReturnType.IsValid() {
 		ctx.Diagnostics.AddError(
@@ -361,7 +380,15 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 		return false
 	}
 
-	if channelSym.Kind != symbol.KindChannel {
+	if channelSym.Kind != symbol.KindChannel && channelSym.Kind != symbol.KindConfig && channelSym.Kind != symbol.KindInput && channelSym.Kind != symbol.KindOutput {
+		ctx.Diagnostics.AddError(
+			errors.Newf("%s is not a channel", channelName),
+			ctx.AST,
+		)
+		return false
+	}
+
+	if channelSym.Type.Kind != types.KindChan {
 		ctx.Diagnostics.AddError(
 			errors.Newf("%s is not a channel", channelName),
 			ctx.AST,
@@ -379,13 +406,13 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	}
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
-	if exprType.IsValid() {
-		if !atypes.Compatible(*exprType.ValueType, exprType) {
+	if exprType.IsValid() && channelSym.Type.ValueType != nil {
+		if !atypes.Compatible(*channelSym.Type.ValueType, exprType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf(
 					"type mismatch: cannot write %s to channel of type %s",
 					exprType,
-					exprType.ValueType,
+					channelSym.Type.ValueType,
 				),
 				ctx.AST,
 			)
@@ -429,6 +456,10 @@ func createChannelReadVariable[T antlr.ParserRuleContext](
 	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		ctx.Diagnostics.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx.AST)
+		return false
+	}
+	if channelSym.Kind != symbol.KindChannel && channelSym.Kind != symbol.KindConfig && channelSym.Kind != symbol.KindInput && channelSym.Kind != symbol.KindOutput {
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a channel", channelName), ctx.AST)
 		return false
 	}
 	if channelSym.Type.Kind != types.KindChan {

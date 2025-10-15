@@ -84,10 +84,16 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		}
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
-			chanType := types.Chan(channelSym.Type)
+			if channelSym.Type.Kind != types.KindChan || channelSym.Type.ValueType == nil {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"%s is not a valid channel",
+					channelName,
+				), ctx.AST)
+				return false
+			}
 			if err = atypes.Check(
 				ctx.Constraints,
-				*chanType.ValueType,
+				*channelSym.Type.ValueType,
 				paramType,
 				ctx.AST,
 				"channel to func parameter connection",
@@ -95,7 +101,7 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 				ctx.Diagnostics.AddError(errors.Newf(
 					"channel %s value type %s does not match func %s parameter type %s",
 					channelName,
-					chanType.ValueType,
+					channelSym.Type.ValueType,
 					name,
 					paramType,
 				), ctx.AST)
