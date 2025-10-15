@@ -127,12 +127,11 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 		}
 		return t
 	}
-	if t.Kind == types.KindChan && t.ValueType != nil {
+	if t.Kind == types.KindChan || t.Kind == types.KindSeries {
 		freshValue := s.applySubstitutionsWithVisited(*t.ValueType, visited)
-		return types.Chan(freshValue)
-	}
-	if t.Kind == types.KindSeries && t.ValueType != nil {
-		freshValue := s.applySubstitutionsWithVisited(*t.ValueType, visited)
+		if t.Kind == types.KindChan {
+			return types.Chan(freshValue)
+		}
 		return types.Series(freshValue)
 	}
 

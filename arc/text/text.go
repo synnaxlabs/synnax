@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/compiler"
@@ -54,10 +55,14 @@ func Analyze(
 	// func 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
 		if c.Kind == symbol.KindFunction {
-			funcDecl := c.AST.(parser.IFunctionDeclarationContext)
+			fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+			var bodyAst antlr.ParserRuleContext = fnDecl
+			if ok {
+				bodyAst = fnDecl.Block()
+			}
 			i.Functions = append(i.Functions, ir.Function{
 				Key:     c.Name,
-				Body:    ir.Body{Raw: "", AST: funcDecl.Block()},
+				Body:    ir.Body{Raw: "", AST: bodyAst},
 				Config:  *c.Type.Config,
 				Inputs:  *c.Type.Inputs,
 				Outputs: *c.Type.Outputs,

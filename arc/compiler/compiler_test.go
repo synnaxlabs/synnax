@@ -195,7 +195,6 @@ var _ = Describe("Compiler", func() {
 				},
 			}
 
-			// Compile with host imports enabled
 			output := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message = "dog"}`, resolver))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
