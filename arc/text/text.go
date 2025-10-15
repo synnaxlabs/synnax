@@ -51,14 +51,22 @@ func Analyze(
 	}
 	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
 
-	// func 2: Iterate through the root scope children to assemble
-	// functions and stages.
+	// func 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
-		switch c.Kind {
-		case symbol.KindFunction:
-			i.Stages = append(i.Stages, c.Type.(ir.Stage))
-		case symbol.KindFunction:
-			i.Functions = append(i.Functions, c.Type.(ir.Function))
+		if c.Kind == symbol.KindFunction {
+			// Convert types.Type + AST → ir.Function
+			typeFunc, ok := c.Type.(types.Type)
+			if !ok || typeFunc.Kind != types.KindFunction {
+				continue
+			}
+			fn := ir.Function{
+				Key:     c.Name,
+				Body:    types.Body{Raw: "", AST: c.AST},
+				Config:  *typeFunc.Config,
+				Inputs:  *typeFunc.Inputs,
+				Outputs: *typeFunc.Outputs,
+			}
+			i.Functions = append(i.Functions, fn)
 		}
 	}
 
