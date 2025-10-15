@@ -15,18 +15,25 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-const (
-	DefaultOutputParam = "output"
-	DefaultInputParam  = "input"
-	LHSInputParam      = "a"
-	RHSInputParam      = "b"
-)
+// DefaultOutputParam is the parameter name for single-output functions and stages.
+const DefaultOutputParam = "output"
 
+// DefaultInputParam is the parameter name for single-input functions and stages.
+const DefaultInputParam = "input"
+
+// LHSInputParam is the left-hand side parameter name for binary operators.
+const LHSInputParam = "a"
+
+// RHSInputParam is the right-hand side parameter name for binary operators.
+const RHSInputParam = "b"
+
+// Channels tracks which Synnax channels a node reads from and writes to.
 type Channels struct {
 	Read  set.Set[uint32] `json:"read"`
 	Write set.Set[uint32] `json:"write"`
 }
 
+// NewChannels creates an empty Channels with initialized maps.
 func NewChannels() Channels {
 	return Channels{
 		Read:  make(set.Set[uint32]),
@@ -34,6 +41,7 @@ func NewChannels() Channels {
 	}
 }
 
+// OverrideChannels creates a Channels from other, ensuring non-nil maps.
 func OverrideChannels(other Channels) Channels {
 	return Channels{
 		Read:  lo.Ternary(other.Read != nil, other.Read, make(set.Set[uint32])),
@@ -41,6 +49,9 @@ func OverrideChannels(other Channels) Channels {
 	}
 }
 
+// IR is the intermediate representation of an Arc program. It contains function
+// definitions, instantiated nodes, dataflow edges, execution stratification, and
+// the symbol table from analysis.
 type IR struct {
 	Functions Functions     `json:"functions"`
 	Nodes     Nodes         `json:"nodes"`

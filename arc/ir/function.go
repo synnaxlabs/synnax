@@ -15,11 +15,14 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// Body represents the implementation of a function or stage.
 type Body struct {
 	Raw string
 	AST antlr.ParserRuleContext
 }
 
+// Function represents a function or stage definition in the IR. Functions are
+// templates that can be instantiated as nodes in the dataflow graph.
 type Function struct {
 	Key     string       `json:"key"`
 	Body    Body         `json:"body"`
@@ -28,6 +31,7 @@ type Function struct {
 	Outputs types.Params `json:"outputs"`
 }
 
+// Type returns the type signature of f.
 func (f Function) Type() types.Type {
 	return types.Function(types.FunctionProperties{
 		Config:  &f.Config,
@@ -36,12 +40,16 @@ func (f Function) Type() types.Type {
 	})
 }
 
+// Functions is a collection of function definitions.
 type Functions []Function
 
+// Get returns the function with the given key. Panics if not found.
 func (f Functions) Get(key string) Function {
 	return lo.Must(f.Find(key))
 }
 
+// Find searches for a function by key. Returns the function and true if found,
+// or zero value and false otherwise.
 func (f Functions) Find(key string) (Function, bool) {
 	return lo.Find(f, func(fn Function) bool { return fn.Key == key })
 }

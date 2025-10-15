@@ -11,6 +11,10 @@ package ir
 
 import "github.com/synnaxlabs/arc/types"
 
+// FreshType creates a fresh copy of t with renamed type variables. This is used
+// during polymorphic function instantiation to avoid type variable conflicts. The
+// prefix is prepended to type variable names, and the transformation is applied
+// recursively to compound types.
 func FreshType(t types.Type, prefix string) types.Type {
 	if t.Kind == types.KindTypeVariable {
 		freshConstraint := t.Constraint
