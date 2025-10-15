@@ -20,6 +20,7 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
+func isAny(p basetypes.Type) bool     { return true }
 
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
@@ -163,7 +164,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) boo
 		rels,
 		getEqualityOperator,
 		types.InferRelational,
-		isBool,
+		isAny,
 	)
 }
 
@@ -298,8 +299,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		name := id.GetText()
-		if _, err := ctx.Scope.Resolve(ctx, name); err != nil {
+		if _, err := ctx.Scope.Resolve(ctx, id.GetText()); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}

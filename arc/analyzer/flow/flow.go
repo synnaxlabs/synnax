@@ -85,7 +85,7 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
 			chanType := types2.Chan(channelSym.Type)
-			if err := types.Check(
+			if err = types.Check(
 				ctx.Constraints,
 				*chanType.ValueType,
 				paramType,
