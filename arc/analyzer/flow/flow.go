@@ -41,8 +41,8 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 }
 
 func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.IFlowNodeContext) bool {
-	if taskInv := ctx.AST.StageInvocation(); taskInv != nil {
-		return parseStageInvocation(context.Child(ctx, taskInv), prevNode)
+	if fn := ctx.AST.Function(); fn != nil {
+		return parseFunction(context.Child(ctx, fn), prevNode)
 	}
 	if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
 		return analyzeChannel(context.Child(ctx, channelID))
@@ -54,7 +54,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 	return true
 }
 
-func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], prevNode parser.IFlowNodeContext) bool {
+func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	stageType, ok := resolveStage(ctx, name)
 	if !ok {
@@ -110,6 +110,9 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
 		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
+		if exprType.Kind == types.KindChan && exprType.ValueType != nil {
+			exprType = *exprType.ValueType
+		}
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
 			if err := atypes.Check(
@@ -128,7 +131,7 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 				return false
 			}
 		}
-	} else if prevStageNode := prevNode.StageInvocation(); prevStageNode != nil {
+	} else if prevStageNode := prevNode.Function(); prevStageNode != nil {
 		prevStageName := prevStageNode.IDENTIFIER().GetText()
 		prevStageType, ok := resolveStage(ctx, prevStageName)
 		if !ok {
@@ -200,7 +203,7 @@ func resolveStage[T antlr.ParserRuleContext](
 		return nil, false
 	}
 	if sym.Kind != symbol.KindFunction {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a stage", name), ctx.AST)
+		ctx.Diagnostics.AddError(errors.Newf("%s is not a function", name), ctx.AST)
 		return nil, false
 	}
 	return sym, true
@@ -315,10 +318,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 }
 
 func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodesBefore []parser.IFlowNodeContext, nodesAfter []parser.IFlowNodeContext) bool {
-	var PrevFunc parser.IStageInvocationContext
+	var PrevFunc parser.IFunctionContext
 	for i := len(nodesBefore) - 1; i >= 0; i-- {
-		if stageInv := nodesBefore[i].StageInvocation(); stageInv != nil {
-			PrevFunc = stageInv
+		if fn := nodesBefore[i].Function(); fn != nil {
+			PrevFunc = fn
 			break
 		}
 	}
@@ -345,12 +348,12 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	}
 
 	var (
-		nextFunc      parser.IStageInvocationContext
+		nextFunc      parser.IFunctionContext
 		nextStageType types.Type
 	)
 	for _, node := range nodesAfter {
-		if stageInv := node.StageInvocation(); stageInv != nil {
-			nextFunc = stageInv
+		if fn := node.Function(); fn != nil {
+			nextFunc = fn
 			nextStageName := nextFunc.IDENTIFIER().GetText()
 			nextStageScope, err := ctx.Scope.Resolve(ctx, nextStageName)
 			if err == nil && nextStageScope.Kind == symbol.KindFunction {
@@ -416,10 +419,10 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 }
 
 func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodes []parser.IFlowNodeContext) bool {
-	var nextfunc parser.IStageInvocationContext
+	var nextfunc parser.IFunctionContext
 	for i := 0; i < len(nodes); i++ {
-		if stageInv := nodes[i].StageInvocation(); stageInv != nil {
-			nextfunc = stageInv
+		if fn := nodes[i].Function(); fn != nil {
+			nextfunc = fn
 			break
 		}
 	}
@@ -484,8 +487,8 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) bool {
 	// Handle func invocation target
-	if stageInv := ctx.AST.StageInvocation(); stageInv != nil {
-		stageName := stageInv.IDENTIFIER().GetText()
+	if fn := ctx.AST.Function(); fn != nil {
+		stageName := fn.IDENTIFIER().GetText()
 		stageType, ok := resolveStage(ctx, stageName)
 		if !ok {
 			return false
@@ -495,8 +498,8 @@ func analyzeRoutingTargetWithParam(
 			ctx,
 			stageName,
 			stageType.Type,
-			stageInv.ConfigValues(),
-			stageInv,
+			fn.ConfigValues(),
+			fn,
 		); !ok {
 			return false
 		}

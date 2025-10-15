@@ -32,16 +32,16 @@ var ArcParserParserStaticData struct {
 func arcparserParserInit() {
 	staticData := &ArcParserParserStaticData
 	staticData.LiteralNames = []string{
-		"", "'func'", "'stage'", "'if'", "'else'", "'return'", "'now'", "'len'",
-		"'chan'", "'<-chan'", "'->chan'", "'i8'", "'i16'", "'i32'", "'i64'",
-		"'u8'", "'u16'", "'u32'", "'u64'", "'f32'", "'f64'", "'string'", "'timestamp'",
-		"'timespan'", "'series'", "'->'", "'<-'", "':='", "'$='", "'='", "'+'",
-		"'-'", "'*'", "'/'", "'%'", "'^'", "'=='", "'!='", "'<'", "'>'", "'<='",
-		"'>='", "'&&'", "'||'", "'!'", "'('", "')'", "'{'", "'}'", "'['", "']'",
-		"','", "':'", "';'",
+		"", "'func'", "'if'", "'else'", "'return'", "'now'", "'len'", "'chan'",
+		"'<-chan'", "'->chan'", "'i8'", "'i16'", "'i32'", "'i64'", "'u8'", "'u16'",
+		"'u32'", "'u64'", "'f32'", "'f64'", "'string'", "'timestamp'", "'timespan'",
+		"'series'", "'->'", "'<-'", "':='", "'$='", "'='", "'+'", "'-'", "'*'",
+		"'/'", "'%'", "'^'", "'=='", "'!='", "'<'", "'>'", "'<='", "'>='", "'&&'",
+		"'||'", "'!'", "'('", "')'", "'{'", "'}'", "'['", "']'", "','", "':'",
+		"';'",
 	}
 	staticData.SymbolicNames = []string{
-		"", "FUNC", "STAGE", "IF", "ELSE", "RETURN", "NOW", "LEN", "CHAN", "RECV_CHAN",
+		"", "FUNC", "IF", "ELSE", "RETURN", "NOW", "LEN", "CHAN", "RECV_CHAN",
 		"SEND_CHAN", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64", "F32",
 		"F64", "STRING", "TIMESTAMP", "TIMESPAN", "SERIES", "ARROW", "RECV",
 		"DECLARE", "STATE_DECLARE", "ASSIGN", "PLUS", "MINUS", "STAR", "SLASH",
@@ -55,7 +55,7 @@ func arcparserParserInit() {
 		"program", "topLevelItem", "functionDeclaration", "inputList", "input",
 		"outputType", "multiOutputBlock", "namedOutput", "configBlock", "config",
 		"flowStatement", "routingTable", "routingEntry", "flowNode", "channelIdentifier",
-		"stageInvocation", "configValues", "namedConfigValues", "namedConfigValue",
+		"function", "configValues", "namedConfigValues", "namedConfigValue",
 		"anonymousConfigValues", "arguments", "argumentList", "block", "statement",
 		"variableDeclaration", "localVariable", "statefulVariable", "assignment",
 		"channelOperation", "channelWrite", "channelRead", "blockingRead", "nonBlockingRead",
@@ -70,7 +70,7 @@ func arcparserParserInit() {
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 62, 577, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 61, 577, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
 		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 2, 15, 7, 15,
 		2, 16, 7, 16, 2, 17, 7, 17, 2, 18, 7, 18, 2, 19, 7, 19, 2, 20, 7, 20, 2,
@@ -135,8 +135,8 @@ func arcparserParserInit() {
 		36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70,
 		72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104,
 		106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 0,
-		10, 1, 0, 11, 18, 1, 0, 19, 20, 1, 0, 22, 23, 1, 0, 8, 10, 1, 0, 36, 37,
-		1, 0, 38, 41, 1, 0, 30, 31, 1, 0, 32, 34, 1, 0, 56, 57, 1, 0, 54, 55, 584,
+		10, 1, 0, 10, 17, 1, 0, 18, 19, 1, 0, 21, 22, 1, 0, 7, 9, 1, 0, 35, 36,
+		1, 0, 37, 40, 1, 0, 29, 30, 1, 0, 31, 33, 1, 0, 55, 56, 1, 0, 53, 54, 584,
 		0, 137, 1, 0, 0, 0, 2, 144, 1, 0, 0, 0, 4, 146, 1, 0, 0, 0, 6, 161, 1,
 		0, 0, 0, 8, 169, 1, 0, 0, 0, 10, 174, 1, 0, 0, 0, 12, 176, 1, 0, 0, 0,
 		14, 185, 1, 0, 0, 0, 16, 188, 1, 0, 0, 0, 18, 197, 1, 0, 0, 0, 20, 202,
@@ -161,114 +161,114 @@ func arcparserParserInit() {
 		0, 0, 138, 140, 1, 0, 0, 0, 139, 137, 1, 0, 0, 0, 140, 141, 5, 0, 0, 1,
 		141, 1, 1, 0, 0, 0, 142, 145, 3, 4, 2, 0, 143, 145, 3, 20, 10, 0, 144,
 		142, 1, 0, 0, 0, 144, 143, 1, 0, 0, 0, 145, 3, 1, 0, 0, 0, 146, 147, 5,
-		1, 0, 0, 147, 149, 5, 59, 0, 0, 148, 150, 3, 16, 8, 0, 149, 148, 1, 0,
-		0, 0, 149, 150, 1, 0, 0, 0, 150, 151, 1, 0, 0, 0, 151, 153, 5, 45, 0, 0,
+		1, 0, 0, 147, 149, 5, 58, 0, 0, 148, 150, 3, 16, 8, 0, 149, 148, 1, 0,
+		0, 0, 149, 150, 1, 0, 0, 0, 150, 151, 1, 0, 0, 0, 151, 153, 5, 44, 0, 0,
 		152, 154, 3, 6, 3, 0, 153, 152, 1, 0, 0, 0, 153, 154, 1, 0, 0, 0, 154,
-		155, 1, 0, 0, 0, 155, 157, 5, 46, 0, 0, 156, 158, 3, 10, 5, 0, 157, 156,
+		155, 1, 0, 0, 0, 155, 157, 5, 45, 0, 0, 156, 158, 3, 10, 5, 0, 157, 156,
 		1, 0, 0, 0, 157, 158, 1, 0, 0, 0, 158, 159, 1, 0, 0, 0, 159, 160, 3, 44,
-		22, 0, 160, 5, 1, 0, 0, 0, 161, 166, 3, 8, 4, 0, 162, 163, 5, 51, 0, 0,
+		22, 0, 160, 5, 1, 0, 0, 0, 161, 166, 3, 8, 4, 0, 162, 163, 5, 50, 0, 0,
 		163, 165, 3, 8, 4, 0, 164, 162, 1, 0, 0, 0, 165, 168, 1, 0, 0, 0, 166,
 		164, 1, 0, 0, 0, 166, 167, 1, 0, 0, 0, 167, 7, 1, 0, 0, 0, 168, 166, 1,
-		0, 0, 0, 169, 170, 5, 59, 0, 0, 170, 171, 3, 76, 38, 0, 171, 9, 1, 0, 0,
+		0, 0, 0, 169, 170, 5, 58, 0, 0, 170, 171, 3, 76, 38, 0, 171, 9, 1, 0, 0,
 		0, 172, 175, 3, 76, 38, 0, 173, 175, 3, 12, 6, 0, 174, 172, 1, 0, 0, 0,
-		174, 173, 1, 0, 0, 0, 175, 11, 1, 0, 0, 0, 176, 180, 5, 47, 0, 0, 177,
+		174, 173, 1, 0, 0, 0, 175, 11, 1, 0, 0, 0, 176, 180, 5, 46, 0, 0, 177,
 		179, 3, 14, 7, 0, 178, 177, 1, 0, 0, 0, 179, 182, 1, 0, 0, 0, 180, 178,
 		1, 0, 0, 0, 180, 181, 1, 0, 0, 0, 181, 183, 1, 0, 0, 0, 182, 180, 1, 0,
-		0, 0, 183, 184, 5, 48, 0, 0, 184, 13, 1, 0, 0, 0, 185, 186, 5, 59, 0, 0,
-		186, 187, 3, 76, 38, 0, 187, 15, 1, 0, 0, 0, 188, 192, 5, 47, 0, 0, 189,
+		0, 0, 183, 184, 5, 47, 0, 0, 184, 13, 1, 0, 0, 0, 185, 186, 5, 58, 0, 0,
+		186, 187, 3, 76, 38, 0, 187, 15, 1, 0, 0, 0, 188, 192, 5, 46, 0, 0, 189,
 		191, 3, 18, 9, 0, 190, 189, 1, 0, 0, 0, 191, 194, 1, 0, 0, 0, 192, 190,
 		1, 0, 0, 0, 192, 193, 1, 0, 0, 0, 193, 195, 1, 0, 0, 0, 194, 192, 1, 0,
-		0, 0, 195, 196, 5, 48, 0, 0, 196, 17, 1, 0, 0, 0, 197, 198, 5, 59, 0, 0,
+		0, 0, 195, 196, 5, 47, 0, 0, 196, 17, 1, 0, 0, 0, 197, 198, 5, 58, 0, 0,
 		198, 199, 3, 76, 38, 0, 199, 19, 1, 0, 0, 0, 200, 203, 3, 22, 11, 0, 201,
 		203, 3, 26, 13, 0, 202, 200, 1, 0, 0, 0, 202, 201, 1, 0, 0, 0, 203, 209,
-		1, 0, 0, 0, 204, 207, 5, 25, 0, 0, 205, 208, 3, 22, 11, 0, 206, 208, 3,
+		1, 0, 0, 0, 204, 207, 5, 24, 0, 0, 205, 208, 3, 22, 11, 0, 206, 208, 3,
 		26, 13, 0, 207, 205, 1, 0, 0, 0, 207, 206, 1, 0, 0, 0, 208, 210, 1, 0,
 		0, 0, 209, 204, 1, 0, 0, 0, 210, 211, 1, 0, 0, 0, 211, 209, 1, 0, 0, 0,
-		211, 212, 1, 0, 0, 0, 212, 214, 1, 0, 0, 0, 213, 215, 5, 53, 0, 0, 214,
+		211, 212, 1, 0, 0, 0, 212, 214, 1, 0, 0, 0, 213, 215, 5, 52, 0, 0, 214,
 		213, 1, 0, 0, 0, 214, 215, 1, 0, 0, 0, 215, 21, 1, 0, 0, 0, 216, 217, 5,
-		47, 0, 0, 217, 222, 3, 24, 12, 0, 218, 219, 5, 51, 0, 0, 219, 221, 3, 24,
+		46, 0, 0, 217, 222, 3, 24, 12, 0, 218, 219, 5, 50, 0, 0, 219, 221, 3, 24,
 		12, 0, 220, 218, 1, 0, 0, 0, 221, 224, 1, 0, 0, 0, 222, 220, 1, 0, 0, 0,
 		222, 223, 1, 0, 0, 0, 223, 225, 1, 0, 0, 0, 224, 222, 1, 0, 0, 0, 225,
-		226, 5, 48, 0, 0, 226, 23, 1, 0, 0, 0, 227, 228, 5, 59, 0, 0, 228, 229,
-		5, 52, 0, 0, 229, 234, 3, 26, 13, 0, 230, 231, 5, 25, 0, 0, 231, 233, 3,
+		226, 5, 47, 0, 0, 226, 23, 1, 0, 0, 0, 227, 228, 5, 58, 0, 0, 228, 229,
+		5, 51, 0, 0, 229, 234, 3, 26, 13, 0, 230, 231, 5, 24, 0, 0, 231, 233, 3,
 		26, 13, 0, 232, 230, 1, 0, 0, 0, 233, 236, 1, 0, 0, 0, 234, 232, 1, 0,
 		0, 0, 234, 235, 1, 0, 0, 0, 235, 239, 1, 0, 0, 0, 236, 234, 1, 0, 0, 0,
-		237, 238, 5, 52, 0, 0, 238, 240, 5, 59, 0, 0, 239, 237, 1, 0, 0, 0, 239,
+		237, 238, 5, 51, 0, 0, 238, 240, 5, 58, 0, 0, 239, 237, 1, 0, 0, 0, 239,
 		240, 1, 0, 0, 0, 240, 25, 1, 0, 0, 0, 241, 245, 3, 28, 14, 0, 242, 245,
 		3, 30, 15, 0, 243, 245, 3, 92, 46, 0, 244, 241, 1, 0, 0, 0, 244, 242, 1,
-		0, 0, 0, 244, 243, 1, 0, 0, 0, 245, 27, 1, 0, 0, 0, 246, 247, 5, 59, 0,
-		0, 247, 29, 1, 0, 0, 0, 248, 250, 5, 59, 0, 0, 249, 251, 3, 32, 16, 0,
+		0, 0, 0, 244, 243, 1, 0, 0, 0, 245, 27, 1, 0, 0, 0, 246, 247, 5, 58, 0,
+		0, 247, 29, 1, 0, 0, 0, 248, 250, 5, 58, 0, 0, 249, 251, 3, 32, 16, 0,
 		250, 249, 1, 0, 0, 0, 250, 251, 1, 0, 0, 0, 251, 253, 1, 0, 0, 0, 252,
 		254, 3, 40, 20, 0, 253, 252, 1, 0, 0, 0, 253, 254, 1, 0, 0, 0, 254, 31,
-		1, 0, 0, 0, 255, 256, 5, 47, 0, 0, 256, 266, 5, 48, 0, 0, 257, 258, 5,
-		47, 0, 0, 258, 259, 3, 34, 17, 0, 259, 260, 5, 48, 0, 0, 260, 266, 1, 0,
-		0, 0, 261, 262, 5, 47, 0, 0, 262, 263, 3, 38, 19, 0, 263, 264, 5, 48, 0,
+		1, 0, 0, 0, 255, 256, 5, 46, 0, 0, 256, 266, 5, 47, 0, 0, 257, 258, 5,
+		46, 0, 0, 258, 259, 3, 34, 17, 0, 259, 260, 5, 47, 0, 0, 260, 266, 1, 0,
+		0, 0, 261, 262, 5, 46, 0, 0, 262, 263, 3, 38, 19, 0, 263, 264, 5, 47, 0,
 		0, 264, 266, 1, 0, 0, 0, 265, 255, 1, 0, 0, 0, 265, 257, 1, 0, 0, 0, 265,
 		261, 1, 0, 0, 0, 266, 33, 1, 0, 0, 0, 267, 272, 3, 36, 18, 0, 268, 269,
-		5, 51, 0, 0, 269, 271, 3, 36, 18, 0, 270, 268, 1, 0, 0, 0, 271, 274, 1,
+		5, 50, 0, 0, 269, 271, 3, 36, 18, 0, 270, 268, 1, 0, 0, 0, 271, 274, 1,
 		0, 0, 0, 272, 270, 1, 0, 0, 0, 272, 273, 1, 0, 0, 0, 273, 35, 1, 0, 0,
-		0, 274, 272, 1, 0, 0, 0, 275, 276, 5, 59, 0, 0, 276, 277, 5, 29, 0, 0,
+		0, 274, 272, 1, 0, 0, 0, 275, 276, 5, 58, 0, 0, 276, 277, 5, 28, 0, 0,
 		277, 278, 3, 92, 46, 0, 278, 37, 1, 0, 0, 0, 279, 284, 3, 92, 46, 0, 280,
-		281, 5, 51, 0, 0, 281, 283, 3, 92, 46, 0, 282, 280, 1, 0, 0, 0, 283, 286,
+		281, 5, 50, 0, 0, 281, 283, 3, 92, 46, 0, 282, 280, 1, 0, 0, 0, 283, 286,
 		1, 0, 0, 0, 284, 282, 1, 0, 0, 0, 284, 285, 1, 0, 0, 0, 285, 39, 1, 0,
-		0, 0, 286, 284, 1, 0, 0, 0, 287, 289, 5, 45, 0, 0, 288, 290, 3, 42, 21,
+		0, 0, 286, 284, 1, 0, 0, 0, 287, 289, 5, 44, 0, 0, 288, 290, 3, 42, 21,
 		0, 289, 288, 1, 0, 0, 0, 289, 290, 1, 0, 0, 0, 290, 291, 1, 0, 0, 0, 291,
-		292, 5, 46, 0, 0, 292, 41, 1, 0, 0, 0, 293, 298, 3, 92, 46, 0, 294, 295,
-		5, 51, 0, 0, 295, 297, 3, 92, 46, 0, 296, 294, 1, 0, 0, 0, 297, 300, 1,
+		292, 5, 45, 0, 0, 292, 41, 1, 0, 0, 0, 293, 298, 3, 92, 46, 0, 294, 295,
+		5, 50, 0, 0, 295, 297, 3, 92, 46, 0, 296, 294, 1, 0, 0, 0, 297, 300, 1,
 		0, 0, 0, 298, 296, 1, 0, 0, 0, 298, 299, 1, 0, 0, 0, 299, 43, 1, 0, 0,
-		0, 300, 298, 1, 0, 0, 0, 301, 305, 5, 47, 0, 0, 302, 304, 3, 46, 23, 0,
+		0, 300, 298, 1, 0, 0, 0, 301, 305, 5, 46, 0, 0, 302, 304, 3, 46, 23, 0,
 		303, 302, 1, 0, 0, 0, 304, 307, 1, 0, 0, 0, 305, 303, 1, 0, 0, 0, 305,
 		306, 1, 0, 0, 0, 306, 308, 1, 0, 0, 0, 307, 305, 1, 0, 0, 0, 308, 309,
-		5, 48, 0, 0, 309, 45, 1, 0, 0, 0, 310, 318, 3, 48, 24, 0, 311, 318, 3,
+		5, 47, 0, 0, 309, 45, 1, 0, 0, 0, 310, 318, 3, 48, 24, 0, 311, 318, 3,
 		56, 28, 0, 312, 318, 3, 54, 27, 0, 313, 318, 3, 66, 33, 0, 314, 318, 3,
 		72, 36, 0, 315, 318, 3, 74, 37, 0, 316, 318, 3, 92, 46, 0, 317, 310, 1,
 		0, 0, 0, 317, 311, 1, 0, 0, 0, 317, 312, 1, 0, 0, 0, 317, 313, 1, 0, 0,
 		0, 317, 314, 1, 0, 0, 0, 317, 315, 1, 0, 0, 0, 317, 316, 1, 0, 0, 0, 318,
 		47, 1, 0, 0, 0, 319, 322, 3, 50, 25, 0, 320, 322, 3, 52, 26, 0, 321, 319,
-		1, 0, 0, 0, 321, 320, 1, 0, 0, 0, 322, 49, 1, 0, 0, 0, 323, 324, 5, 59,
-		0, 0, 324, 325, 5, 27, 0, 0, 325, 332, 3, 92, 46, 0, 326, 327, 5, 59, 0,
-		0, 327, 328, 3, 76, 38, 0, 328, 329, 5, 27, 0, 0, 329, 330, 3, 92, 46,
+		1, 0, 0, 0, 321, 320, 1, 0, 0, 0, 322, 49, 1, 0, 0, 0, 323, 324, 5, 58,
+		0, 0, 324, 325, 5, 26, 0, 0, 325, 332, 3, 92, 46, 0, 326, 327, 5, 58, 0,
+		0, 327, 328, 3, 76, 38, 0, 328, 329, 5, 26, 0, 0, 329, 330, 3, 92, 46,
 		0, 330, 332, 1, 0, 0, 0, 331, 323, 1, 0, 0, 0, 331, 326, 1, 0, 0, 0, 332,
-		51, 1, 0, 0, 0, 333, 334, 5, 59, 0, 0, 334, 335, 5, 28, 0, 0, 335, 342,
-		3, 92, 46, 0, 336, 337, 5, 59, 0, 0, 337, 338, 3, 76, 38, 0, 338, 339,
-		5, 28, 0, 0, 339, 340, 3, 92, 46, 0, 340, 342, 1, 0, 0, 0, 341, 333, 1,
-		0, 0, 0, 341, 336, 1, 0, 0, 0, 342, 53, 1, 0, 0, 0, 343, 344, 5, 59, 0,
-		0, 344, 345, 5, 29, 0, 0, 345, 346, 3, 92, 46, 0, 346, 55, 1, 0, 0, 0,
+		51, 1, 0, 0, 0, 333, 334, 5, 58, 0, 0, 334, 335, 5, 27, 0, 0, 335, 342,
+		3, 92, 46, 0, 336, 337, 5, 58, 0, 0, 337, 338, 3, 76, 38, 0, 338, 339,
+		5, 27, 0, 0, 339, 340, 3, 92, 46, 0, 340, 342, 1, 0, 0, 0, 341, 333, 1,
+		0, 0, 0, 341, 336, 1, 0, 0, 0, 342, 53, 1, 0, 0, 0, 343, 344, 5, 58, 0,
+		0, 344, 345, 5, 28, 0, 0, 345, 346, 3, 92, 46, 0, 346, 55, 1, 0, 0, 0,
 		347, 350, 3, 58, 29, 0, 348, 350, 3, 60, 30, 0, 349, 347, 1, 0, 0, 0, 349,
 		348, 1, 0, 0, 0, 350, 57, 1, 0, 0, 0, 351, 352, 3, 92, 46, 0, 352, 353,
-		5, 25, 0, 0, 353, 354, 5, 59, 0, 0, 354, 359, 1, 0, 0, 0, 355, 356, 5,
-		59, 0, 0, 356, 357, 5, 26, 0, 0, 357, 359, 3, 92, 46, 0, 358, 351, 1, 0,
+		5, 24, 0, 0, 353, 354, 5, 58, 0, 0, 354, 359, 1, 0, 0, 0, 355, 356, 5,
+		58, 0, 0, 356, 357, 5, 25, 0, 0, 357, 359, 3, 92, 46, 0, 358, 351, 1, 0,
 		0, 0, 358, 355, 1, 0, 0, 0, 359, 59, 1, 0, 0, 0, 360, 363, 3, 62, 31, 0,
 		361, 363, 3, 64, 32, 0, 362, 360, 1, 0, 0, 0, 362, 361, 1, 0, 0, 0, 363,
-		61, 1, 0, 0, 0, 364, 365, 5, 59, 0, 0, 365, 366, 5, 27, 0, 0, 366, 367,
-		5, 26, 0, 0, 367, 368, 5, 59, 0, 0, 368, 63, 1, 0, 0, 0, 369, 370, 5, 59,
-		0, 0, 370, 371, 5, 27, 0, 0, 371, 372, 5, 59, 0, 0, 372, 65, 1, 0, 0, 0,
-		373, 374, 5, 3, 0, 0, 374, 375, 3, 92, 46, 0, 375, 379, 3, 44, 22, 0, 376,
+		61, 1, 0, 0, 0, 364, 365, 5, 58, 0, 0, 365, 366, 5, 26, 0, 0, 366, 367,
+		5, 25, 0, 0, 367, 368, 5, 58, 0, 0, 368, 63, 1, 0, 0, 0, 369, 370, 5, 58,
+		0, 0, 370, 371, 5, 26, 0, 0, 371, 372, 5, 58, 0, 0, 372, 65, 1, 0, 0, 0,
+		373, 374, 5, 2, 0, 0, 374, 375, 3, 92, 46, 0, 375, 379, 3, 44, 22, 0, 376,
 		378, 3, 68, 34, 0, 377, 376, 1, 0, 0, 0, 378, 381, 1, 0, 0, 0, 379, 377,
 		1, 0, 0, 0, 379, 380, 1, 0, 0, 0, 380, 383, 1, 0, 0, 0, 381, 379, 1, 0,
 		0, 0, 382, 384, 3, 70, 35, 0, 383, 382, 1, 0, 0, 0, 383, 384, 1, 0, 0,
-		0, 384, 67, 1, 0, 0, 0, 385, 386, 5, 4, 0, 0, 386, 387, 5, 3, 0, 0, 387,
+		0, 384, 67, 1, 0, 0, 0, 385, 386, 5, 3, 0, 0, 386, 387, 5, 2, 0, 0, 387,
 		388, 3, 92, 46, 0, 388, 389, 3, 44, 22, 0, 389, 69, 1, 0, 0, 0, 390, 391,
-		5, 4, 0, 0, 391, 392, 3, 44, 22, 0, 392, 71, 1, 0, 0, 0, 393, 395, 5, 5,
+		5, 3, 0, 0, 391, 392, 3, 44, 22, 0, 392, 71, 1, 0, 0, 0, 393, 395, 5, 4,
 		0, 0, 394, 396, 3, 92, 46, 0, 395, 394, 1, 0, 0, 0, 395, 396, 1, 0, 0,
-		0, 396, 73, 1, 0, 0, 0, 397, 398, 5, 59, 0, 0, 398, 400, 5, 45, 0, 0, 399,
+		0, 396, 73, 1, 0, 0, 0, 397, 398, 5, 58, 0, 0, 398, 400, 5, 44, 0, 0, 399,
 		401, 3, 42, 21, 0, 400, 399, 1, 0, 0, 0, 400, 401, 1, 0, 0, 0, 401, 402,
-		1, 0, 0, 0, 402, 403, 5, 46, 0, 0, 403, 75, 1, 0, 0, 0, 404, 408, 3, 78,
+		1, 0, 0, 0, 402, 403, 5, 45, 0, 0, 403, 75, 1, 0, 0, 0, 404, 408, 3, 78,
 		39, 0, 405, 408, 3, 88, 44, 0, 406, 408, 3, 90, 45, 0, 407, 404, 1, 0,
 		0, 0, 407, 405, 1, 0, 0, 0, 407, 406, 1, 0, 0, 0, 408, 77, 1, 0, 0, 0,
-		409, 412, 3, 80, 40, 0, 410, 412, 5, 21, 0, 0, 411, 409, 1, 0, 0, 0, 411,
+		409, 412, 3, 80, 40, 0, 410, 412, 5, 20, 0, 0, 411, 409, 1, 0, 0, 0, 411,
 		410, 1, 0, 0, 0, 412, 79, 1, 0, 0, 0, 413, 417, 3, 82, 41, 0, 414, 417,
 		3, 84, 42, 0, 415, 417, 3, 86, 43, 0, 416, 413, 1, 0, 0, 0, 416, 414, 1,
 		0, 0, 0, 416, 415, 1, 0, 0, 0, 417, 81, 1, 0, 0, 0, 418, 419, 7, 0, 0,
 		0, 419, 83, 1, 0, 0, 0, 420, 421, 7, 1, 0, 0, 421, 85, 1, 0, 0, 0, 422,
 		423, 7, 2, 0, 0, 423, 87, 1, 0, 0, 0, 424, 427, 7, 3, 0, 0, 425, 428, 3,
 		78, 39, 0, 426, 428, 3, 90, 45, 0, 427, 425, 1, 0, 0, 0, 427, 426, 1, 0,
-		0, 0, 428, 89, 1, 0, 0, 0, 429, 430, 5, 24, 0, 0, 430, 431, 3, 78, 39,
+		0, 0, 428, 89, 1, 0, 0, 0, 429, 430, 5, 23, 0, 0, 430, 431, 3, 78, 39,
 		0, 431, 91, 1, 0, 0, 0, 432, 433, 3, 94, 47, 0, 433, 93, 1, 0, 0, 0, 434,
-		439, 3, 96, 48, 0, 435, 436, 5, 43, 0, 0, 436, 438, 3, 96, 48, 0, 437,
+		439, 3, 96, 48, 0, 435, 436, 5, 42, 0, 0, 436, 438, 3, 96, 48, 0, 437,
 		435, 1, 0, 0, 0, 438, 441, 1, 0, 0, 0, 439, 437, 1, 0, 0, 0, 439, 440,
 		1, 0, 0, 0, 440, 95, 1, 0, 0, 0, 441, 439, 1, 0, 0, 0, 442, 447, 3, 98,
-		49, 0, 443, 444, 5, 42, 0, 0, 444, 446, 3, 98, 49, 0, 445, 443, 1, 0, 0,
+		49, 0, 443, 444, 5, 41, 0, 0, 444, 446, 3, 98, 49, 0, 445, 443, 1, 0, 0,
 		0, 446, 449, 1, 0, 0, 0, 447, 445, 1, 0, 0, 0, 447, 448, 1, 0, 0, 0, 448,
 		97, 1, 0, 0, 0, 449, 447, 1, 0, 0, 0, 450, 455, 3, 100, 50, 0, 451, 452,
 		7, 4, 0, 0, 452, 454, 3, 100, 50, 0, 453, 451, 1, 0, 0, 0, 454, 457, 1,
@@ -282,40 +282,40 @@ func arcparserParserInit() {
 		474, 479, 3, 106, 53, 0, 475, 476, 7, 7, 0, 0, 476, 478, 3, 106, 53, 0,
 		477, 475, 1, 0, 0, 0, 478, 481, 1, 0, 0, 0, 479, 477, 1, 0, 0, 0, 479,
 		480, 1, 0, 0, 0, 480, 105, 1, 0, 0, 0, 481, 479, 1, 0, 0, 0, 482, 485,
-		3, 108, 54, 0, 483, 484, 5, 35, 0, 0, 484, 486, 3, 106, 53, 0, 485, 483,
-		1, 0, 0, 0, 485, 486, 1, 0, 0, 0, 486, 107, 1, 0, 0, 0, 487, 488, 5, 31,
-		0, 0, 488, 494, 3, 108, 54, 0, 489, 490, 5, 44, 0, 0, 490, 494, 3, 108,
+		3, 108, 54, 0, 483, 484, 5, 34, 0, 0, 484, 486, 3, 106, 53, 0, 485, 483,
+		1, 0, 0, 0, 485, 486, 1, 0, 0, 0, 486, 107, 1, 0, 0, 0, 487, 488, 5, 30,
+		0, 0, 488, 494, 3, 108, 54, 0, 489, 490, 5, 43, 0, 0, 490, 494, 3, 108,
 		54, 0, 491, 494, 3, 110, 55, 0, 492, 494, 3, 112, 56, 0, 493, 487, 1, 0,
 		0, 0, 493, 489, 1, 0, 0, 0, 493, 491, 1, 0, 0, 0, 493, 492, 1, 0, 0, 0,
-		494, 109, 1, 0, 0, 0, 495, 496, 5, 26, 0, 0, 496, 497, 5, 59, 0, 0, 497,
+		494, 109, 1, 0, 0, 0, 495, 496, 5, 25, 0, 0, 496, 497, 5, 58, 0, 0, 497,
 		111, 1, 0, 0, 0, 498, 503, 3, 118, 59, 0, 499, 502, 3, 114, 57, 0, 500,
 		502, 3, 116, 58, 0, 501, 499, 1, 0, 0, 0, 501, 500, 1, 0, 0, 0, 502, 505,
 		1, 0, 0, 0, 503, 501, 1, 0, 0, 0, 503, 504, 1, 0, 0, 0, 504, 113, 1, 0,
-		0, 0, 505, 503, 1, 0, 0, 0, 506, 507, 5, 49, 0, 0, 507, 508, 3, 92, 46,
-		0, 508, 509, 5, 50, 0, 0, 509, 520, 1, 0, 0, 0, 510, 512, 5, 49, 0, 0,
+		0, 0, 505, 503, 1, 0, 0, 0, 506, 507, 5, 48, 0, 0, 507, 508, 3, 92, 46,
+		0, 508, 509, 5, 49, 0, 0, 509, 520, 1, 0, 0, 0, 510, 512, 5, 48, 0, 0,
 		511, 513, 3, 92, 46, 0, 512, 511, 1, 0, 0, 0, 512, 513, 1, 0, 0, 0, 513,
-		514, 1, 0, 0, 0, 514, 516, 5, 52, 0, 0, 515, 517, 3, 92, 46, 0, 516, 515,
-		1, 0, 0, 0, 516, 517, 1, 0, 0, 0, 517, 518, 1, 0, 0, 0, 518, 520, 5, 50,
+		514, 1, 0, 0, 0, 514, 516, 5, 51, 0, 0, 515, 517, 3, 92, 46, 0, 516, 515,
+		1, 0, 0, 0, 516, 517, 1, 0, 0, 0, 517, 518, 1, 0, 0, 0, 518, 520, 5, 49,
 		0, 0, 519, 506, 1, 0, 0, 0, 519, 510, 1, 0, 0, 0, 520, 115, 1, 0, 0, 0,
-		521, 523, 5, 45, 0, 0, 522, 524, 3, 42, 21, 0, 523, 522, 1, 0, 0, 0, 523,
-		524, 1, 0, 0, 0, 524, 525, 1, 0, 0, 0, 525, 526, 5, 46, 0, 0, 526, 117,
-		1, 0, 0, 0, 527, 536, 3, 124, 62, 0, 528, 536, 5, 59, 0, 0, 529, 530, 5,
-		45, 0, 0, 530, 531, 3, 92, 46, 0, 531, 532, 5, 46, 0, 0, 532, 536, 1, 0,
+		521, 523, 5, 44, 0, 0, 522, 524, 3, 42, 21, 0, 523, 522, 1, 0, 0, 0, 523,
+		524, 1, 0, 0, 0, 524, 525, 1, 0, 0, 0, 525, 526, 5, 45, 0, 0, 526, 117,
+		1, 0, 0, 0, 527, 536, 3, 124, 62, 0, 528, 536, 5, 58, 0, 0, 529, 530, 5,
+		44, 0, 0, 530, 531, 3, 92, 46, 0, 531, 532, 5, 45, 0, 0, 532, 536, 1, 0,
 		0, 0, 533, 536, 3, 120, 60, 0, 534, 536, 3, 122, 61, 0, 535, 527, 1, 0,
 		0, 0, 535, 528, 1, 0, 0, 0, 535, 529, 1, 0, 0, 0, 535, 533, 1, 0, 0, 0,
 		535, 534, 1, 0, 0, 0, 536, 119, 1, 0, 0, 0, 537, 538, 3, 76, 38, 0, 538,
-		539, 5, 45, 0, 0, 539, 540, 3, 92, 46, 0, 540, 541, 5, 46, 0, 0, 541, 121,
-		1, 0, 0, 0, 542, 543, 5, 7, 0, 0, 543, 544, 5, 45, 0, 0, 544, 545, 3, 92,
-		46, 0, 545, 546, 5, 46, 0, 0, 546, 551, 1, 0, 0, 0, 547, 548, 5, 6, 0,
-		0, 548, 549, 5, 45, 0, 0, 549, 551, 5, 46, 0, 0, 550, 542, 1, 0, 0, 0,
+		539, 5, 44, 0, 0, 539, 540, 3, 92, 46, 0, 540, 541, 5, 45, 0, 0, 541, 121,
+		1, 0, 0, 0, 542, 543, 5, 6, 0, 0, 543, 544, 5, 44, 0, 0, 544, 545, 3, 92,
+		46, 0, 545, 546, 5, 45, 0, 0, 546, 551, 1, 0, 0, 0, 547, 548, 5, 5, 0,
+		0, 548, 549, 5, 44, 0, 0, 549, 551, 5, 45, 0, 0, 550, 542, 1, 0, 0, 0,
 		550, 547, 1, 0, 0, 0, 551, 123, 1, 0, 0, 0, 552, 557, 3, 126, 63, 0, 553,
-		557, 3, 128, 64, 0, 554, 557, 5, 58, 0, 0, 555, 557, 3, 130, 65, 0, 556,
+		557, 3, 128, 64, 0, 554, 557, 5, 57, 0, 0, 555, 557, 3, 130, 65, 0, 556,
 		552, 1, 0, 0, 0, 556, 553, 1, 0, 0, 0, 556, 554, 1, 0, 0, 0, 556, 555,
 		1, 0, 0, 0, 557, 125, 1, 0, 0, 0, 558, 559, 7, 8, 0, 0, 559, 127, 1, 0,
-		0, 0, 560, 561, 7, 9, 0, 0, 561, 129, 1, 0, 0, 0, 562, 564, 5, 49, 0, 0,
+		0, 0, 560, 561, 7, 9, 0, 0, 561, 129, 1, 0, 0, 0, 562, 564, 5, 48, 0, 0,
 		563, 565, 3, 132, 66, 0, 564, 563, 1, 0, 0, 0, 564, 565, 1, 0, 0, 0, 565,
-		566, 1, 0, 0, 0, 566, 567, 5, 50, 0, 0, 567, 131, 1, 0, 0, 0, 568, 573,
-		3, 92, 46, 0, 569, 570, 5, 51, 0, 0, 570, 572, 3, 92, 46, 0, 571, 569,
+		566, 1, 0, 0, 0, 566, 567, 5, 49, 0, 0, 567, 131, 1, 0, 0, 0, 568, 573,
+		3, 92, 46, 0, 569, 570, 5, 50, 0, 0, 570, 572, 3, 92, 46, 0, 571, 569,
 		1, 0, 0, 0, 572, 575, 1, 0, 0, 0, 573, 571, 1, 0, 0, 0, 573, 574, 1, 0,
 		0, 0, 574, 133, 1, 0, 0, 0, 575, 573, 1, 0, 0, 0, 59, 137, 144, 149, 153,
 		157, 166, 174, 180, 192, 202, 207, 211, 214, 222, 234, 239, 244, 250, 253,
@@ -361,67 +361,66 @@ func NewArcParser(input antlr.TokenStream) *ArcParser {
 const (
 	ArcParserEOF                 = antlr.TokenEOF
 	ArcParserFUNC                = 1
-	ArcParserfunc               = 2
-	ArcParserIF                  = 3
-	ArcParserELSE                = 4
-	ArcParserRETURN              = 5
-	ArcParserNOW                 = 6
-	ArcParserLEN                 = 7
-	ArcParserCHAN                = 8
-	ArcParserRECV_CHAN           = 9
-	ArcParserSEND_CHAN           = 10
-	ArcParserI8                  = 11
-	ArcParserI16                 = 12
-	ArcParserI32                 = 13
-	ArcParserI64                 = 14
-	ArcParserU8                  = 15
-	ArcParserU16                 = 16
-	ArcParserU32                 = 17
-	ArcParserU64                 = 18
-	ArcParserF32                 = 19
-	ArcParserF64                 = 20
-	ArcParserSTRING              = 21
-	ArcParserTIMESTAMP           = 22
-	ArcParserTIMESPAN            = 23
-	ArcParserSERIES              = 24
-	ArcParserARROW               = 25
-	ArcParserRECV                = 26
-	ArcParserDECLARE             = 27
-	ArcParserSTATE_DECLARE       = 28
-	ArcParserASSIGN              = 29
-	ArcParserPLUS                = 30
-	ArcParserMINUS               = 31
-	ArcParserSTAR                = 32
-	ArcParserSLASH               = 33
-	ArcParserPERCENT             = 34
-	ArcParserCARET               = 35
-	ArcParserEQ                  = 36
-	ArcParserNEQ                 = 37
-	ArcParserLT                  = 38
-	ArcParserGT                  = 39
-	ArcParserLEQ                 = 40
-	ArcParserGEQ                 = 41
-	ArcParserAND                 = 42
-	ArcParserOR                  = 43
-	ArcParserNOT                 = 44
-	ArcParserLPAREN              = 45
-	ArcParserRPAREN              = 46
-	ArcParserLBRACE              = 47
-	ArcParserRBRACE              = 48
-	ArcParserLBRACKET            = 49
-	ArcParserRBRACKET            = 50
-	ArcParserCOMMA               = 51
-	ArcParserCOLON               = 52
-	ArcParserSEMICOLON           = 53
-	ArcParserTEMPORAL_LITERAL    = 54
-	ArcParserFREQUENCY_LITERAL   = 55
-	ArcParserINTEGER_LITERAL     = 56
-	ArcParserFLOAT_LITERAL       = 57
-	ArcParserSTRING_LITERAL      = 58
-	ArcParserIDENTIFIER          = 59
-	ArcParserSINGLE_LINE_COMMENT = 60
-	ArcParserMULTI_LINE_COMMENT  = 61
-	ArcParserWS                  = 62
+	ArcParserIF                  = 2
+	ArcParserELSE                = 3
+	ArcParserRETURN              = 4
+	ArcParserNOW                 = 5
+	ArcParserLEN                 = 6
+	ArcParserCHAN                = 7
+	ArcParserRECV_CHAN           = 8
+	ArcParserSEND_CHAN           = 9
+	ArcParserI8                  = 10
+	ArcParserI16                 = 11
+	ArcParserI32                 = 12
+	ArcParserI64                 = 13
+	ArcParserU8                  = 14
+	ArcParserU16                 = 15
+	ArcParserU32                 = 16
+	ArcParserU64                 = 17
+	ArcParserF32                 = 18
+	ArcParserF64                 = 19
+	ArcParserSTRING              = 20
+	ArcParserTIMESTAMP           = 21
+	ArcParserTIMESPAN            = 22
+	ArcParserSERIES              = 23
+	ArcParserARROW               = 24
+	ArcParserRECV                = 25
+	ArcParserDECLARE             = 26
+	ArcParserSTATE_DECLARE       = 27
+	ArcParserASSIGN              = 28
+	ArcParserPLUS                = 29
+	ArcParserMINUS               = 30
+	ArcParserSTAR                = 31
+	ArcParserSLASH               = 32
+	ArcParserPERCENT             = 33
+	ArcParserCARET               = 34
+	ArcParserEQ                  = 35
+	ArcParserNEQ                 = 36
+	ArcParserLT                  = 37
+	ArcParserGT                  = 38
+	ArcParserLEQ                 = 39
+	ArcParserGEQ                 = 40
+	ArcParserAND                 = 41
+	ArcParserOR                  = 42
+	ArcParserNOT                 = 43
+	ArcParserLPAREN              = 44
+	ArcParserRPAREN              = 45
+	ArcParserLBRACE              = 46
+	ArcParserRBRACE              = 47
+	ArcParserLBRACKET            = 48
+	ArcParserRBRACKET            = 49
+	ArcParserCOMMA               = 50
+	ArcParserCOLON               = 51
+	ArcParserSEMICOLON           = 52
+	ArcParserTEMPORAL_LITERAL    = 53
+	ArcParserFREQUENCY_LITERAL   = 54
+	ArcParserINTEGER_LITERAL     = 55
+	ArcParserFLOAT_LITERAL       = 56
+	ArcParserSTRING_LITERAL      = 57
+	ArcParserIDENTIFIER          = 58
+	ArcParserSINGLE_LINE_COMMENT = 59
+	ArcParserMULTI_LINE_COMMENT  = 60
+	ArcParserWS                  = 61
 )
 
 // ArcParser rules.
@@ -441,7 +440,7 @@ const (
 	ArcParserRULE_routingEntry             = 12
 	ArcParserRULE_flowNode                 = 13
 	ArcParserRULE_channelIdentifier        = 14
-	ArcParserRULE_stageInvocation          = 15
+	ArcParserRULE_function                 = 15
 	ArcParserRULE_configValues             = 16
 	ArcParserRULE_namedConfigValues        = 17
 	ArcParserRULE_namedConfigValue         = 18
@@ -621,7 +620,7 @@ func (p *ArcParser) Program() (localctx IProgramContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135663572345421762) != 0 {
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567831786172710882) != 0 {
 		{
 			p.SetState(134)
 			p.TopLevelItem()
@@ -2767,7 +2766,7 @@ type IFlowNodeContext interface {
 
 	// Getter signatures
 	ChannelIdentifier() IChannelIdentifierContext
-	StageInvocation() IStageInvocationContext
+	Function() IFunctionContext
 	Expression() IExpressionContext
 
 	// IsFlowNodeContext differentiates from other interfaces.
@@ -2822,10 +2821,10 @@ func (s *FlowNodeContext) ChannelIdentifier() IChannelIdentifierContext {
 	return t.(IChannelIdentifierContext)
 }
 
-func (s *FlowNodeContext) StageInvocation() IStageInvocationContext {
+func (s *FlowNodeContext) Function() IFunctionContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IStageInvocationContext); ok {
+		if _, ok := ctx.(IFunctionContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -2835,7 +2834,7 @@ func (s *FlowNodeContext) StageInvocation() IStageInvocationContext {
 		return nil
 	}
 
-	return t.(IStageInvocationContext)
+	return t.(IFunctionContext)
 }
 
 func (s *FlowNodeContext) Expression() IExpressionContext {
@@ -2895,7 +2894,7 @@ func (p *ArcParser) FlowNode() (localctx IFlowNodeContext) {
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(242)
-			p.StageInvocation()
+			p.Function()
 		}
 
 	case 3:
@@ -3018,8 +3017,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IStageInvocationContext is an interface to support dynamic dispatch.
-type IStageInvocationContext interface {
+// IFunctionContext is an interface to support dynamic dispatch.
+type IFunctionContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -3030,47 +3029,47 @@ type IStageInvocationContext interface {
 	ConfigValues() IConfigValuesContext
 	Arguments() IArgumentsContext
 
-	// IsStageInvocationContext differentiates from other interfaces.
-	IsStageInvocationContext()
+	// IsFunctionContext differentiates from other interfaces.
+	IsFunctionContext()
 }
 
-type StageInvocationContext struct {
+type FunctionContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyStageInvocationContext() *StageInvocationContext {
-	var p = new(StageInvocationContext)
+func NewEmptyFunctionContext() *FunctionContext {
+	var p = new(FunctionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_stageInvocation
+	p.RuleIndex = ArcParserRULE_function
 	return p
 }
 
-func InitEmptyStageInvocationContext(p *StageInvocationContext) {
+func InitEmptyFunctionContext(p *FunctionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_stageInvocation
+	p.RuleIndex = ArcParserRULE_function
 }
 
-func (*StageInvocationContext) IsStageInvocationContext() {}
+func (*FunctionContext) IsFunctionContext() {}
 
-func NewStageInvocationContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *StageInvocationContext {
-	var p = new(StageInvocationContext)
+func NewFunctionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *FunctionContext {
+	var p = new(FunctionContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_stageInvocation
+	p.RuleIndex = ArcParserRULE_function
 
 	return p
 }
 
-func (s *StageInvocationContext) GetParser() antlr.Parser { return s.parser }
+func (s *FunctionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *StageInvocationContext) IDENTIFIER() antlr.TerminalNode {
+func (s *FunctionContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *StageInvocationContext) ConfigValues() IConfigValuesContext {
+func (s *FunctionContext) ConfigValues() IConfigValuesContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IConfigValuesContext); ok {
@@ -3086,7 +3085,7 @@ func (s *StageInvocationContext) ConfigValues() IConfigValuesContext {
 	return t.(IConfigValuesContext)
 }
 
-func (s *StageInvocationContext) Arguments() IArgumentsContext {
+func (s *FunctionContext) Arguments() IArgumentsContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IArgumentsContext); ok {
@@ -3102,29 +3101,29 @@ func (s *StageInvocationContext) Arguments() IArgumentsContext {
 	return t.(IArgumentsContext)
 }
 
-func (s *StageInvocationContext) GetRuleContext() antlr.RuleContext {
+func (s *FunctionContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *StageInvocationContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *FunctionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *StageInvocationContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *FunctionContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterStageInvocation(s)
+		listenerT.EnterFunction(s)
 	}
 }
 
-func (s *StageInvocationContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *FunctionContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitStageInvocation(s)
+		listenerT.ExitFunction(s)
 	}
 }
 
-func (p *ArcParser) StageInvocation() (localctx IStageInvocationContext) {
-	localctx = NewStageInvocationContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 30, ArcParserRULE_stageInvocation)
+func (p *ArcParser) Function() (localctx IFunctionContext) {
+	localctx = NewFunctionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 30, ArcParserRULE_function)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(248)
@@ -3956,7 +3955,7 @@ func (p *ArcParser) Arguments() (localctx IArgumentsContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 		{
 			p.SetState(288)
 			p.ArgumentList()
@@ -4294,7 +4293,7 @@ func (p *ArcParser) Block() (localctx IBlockContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066472) != 0 {
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533236) != 0 {
 		{
 			p.SetState(302)
 			p.Statement()
@@ -6700,7 +6699,7 @@ func (p *ArcParser) FunctionCall() (localctx IFunctionCallContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 		{
 			p.SetState(399)
 			p.ArgumentList()
@@ -7307,7 +7306,7 @@ func (p *ArcParser) IntegerType() (localctx IIntegerTypeContext) {
 		p.SetState(418)
 		_la = p.GetTokenStream().LA(1)
 
-		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&522240) != 0) {
+		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&261120) != 0) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -7664,7 +7663,7 @@ func (p *ArcParser) ChannelType() (localctx IChannelTypeContext) {
 		p.SetState(424)
 		_la = p.GetTokenStream().LA(1)
 
-		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1792) != 0) {
+		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&896) != 0) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -8617,12 +8616,12 @@ func (p *ArcParser) RelationalExpression() (localctx IRelationalExpressionContex
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&4123168604160) != 0 {
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&2061584302080) != 0 {
 		{
 			p.SetState(459)
 			_la = p.GetTokenStream().LA(1)
 
-			if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&4123168604160) != 0) {
+			if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&2061584302080) != 0) {
 				p.GetErrorHandler().RecoverInline(p)
 			} else {
 				p.GetErrorHandler().ReportMatch(p)
@@ -9002,12 +9001,12 @@ func (p *ArcParser) MultiplicativeExpression() (localctx IMultiplicativeExpressi
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&30064771072) != 0 {
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&15032385536) != 0 {
 		{
 			p.SetState(475)
 			_la = p.GetTokenStream().LA(1)
 
-			if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&30064771072) != 0) {
+			if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&15032385536) != 0) {
 				p.GetErrorHandler().RecoverInline(p)
 			} else {
 				p.GetErrorHandler().ReportMatch(p)
@@ -9910,7 +9909,7 @@ func (p *ArcParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 			{
 				p.SetState(511)
 				p.Expression()
@@ -9932,7 +9931,7 @@ func (p *ArcParser) IndexOrSlice() (localctx IIndexOrSliceContext) {
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 			{
 				p.SetState(515)
 				p.Expression()
@@ -10078,7 +10077,7 @@ func (p *ArcParser) FunctionCallSuffix() (localctx IFunctionCallSuffixContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 		{
 			p.SetState(522)
 			p.ArgumentList()
@@ -11183,7 +11182,7 @@ func (p *ArcParser) SeriesLiteral() (localctx ISeriesLiteralContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&1135522834857066432) != 0 {
+	if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&567761417428533216) != 0 {
 		{
 			p.SetState(563)
 			p.ExpressionList()

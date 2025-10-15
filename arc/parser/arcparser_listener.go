@@ -52,8 +52,8 @@ type ArcParserListener interface {
 	// EnterChannelIdentifier is called when entering the channelIdentifier production.
 	EnterChannelIdentifier(c *ChannelIdentifierContext)
 
-	// EnterStageInvocation is called when entering the stageInvocation production.
-	EnterStageInvocation(c *StageInvocationContext)
+	// EnterFunction is called when entering the function production.
+	EnterFunction(c *FunctionContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -253,8 +253,8 @@ type ArcParserListener interface {
 	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
 	ExitChannelIdentifier(c *ChannelIdentifierContext)
 
-	// ExitStageInvocation is called when exiting the stageInvocation production.
-	ExitStageInvocation(c *StageInvocationContext)
+	// ExitFunction is called when exiting the function production.
+	ExitFunction(c *FunctionContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

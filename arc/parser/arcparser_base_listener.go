@@ -110,11 +110,11 @@ func (s *BaseArcParserListener) EnterChannelIdentifier(ctx *ChannelIdentifierCon
 // ExitChannelIdentifier is called when production channelIdentifier is exited.
 func (s *BaseArcParserListener) ExitChannelIdentifier(ctx *ChannelIdentifierContext) {}
 
-// EnterStageInvocation is called when production stageInvocation is entered.
-func (s *BaseArcParserListener) EnterStageInvocation(ctx *StageInvocationContext) {}
+// EnterFunction is called when production function is entered.
+func (s *BaseArcParserListener) EnterFunction(ctx *FunctionContext) {}
 
-// ExitStageInvocation is called when production stageInvocation is exited.
-func (s *BaseArcParserListener) ExitStageInvocation(ctx *StageInvocationContext) {}
+// ExitFunction is called when production function is exited.
+func (s *BaseArcParserListener) ExitFunction(ctx *FunctionContext) {}
 
 // EnterConfigValues is called when production configValues is entered.
 func (s *BaseArcParserListener) EnterConfigValues(ctx *ConfigValuesContext) {}

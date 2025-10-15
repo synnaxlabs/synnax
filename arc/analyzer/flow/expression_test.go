@@ -51,36 +51,36 @@ var _ = Describe("Expression func Conversion", func() {
 			Name: "alarm",
 			Kind: symbol.KindFunction,
 			Type: types.Function(
-				types.Params{},
-				types.Params{},
 				types.Params{
 					Keys:   []string{"input"},
-					Values: []types.Type{types.Chan(types.U8())},
+					Values: []types.Type{types.U8()},
 				},
+				types.Params{},
+				types.Params{},
 			),
 		},
 		"logger": symbol.Symbol{
 			Name: "logger",
 			Kind: symbol.KindFunction,
 			Type: types.Function(
-				types.Params{},
-				types.Params{},
 				types.Params{
 					Keys:   []string{"input"},
-					Values: []types.Type{types.Chan(types.U8())},
+					Values: []types.Type{types.U8()},
 				},
+				types.Params{},
+				types.Params{},
 			),
 		},
 		"display": symbol.Symbol{
 			Name: "display",
 			Kind: symbol.KindFunction,
 			Type: types.Function(
-				types.Params{},
-				types.Params{},
 				types.Params{
 					Keys:   []string{"input"},
-					Values: []types.Type{types.Chan(types.U8())},
+					Values: []types.Type{types.F64()},
 				},
+				types.Params{},
+				types.Params{},
 			),
 		},
 		"warning": symbol.Symbol{
@@ -97,18 +97,16 @@ var _ = Describe("Expression func Conversion", func() {
 	}
 
 	Context("Binary expression with channels", func() {
-		It("should convert comparison expression to synthetic stage", func() {
-			ast := MustSucceed(parser.Parse(`
-				ox_pt_1 > 100 -> alarm{}
-			`))
+		It("should convert comparison expression to synthetic function", func() {
+			ast := MustSucceed(parser.Parse(`ox_pt_1 > 100 -> alarm{}`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			stageSym := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(stageSym.Name).To(Equal("__expr_0"))
 			Expect(stageSym.Kind).To(Equal(symbol.KindFunction))
 			Expect(stageSym.Type.Kind).To(Equal(types.KindFunction))
 			Expect(stageSym.Type.Config.Count()).To(Equal(0))
-			output, _ := stageSym.Type.Outputs.Get(ir.DefaultOutputParam)
+			output := MustBeOk(stageSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output).To(Equal(types.U8()))
 		})
 
@@ -117,10 +115,10 @@ var _ = Describe("Expression func Conversion", func() {
 				(ox_pt_1 + ox_pt_2) / 2 -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			Expect(synthfunc).ToNot(BeNil())
-			output := MustBeOk(synthfunc.Type.Outputs.Get(ir.DefaultOutputParam))
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthFunc).ToNot(BeNil())
+			output := MustBeOk(synthFunc.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output).To(Equal(types.F64()))
 		})
 	})
@@ -154,10 +152,10 @@ var _ = Describe("Expression func Conversion", func() {
 			ast := MustSucceed(parser.Parse(`
 				ox_pt_1 > 100 -> alarm{}
 				pressure < 50 -> warning{}
-				temp_sensor * f32(1.8) + f32(32) -> display{}
+				f64(temp_sensor) * 1.8 + 32 -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			stage0 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			stage1 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_1"))
 			stage2 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_2"))
@@ -174,20 +172,20 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			Expect(synthfunc).ToNot(BeNil())
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthFunc).ToNot(BeNil())
 		})
 	})
 
 	Context("Channel type preservation", func() {
 		It("should preserve channel types in config", func() {
 			ast := MustSucceed(parser.Parse(`
-				(temp_sensor) -> display{}
+				f64(temp_sensor) -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthfunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			Expect(synthfunc).ToNot(BeNil())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			Expect(synthFunc).ToNot(BeNil())
 		})
 	})
 })

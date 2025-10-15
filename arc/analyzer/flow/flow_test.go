@@ -93,18 +93,6 @@ var _ = Describe("Flow Statements", func() {
 			Expect(first.Message).To(Equal("undefined symbol: once"))
 		})
 
-		It("Should return an error when one of the symbols being called is not a stage", func() {
-			ast := MustSucceed(parser.Parse(`
-			func dog() {
-			}
-			once{} -> dog{}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("dog is not a stage"))
-		})
-
 		It("Should verify func config parameters match the expected signature types", func() {
 			ast := MustSucceed(parser.Parse(`
 			func controller{

@@ -72,7 +72,7 @@ routingEntry
 
 flowNode
     : channelIdentifier
-    | functionInvocation
+    | function
     | expression
     ;
 
@@ -80,7 +80,7 @@ channelIdentifier
     : IDENTIFIER
     ;
 
-functionInvocation
+function
     : IDENTIFIER configValues? arguments?
     ;
 

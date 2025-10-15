@@ -516,7 +516,7 @@ var _ = Describe("Expressions", func() {
 			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
 		})
 
-		FIt("Should not return an error when adding a channel to a variable of the same type", func() {
+		It("Should not return an error when adding a channel to a variable of the same type", func() {
 			ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return ox_pt_1 + 2

@@ -12,7 +12,6 @@ package types
 import (
 	"slices"
 
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -147,12 +146,6 @@ func Function(inputs, outputs, config Params) Type {
 		Outputs: &outputs,
 		Config:  &config,
 	}
-}
-
-// Body represents the body of a function or stage
-type Body struct {
-	Raw string
-	AST antlr.ParserRuleContext // Can be IBlockContext or IExpressionContext
 }
 
 // Params is a type alias for ordered maps of types

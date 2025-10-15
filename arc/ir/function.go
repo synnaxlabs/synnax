@@ -10,13 +10,19 @@
 package ir
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 )
 
+type Body struct {
+	Raw string
+	AST antlr.ParserRuleContext
+}
+
 type Function struct {
 	Key     string       `json:"key"`
-	Body    types.Body   `json:"body"`
+	Body    Body         `json:"body"`
 	Config  types.Params `json:"config"`
 	Inputs  types.Params `json:"inputs"`
 	Outputs types.Params `json:"outputs"`

@@ -314,8 +314,8 @@ func doubler{
 
 			// Second node: controller{}
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Third node: actuator
 			node3 := flow.FlowNode(2)
@@ -333,7 +333,7 @@ controller{
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			invocation := node.StageInvocation()
+			invocation := node.Function()
 
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("controller"))
 
@@ -355,7 +355,7 @@ controller{
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			invocation := node.StageInvocation()
+			invocation := node.Function()
 
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("any"))
 
@@ -367,8 +367,8 @@ controller{
 
 			// Check the second node also has func invocation
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
 		It("Should parse func with anonymous arguments in complex flow", func() {
@@ -386,7 +386,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
 			node := flow.FlowNode(0)
-			invocation := node.StageInvocation()
+			invocation := node.Function()
 
 			// Verify anonymous config
 			config := invocation.ConfigValues()
@@ -434,16 +434,16 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			// Check first func invocation (any)
 			node1 := flow.FlowNode(0)
-			Expect(node1.StageInvocation()).NotTo(BeNil())
-			Expect(node1.StageInvocation().IDENTIFIER().GetText()).To(Equal("any"))
+			Expect(node1.Function()).NotTo(BeNil())
+			Expect(node1.Function().IDENTIFIER().GetText()).To(Equal("any"))
 
 			// Check middle func invocation (average with empty config)
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 
 			// Verify average has empty config
-			avgConfig := node2.StageInvocation().ConfigValues()
+			avgConfig := node2.Function().ConfigValues()
 			Expect(avgConfig).NotTo(BeNil())
 			Expect(avgConfig.LBRACE()).NotTo(BeNil())
 			Expect(avgConfig.RBRACE()).NotTo(BeNil())
@@ -966,15 +966,15 @@ sensor -> demux{threshold=100} -> {
 				Expect(entries[0].AllARROW()).To(HaveLen(0))
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
-				Expect(highTargets[0].StageInvocation()).NotTo(BeNil())
-				Expect(highTargets[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("alarm"))
+				Expect(highTargets[0].Function()).NotTo(BeNil())
+				Expect(highTargets[0].Function().IDENTIFIER().GetText()).To(Equal("alarm"))
 
 				// Second entry: low -> logger{}
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("low"))
 				lowTargets := entries[1].AllFlowNode()
 				Expect(lowTargets).To(HaveLen(1))
-				Expect(lowTargets[0].StageInvocation()).NotTo(BeNil())
-				Expect(lowTargets[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("logger"))
+				Expect(lowTargets[0].Function()).NotTo(BeNil())
+				Expect(lowTargets[0].Function().IDENTIFIER().GetText()).To(Equal("logger"))
 			})
 
 			It("Should parse routing table with three outputs", func() {
@@ -1052,15 +1052,15 @@ sensor -> state_router{} -> {
 				entry0Nodes := entries[0].AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2))
 				Expect(entries[0].AllARROW()).To(HaveLen(1))
-				Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("processor"))
-				Expect(entry0Nodes[1].StageInvocation().IDENTIFIER().GetText()).To(Equal("idle_display"))
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
+				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
 
 				// Second entry: active_out: controller{} -> actuator
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
 				entry1Nodes := entries[1].AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entries[1].AllARROW()).To(HaveLen(1))
-				Expect(entry1Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
 				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 			})
 
@@ -1084,7 +1084,7 @@ first{} -> {
 				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("outputA"))
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(1))
-				Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("processor"))
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
 				// Check trailing parameter name
 				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
 				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("paramC"))
@@ -1222,7 +1222,7 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entry0.AllARROW()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
-				Expect(entry0Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("lowpass"))
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("lowpass"))
 				Expect(entry0Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
 
 				// Second entry: sensor2 -> scale{factor=2.0} -> b
@@ -1231,7 +1231,7 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entry1.AllARROW()).To(HaveLen(1))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
-				Expect(entry1Nodes[0].StageInvocation().IDENTIFIER().GetText()).To(Equal("scale"))
+				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
 				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
 			})
 		})

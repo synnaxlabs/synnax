@@ -75,8 +75,14 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	}
 	if len(multiplicatives) > 1 {
 		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
+		if firstType.Kind == types.KindChan && firstType.ValueType != nil {
+			firstType = *firstType.ValueType
+		}
 		for i := 1; i < len(multiplicatives); i++ {
 			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
+			if nextType.Kind == types.KindChan && nextType.ValueType != nil {
+				nextType = *nextType.ValueType
+			}
 			if !Compatible(firstType, nextType) {
 				return firstType
 			}
@@ -90,6 +96,22 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 	powers := ctx.AST.AllPowerExpression()
 	if len(powers) == 0 {
 		return types.Type{}
+	}
+	if len(powers) > 1 {
+		firstType := InferPower(context.Child(ctx, powers[0]))
+		if firstType.Kind == types.KindChan && firstType.ValueType != nil {
+			firstType = *firstType.ValueType
+		}
+		for i := 1; i < len(powers); i++ {
+			nextType := InferPower(context.Child(ctx, powers[i]))
+			if nextType.Kind == types.KindChan && nextType.ValueType != nil {
+				nextType = *nextType.ValueType
+			}
+			if !Compatible(firstType, nextType) {
+				return firstType
+			}
+		}
+		return firstType
 	}
 	return InferPower(context.Child(ctx, powers[0]))
 }

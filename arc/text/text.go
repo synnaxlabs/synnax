@@ -134,9 +134,8 @@ func analyzeNode(
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return analyzeChannel(acontext.Child(ctx, channel), generateKey)
 	}
-	if func := ctx.AST.StageInvocation()
-	func != nil{
-		return analyzeStage(acontext.Child(ctx, stage), generateKey)
+	if fn := ctx.AST.Function(); fn != nil {
+		return analyzeFunction(acontext.Child(ctx, fn), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr))
@@ -206,8 +205,8 @@ func extractConfigValues(
 	return config, true
 }
 
-func analyzeStage(
-	ctx acontext.Context[parser.IStageInvocationContext],
+func analyzeFunction(
+	ctx acontext.Context[parser.IFunctionContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, bool) {
 	var (
