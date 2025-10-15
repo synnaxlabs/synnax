@@ -47,17 +47,12 @@ func Compile(
 	// UnaryExpression ->
 	// PostfixExpression ->
 	// PrimaryExpression
-	if ctx.AST == nil {
-		return nil, errors.New("cannot compile a nil expression")
-	}
-	// Since Expression just wraps LogicalOrExpression, unwrap it
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return compileLogicalOr(context.Child(ctx, logicalOr))
 	}
-	return nil, errors.New("unknown expression type")
+	return types.Type{}, errors.New("unknown expression type")
 }
 
-// compileLogicalOr handles || operations
 func compileLogicalOr(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
 ) (types.Type, error) {
@@ -68,7 +63,6 @@ func compileLogicalOr(
 	return compileLogicalOrImpl(ctx)
 }
 
-// compileLogicalAnd handles && operations
 func compileLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) (types.Type, error) {
@@ -79,7 +73,6 @@ func compileLogicalAnd(
 	return compileLogicalAndImpl(ctx)
 }
 
-// compileEquality handles == and != operations
 func compileEquality(
 	ctx context.Context[parser.IEqualityExpressionContext],
 ) (types.Type, error) {
@@ -90,8 +83,9 @@ func compileEquality(
 	return compileBinaryEquality(ctx)
 }
 
-// compileRelational handles <, >, <=, >= operations
-func compileRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
+func compileRelational(
+	ctx context.Context[parser.IRelationalExpressionContext],
+) (types.Type, error) {
 	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
 		return compileAdditive(context.Child(ctx, adds[0]))
@@ -99,7 +93,6 @@ func compileRelational(ctx context.Context[parser.IRelationalExpressionContext])
 	return compileBinaryRelational(ctx)
 }
 
-// compileAdditive handles + and - operations.
 func compileAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
@@ -110,7 +103,6 @@ func compileAdditive(
 	return compileBinaryAdditive(ctx)
 }
 
-// compileMultiplicative handles *, /, and % operations
 func compileMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
@@ -134,20 +126,15 @@ func compilePower(
 	return compileUnary(context.Child(ctx, unary))
 }
 
-// compilePostfix handles array indexing, slicing, and function calls
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
-	if primary == nil {
-		return nil, errors.New("empty postfix expression")
-	}
 	primaryType, err := compilePrimary(context.Child(ctx, primary))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
 	return primaryType, nil
 }
 
-// compilePrimary handles literals, identifiers, parenthesized expressions, etc.
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
@@ -162,7 +149,7 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 		return compileTypeCast(context.Child(ctx, cast))
 	}
 	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		return nil, errors.New("builtin functions not yet implemented")
+		return types.Type{}, errors.New("builtin functions not yet implemented")
 	}
-	return nil, errors.New("unknown primary expression")
+	return types.Type{}, errors.New("unknown primary expression")
 }

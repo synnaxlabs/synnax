@@ -38,11 +38,11 @@ func createBaseSymbol(name string) symbol.Symbol {
 		Type: ir.Stage{
 			Config: types.Params{
 				Keys:   []string{durationParam, countParam},
-				Values: []types.Type{types.TimeSpan{}, types.I64{}},
+				Values: []types.Type{types.TimeSpan{}, types.I64()},
 			},
 			Params: types.Params{
 				Keys:   []string{ir.DefaultInputParam, resetParam},
-				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.U8{}},
+				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.U8()},
 			},
 			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},

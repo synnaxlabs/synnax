@@ -185,18 +185,18 @@ func compileOutputAssignment(
 	// Stack: [address, value]
 
 	// Write the appropriate store instruction based on type
-	switch scope.Type {
-	case types.I8{}, types.U8{}:
+	switch scope.Type.Kind {
+	case types.KindI8, types.KindU8:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
-	case types.I16{}, types.U16{}:
+	case types.KindI16, types.KindU16:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
-	case types.I32{}, types.U32{}:
+	case types.KindI32, types.KindU32:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
-	case types.I64{}, types.U64{}, types.TimeStamp{}, types.TimeSpan{}:
+	case types.KindI64, types.KindU64, types.KindTimeStamp, types.KindTimeSpan:
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
-	case types.F32{}:
+	case types.KindF32:
 		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
-	case types.F64():
+	case types.KindF64:
 		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
 	default:
 		return errors.Newf("unsupported output type %v", scope.Type)
@@ -215,6 +215,5 @@ func compileOutputAssignment(
 	ctx.Writer.WriteOpcode(wasm.OpI64Or)
 	// Stack: [address, new_value]
 	ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
-
 	return nil
 }

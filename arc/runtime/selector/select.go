@@ -30,11 +30,11 @@ var (
 		Type: ir.Stage{
 			Params: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.U8{}},
+				Values: []types.Type{types.U8()},
 			},
 			Outputs: types.Params{
 				Keys:   []string{"true", "false"},
-				Values: []types.Type{types.U8{}, types.U8{}},
+				Values: []types.Type{types.U8(), types.U8()},
 			},
 		},
 	}

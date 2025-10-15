@@ -15,10 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Compile compiles a single statement
-func Compile(
-	ctx context.Context[parser.IStatementContext],
-) error {
+func Compile(ctx context.Context[parser.IStatementContext]) error {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
 		return compileVariableDeclaration(context.Child(ctx, varDecl))
 	}
@@ -35,14 +32,12 @@ func Compile(
 		return compileChannelOperation(context.Child(ctx, chanOp))
 	}
 	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
-		// Function calls as statements (for side effects)
 		_, err := compileFunctionCall(context.Child(ctx, fnCall))
 		return err
 	}
 	return errors.New("unknown statement type")
 }
 
-// CompileBlock compiles a block of statements
 func CompileBlock(ctx context.Context[parser.IBlockContext]) error {
 	if ctx.AST == nil {
 		return nil

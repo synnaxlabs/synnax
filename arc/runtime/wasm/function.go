@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/tetratelabs/wazero/api"
+	"go.uber.org/zap"
 )
 
 type Function struct {
@@ -69,16 +70,17 @@ func WrapFunction(
 }
 
 func sizeOf(t types.Type) uint32 {
-	switch t {
-	case types.U8{}, types.I8{}:
+	switch t.Kind {
+	case types.KindU8, types.KindI8:
 		return 1
-	case types.U16{}, types.I16{}:
+	case types.KindU16, types.KindI16:
 		return 2
-	case types.U32{}, types.I32{}, types.F32{}:
+	case types.KindU32, types.KindI32, types.KindF32:
 		return 4
-	case types.U64{}, types.I64{}, types.F64(), types.TimeStamp{}, types.TimeSpan{}:
+	case types.KindU64, types.KindI64, types.KindF64, types.KindTimeStamp, types.KindTimeSpan:
 		return 8
 	default:
+		zap.S().DPanic("unknown type", zap.String("type", t.String()))
 		return 8
 	}
 }

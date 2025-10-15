@@ -23,7 +23,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to i32",
 			"i32(42)",
-			types.I32{},
+			types.I32(),
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -32,7 +32,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i32 expression to i64",
 			"i64(i32(42))",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,
@@ -43,7 +43,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"i64 to f32",
 			"f32(42)",
-			types.F32{},
+			types.F32(),
 			OpI64Const,
 			int64(42),
 			OpF32ConvertI64S,
@@ -62,7 +62,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to i32",
 			"i32(3.14)",
-			types.I32{},
+			types.I32(),
 			OpF64Const,
 			float64(3.14),
 			OpI32TruncF64S,
@@ -71,7 +71,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to i64",
 			"i64(3.14)",
-			types.I64{},
+			types.I64(),
 			OpF64Const,
 			float64(3.14),
 			OpI64TruncF64S,
@@ -81,7 +81,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"f64 to f32",
 			"f32(3.14)",
-			types.F32{},
+			types.F32(),
 			OpF64Const,
 			float64(3.14),
 			OpF32DemoteF64,
@@ -110,7 +110,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry(
 			"u32 to f32",
 			"f32(u32(42))",
-			types.F32{},
+			types.F32(),
 			OpI64Const,
 			int64(42),
 			OpI32WrapI64,

@@ -93,12 +93,10 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		// Bind config (if any)
 		if err = bindNamedTypes(ctx, funcScope, fn.Config, symbol.KindConfig); err != nil {
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		// Bind inputs
 		if err = bindNamedTypes(ctx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics

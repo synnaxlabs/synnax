@@ -37,7 +37,7 @@ func createComparisonSymbol(name string) symbol.Symbol {
 		name,
 		types.Params{
 			Keys:   []string{ir.DefaultOutputParam},
-			Values: []types.Type{types.U8{}},
+			Values: []types.Type{types.U8()},
 		},
 	)
 }

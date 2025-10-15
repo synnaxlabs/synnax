@@ -15,24 +15,19 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// compileBinaryAdditive handles + and - operations
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
 	muls := ctx.AST.AllMultiplicativeExpression()
 	resultType, err := compileMultiplicative(context.Child(ctx, muls[0]))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-	// Process remaining operands
 	for i := 1; i < len(muls); i++ {
-		// Compile next operand with the left operand's type as hint
 		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(resultType))
 		if err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
-		// Determine operator - check if it's + or -
-		// This is simplified - in practice would check token positions
 		op := "+"
 		if i <= len(ctx.AST.AllPLUS()) {
 			op = "+"
@@ -40,34 +35,25 @@ func compileBinaryAdditive(
 			op = "-"
 		}
 		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
-
 	}
-
 	return resultType, nil
 }
 
-// compileBinaryMultiplicative handles *, /, % operations
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
 	pows := ctx.AST.AllPowerExpression()
-	// Compile first operand
 	resultType, err := compilePower(context.Child(ctx, pows[0]))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Process remaining operands
 	for i := 1; i < len(pows); i++ {
-		// Compile next operand with the left operand's type as hint
 		_, err := compilePower(context.Child(ctx, pows[i]).WithHint(resultType))
 		if err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
-
-		// Determine operator - simplified logic
 		op := "*"
 		if i <= len(ctx.AST.AllSTAR()) {
 			op = "*"
@@ -76,33 +62,23 @@ func compileBinaryMultiplicative(
 		} else {
 			op = "%"
 		}
-
-		// Resolve and emit opcode
 		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
 	}
-
 	return resultType, nil
 }
 
-// compileBinaryRelational handles <, >, <=, >= operations
 func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
-
-	// Compile left operand
 	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Compile right operand with the left operand's type as hint
 	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(leftType))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Determine operator
 	var op string
 	if ctx.AST.LT(0) != nil {
 		op = "<"
@@ -113,45 +89,30 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	} else if ctx.AST.GEQ(0) != nil {
 		op = ">="
 	}
-
-	// Resolve and emit opcode
 	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Comparisons return u8 (boolean)
-	return types.U8{}, nil
+	return types.U8(), nil
 }
 
-// compileBinaryEquality handles == and != operations
 func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
-
-	// Compile left operand
 	leftType, err := compileRelational(context.Child(ctx, rels[0]))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Compile right operand with the left operand's type as hint
 	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(leftType))
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Determine operator
 	var op string
 	if ctx.AST.EQ(0) != nil {
 		op = "=="
 	} else if ctx.AST.NEQ(0) != nil {
 		op = "!="
 	}
-
-	// Resolve and emit opcode
 	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-
-	// Equality comparisons return u8 (boolean)
-	return types.U8{}, nil
+	return types.U8(), nil
 }

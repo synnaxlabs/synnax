@@ -69,20 +69,20 @@ var _ = Describe("Text", func() {
 			Expect(f.Inputs.Count()).To(Equal(2))
 			v, ok := f.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64{}))
+			Expect(v).To(Equal(types.I64()))
 			v, ok = f.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64{}))
+			Expect(v).To(Equal(types.I64()))
 
 			s := inter.Stages[0]
 			Expect(s.Key).To(Equal("adder"))
 			Expect(s.Inputs.Count()).To(Equal(2))
 			v, ok = s.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64{}))
+			Expect(v).To(Equal(types.I64()))
 			v, ok = s.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64{}))
+			Expect(v).To(Equal(types.I64()))
 
 			n1 := inter.Nodes[0]
 			Expect(n1.Key).To(Equal("adder_0"))

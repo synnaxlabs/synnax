@@ -138,7 +138,7 @@ var _ = Describe("Compiler", func() {
 				"sensor": {
 					Name: "sensor",
 					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: types.Chan{ValueType: types.I32()},
 				},
 			})
 
@@ -185,7 +185,7 @@ var _ = Describe("Compiler", func() {
 				"ox_pt_1": symbol.Symbol{
 					Name: "ox_pt_1",
 					Kind: symbol.KindChannel,
-					Type: types.Chan{ValueType: types.I32{}},
+					Type: types.Chan{ValueType: types.I32()},
 					ID:   12,
 				},
 				"print": symbol.Symbol{

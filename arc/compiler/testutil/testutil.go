@@ -23,7 +23,7 @@ import (
 
 func FunctionScope(ctx context.Context, t ir.Function) *symbol.Scope {
 	symbols := &symbol.Scope{}
-	s := MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32{}}))
+	s := MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32()}))
 	return MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }
 

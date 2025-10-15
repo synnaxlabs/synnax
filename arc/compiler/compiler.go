@@ -25,18 +25,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Compile generates a compiled WASM module from the provided IR.
-//
-// Compilation strategy for multi-output stages:
-//   - Stages/functions with single return types compile to WASM functions with return values
-//   - Stages/functions with named outputs compile to void WASM functions
-//   - Named outputs become local variables in the function body
-//   - Multi-output stages write to a reserved memory region:
-//     [base_addr + 0]: dirty_flags (i64 bitmap)
-//     [base_addr + 8]: output0 value
-//     [base_addr + 8 + sizeof(output0)]: output1 value
-//     ...
-//   - Each multi-output stage/function gets its own memory region
 func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {
@@ -44,19 +32,16 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	}
 	ctx := ccontext.CreateRoot(ctx_, program.Symbols, o.disableHostImports)
 
-	// Output memory counter - starts at 0x1000
 	outputMemoryCounter := uint32(0x1000)
 	hasMultiOutput := false
 	outputMemoryBases := make(map[string]uint32)
 
-	for _, i := range program.Stages {
+	for _, i := range program.Functions {
 		params := slices.Concat(i.Config.Values, i.Inputs.Values)
-		// Get return type - check for single ir.DefaultOutputParam vs multi-output
 		var returnType types.Type
 		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
 		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
 		if !hasNamedOutputs {
-			// Single output case
 			returnType, _ = i.Outputs.Get(ir.DefaultOutputParam)
 		}
 
@@ -64,9 +49,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 		if hasNamedOutputs {
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
-			// Track this stage's memory base
 			outputMemoryBases[i.Key] = outputMemoryBase
-			// Calculate size: 8 bytes for dirty flags + size of all outputs
 			size := uint32(8) // dirty flags
 			for _, outputType := range i.Outputs.Values {
 				size += wasm.SizeOf(outputType)
@@ -79,44 +62,11 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 		}
 	}
 
-	for _, i := range program.Functions {
-		// Get return type - check for single ir.DefaultOutputParam vs multi-output
-		var returnType types.Type
-		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
-		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
-		if !hasNamedOutputs {
-			// Single output case
-			returnType, _ = i.Outputs.Get(ir.DefaultOutputParam)
-		}
-
-		var outputMemoryBase uint32
-		if hasNamedOutputs {
-			hasMultiOutput = true
-			outputMemoryBase = outputMemoryCounter
-			// Track this function's memory base
-			outputMemoryBases[i.Key] = outputMemoryBase
-			// Calculate size: 8 bytes for dirty flags + size of all outputs
-			size := uint32(8) // dirty flags
-			for _, outputType := range i.Outputs.Values {
-				size += wasm.SizeOf(outputType)
-			}
-			outputMemoryCounter += size
-		}
-
-		if err := compileItem(ctx, i.Key, i.Body.AST, i.Inputs.Values, returnType, i.Outputs, outputMemoryBase); err != nil {
-			return Output{}, err
-		}
-	}
-
-	// Enable memory if we have multi-output stages/functions
 	if hasMultiOutput {
 		ctx.Module.EnableMemory()
 	}
 
-	return Output{
-		WASM:              ctx.Module.Generate(),
-		OutputMemoryBases: outputMemoryBases,
-	}, nil
+	return Output{WASM: ctx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
 }
 
 func compileItem(
@@ -137,32 +87,27 @@ func compileItem(
 		wasmParams = append(wasmParams, wasm.ConvertType(paramType))
 	}
 	var wasmResults []wasm.ValueType
-	if results != nil {
+	if results.IsValid() {
 		wasmResults = append(wasmResults, wasm.ConvertType(results))
 	}
 	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter()
-	// Set output information for multi-output stages/functions
 	ctx.Outputs = outputs
 	ctx.OutputMemoryBase = outputMemoryBase
 
 	funcT := wasm.FunctionType{Params: wasmParams, Results: wasmResults}
 	typeIdx := ctx.Module.AddType(funcT)
 
-	// Clear dirty flags at start of multi-output functions
 	if outputMemoryBase > 0 {
 		ctx.Writer.WriteI32Const(int32(outputMemoryBase))
 		ctx.Writer.WriteI64Const(0)
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	}
 
-	// Check if body is a block or expression and compile accordingly
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		// Traditional block-based function/stage
 		if err = statement.CompileBlock(ccontext.Child(ctx, blockCtx)); err != nil {
 			return errors.Wrapf(err, "failed to compile function '%s' body", ctx.Scope.Name)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		// Flow expression - compile expression and add return
 		if err = compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
 			return errors.Wrapf(err, "failed to compile expression '%s'", ctx.Scope.Name)
 		}
@@ -175,9 +120,7 @@ func compileItem(
 	return nil
 }
 
-// compileExpression compiles a flow expression (leaves result on stack)
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
-	// Compile the expression - this will leave the result on the stack
 	_, err := expression.Compile(ctx)
 	return err
 }
@@ -188,7 +131,6 @@ func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 		if child.Kind == symbol.KindVariable {
 			locals = append(locals, wasm.ConvertType(child.Type))
 		} else if child.Kind == symbol.KindOutput {
-			// Named outputs are treated as local variables in the function body
 			locals = append(locals, wasm.ConvertType(child.Type))
 		} else if child.Kind == symbol.KindBlock {
 			locals = append(locals, collectLocals(child)...)

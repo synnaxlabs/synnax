@@ -17,41 +17,38 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// compileUnary handles unary -, !, and blocking read operations
 func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
 		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
-		switch innerType.(type) {
-		case types.I8, types.I16, types.I32, types.U8, types.U16, types.U32:
+		switch innerType.Kind {
+		case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
 			ctx.Writer.WriteI32Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
-		case types.I64, types.U64:
+		case types.KindI64, types.KindU64:
 			ctx.Writer.WriteI64Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
-		case types.F32:
+		case types.KindF32:
 			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
-		case types.F64:
+		case types.KindF64:
 			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
 		default:
-			return nil, errors.Newf("cannot negate type %s", innerType)
+			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
 		}
-
 		return innerType, nil
 	}
 
 	if ctx.AST.NOT() != nil {
 		// Compile the inner expression
-		_, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
-		if err != nil {
-			return nil, err
+		if _, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression())); err != nil {
+			return types.Type{}, err
 		}
 		// Logical NOT expects a boolean (u8) and returns boolean
 		// Use i32.eqz to check if value is 0 (false becomes true, true becomes false)
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8{}, nil
+		return types.U8(), nil
 	}
 
 	if blockRead := ctx.AST.BlockingReadExpr(); blockRead != nil {
@@ -61,5 +58,5 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return compilePostfix(context.Child(ctx, postfix))
 	}
-	return nil, errors.New("unknown unary expression")
+	return types.Type{}, errors.New("unknown unary expression")
 }

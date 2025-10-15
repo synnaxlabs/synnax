@@ -31,11 +31,11 @@ var _ = Describe("Graph", func() {
 						Key: "add",
 						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64{}, types.I64{}},
+							Values: []types.Type{types.I64(), types.I64()},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64{}},
+							Values: []types.Type{types.I64()},
 						},
 						Body: types.Body{Raw: `{
 							return a + b
@@ -54,11 +54,11 @@ var _ = Describe("Graph", func() {
 						Key: "add",
 						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64{}, types.I64{}},
+							Values: []types.Type{types.I64(), types.I64()},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64{}},
+							Values: []types.Type{types.I64()},
 						},
 						Body: types.Body{Raw: `{
 							return a + b
@@ -79,11 +79,11 @@ var _ = Describe("Graph", func() {
 						Key: "add",
 						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64{}, types.I64{}},
+							Values: []types.Type{types.I64(), types.I64()},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64{}},
+							Values: []types.Type{types.I64()},
 						},
 						Body: types.Body{Raw: `{
 							return a + b
@@ -100,9 +100,9 @@ var _ = Describe("Graph", func() {
 			params := stageScope.FilterChildrenByKind(symbol.KindParam)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))
-			Expect(params[0].Type).To(Equal(types.I64{}))
+			Expect(params[0].Type).To(Equal(types.I64()))
 			Expect(params[1].Name).To(Equal("b"))
-			Expect(params[1].Type).To(Equal(types.I64{}))
+			Expect(params[1].Type).To(Equal(types.I64()))
 		})
 
 		It("Should correctly analyze a single function", func() {
@@ -112,11 +112,11 @@ var _ = Describe("Graph", func() {
 						Key: "add",
 						Params: types.Params{
 							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64{}, types.I64{}},
+							Values: []types.Type{types.I64(), types.I64()},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64{}},
+							Values: []types.Type{types.I64()},
 						},
 						Body: types.Body{Raw: `{
 							return a + b
@@ -133,9 +133,9 @@ var _ = Describe("Graph", func() {
 			params := funcScope.FilterChildrenByKind(symbol.KindParam)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))
-			Expect(params[0].Type).To(Equal(types.I64{}))
+			Expect(params[0].Type).To(Equal(types.I64()))
 			Expect(params[1].Name).To(Equal("b"))
-			Expect(params[1].Type).To(Equal(types.I64{}))
+			Expect(params[1].Type).To(Equal(types.I64()))
 		})
 
 		It("Should correctly analyze a complete program", func() {
@@ -149,7 +149,7 @@ var _ = Describe("Graph", func() {
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32{}},
+							Values: []types.Type{types.F32()},
 						},
 					},
 					{
@@ -157,7 +157,7 @@ var _ = Describe("Graph", func() {
 						Config: types.Params{},
 						Params: types.Params{
 							Keys:   []string{"input"},
-							Values: []types.Type{types.F32{}},
+							Values: []types.Type{types.F32()},
 						},
 					},
 				},
@@ -179,7 +179,7 @@ var _ = Describe("Graph", func() {
 			resolver := symbol.MapResolver{
 				"12": symbol.Symbol{
 					Name: "ox_pt_1",
-					Type: types.Chan{ValueType: types.F32{}},
+					Type: types.Chan{ValueType: types.F32()},
 					Kind: symbol.KindChannel,
 					ID:   12,
 				},
@@ -217,7 +217,7 @@ var _ = Describe("Graph", func() {
 							Key: "f32_source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 					},
@@ -253,14 +253,14 @@ var _ = Describe("Graph", func() {
 
 				// The adder node should have concrete F32 types resolved from edges
 				aType, _ := adderNode.Inputs.Get("a")
-				Expect(aType).To(Equal(types.F32{}))
+				Expect(aType).To(Equal(types.F32()))
 
 				bType, _ := adderNode.Inputs.Get("b")
-				Expect(bType).To(Equal(types.F32{}))
+				Expect(bType).To(Equal(types.F32()))
 
 				// Return type should also be concrete
 				returnType, _ := adderNode.Outputs.Get(ir.DefaultOutputParam)
-				Expect(returnType).To(Equal(types.F32{}))
+				Expect(returnType).To(Equal(types.F32()))
 			})
 
 			It("Should correctly infer types for polymorphic stages from I64 inputs", func() {
@@ -281,7 +281,7 @@ var _ = Describe("Graph", func() {
 							Key: "i64_source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I64{}},
+								Values: []types.Type{types.I64()},
 							},
 						},
 					},
@@ -309,13 +309,13 @@ var _ = Describe("Graph", func() {
 				multiplierNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "multiplier" })
 
 				xType, _ := multiplierNode.Inputs.Get("x")
-				Expect(xType).To(Equal(types.I64{}))
+				Expect(xType).To(Equal(types.I64()))
 
 				yType, _ := multiplierNode.Inputs.Get("y")
-				Expect(yType).To(Equal(types.I64{}))
+				Expect(yType).To(Equal(types.I64()))
 
 				returnType, _ := multiplierNode.Outputs.Get(ir.DefaultOutputParam)
-				Expect(returnType).To(Equal(types.I64{}))
+				Expect(returnType).To(Equal(types.I64()))
 			})
 
 			It("Should handle chained polymorphic stages", func() {
@@ -393,14 +393,14 @@ var _ = Describe("Graph", func() {
 							Key: "f32_source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 						{
 							Key: "i64_source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I64{}},
+								Values: []types.Type{types.I64()},
 							},
 						},
 						{
@@ -485,14 +485,14 @@ var _ = Describe("Graph", func() {
 							Key: "source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 						{
 							Key: "sink",
 							Params: types.Params{
 								Keys:   []string{"input"},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 					},
@@ -520,14 +520,14 @@ var _ = Describe("Graph", func() {
 							Key: "source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 						{
 							Key: "sink",
 							Params: types.Params{
 								Keys:   []string{"input"},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 					},
@@ -562,7 +562,7 @@ var _ = Describe("Graph", func() {
 							Key: "number_sink",
 							Params: types.Params{
 								Keys:   []string{"value"},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 					},
@@ -590,7 +590,7 @@ var _ = Describe("Graph", func() {
 							Key: "source",
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32{}},
+								Values: []types.Type{types.F32()},
 							},
 						},
 						{
@@ -732,7 +732,7 @@ var _ = Describe("Graph", func() {
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8{}},
+							Values: []types.Type{types.U8()},
 						},
 					},
 					{
@@ -754,11 +754,11 @@ var _ = Describe("Graph", func() {
 						Key: "select",
 						Params: types.Params{
 							Keys:   []string{"input", "false", "true"},
-							Values: []types.Type{types.U8{}, types.U8{}, types.U8{}},
+							Values: []types.Type{types.U8(), types.U8(), types.U8()},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8{}},
+							Values: []types.Type{types.U8()},
 						},
 					},
 					{
@@ -769,7 +769,7 @@ var _ = Describe("Graph", func() {
 						},
 						Params: types.Params{
 							Keys:   []string{"input"},
-							Values: []types.Type{types.U8{}},
+							Values: []types.Type{types.U8()},
 						},
 					},
 				}
@@ -841,9 +841,9 @@ var _ = Describe("Graph", func() {
 				// (since it receives U8 from "ge" comparison result)
 				stableIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "stable_for" })
 				inputType, _ := stableIRNode.Inputs.Get("input")
-				Expect(inputType).To(Equal(types.U8{}))
+				Expect(inputType).To(Equal(types.U8()))
 				stableReturnType, _ := stableIRNode.Outputs.Get(ir.DefaultOutputParam)
-				Expect(stableReturnType).To(Equal(types.U8{}))
+				Expect(stableReturnType).To(Equal(types.U8()))
 			})
 		})
 	})

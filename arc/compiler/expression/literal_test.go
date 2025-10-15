@@ -23,7 +23,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"integer literals as i64",
 			"42",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(42),
 		),
@@ -31,7 +31,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"zero",
 			"0",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(0),
 		),
@@ -39,7 +39,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"large integers",
 			"1000000",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(1000000),
 		),
@@ -81,7 +81,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"parenthesized integer",
 			"(42)",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(42),
 		),
@@ -89,7 +89,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"nested parentheses",
 			"((42))",
-			types.I64{},
+			types.I64(),
 			OpI64Const,
 			int64(42),
 		),
