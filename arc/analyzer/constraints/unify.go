@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Unify solves all constraints in the system and produces type substitutions
 func (s *System) Unify() error {
 	for _, c := range s.constraints {
 		if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
@@ -101,7 +100,6 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		return nil
 	}
 
-	// Check if the type satisfies the variable's constraint
 	if tv.Constraint != nil {
 		if tv.Constraint.Kind == types.KindNumericConstant {
 			if !other.IsNumeric() {
@@ -139,7 +137,6 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 	return nil
 }
 
-// occursIn checks if a type variable occurs in another type (prevents infinite types)
 func occursIn(lhs, rhs types.Type) bool {
 	if rhs.Kind == types.KindTypeVariable {
 		return lhs.Name == rhs.Name
@@ -150,7 +147,6 @@ func occursIn(lhs, rhs types.Type) bool {
 	return false
 }
 
-// defaultTypeForConstraint returns a default concrete type for a constraint
 func defaultTypeForConstraint(constraint types.Type) types.Type {
 	if constraint.Kind == types.KindNumericConstant {
 		return types.F64()

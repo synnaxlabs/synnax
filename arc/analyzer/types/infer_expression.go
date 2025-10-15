@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// InferFromExpression infers the type of an expression with access to the symbol table
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return InferLogicalOr(context.Child(ctx, logicalOr))

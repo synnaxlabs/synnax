@@ -18,10 +18,7 @@ import (
 
 var _ = Describe("Constraint System", func() {
 	var system *constraints.System
-
-	BeforeEach(func() {
-		system = constraints.New()
-	})
+	BeforeEach(func() { system = constraints.New() })
 
 	Describe("Basic Constraint Collection", func() {
 		It("should track type variables", func() {
@@ -63,19 +60,16 @@ var _ = Describe("Constraint System", func() {
 		It("should apply substitutions recursively", func() {
 			tv1 := types.NewTypeVariable("T", nil)
 			tv2 := types.NewTypeVariable("U", nil)
-
 			system.SetSubstitution("T", tv2)
 			system.SetSubstitution("U", types.I64())
-			result := system.ApplySubstitutions(tv1)
-			Expect(result).To(Equal(types.I64()))
+			Expect(system.ApplySubstitutions(tv1)).To(Equal(types.I64()))
 		})
 
 		It("should apply substitutions in compound types", func() {
 			tv := types.NewTypeVariable("T", nil)
 			chanType := types.Chan(tv)
 			system.SetSubstitution("T", types.F64())
-			result := system.ApplySubstitutions(chanType)
-			Expect(result).To(Equal(types.Chan(types.F64())))
+			Expect(system.ApplySubstitutions(chanType)).To(Equal(types.Chan(types.F64())))
 		})
 
 		It("should apply substitutions in series types", func() {
@@ -83,8 +77,7 @@ var _ = Describe("Constraint System", func() {
 			tv := types.NewTypeVariable("T", &constraint)
 			seriesType := types.Series(tv)
 			system.SetSubstitution("T", types.I32())
-			result := system.ApplySubstitutions(seriesType)
-			Expect(result).To(Equal(types.Series(types.I32())))
+			Expect(system.ApplySubstitutions(seriesType)).To(Equal(types.Series(types.I32())))
 		})
 	})
 })

@@ -14,12 +14,12 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
-	types2 "github.com/synnaxlabs/arc/types"
+	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-func isBool(t types2.Type) bool    { return t.IsBool() }
-func isNumeric(t types2.Type) bool { return t.IsNumeric() }
+func isBool(t basetypes.Type) bool    { return t.IsBool() }
+func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
 
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
@@ -97,8 +97,8 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
-	infer func(ctx context.Context[T]) types2.Type,
-	check func(t types2.Type) bool,
+	infer func(ctx context.Context[T]) basetypes.Type,
+	check func(t basetypes.Type) bool,
 ) bool {
 	if len(items) <= 1 {
 		return true
@@ -137,7 +137,7 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) b
 		logicalAnds,
 		getLogicalOrOperator,
 		types.InferLogicalAnd,
-		func(t types2.Type) bool { return t.IsBool() },
+		func(t basetypes.Type) bool { return t.IsBool() },
 	)
 }
 

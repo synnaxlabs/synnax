@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -27,9 +28,8 @@ var _ = Describe("Statement", func() {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := 42`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
-				sym, err := ctx.Scope.Resolve(ctx, "x")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.I32{}))
+				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+				Expect(sym.Type).To(Equal(types.I32()))
 			})
 
 			It("Should infer type from initializer", func() {
@@ -37,9 +37,8 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				sym, err := ctx.Scope.Resolve(ctx, "x")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.F64{}))
+				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+				Expect(sym.Type).To(Equal(types.F64()))
 			})
 
 			It("Should detect type mismatch", func() {
@@ -76,10 +75,9 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				sym, err := ctx.Scope.Resolve(ctx, "counter")
-				Expect(err).ToNot(HaveOccurred())
+				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
 				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
-				Expect(sym.Type).To(Equal(types.I64{}))
+				Expect(sym.Type).To(Equal(types.I64()))
 			})
 
 			It("Should analyze stateful variable with explicit type", func() {
@@ -87,9 +85,8 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-				sym, err := ctx.Scope.Resolve(ctx, "total")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Type).To(Equal(types.F32{}))
+				sym := MustSucceed(ctx.Scope.Resolve(ctx, "total"))
+				Expect(sym.Type).To(Equal(types.F32()))
 			})
 		})
 	})
@@ -98,9 +95,12 @@ var _ = Describe("Statement", func() {
 		It("Should analyze assignment to existing variable", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = 42`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
-			_, _ = ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
-			ok := statement.Analyze(ctx)
-			Expect(ok).To(BeTrue())
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.I64(),
+			}))
+			Expect(statement.Analyze(ctx)).To(BeTrue())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
@@ -115,7 +115,11 @@ var _ = Describe("Statement", func() {
 		It("Should detect type mismatch in assignment", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = "hello"`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.I32(),
+			}))
 			Expect(statement.Analyze(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
@@ -207,14 +211,17 @@ var _ = Describe("Statement", func() {
 		It("Should analyze standalone expression", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
-			_, _ = ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.I64(),
+			}))
 			Expect(statement.Analyze(ctx)).To(BeTrue())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
 		It("Should detect errors in standalone expression", func() {
 			stmt := MustSucceed(parser.ParseStatement(`undefined_var + 1`))
-
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			Expect(statement.Analyze(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -226,10 +233,26 @@ var _ = Describe("Statement", func() {
 
 		BeforeEach(func() {
 			channelResolver = symbol.MapResolver{
-				"sensor":              symbol.Symbol{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan{ValueType: types.F64{}}},
-				ir.DefaultOutputParam: symbol.Symbol{Kind: symbol.KindChannel, Name: ir.DefaultOutputParam, Type: types.Chan{ValueType: types.F64{}}},
-				"int_chan":            symbol.Symbol{Kind: symbol.KindChannel, Name: "int_chan", Type: types.Chan{ValueType: types.I32{}}},
-				"string_chan":         symbol.Symbol{Kind: symbol.KindChannel, Name: "string_chan", Type: types.Chan{ValueType: types.String{}}},
+				"sensor": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F64()),
+				},
+				ir.DefaultOutputParam: symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: ir.DefaultOutputParam,
+					Type: types.Chan(types.F64()),
+				},
+				"int_chan": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "int_chan",
+					Type: types.Chan(types.I32()),
+				},
+				"string_chan": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "string_chan",
+					Type: types.Chan(types.String()),
+				},
 			}
 		})
 
@@ -259,7 +282,11 @@ var _ = Describe("Statement", func() {
 			It("Should analyze channel write with variable", func() {
 				stmt := MustSucceed(parser.ParseStatement(`value -> output`))
 				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
-				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.F64{}}))
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "value",
+					Kind: symbol.KindVariable,
+					Type: types.F64(),
+				}))
 				Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 			})
@@ -267,8 +294,7 @@ var _ = Describe("Statement", func() {
 			It("Should detect undefined channel in write", func() {
 				stmt := MustSucceed(parser.ParseStatement(`42.0 -> undefined_channel`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
-				ok := statement.Analyze(ctx)
-				Expect(ok).To(BeFalse())
+				Expect(statement.Analyze(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_channel"))
 			})
@@ -280,11 +306,8 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
 				Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-
-				// Verify the variable has the correct type
-				varScope, err := ctx.Scope.Resolve(ctx, "value")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(varScope.Type).To(Equal(types.F64{}))
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "value"))
+				Expect(varScope.Type).To(Equal(types.F64()))
 			})
 
 			It("Should analyze non-blocking channel read", func() {
@@ -292,18 +315,14 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
 				Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
-
-				// Verify the variable has the correct type
-				varScope, err := ctx.Scope.Resolve(ctx, "current")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(varScope.Type).To(Equal(types.F64{}))
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
+				Expect(varScope.Type).To(Equal(types.F64()))
 			})
 
 			It("Should detect undefined channel in read", func() {
 				stmt := MustSucceed(parser.ParseStatement(`value := <-undefined_channel`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
-				ok := statement.Analyze(ctx)
-				Expect(ok).To(BeFalse())
+				Expect(statement.Analyze(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined"))
 			})
@@ -321,10 +340,8 @@ var _ = Describe("Statement", func() {
 					z = z * 2
 				}
 			}`))
-
 			ctx := context.CreateRoot(bCtx, stmt, nil)
-			ok := statement.Analyze(ctx)
-			Expect(ok).To(BeTrue())
+			Expect(statement.Analyze(ctx)).To(BeTrue())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
@@ -334,7 +351,6 @@ var _ = Describe("Statement", func() {
 				y := x
 				z := y + 5
 			}`))
-
 			ctx := context.CreateRoot(bCtx, block, nil)
 			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
@@ -345,7 +361,6 @@ var _ = Describe("Statement", func() {
 				x i32 := 10
 				y f32 := x
 			}`))
-
 			ctx := context.CreateRoot(bCtx, block, nil)
 			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))

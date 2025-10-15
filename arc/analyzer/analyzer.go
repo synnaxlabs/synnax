@@ -95,7 +95,6 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	// Analyze optional config block
 	if !analyzeConfig(ctx, ctx.AST.ConfigBlock(), fn, fn.Type.Config) {
 		return false
 	}
@@ -124,7 +123,6 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 			ctx.Diagnostics.AddError(errors.Newf("function '%s' must return a value of type %s on all paths", name, outputType), ctx.AST)
 			return false
 		}
-		// Check multi-output assignments
 		for outputName := range fn.Type.Outputs.Iter() {
 			if outputName != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, outputName) {
 				ctx.Diagnostics.AddWarning(errors.Newf("output '%s' is never assigned in function '%s'", outputName, name), ctx.AST)

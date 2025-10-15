@@ -85,7 +85,6 @@ func parseStageInvocation(ctx context.Context[parser.IStageInvocationContext], p
 		if stageType.Type.Inputs.Count() > 0 {
 			_, paramType := stageType.Type.Inputs.At(0)
 			chanType := types2.Chan(channelSym.Type)
-			// Create constraint between channel value type and parameter type
 			if err := types.Check(
 				ctx.Constraints,
 				*chanType.ValueType,
@@ -277,13 +276,11 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 
 	tables := flowStmt.AllRoutingTable()
 
-	// Since there should only be one routing table per flow statement, check if this is it
 	if len(tables) != 1 || tables[0] != ctx.AST {
 		ctx.Diagnostics.AddError(errors.New("unexpected routing table configuration"), ctx.AST)
 		return false
 	}
 
-	// Separate flow nodes into before and after the routing table
 	var nodesBefore, nodesAfter []parser.IFlowNodeContext
 	foundRoutingTable := false
 
@@ -301,12 +298,9 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 		}
 	}
 
-	// Determine if this is input or output routing
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
-		// Routing table comes first - this is INPUT routing
 		return analyzeInputRoutingTable(ctx, nodesAfter)
 	} else if len(nodesBefore) > 0 {
-		// Routing table comes after - this is OUTPUT routing
 		return analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
 	} else {
 		ctx.Diagnostics.AddError(errors.New("routing table must have associated flow nodes"), ctx.AST)
@@ -344,7 +338,6 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		return false
 	}
 
-	// Find the next stage after the routing table (if exists)
 	var (
 		nextStage     parser.IStageInvocationContext
 		nextStageType types2.Type
@@ -365,7 +358,6 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.IDENTIFIER(0).GetText()
 
-		// Verify the output exists in the stage
 		outputType, exists := stageType.Type.Outputs.Get(outputName)
 		if !exists {
 			ctx.Diagnostics.AddError(
@@ -375,12 +367,10 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 			return false
 		}
 
-		// Check if there's a trailing parameter name
 		var targetParamName string
 		if len(entry.AllIDENTIFIER()) > 1 {
 			targetParamName = entry.IDENTIFIER(1).GetText()
 
-			// Verify the next stage exists and has this parameter
 			if nextStage == nil {
 				ctx.Diagnostics.AddError(
 					errors.New("parameter mapping requires a stage after the routing table"),
@@ -420,7 +410,6 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 }
 
 func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodes []parser.IFlowNodeContext) bool {
-	// Find the first stage invocation in the flow nodes (the stage after routing table)
 	var nextStage parser.IStageInvocationContext
 	for i := 0; i < len(nodes); i++ {
 		if stageInv := nodes[i].StageInvocation(); stageInv != nil {
@@ -440,8 +429,6 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		return false
 	}
 
-	// Analyze each routing entry
-	// Format: source -> processing... -> parameterName
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		flowNodes := entry.AllFlowNode()
 		if len(flowNodes) == 0 {
@@ -449,7 +436,6 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 			return false
 		}
 
-		// The LAST flow node should be a channel identifier representing the parameter name
 		lastNode := flowNodes[len(flowNodes)-1]
 		if lastNode.ChannelIdentifier() == nil {
 			ctx.Diagnostics.AddError(
@@ -461,7 +447,6 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 
 		paramName := lastNode.ChannelIdentifier().IDENTIFIER().GetText()
 
-		// Verify the parameter exists in the stage
 		paramType, exists := stageType.Type.Inputs.Get(paramName)
 		if !exists {
 			ctx.Diagnostics.AddError(
@@ -476,7 +461,6 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		// TODO: Implement full type checking for the flow chain
 		_ = paramType
 
-		// Analyze intermediate processing nodes
 		for i := 0; i < len(flowNodes)-1; i++ {
 			if !analyzeNode(context.Child(ctx, flowNodes[i]), nil) {
 				return false
@@ -501,7 +485,13 @@ func analyzeRoutingTargetWithParam(
 			return false
 		}
 
-		if _, ok := validateStageConfig(ctx, stageName, stageType.Type, stageInv.ConfigValues(), stageInv); !ok {
+		if _, ok := validateStageConfig(
+			ctx,
+			stageName,
+			stageType.Type,
+			stageInv.ConfigValues(),
+			stageInv,
+		); !ok {
 			return false
 		}
 
@@ -562,7 +552,7 @@ func analyzeRoutingTargetWithParam(
 		}
 
 		valueType := channelSym.Type.ValueType
-		if err := types.Check(
+		if err = types.Check(
 			ctx.Constraints,
 			sourceType,
 			*valueType,

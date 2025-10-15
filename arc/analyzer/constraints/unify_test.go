@@ -19,10 +19,7 @@ import (
 
 var _ = Describe("Type Unification", func() {
 	var system *constraints.System
-
-	BeforeEach(func() {
-		system = constraints.New()
-	})
+	BeforeEach(func() { system = constraints.New() })
 
 	Describe("Simple Unification", func() {
 		It("should unify type variable with concrete type", func() {
@@ -137,26 +134,52 @@ var _ = Describe("Type Unification", func() {
 		Describe("Complex Scenarios", func() {
 			It("should handle multiple interconnected type variables", func() {
 				// sensor -> multiply{factor: 2.0} -> add{a, b} <- constant{}
-				constraint := types.NumericConstraint()
-				multiplyInput := types.NewTypeVariable("T1", &constraint)
-				multiplyOutput := types.NewTypeVariable("T1", &constraint)
-
-				addParamA := types.NewTypeVariable("T2", &constraint)
-				addParamB := types.NewTypeVariable("T2", &constraint)
-				addOutput := types.NewTypeVariable("T2", &constraint)
-
-				constantOutput := types.NewTypeVariable("T3", &constraint)
-
-				system.AddEquality(types.F32(), multiplyInput, nil, "sensor(f32) -> multiply")
-				system.AddEquality(multiplyOutput, addParamA, nil, "multiply -> add.a")
-				system.AddEquality(constantOutput, addParamB, nil, "constant -> add.b")
-
-				system.AddEquality(multiplyInput, multiplyOutput, nil, "multiply preserves type")
-				system.AddEquality(addParamA, addParamB, nil, "add params must match")
-				system.AddEquality(addParamA, addOutput, nil, "add output matches params")
-
+				var (
+					constraint     = types.NumericConstraint()
+					multiplyInput  = types.NewTypeVariable("T1", &constraint)
+					multiplyOutput = types.NewTypeVariable("T1", &constraint)
+					addParamA      = types.NewTypeVariable("T2", &constraint)
+					addParamB      = types.NewTypeVariable("T2", &constraint)
+					addOutput      = types.NewTypeVariable("T2", &constraint)
+					constantOutput = types.NewTypeVariable("T3", &constraint)
+				)
+				system.AddEquality(
+					types.F32(),
+					multiplyInput,
+					nil,
+					"sensor(f32) -> multiply",
+				)
+				system.AddEquality(
+					multiplyOutput,
+					addParamA,
+					nil,
+					"multiply -> add.a",
+				)
+				system.AddEquality(
+					constantOutput,
+					addParamB,
+					nil,
+					"constant -> add.b",
+				)
+				system.AddEquality(
+					multiplyInput,
+					multiplyOutput,
+					nil,
+					"multiply preserves type",
+				)
+				system.AddEquality(
+					addParamA,
+					addParamB,
+					nil,
+					"add params must match",
+				)
+				system.AddEquality(
+					addParamA,
+					addOutput,
+					nil,
+					"add output matches params",
+				)
 				Expect(system.Unify()).To(Succeed())
-
 				Expect(system.ApplySubstitutions(multiplyInput)).To(Equal(types.F32()))
 				Expect(system.ApplySubstitutions(multiplyOutput)).To(Equal(types.F32()))
 				Expect(system.ApplySubstitutions(addParamA)).To(Equal(types.F32()))
@@ -172,10 +195,8 @@ var _ = Describe("Type Unification", func() {
 				seriesI32 := types.Series(types.I32())
 				system.AddEquality(seriesTV, seriesI32, nil, "series T = series i32")
 				Expect(system.Unify()).To(Succeed())
-				substitution := MustBeOk(system.GetSubstitution("T"))
-				Expect(substitution).To(Equal(types.I32()))
-				resolved := system.ApplySubstitutions(seriesTV)
-				Expect(resolved).To(Equal(seriesI32))
+				Expect(MustBeOk(system.GetSubstitution("T"))).To(Equal(types.I32()))
+				Expect(system.ApplySubstitutions(seriesTV)).To(Equal(seriesI32))
 			})
 		})
 	})

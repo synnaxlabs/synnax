@@ -22,7 +22,6 @@ import (
 )
 
 var _ = Describe("Expression Stage Conversion", func() {
-	// Create a resolver with some test channels
 	testResolver := symbol.MapResolver{
 		"temp_sensor": symbol.Symbol{
 			Name: "temp_sensor",
@@ -159,9 +158,6 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
-			// May have warnings about type mismatches, but should still create tasks
-			// Check that multiple synthetic tasks were created
 			stage0 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			stage1 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_1"))
 			stage2 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_2"))
@@ -178,7 +174,6 @@ var _ = Describe("Expression Stage Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 			synthStage := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthStage).ToNot(BeNil())
 		})

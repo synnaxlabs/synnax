@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// InferFromTypeContext infers a types.Type from a parser type context
 func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if ctx == nil {
 		return types.Type{}, nil
