@@ -12,8 +12,6 @@ package wasm
 import (
 	"context"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	node2 "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
@@ -25,29 +23,26 @@ type factory struct {
 	wasm api.Module
 }
 
-func (w *factory) Create(ctx context.Context, cfg node2.Config) (node2.Node, error) {
-	stage, ok := cfg.Module.GetStage(cfg.Node.Type)
+func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error) {
+	irFn, ok := cfg.Module.Functions.Find(cfg.Node.Type)
 	if !ok {
 		return nil, query.NotFound
 	}
-	fn := w.wasm.ExportedFunction(cfg.Node.Type)
-	return &node{
+	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
+	n := &node{
 		ir: cfg.Node,
 		wasm: WrapFunction(
-			fn,
+			wasmFn,
 			w.wasm.Memory(),
-			stage.Outputs,
+			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		inputs: lo.Filter(cfg.Module.Edges, func(item ir.Edge, index int) bool {
-			return item.Target.Node == cfg.Node.Key
-		}),
-		outputs: lo.Filter(cfg.Module.Edges, func(item ir.Edge, index int) bool {
-			return item.Source.Node == cfg.Node.Key
-		}),
 		state:  cfg.State,
-		params: make([]uint64, len(stage.Outputs.Keys)),
-	}, nil
+		inputs: make([]uint64, len(irFn.Outputs.Keys)),
+	}
+	n.edges.input = cfg.Module.Edges.GetInputs(cfg.Node.Key)
+	n.edges.output = cfg.Module.Edges.GetOutputs(cfg.Node.Key)
+	return n, nil
 }
 
 type FactoryConfig struct {

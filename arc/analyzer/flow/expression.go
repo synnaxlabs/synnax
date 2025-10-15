@@ -25,7 +25,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	if exprType.Kind == types.KindChan {
 		exprType = *exprType.ValueType
 	}
-	t := types.EmptyFunction()
+	t := types.Function(types.FunctionProperties{})
 	t.Outputs.Put(ir.DefaultOutputParam, exprType)
 	stageScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Name: "",

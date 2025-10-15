@@ -136,22 +136,22 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 		return types.Series(freshValue)
 	}
 
+	props := types.FunctionProperties{
+		Inputs:  &types.Params{},
+		Outputs: &types.Params{},
+		Config:  &types.Params{},
+	}
 	if t.Kind == types.KindFunction {
-		newInputs := &types.Params{}
 		for k, v := range t.Inputs.Iter() {
-			newInputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
+			props.Inputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
-		newOutputs := &types.Params{}
 		for k, v := range t.Outputs.Iter() {
-			newOutputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
+			props.Outputs.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
-		newConfig := &types.Params{}
-		if t.Config != nil {
-			for k, v := range t.Config.Iter() {
-				newConfig.Put(k, s.applySubstitutionsWithVisited(v, visited))
-			}
+		for k, v := range t.Config.Iter() {
+			props.Config.Put(k, s.applySubstitutionsWithVisited(v, visited))
 		}
-		return types.Function(*newInputs, *newOutputs, *newConfig)
+		return types.Function(props)
 	}
 	return t
 }

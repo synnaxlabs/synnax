@@ -28,11 +28,16 @@ var (
 	sym        = symbol.Symbol{
 		Name: symName,
 		Kind: symbol.KindFunction,
-		Type: types.Function(
-			types.Params{},
-			types.Params{Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{typeVar}},
-			types.Params{Keys: []string{"value"}, Values: []types.Type{typeVar}},
-		),
+		Type: types.Function(types.FunctionProperties{
+			Outputs: &types.Params{
+				Keys:   []string{ir.DefaultOutputParam},
+				Values: []types.Type{typeVar},
+			},
+			Config: &types.Params{
+				Keys:   []string{"value"},
+				Values: []types.Type{typeVar},
+			},
+		}),
 	}
 	SymbolResolver = symbol.MapResolver{symName: sym}
 )

@@ -20,26 +20,24 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/maps"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func NewMockPolymorphicResolver() symbol.Resolver {
-	simpleParams := &maps.Ordered[string, types.Type]{}
+	simpleInputs := &types.Params{}
 	constraint := types.NumericConstraint()
-	simpleParams.Put("a", types.NewTypeVariable("T", &constraint))
+	simpleInputs.Put("a", types.NewTypeVariable("T", &constraint))
 	return &symbol.MapResolver{
 		"simple": {
 			Name: "simple",
 			Kind: symbol.KindFunction,
-			Type: types.Function(
-				*simpleParams,
-				types.Params{
+			Type: types.Function(types.FunctionProperties{
+				Inputs: simpleInputs,
+				Outputs: &types.Params{
 					Keys:   []string{ir.DefaultOutputParam},
 					Values: []types.Type{types.NewTypeVariable("T", &constraint)},
 				},
-				types.Params{},
-			),
+			}),
 		},
 		"sensor_f32": {
 			Name: "sensor_f32",

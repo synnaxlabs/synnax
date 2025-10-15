@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Type Inference", func() {
 	var (
-		bCtx context.Context
+		bCtx         context.Context
 		testResolver symbol.MapResolver
 	)
 

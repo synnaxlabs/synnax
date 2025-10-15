@@ -18,12 +18,13 @@ import (
 )
 
 type node struct {
-	ir             ir.Node
-	wasm           *Function
-	inputs         []ir.Edge
-	outputs        []ir.Edge
+	ir    ir.Node
+	wasm  *Function
+	edges struct {
+		input, output []ir.Edge
+	}
 	state          *state.State
-	params         []uint64
+	inputs         []uint64
 	changedOutputs []string
 }
 
@@ -32,7 +33,7 @@ func (n *node) Init(context.Context, func(output string)) {}
 func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	var maxLength int64
 	var maxLengthInput ir.Edge
-	for _, o := range n.inputs {
+	for _, o := range n.edges.input {
 		if oLen := n.state.Outputs[o.Source].Data.Len(); oLen > maxLength {
 			maxLength = oLen
 			maxLengthInput = o
@@ -45,11 +46,12 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	}
 
 	for i := range maxLength {
-		for inputIdx, o := range n.inputs {
-			n.params[inputIdx] = valueAt(n.state.Outputs[o.Source].Data, int(i))
+		for inputIdx, o := range n.edges.input {
+			n.inputs[inputIdx] = valueAt(n.state.Outputs[o.Source].Data, int(i))
 		}
-		res, err := n.wasm.Call(ctx, n.Inputs...)
+		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
+			panic(err)
 		}
 		for param, value := range res {
 			outputHandle := ir.Handle{Param: param, Node: n.ir.Key}

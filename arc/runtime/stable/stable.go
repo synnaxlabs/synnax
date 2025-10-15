@@ -25,21 +25,21 @@ var (
 	symbolName = "stable_for"
 	symbol     = symbol2.Symbol{
 		Name: symbolName,
-		Kind: symbol2.KindStage,
-		Type: ir.Stage{
-			Config: types.Params{
+		Kind: symbol2.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Config: &types.Params{
 				Keys:   []string{"duration"},
-				Values: []types.Type{types.TimeSpan{}},
+				Values: []types.Type{types.TimeSpan()},
 			},
-			Params: types.Params{
+			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam},
 				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-			Outputs: types.Params{
+			Outputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
 				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-		},
+		}),
 	}
 	SymbolResolver = symbol2.MapResolver{symbolName: symbol}
 )
@@ -58,7 +58,7 @@ type stableFor struct {
 func (s *stableFor) Init(context.Context, func(string)) {}
 
 func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.Inputs.Source]
+	inputSeries := s.state.Outputs[s.input.Source]
 	if inputSeries.Data.Len() == 0 {
 		return
 	}
@@ -125,7 +125,7 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 		duration = telem.TimeSpan(0)
 	}
 
-	inputEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{
+	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
 		Node:  cfg.Node.Key,
 		Param: ir.DefaultInputParam,
 	})

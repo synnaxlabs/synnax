@@ -48,7 +48,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	return arc.Symbol{
 		Name: name,
 		Kind: symbol.KindChannel,
-		Type: types.Chan{ValueType: types.TypeFromTelem(ch.DataType)},
+		Type: types.Chan{ValueType: types.FromTelem(ch.DataType)},
 		ID:   int(ch.Key()),
 	}, nil
 }

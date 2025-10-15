@@ -54,7 +54,7 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
 				Kind: symbol.KindFunction,
-				Type: types.EmptyFunction(),
+				Type: types.Function(types.FunctionProperties{}),
 				AST:  fn,
 			}); err != nil {
 				ctx.Diagnostics.AddError(err, fn)

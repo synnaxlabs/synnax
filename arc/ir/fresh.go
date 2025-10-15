@@ -30,10 +30,8 @@ func FreshType(t types.Type, prefix string) types.Type {
 	}
 	if t.Kind == types.KindFunction {
 		return types.Type{
-			Kind:    types.KindFunction,
-			Inputs:  t.Inputs.Copy(),
-			Outputs: t.Outputs.Copy(),
-			Config:  t.Config.Copy(),
+			Kind:               types.KindFunction,
+			FunctionProperties: t.FunctionProperties.Copy(),
 		}
 	}
 	return t

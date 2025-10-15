@@ -27,16 +27,16 @@ var (
 	symbolSelect   = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
-		Type: ir.Stage{
-			Params: types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
 				Values: []types.Type{types.U8()},
 			},
-			Outputs: types.Params{
+			Outputs: &types.Params{
 				Keys:   []string{"true", "false"},
 				Values: []types.Type{types.U8(), types.U8()},
 			},
-		},
+		}),
 	}
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
@@ -49,8 +49,8 @@ type selectNode struct {
 
 func (s *selectNode) Init(context.Context, func(string)) {}
 
-func (s *selectNode) Next(ctx context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.Inputs.Source]
+func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
+	inputSeries := s.state.Outputs[s.input.Source]
 	if inputSeries.Data.Len() == 0 {
 		return
 	}
@@ -105,7 +105,7 @@ func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-	inputEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{
+	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
 		Node:  cfg.Node.Key,
 		Param: ir.DefaultOutputParam,
 	})

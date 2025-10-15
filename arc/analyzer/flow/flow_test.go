@@ -26,24 +26,22 @@ var resolver = symbol.MapResolver{
 	"on": symbol.Symbol{
 		Name: "on",
 		Kind: symbol.KindFunction,
-		Type: types.Function(
-			types.Params{},
-			types.Params{},
-			types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Config: &types.Params{
 				Keys:   []string{"channel"},
 				Values: []types.Type{types.String()},
 			},
-		),
+		}),
 	},
 	"once": symbol.Symbol{
 		Name: "once",
 		Kind: symbol.KindFunction,
-		Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
+		Type: types.Function(types.FunctionProperties{}),
 	},
 	"processor": symbol.Symbol{
 		Name: "processor",
 		Kind: symbol.KindFunction,
-		Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
+		Type: types.Function(types.FunctionProperties{}),
 	},
 	"sensor_chan": symbol.Symbol{
 		Name: "sensor_chan",

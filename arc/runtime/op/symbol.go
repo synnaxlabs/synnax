@@ -16,19 +16,20 @@ import (
 )
 
 func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
+	constraint := types.NumericConstraint()
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
-		Type: ir.Stage{
-			Params: types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Inputs: &types.Params{
 				Keys: []string{ir.LHSInputParam, ir.RHSInputParam},
 				Values: []types.Type{
-					types.NewTypeVariable("T", types.NumericConstraint{}),
-					types.NewTypeVariable("T", types.NumericConstraint{}),
+					types.NewTypeVariable("T", &constraint),
+					types.NewTypeVariable("T", &constraint),
 				},
 			},
-			Outputs: outputs,
-		},
+			Outputs: &outputs,
+		}),
 	}
 }
 
@@ -43,12 +44,13 @@ func createComparisonSymbol(name string) symbol.Symbol {
 }
 
 func createArithmeticSymbol(name string) symbol.Symbol {
+	constraint := types.NumericConstraint()
 	return createBinaryOpSymbol(
 		name,
 		types.Params{
 			Keys: []string{ir.DefaultOutputParam},
 			Values: []types.Type{
-				types.NewTypeVariable("T", types.NumericConstraint{}),
+				types.NewTypeVariable("T", &constraint),
 			},
 		},
 	)

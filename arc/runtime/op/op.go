@@ -54,8 +54,8 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	if !ok {
 		return nil, query.NotFound
 	}
-	lhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.LHSInputParam})
-	rhsEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.RHSInputParam})
+	lhsEdge := cfg.Module.Edges.GetByTarget(ir.Handle{Node: cfg.Node.Key, Param: ir.LHSInputParam})
+	rhsEdge := cfg.Module.Edges.GetByTarget(ir.Handle{Node: cfg.Node.Key, Param: ir.RHSInputParam})
 	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	seriesA := cfg.State.Outputs[lhsEdge.Source]
 	comp := opCat[seriesA.Data.DataType]

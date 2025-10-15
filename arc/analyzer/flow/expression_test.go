@@ -50,43 +50,37 @@ var _ = Describe("Expression func Conversion", func() {
 		"alarm": symbol.Symbol{
 			Name: "alarm",
 			Kind: symbol.KindFunction,
-			Type: types.Function(
-				types.Params{
-					Keys:   []string{"input"},
+			Type: types.Function(types.FunctionProperties{
+				Inputs: &types.Params{
+					Keys:   []string{ir.DefaultInputParam},
 					Values: []types.Type{types.U8()},
 				},
-				types.Params{},
-				types.Params{},
-			),
+			}),
 		},
 		"logger": symbol.Symbol{
 			Name: "logger",
 			Kind: symbol.KindFunction,
-			Type: types.Function(
-				types.Params{
-					Keys:   []string{"input"},
+			Type: types.Function(types.FunctionProperties{
+				Inputs: &types.Params{
+					Keys:   []string{ir.DefaultInputParam},
 					Values: []types.Type{types.U8()},
 				},
-				types.Params{},
-				types.Params{},
-			),
+			}),
 		},
 		"display": symbol.Symbol{
 			Name: "display",
 			Kind: symbol.KindFunction,
-			Type: types.Function(
-				types.Params{
-					Keys:   []string{"input"},
+			Type: types.Function(types.FunctionProperties{
+				Inputs: &types.Params{
+					Keys:   []string{ir.DefaultInputParam},
 					Values: []types.Type{types.F64()},
 				},
-				types.Params{},
-				types.Params{},
-			),
+			}),
 		},
 		"warning": symbol.Symbol{
 			Name: "warning",
 			Kind: symbol.KindFunction,
-			Type: types.Function(types.Params{}, types.Params{}, types.Params{}),
+			Type: types.Function(types.FunctionProperties{}),
 		},
 		"alarm_ch": symbol.Symbol{
 			Name: "alarm_ch",

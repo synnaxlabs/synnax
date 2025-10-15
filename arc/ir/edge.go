@@ -41,10 +41,22 @@ func (e Edges) get(f func(e Edge) bool) Edge {
 	return lo.Must(e.find(f))
 }
 
+func (e Edges) filter(f func(e Edge, _ int) bool) []Edge {
+	return lo.Filter(e, f)
+}
+
 func (e Edges) FindBySource(handle Handle) (Edge, bool) {
 	return e.find(func(e Edge) bool { return e.Source == handle })
 }
 
 func (e Edges) FindByTarget(handle Handle) (Edge, bool) {
 	return e.find(func(e Edge) bool { return e.Target == handle })
+}
+
+func (e Edges) GetInputs(nodeKey string) []Edge {
+	return e.filter(func(e Edge, _ int) bool { return e.Target.Node == nodeKey })
+}
+
+func (e Edges) GetOutputs(nodeKey string) []Edge {
+	return e.filter(func(e Edge, _ int) bool { return e.Source.Node == nodeKey })
 }

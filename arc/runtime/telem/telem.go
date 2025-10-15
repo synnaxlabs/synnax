@@ -26,31 +26,31 @@ var (
 	sourceSymbol     = symbol.Symbol{
 		Name: sourceSymbolName,
 		Kind: symbol.KindFunction,
-		Type: ir.Stage{
-			Config: types.Params{
-				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan{ValueType: types.NewTypeVariable("T", nil)}},
-			},
-			Outputs: types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Outputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
 				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-		},
+			Config: &types.Params{
+				Keys:   []string{"channel"},
+				Values: []types.Type{types.Chan(types.NewTypeVariable("T", nil))},
+			},
+		}),
 	}
 	sinkSymbolName = "write"
 	sinkSymbol     = symbol.Symbol{
 		Name: sinkSymbolName,
 		Kind: symbol.KindFunction,
-		Type: ir.Stage{
-			Config: types.Params{
-				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan{ValueType: types.NewTypeVariable("T", nil)}},
-			},
-			Params: types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam},
 				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-		},
+			Outputs: &types.Params{
+				Keys:   []string{"channel"},
+				Values: []types.Type{types.Chan(types.NewTypeVariable("T", nil))},
+			},
+		}),
 	}
 	SymbolResolver = symbol.MapResolver{
 		sourceSymbolName: sourceSymbol,
@@ -94,7 +94,7 @@ type sink struct {
 func (s *sink) Init(context.Context, func(output string)) {}
 
 func (s *sink) Next(_ context.Context, _ func(param string)) {
-	data := s.state.Outputs[s.Inputs.Source]
+	data := s.state.Outputs[s.input.Source]
 	s.telem.Writes[s.key] = data.Data
 }
 
@@ -117,7 +117,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	if cfg.Node.Type == sinkSymbolName {
 		key := cfg.Node.Channels.Write.Keys()[0]
 		t.telem.registerWriter(key, cfg.Node.Key)
-		inputEdge := cfg.Module.GetEdgeByTargetHandle(ir.Handle{
+		inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
 			Node:  cfg.Node.Key,
 			Param: ir.DefaultInputParam,
 		})

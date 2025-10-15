@@ -32,23 +32,24 @@ const (
 )
 
 func createBaseSymbol(name string) symbol.Symbol {
+	constraint := types.NumericConstraint()
 	return symbol.Symbol{
-		Name: avgSymbolName,
+		Name: name,
 		Kind: symbol.KindFunction,
-		Type: ir.Stage{
-			Config: types.Params{
+		Type: types.Function(types.FunctionProperties{
+			Config: &types.Params{
 				Keys:   []string{durationParam, countParam},
-				Values: []types.Type{types.TimeSpan{}, types.I64()},
+				Values: []types.Type{types.TimeSpan(), types.I64()},
 			},
-			Params: types.Params{
+			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam, resetParam},
-				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{}), types.U8()},
+				Values: []types.Type{types.NewTypeVariable("T", &constraint), types.U8()},
 			},
-			Outputs: types.Params{
+			Outputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.NewTypeVariable("T", types.NumericConstraint{})},
+				Values: []types.Type{types.NewTypeVariable("T", &constraint)},
 			},
-		},
+		}),
 	}
 }
 
@@ -108,7 +109,7 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 		r.sampleCount = 0
 	}
 
-	inputOutput := r.state.Outputs[r.Inputs.Source]
+	inputOutput := r.state.Outputs[r.input.Source]
 	if inputOutput.Data.Len() == 0 {
 		return
 	}
@@ -137,14 +138,14 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 		return nil, query.NotFound
 	}
 
-	inputEdge := cfg.Module.IR.GetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultInputParam})
+	inputEdge := cfg.Module.IR.Edges.GetByTarget(ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultInputParam})
 	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
 	inputOutput := cfg.State.Outputs[inputEdge.Source]
 	reductionFn := reductionMap[inputOutput.Data.DataType]
 
 	// Optional reset signal
 	var resetEdge *ir.Edge
-	if resetEdgeVal, found := cfg.Module.IR.TryGetEdgeByTargetHandle(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {
+	if resetEdgeVal, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {
 		resetEdge = &resetEdgeVal
 	}
 

@@ -29,11 +29,19 @@ type Function struct {
 }
 
 func (f Function) Type() types.Type {
-	return types.Function(f.Inputs, f.Outputs, f.Config)
+	return types.Function(types.FunctionProperties{
+		Config:  &f.Config,
+		Inputs:  &f.Inputs,
+		Outputs: &f.Outputs,
+	})
 }
 
 type Functions []Function
 
 func (f Functions) Get(key string) Function {
-	return lo.Must(lo.Find(f, func(fn Function) bool { return fn.Key == key }))
+	return lo.Must(f.Find(key))
+}
+
+func (f Functions) Find(key string) (Function, bool) {
+	return lo.Find(f, func(fn Function) bool { return fn.Key == key })
 }

@@ -40,15 +40,27 @@ const (
 	KindFunction
 )
 
+type FunctionProperties struct {
+	Inputs  *maps.Ordered[string, Type] `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
+	Outputs *maps.Ordered[string, Type] `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
+	Config  *maps.Ordered[string, Type] `json:"config,omitempty" msgpack:"config,omitempty"`
+}
+
+func (f FunctionProperties) Copy() FunctionProperties {
+	return FunctionProperties{
+		Inputs:  f.Inputs.Copy(),
+		Outputs: f.Outputs.Copy(),
+		Config:  f.Config.Copy(),
+	}
+}
+
 // Type represents a type in the Arc type system using a tagged union approach.
 type Type struct {
-	Kind       TypeKind                    `json:"kind" msgpack:"kind"`
-	ValueType  *Type                       `json:"value_type,omitempty" msgpack:"value_type,omitempty"`
-	Name       string                      `json:"name,omitempty" msgpack:"name,omitempty"`
-	Constraint *Type                       `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
-	Inputs     *maps.Ordered[string, Type] `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	Outputs    *maps.Ordered[string, Type] `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	Config     *maps.Ordered[string, Type] `json:"config,omitempty" msgpack:"config,omitempty"`
+	Kind       TypeKind `json:"kind" msgpack:"kind"`
+	ValueType  *Type    `json:"value_type,omitempty" msgpack:"value_type,omitempty"`
+	Name       string   `json:"name,omitempty" msgpack:"name,omitempty"`
+	Constraint *Type    `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	FunctionProperties
 }
 
 // String returns the string representation of the type
@@ -134,18 +146,18 @@ func NumericConstraint() Type {
 	return Type{Kind: KindNumericConstant}
 }
 
-func EmptyFunction() Type {
-	return Function(Params{}, Params{}, Params{})
-}
-
 // Function creates a function type with the given inputs, outputs, and optional config
-func Function(inputs, outputs, config Params) Type {
-	return Type{
-		Kind:    KindFunction,
-		Inputs:  &inputs,
-		Outputs: &outputs,
-		Config:  &config,
+func Function(props FunctionProperties) Type {
+	if props.Inputs == nil {
+		props.Inputs = &Params{}
 	}
+	if props.Outputs == nil {
+		props.Outputs = &Params{}
+	}
+	if props.Config == nil {
+		props.Config = &Params{}
+	}
+	return Type{Kind: KindFunction, FunctionProperties: props}
 }
 
 // Params is a type alias for ordered maps of types
@@ -157,7 +169,6 @@ func (t Type) IsNumeric() bool {
 	if t.Kind == KindChan && t.ValueType != nil {
 		return t.ValueType.IsNumeric()
 	}
-
 	if t.Kind == KindTypeVariable {
 		if t.Constraint == nil {
 			return false // Unconstrained type variable is not specifically numeric
@@ -167,7 +178,6 @@ func (t Type) IsNumeric() bool {
 		}
 		return t.Constraint.IsNumeric()
 	}
-
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
@@ -304,7 +314,7 @@ var (
 	Numerics         = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
 )
 
-func TypeFromTelem(t telem.DataType) Type {
+func FromTelem(t telem.DataType) Type {
 	switch t {
 	case telem.Uint8T:
 		return U8()
@@ -332,6 +342,39 @@ func TypeFromTelem(t telem.DataType) Type {
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}
+	}
+}
+
+func ToTelem(t Type) telem.DataType {
+	switch t.Kind {
+	case KindU8:
+		return telem.Uint8T
+	case KindU16:
+		return telem.Uint16T
+	case KindU32:
+		return telem.Uint32T
+	case KindU64:
+		return telem.Uint64T
+	case KindTimeStamp:
+		return telem.TimeStampT
+	case KindTimeSpan:
+		return telem.TimeStampT
+	case KindF32:
+		return telem.Float32T
+	case KindF64:
+		return telem.Float64T
+	case KindString:
+		return telem.StringT
+	case KindI8:
+		return telem.Int8T
+	case KindI16:
+		return telem.Int16T
+	case KindI32:
+		return telem.Int32T
+	case KindI64:
+		return telem.Int64T
+	default:
+		return telem.UnknownT
 	}
 }
 
