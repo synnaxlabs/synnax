@@ -12,7 +12,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   use,
-  useCallback,
   useMemo,
 } from "react";
 
@@ -21,20 +20,25 @@ import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
 export interface ContextValue {
-  onClick: (key: string) => void;
+  onChange: (key: string) => void;
   selected: string;
   level?: Text.Level;
   gap?: Component.Size;
   background?: Theming.Shade;
 }
 
-const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
+const defaultOnChange = () => {};
+
+const Context = createContext<ContextValue>({
+  onChange: defaultOnChange,
+  selected: "",
+});
 
 export interface MenuProps
   extends PropsWithChildren,
     Pick<ContextValue, "level" | "gap" | "background"> {
   value?: string;
-  onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
+  onChange?: (key: string) => void;
 }
 
 export const useContext = () => use(Context);
@@ -57,22 +61,15 @@ export const Menu = ({
   background,
   value: selected = "",
 }: MenuProps): ReactElement => {
-  const onClick = useCallback(
-    (key: string) => {
-      if (typeof onChange === "function") onChange(key);
-      else if (onChange && key in onChange) onChange[key](key);
-    },
-    [onChange],
-  );
   const ctxValue = useMemo(
     () => ({
-      onClick,
+      onChange: onChange ?? defaultOnChange,
       selected,
       level,
       gap,
       background,
     }),
-    [selected, onClick, level, gap, background],
+    [selected, onChange, level, gap, background],
   );
   return <Context value={ctxValue}>{children}</Context>;
 };

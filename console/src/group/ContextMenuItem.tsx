@@ -13,6 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { type Ontology } from "@/ontology";
+
 export interface ContextMenuItemProps extends Ontology.TreeContextMenuProps {
   showBottomDivider?: boolean;
 }
