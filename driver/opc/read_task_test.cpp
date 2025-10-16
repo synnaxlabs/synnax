@@ -503,7 +503,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->states.size(), 2);
     EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->states[0].message, "Task started successfully");
     EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->states[1].message, "Task stopped successfully");
 }
 
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
@@ -596,12 +598,18 @@ TEST_F(TestReadTask, testIntegerChannelDataHandling) {
 
     rt->stop("stop_cmd", true);
 
-    // Check all integer channel data
+    // Check all integer channel data and verify values
     const auto &fr = mock_factory->writes->at(0);
     ASSERT_TRUE(fr.contains(this->int8_channel.key));
     ASSERT_TRUE(fr.contains(this->int16_channel.key));
     ASSERT_TRUE(fr.contains(this->int32_channel.key));
     ASSERT_TRUE(fr.contains(this->int64_channel.key));
+
+    // Verify the actual values match what the mock server provides
+    EXPECT_EQ(fr.at<std::int8_t>(this->int8_channel.key, 0), 42);
+    EXPECT_EQ(fr.at<std::int16_t>(this->int16_channel.key, 0), 42);
+    EXPECT_EQ(fr.at<std::int32_t>(this->int32_channel.key, 0), 12345);
+    EXPECT_EQ(fr.at<std::int64_t>(this->int64_channel.key, 0), 12345);
 }
 
 TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
