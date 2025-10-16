@@ -833,9 +833,9 @@ I can successfully:
 - [ ] Connect to a Modbus TCP server.
 - [ ] Configure connection parameters (IP address, port, unit ID).
 - **Read Task**
-  - [ ] Read holding registers from a Modbus device.
-  - [ ] Read input registers from a Modbus device.
-  - [ ] Read coils and discrete inputs from a Modbus device.
+  - [ ] Read holding registers from a Modbus server.
+  - [ ] Read input registers from a Modbus server.
+  - [ ] Read coils and discrete inputs from a Modbus server.
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
@@ -846,12 +846,12 @@ I can successfully:
     - [ ] 10 Hz
     - [ ] 100 Hz
 - **Write Task**
-  - [ ] Write to holding registers on a Modbus device.
-  - [ ] Write to coils on a Modbus device.
+  - [ ] Write to holding registers on a Modbus server.
+  - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
-- [ ] Run tasks across multiple Modbus devices concurrently.
+- [ ] Run tasks across multiple Modbus servers concurrently.
