@@ -49,8 +49,12 @@ export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
 export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
 export const AI_CHANNEL_TYPE_ICONS = v0.AI_CHANNEL_TYPE_ICONS;
 
+export const CI_FREQUENCY_CHAN_TYPE = v0.CI_FREQUENCY_CHAN_TYPE;
 export type CIChannel = v1.CIChannel;
 export type CIChannelType = v0.CIChannelType;
+export type CIFreqUnits = v0.CIFreqUnits;
+export type CIEdge = v0.CIEdge;
+export type CIMeasMethod = v0.CIMeasMethod;
 export const CI_CHANNEL_SCHEMAS = v1.CI_CHANNEL_SCHEMAS;
 export const ZERO_CI_CHANNELS = v1.ZERO_CI_CHANNELS;
 export const ZERO_CI_CHANNEL = v1.ZERO_CI_CHANNEL;

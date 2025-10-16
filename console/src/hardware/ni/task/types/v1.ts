@@ -255,7 +255,7 @@ const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
 };
 
 const ciChannelZ = z.union([ciFrequencyChanZ]);
-type CIChannel = z.infer<typeof ciChannelZ>;
+export type CIChannel = z.infer<typeof ciChannelZ>;
 
 export const CI_CHANNEL_SCHEMAS: Record<v0.CIChannelType, z.ZodType<CIChannel>> = {
   [v0.CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,

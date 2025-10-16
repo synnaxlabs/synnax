@@ -999,8 +999,6 @@ export const ciFrequencyChanZ = baseCIChanZ.extend({
   units: ciFreqUnitsZ,
   edge: ciEdgeZ,
   measMethod: ciMeasMethodZ,
-  measTime: z.number(),
-  divisor: z.number().int().positive(),
   terminal: z.string(),
 });
 export interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
@@ -1011,9 +1009,7 @@ export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
   type: CI_FREQUENCY_CHAN_TYPE,
   units: HZ,
   edge: RISING_EDGE,
-  measMethod: LOW_FREQ_1_CTR,
-  measTime: 0.001,
-  divisor: 4,
+  measMethod: DYNAMIC_AVG,
   terminal: "",
 };
 
@@ -1294,7 +1290,7 @@ export const counterReadConfigZ = baseReadConfigZ
   })
   .check(Common.Task.validateStreamRate);
 export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
-const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
   device: "",
   channels: [],

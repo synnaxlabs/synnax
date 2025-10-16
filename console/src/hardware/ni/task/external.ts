@@ -11,6 +11,7 @@ import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { ANALOG_READ_SELECTABLE, AnalogRead } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_SELECTABLE, AnalogWrite } from "@/hardware/ni/task/AnalogWrite";
+import { COUNTER_READ_SELECTABLE, CounterRead } from "@/hardware/ni/task/CounterRead";
 import { DIGITAL_READ_SELECTABLE, DigitalRead } from "@/hardware/ni/task/DigitalRead";
 import {
   DIGITAL_WRITE_SELECTABLE,
@@ -25,6 +26,7 @@ import {
 import {
   ANALOG_READ_TYPE,
   ANALOG_WRITE_TYPE,
+  COUNTER_READ_TYPE,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/types";
@@ -34,6 +36,7 @@ import { type Selector } from "@/selector";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/AnalogWrite";
+export * from "@/hardware/ni/task/CounterRead";
 export * from "@/hardware/ni/task/DigitalRead";
 export * from "@/hardware/ni/task/DigitalWrite";
 export * from "@/hardware/ni/task/palette";
@@ -42,6 +45,7 @@ export * from "@/hardware/ni/task/types";
 export const EXTRACTORS: Export.Extractors = {
   [ANALOG_READ_TYPE]: Common.Task.extract,
   [ANALOG_WRITE_TYPE]: Common.Task.extract,
+  [COUNTER_READ_TYPE]: Common.Task.extract,
   [DIGITAL_READ_TYPE]: Common.Task.extract,
   [DIGITAL_WRITE_TYPE]: Common.Task.extract,
 };
@@ -56,6 +60,7 @@ export const FILE_INGESTORS: Import.FileIngestors = {
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [ANALOG_READ_TYPE]: AnalogRead,
   [ANALOG_WRITE_TYPE]: AnalogWrite,
+  [COUNTER_READ_TYPE]: CounterRead,
   [DIGITAL_READ_TYPE]: DigitalRead,
   [DIGITAL_WRITE_TYPE]: DigitalWrite,
 };
@@ -63,6 +68,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 export const SELECTABLES: Selector.Selectable[] = [
   ANALOG_READ_SELECTABLE,
   ANALOG_WRITE_SELECTABLE,
+  COUNTER_READ_SELECTABLE,
   DIGITAL_READ_SELECTABLE,
   DIGITAL_WRITE_SELECTABLE,
 ];
