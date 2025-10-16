@@ -47,14 +47,12 @@ func (t *calculationTransform) transform(
 		return res, true, nil
 	}
 
+	var err error
 	for _, c := range t.calculators {
-		s, err := c.Next(ctx, res.Frame)
+		res.Frame, err = c.Next(ctx, res.Frame)
 		if err != nil {
 			t.accumulatedError = err
 			continue
-		}
-		if s.Len() > 0 {
-			res.Frame = res.Frame.Append(c.Channel().Key(), s)
 		}
 	}
 	return res, true, nil

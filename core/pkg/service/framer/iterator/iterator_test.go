@@ -99,6 +99,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		FDescribe("Calculations", func() {
 			var (
 				indexCh *channel.Channel
+				idxData telem.Series
 				dataCh1 *channel.Channel
 				dataCh2 *channel.Channel
 			)
@@ -127,10 +128,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
+				idxData = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 				fr := core.MultiFrame(
 					keys,
 					[]telem.Series{
-						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+						idxData,
 						telem.NewSeriesV[float32](1, 2, 3, 4, 5),
 						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
@@ -218,7 +220,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 					v := iter.Value().Get(calculation.Key())
 					if v.Len() > 0 {
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1t a))
+						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1))
+						idx := iter.Value().Get(calculation.Index())
+						Expect(idx.Series).To(HaveLen(1))
+						Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData))
 						break
 					}
 				}

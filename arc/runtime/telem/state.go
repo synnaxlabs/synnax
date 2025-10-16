@@ -16,9 +16,14 @@ type Data struct {
 	IndexKey uint32
 }
 
+type OutputData struct {
+	telem.Series
+	IndexKey uint32
+}
+
 type State struct {
 	Data    map[uint32]Data
-	Writes  map[uint32]telem.Series
+	Writes  map[uint32]OutputData
 	Readers map[uint32][]string
 	Writers map[uint32][]string
 }
@@ -26,7 +31,7 @@ type State struct {
 func NewState() *State {
 	return &State{
 		Data:    make(map[uint32]Data),
-		Writes:  make(map[uint32]telem.Series),
+		Writes:  make(map[uint32]OutputData),
 		Readers: make(map[uint32][]string),
 		Writers: make(map[uint32][]string),
 	}

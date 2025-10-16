@@ -151,7 +151,9 @@ func OpenCalculator(
 		telemState.Data[uint32(ch.Key())] = ntelem.Data{
 			IndexKey: uint32(ch.Index()),
 		}
-
+	}
+	telemState.Writes[uint32(cfg.Channel.Key())] = ntelem.OutputData{
+		IndexKey: uint32(cfg.Channel.Index()),
 	}
 	return c, nil
 }
@@ -166,8 +168,18 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 // is free to discard the returned value.
 //
 // Any error encountered during calculations is returned as well.
-func (c *Calculator) Next(ctx context.Context, fr framer.Frame) (telem.Series, error) {
+func (c *Calculator) Next(ctx context.Context, fr framer.Frame) (framer.Frame, error) {
 	c.telem.Ingest(fr.ToStorage(), c.scheduler.MarkNodesChange)
 	c.scheduler.Next(ctx)
-	return c.telem.Writes[uint32(c.ch.Key())], nil
+	data := c.telem.Writes[uint32(c.ch.Key())]
+	idxData := c.telem.Writes[uint32(c.ch.Index())]
+	if data.Len() > 0 && idxData.Len() == data.Len() {
+		fr = fr.Append(c.ch.Key(), data.Series)
+		fr = fr.Append(c.ch.Index(), idxData.Series)
+		data.Series = telem.Series{}
+		idxData.Series = telem.Series{}
+		c.telem.Writes[uint32(c.ch.Index())] = idxData
+		c.telem.Writes[uint32(c.ch.Key())] = data
+	}
+	return fr, nil
 }

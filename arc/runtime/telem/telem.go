@@ -110,7 +110,14 @@ func (s *sink) Init(context.Context, func(output string)) {}
 
 func (s *sink) Next(_ context.Context, _ func(param string)) {
 	data := s.state.Outputs[s.input.Source]
-	s.telem.Writes[s.key] = data.Data
+	v := s.telem.Writes[s.key]
+	v.Series = data.Data
+	idx := v.IndexKey
+	s.telem.Writes[s.key] = v
+	v2 := s.telem.Writes[idx]
+	v2.Series = data.Time
+	v2.IndexKey = idx
+	s.telem.Writes[idx] = v2
 }
 
 type telemFactory struct {

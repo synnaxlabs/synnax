@@ -152,7 +152,7 @@ func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse)
 	r.scheduler.Next(ctx)
 	fr := core.AllocFrame(len(r.telem.Writes))
 	for k, v := range r.telem.Writes {
-		fr.Append(channel.Key(k), v)
+		fr.Append(channel.Key(k), v.Series)
 	}
 	if fr.Empty() {
 		return nil
@@ -176,15 +176,15 @@ func retrieveChannels(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	indexes := lo.Map(channels, func(item channel.Channel, index int) channel.Key {
-		return item.Index()
+	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
+		return item.Index(), !item.Virtual
 	})
 	indexChannels := make([]channel.Channel, 0, len(indexes))
-	//if err := channelSvc.NewRetrieve().
-	//	WhereKeys(indexes...).
-	//	Entries(&indexChannels).Exec(ctx, nil); err != nil {
-	//	return nil, err
-	//}
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(indexes...).
+		Entries(&indexChannels).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	return slices.Concat(channels, indexChannels), nil
 }
 
