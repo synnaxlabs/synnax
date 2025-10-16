@@ -8,14 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { type Flux, type List, Menu as PMenu, Status } from "@synnaxlabs/pluto";
+import {
+  type ContextMenu as PContextMenu,
+  type Flux,
+  type List,
+  Status,
+} from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 
-export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
+export interface ContextMenuProps extends PContextMenu.MenuProps {
   getItem: List.GetItem<string, status.Status>;
 }
 
@@ -42,22 +47,20 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       [getItem],
     ),
   });
-  const handleSelect: PMenu.MenuProps["onChange"] = {
-    delete: () => {
-      handleError(async () => {
-        const confirmed = await confirm(statuses);
-        if (confirmed) del(statuses.map((s) => s.key));
-      }, "Failed to delete status");
-    },
-    rename: useCallback(() => {
-      rename.update(statuses[0]);
-    }, [rename, statuses]),
+  const handleDelete = () => {
+    handleError(async () => {
+      const confirmed = await confirm(statuses);
+      if (confirmed) del(statuses.map((s) => s.key));
+    }, "Failed to delete status");
   };
+  const handleRename = useCallback(() => {
+    rename.update(statuses[0]);
+  }, [rename, statuses]);
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {!isEmpty && <Menu.DeleteItem />}
-      <Menu.RenameItem />
-    </PMenu.Menu>
+    <>
+      {!isEmpty && <CMenu.DeleteItem onClick={handleDelete} />}
+      <CMenu.RenameItem onClick={handleRename} />
+    </>
   );
 };

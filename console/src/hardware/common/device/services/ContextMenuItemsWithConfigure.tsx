@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 
 import {
   ContextMenuItems,
@@ -34,11 +34,11 @@ export const ContextMenuItemsWithConfigure = ({
   return (
     <ContextMenuItems {...props}>
       <>
-        <Menu.Item itemKey={itemKey} onClick={handleEditConnection}>
+        <ContextMenu.Item onClick={handleEditConnection}>
           <Icon.Edit />
           Edit connection
-        </Menu.Item>
-        <Menu.Divider />
+        </ContextMenu.Item>
+        <ContextMenu.Divider />
       </>
     </ContextMenuItems>
   );

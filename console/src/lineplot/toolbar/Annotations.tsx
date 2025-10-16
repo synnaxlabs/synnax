@@ -10,12 +10,12 @@
 import {
   Button,
   Color,
+  ContextMenu as PContextMenu,
   Divider,
   Flex,
   Icon,
   Input,
   List as PList,
-  Menu as PMenu,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
@@ -23,7 +23,7 @@ import { bounds, color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { EmptyAction, Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
@@ -94,7 +94,7 @@ const List = ({
   layoutKey,
   onLabelChange,
 }: ListProps): ReactElement => {
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
     <Flex.Box x pack style={{ width: "20%" }} align="start">
@@ -112,23 +112,17 @@ const List = ({
         replaceOnSingle
         allowNone={false}
       >
-        <PMenu.ContextMenu
+        <PContextMenu.ContextMenu
           menu={({ keys }) => (
-            <PMenu.Menu
-              onChange={{ remove: () => onRemoveAnnotations(keys) }}
-              level="small"
-            >
-              <PMenu.Item itemKey="remove" size="small">
-                <Icon.Delete />
-                Delete
-              </PMenu.Item>
-              <Divider.Divider x />
-              <Menu.ReloadConsoleItem />
-            </PMenu.Menu>
+            <>
+              <ContextMenu.DeleteItem onClick={() => onRemoveAnnotations(keys)} />
+              <PContextMenu.Divider />
+              <ContextMenu.ReloadConsoleItem />
+            </>
           )}
-          {...menuProps}
+          {...contextMenuProps}
         >
-          <PList.Items<string, RuleState> onContextMenu={menuProps.open} grow>
+          <PList.Items<string, RuleState> onContextMenu={contextMenuProps.open} grow>
             {({ key, ...rest }) => (
               <ListItem
                 layoutKey={layoutKey}
@@ -138,7 +132,7 @@ const List = ({
               />
             )}
           </PList.Items>
-        </PMenu.ContextMenu>
+        </PContextMenu.ContextMenu>
       </Select.Frame>
     </Flex.Box>
   );

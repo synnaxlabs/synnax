@@ -11,12 +11,12 @@ import "@/status/list/Item.css";
 
 import { type status } from "@synnaxlabs/client";
 import {
+  ContextMenu as PContextMenu,
   Flex,
   Form,
   Icon,
   Input,
   List,
-  Menu,
   Select,
   Status,
   stopPropagation,
@@ -50,7 +50,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const { selected, onSelect } = Select.useItemState(itemKey);
   const { getItem } = List.useUtilContext<status.Key, status.Status>();
   if (getItem == null) throw new Error("getItem is null");
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
 
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
@@ -62,13 +62,13 @@ export const Item = (props: ItemProps): ReactElement | null => {
       justify="between"
       selected={selected}
       rounded={!selected}
-      onContextMenu={menuProps.open}
+      onContextMenu={contextMenuProps.open}
     >
       <Form.Form<typeof Status.formSchema> {...form}>
-        <Menu.ContextMenu
+        <PContextMenu.ContextMenu
           menu={(p) => <ContextMenu {...p} getItem={getItem} />}
           onClick={stopPropagation}
-          {...menuProps}
+          {...contextMenuProps}
         />
         <Flex.Box x empty>
           <Input.Checkbox

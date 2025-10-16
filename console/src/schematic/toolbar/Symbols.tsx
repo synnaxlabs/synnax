@@ -13,13 +13,13 @@ import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Button,
   Component,
+  ContextMenu as PContextMenu,
   Flex,
   Group,
   Haul,
   Icon,
   Input,
   List,
-  Menu,
   Schematic,
   Select,
   Status,
@@ -30,7 +30,7 @@ import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { EmptyAction } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -161,7 +161,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
 const remoteListItem = Component.renderProp(RemoteListItem);
 
-export interface RemoteSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
+export interface RemoteSymbolListContextMenuProps extends PContextMenu.MenuProps {
   groupKey: string;
 }
 
@@ -209,34 +209,25 @@ const RemoteSymbolListContextMenu = (
       }),
     );
   };
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update(firstKey),
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    edit: handleEdit,
-    export: () => exportSymbol(firstKey),
+  const handleDelete = () => del.update(firstKey);
+  const handleRename = () => {
+    if (item == null) return;
+    rename.update(item);
   };
+  const handleExport = () => exportSymbol(firstKey);
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="edit">
+    <>
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <ContextMenu.RenameItem onClick={handleRename} />
+      <PContextMenu.Item onClick={handleEdit}>
         <Icon.Edit />
         Edit
-      </Menu.Item>
-      <Menu.Item itemKey="export">
+      </PContextMenu.Item>
+      <PContextMenu.Item onClick={handleExport}>
         <Icon.Export />
         Export
-      </Menu.Item>
-    </Menu.Menu>
+      </PContextMenu.Item>
+    </>
   );
 };
 
@@ -275,7 +266,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   return (
     <Select.Frame<string, schematic.symbol.Symbol>
       {...listData}
@@ -283,20 +274,20 @@ const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement
       allowNone
       onChange={onSelect}
     >
-      <Menu.ContextMenu
-        {...menuProps}
+      <PContextMenu.ContextMenu
+        {...contextMenuProps}
         menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
       >
         <List.Items
           x
           className={CSS.BE("schematic", "symbols", "group")}
-          onContextMenu={menuProps.open}
+          onContextMenu={contextMenuProps.open}
           emptyContent={<RemoteListEmptyContent groupKey={groupKey} />}
           wrap
         >
           {remoteListItem}
         </List.Items>
-      </Menu.ContextMenu>
+      </PContextMenu.ContextMenu>
     </Select.Frame>
   );
 };
@@ -313,7 +304,10 @@ const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null =>
       size="small"
       value={selected}
       onChange={onSelect}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
+      className={CSS(
+        PContextMenu.TARGET_CSS_CLASS,
+        selected && PContextMenu.SELECTED_CSS_CLASS,
+      )}
       textColor={9}
     >
       {GroupIcon != null && <GroupIcon />}
@@ -439,7 +433,7 @@ export interface GroupListProps extends Input.Control<group.Key> {
 
 const GroupListContextMenu = ({
   keys,
-}: Menu.ContextMenuMenuProps): ReactElement | null => {
+}: PContextMenu.MenuProps): ReactElement | null => {
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
@@ -461,37 +455,28 @@ const GroupListContextMenu = ({
       return data;
     },
   });
-
-  const handleSelect: Menu.MenuProps["onChange"] = {
-    del: () => {
-      if (item == null) return;
-      deleteSymbolGroup(item);
-    },
-    rename: () => {
-      if (item == null) return;
-      rename.update(item);
-    },
-    export: () => {
-      if (item == null) return;
-      exportGroup(item);
-    },
-  };
   if (!isRemoteGroup) return null;
+  const handleDelete = () => {
+    if (item == null) return;
+    deleteSymbolGroup(item);
+  };
+  const handleRename = () => {
+    if (item == null) return;
+    rename.update(item);
+  };
+  const handleExport = () => {
+    if (item == null) return;
+    exportGroup(item);
+  };
   return (
-    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="del">
-        <Icon.Delete />
-        Delete
-      </Menu.Item>
-      <Menu.Item itemKey="rename">
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Item itemKey="export">
+    <>
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <ContextMenu.RenameItem onClick={handleRename} />
+      <PContextMenu.Item onClick={handleExport}>
         <Icon.Export />
         Export
-      </Menu.Item>
-    </Menu.Menu>
+      </PContextMenu.Item>
+    </>
   );
 };
 
@@ -511,7 +496,7 @@ const GroupList = ({
     [remoteData.retrieve, symbolGroupID],
   );
   const data = List.useCombinedData({ first: staticData, second: remoteData });
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   return (
     <Select.Frame<group.Key, group.Group>
       {...data}
@@ -519,11 +504,11 @@ const GroupList = ({
       onChange={onChange}
       autoSelectOnNone
     >
-      <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
-        <List.Items onContextMenu={menuProps.open} x gap="small">
+      <PContextMenu.ContextMenu {...contextMenuProps} menu={groupListContextMenu}>
+        <List.Items onContextMenu={contextMenuProps.open} x gap="small">
           {groupListItem}
         </List.Items>
-      </Menu.ContextMenu>
+      </PContextMenu.ContextMenu>
     </Select.Frame>
   );
 };

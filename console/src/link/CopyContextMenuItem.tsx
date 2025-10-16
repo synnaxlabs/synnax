@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-import { Layout } from "@/layout";
+export interface CopyContextMenuItemProps
+  extends Pick<ContextMenu.ItemProps, "onClick"> {}
 
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <Menu.Menu level="small" gap="small">
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </Menu.Menu>
+export const CopyContextMenuItem = (props: CopyContextMenuItemProps): ReactElement => (
+  <ContextMenu.Item {...props}>
+    <Icon.Link />
+    Copy link
+  </ContextMenu.Item>
 );

@@ -10,15 +10,16 @@
 import { Button } from "@/button";
 
 export interface ItemProps
-  extends Required<Pick<Button.ButtonProps, "children" | "onClick">> {}
+  extends Omit<Button.ButtonProps, "children" | "onClick">,
+    Required<Pick<Button.ButtonProps, "children" | "onClick">> {}
 
 export const Item = (props: ItemProps) => (
   <Button.Button
-    {...props}
     level="small"
     overflow="nowrap"
     variant="text"
     background={1}
     gap="small"
+    {...props}
   />
 );

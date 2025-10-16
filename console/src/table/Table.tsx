@@ -13,9 +13,9 @@ import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Button,
+  ContextMenu as PContextMenu,
   Flex,
   Icon,
-  Menu as PMenu,
   Table as Core,
   TableCells,
   Triggers,
@@ -25,7 +25,7 @@ import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnax
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -121,66 +121,65 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  const contextMenu = ({ keys }: PMenu.ContextMenuMenuProps) => (
-    <PMenu.Menu
-      onChange={{
-        addRowBelow: () => {
-          syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
-        },
-        addRowAbove: () =>
-          syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "top"))),
-        addColRight: () =>
-          syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "right"))),
-        addColLeft: () =>
-          syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "left"))),
-        deleteRow: () => syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys))),
-        deleteCol: () => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
-        toggleEdit: () => syncDispatch(setEditable({ key: layoutKey })),
-      }}
-      gap="small"
-      level="small"
-    >
-      {keys.length > 0 && (
-        <>
-          <PMenu.Item size="small" itemKey="addRowBelow">
-            <Icon.Add />
-            Add row below
-          </PMenu.Item>
-          <PMenu.Item size="small" itemKey="addRowAbove">
-            <Icon.Add />
-            Add row above
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item size="small" itemKey="addColRight">
-            <Icon.Add />
-            Add column right
-          </PMenu.Item>
-          <PMenu.Item size="small" itemKey="addColLeft">
-            <Icon.Add />
-            Add column left
-          </PMenu.Item>
-          <PMenu.Divider />
-          <PMenu.Item size="small" itemKey="deleteRow">
-            <Icon.Delete />
-            Delete row
-          </PMenu.Item>
-          <PMenu.Item size="small" itemKey="deleteCol">
-            <Icon.Delete />
-            Delete column
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
-      <PMenu.Item itemKey="toggleEdit">
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
-        {`${editable ? "Disable" : "Enable"} editing`}
-      </PMenu.Item>
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
-  );
+  const handleToggleEdit = () => syncDispatch(setEditable({ key: layoutKey }));
 
-  const menuProps = PMenu.useContextMenu();
+  const contextMenu = ({ keys }: PContextMenu.MenuProps) => {
+    const handleAddRowBelow = () =>
+      syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
+    const handleAddRowAbove = () =>
+      syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "top")));
+    const handleAddColRight = () =>
+      syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "right")));
+    const handleAddColLeft = () =>
+      syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "left")));
+    const handleDeleteRow = () =>
+      syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys)));
+    const handleDeleteCol = () =>
+      syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys)));
+    return (
+      <>
+        {keys.length > 0 && (
+          <>
+            <PContextMenu.Item onClick={handleAddRowBelow}>
+              <Icon.Add />
+              Add row below
+            </PContextMenu.Item>
+            <PContextMenu.Item onClick={handleAddRowAbove}>
+              <Icon.Add />
+              Add row above
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
+            <PContextMenu.Item onClick={handleAddColRight}>
+              <Icon.Add />
+              Add column right
+            </PContextMenu.Item>
+            <PContextMenu.Item onClick={handleAddColLeft}>
+              <Icon.Add />
+              Add column left
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
+            <PContextMenu.Item onClick={handleDeleteRow}>
+              <Icon.Delete />
+              Delete row
+            </PContextMenu.Item>
+            <PContextMenu.Item onClick={handleDeleteCol}>
+              <Icon.Delete />
+              Delete column
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
+          </>
+        )}
+        <PContextMenu.Item onClick={handleToggleEdit}>
+          {editable ? <Icon.EditOff /> : <Icon.Edit />}
+          {`${editable ? "Disable" : "Enable"} editing`}
+        </PContextMenu.Item>
+        <PContextMenu.Divider />
+        <ContextMenu.ReloadConsoleItem />
+      </>
+    );
+  };
+
+  const contextMenuProps = PContextMenu.use();
 
   const handleColResize = useCallback((size: number, index: number) => {
     syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
@@ -223,15 +222,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   let currPos = 3.5 * 6;
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+      <PContextMenu.ContextMenu menu={contextMenu} {...contextMenuProps}>
         <Core.Table
           visible={visible}
           style={{
             width: totalColSizes,
             height: totalRowSizes,
           }}
-          onContextMenu={menuProps.open}
-          className={menuProps.className}
+          onContextMenu={contextMenuProps.open}
+          className={contextMenuProps.className}
         >
           <ColResizer
             tableKey={layoutKey}
@@ -279,7 +278,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           </>
         )}
         <TableControls tableKey={layoutKey} />
-      </PMenu.ContextMenu>
+      </PContextMenu.ContextMenu>
     </div>
   );
 };

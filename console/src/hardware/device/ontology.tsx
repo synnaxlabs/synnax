@@ -10,10 +10,17 @@
 import "@/hardware/device/ontology.css";
 
 import { device, type ontology } from "@synnaxlabs/client";
-import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  ContextMenu as PContextMenu,
+  Device,
+  Flex,
+  Icon,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
 import {
@@ -30,7 +37,7 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 
-const handleConfigure = ({
+const configure = ({
   selection: { ids },
   state: { getResource },
   placeLayout,
@@ -101,17 +108,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
-  const rename = useRename(props);
+  const handleRename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const handleChangeIdentifier = useHandleChangeIdentifier();
+  const changeIdentifier = useHandleChangeIdentifier();
   if (ids.length === 0) return null;
-  const handleSelect = {
-    configure: () => handleConfigure(props),
-    delete: handleDelete,
-    rename,
-    group: () => group(props),
-    changeIdentifier: () => handleChangeIdentifier(props),
-  };
+  const handleConfigure = () => configure(props);
+  const handleGroup = () => group(props);
+  const handleChangeIdentifier = () => changeIdentifier(props);
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   const showConfigure = singleResource && first.data?.configured !== true;
@@ -120,46 +123,48 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     first.data?.configured === true &&
     hasIdentifier(getMake(first.data?.make));
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+    <>
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={handleGroup}
+      />
       {singleResource && (
         <>
-          <Menu.RenameItem />
-          {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
+          <ContextMenu.RenameItem onClick={handleRename} />
+          {(showConfigure || showChangeIdentifier) && <PContextMenu.Divider />}
           {showConfigure && (
-            <PMenu.Item itemKey="configure">
+            <PContextMenu.Item onClick={handleConfigure}>
               <Icon.Hardware />
               Configure
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
           {showChangeIdentifier && (
-            <PMenu.Item itemKey="changeIdentifier">
+            <PContextMenu.Item onClick={handleChangeIdentifier}>
               <Icon.Hardware />
               Change identifier
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
         </>
       )}
-      <PMenu.Divider />
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
+      <PContextMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} />
       {customMenuItems != null && (
         <>
-          <PMenu.Divider />
+          <PContextMenu.Divider />
           {customMenuItems}
         </>
       )}
-      <PMenu.Divider />
+      <PContextMenu.Divider />
       {singleResource && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyContextMenuItem {...props} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, ContextMenu, Icon, Text } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
@@ -31,18 +31,18 @@ export const WriteChannelContextMenuItems: React.FC<
   return (
     <>
       {canRenameCmdChannel && (
-        <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>
+        <ContextMenu.Item onClick={() => handleRename("cmd")}>
           <Icon.Rename />
           Rename command channel
-        </Menu.Item>
+        </ContextMenu.Item>
       )}
       {canRenameStateChannel && (
-        <Menu.Item itemKey="renameState" onClick={() => handleRename("state")}>
+        <ContextMenu.Item onClick={() => handleRename("state")}>
           <Icon.Rename />
           Rename state channel
-        </Menu.Item>
+        </ContextMenu.Item>
       )}
-      <Menu.Divider />
+      <ContextMenu.Divider />
     </>
   );
 };

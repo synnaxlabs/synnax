@@ -13,11 +13,11 @@ import {
   Arc,
   Button,
   Component,
+  ContextMenu,
   Flex,
   Haul,
   type Input,
   List,
-  Menu,
   Select,
   Text,
   Theming,
@@ -108,7 +108,10 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       size="small"
       value={selected}
       onChange={onSelect}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
+      className={CSS(
+        ContextMenu.TARGET_CSS_CLASS,
+        selected && ContextMenu.SELECTED_CSS_CLASS,
+      )}
       textColor={9}
     >
       <Icon />

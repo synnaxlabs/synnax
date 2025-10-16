@@ -15,11 +15,11 @@ import {
 } from "@synnaxlabs/client";
 import {
   Component,
+  ContextMenu,
   Flux,
   Haul,
   Icon,
   List,
-  Menu,
   Ontology,
   Status,
   Synnax,
@@ -46,7 +46,7 @@ import {
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
+import { MultipleSelectionContextMenu } from "@/ontology/MultipleSelectionContextMenu";
 import {
   type BaseProps,
   type GetResource,
@@ -455,7 +455,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const handleContextMenu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => {
+    ({ keys }: ContextMenu.MenuProps) => {
       if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !selectedRef.current.includes(v),
@@ -503,7 +503,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     },
     [client, setNodes, services, placeLayout, removeLayout, nodesRef, setSelected],
   );
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = ContextMenu.use();
   const contextValue = useMemo(
     () => ({
       onDrop: handleDrop,
@@ -517,7 +517,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   return (
     <Context.Provider value={contextValue}>
-      <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
+      <ContextMenu.ContextMenu menu={handleContextMenu} {...contextMenuProps} />
       <Core.Tree<string, ontology.Resource>
         {...treeProps}
         showRules
@@ -528,7 +528,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // to render it.
         getItem={resourceStore.get.bind(resourceStore)}
         emptyContent={emptyContent}
-        onContextMenu={menuProps.open}
+        onContextMenu={contextMenuProps.open}
       >
         {itemRenderProp}
       </Core.Tree>

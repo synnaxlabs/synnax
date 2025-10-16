@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type TreeContextMenuProps } from "@/ontology/service";
 
-export const CopyMenuItem = (props: TreeContextMenuProps): ReactElement | null => {
+export const CopyContextMenuItem = (
+  props: TreeContextMenuProps,
+): ReactElement | null => {
   const copy = useCopyToClipboard();
   const {
     selection: { ids },
@@ -24,9 +26,9 @@ export const CopyMenuItem = (props: TreeContextMenuProps): ReactElement | null =
   const { data, name } = getResource(id);
   const handleClick = () => copy(JSON.stringify(data), `data for ${name}`);
   return (
-    <Menu.Item itemKey="copyData" size="small" onClick={handleClick}>
+    <ContextMenu.Item size="small" onClick={handleClick}>
       <Icon.Copy />
       Copy properties
-    </Menu.Item>
+    </ContextMenu.Item>
   );
 };

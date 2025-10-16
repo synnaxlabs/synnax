@@ -8,30 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, type Tree } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon, type Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { canGroupSelection } from "@/group/canGroupSelection";
 
-export interface MenuItemProps {
+export interface ContextMenuItemProps extends Pick<ContextMenu.ItemProps, "onClick"> {
   ids: ontology.ID[];
   rootID: ontology.ID;
   shape: Tree.Shape;
   showBottomDivider?: boolean;
 }
 
-export const MenuItem = ({
+export const ContextMenuItem = ({
   ids,
   shape,
   showBottomDivider = false,
   rootID,
-}: MenuItemProps): ReactElement | null =>
+  onClick,
+}: ContextMenuItemProps): ReactElement | null =>
   canGroupSelection(ids, shape, rootID) ? (
     <>
-      <PMenu.Item itemKey="group">
+      <ContextMenu.Item onClick={onClick}>
         <Icon.Group />
         Group
-      </PMenu.Item>
-      {showBottomDivider && <PMenu.Divider />}
+      </ContextMenu.Item>
+      {showBottomDivider && <ContextMenu.Divider />}
     </>
   ) : null;

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export const DeleteItem = (): ReactElement => (
-  <Menu.Item itemKey="delete" size="small">
-    <Icon.Delete />
-    Delete
-  </Menu.Item>
+export interface RenameItemProps extends Pick<ContextMenu.ItemProps, "onClick"> {}
+
+export const RenameItem = (props: RenameItemProps): ReactElement => (
+  <ContextMenu.Item {...props}>
+    <Icon.Rename />
+    Rename
+  </ContextMenu.Item>
 );

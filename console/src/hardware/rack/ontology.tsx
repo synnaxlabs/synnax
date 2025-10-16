@@ -8,12 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { rack } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  ContextMenu as PContextMenu,
+  Icon,
+  Rack,
+  Status,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { Sequence } from "@/hardware/task/sequence";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
@@ -23,13 +29,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
   topRight: Icon.Add,
 });
-
-const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const copy = useCopyToClipboard();
-  return ({ selection: { ids }, state: { getResource } }) => {
-    copy(ids[0].key, `key to ${getResource(ids[0]).name}`);
-  };
-};
 
 const useRename = createUseRename({
   query: Rack.useRename,
@@ -74,10 +73,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const openRenameModal = Modals.useRename();
-  const rename = useRename(props);
+  const handleRename = useRename(props);
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
-  const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
@@ -88,37 +86,37 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       placeLayout(layout);
     }, "Failed to create control sequence");
   };
-  const onSelect = {
-    group: () => group(props),
-    rename,
-    createSequence,
-    copy: () => copyKeyToClipboard(props),
-    delete: handleDelete,
-  };
+  const handleGroup = () => group(props);
   const isSingle = ids.length === 1;
   return (
-    <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
+    <>
+      <Group.ContextMenuItem
+        ids={ids}
+        rootID={rootID}
+        shape={shape}
+        showBottomDivider
+        onClick={handleGroup}
+      />
       {isSingle && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Item itemKey="createSequence">
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <PContextMenu.Item onClick={createSequence}>
             <CreateSequenceIcon />
             Create control sequence
-          </PMenu.Item>
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
-      <PMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <PContextMenu.Divider />
       {isSingle && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyContextMenuItem {...props} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

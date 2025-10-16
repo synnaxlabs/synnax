@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { ContextMenu as PContextMenu } from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
@@ -19,14 +19,17 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
     state: { shape },
   } = props;
   const group = Group.useCreateFromSelection();
-  const handleSelect = {
-    group: () => group(props),
-  };
+  const handleGroup = () => group(props);
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+    <>
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={handleGroup}
+      />
+      <PContextMenu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };

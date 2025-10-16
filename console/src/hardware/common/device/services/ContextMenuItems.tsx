@@ -49,9 +49,9 @@ export const ContextMenuItems = ({
           placeLayout({ ...layout, args: { deviceKey: key } });
         };
         return (
-          <Task.CreateMenuItem key={itemKey} itemKey={itemKey} onClick={handleClick}>
+          <Task.CreateContextMenuItem key={itemKey} onClick={handleClick}>
             {label}
-          </Task.CreateMenuItem>
+          </Task.CreateContextMenuItem>
         );
       })}
     </>

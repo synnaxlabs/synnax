@@ -12,11 +12,11 @@ import "@/hardware/task/Toolbar.css";
 import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
+  ContextMenu as PContextMenu,
   Flex,
   type Flux,
   Icon,
   List,
-  Menu as PMenu,
   Select,
   Status,
   stopPropagation,
@@ -25,11 +25,11 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { EmptyAction, Menu, Toolbar } from "@/components";
+import { ContextMenu as CMenu, EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Common } from "@/hardware/common";
@@ -67,7 +67,7 @@ const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
-  const menuProps = PMenu.useContextMenu();
+  const menuProps = PContextMenu.use();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const { data, getItem, subscribe, retrieve } = Task.useList({
@@ -163,7 +163,7 @@ const Content = () => {
     },
     [selected, addStatus, placeLayout],
   );
-  const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
+  const contextMenu = useCallback<NonNullable<PContextMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
       <ContextMenu
         keys={keys}
@@ -181,7 +181,7 @@ const Content = () => {
     [handleCommand],
   );
   return (
-    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+    <PContextMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Ontology.Toolbar className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
@@ -218,7 +218,7 @@ const Content = () => {
           </List.Items>
         </Select.Frame>
       </Ontology.Toolbar>
-    </PMenu.ContextMenu>
+    </PContextMenu.ContextMenu>
   );
 };
 
@@ -322,8 +322,8 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = Common.Task.useExport();
-  const handleLink = useCallback(
+  const exportTask = Common.Task.useExport();
+  const copyLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
       if (name == null)
@@ -336,77 +336,63 @@ const ContextMenu = ({
     },
     [selectedTasks, addStatus, copyLinkToClipboard],
   );
-  const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
-    () => ({
-      start: () => onStart(keys),
-      stop: () => onStop(keys),
-      edit: () => onEdit(keys[0]),
-      rename: () => Text.edit(`text-${keys[0]}`),
-      link: () => handleLink(keys[0]),
-      export: () => handleExport(keys[0]),
-      delete: () => onDelete(keys),
-      rangeSnapshot: () =>
-        snapshotToActiveRange({
-          tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({ key, name })),
-        }),
-    }),
-    [
-      onStart,
-      onStop,
-      onEdit,
-      handleLink,
-      onDelete,
-      keys,
-      snapshotToActiveRange,
-      selectedTasks,
-    ],
-  );
+  const handleStart = () => onStart(keys);
+  const handleStop = () => onStop(keys);
+  const handleEdit = () => onEdit(keys[0]);
+  const handleRename = () => Text.edit(`text-${keys[0]}`);
+  const handleLink = () => copyLink(keys[0]);
+  const handleExport = () => exportTask(keys[0]);
+  const handleDelete = () => onDelete(keys);
+  const handleRangeSnapshot = () =>
+    snapshotToActiveRange({
+      tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({ key, name })),
+    });
   const showSnapshotToActiveRange =
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleChange}>
+    <>
       {canStart && (
-        <PMenu.Item itemKey="start">
+        <PContextMenu.Item onClick={handleStart}>
           <Icon.Play />
           Start
-        </PMenu.Item>
+        </PContextMenu.Item>
       )}
       {canStop && (
-        <PMenu.Item itemKey="stop">
+        <PContextMenu.Item onClick={handleStop}>
           <Icon.Pause />
           Stop
-        </PMenu.Item>
+        </PContextMenu.Item>
       )}
-      {(canStart || canStop) && <PMenu.Divider />}
+      {(canStart || canStop) && <PContextMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item itemKey="edit">
+          <PContextMenu.Item onClick={handleEdit}>
             <Icon.Edit />
             Edit configuration
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <PContextMenu.Divider />
+          <CMenu.RenameItem onClick={handleRename} />
+          <Export.ContextMenuItem onClick={handleExport} />
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <PContextMenu.Divider />
         </>
       )}
       {showSnapshotToActiveRange && (
         <>
-          <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
-          <PMenu.Divider />
+          <Range.SnapshotContextMenuItem
+            range={activeRange}
+            onClick={handleRangeSnapshot}
+          />
+          <PContextMenu.Divider />
         </>
       )}
       {someSelected && (
         <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
+          <CMenu.DeleteItem onClick={handleDelete} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <CMenu.ReloadConsoleItem />
+    </>
   );
 };

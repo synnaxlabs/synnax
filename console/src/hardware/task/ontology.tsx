@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
+import {
+  ContextMenu as PContextMenu,
+  Icon,
+  Mosaic,
+  Task as Core,
+} from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Common } from "@/hardware/common";
@@ -80,62 +85,61 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { ids, rootID } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Common.Task.useExport();
+  const copyLink = Cluster.useCopyLinkToClipboard();
+  const exportTask = Common.Task.useExport();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
-  const onSelect = {
-    delete: handleDelete,
-    edit: () =>
-      handleSelect({
-        selection: resources,
-        placeLayout: props.placeLayout,
-        client,
-        addStatus,
-        store,
-        handleError,
-        removeLayout: props.removeLayout,
-        services: props.services,
-      }),
-    rename,
-    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    export: () => handleExport(ids[0].key),
-    rangeSnapshot: () =>
-      snap({ tasks: resources.map(({ id: { key }, name }) => ({ key, name })) }),
-    group: () => group(props),
-  };
+  const handleExport = () => exportTask(ids[0].key);
+  const handleGroup = () => group(props);
   const singleResource = ids.length === 1;
+  const handleEdit = () =>
+    handleSelect({
+      selection: resources,
+      placeLayout: props.placeLayout,
+      client,
+      addStatus,
+      store,
+      handleError,
+      removeLayout: props.removeLayout,
+      services: props.services,
+    });
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
+  const handleLink = () =>
+    copyLink({ name: resources[0].name, ontologyID: resources[0].id });
+  const handleRangeSnapshot = () =>
+    snap({ tasks: resources.map(({ id: { key }, name }) => ({ key, name })) });
   return (
-    <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+    <>
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={handleGroup}
+      />
       {hasNoSnapshots && range?.persisted === true && (
         <>
-          <Range.SnapshotMenuItem key="snapshot" range={range} />
-          <PMenu.Divider />
+          <Range.SnapshotContextMenuItem range={range} onClick={handleRangeSnapshot} />
+          <PContextMenu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <PMenu.Item itemKey="edit">
+          <PContextMenu.Item onClick={handleEdit}>
             <Icon.Edit />
             {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-          </PMenu.Item>
-          <Menu.RenameItem />
-          <Link.CopyMenuItem />
-          <Export.MenuItem />
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <ContextMenu.RenameItem onClick={rename} />
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <Export.ContextMenuItem onClick={handleExport} />
+          <PContextMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <PContextMenu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

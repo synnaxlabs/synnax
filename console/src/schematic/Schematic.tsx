@@ -18,7 +18,6 @@ import {
   Haul,
   Icon,
   type Legend,
-  Menu as PMenu,
   Schematic as Core,
   Text,
   Theming,
@@ -149,12 +148,6 @@ const SymbolRenderer = ({
     />
   );
 };
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" gap="small">
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
-);
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;

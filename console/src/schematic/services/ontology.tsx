@@ -9,9 +9,9 @@
 
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
+  ContextMenu as PContextMenu,
   type Flux,
   Icon,
-  Menu as PMenu,
   Mosaic,
   Schematic as Core,
   Status,
@@ -21,7 +21,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -129,54 +129,57 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = Schematic.useExport();
-  const handleLink = Cluster.useCopyLinkToClipboard();
-  const rename = useRename(props);
+  const exportSchematic = Schematic.useExport();
+  const copyLink = Cluster.useCopyLinkToClipboard();
+  const handleRename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const resources = getResource(ids);
   const first = resources[0];
-  const onSelect = {
-    delete: handleDelete,
-    copy: handleCopy,
-    rangeSnapshot: () => snapshot(props),
-    rename,
-    export: () => handleExport(first.id.key),
-    group: () => group(props),
-    link: () => handleLink({ name: first.name, ontologyID: firstID }),
-  };
   const canEditSchematic = Schematic.useSelectHasPermission();
   const isSingle = ids.length === 1;
+  const handleRangeSnapshot = () => snapshot(props);
+  const handleExport = () => exportSchematic(first.id.key);
+  const handleGroup = () => group(props);
+  const handleLink = () => copyLink({ name: first.name, ontologyID: firstID });
   return (
-    <PMenu.Menu onChange={onSelect} level="small" gap="small">
+    <>
       {canEditSchematic && (
         <>
-          <Menu.RenameItem />
-          <Menu.DeleteItem />
-          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={handleGroup}
+          />
+          <PContextMenu.Divider />
         </>
       )}
       {resources.every((r) => r.data?.snapshot === false) && (
         <>
-          <Range.SnapshotMenuItem range={activeRange} />
-          <PMenu.Item itemKey="copy">
+          <Range.SnapshotContextMenuItem
+            range={activeRange}
+            onClick={handleRangeSnapshot}
+          />
+          <PContextMenu.Item onClick={handleCopy}>
             <Icon.Copy />
             Copy
-          </PMenu.Item>
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <PContextMenu.Divider />
         </>
       )}
       {isSingle && (
         <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Export.ContextMenuItem onClick={handleExport} />
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <Ontology.CopyContextMenuItem {...props} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

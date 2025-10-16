@@ -7,12 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
-
-export const CopyMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="link" size="small">
-    <Icon.Link />
-    Copy link
-  </Menu.Item>
-);
+export * as ContextMenu from "@/components/context-menu/external";

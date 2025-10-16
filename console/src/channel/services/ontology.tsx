@@ -10,10 +10,10 @@
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
+  ContextMenu as PContextMenu,
   type Flux,
   type Haul,
   Icon,
-  Menu as PMenu,
   type Schematic as PSchematic,
   telem,
   Text,
@@ -24,7 +24,7 @@ import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -205,68 +205,64 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const copyLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
-  const handleSelect = {
-    group: () => groupFromSelection(props),
-    delete: handleDelete,
-    deleteAlias: handleDeleteAlias,
-    alias: handleSetAlias,
-    rename: handleRename,
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-    openCalculated: () => openCalculated(props),
-  };
+  const handleGroup = () => groupFromSelection(props);
+  const handleOpenCalculated = () => openCalculated(props);
+  const handleLink = () => copyLink({ name: first.name, ontologyID: first.id });
   const singleResource = resources.length === 1;
 
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+    <>
+      {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={handleGroup}
+      />
       {isCalc && (
         <>
-          <PMenu.Divider />
-          <PMenu.Item itemKey="openCalculated">
+          <PContextMenu.Divider />
+          <PContextMenu.Item onClick={handleOpenCalculated}>
             <Icon.Edit />
             Edit calculation
-          </PMenu.Item>
+          </PContextMenu.Item>
         </>
       )}
       {activeRange != null &&
         activeRange.persisted &&
         (singleResource || showDeleteAlias) && (
           <>
-            <PMenu.Divider />
+            <PContextMenu.Divider />
             {singleResource && (
-              <PMenu.Item itemKey="alias">
+              <PContextMenu.Item onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
-              </PMenu.Item>
+              </PContextMenu.Item>
             )}
             {showDeleteAlias && (
-              <PMenu.Item itemKey="deleteAlias">
+              <PContextMenu.Item onClick={handleDeleteAlias}>
                 <Icon.Delete />
                 Remove alias under {activeRange.name}
-              </PMenu.Item>
+              </PContextMenu.Item>
             )}
-            <PMenu.Divider />
+            <PContextMenu.Divider />
           </>
         )}
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
+      <ContextMenu.DeleteItem onClick={handleDelete} />
       {singleResource && (
         <>
-          <PMenu.Divider />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
+          <PContextMenu.Divider />
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <Ontology.CopyContextMenuItem {...props} />
         </>
       )}
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <PContextMenu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

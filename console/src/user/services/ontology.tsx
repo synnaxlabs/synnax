@@ -8,10 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type user } from "@synnaxlabs/client";
-import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import {
+  ContextMenu as PContextMenu,
+  type Flux,
+  Icon,
+  Text,
+  User,
+} from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { Permissions } from "@/permissions";
@@ -47,8 +53,7 @@ const useRename = ({
     },
     [firstID],
   );
-  const { update, status } = User.useRename({ beforeUpdate });
-  console.log(status);
+  const { update } = User.useRename({ beforeUpdate });
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],
@@ -62,12 +67,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids },
   } = props;
   const handleDelete = useDelete(props);
-  const rename = useRename(props);
-  const handleSelect = {
-    permissions: () => editPermissions(props),
-    rename,
-    delete: handleDelete,
-  };
+  const handleRename = useRename(props);
+  const handlePermissions = () => editPermissions(props);
   const singleResource = ids.length === 1;
   const hasRootUser = ids.some((id) => {
     const user = getResource(id).data as user.User;
@@ -78,40 +79,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const canEditOrDelete = useSelectHasPermission();
 
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
+    <>
       {singleResource && isNotCurrentUser && (
         <>
           {canEditPermissions && !hasRootUser && (
-            <PMenu.Item itemKey="permissions">
+            <PContextMenu.Item onClick={handlePermissions}>
               <Icon.Access />
               Edit permissions
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
           {canEditOrDelete && (
             <>
-              <PMenu.Item itemKey="rename">
+              <PContextMenu.Item onClick={handleRename}>
                 <Icon.Rename />
                 Change username
-              </PMenu.Item>
-              <PMenu.Divider />
+              </PContextMenu.Item>
+              <PContextMenu.Divider />
             </>
           )}
         </>
       )}
       {canEditOrDelete && !hasRootUser && (
         <>
-          <Menu.DeleteItem />
-          <PMenu.Divider />
+          <ContextMenu.DeleteItem onClick={handleDelete} />
+          <PContextMenu.Divider />
         </>
       )}
       {singleResource && (
         <>
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          <Ontology.CopyContextMenuItem {...props} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

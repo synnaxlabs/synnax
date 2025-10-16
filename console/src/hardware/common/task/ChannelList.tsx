@@ -9,17 +9,17 @@
 
 import {
   type Component,
+  ContextMenu as PContextMenu,
   Flex,
   Form,
   Icon,
   List,
-  Menu as PMenu,
   Select,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
@@ -64,62 +64,55 @@ const ContextMenu = <C extends Channel>({
     () => onTare?.(keys, channels),
     [onTare, keys, channels],
   );
-  const handleSelect: Record<string, () => void> = {
-    remove: handleRemove,
-    disable: handleDisable,
-    enable: handleEnable,
-    tare: handleTare,
-    duplicate: handleDuplicate,
-  };
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
   const canDisable = channels.some(({ enabled }) => enabled);
   const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
-    <PMenu.Menu onChange={handleSelect} level="small">
+    <>
       {!isSnapshot && (
         <>
           {canDuplicate && (
-            <PMenu.Item itemKey="duplicate">
+            <PContextMenu.Item onClick={handleDuplicate}>
               <Icon.Copy />
               Duplicate
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
           {canRemove && (
-            <PMenu.Item itemKey="remove">
+            <PContextMenu.Item onClick={handleRemove}>
               <Icon.Close />
               Remove
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
-          {(canDuplicate || canRemove) && <PMenu.Divider />}
+          {(canDuplicate || canRemove) && <PContextMenu.Divider />}
           {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
-            <PMenu.Item itemKey="disable">
+            <PContextMenu.Item onClick={handleDisable}>
               <Icon.Disable />
               Disable
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
           {canEnable && (
-            <PMenu.Item itemKey="enable">
+            <PContextMenu.Item onClick={handleEnable}>
               <Icon.Enable />
               Enable
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
-          {(canDisable || canEnable) && <PMenu.Divider />}
+          {(canDisable || canEnable) && <PContextMenu.Divider />}
           {canTare && (
             <>
-              <PMenu.Item itemKey="tare">
+              <PContextMenu.Item onClick={handleTare}>
                 <Icon.Tare />
                 Tare
-              </PMenu.Item>
-              <PMenu.Divider />
+              </PContextMenu.Item>
+              <PContextMenu.Divider />
             </>
           )}
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <CMenu.ReloadConsoleItem />
+    </>
   );
 };
 
@@ -151,12 +144,12 @@ export const ChannelList = <C extends Channel>({
     (keys: string[]) => onSelect(keys),
     [onSelect, path],
   );
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow}>
       {header}
-      <PMenu.ContextMenu
-        {...menuProps}
+      <PContextMenu.ContextMenu
+        {...contextMenuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
@@ -174,14 +167,14 @@ export const ChannelList = <C extends Channel>({
             full="y"
             onDragOver={onDragOver}
             onDrop={onDrop}
-            className={menuProps.className}
-            onContextMenu={menuProps.open}
+            className={contextMenuProps.className}
+            onContextMenu={contextMenuProps.open}
             emptyContent={emptyContent}
           >
             {listItem}
           </List.Items>
         </Select.Frame>
-      </PMenu.ContextMenu>
+      </PContextMenu.ContextMenu>
     </Flex.Box>
   );
 };

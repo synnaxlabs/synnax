@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/components/menu/DeleteItem";
-export * from "@/components/menu/ReloadConsoleItem";
-export * from "@/components/menu/RenameItem";
+export * from "@/components/context-menu/DeleteItem";
+export * from "@/components/context-menu/ReloadConsoleItem";
+export * from "@/components/context-menu/RenameItem";

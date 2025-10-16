@@ -12,12 +12,12 @@ import "@/cluster/Dropdown.css";
 import { Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
+  ContextMenu as PContextMenu,
   Dialog,
   Flex,
   Header,
   Icon,
   List as CoreList,
-  Menu as PMenu,
   Select,
   Status,
   Synnax,
@@ -38,7 +38,7 @@ import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { remove, rename, setActive } from "@/cluster/slice";
-import { EmptyAction, Menu } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -116,7 +116,7 @@ export const Dropdown = (): ReactElement => {
   const [dialogVisible, setDialogVisible] = useState(false);
   const cluster = useSelect();
   const disconnected = cluster == null;
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
@@ -157,53 +157,39 @@ export const Dropdown = (): ReactElement => {
 
   const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
 
-  const handleLink = Link.useCopyToClipboard();
+  const copyLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement => {
+    ({ keys: [key] }: PContextMenu.MenuProps): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
-
-      const handleSelect = (menuKey: string): void => {
-        switch (menuKey) {
-          case "remove":
-            return handleRemove(key);
-          case "connect":
-            return handleConnect(key);
-          case "disconnect":
-            return handleConnect(null);
-          case "link": {
-            const name = allClusters.find((c) => c.key === key)?.name;
-            if (name == null) return;
-            return handleLink({ clusterKey: key, name });
-          }
-          case "rename":
-            return handleRename(key);
-        }
+      const handleLink = () => {
+        const name = allClusters.find((c) => c.key === key)?.name;
+        if (name == null) return;
+        return copyLink({ clusterKey: key, name });
       };
-
       return (
-        <PMenu.Menu level="small" onChange={handleSelect}>
+        <>
           {key === active?.key ? (
-            <PMenu.Item size="small" itemKey="disconnect">
+            <PContextMenu.Item onClick={() => handleConnect(null)}>
               <Icon.Disconnect />
               Disconnect
-            </PMenu.Item>
+            </PContextMenu.Item>
           ) : (
-            <PMenu.Item size="small" itemKey="connect">
+            <PContextMenu.Item onClick={() => handleConnect(key)}>
               <Icon.Connect />
               Connect
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
-          <Menu.RenameItem />
-          <PMenu.Divider />
-          <PMenu.Item size="small" itemKey="remove">
+          <ContextMenu.RenameItem onClick={() => handleRename(key)} />
+          <PContextMenu.Divider />
+          <PContextMenu.Item onClick={() => handleRemove(key)}>
             <Icon.Delete />
             Remove
-          </PMenu.Item>
-          <Link.CopyMenuItem />
-          <PMenu.Divider />
-          <Menu.ReloadConsoleItem />
-        </PMenu.Menu>
+          </PContextMenu.Item>
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <PContextMenu.Divider />
+          <ContextMenu.ReloadConsoleItem />
+        </>
       );
     },
     [active?.key, handleConnect, handleRemove],
@@ -231,7 +217,7 @@ export const Dropdown = (): ReactElement => {
           <ConnectionBadge />
         </Flex.Box>
         <Dialog.Dialog style={{ minWidth: 300, width: 400 }} bordered borderColor={6}>
-          <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+          <PContextMenu.ContextMenu menu={contextMenu} {...contextMenuProps} />
           <Flex.Box pack x>
             <Header.Header grow borderColor={6} gap="small" x>
               <Header.Title level="h5">
@@ -257,7 +243,7 @@ export const Dropdown = (): ReactElement => {
             className={CSS.B("cluster-list")}
             empty
             style={{ height: 190 }}
-            onContextMenu={menuProps.open}
+            onContextMenu={contextMenuProps.open}
           >
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />

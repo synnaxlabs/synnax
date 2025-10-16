@@ -11,22 +11,18 @@ import "@/layout/Window.css";
 
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
+import { ContextMenu as PContextMenu, Flex, Haul, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
-export const DefaultContextMenu = (): ReactElement => (
-  <PMenu.Menu>
-    <Menu.ReloadConsoleItem />
-  </PMenu.Menu>
-);
+export const DefaultContextMenu = (): ReactElement => <ContextMenu.ReloadConsoleItem />;
 
 const WindowInternal = (): ReactElement | null => {
   const currLabel = Runtime.ENGINE === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
@@ -48,7 +44,7 @@ const WindowInternal = (): ReactElement | null => {
     );
   }, [os, layout?.key]);
 
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   const ctx = Haul.useContext();
   const dragging = Haul.useDraggingRef();
 
@@ -64,14 +60,17 @@ const WindowInternal = (): ReactElement | null => {
       className={CSS(
         CSS.B("main"),
         CSS.M(`os-${os.toLowerCase()}`),
-        menuProps.className,
+        contextMenuProps.className,
       )}
       onDragOver={handleDragOver}
-      onContextMenu={menuProps.open}
+      onContextMenu={contextMenuProps.open}
     >
-      <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+      <PContextMenu.ContextMenu
+        menu={() => <DefaultContextMenu />}
+        {...contextMenuProps}
+      >
         <Content layoutKey={layout.key} />
-      </PMenu.ContextMenu>
+      </PContextMenu.ContextMenu>
     </Flex.Box>
   );
 };

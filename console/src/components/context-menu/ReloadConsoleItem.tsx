@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { reloadWindow } from "@synnaxlabs/drift";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -21,9 +21,9 @@ export const ReloadConsoleItem = (): ReactElement => {
     dispatch(reloadWindow({}));
   }, [dispatch]);
   return (
-    <Menu.Item onClick={handleClick} size="small" itemKey="hardReload">
+    <ContextMenu.Item onClick={handleClick}>
       <Icon.Refresh />
       Reload Console
-    </Menu.Item>
+    </ContextMenu.Item>
   );
 };

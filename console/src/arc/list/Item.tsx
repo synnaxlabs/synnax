@@ -10,11 +10,11 @@
 import { type arc } from "@synnaxlabs/client";
 import {
   Arc,
+  ContextMenu as PContextMenu,
   Flex,
   Form,
   Input,
   List,
-  Menu,
   Select,
   stopPropagation,
   Text,
@@ -55,7 +55,7 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
   });
   const { name } = arc;
 
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
 
   return (
     <List.Item
@@ -64,15 +64,15 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}
-      onContextMenu={menuProps.open}
+      onContextMenu={contextMenuProps.open}
       justify="between"
       align="center"
     >
       <Form.Form<typeof Arc.formSchema> {...form}>
-        <Menu.ContextMenu
+        <PContextMenu.ContextMenu
           menu={(p) => <ContextMenu {...p} getItem={getItem} />}
           onClick={stopPropagation}
-          {...menuProps}
+          {...contextMenuProps}
         />
         <Flex.Box x align="center">
           <Input.Checkbox

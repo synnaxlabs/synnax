@@ -12,10 +12,10 @@ import "@/hardware/modbus/task/Task.css";
 import { NotFoundError } from "@synnaxlabs/client";
 import {
   Component,
+  ContextMenu as PContextMenu,
   Flex,
   Form as PForm,
   Icon,
-  Menu,
   Select,
   Telem,
   Text,
@@ -23,6 +23,7 @@ import {
 import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
@@ -150,11 +151,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Divider />
+      <ContextMenu.RenameItem onClick={handleRename} />
+      <PContextMenu.Divider />
     </>
   );
 };

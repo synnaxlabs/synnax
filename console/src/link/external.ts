@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/link/CopyMenuItem";
+export * from "@/link/CopyContextMenuItem";
 export * from "@/link/types";
 export * from "@/link/useCopyToClipboard";
 export * from "@/link/useDeep";

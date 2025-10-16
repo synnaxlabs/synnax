@@ -9,4 +9,6 @@
 
 import { Divider as CoreDivider } from "@/divider";
 
-export const Divider = () => <CoreDivider.Divider x padded />;
+export const Divider = (props: CoreDivider.DividerProps) => (
+  <CoreDivider.Divider x padded {...props} />
+);

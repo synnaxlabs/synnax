@@ -9,10 +9,10 @@
 
 import { DisconnectedError, type ontology, workspace } from "@synnaxlabs/client";
 import {
+  ContextMenu as PContextMenu,
   Icon,
   LinePlot as PLinePlot,
   Log as PLog,
-  Menu as PMenu,
   Schematic as PSchematic,
   Synnax,
   Table as PTable,
@@ -23,7 +23,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
@@ -196,96 +196,90 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
-  const createPlot = useCreateLinePlot(props);
-  const createLog = useCreateLog(props);
-  const createTable = useCreateTable(props);
+  const handleCreatePlot = useCreateLinePlot(props);
+  const handleCreateLog = useCreateLog(props);
+  const handleCreateTable = useCreateTable(props);
   const firstID = selection.ids[0];
-  const importPlot = LinePlotServices.useImport(firstID.key);
-  const createSchematic = useCreateSchematic(props);
+  const handleImportPlot = LinePlotServices.useImport(firstID.key);
+  const handleCreateSchematic = useCreateSchematic(props);
   const importSchematic = SchematicServices.useImport(firstID.key);
-  const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport(EXTRACTORS);
-  const importLog = LogServices.useImport(firstID.key);
+  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
+  const exportWS = useExport(EXTRACTORS);
+  const handleImportLog = LogServices.useImport(firstID.key);
   const importTable = TableServices.useImport(firstID.key);
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
-  const handleSelect = {
-    delete: handleDelete,
-    rename: handleRename,
-    group: () => group(props),
-    createLog,
-    createPlot,
-    createTable,
-    importPlot,
-    importLog,
-    importTable,
-    createSchematic,
-    importSchematic,
-    export: () => handleExport(first.id.key),
-    link: () => handleLink({ name: first.name, ontologyID: first.id }),
-  };
+  const handleGroup = () => group(props);
+  const handleExport = () => exportWS(first.id.key);
+  const handleLink = () =>
+    copyLinkToClipboard({ name: first.name, ontologyID: first.id });
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" background={1} gap="small">
+    <>
       {singleResource && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          <ContextMenu.RenameItem onClick={handleRename} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <Group.ContextMenuItem
+        ids={ids}
+        shape={shape}
+        rootID={rootID}
+        onClick={handleGroup}
+      />
+      <PContextMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Item itemKey="createPlot">
+          <PContextMenu.Item onClick={handleCreatePlot}>
             <LinePlotServices.CreateIcon />
             Create line plot
-          </PMenu.Item>
-          <PMenu.Item itemKey="createLog">
+          </PContextMenu.Item>
+          <PContextMenu.Item onClick={handleCreateLog}>
             <LogServices.CreateIcon />
             Create log
-          </PMenu.Item>
-          <PMenu.Item itemKey="createTable">
+          </PContextMenu.Item>
+          <PContextMenu.Item onClick={handleCreateTable}>
             <TableServices.CreateIcon />
             Create table
-          </PMenu.Item>
+          </PContextMenu.Item>
           {canCreateSchematic && (
-            <PMenu.Item itemKey="createSchematic">
+            <PContextMenu.Item onClick={handleCreateSchematic}>
               <SchematicServices.CreateIcon />
               Create schematic
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
-          <PMenu.Divider />
-          <PMenu.Item itemKey="importPlot">
+          <PContextMenu.Divider />
+          <PContextMenu.Item onClick={handleImportPlot}>
             <LinePlotServices.ImportIcon />
             Import line plot(s)
-          </PMenu.Item>
-          <PMenu.Item itemKey="importLog">
+          </PContextMenu.Item>
+          <PContextMenu.Item onClick={handleImportLog}>
             <LogServices.ImportIcon />
             Import log(s)
-          </PMenu.Item>
+          </PContextMenu.Item>
           {canCreateSchematic && (
-            <PMenu.Item itemKey="importSchematic">
+            <PContextMenu.Item onClick={importSchematic}>
               <SchematicServices.ImportIcon />
               Import schematic(s)
-            </PMenu.Item>
+            </PContextMenu.Item>
           )}
-          <PMenu.Item itemKey="importTable">
+          <PContextMenu.Item onClick={importTable}>
             <TableServices.ImportIcon />
             Import table(s)
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <PContextMenu.Divider />
+          <Export.ContextMenuItem onClick={handleExport} />
+          <Link.CopyContextMenuItem onClick={handleLink} />
+          <Ontology.CopyContextMenuItem {...props} />
+          <PContextMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 };
 

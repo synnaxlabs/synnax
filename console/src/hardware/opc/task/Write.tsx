@@ -8,10 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import {
+  Component,
+  ContextMenu as PContextMenu,
+  type Haul,
+  Icon,
+  Text,
+} from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { ContextMenu } from "@/components";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
@@ -82,11 +89,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Divider />
+      <ContextMenu.RenameItem onClick={handleRename} />
+      <PContextMenu.Divider />
     </>
   );
 };

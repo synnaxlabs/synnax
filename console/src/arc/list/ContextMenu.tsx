@@ -8,13 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import { Arc, Form, Icon, type List, Menu as PMenu } from "@synnaxlabs/pluto";
+import {
+  Arc,
+  type ContextMenu as PContextMenu,
+  Form,
+  type List,
+} from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 
-export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
+export interface ContextMenuProps extends PContextMenu.MenuProps {
   getItem: List.GetItem<string, arc.Arc>;
 }
 
@@ -30,33 +35,26 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   });
   const { update: del } = Arc.useDelete();
 
-  const handleSelect: PMenu.MenuProps["onChange"] = {
-    rename: () => {
-      rename({ initialValue: arcs[0].name }, { icon: "Arc", name: "Arc.Rename" })
-        .then((renamed) => {
-          if (renamed == null) return;
-          ctx.set("name", renamed);
-        })
-        .catch(console.error);
-    },
-    delete: () => {
-      confirm(arcs)
-        .then((confirmed) => {
-          if (confirmed) del(arcs.map((a) => a.key));
-        })
-        .catch(console.error);
-    },
+  const handleRename = () => {
+    rename({ initialValue: arcs[0].name }, { icon: "Arc", name: "Arc.Rename" })
+      .then((renamed) => {
+        if (renamed == null) return;
+        ctx.set("name", renamed);
+      })
+      .catch(console.error);
+  };
+  const handleDelete = () => {
+    confirm(arcs)
+      .then((confirmed) => {
+        if (confirmed) del(arcs.map((a) => a.key));
+      })
+      .catch(console.error);
   };
 
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {isSingle && <Menu.RenameItem />}
-      {!isEmpty && (
-        <PMenu.Item itemKey="delete">
-          <Icon.Delete />
-          Delete
-        </PMenu.Item>
-      )}
-    </PMenu.Menu>
+    <>
+      {isSingle && <CMenu.RenameItem onClick={handleRename} />}
+      {!isEmpty && <CMenu.DeleteItem onClick={handleDelete} />}
+    </>
   );
 };

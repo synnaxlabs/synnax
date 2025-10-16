@@ -10,9 +10,9 @@
 import { type Store } from "@reduxjs/toolkit";
 import { ranger, type Synnax as Client } from "@synnaxlabs/client";
 import {
+  ContextMenu as PContextMenu,
   type Flux,
   Icon,
-  Menu as PMenu,
   Ranger,
   Status,
   Synnax,
@@ -23,7 +23,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { ContextMenu as CMenu } from "@/components";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
@@ -36,18 +36,20 @@ import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 
-export interface SnapshotMenuItemProps {
+export interface SnapshotContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {
   range?: Range | null;
 }
 
-export const SnapshotMenuItem = ({
+export const SnapshotContextMenuItem = ({
   range,
-}: SnapshotMenuItemProps): ReactElement | null =>
+  ...rest
+}: SnapshotContextMenuItemProps): ReactElement | null =>
   range?.persisted === true ? (
-    <PMenu.Item itemKey="rangeSnapshot">
+    <PContextMenu.Item {...rest}>
       <Icon.Snapshot />
       Snapshot to {range.name}
-    </PMenu.Item>
+    </PContextMenu.Item>
   ) : null;
 
 export const fetchIfNotInState = async (
@@ -64,65 +66,88 @@ export const fetchIfNotInState = async (
   return existing;
 };
 
-export const deleteMenuItem = (
-  <PMenu.Item itemKey="delete">
-    <Icon.Delete />
-    Delete
-  </PMenu.Item>
-);
+export interface SetAsActiveContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
 
-export const setAsActiveMenuItem = (
-  <PMenu.Item itemKey="setAsActive" gap="small">
+export const SetAsActiveContextMenuItem = (
+  props: SetAsActiveContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
     <Icon.Dynamic />
     Set as active range
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
-export const clearActiveMenuItem = (
-  <PMenu.Item itemKey="clearActive" gap="small">
+export interface ClearActiveContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
+
+export const ClearActiveContextMenuItem = (
+  props: ClearActiveContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
     <Icon.Dynamic />
     Clear active range
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
-export const viewDetailsMenuItem = (
-  <PMenu.Item itemKey="details">
+export interface ViewDetailsContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
+
+export const ViewDetailsContextMenuItem = (
+  props: ViewDetailsContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
     <Icon.Details />
     View details
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
 const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Add,
 });
 
-export const addToNewPlotMenuItem = (
-  <PMenu.Item itemKey="addToNewPlot">
-    <AddToNewPlotIcon key="plot" />
+export interface AddToNewPlotContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
+
+export const AddToNewPlotContextMenuItem = (
+  props: AddToNewPlotContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
+    <AddToNewPlotIcon />
     Add to new plot
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
 const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Range,
 });
 
-export const addToActivePlotMenuItem = (
-  <PMenu.Item itemKey="addToActivePlot">
-    <AddToActivePlotIcon key="plot" />
+export interface AddToActivePlotContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
+
+export const AddToActivePlotContextMenuItem = (
+  props: AddToActivePlotContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
+    <AddToActivePlotIcon />
     Add to active plot
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
 export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-export const createChildRangeMenuItem = (
-  <PMenu.Item itemKey="addChildRange">
-    <CreateChildRangeIcon key="plot" />
+export interface CreateChildRangeContextMenuItemProps
+  extends Pick<PContextMenu.ItemProps, "onClick"> {}
+
+export const CreateChildRangeContextMenuItem = (
+  props: CreateChildRangeContextMenuItemProps,
+): ReactElement => (
+  <PContextMenu.Item {...props}>
+    <CreateChildRangeIcon />
     Create child range
-  </PMenu.Item>
+  </PContextMenu.Item>
 );
 
 export const useViewDetails = (): ((key: string) => void) => {
@@ -185,7 +210,7 @@ export const usePersist = () => {
   );
 };
 
-export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
+export const ContextMenu = ({ keys: [key] }: PContextMenu.MenuProps) => {
   const dispatch = useDispatch();
   const client = Synnax.use();
   const ranges = useSelectMultiple();
@@ -217,67 +242,64 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const rangeExists = rng != null;
   const del = useDelete();
   const persist = usePersist();
-  const handleLink = Cluster.useCopyLinkToClipboard();
-
-  const handleSelect: PMenu.MenuProps["onChange"] = {
-    rename: () => Text.edit(`text-${key}`),
-    create: () => handleCreate(),
-    remove: () => rangeExists && handleRemove([rng.key]),
-    delete: () => rangeExists && del(rng.key),
-    details: () => rangeExists && handleViewDetails(rng.key),
-    save: () => rangeExists && persist(rng.key),
-    link: () =>
-      rangeExists &&
-      handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
-    addToActivePlot: () => addToActivePlot([key]),
-    addToNewPlot: () => addToNewPlot([key]),
-    addChildRange: handleAddChildRange,
-    setAsActive: handleSetActive,
-    clearActive: handleClearActive,
+  const copyLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = () => {
+    if (!rangeExists) return;
+    copyLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) });
   };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <PMenu.Item itemKey="create">
+    <>
+      <PContextMenu.Item onClick={() => handleCreate()}>
         <Icon.Add />
         Create new
-      </PMenu.Item>
+      </PContextMenu.Item>
       {rangeExists && (
         <>
-          <PMenu.Divider />
-          {rng.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
-          {rng.persisted && viewDetailsMenuItem}
-          <PMenu.Divider />
-          <Menu.RenameItem />
-          {rng.persisted && createChildRangeMenuItem}
-          <PMenu.Divider />
-          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
-          {addToNewPlotMenuItem}
-          <PMenu.Divider />
-          <PMenu.Item itemKey="remove">
+          <PContextMenu.Divider />
+          {rng.key !== activeRange?.key ? (
+            <SetAsActiveContextMenuItem onClick={handleSetActive} />
+          ) : (
+            <ClearActiveContextMenuItem onClick={handleClearActive} />
+          )}
+          {rng.persisted && (
+            <ViewDetailsContextMenuItem onClick={() => handleViewDetails(rng.key)} />
+          )}
+          <PContextMenu.Divider />
+          <CMenu.RenameItem onClick={() => Text.edit(`text-${key}`)} />
+          {rng.persisted && (
+            <CreateChildRangeContextMenuItem onClick={handleAddChildRange} />
+          )}
+          <PContextMenu.Divider />
+          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && (
+            <AddToActivePlotContextMenuItem onClick={() => addToActivePlot([key])} />
+          )}
+          <AddToNewPlotContextMenuItem onClick={() => addToNewPlot([key])} />
+          <PContextMenu.Divider />
+          <PContextMenu.Item onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
             Remove from favorites
-          </PMenu.Item>
+          </PContextMenu.Item>
           {rng.persisted ? (
             <>
-              {deleteMenuItem}
-              <PMenu.Divider />
-              <Link.CopyMenuItem />
+              <CMenu.DeleteItem onClick={() => del(rng.key)} />
+              <PContextMenu.Divider />
+              <Link.CopyContextMenuItem onClick={handleLink} />
             </>
           ) : (
             client != null && (
               <>
-                <PMenu.Divider />
-                <PMenu.Item itemKey="save">
+                <PContextMenu.Divider />
+                <PContextMenu.Item onClick={() => persist(rng.key)}>
                   <Icon.Save />
                   {`Save to ${client.props.name ?? "Synnax"}`}
-                </PMenu.Item>
+                </PContextMenu.Item>
               </>
             )
           )}
         </>
       )}
-      <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <PContextMenu.Divider />
+      <CMenu.ReloadConsoleItem />
+    </>
   );
 };

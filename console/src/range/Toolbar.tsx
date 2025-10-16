@@ -11,12 +11,12 @@ import "@/range/Toolbar.css";
 
 import {
   Component,
+  ContextMenu as PContextMenu,
   Flex,
   type Flux,
   Haul,
   Icon,
   List as CoreList,
-  Menu as PMenu,
   Ranger,
   Select,
   Tag,
@@ -78,7 +78,7 @@ const List = (): ReactElement => {
     },
   });
 
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
 
   return (
     <Select.Frame<string, StaticRange>
@@ -86,12 +86,15 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <PContextMenu.ContextMenu
+        menu={(p) => <ContextMenu {...p} />}
+        {...contextMenuProps}
+      />
       <CoreList.Items
         full="y"
         emptyContent={<NoRanges />}
         {...dropProps}
-        onContextMenu={menuProps.open}
+        onContextMenu={contextMenuProps.open}
       >
         {listItem}
       </CoreList.Items>

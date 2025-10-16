@@ -9,11 +9,11 @@
 
 import { type ranger, UnexpectedError } from "@synnaxlabs/client";
 import {
+  ContextMenu as PContextMenu,
   Flex,
   Form,
   Input,
   List,
-  Menu,
   Ranger,
   Select,
   stopPropagation,
@@ -64,7 +64,7 @@ const Base = ({
     sync: true,
     autoSave: true,
   });
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   if (initialValues == null || item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
@@ -76,17 +76,17 @@ const Base = ({
       className={CSS(CSS.BE("range", "list-item"))}
       onSelect={handleSelect}
       justify="between"
-      onContextMenu={menuProps.open}
+      onContextMenu={contextMenuProps.open}
       selected={selected}
       rounded={!selected}
       {...selectProps}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>
-        <Menu.ContextMenu
+        <PContextMenu.ContextMenu
           menu={(p) => <ContextMenu {...p} getItem={getItem} />}
           onClick={stopPropagation}
-          {...menuProps}
+          {...contextMenuProps}
         />
         <Flex.Box x empty>
           <Input.Checkbox

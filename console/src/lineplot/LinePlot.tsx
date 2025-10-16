@@ -14,10 +14,10 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type axis,
   Channel,
+  ContextMenu as PContextMenu,
   Icon,
   type Legend,
   LinePlot as Core,
-  Menu as PMenu,
   Ranger,
   Status,
   Synnax,
@@ -47,7 +47,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -106,14 +106,6 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
-  iso: "Failed to copy ISO time range",
-  python: "Failed to copy Python time range",
-  typescript: "Failed to copy TypeScript time range",
-  range: "Failed to create range from selection",
-  download: "Failed to download region as CSV",
-};
-
 interface RangeAnnotationContextMenuProps {
   lines: Channel.LineProps[];
   range: ranger.Payload;
@@ -133,20 +125,20 @@ const RangeAnnotationContextMenu = ({
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };
   return (
-    <PMenu.Menu level="small">
-      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+    <>
+      <PContextMenu.Item onClick={handleDownloadAsCSV}>
         <Icon.CSV />
         Download as CSV
-      </PMenu.Item>
-      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+      </PContextMenu.Item>
+      <PContextMenu.Item onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
-      </PMenu.Item>
-      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+      </PContextMenu.Item>
+      <PContextMenu.Item onClick={handleViewDetails}>
         <Icon.Annotate />
         View details
-      </PMenu.Item>
-    </PMenu.Menu>
+      </PContextMenu.Item>
+    </>
   );
 };
 
@@ -334,9 +326,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [windowKey, dispatch, layoutKey]);
 
-  const props = PMenu.useContextMenu();
+  const props = PContextMenu.use();
 
-  interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
+  interface ContextMenuContentProps extends PContextMenu.MenuProps {
     layoutKey: string;
   }
 
@@ -355,64 +347,69 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
-
-    const handleSelect = (key: string): void => {
+    const handleISOTimeRange = () =>
       handleError(async () => {
         const tr = await getTimeRange();
         if (tr == null) return;
-        switch (key) {
-          case "iso":
-            await navigator.clipboard.writeText(
-              `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
-            );
-            break;
-          case "python":
-            await navigator.clipboard.writeText(
-              `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "typescript":
-            await navigator.clipboard.writeText(
-              `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
-            );
-            break;
-          case "range":
-            placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
-            break;
-          case "download":
-            if (client == null) return;
-            downloadAsCSV({ timeRanges: [tr], lines, name });
-            break;
-        }
-      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
-    };
-
+        await navigator.clipboard.writeText(
+          `${tr.start.toString("ISO")} - ${tr.end.toString("ISO")}`,
+        );
+      }, "Failed to copy ISO time range");
+    const handlePythonTimeRange = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy Python time range");
+    const handleTypeScriptTimeRange = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        await navigator.clipboard.writeText(
+          `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+        );
+      }, "Failed to copy TypeScript time range");
+    const handleCreateRange = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+      }, "Failed to create range from selection");
+    const handleDownloadCSV = () =>
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        if (client == null) return;
+        downloadAsCSV({ timeRanges: [tr], lines, name });
+      }, "Failed to download region as CSV");
     return (
-      <PMenu.Menu onChange={handleSelect} gap="small" level="small">
+      <>
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso">
+            <PContextMenu.Item onClick={handleISOTimeRange}>
               <Icon.Range /> Copy ISO time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="python">
+            </PContextMenu.Item>
+            <PContextMenu.Item onClick={handlePythonTimeRange}>
               <Icon.Python /> Copy Python time range
-            </PMenu.Item>
-            <PMenu.Item itemKey="typescript">
+            </PContextMenu.Item>
+            <PContextMenu.Item onClick={handleTypeScriptTimeRange}>
               <Icon.TypeScript /> Copy TypeScript time range
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="range">
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
+            <PContextMenu.Item onClick={handleCreateRange}>
               <Ranger.CreateIcon /> Create range from selection
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="download">
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
+            <PContextMenu.Item onClick={handleDownloadCSV}>
               <Icon.CSV /> Download region as CSV
-            </PMenu.Item>
-            <PMenu.Divider />
+            </PContextMenu.Item>
+            <PContextMenu.Divider />
           </>
         )}
-        <Menu.ReloadConsoleItem />
-      </PMenu.Menu>
+        <ContextMenu.ReloadConsoleItem />
+      </>
     );
   };
 
@@ -425,7 +422,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       style={{ height: "100%", width: "100%", padding: "2rem" }}
       className={props.className}
     >
-      <PMenu.ContextMenu
+      <PContextMenu.ContextMenu
         {...props}
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
@@ -467,7 +464,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
-      </PMenu.ContextMenu>
+      </PContextMenu.ContextMenu>
       {focused && <NavControls layoutKey={layoutKey} />}
     </div>
   );
