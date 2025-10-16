@@ -28,7 +28,7 @@ export const Item = ({
 }: ItemProps): ReactElement => {
   const { onChange, selected, level = "p", gap, background } = useContext();
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
-    onChange(itemKey);
+    onChange?.(itemKey);
     onClick?.(e);
   };
   const _selected = selected === itemKey;

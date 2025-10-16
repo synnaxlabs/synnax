@@ -20,19 +20,14 @@ import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
 export interface ContextValue {
-  onChange: (key: string) => void;
+  onChange?: (key: string) => void;
   selected: string;
   level?: Text.Level;
   gap?: Component.Size;
   background?: Theming.Shade;
 }
 
-const defaultOnChange = () => {};
-
-const Context = createContext<ContextValue>({
-  onChange: defaultOnChange,
-  selected: "",
-});
+const Context = createContext<ContextValue>({ selected: "" });
 
 export interface MenuProps
   extends PropsWithChildren,
@@ -63,7 +58,7 @@ export const Menu = ({
 }: MenuProps): ReactElement => {
   const ctxValue = useMemo(
     () => ({
-      onChange: onChange ?? defaultOnChange,
+      onChange,
       selected,
       level,
       gap,
