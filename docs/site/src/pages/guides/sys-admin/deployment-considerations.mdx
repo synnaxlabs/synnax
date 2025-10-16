@@ -41,15 +41,15 @@ distribute data storage and processing. This allows a cluster to scale horizonta
 growing to meet the needs of its application.
 
 The smallest possible cluster is a single Core. The
-[quick start](/reference/core/quick-start) guide is an example of a single-Core
+[quick start](/reference/core/quick-start) guide is an example of a single Core
 deployment.
 
-While single-Core clusters are less fault tolerant than multi-node deployments, it's
-perfectly okay to deploy Synnax in production with just a single node. As your needs
-grow, you can add additional nodes in order to balance the workload.
+While single are less fault tolerant than multiple Core deployments, it's perfectly okay
+to deploy Synnax in production with just a single node. As your needs grow, you can add
+additional nodes in order to balance the workload.
 
 <Note.Note variant="info">
-  Multi-Core clusters are experimental and not yet recommended for production use.
+  Multiple Core clusters are experimental and not yet recommended for production use.
 </Note.Note>
 
 <Divider.Divider x />
@@ -73,10 +73,10 @@ critical concerns. We recommend deploying Synnax on a local network with a dedic
 switch and high quality, well-protected cabling. Generally speaking, it's best to deploy
 Synnax as close to the hardware as possible.
 
-For single-Core clusters, we typically see our users deploy Synnax on the same computer
-that their data acquisition devices are connected to. Here's an example of a simple
-Synnax deployment. It has a central node that is connected to data acquisition devices
-and operator machines.
+When deploying a single Core, we typically see our users deploy Synnax on the same
+computer that their data acquisition devices are connected to. Here's an example of a
+simple Synnax deployment. It has a central node that is connected to data acquisition
+devices and operator machines.
 
 <Image
   client:only="react"
@@ -100,7 +100,7 @@ deploying Synnax in the cloud with a publicly exposed endpoint is also a viable 
 Synnax can run on bare metal, virtual machines, or you can use our docker images to
 deploy Synnax in a containerized environment. Here's an example of a cloud deployment
 with post processing systems, analyst machines, and a custom data application all
-connecting to a single-Core cluster:
+connecting to a single Core:
 
 <Image
   client:only="react"
