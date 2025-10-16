@@ -188,11 +188,10 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
-    state: { getResource, shape },
+    selection: { ids },
+    state: { getResource },
   } = props;
   const activeRange = Range.useSelect();
-  const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
@@ -207,7 +206,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleRename = useRename(props);
   const copyLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
-  const handleGroup = () => groupFromSelection(props);
   const handleOpenCalculated = () => openCalculated(props);
   const handleLink = () => copyLink({ name: first.name, ontologyID: first.id });
   const singleResource = resources.length === 1;
@@ -217,12 +215,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <>
       {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} />
       {isCalc && (
         <>
           <PContextMenu.Divider />

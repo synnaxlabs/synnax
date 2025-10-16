@@ -22,7 +22,6 @@ import { useCallback } from "react";
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components/context-menu";
 import { ContextMenuItem } from "@/group/ContextMenuItem";
-import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -40,7 +39,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty(props);
-  const createFromSelection = useCreateFromSelection();
   const copyLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
@@ -54,7 +52,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     return node?.children == null || node?.children.length === 0;
   });
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
-  const handleGroup = () => createFromSelection(props);
   const handleUngroup = () => ungroup.update(props);
   const handleLink = () => copyLink({ name: firstResource.name, ontologyID: firstID });
   return (
@@ -73,7 +70,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PContextMenu.Item>
         </>
       )}
-      <ContextMenuItem ids={ids} shape={shape} rootID={rootID} onClick={handleGroup} />
+      <ContextMenuItem {...props} />
       {!isZeroDepth && (
         <>
           <PContextMenu.Item onClick={handleUngroup}>

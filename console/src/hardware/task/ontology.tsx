@@ -80,19 +80,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     client,
     addStatus,
     handleError,
-    state: { getResource, shape },
+    state: { getResource },
   } = props;
-  const { ids, rootID } = selection;
+  const { ids } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const copyLink = Cluster.useCopyLinkToClipboard();
   const exportTask = Common.Task.useExport();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
-  const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const handleExport = () => exportTask(ids[0].key);
-  const handleGroup = () => group(props);
   const singleResource = ids.length === 1;
   const handleEdit = () =>
     handleSelect({
@@ -112,12 +110,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     snap({ tasks: resources.map(({ id: { key }, name }) => ({ key, name })) });
   return (
     <>
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotContextMenuItem range={range} onClick={handleRangeSnapshot} />

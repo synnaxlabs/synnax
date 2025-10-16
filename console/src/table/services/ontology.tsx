@@ -52,16 +52,14 @@ const useRename = createUseRename({
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
-    state: { getResource, shape },
+    selection: { ids },
+    state: { getResource },
   } = props;
   const handleDelete = useDelete(props);
   const copyLink = Cluster.useCopyLinkToClipboard();
   const exportTable = Table.useExport();
   const handleRename = useRename(props);
   const handleLink = () => copyLink({ name: first.name, ontologyID: firstID });
-  const group = Group.useCreateFromSelection();
-  const handleGroup = () => group(props);
   const handleExport = () => exportTable(first.id.key);
   const firstID = ids[0];
   const first = getResource(firstID);
@@ -70,12 +68,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
       <ContextMenu.DeleteItem onClick={handleDelete} />
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} />
       <PContextMenu.Divider />
       {isSingle && (
         <>

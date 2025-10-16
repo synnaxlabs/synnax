@@ -65,17 +65,13 @@ const useDelete = createUseDelete({
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const {
-    selection,
-    state: { shape },
-  } = props;
-  const { ids, rootID } = selection;
+  const { selection } = props;
+  const { ids } = selection;
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const openRenameModal = Modals.useRename();
   const handleRename = useRename(props);
   const handleError = Status.useErrorHandler();
-  const group = Group.useCreateFromSelection();
   const createSequence = () => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
@@ -86,17 +82,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       placeLayout(layout);
     }, "Failed to create control sequence");
   };
-  const handleGroup = () => group(props);
   const isSingle = ids.length === 1;
   return (
     <>
-      <Group.ContextMenuItem
-        ids={ids}
-        rootID={rootID}
-        shape={shape}
-        showBottomDivider
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} showBottomDivider />
       {isSingle && (
         <>
           <ContextMenu.RenameItem onClick={handleRename} />

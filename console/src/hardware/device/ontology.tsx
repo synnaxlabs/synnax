@@ -102,18 +102,16 @@ const useRename = createUseRename({
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
-    state: { getResource, shape },
+    selection: { ids },
+    state: { getResource },
   } = props;
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
-  const group = Group.useCreateFromSelection();
   const changeIdentifier = useHandleChangeIdentifier();
   if (ids.length === 0) return null;
   const handleConfigure = () => configure(props);
-  const handleGroup = () => group(props);
   const handleChangeIdentifier = () => changeIdentifier(props);
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
@@ -124,12 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     hasIdentifier(getMake(first.data?.make));
   return (
     <>
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} />
       {singleResource && (
         <>
           <ContextMenu.RenameItem onClick={handleRename} />

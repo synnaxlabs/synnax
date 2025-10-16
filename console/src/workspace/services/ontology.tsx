@@ -191,11 +191,10 @@ const useRename = createUseRename({
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
-    selection: { ids, rootID },
-    state: { getResource, shape },
+    selection: { ids },
+    state: { getResource },
   } = props;
   const handleDelete = useDelete(props);
-  const group = Group.useCreateFromSelection();
   const handleCreatePlot = useCreateLinePlot(props);
   const handleCreateLog = useCreateLog(props);
   const handleCreateTable = useCreateTable(props);
@@ -210,7 +209,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
-  const handleGroup = () => group(props);
   const handleExport = () => exportWS(first.id.key);
   const handleLink = () =>
     copyLinkToClipboard({ name: first.name, ontologyID: first.id });
@@ -225,12 +223,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <ContextMenu.DeleteItem onClick={handleDelete} />
-      <Group.ContextMenuItem
-        ids={ids}
-        shape={shape}
-        rootID={rootID}
-        onClick={handleGroup}
-      />
+      <Group.ContextMenuItem {...props} />
       <PContextMenu.Divider />
       {singleResource && (
         <>
