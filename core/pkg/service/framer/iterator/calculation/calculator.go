@@ -41,7 +41,8 @@ type Calculator struct {
 
 // ConfigValues is the configuration for an arc runtime.
 type CalculatorConfig struct {
-	Channel channel.Channel
+	ChannelSvc channel.Readable
+	Channel    channel.Channel
 	// Module is the compiled arc module that needs to be executed.
 	//
 	// [REQUIRED]
@@ -67,6 +68,7 @@ func (c *Calculator) ReadFrom() []channel.Key {
 // Override implements config.Config.
 func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
 	c.Module = override.Zero(c.Module, other.Module)
+	c.ChannelSvc = override.Nil(c.ChannelSvc, other.ChannelSvc)
 	c.Channel = other.Channel
 	return c
 }
@@ -141,6 +143,16 @@ func OpenCalculator(
 
 	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
 	c := &Calculator{scheduler: scheduler, telem: telemState, ch: cfg.Channel}
+	for _, k := range c.ReadFrom() {
+		var ch channel.Channel
+		if err = cfg.ChannelSvc.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		telemState.Data[uint32(ch.Key())] = ntelem.Data{
+			IndexKey: uint32(ch.Index()),
+		}
+
+	}
 	return c, nil
 }
 

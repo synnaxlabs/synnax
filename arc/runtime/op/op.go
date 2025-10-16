@@ -12,7 +12,9 @@ package op
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/align"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/query"
@@ -24,24 +26,28 @@ type binaryOperator struct {
 	inputs  struct{ lhs, rhs ir.Edge }
 	output  ir.Handle
 	compare op.Binary
+	aligner *align.Aligner
 }
 
 func (n *binaryOperator) Init(context.Context, func(string)) {}
 
 func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)) {
-	seriesA := n.state.Outputs[n.inputs.lhs.Source]
-	seriesB := n.state.Outputs[n.inputs.rhs.Source]
-	aLength := seriesA.Data.Len()
-	bLength := seriesB.Data.Len()
-	if aLength == 0 || bLength == 0 {
+	dataA := n.state.Outputs[n.inputs.lhs.Source]
+	lo.Must0(n.aligner.Add(n.inputs.lhs.Target.Param, dataA.Data, dataA.Time))
+	dataB := n.state.Outputs[n.inputs.rhs.Source]
+	lo.Must0(n.aligner.Add(n.inputs.rhs.Target.Param, dataB.Data, dataA.Time))
+	ops, ok := n.aligner.Next()
+	if !ok {
 		return
 	}
 	outputSeries := n.state.Outputs[n.output]
-	n.compare(seriesA.Data, seriesB.Data, &outputSeries.Data)
-	if aLength >= bLength {
-		outputSeries.Time = seriesA.Time
+	a := ops.Inputs[n.inputs.lhs.Target.Param]
+	b := ops.Inputs[n.inputs.rhs.Target.Param]
+	n.compare(a.Data, b.Data, &outputSeries.Data)
+	if a.Data.Len() >= b.Data.Len() {
+		outputSeries.Time = a.Time
 	} else {
-		outputSeries.Time = seriesB.Time
+		outputSeries.Time = b.Time
 	}
 	n.state.Outputs[n.output] = outputSeries
 	markChanged(ir.DefaultOutputParam)
@@ -60,6 +66,7 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	seriesA := cfg.State.Outputs[lhsEdge.Source]
 	comp := opCat[seriesA.Data.DataType]
 	n := &binaryOperator{state: cfg.State, output: outputHandle, compare: comp}
+	n.aligner = align.NewAligner([]string{ir.LHSInputParam, ir.RHSInputParam})
 	n.inputs.lhs = lhsEdge
 	n.inputs.rhs = rhsEdge
 	return n, nil

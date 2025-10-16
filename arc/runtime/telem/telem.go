@@ -78,14 +78,21 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	for i, ser := range entry.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Upper > s.highWaterMark {
-			s.highWaterMark = ab.Upper
 			output := state.Output{Data: ser}
-			if len(indexData.Series) > i {
+			if entry.IndexKey == 0 {
+				output.Time = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
+				output.Time.Alignment = ser.Alignment
+			} else if len(indexData.Series) > i {
 				output.Time = s.telem.Data[entry.IndexKey].Series[i]
 			} else {
-				output.Time = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
+				return
 			}
+
 			s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = output
+			if output.Time.Alignment != ser.Alignment {
+				return
+			}
+			s.highWaterMark = ab.Upper
 			onOutputChange(ir.DefaultOutputParam)
 		}
 	}

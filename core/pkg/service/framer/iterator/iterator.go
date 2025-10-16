@@ -162,8 +162,9 @@ func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calc
 		return nil, err
 	}
 	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
-		Channel: ch,
-		Module:  compiled,
+		Channel:    ch,
+		Module:     compiled,
+		ChannelSvc: s.cfg.Channel,
 	})
 	return c, err
 }

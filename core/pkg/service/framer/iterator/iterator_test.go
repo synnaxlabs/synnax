@@ -10,15 +10,12 @@
 package iterator_test
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -135,7 +132,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 						telem.NewSeriesV[float32](1, 2, 3, 4, 5),
-						telem.NewSeriesV[float32](-1, -2, -3, -4, -5),
+						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
 				)
 				MustSucceed(w.Write(fr))
@@ -146,49 +143,49 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				key := uuid.New()
 				prog := arc.Graph{
 					Functions: []arc.Function{
-						{
-							Key: "calculation",
-							Inputs: types.Params{
-								Keys:   []string{"sensor_1_v", "sensor_2_v"},
-								Values: []types.Type{types.F32(), types.F32()},
-							},
-							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32()},
-							},
-							Body: ir.Body{Raw: `{
-								return (sensor_1_v + sensor_2_v) / 2
-							}`},
-						},
+						//{
+						//	Key: "calculation",
+						//	Inputs: types.Params{
+						//		Keys:   []string{"sensor_1_v", "sensor_2_v"},
+						//		Values: []types.Type{types.F32(), types.F32()},
+						//	},
+						//	Outputs: types.Params{
+						//		Keys:   []string{ir.DefaultOutputParam},
+						//		Values: []types.Type{types.F32()},
+						//	},
+						//	Body: ir.Body{Raw: `{
+						//		return (sensor_1_v + sensor_2_v) / 2
+						//	}`},
+						//},
 					},
 					Nodes: []graph.Node{
 						{
 							Key:  "sensor_1_on",
 							Type: "on",
 							ConfigValues: map[string]any{
-								"channel": dataCh1.Key(),
+								"channel": uint32(dataCh1.Key()),
 							},
 						},
 						{
 							Key:  "sensor_2_on",
 							Type: "on",
 							ConfigValues: map[string]any{
-								"channel": dataCh2.Key(),
+								"channel": uint32(dataCh2.Key()),
 							},
 						},
 						{
 							Key:  "calculation",
-							Type: "calculation",
+							Type: "add",
 						},
 					},
 					Edges: []graph.Edge{
 						{
 							Source: graph.Handle{Node: "sensor_1_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: "sensor_1_v"},
+							Target: graph.Handle{Node: "calculation", Param: ir.LHSInputParam},
 						},
 						{
 							Source: graph.Handle{Node: "sensor_2_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: "sensor_2_v"},
+							Target: graph.Handle{Node: "calculation", Param: ir.RHSInputParam},
 						},
 						{
 							Source: graph.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
@@ -219,10 +216,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
 				for {
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					fmt.Println(iter.Value())
 					v := iter.Value().Get(calculation.Key())
 					if v.Len() > 0 {
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
+						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1t a))
 						break
 					}
 				}

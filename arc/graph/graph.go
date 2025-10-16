@@ -11,7 +11,7 @@ package graph
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 type (
@@ -147,7 +148,11 @@ func Analyze(
 				continue
 			}
 			if configType.Kind == types.KindChan {
-				channelSym, err := resolver.Resolve(ctx_, fmt.Sprint(configValue))
+				var k uint32
+				if err := zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
+					return ir.IR{}, *ctx.Diagnostics
+				}
+				channelSym, err := resolver.Resolve(ctx_, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
 					if err := atypes.Check(
 						ctx.Constraints,
