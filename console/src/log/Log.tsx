@@ -9,8 +9,8 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
+import { Icon, Log as Core, usePrevious } from "@synnaxlabs/pluto";
+import { deep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
@@ -18,6 +18,7 @@ import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
+import { createMultiChannelLogSource } from "@/log/telem";
 import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
@@ -56,16 +57,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
-  let t: telem.SeriesSourceSpec;
-  const ch = log.channels[0];
-  const zeroChannel = primitive.isZero(ch);
-  if (zeroChannel) t = telem.noopSeriesSourceSpec;
-  else
-    t = telem.streamChannelData({
-      channel: ch,
-      timeSpan: PRELOAD,
-      keepFor: DEFAULT_RETENTION,
-    });
+  // Create telemetry source for all selected channels
+  const t = createMultiChannelLogSource(log.channels, PRELOAD, DEFAULT_RETENTION);
+  const hasChannels = log.channels.some((ch) => ch !== 0);
+
   const handleDoubleClick = useCallback(() => {
     dispatch(
       Layout.setNavDrawerVisible({
@@ -83,11 +78,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       emptyContent={
         <EmptyAction
           message={
-            zeroChannel
-              ? "No channel configured for this log."
+            !hasChannels
+              ? "No channels configured for this log."
               : "No data received yet."
           }
-          action={zeroChannel ? "Configure channel" : ""}
+          action={!hasChannels ? "Configure channels" : ""}
           onClick={handleDoubleClick}
         />
       }

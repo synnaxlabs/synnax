@@ -324,18 +324,6 @@ export class StreamChannelData
   }
 }
 
-type Constructor = new (
-  client: client.Client,
-  props: unknown,
-  options?: CreateOptions,
-) => Telem;
-
-const REGISTRY: Record<string, Constructor> = {
-  [ChannelData.TYPE]: ChannelData,
-  [StreamChannelData.TYPE]: StreamChannelData,
-  [StreamChannelValue.TYPE]: StreamChannelValue,
-};
-
 export class RemoteFactory implements RemoteFactory {
   type = "remote";
   private readonly client: client.Client;
@@ -372,3 +360,138 @@ export const streamChannelValue = (
   variant: "source",
   valueType: "number",
 });
+
+export const streamMultiChannelDataPropsZ = z.object({
+  channels: z.array(z.number().or(z.string())),
+  useIndexOfChannel: z.boolean().optional().default(false),
+  timeSpan: TimeSpan.z,
+  keepFor: TimeSpan.z.optional(),
+});
+
+export type StreamMultiChannelDataProps = z.input<typeof streamMultiChannelDataPropsZ>;
+
+export class StreamMultiChannelData
+  extends AbstractSource<typeof streamMultiChannelDataPropsZ>
+  implements SeriesSource
+{
+  static readonly TYPE = "dynamic-multi-series-source";
+  private readonly client: client.Client;
+  private readonly data: MultiSeries = new MultiSeries([]);
+  private readonly now: () => TimeStamp;
+  private readonly onStatusChange?: status.Adder;
+
+  private channels: SelectedChannelProperties[] = [];
+  private stopStreaming?: Destructor;
+  private valid: boolean = false;
+  schema = streamMultiChannelDataPropsZ;
+
+  constructor(
+    client: client.Client,
+    props: unknown,
+    options?: CreateOptions,
+    now: () => TimeStamp = () => TimeStamp.now(),
+  ) {
+    super(props);
+    this.client = client;
+    this.now = now;
+    this.onStatusChange = options?.onStatusChange;
+  }
+
+  value(): [bounds.Bounds, MultiSeries] {
+    const { channels } = this.props;
+    if (channels.length === 0) return [bounds.ZERO, this.data];
+    if (!this.valid) void this.read();
+
+    // Don't try to calculate bounds for variable-length data types (like strings)
+    // The log component will iterate through all data in the MultiSeries anyway
+    return [bounds.ZERO, this.data];
+  }
+
+  private async read(): Promise<void> {
+    try {
+      this.valid = true;
+      const { channels: channelKeys, useIndexOfChannel, timeSpan } = this.props;
+
+      // Fetch channel properties for all channels
+      this.channels = await Promise.all(
+        channelKeys.map((ch) =>
+          fetchChannelProperties(this.client, ch, useIndexOfChannel),
+        ),
+      );
+
+      const tr = this.now().spanRange(-timeSpan);
+
+      // Read historical data for all channels
+      for (const ch of this.channels) {
+        if (!ch.virtual || ch.isCalculated) {
+          const res = await this.client.read(tr, ch.key);
+          res.acquire();
+          this.data.push(res);
+        }
+      }
+
+      // Set up streaming for all channels
+      this.stopStreaming?.();
+      const handler: client.StreamHandler = (res) => {
+        // Add data from all channels that have new data
+        for (const ch of this.channels) {
+          const series = res.get(ch.key);
+          if (series != null) {
+            series.acquire();
+            this.data.push(series);
+          }
+        }
+        this.notify();
+        this.gcOutOfRangeData();
+      };
+
+      this.stopStreaming = await this.client.stream(
+        handler,
+        this.channels.map((ch) => ch.key),
+      );
+      this.notify();
+    } catch (e) {
+      this.valid = false;
+      this.onStatusChange?.(
+        xstatus.fromException(e, "failed to stream multi-channel data"),
+      );
+    }
+  }
+
+  private gcOutOfRangeData(): void {
+    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
+    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
+    if (toGC === -1) return;
+    this.data.series.splice(toGC, 1).forEach((d) => d.release());
+    this.gcOutOfRangeData();
+  }
+
+  cleanup(): void {
+    this.stopStreaming?.();
+    this.stopStreaming = undefined;
+    this.data.release();
+    this.valid = false;
+  }
+}
+
+export const streamMultiChannelData = (
+  props: StreamMultiChannelDataProps,
+): SeriesSourceSpec => ({
+  type: StreamMultiChannelData.TYPE,
+  props,
+  variant: "source",
+  valueType: "series",
+});
+
+type Constructor = new (
+  client: client.Client,
+  props: unknown,
+  options?: CreateOptions,
+) => Telem;
+
+const REGISTRY: Record<string, Constructor> = {
+  [ChannelData.TYPE]: ChannelData,
+  [StreamChannelData.TYPE]: StreamChannelData,
+  [StreamChannelValue.TYPE]: StreamChannelValue,
+  [StreamMultiChannelData.TYPE]: StreamMultiChannelData,
+};

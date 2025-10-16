@@ -170,12 +170,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
     let range: Iterable<any>;
-    if (!this.state.scrolling)
-      range = this.values.subIterator(
-        this.values.length - this.visibleLineCount,
-        this.values.length,
+    if (!this.state.scrolling) {
+      // Use alignment-based iteration to properly interleave multi-channel data by timestamp
+      const start = this.values.traverseAlignment(
+        this.values.alignmentBounds.upper,
+        -BigInt(this.visibleLineCount),
       );
-    else {
+      range = this.values.subAlignmentSpanIterator(start, this.visibleLineCount);
+    } else {
       const start = this.values.traverseAlignment(
         this.scrollState.offset,
         -BigInt(this.visibleLineCount),
