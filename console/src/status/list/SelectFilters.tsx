@@ -13,7 +13,6 @@ import {
   Flex,
   Icon,
   Label as PLabel,
-  Menu,
   state,
   Tag,
   Text,
@@ -36,14 +35,12 @@ const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => 
   };
 
   return (
-    <Menu.Menu level="small" gap="small">
-      <Label.SelectMultiple
-        value={request.hasLabels ?? []}
-        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
-        triggerProps={{ hideTags: true, variant: "text" }}
-        location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
-      />
-    </Menu.Menu>
+    <Label.SelectMultiple
+      value={request.hasLabels ?? []}
+      onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+      triggerProps={{ hideTags: true, variant: "text" }}
+      location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
+    />
   );
 };
 

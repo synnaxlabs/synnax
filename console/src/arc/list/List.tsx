@@ -52,7 +52,6 @@ export const List = ({
             value={searchTerm}
             placeholder={
               <>
-                {" "}
                 <Icon.Search />
                 Search Arcs...
               </>

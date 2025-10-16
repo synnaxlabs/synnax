@@ -303,7 +303,7 @@ const StaticFrame = <
   );
 };
 
-export const CoreFrame = <
+const CoreFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
