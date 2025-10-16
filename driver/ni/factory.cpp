@@ -14,6 +14,7 @@
 
 #include "x/cpp/xos/xos.h"
 
+#include "driver/ni/counter_read_task.h"
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
@@ -87,6 +88,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             hardware::daqmx::DigitalReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
+            common::ReadTask>(ctx, task);
+    else if (task.type == COUNTER_READ_TASK_TYPE)
+        res = configure<
+            hardware::daqmx::CounterReader,
+            ni::CounterReadTaskConfig,
+            ni::ReadTaskSource<double>,
             common::ReadTask>(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<

@@ -82,6 +82,20 @@ static int32_t get_rosette_meas_type(const std::string &s) {
     return DAQmx_Val_PrincipalStrain1;
 }
 
+static int32_t get_ci_edge(const std::string &s) {
+    if (s == "Rising") return DAQmx_Val_Rising;
+    if (s == "Falling") return DAQmx_Val_Falling;
+    return DAQmx_Val_Rising;
+}
+
+static int32_t get_ci_meas_method(const std::string &s) {
+    if (s == "LowFreq1Ctr") return DAQmx_Val_LowFreq1Ctr;
+    if (s == "HighFreq2Ctr") return DAQmx_Val_HighFreq2Ctr;
+    if (s == "LargeRng2Ctr") return DAQmx_Val_LargeRng2Ctr;
+    if (s == "DynamicAvg") return DAQmx_Val_DynamicAvg;
+    return DAQmx_Val_LowFreq1Ctr;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -413,6 +427,24 @@ struct AICustomScale : AI, AnalogCustomScale {
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
+};
+
+/// @brief base class for counter input channels.
+struct CI : virtual Input {
+    const int port;
+
+    explicit CI(xjson::Parser &cfg):
+        Input(cfg),
+        port(cfg.required<int>("port")) {}
+
+    [[nodiscard]] std::string loc() const {
+        return this->dev_loc + "/ctr" + std::to_string(this->port);
+    }
+};
+
+/// @brief base class for counter input channels that can have a custom scale applied.
+struct CICustomScale : CI, AnalogCustomScale {
+    explicit CICustomScale(xjson::Parser &cfg): CI(cfg), AnalogCustomScale(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -1107,6 +1139,47 @@ struct AIFrequencyVoltage final : AICustomScale {
     }
 };
 
+/// @brief Counter input frequency measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecif reqchan.html
+struct CIFrequency final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIFrequency(xjson::Parser &cfg):
+        Base(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("edge"))),
+        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
+        meas_time(cfg.optional<double>("meas_time", 0.001)),
+        divisor(cfg.optional<uint32_t>("divisor", 4)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIFreqChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1699,6 +1772,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
     INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
     INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 

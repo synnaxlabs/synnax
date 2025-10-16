@@ -952,6 +952,84 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
+// ==================== Counter Input Channels ====================
+
+const counterChannelExtensionShape = { port: portZ };
+interface CounterChannelExtension
+  extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
+const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0 };
+
+const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
+interface BaseCIChan extends z.infer<typeof baseCIChanZ> {}
+const ZERO_BASE_CI_CHAN: BaseCIChan = {
+  ...Common.Task.ZERO_READ_CHANNEL,
+  ...ZERO_COUNTER_CHANNEL_EXTENSION,
+};
+
+// Counter Input edge detection
+const RISING_EDGE = "Rising";
+const FALLING_EDGE = "Falling";
+const ciEdgeZ = z.enum([RISING_EDGE, FALLING_EDGE]);
+export type CIEdge = z.infer<typeof ciEdgeZ>;
+
+// Counter Input measurement methods
+const LOW_FREQ_1_CTR = "LowFreq1Ctr";
+const HIGH_FREQ_2_CTR = "HighFreq2Ctr";
+const LARGE_RNG_2_CTR = "LargeRng2Ctr";
+const DYNAMIC_AVG = "DynamicAvg";
+const ciMeasMethodZ = z.enum([
+  LOW_FREQ_1_CTR,
+  HIGH_FREQ_2_CTR,
+  LARGE_RNG_2_CTR,
+  DYNAMIC_AVG,
+]);
+export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
+
+// Counter Input frequency units
+const TICKS = "Ticks";
+const ciFreqUnitsZ = z.enum([HZ, TICKS]);
+export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html
+export const CI_FREQUENCY_CHAN_TYPE = "ci_frequency";
+export const ciFrequencyChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_FREQUENCY_CHAN_TYPE),
+  units: ciFreqUnitsZ,
+  edge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  measTime: z.number(),
+  divisor: z.number().int().positive(),
+  terminal: z.string(),
+});
+export interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
+export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_FREQUENCY_CHAN_TYPE,
+  units: HZ,
+  edge: RISING_EDGE,
+  measMethod: LOW_FREQ_1_CTR,
+  measTime: 0.001,
+  divisor: 4,
+  terminal: "",
+};
+
+const ciChannelZ = z.union([ciFrequencyChanZ]);
+
+type CIChannel = z.infer<typeof ciChannelZ>;
+export type CIChannelType = CIChannel["type"];
+
+export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
+  [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
+};
+
+export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
+  [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Sine,
+};
+
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
@@ -1184,6 +1262,62 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
   type: ANALOG_READ_TYPE,
+};
+
+// ==================== Counter Read Task ====================
+
+const validateCounterPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<CIChannel[]>) => {
+  const portToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
+export const counterReadConfigZ = baseReadConfigZ
+  .extend({
+    device: z.string(),
+    channels: z
+      .array(ciChannelZ)
+      .check(Common.Task.validateReadChannels)
+      .check(validateCounterPorts),
+  })
+  .check(Common.Task.validateStreamRate);
+export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
+const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+  ...ZERO_BASE_READ_CONFIG,
+  device: "",
+  channels: [],
+};
+
+export const counterReadStatusDataZ = z.unknown();
+export type CounterReadStatusDetails = task.Status<typeof counterReadStatusDataZ>;
+
+export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
+export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
+export type CounterReadType = z.infer<typeof counterReadTypeZ>;
+
+interface CounterReadPayload
+  extends task.Payload<
+    typeof counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof counterReadStatusDataZ
+  > {}
+export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
+  key: "",
+  name: "NI Counter Read Task",
+  config: ZERO_COUNTER_READ_CONFIG,
+  type: COUNTER_READ_TYPE,
 };
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({

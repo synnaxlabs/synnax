@@ -49,6 +49,14 @@ export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
 export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
 export const AI_CHANNEL_TYPE_ICONS = v0.AI_CHANNEL_TYPE_ICONS;
 
+export type CIChannel = v1.CIChannel;
+export type CIChannelType = v0.CIChannelType;
+export const CI_CHANNEL_SCHEMAS = v1.CI_CHANNEL_SCHEMAS;
+export const ZERO_CI_CHANNELS = v1.ZERO_CI_CHANNELS;
+export const ZERO_CI_CHANNEL = v1.ZERO_CI_CHANNEL;
+export const CI_CHANNEL_TYPE_NAMES = v0.CI_CHANNEL_TYPE_NAMES;
+export const CI_CHANNEL_TYPE_ICONS = v0.CI_CHANNEL_TYPE_ICONS;
+
 export const AO_CURRENT_CHAN_TYPE = v0.AO_CURRENT_CHAN_TYPE;
 export const AO_FUNC_GEN_CHAN_TYPE = v0.AO_FUNC_GEN_CHAN_TYPE;
 export const AO_VOLTAGE_CHAN_TYPE = v0.AO_VOLTAGE_CHAN_TYPE;
@@ -91,6 +99,26 @@ export const ANALOG_READ_SCHEMAS: task.Schemas<
   typeSchema: analogReadTypeZ,
   configSchema: analogReadConfigZ,
   statusDataSchema: analogReadStatusDataZ,
+};
+
+export const counterReadTypeZ = v0.counterReadTypeZ;
+export const counterReadConfigZ = v1.counterReadConfigZ;
+export const counterReadStatusDataZ = v0.counterReadStatusDataZ;
+export interface CounterReadConfig extends v1.CounterReadConfig {}
+export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
+export type CounterReadType = v0.CounterReadType;
+export const ZERO_COUNTER_READ_PAYLOAD = v1.ZERO_COUNTER_READ_PAYLOAD;
+export interface CounterReadPayload extends v1.CounterReadPayload {}
+export interface CounterReadTask extends v1.CounterReadTask {}
+export interface NewCounterReadTask extends v1.NewCounterReadTask {}
+export const COUNTER_READ_SCHEMAS: task.Schemas<
+  typeof counterReadTypeZ,
+  typeof counterReadConfigZ,
+  typeof counterReadStatusDataZ
+> = {
+  typeSchema: counterReadTypeZ,
+  configSchema: counterReadConfigZ,
+  statusDataSchema: counterReadStatusDataZ,
 };
 
 export const analogWriteTypeZ = v0.analogWriteTypeZ;

@@ -147,4 +147,57 @@ int64 AnalogReader::update_skew(const size_t &n_requested) {
     return static_cast<int64>(this->total_samples_acquired) -
            static_cast<int64>(this->total_samples_requested);
 }
+
+CounterReader::CounterReader(
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    TaskHandle task_handle
+):
+    Base(task_handle, dmx) {}
+
+ReadResult
+CounterReader::read(const size_t samples_per_channel, std::vector<double> &data) {
+    ReadResult res;
+    int32 samples_read = 0;
+    if (res.error = this->dmx->ReadCounterScalarF64(
+            this->task_handle,
+            static_cast<int32>(samples_per_channel),
+            DAQmx_Val_WaitInfinitely,
+            data.data(),
+            data.size(),
+            &samples_read,
+            nullptr
+        );
+        res.error)
+        return res;
+    res.skew = this->update_skew(samples_read);
+    return res;
+}
+
+xerrors::Error CounterReader::start() {
+    this->total_samples_acquired = 0;
+    this->total_samples_requested = 0;
+    if (const auto err = this->dmx->SetReadOverWrite(
+            this->task_handle,
+            DAQmx_Val_OverwriteUnreadSamps
+        ))
+        return err;
+    return Base::start();
+}
+
+int64 CounterReader::update_skew(const size_t &n_requested) {
+    uInt64 next_total_samples_acquired;
+    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
+            this->task_handle,
+            &next_total_samples_acquired
+        ))
+        LOG(WARNING) << "[ni] failed to get total samples acquired: " << err;
+    if (next_total_samples_acquired < this->total_samples_acquired) {
+        LOG(WARNING) << "[ni] hardware reader detected recovery from failure.";
+        this->total_samples_requested = 0;
+    }
+    this->total_samples_acquired = next_total_samples_acquired;
+    this->total_samples_requested += n_requested;
+    return static_cast<int64>(this->total_samples_acquired) -
+           static_cast<int64>(this->total_samples_requested);
+}
 }

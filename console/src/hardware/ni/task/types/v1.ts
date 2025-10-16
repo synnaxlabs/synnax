@@ -241,9 +241,34 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
 };
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
+// ==================== Counter Input Channels ====================
+
+const ciChanExtensionShape = { device: Common.Device.keyZ };
+interface CIChanExtension extends z.infer<z.ZodObject<typeof ciChanExtensionShape>> {}
+const ZERO_CI_CHAN_EXTENSION: CIChanExtension = { device: "" };
+
+const ciFrequencyChanZ = v0.ciFrequencyChanZ.extend(ciChanExtensionShape);
+interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
+const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
+  ...v0.ZERO_CI_FREQUENCY_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciChannelZ = z.union([ciFrequencyChanZ]);
+type CIChannel = z.infer<typeof ciChannelZ>;
+
+export const CI_CHANNEL_SCHEMAS: Record<v0.CIChannelType, z.ZodType<CIChannel>> = {
+  [v0.CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,
+};
+
+export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
+  [v0.CI_FREQUENCY_CHAN_TYPE]: ZERO_CI_FREQUENCY_CHAN,
+};
+export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
+
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
@@ -287,3 +312,59 @@ export interface AnalogReadTask
   > {}
 export interface NewAnalogReadTask
   extends task.New<typeof v0.analogReadTypeZ, typeof analogReadConfigZ> {}
+
+// ==================== Counter Read Task ====================
+
+const validateCounterPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<CIChannel[]>) => {
+  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
+  channels.forEach(({ device, port }, i) => {
+    if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
+    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Counter port ${port} has already been used on another channel on the same device`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
+export const counterReadConfigZ = v0.counterReadConfigZ
+  .omit({ channels: true })
+  .extend({
+    channels: z
+      .array(ciChannelZ)
+      .check(Common.Task.validateReadChannels)
+      .check(validateCounterPorts),
+  });
+export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
+const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+  ...v0.ZERO_COUNTER_READ_CONFIG,
+  channels: [],
+};
+
+export interface CounterReadPayload
+  extends task.Payload<
+    typeof v0.counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof v0.counterReadStatusDataZ
+  > {}
+export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
+  ...v0.ZERO_COUNTER_READ_PAYLOAD,
+  config: ZERO_COUNTER_READ_CONFIG,
+};
+
+export interface CounterReadTask
+  extends task.Task<
+    typeof v0.counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof v0.counterReadStatusDataZ
+  > {}
+export interface NewCounterReadTask
+  extends task.New<typeof v0.counterReadTypeZ, typeof counterReadConfigZ> {}
