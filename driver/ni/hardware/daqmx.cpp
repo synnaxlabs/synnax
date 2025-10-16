@@ -158,7 +158,7 @@ ReadResult
 CounterReader::read(const size_t samples_per_channel, std::vector<double> &data) {
     ReadResult res;
     int32 samples_read = 0;
-    if (res.error = this->dmx->ReadCounterScalarF64(
+    if (res.error = this->dmx->ReadCounterF64(
             this->task_handle,
             static_cast<int32>(samples_per_channel),
             DAQmx_Val_WaitInfinitely,

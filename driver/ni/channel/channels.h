@@ -92,7 +92,7 @@ static int32_t get_ci_meas_method(const std::string &s) {
     if (s == "LowFreq1Ctr") return DAQmx_Val_LowFreq1Ctr;
     if (s == "HighFreq2Ctr") return DAQmx_Val_HighFreq2Ctr;
     if (s == "LargeRng2Ctr") return DAQmx_Val_LargeRng2Ctr;
-    if (s == "DynamicAvg") return DAQmx_Val_DynamicAvg;
+    if (s == "DynamicAvg") return DAQmx_Val_DynAvg;
     return DAQmx_Val_LowFreq1Ctr;
 }
 
@@ -429,22 +429,58 @@ struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
 };
 
-/// @brief base class for counter input channels.
-struct CI : virtual Input {
+/// @brief base class for a counter channel (CI, CO)
+struct Counter : virtual Base {
     const int port;
+    const double min_val;
+    const double max_val;
+    int32_t units;
 
-    explicit CI(xjson::Parser &cfg):
-        Input(cfg),
-        port(cfg.required<int>("port")) {}
+    explicit Counter(xjson::Parser &cfg):
+        port(cfg.required<int>("port")),
+        min_val(cfg.optional<float>("min_val", 0)),
+        max_val(cfg.optional<float>("max_val", 0)),
+        units(parse_units(cfg, "units")) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/ctr" + std::to_string(this->port);
     }
 };
 
+/// @brief base class for counter channels that can have a custom scale applied.
+struct CounterCustomScale : virtual Counter {
+    const std::unique_ptr<Scale> scale;
+
+    explicit CounterCustomScale(xjson::Parser &cfg):
+        Counter(cfg), scale(parse_scale(cfg, "custom_scale")) {
+        if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
+    }
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        auto [scale_key, err] = this->scale->apply(dmx);
+        if (err) return err;
+        return this
+            ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
+    }
+
+    virtual xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const = 0;
+};
+
+/// @brief base class for counter input channels.
+struct CI : virtual Counter, Input {
+    explicit CI(xjson::Parser &cfg): Counter(cfg), Input(cfg) {}
+};
+
 /// @brief base class for counter input channels that can have a custom scale applied.
-struct CICustomScale : CI, AnalogCustomScale {
-    explicit CICustomScale(xjson::Parser &cfg): CI(cfg), AnalogCustomScale(cfg) {}
+struct CICustomScale : CI, CounterCustomScale {
+    explicit CICustomScale(xjson::Parser &cfg): Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -1150,6 +1186,7 @@ struct CIFrequency final : CICustomScale {
 
     explicit CIFrequency(xjson::Parser &cfg):
         Base(cfg),
+        Counter(cfg),
         CICustomScale(cfg),
         edge(get_ci_edge(cfg.required<std::string>("edge"))),
         meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
