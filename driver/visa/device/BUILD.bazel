@@ -1,0 +1,24 @@
+cc_library(
+    name = "device",
+    srcs = ["device.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/visa:errors",
+        "//driver/visa/api",
+        "//x/cpp/xjson",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "device_test",
+    srcs = ["device_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":device",
+        "//driver/visa/api:mock_api",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,59 @@
+cc_library(
+    name = "errors",
+    srcs = ["errors.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/visa/api",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_library(
+    name = "channels",
+    srcs = ["channels.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_library(
+    name = "visa",
+    srcs = [
+        "factory.cpp",
+        "visa.h",
+        "read_task.h",
+        "write_task.h",
+        "scan_task.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":channels",
+        "//driver/errors",
+        "//driver/visa/api",
+        "//driver/visa/device",
+        "//driver/visa/util",
+        "//driver/pipeline",
+        "//driver/task",
+        "//driver/task/common",
+        "//x/cpp/defer",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    srcs = ["task_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":visa",
+        "//client/cpp/testutil",
+        "//driver/visa/api:mock_api",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+

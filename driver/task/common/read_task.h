@@ -21,11 +21,18 @@ namespace common {
 /// @brief common read task configuration parameters used across multiple drivers.
 struct BaseReadTaskConfig : BaseTaskConfig {
     /// @brief sets the sample rate for the task.
-    const telem::Rate sample_rate;
+    telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
-    const telem::Rate stream_rate;
+    telem::Rate stream_rate;
     /// @brief timing configuration options for the task.
     common::TimingConfig timing;
+
+    /// @brief Default constructor for testing.
+    BaseReadTaskConfig():
+        BaseTaskConfig(),
+        sample_rate(telem::Rate(10)),
+        stream_rate(telem::Rate(10)),
+        timing() {}
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),

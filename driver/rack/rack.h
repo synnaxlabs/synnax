@@ -32,6 +32,7 @@
 #include "driver/sequence/sequence.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
+#include "driver/visa/visa.h"
 
 using json = nlohmann::json;
 
@@ -58,6 +59,7 @@ inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
+        visa::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
     };

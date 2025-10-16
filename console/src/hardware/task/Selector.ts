@@ -12,6 +12,7 @@ import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
+import { VISA } from "@/hardware/visa";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 
@@ -20,6 +21,7 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
+  ...VISA.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
 ];
 

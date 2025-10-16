@@ -1,0 +1,22 @@
+cc_library(
+    name = "util",
+    srcs = ["parse.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/visa:channels",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "parse_test",
+    srcs = ["parse_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":util",
+        "//driver/visa:channels",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

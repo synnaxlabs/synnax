@@ -20,6 +20,11 @@ struct BaseTaskConfig {
     /// includes automatic start on driver start.
     bool auto_start;
 
+    /// @brief Default constructor for testing.
+    BaseTaskConfig():
+        data_saving(false),
+        auto_start(false) {}
+
     BaseTaskConfig(BaseTaskConfig &&other) noexcept:
         data_saving(other.data_saving), auto_start(other.auto_start) {}
 

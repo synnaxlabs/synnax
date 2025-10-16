@@ -1,0 +1,21 @@
+cc_library(
+    name = "api",
+    hdrs = [
+        "api.h",
+        "types.h",
+    ],
+    visibility = ["//driver/visa:__subpackages__"],
+    deps = [
+        "//x/cpp/xlib",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_library(
+    name = "mock_api",
+    hdrs = ["mock_api.h"],
+    visibility = ["//driver/visa:__subpackages__"],
+    deps = [
+        ":api",
+    ],
+)

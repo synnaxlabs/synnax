@@ -12,6 +12,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { VISA } from "@/hardware/visa";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -23,6 +24,7 @@ export * from "@/hardware/device/useListenForChanges";
 export const COMMANDS: Palette.Command[] = [
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,
+  ...VISA.Device.COMMANDS,
 ];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -30,6 +32,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Modbus.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,
+  ...VISA.Device.LAYOUTS,
 };
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];

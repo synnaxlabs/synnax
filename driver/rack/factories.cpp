@@ -11,6 +11,7 @@
 #include "driver/modbus/modbus.h"
 #endif
 #include "driver/rack/rack.h"
+#include "driver/visa/visa.h"
 
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
@@ -61,6 +62,12 @@ void configure_state(FactoryList &factories) {
     factories.push_back(std::make_unique<rack::status::Factory>());
 }
 
+void configure_visa(const rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, visa::INTEGRATION_NAME, []() {
+        return std::make_unique<visa::Factory>();
+    });
+}
+
 #ifndef SYNNAX_NILINUXRT
 void configure_modbus(const rack::Config &config, FactoryList &factories) {
     if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
@@ -73,6 +80,7 @@ std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     configure_state(factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
+    configure_visa(*this, factories);
     configure_sequences(*this, factories);
     configure_labjack(*this, factories);
 #ifndef SYNNAX_NILINUXRT
