@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/common/common.h"

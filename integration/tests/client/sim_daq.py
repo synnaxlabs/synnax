@@ -14,7 +14,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Sim_DAQ(TestCase):
+class SimDaq(TestCase):
     """
     Simulated DAQ for press control sequence
     """
@@ -178,7 +178,7 @@ class Sim_DAQ(TestCase):
                 def test_active() -> bool:
                     return all([loop.wait(), self.should_continue])
 
-                self._log_message("Sim DAQ running")
+                self.log("Sim DAQ running")
                 while test_active():
                     # Read incoming commands
                     frame = streamer.read(timeout=0)
@@ -216,7 +216,7 @@ class Sim_DAQ(TestCase):
 
                     # Check for test end
                     if state["end_test_state"] > 0.9:
-                        self._log_message("Controller has stopped. Ending simulation.")
+                        self.log("Controller has stopped. Ending simulation.")
                         break
 
         assert state["press_pt"] < 10, "Pressure was left above 10"

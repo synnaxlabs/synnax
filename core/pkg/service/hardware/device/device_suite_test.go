@@ -10,14 +10,23 @@
 package device_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var ctx context.Context
+var db *gorp.DB
+
+var _ = BeforeSuite(func() {
+	db = gorp.Wrap(memkv.New())
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
 
 func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)

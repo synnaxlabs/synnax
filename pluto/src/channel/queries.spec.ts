@@ -293,10 +293,12 @@ describe("queries", () => {
       });
       await client.ranges.setAlias(range.key, channel.key, "alias");
       const { result } = renderHook(
-        () => Channel.useList({ initialQuery: { rangeKey: range.key } }),
-        {
-          wrapper,
-        },
+        () =>
+          Channel.useList({
+            initialQuery: { rangeKey: range.key },
+            useCachedList: false,
+          }),
+        { wrapper },
       );
       await waitFor(() =>
         expect(result.current.getItem(channel.key)?.alias).toEqual("alias"),
@@ -1160,7 +1162,6 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => {
-        console.log(result.current.retrieve.status);
         expect(result.current.retrieve.variant).toEqual("success");
       });
       const ch1Before = result.current.retrieve.data?.find((c) => c.key === ch1.key);

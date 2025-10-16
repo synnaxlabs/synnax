@@ -35,6 +35,9 @@ on:
 jobs:
   test:
     name: Test (${{ matrix.os }})
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -65,8 +68,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:drift
+      - name: Check Types
+        if: matrix.lint
+        run: pnpm check-types:drift
+
+      - name: Madge
+        if: matrix.lint
+        run: pnpm madge:drift
 
       - name: Lint
         if: matrix.lint

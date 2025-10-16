@@ -182,8 +182,8 @@ func mergeDefaultOptions(o *options) {
 	o.cluster = def.cluster.Override(o.cluster)
 	o.transport.Transport = override.Nil(def.transport.Transport, o.transport.Transport)
 	o.Instrumentation = override.Zero(def.Instrumentation, o.Instrumentation)
-	o.cluster.Instrumentation = o.Instrumentation.Child("cluster")
-	o.kv.Instrumentation = o.Instrumentation.Child("kv")
+	o.cluster.Instrumentation = o.Child("cluster")
+	o.kv.Instrumentation = o.Child("kv")
 	o.cluster.HostAddress = o.addr
 	o.cluster.Pledge.Peers = o.peerAddresses
 	// If we're bootstrapping these options are ignored.

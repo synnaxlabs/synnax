@@ -17,16 +17,6 @@ import (
 	. "github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func parseOutletAddrMap[V confluence.Value](
-	outlets []confluence.Outlet[V],
-) map[address.Address]confluence.Outlet[V] {
-	outletAddrMap := make(map[address.Address]confluence.Outlet[V])
-	for _, outlet := range outlets {
-		outletAddrMap[outlet.OutletAddress()] = outlet
-	}
-	return outletAddrMap
-}
-
 var _ = Describe("Router", func() {
 	var p *Pipeline
 	BeforeEach(func() { p = New() })

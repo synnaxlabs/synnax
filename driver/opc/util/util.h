@@ -9,21 +9,17 @@
 
 #pragma once
 
-/// std
 #include <regex>
 #include <string>
 
-/// external
 #include "nlohmann/json.hpp"
 #include "open62541/client.h"
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/errors/errors.h"
 
 using json = nlohmann::json;
@@ -170,8 +166,8 @@ telem::DataType ua_to_data_type(const UA_DataType *dt);
 
 UA_DataType *data_type_to_ua(const telem::DataType &data_type);
 
-size_t write_to_series(telem::Series &s, const UA_Variant &v);
-
+std::pair<size_t, xerrors::Error>
+write_to_series(telem::Series &s, const UA_Variant &v);
 
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s);
 

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
-import { type Series } from "@synnaxlabs/x/telem";
+import { array, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";

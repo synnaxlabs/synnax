@@ -11,9 +11,9 @@
 #include <cstdint>
 
 /// internal.
-#include "driver/sequence/plugins/plugins.h"
 #include "x/cpp/xlua/xlua.h"
 
+#include "driver/sequence/plugins/plugins.h"
 
 plugins::JSON::JSON(json source_data): data(std::move(source_data)) {}
 

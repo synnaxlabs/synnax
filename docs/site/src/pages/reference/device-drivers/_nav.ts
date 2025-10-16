@@ -9,6 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 import { LABJACK_NAV } from "@/pages/reference/device-drivers/labjack/_nav";
+import { MODBUS_NAV } from "@/pages/reference/device-drivers/modbus/_nav";
 import { NI_NAV } from "@/pages/reference/device-drivers/ni/_nav";
 import { OPC_UA_NAV } from "@/pages/reference/device-drivers/opc-ua/_nav";
 
@@ -22,9 +23,9 @@ export const DEVICE_DRIVERS_NAV: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/device-drivers/standalone",
-      href: "/reference/device-drivers/standalone",
-      name: "Standalone Driver",
+      key: "/reference/device-drivers/installation",
+      href: "/reference/device-drivers/installation",
+      name: "Installation",
     },
     {
       key: "/reference/device-drivers/timing",
@@ -32,6 +33,7 @@ export const DEVICE_DRIVERS_NAV: PageNavNode = {
       name: "Timing",
     },
     LABJACK_NAV,
+    MODBUS_NAV,
     NI_NAV,
     OPC_UA_NAV,
   ],

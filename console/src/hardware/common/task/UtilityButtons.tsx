@@ -13,7 +13,7 @@ import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
-import { useKey } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface UtilityButtonProps {

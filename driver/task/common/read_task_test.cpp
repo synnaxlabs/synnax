@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/read_task.h"
-
-#include "x/cpp/xtest/xtest.h"
 
 class MockSource final : public common::Source {
     size_t start_count = 0;
@@ -429,7 +427,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto recovered_state = ctx->states[2];
     EXPECT_EQ(recovered_state.key, "");
     EXPECT_EQ(recovered_state.variant, status::variant::SUCCESS);
-    EXPECT_EQ(recovered_state.message, "Task started successfully");
+    EXPECT_EQ(recovered_state.message, "Task running");
 
     read_task.stop("stop_cmd", true);
 
@@ -477,7 +475,7 @@ TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
     const json j{{"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -486,7 +484,7 @@ TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
     const json j{{"sample_rate", 100.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -495,7 +493,7 @@ TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
     const json j{{"sample_rate", -100.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -504,7 +502,7 @@ TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
     const json j{{"sample_rate", 100.0}, {"stream_rate", -50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -513,7 +511,7 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     const json j{{"sample_rate", 25.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }

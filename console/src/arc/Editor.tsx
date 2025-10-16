@@ -27,7 +27,7 @@ import {
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import z from "zod";
+import { z } from "zod";
 
 import {
   select,
@@ -256,7 +256,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const calculateCursorPosition = useCallback(
     (cursor: xy.Crude) =>
       Diagram.calculateCursorPosition(
-        box.construct(ref.current),
+        box.construct(ref.current ?? box.ZERO),
         cursor,
         viewportRef.current,
       ),

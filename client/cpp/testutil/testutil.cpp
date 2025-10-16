@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <random>
 
 //// internal
 #include "client/cpp/testutil/testutil.h"
-
 #include "x/cpp/xtest/xtest.h"
-
 
 synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config);

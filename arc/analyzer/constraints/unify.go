@@ -108,11 +108,6 @@ func (s *System) unifyTypesWithVisited(t1, t2 ir.Type, source Constraint, visiti
 	return errors.Newf("types %v and %v are not unifiable", t1, t2)
 }
 
-// unifyTypeVariable unifies a type variable with another type
-func (s *System) unifyTypeVariable(tv ir.TypeVariable, other ir.Type, source Constraint) error {
-	return s.unifyTypeVariableWithVisited(tv, other, source, make(map[string]bool))
-}
-
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 func (s *System) unifyTypeVariableWithVisited(tv ir.TypeVariable, other ir.Type, source Constraint, visiting map[string]bool) error {
 	// Check if the type variable already has a substitution

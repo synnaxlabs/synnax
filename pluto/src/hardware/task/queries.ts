@@ -175,7 +175,11 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, query, store }) => {
-    const tasks = await client.hardware.tasks.retrieve({ ...BASE_QUERY, ...query });
+    const tasks = await client.hardware.tasks.retrieve({
+      ...BASE_QUERY,
+      internal: false,
+      ...query,
+    });
     store.tasks.set(tasks, "payload");
     return tasks;
   },
