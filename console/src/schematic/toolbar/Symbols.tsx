@@ -32,6 +32,7 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -223,10 +224,7 @@ const RemoteSymbolListContextMenu = (
         <Icon.Edit />
         Edit
       </PContextMenu.Item>
-      <PContextMenu.Item onClick={handleExport}>
-        <Icon.Export />
-        Export
-      </PContextMenu.Item>
+      <Export.ContextMenuItem onClick={handleExport} />
     </>
   );
 };
@@ -472,10 +470,7 @@ const GroupListContextMenu = ({
     <>
       <ContextMenu.DeleteItem onClick={handleDelete} />
       <ContextMenu.RenameItem onClick={handleRename} />
-      <PContextMenu.Item onClick={handleExport}>
-        <Icon.Export />
-        Export
-      </PContextMenu.Item>
+      <Export.ContextMenuItem onClick={handleExport} />
     </>
   );
 };
