@@ -15,6 +15,7 @@ export { Caret } from "@/caret";
 export { Channel } from "@/channel";
 export { Color } from "@/color";
 export { Component } from "@/component";
+export { ContextMenu } from "@/context-menu";
 export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";

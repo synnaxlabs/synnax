@@ -21,10 +21,10 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { ContextMenu } from "@/context-menu";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Menu } from "@/menu";
 import { table } from "@/table/aether";
 import { Text } from "@/text";
 import { Canvas } from "@/vis/canvas";
@@ -167,8 +167,8 @@ const Indicator = ({
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
         CSS.selected(selected),
-        Menu.CONTEXT_TARGET,
-        selected && Menu.CONTEXT_SELECTED,
+        ContextMenu.TARGET_CSS_CLASS,
+        selected && ContextMenu.SELECTED_CSS_CLASS,
       )}
       style={{ [direction.dimension(dir)]: value }}
       onClick={() => onSelect(index)}

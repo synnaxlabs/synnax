@@ -7,5 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/menu/Item";
-export * from "@/menu/Menu";
+export * from "@/context-menu/ContextMenu";
+export * from "@/context-menu/Divider";
+export * from "@/context-menu/Item";
+export * from "@/context-menu/types";
+export * from "@/context-menu/use";

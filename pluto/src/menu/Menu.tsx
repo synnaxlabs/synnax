@@ -17,7 +17,6 @@ import {
 } from "react";
 
 import { type Component } from "@/component";
-import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
@@ -41,8 +40,8 @@ export interface MenuProps
 export const useContext = () => use(Context);
 
 /**
- * Menu is a modular component that allows you to create a menu with a list of items.
- * It satisfies the InputControl string interface, so it's selected value can be
+ * Menu is a modular component that allows you to create a menu with a list of items. It
+ * satisfies the InputControl string interface, so it's selected value can be
  * controlled.
  *
  * @param props - Props for the component. All unlisted props will be spread to the
@@ -77,5 +76,3 @@ export const Menu = ({
   );
   return <Context value={ctxValue}>{children}</Context>;
 };
-
-export const Divider = (): ReactElement => <CoreDivider.Divider x padded />;

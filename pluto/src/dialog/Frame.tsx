@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import { type Component } from "@/component";
+import { CSS_CLASS as CONTEXT_MENU_CSS_CLASS } from "@/context-menu/types";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { type LocationPreference, position, type Preference } from "@/dialog/position";
@@ -33,7 +34,6 @@ import {
   useSyncedRef,
   useWindowResize,
 } from "@/hooks";
-import { CONTEXT_MENU_CLASS } from "@/menu/types";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
@@ -255,7 +255,7 @@ export const Frame = ({
           const isTrigger = targetRef.current.contains(e.target as Node);
           exclude = isTrigger;
         }
-        const contextMenus = document.getElementsByClassName(CONTEXT_MENU_CLASS);
+        const contextMenus = document.getElementsByClassName(CONTEXT_MENU_CSS_CLASS);
         if (contextMenus.length > 0) exclude = true;
         if (!exclude) e.stopImmediatePropagation();
         return exclude;

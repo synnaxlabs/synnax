@@ -7,5 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/menu/Item";
-export * from "@/menu/Menu";
+import { Button } from "@/button";
+
+export interface ItemProps
+  extends Required<Pick<Button.ButtonProps, "children" | "onClick">> {}
+
+export const Item = (props: ItemProps) => (
+  <Button.Button
+    {...props}
+    level="small"
+    overflow="nowrap"
+    variant="text"
+    background={1}
+    gap="small"
+  />
+);

@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 
+import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
@@ -21,10 +22,6 @@ export const MenuShowcase = () => {
   const [iconSelected, setIconSelected] = useState("save");
   const [iconOnlySelected, setIconOnlySelected] = useState("play");
   const [nestedSelected, setNestedSelected] = useState("file");
-
-  const contextMenu = Menu.useContextMenu();
-
-  const handleContextSelect = () => contextMenu.close();
 
   return (
     <Flex.Box y pack empty>
@@ -42,7 +39,7 @@ export const MenuShowcase = () => {
                 <Menu.Item itemKey="option1">Option 1</Menu.Item>
                 <Menu.Item itemKey="option2">Option 2</Menu.Item>
                 <Menu.Item itemKey="option3">Option 3</Menu.Item>
-                <Menu.Divider />
+                <Divider.Divider />
                 <Menu.Item itemKey="option4">Option 4</Menu.Item>
               </Menu.Menu>
             </Flex.Box>
@@ -64,7 +61,7 @@ export const MenuShowcase = () => {
                 <Menu.Item itemKey="option3" size="small">
                   Option 3
                 </Menu.Item>
-                <Menu.Divider />
+                <Divider.Divider />
                 <Menu.Item itemKey="option4" size="small">
                   Option 4
                 </Menu.Item>
@@ -84,7 +81,7 @@ export const MenuShowcase = () => {
                 <Menu.Item itemKey="option3" size="large">
                   Option 3
                 </Menu.Item>
-                <Menu.Divider />
+                <Divider.Divider />
                 <Menu.Item itemKey="option4" size="large">
                   Option 4
                 </Menu.Item>
@@ -117,7 +114,7 @@ export const MenuShowcase = () => {
                 <Icon.Save />
                 Save
               </Menu.Item>
-              <Menu.Divider />
+              <Divider.Divider />
               <Menu.Item itemKey="copy">
                 <Icon.Copy />
                 Copy
@@ -126,7 +123,7 @@ export const MenuShowcase = () => {
                 <Icon.Edit />
                 Edit
               </Menu.Item>
-              <Menu.Divider />
+              <Divider.Divider />
               <Menu.Item itemKey="delete">
                 <Icon.Delete />
                 Delete
@@ -156,7 +153,7 @@ export const MenuShowcase = () => {
               <Menu.Item itemKey="stop">
                 <Icon.Play />
               </Menu.Item>
-              <Menu.Divider />
+              <Divider.Divider />
               <Menu.Item itemKey="record">
                 <Icon.Auto />
               </Menu.Item>
@@ -166,7 +163,7 @@ export const MenuShowcase = () => {
               <Menu.Item itemKey="fastforward">
                 <Icon.Reference />
               </Menu.Item>
-              <Menu.Divider />
+              <Divider.Divider />
               <Menu.Item itemKey="settings">
                 <Icon.Settings />
               </Menu.Item>
@@ -222,77 +219,6 @@ export const MenuShowcase = () => {
                 <Menu.Item itemKey="edit">Edit</Menu.Item>
                 <Menu.Item itemKey="view">View</Menu.Item>
               </Menu.Menu>
-            </Flex.Box>
-          </Flex.Box>
-        </SubcategorySection>
-
-        <SubcategorySection
-          title="Context Menu"
-          description="Right-click menu that appears at cursor position with contextual actions"
-        >
-          <Flex.Box y gap="medium">
-            <Text.Text level="small" color={8}>
-              Right-click on the boxes below to see context menus
-            </Text.Text>
-            <Flex.Box x gap="medium">
-              <Menu.ContextMenu
-                {...contextMenu}
-                menu={({ keys }) => (
-                  <Menu.Menu onChange={handleContextSelect} level="small">
-                    <Menu.Item itemKey="copy">
-                      <Icon.Copy />
-                      Copy ({keys.length} item{keys.length !== 1 ? "s" : ""})
-                    </Menu.Item>
-                    <Menu.Item itemKey="edit">
-                      <Icon.Edit />
-                      Edit
-                    </Menu.Item>
-                    <Menu.Item itemKey="refresh">
-                      <Icon.Refresh />
-                      Refresh
-                    </Menu.Item>
-                    <Menu.Divider />
-                    <Menu.Item itemKey="rename">
-                      <Icon.Rename />
-                      Rename
-                    </Menu.Item>
-                    <Menu.Item itemKey="delete">
-                      <Icon.Delete />
-                      Delete
-                    </Menu.Item>
-                    <Menu.Divider />
-                    <Menu.Item itemKey="properties">
-                      <Icon.Settings />
-                      Properties
-                    </Menu.Item>
-                  </Menu.Menu>
-                )}
-              >
-                <Flex.Box x gap="medium">
-                  <Flex.Box
-                    className="pluto-context-target"
-                    id="item-1"
-                    background={1}
-                    bordered
-                    rounded={1}
-                    onContextMenu={contextMenu.open}
-                    style={{ padding: "2rem", cursor: "context-menu" }}
-                  >
-                    <Text.Text>Right-click me!</Text.Text>
-                  </Flex.Box>
-                  <Flex.Box
-                    className="pluto-context-target"
-                    id="item-2"
-                    background={1}
-                    bordered
-                    rounded={1}
-                    onContextMenu={contextMenu.open}
-                    style={{ padding: "2rem", cursor: "context-menu" }}
-                  >
-                    <Text.Text>Or me!</Text.Text>
-                  </Flex.Box>
-                </Flex.Box>
-              </Menu.ContextMenu>
             </Flex.Box>
           </Flex.Box>
         </SubcategorySection>

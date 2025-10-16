@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-menu-context {
+.pluto-context-menu {
     position: fixed;
     z-index: 8;
     border: var(--pluto-border-l5) !important;

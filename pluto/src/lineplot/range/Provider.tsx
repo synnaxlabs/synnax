@@ -12,12 +12,12 @@ import { type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
 import { type RenderProp } from "@/component/renderProp";
+import { ContextMenu } from "@/context-menu";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { range } from "@/lineplot/range/aether";
-import { Menu } from "@/menu";
 
 export interface ProviderProps extends Aether.ComponentProps {
   menu?: RenderProp<range.SelectedState>;
@@ -37,8 +37,8 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
     "Annotation.Provider",
   );
 
-  const menuProps = Menu.useContextMenu();
-  const visibleRef = useSyncedRef(menuProps.visible);
+  const contextMenuProps = ContextMenu.use();
+  const visibleRef = useSyncedRef(contextMenuProps.visible);
 
   const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = useCallback(
     (e) => setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } })),
@@ -50,8 +50,8 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
   }, [setState, visibleRef]);
 
   return (
-    <Menu.ContextMenu
-      {...menuProps}
+    <ContextMenu.ContextMenu
+      {...contextMenuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;
         return menu(hovered);
@@ -64,8 +64,8 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
           width: "100%",
           height: "100%",
         }}
-        onContextMenu={menuProps.open}
-        className={menuProps.className}
+        onContextMenu={contextMenuProps.open}
+        className={contextMenuProps.className}
         onClick={() => {
           if (hovered != null) {
             setViewport({
@@ -83,6 +83,6 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       />
-    </Menu.ContextMenu>
+    </ContextMenu.ContextMenu>
   );
 };

@@ -13,8 +13,8 @@ import { type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { ContextMenu } from "@/context-menu";
 import { CSS } from "@/css";
-import { Menu } from "@/menu";
 import { Cell as Core } from "@/table/Table";
 import { telem } from "@/telem/aether";
 import { Text as CoreText } from "@/text";
@@ -57,8 +57,8 @@ export const Text = ({
     <Core
       id={cellKey}
       className={CSS(
-        Menu.CONTEXT_TARGET,
-        selected && Menu.CONTEXT_SELECTED,
+        ContextMenu.TARGET_CSS_CLASS,
+        selected && ContextMenu.SELECTED_CSS_CLASS,
         CSS.BEM("table", "cell", "text"),
       )}
       selected={selected}
@@ -138,8 +138,8 @@ export const Value = ({
       onContextMenu={handleSelect}
       style={{ height: "5rem", width }}
       className={CSS(
-        Menu.CONTEXT_TARGET,
-        selected && Menu.CONTEXT_SELECTED,
+        ContextMenu.TARGET_CSS_CLASS,
+        selected && ContextMenu.SELECTED_CSS_CLASS,
         CSS.BEM("table", "cell", "value"),
       )}
     />

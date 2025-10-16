@@ -14,8 +14,11 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
+import {
+  SELECTED_CSS_CLASS as CONTEXT_MENU_SELECTED_CSS_CLASS,
+  TARGET_CSS_CLASS as CONTEXT_MENU_TARGET_CSS_CLASS,
+} from "@/context-menu/types";
 import { CSS } from "@/css";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
 export interface ItemRenderProps<K extends record.Key = record.Key> {
   index: number;
@@ -68,8 +71,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     }}
     className={CSS(
       className,
-      CONTEXT_TARGET,
-      selected && CONTEXT_SELECTED,
+      CONTEXT_MENU_TARGET_CSS_CLASS,
+      selected && CONTEXT_MENU_SELECTED_CSS_CLASS,
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),

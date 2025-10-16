@@ -19,10 +19,10 @@ import {
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { ContextMenu } from "@/context-menu";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
@@ -31,7 +31,7 @@ export interface SelectorProps
   extends Omit<Flex.BoxProps, "children" | "contextMenu" | "onDrop"> {
   size?: Component.Size;
   altColor?: boolean;
-  contextMenu?: Menu.ContextMenuProps["menu"];
+  contextMenu?: ContextMenu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
   actions?: ReactNode;
@@ -61,14 +61,14 @@ export const Selector = ({
     onRename,
     onCreate,
   } = useContext();
-  const menuProps = Menu.useContextMenu();
+  const contextMenuProps = ContextMenu.use();
   const [draggingOver, setDraggingOver] = useState<boolean>(false);
   return (
     <>
       {contextMenu != null && (
-        <Menu.ContextMenu
+        <ContextMenu.ContextMenu
           style={{ height: "fit-content" }}
-          {...menuProps}
+          {...contextMenuProps}
           menu={contextMenu}
         />
       )}
@@ -76,7 +76,7 @@ export const Selector = ({
         className={CSS(
           CSS.B(CLS),
           className,
-          menuProps.className,
+          contextMenuProps.className,
           draggingOver && CSS.M("drag-over"),
         )}
         size={size}
@@ -84,7 +84,7 @@ export const Selector = ({
         justify="between"
         empty
         direction={direction}
-        onContextMenu={menuProps.open}
+        onContextMenu={contextMenuProps.open}
         onDrop={onDrop}
         {...rest}
       >
@@ -249,9 +249,9 @@ const SelectorButton = ({
       variant="text"
       sharp
       className={CSS(
-        Menu.CONTEXT_TARGET,
+        ContextMenu.TARGET_CSS_CLASS,
         TABS_SELECTOR_BUTTON_CLASS,
-        isSelected && Menu.CONTEXT_SELECTED,
+        isSelected && ContextMenu.SELECTED_CSS_CLASS,
         CSS.selected(isSelected),
         CSS.altColor(altColor),
         closable && onClose != null && CSS.M("closable"),
