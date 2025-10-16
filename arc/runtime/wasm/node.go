@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/align"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -24,6 +25,7 @@ type node struct {
 		input, output []ir.Edge
 	}
 	state          *state.State
+	aligner        *align.Aligner
 	inputs         []uint64
 	changedOutputs []string
 }
@@ -31,36 +33,75 @@ type node struct {
 func (n *node) Init(context.Context, func(output string)) {}
 
 func (n *node) Next(ctx context.Context, markChanged func(output string)) {
-	var maxLength int64
-	var maxLengthInput ir.Edge
-	for _, o := range n.edges.input {
-		if oLen := n.state.Outputs[o.Source].Data.Len(); oLen > maxLength {
-			maxLength = oLen
-			maxLengthInput = o
+	// Add all input data to the aligner
+	for _, edge := range n.edges.input {
+		inputData := n.state.Outputs[edge.Source]
+		if inputData.Data.Len() == 0 {
+			continue
 		}
-	}
-	// Get time series from the longest input
-	var outputTime telem.Series
-	if maxLength > 0 {
-		outputTime = n.state.Outputs[maxLengthInput.Source].Time
+		if err := n.aligner.Add(edge.Target.Param, inputData.Data, inputData.Time); err != nil {
+			panic(err)
+		}
 	}
 
-	for i := range maxLength {
-		for inputIdx, o := range n.edges.input {
-			n.inputs[inputIdx] = valueAt(n.state.Outputs[o.Source].Data, int(i))
+	// Get the next aligned operation
+	op, ok := n.aligner.Next()
+	if !ok {
+		return
+	}
+
+	// Find the minimum length across all aligned inputs
+	var minLength int64 = -1
+	for _, alignedInput := range op.Inputs {
+		dataLen := alignedInput.Data.Len()
+		if minLength == -1 || dataLen < minLength {
+			minLength = dataLen
 		}
+	}
+
+	if minLength <= 0 {
+		return
+	}
+
+	// Process each sample in the aligned data
+	for i := int64(0); i < minLength; i++ {
+		// Extract input values for this sample
+		for inputIdx, edge := range n.edges.input {
+			alignedInput := op.Inputs[edge.Target.Param]
+			n.inputs[inputIdx] = valueAt(alignedInput.Data, int(i))
+		}
+
+		// Call the WASM function
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
 			panic(err)
 		}
+
+		// Store the results in output series
 		for param, value := range res {
 			outputHandle := ir.Handle{Param: param, Node: n.ir.Key}
 			outputState := n.state.Outputs[outputHandle]
-			setValueAt(outputState.Data, int(i), value)
-			// Set time from the longest input
-			if outputState.Time.Len() == 0 && maxLength > 0 {
-				outputState.Time = outputTime
+
+			// Ensure output data is allocated with sufficient capacity
+			requiredSize := (int(i) + 1) * int(outputState.Data.DataType.Density())
+			if len(outputState.Data.Data) < requiredSize {
+				newData := make([]byte, requiredSize)
+				copy(newData, outputState.Data.Data)
+				outputState.Data.Data = newData
 			}
+
+			setValueAt(outputState.Data, int(i), value)
+
+			// Set time series from one of the aligned inputs (use first available)
+			if outputState.Time.Len() == 0 {
+				for _, alignedInput := range op.Inputs {
+					if alignedInput.Time.Len() > 0 {
+						outputState.Time = alignedInput.Time
+						break
+					}
+				}
+			}
+
 			n.state.Outputs[outputHandle] = outputState
 			markChanged(param)
 		}

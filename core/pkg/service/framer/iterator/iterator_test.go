@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -145,20 +146,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				key := uuid.New()
 				prog := arc.Graph{
 					Functions: []arc.Function{
-						//{
-						//	Key: "calculation",
-						//	Inputs: types.Params{
-						//		Keys:   []string{"sensor_1_v", "sensor_2_v"},
-						//		Values: []types.Type{types.F32(), types.F32()},
-						//	},
-						//	Outputs: types.Params{
-						//		Keys:   []string{ir.DefaultOutputParam},
-						//		Values: []types.Type{types.F32()},
-						//	},
-						//	Body: ir.Body{Raw: `{
-						//		return (sensor_1_v + sensor_2_v) / 2
-						//	}`},
-						//},
+						{
+							Key: "calculation",
+							Inputs: types.Params{
+								Keys:   []string{"sensor_1_v", "sensor_2_v"},
+								Values: []types.Type{types.F32(), types.F32()},
+							},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32()},
+							},
+							Body: ir.Body{Raw: `{
+								return (sensor_1_v + sensor_2_v)
+							}`},
+						},
 					},
 					Nodes: []graph.Node{
 						{
@@ -177,17 +178,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						{
 							Key:  "calculation",
-							Type: "add",
+							Type: "calculation",
 						},
 					},
 					Edges: []graph.Edge{
 						{
 							Source: graph.Handle{Node: "sensor_1_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: ir.LHSInputParam},
+							Target: graph.Handle{Node: "calculation", Param: "sensor_1_v"},
 						},
 						{
 							Source: graph.Handle{Node: "sensor_2_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: ir.RHSInputParam},
+							Target: graph.Handle{Node: "calculation", Param: "sensor_2_v"},
 						},
 						{
 							Source: graph.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
