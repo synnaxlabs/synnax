@@ -11,18 +11,9 @@ import synnax as sy
 
 client = sy.Synnax()
 
-ch = client.channels.create(
-    name="sphinx",
-    virtual=True,
-    data_type=sy.DataType.STRING,
-    retrieve_if_name_exists=True,
-)
+ch = client.channels.retrieve("sphinx")
 
-loop = sy.Loop(sy.Rate.HZ * 20)
-
-i = 0
-
-with client.open_writer(sy.TimeStamp.now(), [ch.key]) as w:
-    while loop.wait():
-        i += 1
-        w.write(ch.key, [f"Sphinx {i}"])
+with client.open_streamer([ch.key]) as streamer:
+    for frame in streamer:
+        if ch.key in frame:
+            print(frame[ch.key])

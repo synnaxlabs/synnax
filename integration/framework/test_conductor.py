@@ -161,6 +161,18 @@ class TestConductor:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+        # Initialize log channel and writer
+        self.log_channel = self.client.channels.create(
+            name=f"{self.name}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+            retrieve_if_name_exists=True,
+        )
+        self.log_writer = self.client.open_writer(
+            start=sy.TimeStamp.now(),
+            channels=[self.log_channel.key],
+        )
+
         # Start client manager
         self._start_client_manager_async()
         time.sleep(1)  # Allow client manager to start
@@ -294,14 +306,17 @@ class TestConductor:
         now = sy.TimeStamp.now()
         timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
         if use_name:
-            self.logger.info(f"{timestamp} | {self.name} > {message}")
+            log_text = f"{timestamp} | {self.name} > {message}"
         else:
-            self.logger.info(message)
+            log_text = message
+
+        self.logger.info(log_text)
 
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:
             if hasattr(handler, "flush"):
                 handler.flush()
+        self.log_writer.write(self.log_channel.key, [log_text])
 
     def load_test_sequence(
         self, sequence: Optional[Union[str, List[str]]] = None
@@ -578,6 +593,7 @@ class TestConductor:
         self.wait_for_completion()
 
         self.log_message("Shutdown complete\n")
+        self.log_writer.close()
 
     def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
         """Add a callback function to be called when test status changes."""

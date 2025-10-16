@@ -170,6 +170,18 @@ class TestCase(ABC):
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
 
+        # Initialize log channel and writer
+        self.log_channel = self.client.channels.create(
+            name=f"{self.name}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+            retrieve_if_name_exists=True,
+        )
+        self.log_writer = self.client.open_writer(
+            start=sy.TimeStamp.now(),
+            channels=[self.log_channel.key],
+        )
+
     def _setup_logging(self) -> None:
         """Setup logging for real-time output (same approach as TestConductor)."""
         # Check if running in CI environment
@@ -329,12 +341,14 @@ class TestCase(ABC):
         """Log a message to the console with real-time output."""
         now = sy.TimeStamp.now()
         timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
-        self.logger.info(f"{timestamp} | {self.name} > {message}")
+        log_text = f"{timestamp} | {self.name} > {message}"
+        self.logger.info(log_text)
 
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:
             if hasattr(handler, "flush"):
                 handler.flush()
+        self.log_writer.write(self.log_channel.key, [log_text])
 
     def _start_client_threads(self) -> None:
         # Start writer thread (writes telemetry at consistent interval)
@@ -418,6 +432,7 @@ class TestCase(ABC):
         self.STATUS = STATUS.KILLED
         self._stop_client()
         self.log("Test case shutdown complete")
+        self.log_writer.close()
 
     def add_channel(
         self,

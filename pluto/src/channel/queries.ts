@@ -414,10 +414,10 @@ export const useList = Flux.createList<
     });
   },
   retrieve: async ({ client, query, store }) => {
-    const channels = await client.channels.retrieve({
-      ...DEFAULT_LIST_PARAMS,
-      ...query,
-    });
+    const serverQuery = query.internal === true
+      ? { ...query, internal: undefined }
+      : { ...DEFAULT_LIST_PARAMS, ...query };
+    const channels = await client.channels.retrieve(serverQuery);
     store.channels.set(channels);
     return channels;
   },
