@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   analogReadConfigZ,
   analogWriteConfigZ,
+  counterReadConfigZ,
   digitalReadConfigZ,
   digitalWriteConfigZ,
   LINEAR_SCALE_TYPE,
@@ -24,6 +25,8 @@ import {
   ZERO_ANALOG_READ_PAYLOAD,
   ZERO_ANALOG_WRITE_PAYLOAD,
   ZERO_AO_CHANNEL,
+  ZERO_CI_CHANNEL,
+  ZERO_COUNTER_READ_PAYLOAD,
   ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
   ZERO_DIGITAL_WRITE_PAYLOAD,
@@ -181,6 +184,74 @@ describe("analog read task", () => {
           channels: [{ ...ZERO_DO_CHANNEL, key: "0" }],
         }).success,
       ).toEqual(true);
+    });
+  });
+
+  describe("counter read task", () => {
+    it("should be able to parse a valid task", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          device: "Dev1",
+          channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should fail to parse a task with duplicate ports on the same device", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          device: "Dev1",
+          channels: [
+            { ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
+            { ...ZERO_CI_CHANNEL, key: "1", device: "Dev1", port: 0 },
+          ],
+        }).success,
+      ).toEqual(false);
+    });
+
+    it("should properly parse a task with the same ports on different devices", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          device: "Dev1",
+          channels: [
+            { ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
+            { ...ZERO_CI_CHANNEL, key: "1", device: "Dev2", port: 0 },
+          ],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should fail to parse a task with sample rate less than stream rate", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 1000,
+          sampleRate: 500,
+          device: "Dev1",
+          channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
+        }).success,
+      ).toEqual(false);
+    });
+
+    it("should fail to parse a task with no enabled channels", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          device: "Dev1",
+          channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", enabled: false }],
+        }).success,
+      ).toEqual(false);
     });
   });
 });
