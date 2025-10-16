@@ -13,7 +13,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime"
 	"github.com/synnaxlabs/arc/runtime/constant"
@@ -152,6 +154,9 @@ func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse)
 	for k, v := range r.telem.Writes {
 		fr.Append(channel.Key(k), v)
 	}
+	if fr.Empty() {
+		return nil
+	}
 	err := r.writer.Write(ctx, fr)
 	clear(r.telem.Writes)
 	return err
@@ -171,7 +176,16 @@ func retrieveChannels(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return channels, nil
+	indexes := lo.Map(channels, func(item channel.Channel, index int) channel.Key {
+		return item.Index()
+	})
+	indexChannels := make([]channel.Channel, 0, len(indexes))
+	//if err := channelSvc.NewRetrieve().
+	//	WhereKeys(indexes...).
+	//	Entries(&indexChannels).Exec(ctx, nil); err != nil {
+	//	return nil, err
+	//}
+	return slices.Concat(channels, indexChannels), nil
 }
 
 var (
@@ -346,13 +360,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
+		//confluence.RecoverWithErrOnPanic(),
 	)
 	if writePipeline != nil {
 		writePipeline.Flow(
 			sCtx,
 			confluence.CloseOutputInletsOnExit(),
-			confluence.RecoverWithErrOnPanic(),
+			//confluence.RecoverWithErrOnPanic(),
 		)
 	}
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)

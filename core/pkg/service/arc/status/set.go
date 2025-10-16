@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -69,18 +70,33 @@ type statusFactory struct {
 	stat *status.Service
 }
 
+var schema = zyn.Object(map[string]zyn.Schema{
+	"status_key": zyn.String(),
+	"message":    zyn.String(),
+	"variant":    zyn.String(),
+})
+
+type nodeConfig struct {
+	StatusKey string
+	Message   string
+	Variant   string
+}
+
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	key := cfg.Node.ConfigValues["status_key"].(string)
+	var nodeCfg nodeConfig
+	if err := schema.Parse(cfg.Node.ConfigValues, &nodeCfg); err != nil {
+		return nil, err
+	}
 	var stat status.Status
 	if err := s.stat.NewRetrieve().
-		WhereKeys(key).
+		WhereKeys(nodeCfg.StatusKey).
 		Entry(&stat).
 		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
 		return nil, err
 	}
-	stat.Key = key
-	stat.Message = cfg.Node.ConfigValues["message"].(string)
-	stat.Variant = xstatus.Variant(cfg.Node.ConfigValues["variant"].(string))
+	stat.Key = nodeCfg.StatusKey
+	stat.Message = nodeCfg.Message
+	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
 }
 

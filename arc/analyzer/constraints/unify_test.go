@@ -131,6 +131,27 @@ var _ = Describe("Type Unification", func() {
 			})
 		})
 
+		It("should propagate type from channel through binary operator", func() {
+			constraint := types.NumericConstraint()
+			onOutput := types.Chan(types.F32())
+			geLeft := types.NewTypeVariable("ge_T", &constraint)
+			geRight := types.NewTypeVariable("ge_T", &constraint)
+			constantOutput := types.NewTypeVariable("constant_T", &constraint)
+			system.AddEquality(onOutput, types.Chan(geLeft), nil, "on -> ge.left")
+			system.AddEquality(constantOutput, geRight, nil, "constant -> ge.right")
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(constantOutput)).To(Equal(types.F32()))
+		})
+
+		It("should link type variables with same name", func() {
+			constraint := types.NumericConstraint()
+			tv1 := types.NewTypeVariable("T", &constraint)
+			tv2 := types.NewTypeVariable("T", &constraint)
+			system.AddEquality(tv1, types.F32(), nil, "tv1 = f32")
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv2)).To(Equal(types.F32()))
+		})
+
 		Describe("Complex Scenarios", func() {
 			It("should handle multiple interconnected type variables", func() {
 				// sensor -> multiply{factor: 2.0} -> add{a, b} <- constant{}

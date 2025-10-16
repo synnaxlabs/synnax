@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	xtelem "github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 var (
@@ -71,17 +72,20 @@ func (s *source) Init(context.Context, func(output string)) {}
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	entry := s.telem.Data[s.key]
 	indexData := s.telem.Data[entry.IndexKey]
-	if len(entry.Series) == 0 || len(indexData.Series) == 0 {
+	if len(entry.Series) == 0 {
 		return
 	}
 	for i, ser := range entry.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Upper > s.highWaterMark {
 			s.highWaterMark = ab.Upper
-			s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = state.Output{
-				Data: ser,
-				Time: s.telem.Data[entry.IndexKey].Series[i],
+			output := state.Output{Data: ser}
+			if len(indexData.Series) > i {
+				output.Time = s.telem.Data[entry.IndexKey].Series[i]
+			} else {
+				output.Time = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
 			}
+			s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = output
 			onOutputChange(ir.DefaultOutputParam)
 		}
 	}
@@ -106,34 +110,46 @@ type telemFactory struct {
 	telem *State
 }
 
+var schema = zyn.Object(map[string]zyn.Schema{
+	"channel": zyn.Uint32().Coerce(),
+})
+
+type config struct {
+	Channel uint32
+}
+
 func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type == sourceSymbolName {
-		key := uint32(cfg.Node.ConfigValues["channel"].(float64))
-		t.telem.registerReader(key, cfg.Node.Key)
+	isSource := cfg.Node.Type == sourceSymbolName
+	isSink := cfg.Node.Type == sinkSymbolName
+	if !isSource && !isSink {
+		return nil, query.NotFound
+	}
+	var nodeCfg config
+	if err := schema.Parse(cfg.Node.ConfigValues, &nodeCfg); err != nil {
+		return nil, err
+	}
+	if isSource {
+		t.telem.registerReader(nodeCfg.Channel, cfg.Node.Key)
 		return &source{
 			node:          cfg.Node,
 			telem:         t.telem,
 			state:         cfg.State,
-			key:           key,
+			key:           nodeCfg.Channel,
 			highWaterMark: 0,
 		}, nil
 	}
-	if cfg.Node.Type == sinkSymbolName {
-		key := uint32(cfg.Node.ConfigValues["channel"].(float64))
-		t.telem.registerWriter(key, cfg.Node.Key)
-		inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
-			Node:  cfg.Node.Key,
-			Param: ir.DefaultInputParam,
-		})
-		return &sink{
-			node:  cfg.Node,
-			telem: t.telem,
-			state: cfg.State,
-			input: inputEdge,
-			key:   key,
-		}, nil
-	}
-	return nil, query.NotFound
+	t.telem.registerWriter(nodeCfg.Channel, cfg.Node.Key)
+	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
+		Node:  cfg.Node.Key,
+		Param: ir.DefaultInputParam,
+	})
+	return &sink{
+		node:  cfg.Node,
+		telem: t.telem,
+		state: cfg.State,
+		input: inputEdge,
+		key:   nodeCfg.Channel,
+	}, nil
 }
 
 func NewTelemFactory(state *State) node.Factory {

@@ -80,33 +80,33 @@ var _ = Describe("Runtime", Ordered, func() {
 
 			graph := arc.Graph{
 				Nodes: []graph.Node{
-					{Node: arc.Node{
+					{
 						Key:          "on",
 						Type:         "on",
 						ConfigValues: map[string]any{"channel": ch.Key()},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:          "constant",
 						Type:         "constant",
 						ConfigValues: map[string]any{"value": 10},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:          "ge",
 						Type:         "ge",
 						ConfigValues: map[string]any{},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "stable_for",
 						Type: "stable_for",
 						ConfigValues: map[string]any{
-							"duration": int(telem.Millisecond * 1),
+							"duration": int(telem.Millisecond * 0),
 						},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "select",
 						Type: "select",
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "status_success",
 						Type: "set_status",
 						ConfigValues: map[string]any{
@@ -115,8 +115,8 @@ var _ = Describe("Runtime", Ordered, func() {
 							"name":       "OX Alarm",
 							"message":    "OX Pressure Nominal",
 						},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "status_error",
 						Type: "set_status",
 						ConfigValues: map[string]any{
@@ -125,7 +125,7 @@ var _ = Describe("Runtime", Ordered, func() {
 							"name":       "OX Alarm",
 							"message":    "OX Pressure Exceed",
 						},
-					}},
+					},
 				},
 				Edges: []arc.Edge{
 					{
@@ -142,7 +142,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					},
 					{
 						Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
-						Target: arc.Handle{Node: "select", Param: ir.DefaultInputParam},
+						Target: arc.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
@@ -157,8 +157,14 @@ var _ = Describe("Runtime", Ordered, func() {
 			cfg.Module = MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(resolver)))
 			Expect(cfg.Module.Nodes).To(HaveLen(7))
 			Expect(cfg.Module.Edges).To(HaveLen(6))
-			v, _ := cfg.Module.Nodes[1].Outputs.Get("output")
-			Expect(v).To(Equal(types.F32{}))
+			constantNode := cfg.Module.Nodes[1]
+			Expect(constantNode.Key).To(Equal("constant"))
+			v, _ := constantNode.Outputs.Get("output")
+			geNode := cfg.Module.Nodes[2]
+			Expect(geNode.Key).To(Equal("ge"))
+			geA, _ := geNode.Inputs.Get("a")
+			geB, _ := geNode.Inputs.Get("b")
+			Expect(v).To(Equal(types.F32()), "constant output should be f32, got: %v, ge.a: %v, ge.b: %v", v, geA, geB)
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
 			time.Sleep(time.Millisecond * 20)
@@ -176,6 +182,7 @@ var _ = Describe("Runtime", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](25),
 			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				var stat status.Status

@@ -11,6 +11,7 @@ package graph
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
@@ -123,7 +124,47 @@ func Analyze(
 		}
 	}
 
-	// Step 3: Check Types Across Edges
+	// Step 3: Create Fresh Types for Each Node
+	freshTypes := make(map[string]types.Type)
+	for _, n := range g.Nodes {
+		fnSym, err := ctx.Scope.Resolve(ctx, n.Type)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, nil)
+			return ir.IR{}, *ctx.Diagnostics
+		}
+		freshTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
+	}
+
+	// Step 4: Check Config Values Against Function Config Types
+	for _, n := range g.Nodes {
+		freshType := freshTypes[n.Key]
+		if freshType.Config == nil {
+			continue
+		}
+		for key, configType := range freshType.Config.Iter() {
+			configValue, ok := n.ConfigValues[key]
+			if !ok {
+				continue
+			}
+			if configType.Kind == types.KindChan {
+				channelSym, err := resolver.Resolve(ctx_, fmt.Sprint(configValue))
+				if err == nil && channelSym.Type.Kind == types.KindChan {
+					if err := atypes.Check(
+						ctx.Constraints,
+						channelSym.Type,
+						configType,
+						nil,
+						"",
+					); err != nil {
+						ctx.Diagnostics.AddError(err, nil)
+						return ir.IR{}, *ctx.Diagnostics
+					}
+				}
+			}
+		}
+	}
+
+	// Step 5: Check Types Across Edges
 	for _, edge := range g.Edges {
 		sourceNode, ok := g.Nodes.Find(edge.Source.Node)
 		if !ok {
@@ -131,11 +172,6 @@ func Analyze(
 				errors.Wrapf(query.NotFound, "edge source node '%s' not found", edge.Source.Node),
 				nil,
 			)
-			return ir.IR{}, *ctx.Diagnostics
-		}
-		sourceStageSymbol, err := ctx.Scope.Resolve(ctx, sourceNode.Type)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, nil)
 			return ir.IR{}, *ctx.Diagnostics
 		}
 		targetNode, ok := g.Nodes.Find(edge.Target.Node)
@@ -146,13 +182,8 @@ func Analyze(
 			)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		targetStageSymbol, err := ctx.Scope.Resolve(ctx, targetNode.Type)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, nil)
-			return ir.IR{}, *ctx.Diagnostics
-		}
 
-		sourceType, ok := sourceStageSymbol.Type.Outputs.Get(edge.Source.Param)
+		sourceType, ok := freshTypes[sourceNode.Key].Outputs.Get(edge.Source.Param)
 		if !ok {
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
@@ -164,7 +195,7 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 
-		targetType, ok := targetStageSymbol.Type.Inputs.Get(edge.Target.Param)
+		targetType, ok := freshTypes[targetNode.Key].Inputs.Get(edge.Target.Param)
 		if !ok {
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
@@ -192,14 +223,10 @@ func Analyze(
 		return ir.IR{}, *ctx.Diagnostics
 	}
 
-	// Step 4: Build IR Nodes with Unified Type Constraints
+	// Step 6: Build IR Nodes with Unified Type Constraints
 	nodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		stage, err := ctx.Scope.Resolve(ctx, n.Type)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, nil)
-		}
-		substituted := ctx.Constraints.ApplySubstitutions(ir.FreshType(stage.Type, n.Key))
+		substituted := ctx.Constraints.ApplySubstitutions(freshTypes[n.Key])
 		nodes[i] = ir.Node{
 			Key:          n.Key,
 			Type:         n.Type,
@@ -210,13 +237,13 @@ func Analyze(
 		}
 	}
 
-	// Step 5: Build Stratified Execution Plan
+	// Step 7: Build Stratified Execution Plan
 	strata, ok := stratifier.Stratify(ctx, nodes, g.Edges, ctx.Diagnostics)
 	if !ok {
 		return ir.IR{}, *ctx.Diagnostics
 	}
 
-	// Step 6: Return IR
+	// Step 8: Return IR
 	return ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
