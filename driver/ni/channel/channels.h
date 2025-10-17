@@ -1256,6 +1256,48 @@ struct CIEdgeCount final : CI {
     }
 };
 
+/// @brief Counter input period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch an.html
+struct CIPeriod final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIPeriod(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
+        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
+        meas_time(cfg.optional<double>("meas_time", 0.001)),
+        divisor(cfg.optional<uint32_t>("divisor", 4)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1850,6 +1892,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
     INPUT_CHAN_FACTORY("ci_edge_count", CIEdgeCount),
     INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
+    INPUT_CHAN_FACTORY("ci_period", CIPeriod),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 

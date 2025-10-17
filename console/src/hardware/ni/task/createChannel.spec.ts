@@ -205,5 +205,19 @@ describe("createChannel", () => {
       expect(result.port).toBe(2);
       expect(result.channel).not.toBe(3);
     });
+
+    it("should copy properties from ci_period channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_period, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_period");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
   });
 });

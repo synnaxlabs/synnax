@@ -913,3 +913,73 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr2");
 }
+
+TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
+    json j = {
+        {"type", "ci_period"},
+        {"key", "ks1VnWdrSVE"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Seconds"},
+        {"starting_edge", "Rising"},
+        {"meas_method", "DynamicAvg"},
+        {"meas_time", 0.001},
+        {"divisor", 4},
+        {"terminal", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_period_chan = dynamic_cast<channel::CIPeriod *>(chan.get());
+    ASSERT_NE(ci_period_chan, nullptr);
+    EXPECT_EQ(ci_period_chan->enabled, true);
+    EXPECT_EQ(ci_period_chan->port, 0);
+    EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Rising);
+    EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_DynAvg);
+    EXPECT_EQ(ci_period_chan->terminal, "");
+    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIPeriodChanTicks) {
+    json j = {
+        {"type", "ci_period"},
+        {"key", "ks1VnWdrSVF"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Ticks"},
+        {"starting_edge", "Falling"},
+        {"meas_method", "LowFreq1Ctr"},
+        {"meas_time", 0.001},
+        {"divisor", 4},
+        {"terminal", "PFI5"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_period_chan = dynamic_cast<channel::CIPeriod *>(chan.get());
+    ASSERT_NE(ci_period_chan, nullptr);
+    EXPECT_EQ(ci_period_chan->enabled, true);
+    EXPECT_EQ(ci_period_chan->port, 1);
+    EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Falling);
+    EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_LowFreq1Ctr);
+    EXPECT_EQ(ci_period_chan->terminal, "PFI5");
+    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr1");
+}

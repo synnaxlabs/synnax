@@ -17,11 +17,13 @@ import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
   CI_EDGE_COUNT_CHAN_TYPE,
   CI_FREQUENCY_CHAN_TYPE,
+  CI_PERIOD_CHAN_TYPE,
   type CIChannelType,
   type CICountDirection,
   type CIEdge,
   type CIFreqUnits,
   type CIMeasMethod,
+  type CIPeriodUnits,
 } from "@/hardware/ni/task/types";
 
 interface FormProps {
@@ -40,8 +42,33 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
   },
 });
 
+const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits, record.KeyedNamed<CIPeriodUnits>>({
+  fieldKey: "units",
+  fieldProps: { label: "Units" },
+  inputProps: {
+    resourceName: "Units",
+    data: [
+      { key: "Seconds", name: "Seconds" },
+      { key: "Ticks", name: "Ticks" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
 const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "edge",
+  fieldProps: { label: "Starting Edge" },
+  inputProps: {
+    resourceName: "Starting Edge",
+    data: [
+      { key: "Rising", name: "Rising" },
+      { key: "Falling", name: "Falling" },
+    ],
+  },
+});
+
+const StartingEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
+  fieldKey: "startingEdge",
   fieldProps: { label: "Starting Edge" },
   inputProps: {
     resourceName: "Starting Edge",
@@ -153,6 +180,22 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
         <TerminalField path={prefix} grow />
         <InitialCountField path={prefix} grow />
       </Flex.Box>
+    </>
+  ),
+  [CI_PERIOD_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <StartingEdgeField path={prefix} grow />
+        <PeriodUnitsField path={prefix} grow />
+      </Flex.Box>
+      <Flex.Box x>
+        <TerminalField path={prefix} grow />
+        <MeasMethodField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
     </>
   ),
 };

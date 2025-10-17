@@ -88,6 +88,7 @@ const STRAIN = "Strain";
 const OHMS = "Ohms";
 const HZ = "Hz";
 const SECONDS = "Seconds";
+const FROM_CUSTOM_SCALE = "FromCustomScale";
 const METERS = "Meters";
 const INCHES = "Inches";
 const DEGREES = "Degrees";
@@ -1039,7 +1040,36 @@ export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
   terminal: "",
 };
 
-const ciChannelZ = z.union([ciFrequencyChanZ, ciEdgeCountChanZ]);
+// Counter Input period units
+const ciPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CIPeriodUnits = z.infer<typeof ciPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch an.html
+export const CI_PERIOD_CHAN_TYPE = "ci_period";
+export const ciPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PERIOD_CHAN_TYPE),
+  units: ciPeriodUnitsZ,
+  startingEdge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  terminal: z.string(),
+});
+export interface CIPeriodChan extends z.infer<typeof ciPeriodChanZ> {}
+export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  measMethod: DYNAMIC_AVG,
+  terminal: "",
+};
+
+const ciChannelZ = z.union([ciFrequencyChanZ, ciEdgeCountChanZ, ciPeriodChanZ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
 export type CIChannelType = CIChannel["type"];
@@ -1047,11 +1077,13 @@ export type CIChannelType = CIChannel["type"];
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
   [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
+  [CI_PERIOD_CHAN_TYPE]: "Period",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Square,
   [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
+  [CI_PERIOD_CHAN_TYPE]: Icon.Time,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);

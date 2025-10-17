@@ -32,6 +32,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Hz", DAQmx_Val_Hz},
     {"Ticks", DAQmx_Val_Ticks},
     {"Seconds", DAQmx_Val_Seconds},
+    {"FromCustomScale", DAQmx_Val_FromCustomScale},
     {"Meters", DAQmx_Val_Meters},
     {"Inches", DAQmx_Val_Inches},
     {"Degrees", DAQmx_Val_Degrees},

@@ -37,6 +37,8 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
       const nextValue = {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
+        ...("minVal" in next && { minVal: next.minVal }),
+        ...("maxVal" in next && { maxVal: next.maxVal }),
       };
       set(parentPath, nextValue);
     },
