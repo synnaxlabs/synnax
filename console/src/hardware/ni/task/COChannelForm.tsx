@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -50,15 +50,11 @@ const UnitsField = Form.buildSelectField<string, record.KeyedNamed<string>>({
 const CHANNEL_FORMS: Record<COChannelType, FC<FormProps>> = {
   [CO_PULSE_OUTPUT_CHAN_TYPE]: ({ path }) => (
     <>
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${path}.initialDelay`}
-          label="Initial Delay"
-          inputProps={{ endContent: "s" }}
-          grow
-        />
-        <Device.PortField path={path} />
-      </Flex.Box>
+      <Form.NumericField
+        path={`${path}.initialDelay`}
+        label="Initial Delay"
+        inputProps={{ endContent: "s" }}
+      />
       <Flex.Box x>
         <Form.NumericField
           path={`${path}.highTime`}
@@ -88,5 +84,13 @@ export interface COChannelFormProps {
 
 export const COChannelForm = ({ type, path }: COChannelFormProps) => {
   const FormComponent = CHANNEL_FORMS[type];
-  return <FormComponent path={path} />;
+  return (
+    <>
+      <Flex.Box x wrap>
+        <Device.PortField path={path} />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <FormComponent path={path} />
+    </>
+  );
 };
