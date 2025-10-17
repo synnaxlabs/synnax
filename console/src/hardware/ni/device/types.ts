@@ -31,6 +31,11 @@ export type Properties = {
     index: channel.Key;
     channels: Record<string, channel.Key>;
   };
+  counterOutput: {
+    portCount: number;
+    stateIndex: channel.Key;
+    channels: Record<string, Common.Device.CommandStatePair>;
+  };
   digitalInputOutput: { portCount: number; lineCounts: number[] };
   digitalInput: {
     portCount: number;
@@ -51,6 +56,7 @@ export const ZERO_PROPERTIES: Properties = {
   analogInput: { portCount: 0, index: 0, channels: {} },
   analogOutput: { portCount: 0, stateIndex: 0, channels: {} },
   counterInput: { portCount: 0, index: 0, channels: {} },
+  counterOutput: { portCount: 0, stateIndex: 0, channels: {} },
   digitalInputOutput: { portCount: 0, lineCounts: [] },
   digitalInput: { portCount: 0, lineCounts: [], index: 0, channels: {} },
   digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },

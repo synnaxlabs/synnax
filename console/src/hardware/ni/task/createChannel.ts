@@ -15,12 +15,14 @@ import {
   type AnalogChannel,
   type AOChannel,
   type CIChannel,
+  type COChannel,
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
   ZERO_AI_CHANNEL,
   ZERO_AO_CHANNEL,
   ZERO_CI_CHANNEL,
+  ZERO_CO_CHANNEL,
   ZERO_DI_CHANNEL,
   ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
@@ -102,5 +104,13 @@ export const createCIChannel = (channels: CIChannel[], key?: string): CIChannel 
     channels,
     ZERO_CI_CHANNEL,
     Common.Task.READ_CHANNEL_OVERRIDE,
+    key,
+  );
+
+export const createCOChannel = (channels: COChannel[], key?: string): COChannel =>
+  createCounterChannel(
+    channels,
+    ZERO_CO_CHANNEL,
+    Common.Task.WRITE_CHANNEL_OVERRIDE,
     key,
   );

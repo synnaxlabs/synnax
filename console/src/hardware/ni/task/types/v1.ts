@@ -318,9 +318,34 @@ export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
 };
 export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
 
+// ==================== Counter Output Channels ====================
+
+const coChanExtensionShape = { device: Common.Device.keyZ };
+interface COChanExtension extends z.infer<z.ZodObject<typeof coChanExtensionShape>> {}
+const ZERO_CO_CHAN_EXTENSION: COChanExtension = { device: "" };
+
+const coPulseOutputChanZ = v0.coPulseOutputChanZ.extend(coChanExtensionShape);
+interface COPulseOutputChan extends z.infer<typeof coPulseOutputChanZ> {}
+const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
+  ...v0.ZERO_CO_PULSE_OUTPUT_CHAN,
+  ...ZERO_CO_CHAN_EXTENSION,
+};
+
+const coChannelZ = z.union([coPulseOutputChanZ]);
+export type COChannel = z.infer<typeof coChannelZ>;
+
+export const CO_CHANNEL_SCHEMAS: Record<v0.COChannelType, z.ZodType<COChannel>> = {
+  [v0.CO_PULSE_OUTPUT_CHAN_TYPE]: coPulseOutputChanZ,
+};
+
+export const ZERO_CO_CHANNELS: Record<v0.COChannelType, COChannel> = {
+  [v0.CO_PULSE_OUTPUT_CHAN_TYPE]: ZERO_CO_PULSE_OUTPUT_CHAN,
+};
+export const ZERO_CO_CHANNEL: COChannel = ZERO_CO_CHANNELS[v0.CO_PULSE_OUTPUT_CHAN_TYPE];
+
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | COChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
