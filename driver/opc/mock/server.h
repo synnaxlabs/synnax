@@ -85,9 +85,9 @@ struct TestNode {
         ns(other.ns),
         node_id(std::move(other.node_id)),
         data_type(other.data_type),
-        initial_value(other.initial_value),
         description(std::move(other.description)),
         return_invalid_data(other.return_invalid_data) {
+        initial_value = other.initial_value;
         UA_Variant_init(&other.initial_value);
     }
 

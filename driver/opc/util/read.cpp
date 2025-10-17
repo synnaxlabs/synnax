@@ -47,10 +47,7 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     telem::Series series(data_type, 1);
 
     // Write the value to the series
-    auto [count, write_err] = util::write_to_series(series, value);
-
-    // Clean up the variant
-    UA_Variant_clear(&value);
+    auto [count, write_err] = util::write_to_series(series, value.get());
 
     if (write_err) { return {telem::Series(0), write_err}; }
 

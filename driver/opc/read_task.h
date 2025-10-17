@@ -240,8 +240,7 @@ public:
         opc::ReadResponse ua_res(
             UA_Client_Service_read(this->conn.get(), this->request_builder.build())
         );
-        x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
-        if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+        if (res.error = util::parse_error(ua_res.get().responseHeader.serviceResult);
             res.error)
             return res;
         common::initialize_frame(
@@ -251,8 +250,8 @@ public:
             this->cfg.array_size
         );
         std::vector<std::string> error_messages;
-        for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
-            auto &result = ua_res.results[i];
+        for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
+            auto &result = ua_res.get().results[i];
             if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
@@ -323,8 +322,8 @@ public:
                 res.error)
                 return res;
             bool skip_sample = false;
-            for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
-                UA_DataValue &result = ua_res.results[j];
+            for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
+                UA_DataValue &result = ua_res.get().results[j];
                 if (res.error = util::parse_error(result.status); res.error) return res;
                 auto [written, write_err] = util::write_to_series(
                     fr.series->at(j),

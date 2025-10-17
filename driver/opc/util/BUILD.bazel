@@ -2,6 +2,7 @@ cc_library(
     name = "util",
     srcs = [
         "read.cpp",
+        "telem.cpp",
     ],
     hdrs = [
         "util.h",

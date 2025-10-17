@@ -118,8 +118,8 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const ::telem::Series &s
 }
 
 std::pair<size_t, xerrors::Error>
-write_to_series(telem::Series &s, const UA_Variant &v) {
-    if (s.data_type() == telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
+write_to_series(::telem::Series &s, const UA_Variant &v) {
+    if (s.data_type() == ::telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto dt = static_cast<const UA_DateTime *>(v.data);
         return {
             s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt))),
