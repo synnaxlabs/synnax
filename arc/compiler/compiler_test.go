@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/bindings"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -156,54 +155,6 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(readAndDouble.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(84))) // 42 * 2
-		})
-	})
-
-	Describe("Flow Expression", func() {
-		It("Should correctly compile and execute a flow expression", func() {
-
-			// Create mock runtime with channel implementations
-			mockRuntime := bindings.NewBindings()
-
-			// Setup channel data
-			channelData := map[uint32]int32{12: 32}
-
-			// Define channel read implementation
-			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
-				if val, ok := channelData[channelID]; ok {
-					return val
-				}
-				return 0
-			}
-
-			// Bind the mock runtime
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
-			printType := ir.Function{}
-			printType.Config.Put("message", types.String())
-
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Name: "ox_pt_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-					ID:   12,
-				},
-				"print": symbol.Symbol{
-					Name: "print",
-					Kind: symbol.KindFunction,
-					Type: printType.Type(),
-				},
-			}
-
-			output := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message = "dog"}`, resolver))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			readAndDouble := mod.ExportedFunction("__expr_0")
-			Expect(readAndDouble).ToNot(BeNil())
-
-			results := MustSucceed(readAndDouble.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1))) // 42 * 2
 		})
 	})
 

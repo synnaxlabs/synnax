@@ -48,7 +48,7 @@ type constant struct {
 }
 
 func (c constant) Init(_ context.Context, onOutputChange func(output string)) {
-	d := c.state.OutputData(0)
+	d := c.state.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.state.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())

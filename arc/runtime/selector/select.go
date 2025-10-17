@@ -48,7 +48,7 @@ type selectNode struct {
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
-	data := s.snode.InputData(0)
+	data := s.snode.Input(0)
 	time := s.snode.InputTime(0)
 	if data.Len() == 0 {
 		return
@@ -60,9 +60,9 @@ func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
 		}
 	}
 	falseCount := data.Len() - trueCount
-	trueData := s.snode.OutputData(0)
+	trueData := s.snode.Output(0)
 	trueTime := s.snode.OutputTime(0)
-	falseData := s.snode.OutputData(1)
+	falseData := s.snode.Output(1)
 	falseTime := s.snode.OutputTime(1)
 	trueData.Resize(trueCount)
 	trueTime.Resize(trueCount)

@@ -82,7 +82,7 @@ func (r *reduction) Init(_ context.Context, _ func(output string)) {
 func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) {
 	shouldReset := false
 	if r.resetIdx >= 0 {
-		resetData := r.snode.InputData(r.resetIdx)
+		resetData := r.snode.Input(r.resetIdx)
 		if resetData.Len() > 0 {
 			resetValue := telem.ValueAt[uint8](resetData, -1)
 			if resetValue == 1 {
@@ -103,11 +103,11 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 	if shouldReset {
 		r.sampleCount = 0
 	}
-	inputData := r.snode.InputData(0)
+	inputData := r.snode.Input(0)
 	if inputData.Len() == 0 {
 		return
 	}
-	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.snode.OutputData(0))
+	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.snode.Output(0))
 	*r.snode.OutputTime(0) = r.snode.InputTime(0)
 	onOutputChange(ir.DefaultOutputParam)
 }
@@ -127,7 +127,7 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	if !ok {
 		return nil, query.NotFound
 	}
-	inputData := cfg.State.InputData(0)
+	inputData := cfg.State.Input(0)
 	reductionFn := reductionMap[inputData.DataType]
 	resetIdx := -1
 	if _, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {

@@ -24,11 +24,12 @@ type Body struct {
 // Function represents a function or stage definition in the IR. Functions are
 // templates that can be instantiated as nodes in the dataflow graph.
 type Function struct {
-	Key     string       `json:"key"`
-	Body    Body         `json:"body"`
-	Config  types.Params `json:"config"`
-	Inputs  types.Params `json:"inputs"`
-	Outputs types.Params `json:"outputs"`
+	Key      string       `json:"key"`
+	Body     Body         `json:"body"`
+	Config   types.Params `json:"config"`
+	Inputs   types.Params `json:"inputs"`
+	Outputs  types.Params `json:"outputs"`
+	Channels Channels     `json:"channels"`
 }
 
 // Type returns the type signature of f.

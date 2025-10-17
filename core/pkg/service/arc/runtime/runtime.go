@@ -190,7 +190,9 @@ func NewStateConfig(
 	for _, n := range module.Nodes {
 		for chanKey := range n.Channels.Read {
 			channelKeys[chanKey] = true
-			reactiveDeps[chanKey] = append(reactiveDeps[chanKey], n.Key)
+			if n.Type == "on" {
+				reactiveDeps[chanKey] = append(reactiveDeps[chanKey], n.Key)
+			}
 		}
 		for chanKey := range n.Channels.Write {
 			channelKeys[chanKey] = true

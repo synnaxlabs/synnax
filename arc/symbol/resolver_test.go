@@ -12,7 +12,6 @@ package symbol_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -22,28 +21,28 @@ var _ = Describe("MapResolver", func() {
 	Describe("Resolve", func() {
 		It("Should resolve existing symbol", func() {
 			resolver := symbol.MapResolver{
-				"pi":    Symbol{Name: "pi", Kind: SymbolKindConfigParam, Type: types.F64()},
-				"count": Symbol{Name: "count", Kind: SymbolKindVariable, Type: types.I32()},
+				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			sym, err := resolver.Resolve(ir.ctx, "pi")
+			sym, err := resolver.Resolve(bCtx, "pi")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sym.Name).To(Equal("pi"))
-			Expect(sym.Kind).To(Equal(SymbolKindConfigParam))
+			Expect(sym.Kind).To(Equal(symbol.KindConfig))
 			Expect(sym.Type).To(Equal(types.F64()))
 		})
 
 		It("Should return error for non-existent symbol", func() {
 			resolver := symbol.MapResolver{
-				"x": Symbol{Name: "x", Kind: SymbolKindVariable, Type: types.I32()},
+				"x": symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			_, err := resolver.Resolve(ir.ctx, "y")
+			_, err := resolver.Resolve(bCtx, "y")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(query.NotFound))
 		})
 
 		It("Should work with empty resolver", func() {
 			resolver := symbol.MapResolver{}
-			_, err := resolver.Resolve(ir.ctx, "anything")
+			_, err := resolver.Resolve(bCtx, "anything")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(query.NotFound))
 		})

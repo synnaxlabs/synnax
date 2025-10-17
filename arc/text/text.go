@@ -60,12 +60,20 @@ func Analyze(
 			if ok {
 				bodyAst = fnDecl.Block()
 			}
+			channels := ir.NewChannels()
+			if c.ChannelsRead != nil {
+				channels.Read = c.ChannelsRead
+			}
+			if c.ChannelsWrite != nil {
+				channels.Write = c.ChannelsWrite
+			}
 			i.Functions = append(i.Functions, ir.Function{
-				Key:     c.Name,
-				Body:    ir.Body{Raw: "", AST: bodyAst},
-				Config:  *c.Type.Config,
-				Inputs:  *c.Type.Inputs,
-				Outputs: *c.Type.Outputs,
+				Key:      c.Name,
+				Body:     ir.Body{Raw: "", AST: bodyAst},
+				Config:   *c.Type.Config,
+				Inputs:   *c.Type.Inputs,
+				Outputs:  *c.Type.Outputs,
+				Channels: channels,
 			})
 		}
 	}
@@ -227,6 +235,16 @@ func analyzeFunction(
 		Key:      key,
 		Type:     name,
 		Channels: ir.NewChannels(),
+	}
+	if sym.ChannelsRead != nil {
+		for ch := range sym.ChannelsRead {
+			n.Channels.Read.Add(ch)
+		}
+	}
+	if sym.ChannelsWrite != nil {
+		for ch := range sym.ChannelsWrite {
+			n.Channels.Write.Add(ch)
+		}
 	}
 	config, ok := extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),

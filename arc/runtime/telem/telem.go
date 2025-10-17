@@ -89,7 +89,7 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 		if timeSeries.Alignment != ser.Alignment {
 			return
 		}
-		*s.snode.OutputData(0) = ser
+		*s.snode.Output(0) = ser
 		*s.snode.OutputTime(0) = timeSeries
 		s.highWaterMark = ab.Upper
 		onOutputChange(ir.DefaultOutputParam)
@@ -104,7 +104,7 @@ type sink struct {
 func (s *sink) Init(context.Context, func(output string)) {}
 
 func (s *sink) Next(_ context.Context, _ func(param string)) {
-	data := s.snode.InputData(0)
+	data := s.snode.Input(0)
 	time := s.snode.InputTime(0)
 	if data.Len() == 0 {
 		return

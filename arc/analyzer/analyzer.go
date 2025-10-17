@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Diagnostics = diagnostics.Diagnostics
@@ -108,12 +109,13 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
-		// Set up channel tracking for functions with config (reactive functions)
-		if fn.Type.Config != nil && fn.Type.Config.Count() > 0 {
-			fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
-				// Channel tracking will be handled at IR compilation stage
-				return nil
+		fn.ChannelsRead = make(set.Set[uint32])
+		fn.ChannelsWrite = make(set.Set[uint32])
+		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
+			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
+				fn.ChannelsRead.Add(uint32(s.ID))
 			}
+			return nil
 		}
 		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn)) {
 			return false

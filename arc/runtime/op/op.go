@@ -20,8 +20,8 @@ import (
 )
 
 type binaryOperator struct {
-	state   *state.Node
-	compare op.Binary
+	state *state.Node
+	op    op.Binary
 }
 
 func (n *binaryOperator) Init(context.Context, func(string)) {}
@@ -30,11 +30,7 @@ func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)
 	if !n.state.RefreshInputs() {
 		return
 	}
-	n.compare(
-		n.state.InputData(0),
-		n.state.InputData(1),
-		n.state.OutputData(0),
-	)
+	n.op(n.state.Input(0), n.state.Input(1), n.state.Output(0))
 	*n.state.OutputTime(0) = n.state.InputTime(0)
 	markChanged(ir.DefaultOutputParam)
 }
@@ -47,8 +43,8 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 		return nil, query.NotFound
 	}
 	return &binaryOperator{
-		state:   cfg.State,
-		compare: cat[cfg.State.OutputData(0).DataType],
+		state: cfg.State,
+		op:    cat[cfg.State.Output(0).DataType],
 	}, nil
 }
 

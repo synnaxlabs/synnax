@@ -59,8 +59,7 @@ var _ = Describe("Text", func() {
 			Expect(parsedText.AST).ToNot(BeNil())
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.Functions).To(HaveLen(1))
-			Expect(inter.Stages).To(HaveLen(2))
+			Expect(inter.Functions).To(HaveLen(3))
 			Expect(inter.Nodes).To(HaveLen(2))
 			Expect(inter.Edges).To(HaveLen(1))
 
@@ -74,7 +73,7 @@ var _ = Describe("Text", func() {
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(types.I64()))
 
-			s := inter.Stages[0]
+			s := inter.Functions[1]
 			Expect(s.Key).To(Equal("adder"))
 			Expect(s.Inputs.Count()).To(Equal(2))
 			v, ok = s.Inputs.Get("a")

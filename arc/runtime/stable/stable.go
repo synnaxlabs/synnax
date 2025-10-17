@@ -59,7 +59,7 @@ func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
 	if !s.state.RefreshInputs() {
 		return
 	}
-	data := s.state.InputData(0)
+	data := s.state.Input(0)
 	for _, currentValue := range data.Data {
 		if s.value == nil || *s.value != currentValue {
 			s.value = &currentValue
@@ -72,7 +72,7 @@ func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
 	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || *s.lastSent != currentValue {
-			outData := s.state.OutputData(0)
+			outData := s.state.Output(0)
 			outTime := s.state.OutputTime(0)
 			outData.Resize(1)
 			outData.Data[0] = currentValue

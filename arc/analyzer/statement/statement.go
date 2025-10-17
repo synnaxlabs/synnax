@@ -10,6 +10,8 @@
 package statement
 
 import (
+	stdcontext "context"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -19,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
@@ -373,7 +376,19 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 		return false
 	}
 
+	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	var savedHook func(stdcontext.Context, *symbol.Scope) error
+	if fnErr == nil && fn != nil {
+		savedHook = fn.OnResolve
+		fn.OnResolve = nil
+	}
+
 	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+
+	if fnErr == nil && fn != nil {
+		fn.OnResolve = savedHook
+	}
+
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
@@ -385,6 +400,13 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 			ctx.AST,
 		)
 		return false
+	}
+
+	if fnErr == nil && fn != nil {
+		if fn.ChannelsWrite == nil {
+			fn.ChannelsWrite = make(set.Set[uint32])
+		}
+		fn.ChannelsWrite.Add(uint32(channelSym.ID))
 	}
 
 	expr := ctx.AST.Expression()

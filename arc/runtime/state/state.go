@@ -208,11 +208,11 @@ func (n *Node) InputTime(paramIndex int) telem.Series {
 	return n.alignedTime[paramIndex]
 }
 
-func (n *Node) InputData(paramIndex int) telem.Series {
+func (n *Node) Input(paramIndex int) telem.Series {
 	return n.alignedData[paramIndex]
 }
 
-func (n *Node) OutputData(paramIndex int) *telem.Series {
+func (n *Node) Output(paramIndex int) *telem.Series {
 	d := n.output(paramIndex)
 	return &d.data
 }

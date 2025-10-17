@@ -33,7 +33,7 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	}
 	minLength := int64(-1)
 	for i := range n.ir.Inputs.Count() {
-		dataLen := n.state.InputData(i).Len()
+		dataLen := n.state.Input(i).Len()
 		if minLength == -1 || dataLen < minLength {
 			minLength = dataLen
 		}
@@ -42,11 +42,11 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		return
 	}
 	for i := range n.ir.Outputs.Count() {
-		n.state.OutputData(i).Resize(minLength)
+		n.state.Output(i).Resize(minLength)
 	}
 	for i := int64(0); i < minLength; i++ {
 		for j := range n.ir.Inputs.Count() {
-			n.inputs[j] = valueAt(n.state.InputData(j), int(i))
+			n.inputs[j] = valueAt(n.state.Input(j), int(i))
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
@@ -54,7 +54,7 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		}
 		for j, value := range res {
 			if value.changed {
-				setValueAt(*n.state.OutputData(j), n.offsets[j], value.value)
+				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
 				n.offsets[j]++
 			}
 		}

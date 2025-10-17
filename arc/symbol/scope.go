@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
@@ -36,6 +37,8 @@ type Scope struct {
 	Children       []*Scope
 	Counter        *int
 	OnResolve      func(ctx context.Context, s *Scope) error
+	ChannelsRead   set.Set[uint32]
+	ChannelsWrite  set.Set[uint32]
 }
 
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
