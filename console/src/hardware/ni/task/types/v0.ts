@@ -1121,12 +1121,40 @@ export const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
   units: SECONDS,
 };
 
+// Counter Input two edge separation units
+const ciTwoEdgeSepUnitsZ = z.enum([SECONDS, TICKS]);
+export type CITwoEdgeSepUnits = z.infer<typeof ciTwoEdgeSepUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe dgeseparationchan.html
+export const CI_TWO_EDGE_SEP_CHAN_TYPE = "ci_two_edge_sep";
+export const ciTwoEdgeSepChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_TWO_EDGE_SEP_CHAN_TYPE),
+  units: ciTwoEdgeSepUnitsZ,
+  firstEdge: ciEdgeZ,
+  secondEdge: ciEdgeZ,
+});
+export interface CITwoEdgeSepChan extends z.infer<typeof ciTwoEdgeSepChanZ> {}
+export const ZERO_CI_TWO_EDGE_SEP_CHAN: CITwoEdgeSepChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_TWO_EDGE_SEP_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 1,
+  units: SECONDS,
+  firstEdge: RISING_EDGE,
+  secondEdge: FALLING_EDGE,
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
   ciPeriodChanZ,
   ciPulseWidthChanZ,
   ciSemiPeriodChanZ,
+  ciTwoEdgeSepChanZ,
 ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
@@ -1138,6 +1166,7 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_PERIOD_CHAN_TYPE]: "Period",
   [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
   [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1146,6 +1175,7 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_PERIOD_CHAN_TYPE]: Icon.Time,
   [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
   [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);

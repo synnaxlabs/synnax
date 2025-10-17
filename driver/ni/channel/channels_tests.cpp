@@ -1099,3 +1099,65 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
+
+TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
+    json j = {
+        {"type", "ci_two_edge_sep"},
+        {"key", "ks1VnWdrSVK"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 1},
+        {"units", "Seconds"},
+        {"first_edge", "Rising"},
+        {"second_edge", "Falling"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_two_edge_sep_chan = dynamic_cast<channel::CITwoEdgeSep *>(chan.get());
+    ASSERT_NE(ci_two_edge_sep_chan, nullptr);
+    EXPECT_EQ(ci_two_edge_sep_chan->enabled, true);
+    EXPECT_EQ(ci_two_edge_sep_chan->port, 0);
+    EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Rising);
+    EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Falling);
+    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
+    json j = {
+        {"type", "ci_two_edge_sep"},
+        {"key", "ks1VnWdrSVL"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 1},
+        {"units", "Ticks"},
+        {"first_edge", "Falling"},
+        {"second_edge", "Rising"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_two_edge_sep_chan = dynamic_cast<channel::CITwoEdgeSep *>(chan.get());
+    ASSERT_NE(ci_two_edge_sep_chan, nullptr);
+    EXPECT_EQ(ci_two_edge_sep_chan->enabled, true);
+    EXPECT_EQ(ci_two_edge_sep_chan->port, 1);
+    EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Falling);
+    EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Rising);
+    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
+}

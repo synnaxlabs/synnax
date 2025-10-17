@@ -20,6 +20,7 @@ import {
   CI_PERIOD_CHAN_TYPE,
   CI_PULSE_WIDTH_CHAN_TYPE,
   CI_SEMI_PERIOD_CHAN_TYPE,
+  CI_TWO_EDGE_SEP_CHAN_TYPE,
   type CIChannelType,
   type CICountDirection,
   type CIEdge,
@@ -28,6 +29,7 @@ import {
   type CIPeriodUnits,
   type CIPulseWidthUnits,
   type CISemiPeriodUnits,
+  type CITwoEdgeSepUnits,
 } from "@/hardware/ni/task/types";
 
 interface FormProps {
@@ -81,6 +83,18 @@ const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits, record.Key
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
       { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
+const TwoEdgeSepUnitsField = Form.buildSelectField<CITwoEdgeSepUnits, record.KeyedNamed<CITwoEdgeSepUnits>>({
+  fieldKey: "units",
+  fieldProps: { label: "Scaled Units" },
+  inputProps: {
+    resourceName: "Scaled Units",
+    data: [
+      { key: "Seconds", name: "Seconds" },
+      { key: "Ticks", name: "Ticks" },
     ],
   },
 });
@@ -183,6 +197,50 @@ const TerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   },
 });
 
+const FirstEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
+  fieldKey: "firstEdge",
+  fieldProps: { label: "Edge 1" },
+  inputProps: {
+    resourceName: "Edge 1",
+    data: [
+      { key: "Rising", name: "Rising" },
+      { key: "Falling", name: "Falling" },
+    ],
+  },
+});
+
+const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
+  fieldKey: "secondEdge",
+  fieldProps: { label: "Edge 2" },
+  inputProps: {
+    resourceName: "Edge 2",
+    data: [
+      { key: "Rising", name: "Rising" },
+      { key: "Falling", name: "Falling" },
+    ],
+  },
+});
+
+const FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "firstTerminal",
+  fieldProps: { label: "First Terminal" },
+  inputProps: {
+    resourceName: "First Terminal",
+    allowNone: true,
+    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+  },
+});
+
+const SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "secondTerminal",
+  fieldProps: { label: "Second Terminal" },
+  inputProps: {
+    resourceName: "Second Terminal",
+    allowNone: true,
+    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+  },
+});
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
   [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => (
     <>
@@ -248,6 +306,20 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
       <SemiPeriodUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <TwoEdgeSepUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <FirstEdgeField path={prefix} grow />
+        <SecondEdgeField path={prefix} grow />
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>

@@ -1358,6 +1358,40 @@ struct CISemiPeriod final : CICustomScale {
     }
 };
 
+/// @brief Counter input two edge separation measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe dgeseparationchan.html
+struct CITwoEdgeSep final : CICustomScale {
+    const int32_t first_edge;
+    const int32_t second_edge;
+
+    explicit CITwoEdgeSep(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        first_edge(get_ci_edge(cfg.required<std::string>("first_edge"))),
+        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCITwoEdgeSepChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->first_edge,
+            this->second_edge,
+            scale_key
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1955,6 +1989,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ci_period", CIPeriod),
     INPUT_CHAN_FACTORY("ci_pulse_width", CIPulseWidth),
     INPUT_CHAN_FACTORY("ci_semi_period", CISemiPeriod),
+    INPUT_CHAN_FACTORY("ci_two_edge_sep", CITwoEdgeSep),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 
