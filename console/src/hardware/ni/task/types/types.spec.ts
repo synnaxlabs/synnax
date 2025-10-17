@@ -301,6 +301,17 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
+    it("should be able to parse a task with ci_semi_period channels", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          channels: [{ ...ZERO_CI_CHANNELS.ci_semi_period, key: "0", device: "Dev1" }],
+        }).success,
+      ).toEqual(true);
+    });
+
     it("should be able to parse a task with all CI channel types", () => {
       expect(
         counterReadConfigZ.safeParse({
@@ -312,6 +323,7 @@ describe("analog read task", () => {
             { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
             { ...ZERO_CI_CHANNELS.ci_period, key: "2", device: "Dev1", port: 2 },
             { ...ZERO_CI_CHANNELS.ci_pulse_width, key: "3", device: "Dev1", port: 3 },
+            { ...ZERO_CI_CHANNELS.ci_semi_period, key: "4", device: "Dev1", port: 4 },
           ],
         }).success,
       ).toEqual(true);

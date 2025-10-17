@@ -1045,3 +1045,57 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr1");
 }
+
+TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
+    json j = {
+        {"type", "ci_semi_period"},
+        {"key", "ks1VnWdrSVI"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Seconds"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_semi_period_chan = dynamic_cast<channel::CISemiPeriod *>(chan.get());
+    ASSERT_NE(ci_semi_period_chan, nullptr);
+    EXPECT_EQ(ci_semi_period_chan->enabled, true);
+    EXPECT_EQ(ci_semi_period_chan->port, 0);
+    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
+    json j = {
+        {"type", "ci_semi_period"},
+        {"key", "ks1VnWdrSVJ"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Ticks"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_semi_period_chan = dynamic_cast<channel::CISemiPeriod *>(chan.get());
+    ASSERT_NE(ci_semi_period_chan, nullptr);
+    EXPECT_EQ(ci_semi_period_chan->enabled, true);
+    EXPECT_EQ(ci_semi_period_chan->port, 1);
+    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr1");
+}

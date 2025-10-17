@@ -1008,6 +1008,8 @@ export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
   ...ZERO_MIN_MAX_VAL,
   ...ZERO_CUSTOM_SCALE,
   type: CI_FREQUENCY_CHAN_TYPE,
+  minVal: 2,
+  maxVal: 100,
   units: HZ,
   edge: RISING_EDGE,
   measMethod: DYNAMIC_AVG,
@@ -1096,11 +1098,35 @@ export const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
   terminal: "",
 };
 
+// Counter Input semi period units (same as period)
+const ciSemiPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CISemiPeriodUnits = z.infer<typeof ciSemiPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+export const CI_SEMI_PERIOD_CHAN_TYPE = "ci_semi_period";
+export const ciSemiPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_SEMI_PERIOD_CHAN_TYPE),
+  units: ciSemiPeriodUnitsZ,
+});
+export interface CISemiPeriodChan extends z.infer<typeof ciSemiPeriodChanZ> {}
+export const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_SEMI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
   ciPeriodChanZ,
   ciPulseWidthChanZ,
+  ciSemiPeriodChanZ,
 ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
@@ -1111,6 +1137,7 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
   [CI_PERIOD_CHAN_TYPE]: "Period",
   [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
+  [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1118,6 +1145,7 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
   [CI_PERIOD_CHAN_TYPE]: Icon.Time,
   [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);

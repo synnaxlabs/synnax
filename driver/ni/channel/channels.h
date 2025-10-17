@@ -1331,6 +1331,33 @@ struct CIPulseWidth final : CICustomScale {
     }
 };
 
+/// @brief Counter input semi period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+struct CISemiPeriod final : CICustomScale {
+    explicit CISemiPeriod(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCISemiPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            scale_key
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1927,6 +1954,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
     INPUT_CHAN_FACTORY("ci_period", CIPeriod),
     INPUT_CHAN_FACTORY("ci_pulse_width", CIPulseWidth),
+    INPUT_CHAN_FACTORY("ci_semi_period", CISemiPeriod),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 
