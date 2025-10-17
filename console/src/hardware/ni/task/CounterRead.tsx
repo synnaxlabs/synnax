@@ -9,7 +9,7 @@
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -136,7 +136,6 @@ const getInitialValues: Common.Task.GetInitialValues<
     ...ZERO_COUNTER_READ_PAYLOAD,
     config: {
       ...ZERO_COUNTER_READ_PAYLOAD.config,
-      device: deviceKey ?? "",
       channels:
         deviceKey == null
           ? ZERO_COUNTER_READ_PAYLOAD.config.channels
@@ -149,80 +148,89 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
   client,
   config,
 ) => {
-  const deviceKey = config.device;
-  if (primitive.isZero(deviceKey))
+  const devices = unique.unique(config.channels.map((c) => c.device));
+  if (devices.length === 0)
     throw new Error("No device selected in task configuration");
 
-  const dev = await client.hardware.devices.retrieve<Device.Properties>({
-    key: deviceKey,
+  let rackKey: rack.Key | undefined;
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>({
+    keys: devices,
   });
-  Common.Device.checkConfigured(dev);
-  dev.properties = Device.enrich(dev.model, dev.properties);
-  const rackKey = dev.rack;
-  let modified = false;
-
-  // Initialize shared index for counter channels (use same index as analog input)
-  let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
-  if (!shouldCreateIndex)
-    try {
-      await client.channels.retrieve(dev.properties.analogInput.index);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
-    }
-  if (shouldCreateIndex) {
-    modified = true;
-    const ciIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.analogInput.index = ciIndex.key;
-    dev.properties.analogInput.channels = {};
-    dev.properties.counterInput.index = ciIndex.key;
-    dev.properties.counterInput.channels = {};
-  } else if (primitive.isZero(dev.properties.counterInput.index)) {
-    // If analog index exists but counter index doesn't, share it
-    modified = true;
-    dev.properties.counterInput.index = dev.properties.analogInput.index;
-    dev.properties.counterInput.channels = {};
+  const racks = new Set(allDevices.map((d) => d.rack));
+  if (racks.size > 1) {
+    throw new Error("Cannot create task with channels from multiple racks");
   }
+  rackKey = allDevices[0].rack;
 
-  // Create counter channels
-  const toCreate: CIChannel[] = [];
-  for (const channel of config.channels) {
-    const exKey = dev.properties.counterInput.channels[channel.port.toString()];
-    if (primitive.isZero(exKey)) toCreate.push(channel);
-    else
+  for (const dev of allDevices) {
+    Common.Device.checkConfigured(dev);
+    dev.properties = Device.enrich(dev.model, dev.properties);
+    let devModified = false;
+
+    // Initialize shared index for counter channels (use same index as analog input)
+    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
+    if (!shouldCreateIndex)
       try {
-        await client.channels.retrieve(exKey.toString());
+        await client.channels.retrieve(dev.properties.analogInput.index);
       } catch (e) {
-        if (QueryError.matches(e)) toCreate.push(channel);
+        if (NotFoundError.matches(e)) shouldCreateIndex = true;
         else throw e;
       }
+    if (shouldCreateIndex) {
+      devModified = true;
+      const ciIndex = await client.channels.create({
+        name: `${dev.properties.identifier}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.analogInput.index = ciIndex.key;
+      dev.properties.analogInput.channels = {};
+      dev.properties.counterInput.index = ciIndex.key;
+      dev.properties.counterInput.channels = {};
+    } else if (primitive.isZero(dev.properties.counterInput.index)) {
+      // If analog index exists but counter index doesn't, share it
+      devModified = true;
+      dev.properties.counterInput.index = dev.properties.analogInput.index;
+      dev.properties.counterInput.channels = {};
+    }
+
+    // Create counter channels for this device
+    const deviceChannels = config.channels.filter((c) => c.device === dev.key);
+    const toCreate: CIChannel[] = [];
+    for (const channel of deviceChannels) {
+      const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+      if (primitive.isZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (QueryError.matches(e)) toCreate.push(channel);
+          else throw e;
+        }
+    }
+
+    if (toCreate.length > 0) {
+      devModified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: `${dev.properties.identifier}_ctr_${c.port}`,
+          dataType: "float64",
+          index: dev.properties.counterInput.index,
+        })),
+      );
+      channels.forEach(
+        (c, i) =>
+          (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
+      );
+    }
+
+    if (devModified) await client.hardware.devices.create(dev);
+
+    // Map config channels to their Synnax channel keys
+    deviceChannels.forEach((c) => {
+      c.channel = dev.properties.counterInput.channels[c.port.toString()];
+    });
   }
-
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ctr_${c.port}`,
-        dataType: "float64",
-        index: dev.properties.counterInput.index,
-      })),
-    );
-    channels.forEach(
-      (c, i) =>
-        (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
-    );
-  }
-
-  if (modified) await client.hardware.devices.create(dev);
-
-  // Map config channels to their Synnax channel keys
-  config.channels.forEach((c) => {
-    c.channel = dev.properties.counterInput.channels[c.port.toString()];
-  });
 
   if (rackKey == null) throw new Error("No devices selected in task configuration");
   return [config, rackKey];

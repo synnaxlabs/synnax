@@ -1282,7 +1282,6 @@ const validateCounterPorts = ({
 
 export const counterReadConfigZ = baseReadConfigZ
   .extend({
-    device: z.string(),
     channels: z
       .array(ciChannelZ)
       .check(Common.Task.validateReadChannels)
@@ -1292,7 +1291,6 @@ export const counterReadConfigZ = baseReadConfigZ
 export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
 export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
-  device: "",
   channels: [],
 };
 

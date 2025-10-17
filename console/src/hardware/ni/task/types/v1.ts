@@ -335,17 +335,26 @@ const validateCounterPorts = ({
   });
 };
 
-export const counterReadConfigZ = v0.counterReadConfigZ
-  .omit({ channels: true })
+const baseCounterReadConfigZ = v0.counterReadConfigZ
+  .omit({ channels: true, device: true })
   .extend({
     channels: z
       .array(ciChannelZ)
       .check(Common.Task.validateReadChannels)
       .check(validateCounterPorts),
-  });
-export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
+  })
+  .check(Common.Task.validateStreamRate);
+export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
+export const counterReadConfigZ = z.union([
+  v0.counterReadConfigZ.transform<CounterReadConfig>(({ channels, device, ...rest }) => ({
+    ...rest,
+    channels: channels.map((c) => ({ ...c, device })),
+  })),
+  baseCounterReadConfigZ,
+]);
+const { device: _counterDevice, ...counterRest } = v0.ZERO_COUNTER_READ_CONFIG;
 const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
-  ...v0.ZERO_COUNTER_READ_CONFIG,
+  ...counterRest,
   channels: [],
 };
 
