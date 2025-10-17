@@ -24,10 +24,10 @@ import (
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,35 +35,20 @@ import (
 // specific functionality for evaluating calculations on channels using frame data.
 type Calculator struct {
 	ch        channel.Channel
-	telem     *ntelem.State
+	state     *state.State
 	scheduler *runtime.Scheduler
 }
 
-// ConfigValues is the configuration for an arc runtime.
 type CalculatorConfig struct {
 	ChannelSvc channel.Readable
 	Channel    channel.Channel
-	// Module is the compiled arc module that needs to be executed.
-	//
-	// [REQUIRED]
-	Module arc.Module
+	Module     arc.Module
 }
 
 var (
-	_ config.Config[CalculatorConfig] = CalculatorConfig{}
-	// DefaultConfig is the default configuration for opening a runtime. This
-	// configuration is not valid on its own. Fields must be set according to the
-	// ConfigValues documentation.
-	DefaultCalculatorConfig = CalculatorConfig{}
+	_                       config.Config[CalculatorConfig] = CalculatorConfig{}
+	DefaultCalculatorConfig                                 = CalculatorConfig{}
 )
-
-func (c *Calculator) ReadFrom() []channel.Key {
-	ch := make(set.Set[channel.Key])
-	for k, _ := range c.telem.Readers {
-		ch.Add(channel.Key(k))
-	}
-	return ch.Keys()
-}
 
 // Override implements config.Config.
 func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
@@ -93,23 +78,17 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	progState, err := state.NewState(ctx, cfg.Module.IR)
+	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, cfg.Module)
 	if err != nil {
 		return nil, err
 	}
+	progState := state.New(stateCfg)
 
-	telemState := ntelem.NewState()
-	telemFactory := ntelem.NewTelemFactory(telemState)
+	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
-		Module: cfg.Module,
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	f := node.MultiFactory{
 		opFactory,
@@ -117,7 +96,6 @@ func OpenCalculator(
 		selectFactory,
 		constantFactory,
 		stableFactory,
-		wasmFactory,
 	}
 	if len(cfg.Module.WASM) > 0 {
 		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
@@ -133,7 +111,7 @@ func OpenCalculator(
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
 			Module: cfg.Module,
-			State:  progState,
+			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
 			return nil, err
@@ -142,20 +120,8 @@ func OpenCalculator(
 	}
 
 	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
-	c := &Calculator{scheduler: scheduler, telem: telemState, ch: cfg.Channel}
-	for _, k := range c.ReadFrom() {
-		var ch channel.Channel
-		if err = cfg.ChannelSvc.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil); err != nil {
-			return nil, err
-		}
-		telemState.Data[uint32(ch.Key())] = ntelem.Data{
-			IndexKey: uint32(ch.Index()),
-		}
-	}
-	telemState.Writes[uint32(cfg.Channel.Key())] = ntelem.OutputData{
-		IndexKey: uint32(cfg.Channel.Index()),
-	}
-	return c, nil
+	scheduler.Init(ctx)
+	return &Calculator{scheduler: scheduler, state: progState, ch: cfg.Channel}, nil
 }
 
 // Channel returns information about the channel being calculated.
@@ -169,17 +135,7 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 //
 // Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(ctx context.Context, fr framer.Frame) (framer.Frame, error) {
-	c.telem.Ingest(fr.ToStorage(), c.scheduler.MarkNodesChange)
+	c.state.Ingest(fr.ToStorage(), c.scheduler.MarkNodesChange)
 	c.scheduler.Next(ctx)
-	data := c.telem.Writes[uint32(c.ch.Key())]
-	idxData := c.telem.Writes[uint32(c.ch.Index())]
-	if data.Len() > 0 && idxData.Len() == data.Len() {
-		fr = fr.Append(c.ch.Key(), data.Series)
-		fr = fr.Append(c.ch.Index(), idxData.Series)
-		data.Series = telem.Series{}
-		idxData.Series = telem.Series{}
-		c.telem.Writes[uint32(c.ch.Index())] = idxData
-		c.telem.Writes[uint32(c.ch.Key())] = data
-	}
-	return fr, nil
+	return core.NewFrameFromStorage(c.state.FlushWrites(fr.ToStorage())), nil
 }

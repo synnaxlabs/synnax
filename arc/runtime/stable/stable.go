@@ -45,9 +45,7 @@ var (
 )
 
 type stableFor struct {
-	state       *state.State
-	input       ir.Edge
-	output      ir.Handle
+	state       *state.Node
 	duration    telem.TimeSpan
 	value       *uint8
 	lastSent    *uint8
@@ -58,38 +56,30 @@ type stableFor struct {
 func (s *stableFor) Init(context.Context, func(string)) {}
 
 func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.input.Source]
-	if inputSeries.Data.Len() == 0 {
+	if !s.state.RefreshInputs() {
 		return
 	}
-
-	// Check all values in the input series
-	for _, currentValue := range inputSeries.Data.Data {
-		// Check if value has changed
+	data := s.state.InputData(0)
+	for _, currentValue := range data.Data {
 		if s.value == nil || *s.value != currentValue {
 			s.value = &currentValue
 			s.lastChanged = s.now()
 		}
 	}
-
 	if s.value == nil {
 		return
 	}
-	// After processing all values, check if the current value has been stable for the
-	// duration
 	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || *s.lastSent != currentValue {
-			// Output the stable value
-			outputSeries := s.state.Outputs[s.output]
-			outputSeries.Data.Resize(1)
-			outputSeries.Data.Data[0] = currentValue
-			outputSeries.Time.Resize(1)
+			outData := s.state.OutputData(0)
+			outTime := s.state.OutputTime(0)
+			outData.Resize(1)
+			outData.Data[0] = currentValue
+			outTime.Resize(1)
 			now := s.now()
 			marshalF := telem.MarshalF[telem.TimeStamp](telem.TimeStampT)
-			marshalF(outputSeries.Time.Data[0:8], now)
-			s.state.Outputs[s.output] = outputSeries
-
+			marshalF(outTime.Data[0:8], now)
 			s.lastSent = &currentValue
 			onOutput(ir.DefaultOutputParam)
 		}
@@ -112,7 +102,6 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-
 	var duration telem.TimeSpan
 	switch v := cfg.Node.ConfigValues["duration"].(type) {
 	case float64:
@@ -124,23 +113,9 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	default:
 		duration = telem.TimeSpan(0)
 	}
-
-	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
-		Node:  cfg.Node.Key,
-		Param: ir.DefaultInputParam,
-	})
-	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
-
 	now := f.cfg.Now
 	if now == nil {
 		now = telem.Now
 	}
-
-	return &stableFor{
-		state:    cfg.State,
-		input:    inputEdge,
-		output:   outputHandle,
-		duration: duration,
-		now:      now,
-	}, nil
+	return &stableFor{state: cfg.State, duration: duration, now: now}, nil
 }

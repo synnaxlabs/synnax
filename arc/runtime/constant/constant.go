@@ -43,16 +43,15 @@ var (
 )
 
 type constant struct {
-	output ir.Handle
-	state  *state.State
-	value  any
+	state *state.Node
+	value any
 }
 
 func (c constant) Init(_ context.Context, onOutputChange func(output string)) {
-	outputState := c.state.Outputs[c.output]
-	outputState.Data = telem.NewSeriesFromAny(c.value, outputState.Data.DataType)
-	outputState.Time = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-	c.state.Outputs[c.output] = outputState
+	d := c.state.OutputData(0)
+	*d = telem.NewSeriesFromAny(c.value, d.DataType)
+	t := c.state.OutputTime(0)
+	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	onOutputChange(ir.DefaultOutputParam)
 }
 
@@ -64,11 +63,7 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
-	return constant{
-		output: ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam},
-		state:  cfg.State,
-		value:  cfg.Node.ConfigValues["value"],
-	}, nil
+	return constant{state: cfg.State, value: cfg.Node.ConfigValues["value"]}, nil
 }
 
 func NewFactory() node.Factory { return &constantFactory{} }

@@ -23,7 +23,7 @@ import (
 type Config struct {
 	alamos.Instrumentation
 	Node   ir.Node
-	State  *state.State
+	State  *state.Node
 	Module module.Module
 }
 

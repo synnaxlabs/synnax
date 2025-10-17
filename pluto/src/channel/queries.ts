@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
-import { array, deep, type Optional, primitive } from "@synnaxlabs/x";
+import { array, deep, type Optional, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -101,7 +101,7 @@ export const formSchema = channel.newZ
       path: ["dataType"],
     },
   )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
     message: "Data channel must have an index",
     path: ["index"],
   })
@@ -110,19 +110,10 @@ export const formSchema = channel.newZ
     path: ["dataType"],
   });
 
-export const calculatedFormSchema = formSchema
-  .safeExtend({
-    expression: z
-      .string()
-      .min(1, "Expression must not be empty")
-      .refine((v) => v.includes("return"), {
-        message: "Expression must contain a return statement",
-      }),
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one channel",
-    path: ["requires"],
-  });
+export const calculatedFormSchema = formSchema.safeExtend({
+  calculation: z.uuid().optional(),
+  expression: z.string().optional(),
+});
 
 const channelToFormValues = (ch: channel.Channel) => ({
   ...ch.payload,
@@ -145,8 +136,7 @@ export const ZERO_FORM_VALUES: z.infer<
   isIndex: false,
   leaseholder: 0,
   virtual: false,
-  expression: "",
-  requires: [],
+  calculation: "",
 };
 
 const retrieveSingle = async ({

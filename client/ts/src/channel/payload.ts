@@ -12,6 +12,8 @@ import { z } from "zod";
 
 import { keyZ as arcKeyZ } from "@/arc/payload";
 
+import { CALCULATION_STATUS_CHANNEL_NAME } from "./client";
+
 const errorMessage = "Channel key must be a valid uint32.";
 export const keyZ = z.uint32().or(
   z
@@ -53,8 +55,7 @@ export const newZ = payloadZ.extend({
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
-  expression: z.string().optional().default(""),
-  requires: array.nullableZ(keyZ).optional().default([]),
+  calculation: arcKeyZ.optional(),
 });
 
 export interface New

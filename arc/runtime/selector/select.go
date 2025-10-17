@@ -42,79 +42,60 @@ var (
 )
 
 type selectNode struct {
-	state   *state.State
-	input   ir.Edge
-	outputs struct{ true, false ir.Handle }
+	snode *state.Node
 }
 
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
-	inputSeries := s.state.Outputs[s.input.Source]
-	if inputSeries.Data.Len() == 0 {
+	data := s.snode.InputData(0)
+	time := s.snode.InputTime(0)
+	if data.Len() == 0 {
 		return
 	}
-
-	// Count true and false values
 	var trueCount int64 = 0
-	for _, v := range inputSeries.Data.Data {
+	for _, v := range data.Data {
 		if v == 1 {
 			trueCount++
 		}
 	}
-	falseCount := inputSeries.Data.Len() - trueCount
-
-	// Allocate output series
-	trueOutputSeries := s.state.Outputs[s.outputs.true]
-	trueOutputSeries.Data.Resize(trueCount)
-	trueOutputSeries.Time.Resize(trueCount)
-
-	falseOutputSeries := s.state.Outputs[s.outputs.false]
-	falseOutputSeries.Data.Resize(falseCount)
-	falseOutputSeries.Time.Resize(falseCount)
-
+	falseCount := data.Len() - trueCount
+	trueData := s.snode.OutputData(0)
+	trueTime := s.snode.OutputTime(0)
+	falseData := s.snode.OutputData(1)
+	falseTime := s.snode.OutputTime(1)
+	trueData.Resize(trueCount)
+	trueTime.Resize(trueCount)
+	falseData.Resize(falseCount)
+	falseTime.Resize(falseCount)
 	var trueIdx, falseIdx int64 = 0, 0
-	for i, v := range inputSeries.Data.Data {
+	for i := range data.Data {
 		timeOffset := int64(i) * 8
-		if v == 1 {
-			trueOutputSeries.Data.Data[trueIdx] = 1
-			copy(trueOutputSeries.Time.Data[trueIdx*8:(trueIdx+1)*8], inputSeries.Time.Data[timeOffset:timeOffset+8])
+		if data.Data[i] == 1 {
+			trueData.Data[trueIdx] = 1
+			copy(trueTime.Data[trueIdx*8:(trueIdx+1)*8], time.Data[timeOffset:timeOffset+8])
 			trueIdx++
 		} else {
-			falseOutputSeries.Data.Data[falseIdx] = 0
-			copy(falseOutputSeries.Time.Data[falseIdx*8:(falseIdx+1)*8], inputSeries.Time.Data[timeOffset:timeOffset+8])
+			falseData.Data[falseIdx] = 0
+			copy(falseTime.Data[falseIdx*8:(falseIdx+1)*8], time.Data[timeOffset:timeOffset+8])
 			falseIdx++
 		}
 	}
-
-	s.state.Outputs[s.outputs.true] = trueOutputSeries
-	if trueCount > 0 {
+	if trueData.Len() > 0 {
 		onOutput(trueParamName)
 	}
-
-	s.state.Outputs[s.outputs.false] = falseOutputSeries
-	if falseCount > 0 {
+	if falseData.Len() > 0 {
 		onOutput(falseParamName)
 	}
 }
 
-type selectFactory struct {
-}
+type selectFactory struct{}
 
 func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
-		Node:  cfg.Node.Key,
-		Param: ir.DefaultOutputParam,
-	})
-	trueHandle := ir.Handle{Node: cfg.Node.Key, Param: trueParamName}
-	falseHandle := ir.Handle{Node: cfg.Node.Key, Param: falseParamName}
-	n := &selectNode{state: cfg.State, input: inputEdge}
-	n.outputs.true = trueHandle
-	n.outputs.false = falseHandle
-	return n, nil
+	return &selectNode{snode: cfg.State}, nil
 }
 
 func NewFactory() node.Factory {

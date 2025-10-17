@@ -210,7 +210,9 @@ func (s *Service) startCalculation(
 		s.mu.entries[key].count++
 		return s.releaseEntryCloser(ctx, key), nil
 	}
-	if err := s.cfg.Arc.Deploy(ctx, ch.Calculation); err != nil {
+	var prog arc.Arc
+	prog.Deploy = true
+	if err := s.cfg.Arc.NewWriter(nil).Create(ctx, &prog); err != nil {
 		return nil, nil
 	}
 	s.mu.entries[key] = &entry{ch: ch, count: initialCount}

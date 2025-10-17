@@ -51,23 +51,23 @@ describe("Channel", () => {
     //   expect(calculatedCH.requires).toEqual([chOne.key]);
     // });
 
-    test("create calculated, missing required channel", async () => {
-      try {
-        await client.channels.create({
-          name: "test",
-          virtual: true,
-          dataType: DataType.FLOAT32,
-          expression: "test * 2",
-          requires: [],
-        });
-      } catch (e) {
-        expect(PathError.matches(e)).toBe(true);
-        expect((e as PathError).path).toEqual(["requires"]);
-        expect((e as PathError).error.message).contain(
-          "calculated channels must require at least one channel",
-        );
-      }
-    });
+    // test("create calculated, missing required channel", async () => {
+    //   try {
+    //     await client.channels.create({
+    //       name: "test",
+    //       virtual: true,
+    //       dataType: DataType.FLOAT32,
+    //       expression: "test * 2",
+    //       requires: [],
+    //     });
+    //   } catch (e) {
+    //     expect(PathError.matches(e)).toBe(true);
+    //     expect((e as PathError).path).toEqual(["requires"]);
+    //     expect((e as PathError).error.message).contain(
+    //       "calculated channels must require at least one channel",
+    //     );
+    //   }
+    // });
 
     test("create index and indexed pair", async () => {
       const one = await client.channels.create({

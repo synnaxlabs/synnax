@@ -60,9 +60,7 @@ var (
 )
 
 type source struct {
-	node          ir.Node
-	telem         *State
-	state         *state.State
+	snode         *state.Node
 	key           uint32
 	highWaterMark xtelem.Alignment
 }
@@ -70,59 +68,51 @@ type source struct {
 func (s *source) Init(context.Context, func(output string)) {}
 
 func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
-	entry := s.telem.Data[s.key]
-	indexData := s.telem.Data[entry.IndexKey]
-	if len(entry.Series) == 0 {
+	data, indexData, ok := s.snode.ReadChan(s.key)
+	if !ok || len(data.Series) == 0 {
 		return
 	}
-	for i, ser := range entry.Series {
+	for i, ser := range data.Series {
 		ab := ser.AlignmentBounds()
-		if ab.Upper > s.highWaterMark {
-			output := state.Output{Data: ser}
-			if entry.IndexKey == 0 {
-				output.Time = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
-				output.Time.Alignment = ser.Alignment
-			} else if len(indexData.Series) > i {
-				output.Time = s.telem.Data[entry.IndexKey].Series[i]
-			} else {
-				return
-			}
-
-			s.state.Outputs[ir.Handle{Param: ir.DefaultOutputParam, Node: s.node.Key}] = output
-			if output.Time.Alignment != ser.Alignment {
-				return
-			}
-			s.highWaterMark = ab.Upper
-			onOutputChange(ir.DefaultOutputParam)
+		if ab.Upper <= s.highWaterMark {
+			continue
 		}
+		var timeSeries xtelem.Series
+		if len(indexData.Series) == 0 {
+			timeSeries = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
+			timeSeries.Alignment = ser.Alignment
+		} else if len(indexData.Series) > i {
+			timeSeries = indexData.Series[i]
+		} else {
+			return
+		}
+		if timeSeries.Alignment != ser.Alignment {
+			return
+		}
+		*s.snode.OutputData(0) = ser
+		*s.snode.OutputTime(0) = timeSeries
+		s.highWaterMark = ab.Upper
+		onOutputChange(ir.DefaultOutputParam)
 	}
 }
 
 type sink struct {
-	node  ir.Node
-	telem *State
-	state *state.State
-	input ir.Edge
+	snode *state.Node
 	key   uint32
 }
 
 func (s *sink) Init(context.Context, func(output string)) {}
 
 func (s *sink) Next(_ context.Context, _ func(param string)) {
-	data := s.state.Outputs[s.input.Source]
-	v := s.telem.Writes[s.key]
-	v.Series = data.Data
-	idx := v.IndexKey
-	s.telem.Writes[s.key] = v
-	v2 := s.telem.Writes[idx]
-	v2.Series = data.Time
-	v2.IndexKey = idx
-	s.telem.Writes[idx] = v2
+	data := s.snode.InputData(0)
+	time := s.snode.InputTime(0)
+	if data.Len() == 0 {
+		return
+	}
+	s.snode.WriteChan(s.key, data, time)
 }
 
-type telemFactory struct {
-	telem *State
-}
+type telemFactory struct{}
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
@@ -143,29 +133,11 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 		return nil, err
 	}
 	if isSource {
-		t.telem.registerReader(nodeCfg.Channel, cfg.Node.Key)
-		return &source{
-			node:          cfg.Node,
-			telem:         t.telem,
-			state:         cfg.State,
-			key:           nodeCfg.Channel,
-			highWaterMark: 0,
-		}, nil
+		return &source{snode: cfg.State, key: nodeCfg.Channel, highWaterMark: 0}, nil
 	}
-	t.telem.registerWriter(nodeCfg.Channel, cfg.Node.Key)
-	inputEdge := cfg.Module.Edges.GetByTarget(ir.Handle{
-		Node:  cfg.Node.Key,
-		Param: ir.DefaultInputParam,
-	})
-	return &sink{
-		node:  cfg.Node,
-		telem: t.telem,
-		state: cfg.State,
-		input: inputEdge,
-		key:   nodeCfg.Channel,
-	}, nil
+	return &sink{snode: cfg.State, key: nodeCfg.Channel}, nil
 }
 
-func NewTelemFactory(state *State) node.Factory {
-	return &telemFactory{telem: state}
+func NewTelemFactory() node.Factory {
+	return &telemFactory{}
 }

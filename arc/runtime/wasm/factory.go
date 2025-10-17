@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/runtime/align"
 	node2 "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
 	"github.com/tetratelabs/wazero"
@@ -31,19 +30,17 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
 	n := &node{
-		ir: cfg.Node,
+		ir:    cfg.Node,
+		state: cfg.State,
 		wasm: WrapFunction(
 			wasmFn,
 			w.wasm.Memory(),
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		state:   cfg.State,
-		aligner: align.NewAligner(irFn.Inputs.Keys),
 		inputs:  make([]uint64, len(irFn.Inputs.Keys)),
+		offsets: make([]int, len(irFn.Outputs.Keys)),
 	}
-	n.edges.input = cfg.Module.Edges.GetInputs(cfg.Node.Key)
-	n.edges.output = cfg.Module.Edges.GetOutputs(cfg.Node.Key)
 	return n, nil
 }
 

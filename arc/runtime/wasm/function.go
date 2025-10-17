@@ -13,38 +13,47 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/tetratelabs/wazero/api"
 	"go.uber.org/zap"
 )
 
-type Function struct {
-	fn      api.Function
-	mem     api.Memory
-	outputs types.Params
-	base    uint32
-	offsets []uint32
-	result  map[string]uint64
+type result struct {
+	value   uint64
+	changed bool
 }
 
-func (f *Function) Call(ctx context.Context, params ...uint64) (map[string]uint64, error) {
+type Function struct {
+	fn           api.Function
+	mem          api.Memory
+	outputs      types.Params
+	base         uint32
+	offsets      []uint32
+	outputValues []result
+}
+
+func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error) {
+	for i := range f.outputValues {
+		f.outputValues[i].changed = false
+	}
 	results, err := f.fn.Call(ctx, params...)
 	if err != nil {
 		return nil, err
 	}
 	if f.base == 0 {
-		f.result[ir.DefaultOutputParam] = results[0]
-		return f.result, nil
+		f.outputValues[0] = result{value: results[0], changed: true}
+		return f.outputValues, nil
 	}
-	clear(f.result)
 	dirtyFlags := lo.Must(f.mem.ReadUint64Le(f.base))
-	for i, name := range f.outputs.Keys {
+	for i := range f.outputs.Keys {
 		if (dirtyFlags & (1 << i)) != 0 {
-			f.result[name] = lo.Must(f.mem.ReadUint64Le(f.offsets[i]))
+			f.outputValues[i] = result{
+				value:   lo.Must(f.mem.ReadUint64Le(f.offsets[i])),
+				changed: true,
+			}
 		}
 	}
-	return f.result, nil
+	return f.outputValues, nil
 }
 
 func WrapFunction(
@@ -60,12 +69,12 @@ func WrapFunction(
 		offset += sizeOf(t)
 	}
 	return &Function{
-		fn:      fn,
-		mem:     mem,
-		outputs: outputs,
-		base:    base,
-		offsets: offsets,
-		result:  make(map[string]uint64),
+		fn:           fn,
+		mem:          mem,
+		outputs:      outputs,
+		base:         base,
+		offsets:      offsets,
+		outputValues: make([]result, outputs.Count()),
 	}
 }
 

@@ -65,10 +65,8 @@ var (
 )
 
 type reduction struct {
-	state       *state.State
-	output      ir.Handle
-	input       ir.Edge
-	reset       *ir.Edge
+	snode       *state.Node
+	resetIdx    int
 	reductionFn func(telem.Series, int64, *telem.Series) int64
 	sampleCount int64
 	duration    telem.TimeSpan
@@ -83,16 +81,15 @@ func (r *reduction) Init(_ context.Context, _ func(output string)) {
 
 func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) {
 	shouldReset := false
-	if r.reset != nil {
-		resetOutput := r.state.Outputs[r.reset.Source]
-		if resetOutput.Data.Len() > 0 {
-			resetValue := telem.ValueAt[uint8](resetOutput.Data, -1)
+	if r.resetIdx >= 0 {
+		resetData := r.snode.InputData(r.resetIdx)
+		if resetData.Len() > 0 {
+			resetValue := telem.ValueAt[uint8](resetData, -1)
 			if resetValue == 1 {
 				shouldReset = true
 			}
 		}
 	}
-
 	if r.duration > 0 {
 		currentTime := r.now()
 		if telem.TimeSpan(currentTime-r.startTime) >= r.duration {
@@ -100,25 +97,18 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 			r.startTime = currentTime
 		}
 	}
-
 	if r.resetCount > 0 && r.sampleCount >= r.resetCount {
 		shouldReset = true
 	}
-
 	if shouldReset {
 		r.sampleCount = 0
 	}
-
-	inputOutput := r.state.Outputs[r.input.Source]
-	if inputOutput.Data.Len() == 0 {
+	inputData := r.snode.InputData(0)
+	if inputData.Len() == 0 {
 		return
 	}
-
-	outputState := r.state.Outputs[r.output]
-	r.sampleCount = r.reductionFn(inputOutput.Data, r.sampleCount, &outputState.Data)
-	// Copy time from input to output
-	outputState.Time = inputOutput.Time
-	r.state.Outputs[r.output] = outputState
+	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.snode.OutputData(0))
+	*r.snode.OutputTime(0) = r.snode.InputTime(0)
 	onOutputChange(ir.DefaultOutputParam)
 }
 
@@ -137,41 +127,27 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	if !ok {
 		return nil, query.NotFound
 	}
-
-	inputEdge := cfg.Module.IR.Edges.GetByTarget(ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultInputParam})
-	outputHandle := ir.Handle{Node: cfg.Node.Key, Param: ir.DefaultOutputParam}
-	inputOutput := cfg.State.Outputs[inputEdge.Source]
-	reductionFn := reductionMap[inputOutput.Data.DataType]
-
-	// Optional reset signal
-	var resetEdge *ir.Edge
-	if resetEdgeVal, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {
-		resetEdge = &resetEdgeVal
+	inputData := cfg.State.InputData(0)
+	reductionFn := reductionMap[inputData.DataType]
+	resetIdx := -1
+	if _, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {
+		resetIdx = 1
 	}
-
-	// Optional duration (default 0 means no duration-based reset)
 	var duration telem.TimeSpan
 	if durationVal, ok := cfg.Node.ConfigValues[durationParam]; ok {
 		duration = durationVal.(telem.TimeSpan)
 	}
-
-	// Optional count (default 0 means no count-based reset)
 	var resetCount int64
 	if countVal, ok := cfg.Node.ConfigValues[countParam]; ok {
 		resetCount = countVal.(int64)
 	}
-
-	// Use configured time source or default to telem.Now
 	nowFn := f.cfg.Now
 	if nowFn == nil {
 		nowFn = telem.Now
 	}
-
 	return &reduction{
-		state:       cfg.State,
-		output:      outputHandle,
-		input:       inputEdge,
-		reset:       resetEdge,
+		snode:       cfg.State,
+		resetIdx:    resetIdx,
 		reductionFn: reductionFn,
 		sampleCount: 0,
 		duration:    duration,

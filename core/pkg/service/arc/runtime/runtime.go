@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
-	ntelem "github.com/synnaxlabs/arc/runtime/telem"
+	arctelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -39,7 +39,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -136,7 +135,7 @@ type Runtime struct {
 	scheduler *runtime.Scheduler
 	streamer  *streamerSeg
 	writer    *writerSeg
-	telem     *ntelem.State
+	state     *state.State
 	close     io.Closer
 }
 
@@ -148,27 +147,20 @@ func (r *Runtime) Close() error {
 }
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
-	r.telem.Ingest(res.Frame.ToStorage(), r.scheduler.MarkNodesChange)
+	r.state.Ingest(res.Frame.ToStorage(), r.scheduler.MarkNodesChange)
 	r.scheduler.Next(ctx)
-	fr := core.AllocFrame(len(r.telem.Writes))
-	for k, v := range r.telem.Writes {
-		fr.Append(channel.Key(k), v.Series)
-	}
-	if fr.Empty() {
+	fr := r.state.FlushWrites(telem.Frame[uint32]{})
+	if fr.Len() == 0 {
 		return nil
 	}
-	err := r.writer.Write(ctx, fr)
-	clear(r.telem.Writes)
-	return err
+	return r.writer.Write(ctx, core.NewFrameFromStorage(fr))
 }
 
 func retrieveChannels(
 	ctx context.Context,
 	channelSvc channel.Readable,
-	telemState *ntelem.State,
-	getKeys func(telemState *ntelem.State) set.Set[channel.Key],
+	keys []channel.Key,
 ) ([]channel.Channel, error) {
-	keys := getKeys(telemState).Keys()
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
 		WhereKeys(keys...).
@@ -186,6 +178,49 @@ func retrieveChannels(
 		return nil, err
 	}
 	return slices.Concat(channels, indexChannels), nil
+}
+
+func NewStateConfig(
+	ctx context.Context,
+	channelSvc channel.Readable,
+	module arc.Module,
+) (state.Config, error) {
+	channelKeys := make(map[uint32]bool)
+	reactiveDeps := make(map[uint32][]string)
+	for _, n := range module.Nodes {
+		for chanKey := range n.Channels.Read {
+			channelKeys[chanKey] = true
+			reactiveDeps[chanKey] = append(reactiveDeps[chanKey], n.Key)
+		}
+		for chanKey := range n.Channels.Write {
+			channelKeys[chanKey] = true
+		}
+	}
+	keys := lo.Keys(channelKeys)
+	channelKeysList := lo.Map(keys, func(k uint32, _ int) channel.Key {
+		return channel.Key(k)
+	})
+	channels, err := retrieveChannels(ctx, channelSvc, channelKeysList)
+	if err != nil {
+		return state.Config{}, err
+	}
+	channelDigests := make([]state.ChannelDigest, 0, len(channels))
+	for _, ch := range channels {
+		channelDigests = append(channelDigests, state.ChannelDigest{
+			Key:      uint32(ch.Key()),
+			DataType: ch.DataType,
+			Index:    uint32(ch.Index()),
+		})
+		if ch.Index() != 0 && !ch.Virtual {
+			deps := reactiveDeps[uint32(ch.Key())]
+			reactiveDeps[uint32(ch.Index())] = append(reactiveDeps[uint32(ch.Index())], deps...)
+		}
+	}
+	return state.Config{
+		ChannelDigests: channelDigests,
+		Edges:          module.IR.Edges,
+		ReactiveDeps:   reactiveDeps,
+	}, nil
 }
 
 var (
@@ -251,19 +286,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	progState, err := state.NewState(ctx, cfg.Module.IR)
+	stateCfg, err := NewStateConfig(ctx, cfg.Channel, cfg.Module)
 	if err != nil {
 		return nil, err
 	}
+	progState := state.New(stateCfg)
 
-	telemState := ntelem.NewState()
-	telemFactory := ntelem.NewTelemFactory(telemState)
+	telemFactory := arctelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	statusFactory := rstatus.NewFactory(cfg.Status)
-
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -286,7 +320,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
 			Module: cfg.Module,
-			State:  progState,
+			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
 			return nil, err
@@ -297,22 +331,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
 	r := &Runtime{
 		scheduler: scheduler,
-		telem:     telemState,
+		state:     progState,
 		streamer:  &streamerSeg{},
 	}
 
-	readChannels, err := retrieveChannels(
-		ctx,
-		cfg.Channel,
-		telemState,
-		func(telemState *ntelem.State) set.Set[channel.Key] {
-			keys := make(set.Set[channel.Key])
-			for k := range telemState.Readers {
-				keys.Add(channel.Key(k))
-			}
-			return keys
-		},
-	)
+	readChannelKeys := make([]channel.Key, 0)
+	writeChannelKeys := make([]channel.Key, 0)
+	for _, n := range cfg.Module.Nodes {
+		for chanKey := range n.Channels.Read {
+			readChannelKeys = append(readChannelKeys, channel.Key(chanKey))
+		}
+		for chanKey := range n.Channels.Write {
+			writeChannelKeys = append(writeChannelKeys, channel.Key(chanKey))
+		}
+	}
+
+	readChannels, err := retrieveChannels(ctx, cfg.Channel, readChannelKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -326,18 +360,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		return nil, err
 	}
 	r.streamer.requests = requests
-	writeChannels, err := retrieveChannels(
-		ctx,
-		cfg.Channel,
-		telemState,
-		func(telemState *ntelem.State) set.Set[channel.Key] {
-			keys := make(set.Set[channel.Key])
-			for k := range telemState.Writers {
-				keys.Add(channel.Key(k))
-			}
-			return keys
-		},
-	)
+
+	writeChannels, err := retrieveChannels(ctx, cfg.Channel, writeChannelKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +372,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 			cfg.Name,
 			r,
 			cfg.Framer,
-			channel.KeysFromChannels(readChannels),
+			channel.KeysFromChannels(writeChannels),
 		)
 		if err != nil {
 			return nil, err

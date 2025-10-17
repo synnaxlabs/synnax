@@ -22,8 +22,8 @@ import {
 import { type ReactElement, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
-import { Arc } from "@/code/arc";
 import { Code } from "@/code";
+import { Arc } from "@/code/arc";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
