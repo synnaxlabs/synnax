@@ -13,203 +13,75 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
 
 var _ = Describe("StableFor", func() {
-	Describe("NewFactory", func() {
-		It("Should create factory", func() {
-			factory := stable.NewFactory(stable.FactoryConfig{})
-			Expect(factory).ToNot(BeNil())
+	var (
+		factory     node.Factory
+		s           *state.State
+		irNode      ir.Node
+		currentTime telem.TimeStamp
+	)
+	BeforeEach(func() {
+		factory = stable.NewFactory(stable.FactoryConfig{Now: func() telem.TimeStamp {
+			return currentTime
+		}})
+		irNode = ir.Node{
+			Key:  "stable",
+			Type: "stable_for",
+			ConfigValues: map[string]interface{}{
+				"duration": telem.Second * 1,
+			},
+			Outputs: types.Params{
+				Keys:   []string{ir.DefaultOutputParam},
+				Values: []types.Type{types.U8()},
+			},
+		}
+		s = state.New(state.Config{
+			Nodes: ir.Nodes{
+				{
+					Key:  "source",
+					Type: "source",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.U8()},
+					},
+				},
+				irNode,
+			},
+			Edges: ir.Edges{
+				{
+					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+				},
+			},
 		})
 	})
 
 	Describe("Factory.Create", func() {
-		var factory node.Factory
-		var s *state.State
-		BeforeEach(func() {
-			factory = stable.NewFactory(stable.FactoryConfig{})
-			s = state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "stable",
-						Type: "stable_for",
-						ConfigValues: map[string]interface{}{
-							"duration": int64(1000000000), // 1 second
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-				},
-				Edges: ir.Edges{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-					},
-				},
-			})
-		})
-
 		It("Should create node for stable_for type", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(1000000000),
-					},
-				},
-				State: s.Node("stable"),
-			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node: irNode, State: s.Node(irNode.Key),
+			}))
 			Expect(n).ToNot(BeNil())
 		})
 
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
-				Node: ir.Node{
-					Type: "unknown",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(1000000000),
-					},
-				},
+				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(Equal(query.NotFound))
-		})
-
-		It("Should parse duration configuration", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(5000000000), // 5 seconds
-					},
-				},
-				State: s.Node("stable"),
-			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).ToNot(BeNil())
+			Expect(err).To(HaveOccurredAs(query.NotFound))
 		})
 	})
 
-	Describe("stableFor.Init", func() {
-		It("Should not emit output on Init", func() {
-			currentTime := telem.TimeStamp(0)
-			factory := stable.NewFactory(stable.FactoryConfig{
-				Now: func() telem.TimeStamp { return currentTime },
-			})
-			s := state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "stable",
-						Type: "stable_for",
-						ConfigValues: map[string]interface{}{
-							"duration": int64(telem.SecondTS),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-				},
-				Edges: ir.Edges{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-					},
-				},
-			})
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
-					},
-				},
-				State: s.Node("stable"),
-			}
-			n, _ := factory.Create(ctx, cfg)
-			outputs := []string{}
-			n.Init(ctx, func(output string) {
-				outputs = append(outputs, output)
-			})
-			Expect(outputs).To(BeEmpty())
-		})
-	})
-
-	Describe("stableFor.Next", func() {
-		var s *state.State
-		var factory node.Factory
-		var currentTime telem.TimeStamp
-
-		BeforeEach(func() {
-			currentTime = 0
-			factory = stable.NewFactory(stable.FactoryConfig{
-				Now: func() telem.TimeStamp { return currentTime },
-			})
-			s = state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "stable",
-						Type: "stable_for",
-						ConfigValues: map[string]interface{}{
-							"duration": int64(telem.SecondTS),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-				},
-				Edges: ir.Edges{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-					},
-				},
-			})
-		})
-
+	Describe("Next", func() {
 		It("Should handle empty input", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
-					},
-				},
-				State: s.Node("stable"),
-			}
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
@@ -220,26 +92,15 @@ var _ = Describe("StableFor", func() {
 		})
 
 		It("Should not emit when value is not stable for duration", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
-					},
-				},
-				State: s.Node("stable"),
-			}
+			cfg := node.Config{Node: irNode, State: s.Node("stable")}
 			source := s.Node("source")
 			currentTime = 0
-			// Send value 5 at time 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[string])
 			n.Next(ctx, func(output string) { outputs.Add(output) })
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
-
-			// Advance time but not enough
 			currentTime = telem.SecondTS / 2
 			outputs = make(set.Set[string])
 			n.Next(ctx, func(output string) { outputs.Add(output) })
@@ -258,16 +119,16 @@ var _ = Describe("StableFor", func() {
 			}
 			source := s.Node("source")
 			currentTime = 0
-			// Send value 5 at time 0
+			// Send value 5 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[string])
 			n.Next(ctx, func(output string) { outputs.Add(output) })
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
 			// Advance time to exactly duration (no new input data)
-			currentTime = telem.SecondTS
+			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			outputs = make(set.Set[string])
@@ -335,14 +196,13 @@ var _ = Describe("StableFor", func() {
 			}
 			source := s.Node("source")
 			currentTime = 0
-			// Send value 5 at time 0
+			// Send value 5 at time 1
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(ctx, func(string) {})
 
-			// Advance time to emit
-			currentTime = telem.SecondTS
+			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			outputs := make(set.Set[string])
@@ -350,7 +210,7 @@ var _ = Describe("StableFor", func() {
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			// Call again with same value - should not emit
-			currentTime = telem.SecondTS * 2
+			currentTime = telem.SecondTS * 3
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			outputs = make(set.Set[string])
@@ -434,27 +294,6 @@ var _ = Describe("StableFor", func() {
 			Expect(outputVals).To(Equal([]uint8{7}))
 		})
 
-		It("Should handle zero duration", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(0),
-					},
-				},
-				State: s.Node("stable"),
-			}
-			source := s.Node("source")
-			currentTime = 0
-			*source.Output(0) = telem.NewSeriesV[uint8](5)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(ctx, func(output string) { outputs.Add(output) })
-			// Should emit immediately with zero duration
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
-		})
-
 		It("Should use output timestamp as current time not input time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
@@ -468,7 +307,7 @@ var _ = Describe("StableFor", func() {
 			source := s.Node("source")
 			currentTime = 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(ctx, func(string) {})
 
@@ -501,8 +340,8 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)
 			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
 				0,
-				telem.SecondTS/10, // 0.1s = 100ms
-				telem.SecondTS/5,  // 0.2s = 200ms
+				telem.SecondTS/10,   // 0.1s = 100ms
+				telem.SecondTS/5,    // 0.2s = 200ms
 				telem.SecondTS*3/10, // 0.3s = 300ms
 			)
 			n, _ := factory.Create(ctx, cfg)

@@ -16,16 +16,15 @@ import (
 )
 
 // DefaultOutputParam is the parameter name for single-output functions and stages.
-const DefaultOutputParam = "output"
-
-// DefaultInputParam is the parameter name for single-input functions and stages.
-const DefaultInputParam = "input"
-
-// LHSInputParam is the left-hand side parameter name for binary operators.
-const LHSInputParam = "a"
-
-// RHSInputParam is the right-hand side parameter name for binary operators.
-const RHSInputParam = "b"
+const (
+	DefaultOutputParam = "output"
+	// DefaultInputParam is the parameter name for single-input functions and stages.
+	DefaultInputParam = "input"
+	// LHSInputParam is the left-hand side parameter name for binary operators.
+	LHSInputParam = "a"
+	// RHSInputParam is the right-hand side parameter name for binary operators.
+	RHSInputParam = "b"
+)
 
 // Channels tracks which Synnax channels a node reads from and writes to.
 type Channels struct {
