@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -27,6 +27,7 @@ import {
   counterWriteConfigZ,
   type counterWriteStatusDataZ,
   type counterWriteTypeZ,
+  ZERO_CO_CHANNEL,
   ZERO_COUNTER_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
@@ -111,13 +112,20 @@ const getInitialValues: Common.Task.GetInitialValues<
   typeof counterWriteConfigZ,
   typeof counterWriteStatusDataZ
 > = ({ deviceKey, config }) => {
-  const cfg =
-    config != null
-      ? counterWriteConfigZ.parse(config)
-      : ZERO_COUNTER_WRITE_PAYLOAD.config;
+  if (config != null)
+    return {
+      ...ZERO_COUNTER_WRITE_PAYLOAD,
+      config: counterWriteConfigZ.parse(config),
+    };
   return {
     ...ZERO_COUNTER_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
+    config: {
+      ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+      channels:
+        deviceKey == null
+          ? ZERO_COUNTER_WRITE_PAYLOAD.config.channels
+          : [{ ...ZERO_CO_CHANNEL, device: deviceKey, key: id.create() }],
+    },
   };
 };
 
@@ -125,13 +133,26 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
   client,
   config,
 ) => {
+  if (config.channels.length === 0)
+    throw new Error("No channels configured for this task");
+
+  // All channels must be from the same device for Counter Output tasks
+  const deviceKeys = new Set(config.channels.map((c) => c.device));
+  if (deviceKeys.size === 0)
+    throw new Error("No device selected in task configuration");
+  if (deviceKeys.size > 1)
+    throw new Error("Counter Output tasks only support channels from a single device");
+
+  const deviceKey = config.channels[0].device;
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
-    key: config.device,
+    key: deviceKey,
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(dev.properties.counterOutput.stateIndex);
+  let shouldCreateStateIndex = primitive.isZero(
+    dev.properties.counterOutput.stateIndex,
+  );
   if (!shouldCreateStateIndex)
     try {
       await client.channels.retrieve(dev.properties.counterOutput.stateIndex);
@@ -214,7 +235,11 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
   if (modified) await client.hardware.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.counterOutput.channels[c.port.toString()];
-    return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
+    return {
+      ...c,
+      cmdChannel: pair.command,
+      stateChannel: pair.state,
+    };
   });
   return [config, dev.rack];
 };

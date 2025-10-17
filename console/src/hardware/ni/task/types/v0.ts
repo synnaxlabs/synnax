@@ -1211,8 +1211,8 @@ export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
   units: SECONDS,
   idleState: IDLE_LOW,
   initialDelay: 0,
-  highTime: 0.01,
-  lowTime: 0.01,
+  highTime: 0.1,
+  lowTime: 0.1,
 };
 
 const coChannelZ = z.union([coPulseOutputChanZ]);

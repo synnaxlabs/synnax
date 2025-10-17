@@ -30,7 +30,7 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
     onChange: (value, { get, set, path }) => {
       const prevType = get<CIChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_CI_CHANNELS[value] as CIChannel);
+      const next = deep.copy(ZERO_CI_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<CIChannel>(parentPath).value;
       const schema = CI_CHANNEL_SCHEMAS[value];

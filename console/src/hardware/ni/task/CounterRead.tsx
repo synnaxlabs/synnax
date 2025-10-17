@@ -151,15 +151,13 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   if (devices.length === 0) throw new Error("No device selected in task configuration");
 
-  let rackKey: rack.Key | undefined;
   const allDevices = await client.hardware.devices.retrieve<Device.Properties>({
     keys: devices,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
-  if (racks.size > 1) {
+  if (racks.size > 1)
     throw new Error("Cannot create task with channels from multiple racks");
-  }
-  rackKey = allDevices[0].rack;
+  const rackKey: rack.Key = allDevices[0].rack;
 
   for (const dev of allDevices) {
     Common.Device.checkConfigured(dev);

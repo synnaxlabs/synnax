@@ -486,7 +486,8 @@ struct CI : virtual Counter, Input {
 
 /// @brief base class for counter input channels that can have a custom scale applied.
 struct CICustomScale : CI, CounterCustomScale {
-    explicit CICustomScale(xjson::Parser &cfg): Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
+    explicit CICustomScale(xjson::Parser &cfg):
+        Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
 };
 
 /// @brief base class for counter output channels.
@@ -1187,7 +1188,8 @@ struct AIFrequencyVoltage final : AICustomScale {
 };
 
 /// @brief Counter input frequency measurement channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecif reqchan.html
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecif
+/// reqchan.html
 struct CIFrequency final : CICustomScale {
     const int32_t edge;
     const int32_t meas_method;
@@ -1236,7 +1238,8 @@ static int32_t get_ci_count_direction(const std::string &s) {
 }
 
 /// @brief Counter input edge count channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc han.html
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc
+/// han.html
 struct CIEdgeCount final : CI {
     const int32_t edge;
     const int32_t count_direction;
@@ -1248,7 +1251,9 @@ struct CIEdgeCount final : CI {
         Counter(cfg),
         CI(cfg),
         edge(get_ci_edge(cfg.required<std::string>("active_edge"))),
-        count_direction(get_ci_count_direction(cfg.required<std::string>("count_direction"))),
+        count_direction(
+            get_ci_count_direction(cfg.required<std::string>("count_direction"))
+        ),
         initial_count(cfg.optional<uint32_t>("initial_count", 0)),
         terminal(cfg.optional<std::string>("terminal", "")) {}
 
@@ -1268,7 +1273,8 @@ struct CIEdgeCount final : CI {
 };
 
 /// @brief Counter input period measurement channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch an.html
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch
+/// an.html
 struct CIPeriod final : CICustomScale {
     const int32_t edge;
     const int32_t meas_method;
@@ -1346,9 +1352,7 @@ struct CIPulseWidth final : CICustomScale {
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
 struct CISemiPeriod final : CICustomScale {
     explicit CISemiPeriod(xjson::Parser &cfg):
-        Base(cfg),
-        Counter(cfg),
-        CICustomScale(cfg) {}
+        Base(cfg), Counter(cfg), CICustomScale(cfg) {}
 
     using Base::apply;
 
@@ -1370,7 +1374,8 @@ struct CISemiPeriod final : CICustomScale {
 };
 
 /// @brief Counter input two edge separation measurement channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe dgeseparationchan.html
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
+/// dgeseparationchan.html
 struct CITwoEdgeSep final : CICustomScale {
     const int32_t first_edge;
     const int32_t second_edge;
@@ -1404,7 +1409,8 @@ struct CITwoEdgeSep final : CICustomScale {
 };
 
 /// @brief Counter output pulse generation channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco pulsechantime.html
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco
+/// pulsechantime.html
 struct COPulseOutput final : CO {
     const int32_t idle_state;
     const double initial_delay;

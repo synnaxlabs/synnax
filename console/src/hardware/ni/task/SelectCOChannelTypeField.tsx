@@ -14,9 +14,9 @@ import {
   CO_CHANNEL_SCHEMAS,
   CO_CHANNEL_TYPE_ICONS,
   CO_CHANNEL_TYPE_NAMES,
+  CO_PULSE_OUTPUT_CHAN_TYPE,
   type COChannel,
   type COChannelType,
-  CO_PULSE_OUTPUT_CHAN_TYPE,
   ZERO_CO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
@@ -31,24 +31,24 @@ export const SelectCOChannelTypeField = Form.buildSelectField<COChannelType, Ent
     onChange: (value, { get, set, path }) => {
       const prevType = get<COChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_CO_CHANNELS[value]);
+      const next = deep.copy(ZERO_CO_CHANNELS[value]) as COChannel;
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<COChannel>(parentPath).value;
       const schema = CO_CHANNEL_SCHEMAS[value];
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
-      });
+      } as COChannel);
     },
   },
   inputProps: {
     allowNone: false,
     resourceName: "Channel Type",
     data: [CO_PULSE_OUTPUT_CHAN_TYPE].map((key) => {
-      const Icon = CO_CHANNEL_TYPE_ICONS[key];
+      const Icon = CO_CHANNEL_TYPE_ICONS[key as COChannelType];
       return {
         key,
-        name: CO_CHANNEL_TYPE_NAMES[key],
+        name: CO_CHANNEL_TYPE_NAMES[key as COChannelType],
         icon: <Icon color={8} />,
       };
     }) as Entry[],

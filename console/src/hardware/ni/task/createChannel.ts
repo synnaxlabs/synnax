@@ -107,8 +107,29 @@ export const createCIChannel = (channels: CIChannel[], key?: string): CIChannel 
     key,
   );
 
+const createCOCounterChannel = <C extends COChannel>(
+  channels: C[],
+  zeroChannel: C,
+  override: Partial<C>,
+  keyToCopy?: string,
+): C => {
+  const key = id.create();
+  let template: C;
+  if (channels.length === 0) template = deep.copy(zeroChannel);
+  else if (keyToCopy == null) template = deep.copy(channels[0]);
+  else {
+    const channel = channels.find(({ key }) => key === keyToCopy);
+    if (channel == null) return { ...deep.copy(zeroChannel), key };
+    template = deep.copy(channel);
+  }
+  const existingPorts = new Set(channels.map(({ port }) => port));
+  let port = 0;
+  while (existingPorts.has(port)) port++;
+  return { ...template, key, port, ...override };
+};
+
 export const createCOChannel = (channels: COChannel[], key?: string): COChannel =>
-  createCounterChannel(
+  createCOCounterChannel(
     channels,
     ZERO_CO_CHANNEL,
     Common.Task.WRITE_CHANNEL_OVERRIDE,

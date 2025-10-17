@@ -341,7 +341,8 @@ export const CO_CHANNEL_SCHEMAS: Record<v0.COChannelType, z.ZodType<COChannel>> 
 export const ZERO_CO_CHANNELS: Record<v0.COChannelType, COChannel> = {
   [v0.CO_PULSE_OUTPUT_CHAN_TYPE]: ZERO_CO_PULSE_OUTPUT_CHAN,
 };
-export const ZERO_CO_CHANNEL: COChannel = ZERO_CO_CHANNELS[v0.CO_PULSE_OUTPUT_CHAN_TYPE];
+export const ZERO_CO_CHANNEL: COChannel =
+  ZERO_CO_CHANNELS[v0.CO_PULSE_OUTPUT_CHAN_TYPE];
 
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
@@ -456,3 +457,73 @@ export interface CounterReadTask
   > {}
 export interface NewCounterReadTask
   extends task.New<typeof v0.counterReadTypeZ, typeof counterReadConfigZ> {}
+
+// ==================== Counter Write Config Migration ====================
+
+const validateCounterWritePorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<COChannel[]>) => {
+  const devicePortMap = new Map<string, Map<number, number>>();
+  channels.forEach(({ port, device }, i) => {
+    if (!devicePortMap.has(device)) {
+      devicePortMap.set(device, new Map([[port, i]]));
+      return;
+    }
+    const portToIndexMap = devicePortMap.get(device)!;
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Counter port ${port} has already been used on another channel on the same device`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
+const baseCounterWriteConfigZ = v0.counterWriteConfigZ
+  .omit({ channels: true, device: true })
+  .extend({
+    channels: z
+      .array(coChannelZ)
+      .check(Common.Task.validateWriteChannels)
+      .check(validateCounterWritePorts),
+  });
+export interface CounterWriteConfig extends z.infer<typeof baseCounterWriteConfigZ> {}
+export const counterWriteConfigZ = z.union([
+  v0.counterWriteConfigZ.transform<CounterWriteConfig>(
+    ({ channels, device, ...rest }) => ({
+      ...rest,
+      channels: channels.map((c) => ({ ...c, device })),
+    }),
+  ),
+  baseCounterWriteConfigZ,
+]);
+const ZERO_COUNTER_WRITE_CONFIG: CounterWriteConfig = {
+  ...Common.Task.ZERO_BASE_CONFIG,
+  dataSaving: true,
+  stateRate: 10,
+  channels: [],
+};
+
+export interface CounterWritePayload
+  extends task.Payload<
+    typeof v0.counterWriteTypeZ,
+    typeof counterWriteConfigZ,
+    typeof v0.counterWriteStatusDataZ
+  > {}
+export const ZERO_COUNTER_WRITE_PAYLOAD: CounterWritePayload = {
+  ...v0.ZERO_COUNTER_WRITE_PAYLOAD,
+  config: ZERO_COUNTER_WRITE_CONFIG,
+};
+
+export interface CounterWriteTask
+  extends task.Task<
+    typeof v0.counterWriteTypeZ,
+    typeof counterWriteConfigZ,
+    typeof v0.counterWriteStatusDataZ
+  > {}
+export interface NewCounterWriteTask
+  extends task.New<typeof v0.counterWriteTypeZ, typeof counterWriteConfigZ> {}

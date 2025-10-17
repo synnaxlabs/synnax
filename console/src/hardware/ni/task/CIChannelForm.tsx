@@ -239,7 +239,7 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   },
 });
 
-const FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
+const _FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "firstTerminal",
   fieldProps: { label: "First Terminal" },
   inputProps: {
@@ -249,7 +249,7 @@ const FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   },
 });
 
-const SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
+const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "secondTerminal",
   fieldProps: { label: "Second Terminal" },
   inputProps: {

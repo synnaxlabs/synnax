@@ -206,15 +206,15 @@ export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
 };
 
 export const counterWriteTypeZ = v0.counterWriteTypeZ;
-export const counterWriteConfigZ = v0.counterWriteConfigZ;
+export const counterWriteConfigZ = v1.counterWriteConfigZ;
 export const counterWriteStatusDataZ = v0.counterWriteStatusDataZ;
-export interface CounterWriteConfig extends v0.CounterWriteConfig {}
+export interface CounterWriteConfig extends v1.CounterWriteConfig {}
 export const COUNTER_WRITE_TYPE = v0.COUNTER_WRITE_TYPE;
 export type CounterWriteType = v0.CounterWriteType;
-export const ZERO_COUNTER_WRITE_PAYLOAD = v0.ZERO_COUNTER_WRITE_PAYLOAD;
-export interface CounterWritePayload extends v0.CounterWritePayload {}
-export interface CounterWriteTask extends v0.CounterWriteTask {}
-export interface NewCounterWriteTask extends v0.NewCounterWriteTask {}
+export const ZERO_COUNTER_WRITE_PAYLOAD = v1.ZERO_COUNTER_WRITE_PAYLOAD;
+export interface CounterWritePayload extends v1.CounterWritePayload {}
+export interface CounterWriteTask extends v1.CounterWriteTask {}
+export interface NewCounterWriteTask extends v1.NewCounterWriteTask {}
 export const COUNTER_WRITE_SCHEMAS: task.Schemas<
   typeof counterWriteTypeZ,
   typeof counterWriteConfigZ,
