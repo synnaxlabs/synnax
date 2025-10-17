@@ -203,7 +203,7 @@ class Rack {
         .name = "driver",
         .base_interval = telem::SECOND,
         .max_retries = 200,
-        .scale = 1.1,
+        .scale = 1.1f,
         .max_interval = telem::MINUTE,
     });
     xerrors::Error run_err = xerrors::NIL;

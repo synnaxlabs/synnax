@@ -62,7 +62,7 @@ Codec::Codec(
     seq_num(1), channel_client(nullptr, nullptr) {
     Codec::State state;
     state.key_data_types.reserve(channels.size());
-    for (auto i = 0; i < channels.size(); i++) {
+    for (size_t i = 0; i < channels.size(); i++) {
         auto k = channels[i];
         const auto &dt = data_types[i];
         state.keys.insert(k);
@@ -113,17 +113,19 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     std::sort(sorting_indices.begin(), sorting_indices.end());
 
     flags.equal_lens = !state.has_variable_data_types;
-    size_t cur_data_size = -1;
+    size_t cur_data_size = 0;
+    bool first_series = true;
     telem::TimeRange ref_tr = {};
     telem::Alignment ref_alignment;
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &series = frame.series->at(idx);
         byte_array_size += series.byte_size();
-        if (cur_data_size == -1) {
+        if (first_series) {
             cur_data_size = series.size();
             ref_tr = series.time_range;
             ref_alignment = series.alignment;
+            first_series = false;
             continue;
         }
         if (series.size() != cur_data_size) flags.equal_lens = false;

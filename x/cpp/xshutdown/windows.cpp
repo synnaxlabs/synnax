@@ -19,7 +19,7 @@ std::mutex shutdown_mutex;
 std::condition_variable shutdown_cv;
 bool should_stop = false;
 
-BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
+BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) noexcept {
     if (ctrl_type == CTRL_C_EVENT) {
         signal_shutdown();
         return TRUE;

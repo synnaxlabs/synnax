@@ -9,6 +9,13 @@
 
 #pragma once
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <iostream>
 #include <optional>
 #include <string>
@@ -35,7 +42,9 @@ inline std::string prompt(
         GetConsoleMode(h_stdin, &mode);
         if (hide_input) SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
 #else
-        if (hide_input) system("stty -echo");
+        if (hide_input)
+            if (int result = system("stty -echo"); result != 0)
+                std::cerr << "warning: failed to hide input" << std::endl;
 #endif
 
         std::string input;
@@ -47,7 +56,8 @@ inline std::string prompt(
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else
-            system("stty echo");
+            if (int result = system("stty echo"); result != 0)
+                std::cerr << "warning: failed to restore terminal echo" << std::endl;
 #endif
         }
 
@@ -70,7 +80,9 @@ confirm(const std::string &message, std::optional<bool> default_value = std::nul
                 : std::nullopt
         );
         if (input.empty() || input.size() > 1) continue;
-        const char response = std::toupper(input[0]);
+        const char response = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(input[0]))
+        );
         if (response == 'Y') return true;
         if (response == 'N') return false;
         std::cout << "Please enter Y or N" << std::endl;

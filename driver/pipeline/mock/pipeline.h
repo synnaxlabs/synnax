@@ -138,7 +138,8 @@ public:
         return_false_ok_on(return_false_ok_on) {}
 
     xerrors::Error write(const synnax::Frame &fr) override {
-        if (this->writes->size() == this->return_false_ok_on)
+        if (this->return_false_ok_on != -1 &&
+            this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
             return xerrors::VALIDATION;
         this->writes->push_back(fr.deep_copy());
         return xerrors::NIL;

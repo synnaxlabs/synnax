@@ -10,6 +10,7 @@
 #pragma once
 
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ni/channel/channels.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
 #include "driver/task/common/read_task.h"
@@ -169,6 +171,42 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;
+
+        std::set<std::string> device_locations;
+        for (const auto &ch: this->channels)
+            if (!ch->dev_loc.empty()) device_locations.insert(ch->dev_loc);
+
+        for (const auto &location: device_locations) {
+            float64 min_rate = 0.0;
+            auto err = dmx->GetDeviceAttributeDouble(
+                location.c_str(),
+                DAQmx_Dev_AI_MinRate,
+                &min_rate
+            );
+            if (err) {
+                LOG(WARNING) << "[ni] failed to query minimum sample rate for device "
+                             << location << ": " << err.message();
+                continue;
+            }
+
+            if (this->sample_rate.hz() < min_rate) {
+                char model_buffer[256];
+                auto model_err = dmx->GetDeviceAttributeString(
+                    location.c_str(),
+                    DAQmx_Dev_ProductType,
+                    model_buffer,
+                    sizeof(model_buffer)
+                );
+                std::string model = model_err ? "Unknown" : model_buffer;
+
+                std::ostringstream msg;
+                msg << "configured sample rate (" << this->sample_rate
+                    << ") is below device minimum (" << min_rate << " Hz) for "
+                    << location << " (" << model << ")";
+                return xerrors::Error(xerrors::VALIDATION, msg.str());
+            }
+        }
+
         return dmx->CfgSampClkTiming(
             handle,
             this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
@@ -272,7 +310,7 @@ private:
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
         // A non-zero skew means that our application cannot keep up with the
         // hardware acquisition rate.
-        if (std::abs(hw_res.skew) > this->cfg.skew_warn_on_count)
+        if (static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
             res.warning = common::skew_warning(hw_res.skew);
 
         auto prev_read_err = this->curr_read_err;

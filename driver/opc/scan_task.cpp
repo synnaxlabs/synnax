@@ -58,10 +58,6 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     req.nodesToReadSize = 3;
 
     UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
-    x::defer clear([&res, &req] {
-        // UA_ReadRequest_clear(&req);
-        // UA_ReadResponse_clear(&res);
-    });
     UA_StatusCode status = res.responseHeader.serviceResult;
     if (status != UA_STATUSCODE_GOOD) return status;
     if (!res.results[0].hasValue) return res.results[0].status;

@@ -427,7 +427,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto recovered_state = ctx->states[2];
     EXPECT_EQ(recovered_state.key, "");
     EXPECT_EQ(recovered_state.variant, status::variant::SUCCESS);
-    EXPECT_EQ(recovered_state.message, "Task started successfully");
+    EXPECT_EQ(recovered_state.message, "Task running");
 
     read_task.stop("stop_cmd", true);
 
@@ -475,7 +475,7 @@ TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
     const json j{{"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -484,7 +484,7 @@ TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
     const json j{{"sample_rate", 100.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -493,7 +493,7 @@ TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
     const json j{{"sample_rate", -100.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -502,7 +502,7 @@ TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
     const json j{{"sample_rate", 100.0}, {"stream_rate", -50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
@@ -511,7 +511,7 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     const json j{{"sample_rate", 25.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto _ = common::BaseReadTaskConfig(p);
+    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
