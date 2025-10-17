@@ -100,6 +100,10 @@ func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
 
 func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	s.channel.writes[key] = data
+	idx := s.indexes[key]
+	if idx != 0 {
+		s.channel.writes[idx] = time
+	}
 }
 
 func (s *State) getChannelIndexKey(key uint32) uint32 {
@@ -189,12 +193,19 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		if i == triggerInputIdx {
 			n.alignedData[i] = n.accumulated[i].data.Series[triggerSeriesIdx]
 			n.alignedTime[i] = n.accumulated[i].time.Series[triggerSeriesIdx]
+			// For trigger input, set watermark to its aligned data's last timestamp
+			if n.alignedTime[i].Len() > 0 {
+				n.accumulated[i].watermark = telem.ValueAt[telem.TimeStamp](n.alignedTime[i], -1)
+			} else {
+				n.accumulated[i].watermark = triggerTimestamp
+			}
 		} else {
 			latestIdx := len(n.accumulated[i].data.Series) - 1
 			n.alignedData[i] = n.accumulated[i].data.Series[latestIdx]
 			n.alignedTime[i] = n.accumulated[i].time.Series[latestIdx]
+			// For catch-up inputs, set watermark to trigger timestamp (they're reused, not consumed)
+			n.accumulated[i].watermark = triggerTimestamp
 		}
-		n.accumulated[i].watermark = triggerTimestamp
 	}
 	for i := range n.inputs {
 		var (
@@ -259,11 +270,13 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	if indexKey == 0 {
 		return data, telem.MultiSeries{}, true
 	}
-	time, _ = n.state.readChannel(indexKey)
+	time, ok = n.state.readChannel(indexKey)
+	if !ok {
+		return telem.MultiSeries{}, telem.MultiSeries{}, false
+	}
 	return data, time, true
 }
 
 func (n *Node) WriteChan(key uint32, value, time telem.Series) {
-	n.state.channel.writes[key] = value
-	n.state.channel.writes[n.state.indexes[key]] = time
+	n.state.writeChannel(key, value, time)
 }

@@ -104,6 +104,10 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
 		}
+		if err = bindNamedTypes(ctx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, *ctx.Diagnostics
+		}
 	}
 
 	// Step 2: Analyze Function Bodies

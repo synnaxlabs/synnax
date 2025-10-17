@@ -65,7 +65,7 @@ var (
 )
 
 type reduction struct {
-	snode       *state.Node
+	state       *state.Node
 	resetIdx    int
 	reductionFn func(telem.Series, int64, *telem.Series) int64
 	sampleCount int64
@@ -80,9 +80,12 @@ func (r *reduction) Init(_ context.Context, _ func(output string)) {
 }
 
 func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) {
+	if !r.state.RefreshInputs() {
+		return
+	}
 	shouldReset := false
 	if r.resetIdx >= 0 {
-		resetData := r.snode.Input(r.resetIdx)
+		resetData := r.state.Input(r.resetIdx)
 		if resetData.Len() > 0 {
 			resetValue := telem.ValueAt[uint8](resetData, -1)
 			if resetValue == 1 {
@@ -102,13 +105,14 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 	}
 	if shouldReset {
 		r.sampleCount = 0
+		r.state.Output(0).Resize(0)
 	}
-	inputData := r.snode.Input(0)
+	inputData := r.state.Input(0)
 	if inputData.Len() == 0 {
 		return
 	}
-	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.snode.Output(0))
-	*r.snode.OutputTime(0) = r.snode.InputTime(0)
+	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.state.Output(0))
+	*r.state.OutputTime(0) = r.state.InputTime(0)
 	onOutputChange(ir.DefaultOutputParam)
 }
 
@@ -130,7 +134,10 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	inputData := cfg.State.Input(0)
 	reductionFn := reductionMap[inputData.DataType]
 	resetIdx := -1
-	if _, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{Node: cfg.Node.Key, Param: resetParam}); found {
+	if _, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{
+		Node:  cfg.Node.Key,
+		Param: resetParam,
+	}); found {
 		resetIdx = 1
 	}
 	var duration telem.TimeSpan
@@ -146,7 +153,7 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 		nowFn = telem.Now
 	}
 	return &reduction{
-		snode:       cfg.State,
+		state:       cfg.State,
 		resetIdx:    resetIdx,
 		reductionFn: reductionFn,
 		sampleCount: 0,

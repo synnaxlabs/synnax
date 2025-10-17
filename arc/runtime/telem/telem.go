@@ -78,7 +78,7 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 			continue
 		}
 		var timeSeries xtelem.Series
-		if len(indexData.Series) == 0 {
+		if indexData.DataType() == xtelem.UnknownT {
 			timeSeries = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
 			timeSeries.Alignment = ser.Alignment
 		} else if len(indexData.Series) > i {
@@ -97,19 +97,22 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 }
 
 type sink struct {
-	snode *state.Node
+	state *state.Node
 	key   uint32
 }
 
 func (s *sink) Init(context.Context, func(output string)) {}
 
-func (s *sink) Next(_ context.Context, _ func(param string)) {
-	data := s.snode.Input(0)
-	time := s.snode.InputTime(0)
+func (s *sink) Next(context.Context, func(param string)) {
+	if !s.state.RefreshInputs() {
+		return
+	}
+	data := s.state.Input(0)
+	time := s.state.InputTime(0)
 	if data.Len() == 0 {
 		return
 	}
-	s.snode.WriteChan(s.key, data, time)
+	s.state.WriteChan(s.key, data, time)
 }
 
 type telemFactory struct{}
@@ -135,7 +138,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	if isSource {
 		return &source{snode: cfg.State, key: nodeCfg.Channel, highWaterMark: 0}, nil
 	}
-	return &sink{snode: cfg.State, key: nodeCfg.Channel}, nil
+	return &sink{state: cfg.State, key: nodeCfg.Channel}, nil
 }
 
 func NewTelemFactory() node.Factory {

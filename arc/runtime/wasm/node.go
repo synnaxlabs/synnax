@@ -31,33 +31,48 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 	if !n.state.RefreshInputs() {
 		return
 	}
-	minLength := int64(-1)
+	maxLength := int64(0)
+	longestInputIdx := 0
 	for i := range n.ir.Inputs.Count() {
 		dataLen := n.state.Input(i).Len()
-		if minLength == -1 || dataLen < minLength {
-			minLength = dataLen
+		if dataLen > maxLength {
+			maxLength = dataLen
+			longestInputIdx = i
 		}
 	}
-	if minLength <= 0 {
+	if maxLength <= 0 {
 		return
 	}
-	for i := range n.ir.Outputs.Count() {
-		n.state.Output(i).Resize(minLength)
+	for j := range n.offsets {
+		n.offsets[j] = 0
 	}
-	for i := int64(0); i < minLength; i++ {
+	for i := range n.ir.Outputs.Count() {
+		n.state.Output(i).Resize(maxLength)
+		n.state.OutputTime(i).Resize(maxLength)
+	}
+	longestInputTime := n.state.InputTime(longestInputIdx)
+	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs.Count() {
-			n.inputs[j] = valueAt(n.state.Input(j), int(i))
+			inputLen := n.state.Input(j).Len()
+			n.inputs[j] = valueAt(n.state.Input(j), int(i%inputLen))
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
 			panic(err)
 		}
+		ts := valueAt(longestInputTime, int(i))
 		for j, value := range res {
 			if value.changed {
 				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
+				setValueAt(*n.state.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
+				markChanged(n.ir.Outputs.Keys[j])
 			}
 		}
+	}
+	for j := range n.ir.Outputs.Count() {
+		n.state.Output(j).Resize(int64(n.offsets[j]))
+		n.state.OutputTime(j).Resize(int64(n.offsets[j]))
 	}
 }
 
