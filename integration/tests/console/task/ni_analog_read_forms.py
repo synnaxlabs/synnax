@@ -28,17 +28,15 @@ class NIAnalogReadForms(ConsoleCase):
         """
         console = self.console
 
-        # Mode is used so that we can break this test into smaller
-        # chunks to run concurrently. The split is arbitrary. However,
-        # there is a balance between small (and fast) chunks and
-        # initializing multiple, resource-intensive playwright instances
-
-        mode = self.name[-1]  # A, B, C, D
+        # Get mode from matrix parameters
+        mode = self.params.get("mode")
+        if mode is None:
+            raise ValueError("Missing required parameter 'mode' from matrix")
 
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
         device_name = f"{mode}_E103"
-        sy.sleep(5)
+
         self.log("Creating NI Analog Read Task")
         console.ni_ai.new()
 

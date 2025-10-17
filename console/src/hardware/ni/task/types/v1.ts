@@ -398,10 +398,12 @@ const baseCounterReadConfigZ = v0.counterReadConfigZ
   .check(Common.Task.validateStreamRate);
 export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
 export const counterReadConfigZ = z.union([
-  v0.counterReadConfigZ.transform<CounterReadConfig>(({ channels, device, ...rest }) => ({
-    ...rest,
-    channels: channels.map((c) => ({ ...c, device })),
-  })),
+  v0.counterReadConfigZ.transform<CounterReadConfig>(
+    ({ channels, device, ...rest }) => ({
+      ...rest,
+      channels: channels.map((c) => ({ ...c, device })),
+    }),
+  ),
   baseCounterReadConfigZ,
 ]);
 const { device: _counterDevice, ...counterRest } = v0.ZERO_COUNTER_READ_CONFIG;

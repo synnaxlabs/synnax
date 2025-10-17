@@ -75,6 +75,7 @@ class TestDefinition:
     name: Optional[str] = None  # Optional custom name for the test case
     params: Dict[str, Any] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
+    matrix: Optional[Dict[str, List[Any]]] = None  # Matrix of params to expand
 
     def __str__(self) -> str:
         """Return display name for test definition."""
@@ -347,6 +348,55 @@ class TestConductor:
 
         self._process_sequences(all_sequences)
 
+    def _expand_matrix(self, test_def: TestDefinition) -> List[TestDefinition]:
+        """
+        Expand a test definition with a matrix into multiple test definitions.
+
+        Example:
+            matrix = {"mode": ["a", "b"], "rate": [100, 200]}
+            Expands to 4 tests with params:
+            - {"mode": "a", "rate": 100}
+            - {"mode": "a", "rate": 200}
+            - {"mode": "b", "rate": 100}
+            - {"mode": "b", "rate": 200}
+        """
+        if test_def.matrix is None or not test_def.matrix:
+            # No matrix, return single test
+            return [test_def]
+
+        # Get all matrix keys and values
+        matrix_keys = list(test_def.matrix.keys())
+        matrix_values = [test_def.matrix[key] for key in matrix_keys]
+
+        # Generate all combinations using itertools.product
+        import itertools
+        combinations = list(itertools.product(*matrix_values))
+
+        expanded_tests = []
+        for combo in combinations:
+            # Create parameter dict from combination
+            combo_params = dict(zip(matrix_keys, combo))
+
+            # Merge with base params (matrix params override base params)
+            merged_params = {**test_def.params, **combo_params}
+
+            # Generate name from matrix values
+            matrix_suffix = "_".join(str(v) for v in combo)
+            base_name = test_def.name or test_def.case.split("/")[-1]
+            generated_name = f"{base_name}_{matrix_suffix}"
+
+            # Create new test definition
+            expanded_test = TestDefinition(
+                case=test_def.case,
+                name=generated_name,
+                params=merged_params,
+                expect=test_def.expect,
+                matrix=None,  # Expanded tests don't have matrix
+            )
+            expanded_tests.append(expanded_test)
+
+        return expanded_tests
+
     def _process_sequences(self, sequences_array: List[Any]) -> None:
         """Process a list of sequences and populate test_definitions and sequences."""
         self.test_definitions = []
@@ -373,22 +423,28 @@ class TestConductor:
                     name=test.get("name", None),
                     params=test.get("parameters", {}),
                     expect=test.get("expect", "PASSED"),
+                    matrix=test.get("matrix", None),
                 )
-                self.test_definitions.append(test_def)
-                seq_obj["tests"].append(test_def)
+
+                # Expand matrix if present
+                expanded_tests = self._expand_matrix(test_def)
+
+                for expanded_test in expanded_tests:
+                    self.test_definitions.append(expanded_test)
+                    seq_obj["tests"].append(expanded_test)
 
             seq_obj["end_idx"] = len(self.test_definitions)
             self.sequences.append(seq_obj)
 
             self.log_message(
-                f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
+                f"Loaded sequence '{seq_name}' with {len(seq_obj['tests'])} tests ({seq_order})"
             )
 
         self.log_message(
             f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
         )
 
-        # Store the ordering for use in run_sequence (for backward compatibility)
+        # Store the ordering for use in run_sequence
         self.sequence_ordering = (
             self.sequences[0]["order"] if self.sequences else "Sequential"
         )

@@ -2,6 +2,14 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "Task Status Verification",
+      "tests": [
+        {
+          "case": "console/task/no_device"
+        }
+      ]
+    },
+    {
       "sequence_name": "NI Analog Forms 1",
       "sequence_order": "asynchronous",
       "tests": [
@@ -10,15 +18,7 @@
         },
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_a"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_b"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_c"
+          "matrix": { "mode": ["a", "b", "c"] }
         }
       ]
     },
@@ -28,41 +28,17 @@
       "tests": [
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_d"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_e"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_f"
+          "matrix": { "mode": ["d", "e", "f"] }
         }
       ]
     },
     {
-      "sequence_name":  "NI Counter Forms",
+      "sequence_name": "NI Counter Forms",
       "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/task/ni_counter_read_forms",
-          "name": "ni_counter_read_forms_a"
-        },
-        {
-          "case": "console/task/ni_counter_read_forms",
-          "name": "ni_counter_read_forms_b"
-        },
-        {
-          "case": "console/task/ni_counter_read_forms",
-          "name": "ni_counter_read_forms_c"
-        }
-      ]
-    },
-    {
-      "sequence_name": "Task Status Verification",
-      "tests": [
-        {
-          "case": "console/task/no_device"
+          "matrix": { "mode": ["a", "b", "c"] }
         }
       ]
     }

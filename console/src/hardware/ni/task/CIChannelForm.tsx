@@ -48,7 +48,10 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
   },
 });
 
-const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits, record.KeyedNamed<CIPeriodUnits>>({
+const PeriodUnitsField = Form.buildSelectField<
+  CIPeriodUnits,
+  record.KeyedNamed<CIPeriodUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
@@ -61,7 +64,10 @@ const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits, record.KeyedNamed<
   },
 });
 
-const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits, record.KeyedNamed<CIPulseWidthUnits>>({
+const PulseWidthUnitsField = Form.buildSelectField<
+  CIPulseWidthUnits,
+  record.KeyedNamed<CIPulseWidthUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Scaled Units" },
   inputProps: {
@@ -74,7 +80,10 @@ const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits, record.Key
   },
 });
 
-const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits, record.KeyedNamed<CISemiPeriodUnits>>({
+const SemiPeriodUnitsField = Form.buildSelectField<
+  CISemiPeriodUnits,
+  record.KeyedNamed<CISemiPeriodUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Scaled Units" },
   inputProps: {
@@ -87,7 +96,10 @@ const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits, record.Key
   },
 });
 
-const TwoEdgeSepUnitsField = Form.buildSelectField<CITwoEdgeSepUnits, record.KeyedNamed<CITwoEdgeSepUnits>>({
+const TwoEdgeSepUnitsField = Form.buildSelectField<
+  CITwoEdgeSepUnits,
+  record.KeyedNamed<CITwoEdgeSepUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Scaled Units" },
   inputProps: {
@@ -135,7 +147,10 @@ const ActiveEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   },
 });
 
-const CountDirectionField = Form.buildSelectField<CICountDirection, record.KeyedNamed<CICountDirection>>({
+const CountDirectionField = Form.buildSelectField<
+  CICountDirection,
+  record.KeyedNamed<CICountDirection>
+>({
   fieldKey: "countDirection",
   fieldProps: { label: "Count Direction" },
   inputProps: {
@@ -154,7 +169,10 @@ const InitialCountField = Form.buildNumericField({
   inputProps: {},
 });
 
-const MeasMethodField = Form.buildSelectField<CIMeasMethod, record.KeyedNamed<CIMeasMethod>>({
+const MeasMethodField = Form.buildSelectField<
+  CIMeasMethod,
+  record.KeyedNamed<CIMeasMethod>
+>({
   fieldKey: "measMethod",
   fieldProps: { label: "Measurement Method" },
   inputProps: {
