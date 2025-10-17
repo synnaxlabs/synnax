@@ -96,6 +96,12 @@ static int32_t get_ci_meas_method(const std::string &s) {
     return DAQmx_Val_LowFreq1Ctr;
 }
 
+static int32_t get_idle_state(const std::string &s) {
+    if (s == "High") return DAQmx_Val_High;
+    if (s == "Low") return DAQmx_Val_Low;
+    return DAQmx_Val_Low;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -481,6 +487,11 @@ struct CI : virtual Counter, Input {
 /// @brief base class for counter input channels that can have a custom scale applied.
 struct CICustomScale : CI, CounterCustomScale {
     explicit CICustomScale(xjson::Parser &cfg): Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
+};
+
+/// @brief base class for counter output channels.
+struct CO : virtual Counter, Output {
+    explicit CO(xjson::Parser &cfg): Counter(cfg), Output(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -1392,6 +1403,40 @@ struct CITwoEdgeSep final : CICustomScale {
     }
 };
 
+/// @brief Counter output pulse generation channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco pulsechantime.html
+struct COPulseOutput final : CO {
+    const int32_t idle_state;
+    const double initial_delay;
+    const double high_time;
+    const double low_time;
+
+    explicit COPulseOutput(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CO(cfg),
+        idle_state(get_idle_state(cfg.required<std::string>("idle_state"))),
+        initial_delay(cfg.optional<double>("initial_delay", 0.0)),
+        high_time(cfg.optional<double>("high_time", 0.01)),
+        low_time(cfg.optional<double>("low_time", 0.01)) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateCOPulseChanTime(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->units,
+            this->idle_state,
+            this->initial_delay,
+            this->low_time,
+            this->high_time
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1956,6 +2001,7 @@ static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),
     INPUT_CHAN_FACTORY("ao_voltage", AOVoltage),
     INPUT_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator),
+    INPUT_CHAN_FACTORY("co_pulse_output", COPulseOutput),
     INPUT_CHAN_FACTORY("digital_output", DO)
 };
 

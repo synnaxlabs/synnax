@@ -100,6 +100,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskConfig,
             ni::WriteTaskSink<double>,
             common::WriteTask>(ctx, task);
+    else if (task.type == COUNTER_WRITE_TASK_TYPE)
+        res = configure<
+            hardware::daqmx::CounterWriter,
+            ni::WriteTaskConfig,
+            ni::WriteTaskSink<double>,
+            common::WriteTask>(ctx, task);
     else if (task.type == DIGITAL_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalWriter,

@@ -22,9 +22,10 @@ const std::string MAKE = "NI";
 const std::string INTEGRATION_NAME = "ni";
 const std::string SCAN_TASK_TYPE = "ni_scanner";
 const std::string ANALOG_READ_TASK_TYPE = "ni_analog_read";
-const std::string COUNTER_READ_TASK_TYPE = "ni_counter_read";
-const std::string DIGITAL_READ_TASK_TYPE = "ni_digital_read";
 const std::string ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
+const std::string COUNTER_READ_TASK_TYPE = "ni_counter_read";
+const std::string COUNTER_WRITE_TASK_TYPE = "ni_counter_write";
+const std::string DIGITAL_READ_TASK_TYPE = "ni_digital_read";
 const std::string DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
 const std::vector UNREACHABLE_ERRORS = {
     daqmx::DEVICE_DISCONNECTED,
