@@ -144,9 +144,12 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
     throw new Error("Counter Output tasks only support channels from a single device");
 
   const deviceKey = config.channels[0].device;
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
-    key: deviceKey,
+  const devs = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    keys: [deviceKey],
   });
+  if (devs.length === 0)
+    throw new Error("Device not found in cluster");
+  const dev = devs[0];
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
