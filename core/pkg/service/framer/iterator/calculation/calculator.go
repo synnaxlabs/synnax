@@ -37,6 +37,7 @@ type Calculator struct {
 	ch        channel.Channel
 	state     *state.State
 	scheduler *runtime.Scheduler
+	stateCfg  state.Config
 }
 
 type CalculatorConfig struct {
@@ -121,7 +122,20 @@ func OpenCalculator(
 
 	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
 	scheduler.Init(ctx)
-	return &Calculator{scheduler: scheduler, state: progState, ch: cfg.Channel}, nil
+	return &Calculator{
+		scheduler: scheduler,
+		state:     progState,
+		ch:        cfg.Channel,
+		stateCfg:  stateCfg,
+	}, nil
+}
+
+func (c *Calculator) ReadFrom() channel.Keys {
+	ch := make([]channel.Key, 0, len(c.stateCfg.ChannelDigests)*2)
+	for _, v := range c.stateCfg.ChannelDigests {
+		ch = append(ch, channel.Key(v.Key), channel.Key(v.Index))
+	}
+	return ch
 }
 
 // Channel returns information about the channel being calculated.
