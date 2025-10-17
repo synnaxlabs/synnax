@@ -240,15 +240,20 @@ public:
         opc::ReadResponse ua_res(
             UA_Client_Service_read(this->conn.get(), this->request_builder.build())
         );
+        x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
+        if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+            res.error)
+            return res;
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.array_size
         );
-        for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
-            const auto &result = ua_res.get().results[i];
-            if (res.error = opc::errors::parse(result.status); res.error) return res;
+        std::vector<std::string> error_messages;
+        for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
+            auto &result = ua_res.results[i];
+            if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
             s.clear();
@@ -258,10 +263,26 @@ public:
                 this->cfg.array_size,
                 ch->ch.name
             );
-            res.error = err;
-            if (res.error) return res;
+            if (err || written == 0) {
+                std::string
+                    msg = err ? err.message()
+                              : "Invalid OPC UA array data detected for channel " +
+                                    ch->ch.name;
+                error_messages.push_back(msg);
+            }
         }
         auto start = ::telem::TimeStamp::now();
+
+        if (!error_messages.empty()) {
+            // Aggregate all error messages
+            fr.clear();
+            res.warning = error_messages[0];
+            for (size_t i = 1; i < error_messages.size(); ++i) {
+                res.warning += "; " + error_messages[i];
+            }
+            return res;
+        }
+
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
         common::generate_index_data(
             fr,
@@ -301,11 +322,25 @@ public:
                 );
                 res.error)
                 return res;
-            for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
-                const auto &result = ua_res.get().results[j];
-                if (res.error = opc::errors::parse(result.status); res.error)
-                    return res;
-                opc::telem::write_to_series(fr.series->at(j), result.value);
+            bool skip_sample = false;
+            for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
+                UA_DataValue &result = ua_res.results[j];
+                if (res.error = util::parse_error(result.status); res.error) return res;
+                auto [written, write_err] = util::write_to_series(
+                    fr.series->at(j),
+                    result.value
+                );
+                if (write_err) {
+                    skip_sample = true;
+                    res.warning = "Invalid OPC UA data detected for channel " +
+                                  this->cfg.channels[j]->ch.name + ": " +
+                                  write_err.message() + ", skipping frame";
+                    break;
+                }
+            }
+            if (skip_sample) {
+                fr.clear();
+                return res;
             }
             const auto end = ::telem::TimeStamp::now();
             const auto ts = ::telem::TimeStamp::midpoint(start, end);
@@ -313,6 +348,8 @@ public:
                 fr.series->at(j).write(ts);
             this->timer.wait(breaker);
         }
+        // Do not write empty frames
+        if (!fr.series->empty() && fr.series->at(0).size() == 0) { fr.clear(); }
         return res;
     }
 

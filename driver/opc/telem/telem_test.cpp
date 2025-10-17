@@ -100,7 +100,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float val = 42.0f;
     UA_Variant_setScalar(&v, &val, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    opc::telem::write_to_series(series, v);
+    auto [written, err] = opc::telem::write_to_series(series, v);
+    ASSERT_NIL(err);
     EXPECT_EQ(series.size(), 1);
     EXPECT_EQ(series.at<float>(0), 42.0f);
 
@@ -109,7 +110,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float v2v = 43.0f;
     UA_Variant_setScalar(&v2, &v2v, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    opc::telem::write_to_series(series, v2);
+    auto [written2, err2] = opc::telem::write_to_series(series, v2);
+    ASSERT_NIL(err2);
     EXPECT_EQ(series.size(), 2);
     EXPECT_EQ(series.at<float>(1), 43.0f);
 }

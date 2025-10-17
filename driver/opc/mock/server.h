@@ -32,6 +32,7 @@ struct TestNode {
     UA_DataType *data_type;
     UA_Variant initial_value;
     std::string description;
+    bool return_invalid_data = false;
 
     // Constructor
     TestNode(
@@ -39,12 +40,14 @@ struct TestNode {
         std::string node_id,
         UA_DataType *data_type,
         const UA_Variant &initial_value,
-        std::string description
+        std::string description,
+        bool return_invalid_data = false
     ):
         ns(ns),
         node_id(std::move(node_id)),
         data_type(data_type),
-        description(std::move(description)) {
+        description(std::move(description)),
+        return_invalid_data(return_invalid_data) {
         UA_Variant_init(&this->initial_value);
         UA_Variant_copy(&initial_value, &this->initial_value);
     }
@@ -57,7 +60,8 @@ struct TestNode {
         ns(other.ns),
         node_id(other.node_id),
         data_type(other.data_type),
-        description(other.description) {
+        description(other.description),
+        return_invalid_data(other.return_invalid_data) {
         UA_Variant_init(&initial_value);
         UA_Variant_copy(&other.initial_value, &initial_value);
     }
@@ -69,6 +73,7 @@ struct TestNode {
             node_id = other.node_id;
             data_type = other.data_type;
             description = other.description;
+            return_invalid_data = other.return_invalid_data;
             UA_Variant_clear(&initial_value);
             UA_Variant_copy(&other.initial_value, &initial_value);
         }
@@ -81,7 +86,8 @@ struct TestNode {
         node_id(std::move(other.node_id)),
         data_type(other.data_type),
         initial_value(other.initial_value),
-        description(std::move(other.description)) {
+        description(std::move(other.description)),
+        return_invalid_data(other.return_invalid_data) {
         UA_Variant_init(&other.initial_value);
     }
 
@@ -92,6 +98,7 @@ struct TestNode {
             node_id = std::move(other.node_id);
             data_type = other.data_type;
             description = std::move(other.description);
+            return_invalid_data = other.return_invalid_data;
             UA_Variant_clear(&initial_value);
             initial_value = other.initial_value;
             UA_Variant_init(&other.initial_value);
@@ -214,6 +221,53 @@ struct ServerConfig {
              double_val,
              "Test Double Node"},
             {1, "TestGuid", &UA_TYPES[UA_TYPES_GUID], guid_val, "Test GUID Node"},
+        };
+        return cfg;
+    }
+
+    // Create a configuration with nodes that return invalid/null data for testing error
+    // handling
+    static ServerConfig create_with_invalid_data() {
+        ServerConfig cfg;
+
+        // Invalid boolean node - null type
+        UA_Variant invalid_bool_val;
+        UA_Variant_init(&invalid_bool_val);
+        invalid_bool_val.type = nullptr;
+        invalid_bool_val.data = nullptr;
+
+        // Invalid float node - null data
+        UA_Variant invalid_float_val;
+        UA_Variant_init(&invalid_float_val);
+        invalid_float_val.type = &UA_TYPES[UA_TYPES_FLOAT];
+        invalid_float_val.data = nullptr;
+
+        // Invalid double node - zero length array
+        UA_Variant invalid_double_val;
+        UA_Variant_init(&invalid_double_val);
+        invalid_double_val.type = &UA_TYPES[UA_TYPES_DOUBLE];
+        invalid_double_val.arrayLength = 0;
+        invalid_double_val.data = UA_EMPTY_ARRAY_SENTINEL;
+
+        cfg.test_nodes = {
+            {1,
+             "InvalidBoolean",
+             nullptr,
+             invalid_bool_val,
+             "Test Invalid Boolean Node",
+             true},
+            {1,
+             "InvalidFloat",
+             &UA_TYPES[UA_TYPES_FLOAT],
+             invalid_float_val,
+             "Test Invalid Float Node",
+             true},
+            {1,
+             "InvalidDouble",
+             &UA_TYPES[UA_TYPES_DOUBLE],
+             invalid_double_val,
+             "Test Invalid Double Node",
+             true},
         };
         return cfg;
     }
