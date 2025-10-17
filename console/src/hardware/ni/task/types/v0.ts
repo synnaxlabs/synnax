@@ -1069,7 +1069,39 @@ export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
   terminal: "",
 };
 
-const ciChannelZ = z.union([ciFrequencyChanZ, ciEdgeCountChanZ, ciPeriodChanZ]);
+// Counter Input pulse width units (same as period)
+const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CIPulseWidthUnits = z.infer<typeof ciPulseWidthUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html
+export const CI_PULSE_WIDTH_CHAN_TYPE = "ci_pulse_width";
+export const ciPulseWidthChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PULSE_WIDTH_CHAN_TYPE),
+  units: ciPulseWidthUnitsZ,
+  startingEdge: ciEdgeZ,
+  terminal: z.string(),
+});
+export interface CIPulseWidthChan extends z.infer<typeof ciPulseWidthChanZ> {}
+export const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PULSE_WIDTH_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  terminal: "",
+};
+
+const ciChannelZ = z.union([
+  ciFrequencyChanZ,
+  ciEdgeCountChanZ,
+  ciPeriodChanZ,
+  ciPulseWidthChanZ,
+]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
 export type CIChannelType = CIChannel["type"];
@@ -1078,12 +1110,14 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
   [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
   [CI_PERIOD_CHAN_TYPE]: "Period",
+  [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Square,
   [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
   [CI_PERIOD_CHAN_TYPE]: Icon.Time,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);

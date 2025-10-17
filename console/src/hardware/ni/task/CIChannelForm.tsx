@@ -18,12 +18,14 @@ import {
   CI_EDGE_COUNT_CHAN_TYPE,
   CI_FREQUENCY_CHAN_TYPE,
   CI_PERIOD_CHAN_TYPE,
+  CI_PULSE_WIDTH_CHAN_TYPE,
   type CIChannelType,
   type CICountDirection,
   type CIEdge,
   type CIFreqUnits,
   type CIMeasMethod,
   type CIPeriodUnits,
+  type CIPulseWidthUnits,
 } from "@/hardware/ni/task/types";
 
 interface FormProps {
@@ -47,6 +49,19 @@ const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits, record.KeyedNamed<
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "Units",
+    data: [
+      { key: "Seconds", name: "Seconds" },
+      { key: "Ticks", name: "Ticks" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
+const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits, record.KeyedNamed<CIPulseWidthUnits>>({
+  fieldKey: "units",
+  fieldProps: { label: "Scaled Units" },
+  inputProps: {
+    resourceName: "Scaled Units",
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
@@ -193,6 +208,21 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <Flex.Box x>
         <TerminalField path={prefix} grow />
         <MeasMethodField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_PULSE_WIDTH_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <StartingEdgeField path={prefix} grow />
+        <PulseWidthUnitsField path={prefix} grow />
+      </Flex.Box>
+      <Flex.Box x>
+        <TerminalField path={prefix} grow />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />

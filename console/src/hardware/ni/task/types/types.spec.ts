@@ -290,6 +290,33 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
+    it("should be able to parse a task with ci_pulse_width channels", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          channels: [{ ...ZERO_CI_CHANNELS.ci_pulse_width, key: "0", device: "Dev1" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should be able to parse a task with all CI channel types", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          channels: [
+            { ...ZERO_CI_CHANNELS.ci_frequency, key: "0", device: "Dev1", port: 0 },
+            { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
+            { ...ZERO_CI_CHANNELS.ci_period, key: "2", device: "Dev1", port: 2 },
+            { ...ZERO_CI_CHANNELS.ci_pulse_width, key: "3", device: "Dev1", port: 3 },
+          ],
+        }).success,
+      ).toEqual(true);
+    });
+
     // NOTE: This test is commented out because the validation for "at least one enabled channel"
     // is handled in the C++ driver code, not in the TypeScript schema. Disabled channels are
     // filtered out during task configuration. This matches the behavior of Analog Read and Digital Read tasks.

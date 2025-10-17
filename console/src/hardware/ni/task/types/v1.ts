@@ -268,19 +268,33 @@ const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
   ...ZERO_CI_CHAN_EXTENSION,
 };
 
-const ciChannelZ = z.union([ciFrequencyChanZ, ciEdgeCountChanZ, ciPeriodChanZ]);
+const ciPulseWidthChanZ = v0.ciPulseWidthChanZ.extend(ciChanExtensionShape);
+interface CIPulseWidthChan extends z.infer<typeof ciPulseWidthChanZ> {}
+const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
+  ...v0.ZERO_CI_PULSE_WIDTH_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciChannelZ = z.union([
+  ciFrequencyChanZ,
+  ciEdgeCountChanZ,
+  ciPeriodChanZ,
+  ciPulseWidthChanZ,
+]);
 export type CIChannel = z.infer<typeof ciChannelZ>;
 
 export const CI_CHANNEL_SCHEMAS: Record<v0.CIChannelType, z.ZodType<CIChannel>> = {
   [v0.CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,
   [v0.CI_EDGE_COUNT_CHAN_TYPE]: ciEdgeCountChanZ,
   [v0.CI_PERIOD_CHAN_TYPE]: ciPeriodChanZ,
+  [v0.CI_PULSE_WIDTH_CHAN_TYPE]: ciPulseWidthChanZ,
 };
 
 export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
   [v0.CI_FREQUENCY_CHAN_TYPE]: ZERO_CI_FREQUENCY_CHAN,
   [v0.CI_EDGE_COUNT_CHAN_TYPE]: ZERO_CI_EDGE_COUNT_CHAN,
   [v0.CI_PERIOD_CHAN_TYPE]: ZERO_CI_PERIOD_CHAN,
+  [v0.CI_PULSE_WIDTH_CHAN_TYPE]: ZERO_CI_PULSE_WIDTH_CHAN,
 };
 export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
 

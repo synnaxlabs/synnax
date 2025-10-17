@@ -983,3 +983,65 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
+
+TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
+    json j = {
+        {"type", "ci_pulse_width"},
+        {"key", "ks1VnWdrSVG"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Seconds"},
+        {"starting_edge", "Rising"},
+        {"terminal", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_pulse_width_chan = dynamic_cast<channel::CIPulseWidth *>(chan.get());
+    ASSERT_NE(ci_pulse_width_chan, nullptr);
+    EXPECT_EQ(ci_pulse_width_chan->enabled, true);
+    EXPECT_EQ(ci_pulse_width_chan->port, 0);
+    EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Rising);
+    EXPECT_EQ(ci_pulse_width_chan->terminal, "");
+    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
+    json j = {
+        {"type", "ci_pulse_width"},
+        {"key", "ks1VnWdrSVH"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0.000001},
+        {"max_val", 0.1},
+        {"units", "Ticks"},
+        {"starting_edge", "Falling"},
+        {"terminal", "PFI9"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_pulse_width_chan = dynamic_cast<channel::CIPulseWidth *>(chan.get());
+    ASSERT_NE(ci_pulse_width_chan, nullptr);
+    EXPECT_EQ(ci_pulse_width_chan->enabled, true);
+    EXPECT_EQ(ci_pulse_width_chan->port, 1);
+    EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Falling);
+    EXPECT_EQ(ci_pulse_width_chan->terminal, "PFI9");
+    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr1");
+}
