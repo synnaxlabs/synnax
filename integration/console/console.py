@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import AnalogRead, AnalogWrite, CounterRead, NITask
+from .task import AnalogRead, AnalogWrite, CounterRead, CounterWrite, NITask
 
 # Define literal types for page creation
 PageType = Literal[
@@ -31,6 +31,7 @@ PageType = Literal[
     "NI Analog Read Task",
     "NI Analog Write Task",
     "NI Counter Read Task",
+    "NI Counter Write Task",
     "NI Digital Read Task",
     "NI Digital Write Task",
     "LabJack Read Task",
@@ -61,6 +62,7 @@ class Console:
         self.ni_ai = AnalogRead(page, self)
         self.ni_ao = AnalogWrite(page, self)
         self.ni_ci = CounterRead(page, self)
+        self.ni_co = CounterWrite(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""

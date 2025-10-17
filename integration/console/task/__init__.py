@@ -10,6 +10,7 @@
 from .analog_read import AnalogRead
 from .analog_write import AnalogWrite
 from .counter_read import CounterRead
+from .counter_write import CounterWrite
 from .channels.accelerometer import Accelerometer
 from .channels.analog import Analog
 from .channels.bridge import Bridge
@@ -24,6 +25,7 @@ from .channels.microphone import Microphone
 from .channels.period import Period
 from .channels.pressure_bridge_table import PressureBridgeTable
 from .channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
+from .channels.pulse_output import PulseOutput
 from .channels.pulse_width import PulseWidth
 from .channels.resistance import Resistance
 from .channels.rtd import RTD
@@ -43,6 +45,7 @@ __all__ = [
     "AnalogRead",
     "AnalogWrite",
     "CounterRead",
+    "CounterWrite",
     "Analog",
     "Counter",
     "Accelerometer",
@@ -57,6 +60,7 @@ __all__ = [
     "Period",
     "PressureBridgeTable",
     "PressureBridgeTwoPointLinear",
+    "PulseOutput",
     "PulseWidth",
     "Resistance",
     "RTD",
