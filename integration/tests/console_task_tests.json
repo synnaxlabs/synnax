@@ -2,7 +2,7 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "NI Form Input Verification 1",
+      "sequence_name": "NI Analog Forms 1",
       "sequence_order": "asynchronous",
       "tests": [
         {
@@ -23,7 +23,7 @@
       ]
     },
     {
-      "sequence_name": "NI Form Input Verification 2",
+      "sequence_name": "NI Analog Forms 2",
       "sequence_order": "asynchronous",
       "tests": [
         {
@@ -37,6 +37,24 @@
         {
           "case": "console/task/ni_analog_read_forms",
           "name": "ni_analog_read_forms_f"
+        }
+      ]
+    },
+    {
+      "sequence_name":  "NI Counter Forms",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/task/ni_counter_read_forms",
+          "name": "ni_counter_read_forms_a"
+        },
+        {
+          "case": "console/task/ni_counter_read_forms",
+          "name": "ni_counter_read_forms_b"
+        },
+        {
+          "case": "console/task/ni_counter_read_forms",
+          "name": "ni_counter_read_forms_c"
         }
       ]
     },
