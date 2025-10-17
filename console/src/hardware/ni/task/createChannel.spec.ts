@@ -14,6 +14,7 @@ import {
   createAIChannel,
   createAOChannel,
   createCIChannel,
+  createCOChannel,
   createDIChannel,
   createDOChannel,
 } from "@/hardware/ni/task/createChannel";
@@ -260,6 +261,61 @@ describe("createChannel", () => {
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.port).toBe(2);
       expect(result.channel).not.toBe(3);
+    });
+  });
+
+  describe("createCOChannel", () => {
+    it("should create a new CO channel with port 0 when no channels exist", () => {
+      const channels: Task.COChannel[] = [];
+      const result = createCOChannel(channels);
+      expect(result.port).toBe(0);
+      expect(result.key).toBeDefined();
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+      expect(result.type).toBe("co_pulse_output");
+    });
+
+    it("should create a new CO channel with the next available port number", () => {
+      const channels: Task.COChannel[] = [
+        { ...Task.ZERO_CO_CHANNEL, key: "1", port: 0, cmdChannel: 3, stateChannel: 10 },
+        { ...Task.ZERO_CO_CHANNEL, key: "2", port: 1, cmdChannel: 4, stateChannel: 11 },
+      ];
+      const result = createCOChannel(channels);
+      expect(result.port).toBe(2);
+      expect(result.key).toBeDefined();
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+    });
+
+    it("should copy properties from the specified index channel", () => {
+      const channels: Task.COChannel[] = [
+        {
+          ...Task.ZERO_CO_CHANNELS.co_pulse_output,
+          key: "1",
+          port: 0,
+          cmdChannel: 3,
+          stateChannel: 10,
+          highTime: 0.005,
+          lowTime: 0.015,
+        },
+        {
+          ...Task.ZERO_CO_CHANNELS.co_pulse_output,
+          key: "2",
+          port: 1,
+          cmdChannel: 4,
+          stateChannel: 11,
+        },
+      ];
+      const result = createCOChannel(channels, "1");
+      expect(result.type).toBe("co_pulse_output");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+      expect(result.highTime).toBe(0.005);
+      expect(result.lowTime).toBe(0.015);
     });
   });
 });

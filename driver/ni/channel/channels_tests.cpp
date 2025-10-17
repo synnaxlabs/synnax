@@ -1161,3 +1161,63 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
 }
+
+TEST(ChannelsTest, ParseCOPulseOutputChan) {
+    json j = {
+        {"type", "co_pulse_output"},
+        {"key", "XBQejNmAyaZ"},
+        {"port", 0},
+        {"enabled", true},
+        {"cmd_channel", 0},
+        {"state_channel", 0},
+        {"units", "Seconds"},
+        {"idle_state", "Low"},
+        {"initial_delay", 0.0},
+        {"high_time", 0.01},
+        {"low_time", 0.01}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_output(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto co_pulse_chan = dynamic_cast<channel::COPulseOutput *>(chan.get());
+    ASSERT_NE(co_pulse_chan, nullptr);
+    EXPECT_EQ(co_pulse_chan->idle_state, DAQmx_Val_Low);
+    EXPECT_EQ(co_pulse_chan->initial_delay, 0.0);
+    EXPECT_EQ(co_pulse_chan->high_time, 0.01);
+    EXPECT_EQ(co_pulse_chan->low_time, 0.01);
+    EXPECT_EQ(co_pulse_chan->units, DAQmx_Val_Seconds);
+    co_pulse_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    EXPECT_EQ(co_pulse_chan->loc(), "cDAQ1Mod2/ctr0");
+}
+
+TEST(ChannelsTest, ParseCOPulseOutputChanHighIdleState) {
+    json j = {
+        {"type", "co_pulse_output"},
+        {"key", "XBQejNmAyaY"},
+        {"port", 1},
+        {"enabled", true},
+        {"cmd_channel", 0},
+        {"state_channel", 0},
+        {"units", "Seconds"},
+        {"idle_state", "High"},
+        {"initial_delay", 0.1},
+        {"high_time", 0.005},
+        {"low_time", 0.015}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_output(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto co_pulse_chan = dynamic_cast<channel::COPulseOutput *>(chan.get());
+    ASSERT_NE(co_pulse_chan, nullptr);
+    EXPECT_EQ(co_pulse_chan->idle_state, DAQmx_Val_High);
+    EXPECT_EQ(co_pulse_chan->initial_delay, 0.1);
+    EXPECT_EQ(co_pulse_chan->high_time, 0.005);
+    EXPECT_EQ(co_pulse_chan->low_time, 0.015);
+    EXPECT_EQ(co_pulse_chan->units, DAQmx_Val_Seconds);
+    co_pulse_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    EXPECT_EQ(co_pulse_chan->loc(), "cDAQ1Mod2/ctr1");
+}

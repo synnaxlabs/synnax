@@ -13,6 +13,7 @@ import {
   analogReadConfigZ,
   analogWriteConfigZ,
   counterReadConfigZ,
+  counterWriteConfigZ,
   digitalReadConfigZ,
   digitalWriteConfigZ,
   LINEAR_SCALE_TYPE,
@@ -27,7 +28,10 @@ import {
   ZERO_AO_CHANNEL,
   ZERO_CI_CHANNEL,
   ZERO_CI_CHANNELS,
+  ZERO_CO_CHANNEL,
+  ZERO_CO_CHANNELS,
   ZERO_COUNTER_READ_PAYLOAD,
+  ZERO_COUNTER_WRITE_PAYLOAD,
   ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
   ZERO_DIGITAL_WRITE_PAYLOAD,
@@ -354,5 +358,72 @@ describe("analog read task", () => {
     //     }).success,
     //   ).toEqual(false);
     // });
+  });
+
+  describe("counter write task", () => {
+    it("should be able to parse a valid task", () => {
+      expect(
+        counterWriteConfigZ.safeParse({
+          ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [{ ...ZERO_CO_CHANNEL, key: "0" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should be able to parse a task with co_pulse_output channels", () => {
+      expect(
+        counterWriteConfigZ.safeParse({
+          ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [{ ...ZERO_CO_CHANNELS.co_pulse_output, key: "0" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should fail to parse a task with duplicate ports on the same device", () => {
+      expect(
+        counterWriteConfigZ.safeParse({
+          ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [
+            { ...ZERO_CO_CHANNEL, key: "0", port: 0 },
+            { ...ZERO_CO_CHANNEL, key: "1", port: 0 },
+          ],
+        }).success,
+      ).toEqual(false);
+    });
+
+    it("should be able to parse a task with different ports", () => {
+      expect(
+        counterWriteConfigZ.safeParse({
+          ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [
+            { ...ZERO_CO_CHANNEL, key: "0", port: 0 },
+            { ...ZERO_CO_CHANNEL, key: "1", port: 1 },
+          ],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should be able to parse a task with custom pulse parameters", () => {
+      expect(
+        counterWriteConfigZ.safeParse({
+          ...ZERO_COUNTER_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [
+            {
+              ...ZERO_CO_CHANNEL,
+              key: "0",
+              highTime: 0.005,
+              lowTime: 0.015,
+              initialDelay: 0.1,
+              idleState: "High",
+            },
+          ],
+        }).success,
+      ).toEqual(true);
+    });
   });
 });

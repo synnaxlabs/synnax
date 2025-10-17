@@ -1023,7 +1023,7 @@ const EXTERNALLY_CONTROLLED = "ExternallyControlled";
 const ciCountDirectionZ = z.enum([COUNT_UP, COUNT_DOWN, EXTERNALLY_CONTROLLED]);
 export type CICountDirection = z.infer<typeof ciCountDirectionZ>;
 
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc han.html
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html
 export const CI_EDGE_COUNT_CHAN_TYPE = "ci_edge_count";
 export const ciEdgeCountChanZ = baseCIChanZ.extend({
   type: z.literal(CI_EDGE_COUNT_CHAN_TYPE),
@@ -1046,7 +1046,7 @@ export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
 const ciPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
 export type CIPeriodUnits = z.infer<typeof ciPeriodUnitsZ>;
 
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch an.html
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html
 export const CI_PERIOD_CHAN_TYPE = "ci_period";
 export const ciPeriodChanZ = baseCIChanZ.extend({
   ...minMaxValShape,
@@ -1075,7 +1075,7 @@ export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
 const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
 export type CIPulseWidthUnits = z.infer<typeof ciPulseWidthUnitsZ>;
 
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html
 export const CI_PULSE_WIDTH_CHAN_TYPE = "ci_pulse_width";
 export const ciPulseWidthChanZ = baseCIChanZ.extend({
   ...minMaxValShape,
@@ -1125,7 +1125,7 @@ export const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
 const ciTwoEdgeSepUnitsZ = z.enum([SECONDS, TICKS]);
 export type CITwoEdgeSepUnits = z.infer<typeof ciTwoEdgeSepUnitsZ>;
 
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe dgeseparationchan.html
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html
 export const CI_TWO_EDGE_SEP_CHAN_TYPE = "ci_two_edge_sep";
 export const ciTwoEdgeSepChanZ = baseCIChanZ.extend({
   ...minMaxValShape,
@@ -1192,7 +1192,7 @@ const IDLE_LOW = "Low";
 const coIdleStateZ = z.enum([IDLE_HIGH, IDLE_LOW]);
 export type COIdleState = z.infer<typeof coIdleStateZ>;
 
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco pulsechantime.html
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecopulsechantime.html
 export const CO_PULSE_OUTPUT_CHAN_TYPE = "co_pulse_output";
 export const coPulseOutputChanZ = baseCOChanZ.extend({
   ...minMaxValShape,
@@ -1650,8 +1650,29 @@ export interface DigitalWriteTask
 export interface NewDigitalWriteTask
   extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
 
+const validateCounterWritePorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<COChannel[]>) => {
+  const portToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
 export const counterWriteConfigZ = baseWriteConfigZ.extend({
-  channels: z.array(coChannelZ).check(Common.Task.validateWriteChannels),
+  channels: z
+    .array(coChannelZ)
+    .check(Common.Task.validateWriteChannels)
+    .check(validateCounterWritePorts),
 });
 export interface CounterWriteConfig extends z.infer<typeof counterWriteConfigZ> {}
 const ZERO_COUNTER_WRITE_CONFIG: CounterWriteConfig = {
