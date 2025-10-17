@@ -26,7 +26,8 @@ UA_DataType *data_type_to_ua(const ::telem::DataType &data_type);
 
 /// @brief writes data from a UA_Variant to a telemetry series.
 /// @return a pair containing the number of samples written and any error.
-std::pair<size_t, xerrors::Error> write_to_series(::telem::Series &s, const UA_Variant &v);
+std::pair<size_t, xerrors::Error>
+write_to_series(::telem::Series &s, const UA_Variant &v);
 
 /// @brief converts a telemetry series to a UA_Variant.
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const ::telem::Series &s);
