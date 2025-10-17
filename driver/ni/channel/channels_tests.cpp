@@ -851,3 +851,65 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     ci_freq_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr1");
 }
+
+TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
+    json j = {
+        {"type", "ci_edge_count"},
+        {"key", "ks1VnWdrSVC"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"active_edge", "Rising"},
+        {"count_direction", "CountUp"},
+        {"initial_count", 0},
+        {"terminal", ""},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_edge_count_chan = dynamic_cast<channel::CIEdgeCount *>(chan.get());
+    ASSERT_NE(ci_edge_count_chan, nullptr);
+    EXPECT_EQ(ci_edge_count_chan->enabled, true);
+    EXPECT_EQ(ci_edge_count_chan->port, 0);
+    EXPECT_EQ(ci_edge_count_chan->edge, DAQmx_Val_Rising);
+    EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountUp);
+    EXPECT_EQ(ci_edge_count_chan->initial_count, 0);
+    EXPECT_EQ(ci_edge_count_chan->terminal, "");
+    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
+    json j = {
+        {"type", "ci_edge_count"},
+        {"key", "ks1VnWdrSVD"},
+        {"port", 2},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"active_edge", "Falling"},
+        {"count_direction", "CountDown"},
+        {"initial_count", 100},
+        {"terminal", "PFI11"},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_edge_count_chan = dynamic_cast<channel::CIEdgeCount *>(chan.get());
+    ASSERT_NE(ci_edge_count_chan, nullptr);
+    EXPECT_EQ(ci_edge_count_chan->enabled, true);
+    EXPECT_EQ(ci_edge_count_chan->port, 2);
+    EXPECT_EQ(ci_edge_count_chan->edge, DAQmx_Val_Falling);
+    EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountDown);
+    EXPECT_EQ(ci_edge_count_chan->initial_count, 100);
+    EXPECT_EQ(ci_edge_count_chan->terminal, "PFI11");
+    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr2");
+}

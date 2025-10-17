@@ -1217,6 +1217,45 @@ struct CIFrequency final : CICustomScale {
     }
 };
 
+static int32_t get_ci_count_direction(const std::string &s) {
+    if (s == "CountUp") return DAQmx_Val_CountUp;
+    if (s == "CountDown") return DAQmx_Val_CountDown;
+    if (s == "ExternallyControlled") return DAQmx_Val_ExtControlled;
+    return DAQmx_Val_CountUp;
+}
+
+/// @brief Counter input edge count channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc han.html
+struct CIEdgeCount final : CI {
+    const int32_t edge;
+    const int32_t count_direction;
+    const uint32_t initial_count;
+    const std::string terminal;
+
+    explicit CIEdgeCount(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CI(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("active_edge"))),
+        count_direction(get_ci_count_direction(cfg.required<std::string>("count_direction"))),
+        initial_count(cfg.optional<uint32_t>("initial_count", 0)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateCICountEdgesChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->edge,
+            this->initial_count,
+            this->count_direction
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1809,6 +1848,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
     INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
     INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("ci_edge_count", CIEdgeCount),
     INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };

@@ -15,8 +15,10 @@ import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
+  CI_EDGE_COUNT_CHAN_TYPE,
   CI_FREQUENCY_CHAN_TYPE,
   type CIChannelType,
+  type CICountDirection,
   type CIEdge,
   type CIFreqUnits,
   type CIMeasMethod,
@@ -48,6 +50,37 @@ const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
       { key: "Falling", name: "Falling" },
     ],
   },
+});
+
+const ActiveEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
+  fieldKey: "activeEdge",
+  fieldProps: { label: "Active Edge" },
+  inputProps: {
+    resourceName: "Active Edge",
+    data: [
+      { key: "Rising", name: "Rising" },
+      { key: "Falling", name: "Falling" },
+    ],
+  },
+});
+
+const CountDirectionField = Form.buildSelectField<CICountDirection, record.KeyedNamed<CICountDirection>>({
+  fieldKey: "countDirection",
+  fieldProps: { label: "Count Direction" },
+  inputProps: {
+    resourceName: "Count Direction",
+    data: [
+      { key: "CountUp", name: "Count Up" },
+      { key: "CountDown", name: "Count Down" },
+      { key: "ExternallyControlled", name: "Externally Controlled" },
+    ],
+  },
+});
+
+const InitialCountField = Form.buildNumericField({
+  fieldKey: "initialCount",
+  fieldProps: { label: "Initial Count" },
+  inputProps: {},
 });
 
 const MeasMethodField = Form.buildSelectField<CIMeasMethod, record.KeyedNamed<CIMeasMethod>>({
@@ -108,6 +141,18 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_EDGE_COUNT_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <Flex.Box x>
+        <ActiveEdgeField path={prefix} grow />
+        <CountDirectionField path={prefix} grow />
+      </Flex.Box>
+      <Flex.Box x>
+        <TerminalField path={prefix} grow />
+        <InitialCountField path={prefix} grow />
+      </Flex.Box>
     </>
   ),
 };

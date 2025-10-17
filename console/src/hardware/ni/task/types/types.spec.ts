@@ -26,6 +26,7 @@ import {
   ZERO_ANALOG_WRITE_PAYLOAD,
   ZERO_AO_CHANNEL,
   ZERO_CI_CHANNEL,
+  ZERO_CI_CHANNELS,
   ZERO_COUNTER_READ_PAYLOAD,
   ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
@@ -236,6 +237,31 @@ describe("analog read task", () => {
           channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
         }).success,
       ).toEqual(false);
+    });
+
+    it("should be able to parse a task with ci_edge_count channels", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          channels: [{ ...ZERO_CI_CHANNELS.ci_edge_count, key: "0", device: "Dev1" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should be able to parse a task with mixed ci_frequency and ci_edge_count channels", () => {
+      expect(
+        counterReadConfigZ.safeParse({
+          ...ZERO_COUNTER_READ_PAYLOAD.config,
+          streamRate: 25,
+          sampleRate: 1000,
+          channels: [
+            { ...ZERO_CI_CHANNELS.ci_frequency, key: "0", device: "Dev1", port: 0 },
+            { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
+          ],
+        }).success,
+      ).toEqual(true);
     });
 
     // NOTE: This test is commented out because the validation for "at least one enabled channel"

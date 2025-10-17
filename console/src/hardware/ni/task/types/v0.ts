@@ -1013,17 +1013,45 @@ export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
   terminal: "",
 };
 
-const ciChannelZ = z.union([ciFrequencyChanZ]);
+// Counter Input count direction
+const COUNT_UP = "CountUp";
+const COUNT_DOWN = "CountDown";
+const EXTERNALLY_CONTROLLED = "ExternallyControlled";
+const ciCountDirectionZ = z.enum([COUNT_UP, COUNT_DOWN, EXTERNALLY_CONTROLLED]);
+export type CICountDirection = z.infer<typeof ciCountDirectionZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc han.html
+export const CI_EDGE_COUNT_CHAN_TYPE = "ci_edge_count";
+export const ciEdgeCountChanZ = baseCIChanZ.extend({
+  type: z.literal(CI_EDGE_COUNT_CHAN_TYPE),
+  activeEdge: ciEdgeZ,
+  countDirection: ciCountDirectionZ,
+  initialCount: z.number(),
+  terminal: z.string(),
+});
+export interface CIEdgeCountChan extends z.infer<typeof ciEdgeCountChanZ> {}
+export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
+  ...ZERO_BASE_CI_CHAN,
+  type: CI_EDGE_COUNT_CHAN_TYPE,
+  activeEdge: RISING_EDGE,
+  countDirection: COUNT_UP,
+  initialCount: 0,
+  terminal: "",
+};
+
+const ciChannelZ = z.union([ciFrequencyChanZ, ciEdgeCountChanZ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
 export type CIChannelType = CIChannel["type"];
 
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
+  [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
-  [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Sine,
+  [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Square,
+  [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
