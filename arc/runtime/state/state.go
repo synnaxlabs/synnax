@@ -10,7 +10,9 @@
 package state
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -21,7 +23,7 @@ type value struct {
 
 type State struct {
 	cfg     Config
-	outputs map[ir.Handle]value
+	outputs map[ir.Handle]*value
 	indexes map[uint32]uint32
 	channel struct {
 		reads, writes map[uint32]telem.Series
@@ -38,18 +40,27 @@ type Config struct {
 	ChannelDigests []ChannelDigest
 	Edges          ir.Edges
 	ReactiveDeps   map[uint32][]string
+	Nodes          ir.Nodes
 }
 
 func New(cfg Config) *State {
 	s := &State{
 		cfg:     cfg,
-		outputs: make(map[ir.Handle]value),
+		outputs: make(map[ir.Handle]*value),
 		indexes: make(map[uint32]uint32),
 	}
 	s.channel.reads = make(map[uint32]telem.Series)
 	s.channel.writes = make(map[uint32]telem.Series)
 	for _, d := range cfg.ChannelDigests {
 		s.indexes[d.Key] = d.Index
+	}
+	for _, node := range cfg.Nodes {
+		for p, ot := range node.Outputs.Iter() {
+			s.outputs[ir.Handle{Node: node.Key, Param: p}] = &value{
+				data: telem.Series{DataType: types.ToTelem(ot)},
+				time: telem.Series{DataType: telem.TimeStampT},
+			}
+		}
 	}
 	return s
 }
@@ -79,7 +90,7 @@ func (s *State) FlushWrites(fr telem.Frame[uint32]) telem.Frame[uint32] {
 	return fr
 }
 
-func (s *State) ReadChannel(key uint32) (telem.MultiSeries, bool) {
+func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
 	series, ok := s.channel.reads[key]
 	if !ok {
 		return telem.MultiSeries{}, false
@@ -87,24 +98,34 @@ func (s *State) ReadChannel(key uint32) (telem.MultiSeries, bool) {
 	return telem.MultiSeries{Series: []telem.Series{series}}, true
 }
 
-func (s *State) WriteChannel(key uint32, data, time telem.Series) {
+func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	s.channel.writes[key] = data
 }
 
-func (s *State) GetChannelIndexKey(key uint32) uint32 {
+func (s *State) getChannelIndexKey(key uint32) uint32 {
 	return s.indexes[key]
 }
 
-func (s *State) ReadEdge(handle ir.Handle) (value, bool) {
-	v, ok := s.outputs[handle]
-	return v, ok
-}
-
 func (s *State) Node(key string) *Node {
+	inputs := s.cfg.Edges.GetInputs(key)
+	n := s.cfg.Nodes.Get(key)
+	alignedData := make([]telem.Series, len(inputs))
+	for i, input := range inputs {
+		alignedData[i] = telem.Series{DataType: s.outputs[input.Source].data.DataType}
+	}
+	alignedTime := make([]telem.Series, len(alignedData))
+	for i := range alignedData {
+		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
+	}
 	return &Node{
-		inputs:  s.cfg.Edges.GetInputs(key),
-		outputs: s.cfg.Edges.GetOutputs(key),
-		state:   s,
+		inputs: inputs,
+		outputs: lo.Map(n.Outputs.Keys, func(item string, _ int) ir.Handle {
+			return ir.Handle{Node: key, Param: item}
+		}),
+		state:       s,
+		accumulated: make([]inputEntry, len(inputs)),
+		alignedData: alignedData,
+		alignedTime: make([]telem.Series, len(inputs)),
 	}
 }
 
@@ -115,11 +136,12 @@ type inputEntry struct {
 }
 
 type Node struct {
-	inputs, outputs []ir.Edge
-	state           *State
-	accumulated     []inputEntry
-	alignedData     []telem.Series
-	alignedTime     []telem.Series
+	inputs      []ir.Edge
+	outputs     []ir.Handle
+	state       *State
+	accumulated []inputEntry
+	alignedData []telem.Series
+	alignedTime []telem.Series
 }
 
 func (n *Node) RefreshInputs() (recalculate bool) {
@@ -141,7 +163,7 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		}
 	}
 	var (
-		triggerInputIdx  int = -1
+		triggerInputIdx  = -1
 		triggerTimestamp telem.TimeStamp
 		triggerSeriesIdx int
 	)
@@ -172,8 +194,8 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 			n.alignedData[i] = n.accumulated[i].data.Series[latestIdx]
 			n.alignedTime[i] = n.accumulated[i].time.Series[latestIdx]
 		}
+		n.accumulated[i].watermark = triggerTimestamp
 	}
-	n.accumulated[triggerInputIdx].watermark = triggerTimestamp
 	for i := range n.inputs {
 		var (
 			newData []telem.Series
@@ -200,8 +222,14 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 	return true
 }
 
-func (n *Node) output(paramIndex int) value {
-	return n.state.outputs[n.outputs[paramIndex].Source]
+func (n *Node) output(paramIndex int) *value {
+	handle := n.outputs[paramIndex]
+	v, ok := n.state.outputs[handle]
+	if !ok {
+		v = &value{}
+		n.state.outputs[handle] = v
+	}
+	return v
 }
 
 func (n *Node) InputTime(paramIndex int) telem.Series {
@@ -223,7 +251,7 @@ func (n *Node) OutputTime(paramIndex int) *telem.Series {
 }
 
 func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
-	data, ok = n.state.ReadChannel(key)
+	data, ok = n.state.readChannel(key)
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
@@ -231,7 +259,7 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	if indexKey == 0 {
 		return data, telem.MultiSeries{}, true
 	}
-	time, _ = n.state.ReadChannel(indexKey)
+	time, _ = n.state.readChannel(indexKey)
 	return data, time, true
 }
 

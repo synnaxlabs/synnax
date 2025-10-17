@@ -137,7 +137,14 @@ func Analyze(
 	}
 
 	// Step 4: Check Config Values Against Function Config Types
-	for _, n := range g.Nodes {
+	irNodes := make(ir.Nodes, len(g.Nodes))
+	for i, n := range g.Nodes {
+		irNodes[i] = ir.Node{
+			Key:          n.Key,
+			Type:         n.Type,
+			ConfigValues: n.ConfigValues,
+			Channels:     ir.NewChannels(),
+		}
 		freshType := freshTypes[n.Key]
 		if freshType.Config == nil {
 			continue
@@ -164,6 +171,7 @@ func Analyze(
 						ctx.Diagnostics.AddError(err, nil)
 						return ir.IR{}, *ctx.Diagnostics
 					}
+					irNodes[i].Channels.Read.Add(k)
 				}
 			}
 		}
@@ -229,21 +237,17 @@ func Analyze(
 	}
 
 	// Step 6: Build IR Nodes with Unified Type Constraints
-	nodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
 		substituted := ctx.Constraints.ApplySubstitutions(freshTypes[n.Key])
-		nodes[i] = ir.Node{
-			Key:          n.Key,
-			Type:         n.Type,
-			ConfigValues: n.ConfigValues,
-			Config:       *substituted.Config,
-			Inputs:       *substituted.Inputs,
-			Outputs:      *substituted.Outputs,
-		}
+		irN := irNodes[i]
+		irN.Outputs = *substituted.Outputs
+		irN.Inputs = *substituted.Inputs
+		irN.Config = *substituted.Config
+		irNodes[i] = irN
 	}
 
 	// Step 7: Build Stratified Execution Plan
-	strata, ok := stratifier.Stratify(ctx, nodes, g.Edges, ctx.Diagnostics)
+	strata, ok := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
 	if !ok {
 		return ir.IR{}, *ctx.Diagnostics
 	}
@@ -252,7 +256,7 @@ func Analyze(
 	return ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
-		Nodes:     nodes,
+		Nodes:     irNodes,
 		Symbols:   ctx.Scope,
 		Strata:    strata,
 	}, *ctx.Diagnostics

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var (
@@ -41,15 +42,16 @@ var (
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
-type selectNode struct {
-	snode *state.Node
-}
+type selectNode struct{ *state.Node }
 
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
-	data := s.snode.Input(0)
-	time := s.snode.InputTime(0)
+	if !s.Node.RefreshInputs() {
+		return
+	}
+	data := s.Input(0)
+	time := s.InputTime(0)
 	if data.Len() == 0 {
 		return
 	}
@@ -60,24 +62,23 @@ func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
 		}
 	}
 	falseCount := data.Len() - trueCount
-	trueData := s.snode.Output(0)
-	trueTime := s.snode.OutputTime(0)
-	falseData := s.snode.Output(1)
-	falseTime := s.snode.OutputTime(1)
+	trueData := s.Output(0)
+	trueTime := s.OutputTime(0)
+	falseData := s.Output(1)
+	falseTime := s.OutputTime(1)
 	trueData.Resize(trueCount)
 	trueTime.Resize(trueCount)
 	falseData.Resize(falseCount)
 	falseTime.Resize(falseCount)
-	var trueIdx, falseIdx int64 = 0, 0
+	var trueIdx, falseIdx int = 0, 0
 	for i := range data.Data {
-		timeOffset := int64(i) * 8
 		if data.Data[i] == 1 {
 			trueData.Data[trueIdx] = 1
-			copy(trueTime.Data[trueIdx*8:(trueIdx+1)*8], time.Data[timeOffset:timeOffset+8])
+			telem.CopyValue(*trueTime, time, trueIdx, i)
 			trueIdx++
 		} else {
 			falseData.Data[falseIdx] = 0
-			copy(falseTime.Data[falseIdx*8:(falseIdx+1)*8], time.Data[timeOffset:timeOffset+8])
+			telem.CopyValue(*falseTime, time, falseIdx, i)
 			falseIdx++
 		}
 	}
@@ -95,7 +96,7 @@ func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-	return &selectNode{snode: cfg.State}, nil
+	return &selectNode{Node: cfg.State}, nil
 }
 
 func NewFactory() node.Factory {

@@ -44,7 +44,7 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	}
 	return &binaryOperator{
 		state: cfg.State,
-		op:    cat[cfg.State.Output(0).DataType],
+		op:    cat[cfg.State.Input(0).DataType],
 	}, nil
 }
 

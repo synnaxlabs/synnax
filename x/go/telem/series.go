@@ -152,6 +152,15 @@ func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	f(s.Data[i*int(s.DataType.Density()):], v)
 }
 
+func CopyValue(dst, src Series, dstIdx, srcIdx int) {
+	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
+		panic("cannot copy values from non-variable series")
+	}
+	dstDen := int(dst.DataType.Density())
+	srcDen := int(src.DataType.Density())
+	copy(dst.Data[dstIdx*dstDen:(dstIdx+1)*dstDen], src.Data[srcIdx*srcDen:(srcIdx+1)*srcDen])
+}
+
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
 // alignment of the first sample, and the upper bound is the alignment of the last
 // sample + 1. The lower bound is inclusive, while the upper bound is exclusive.

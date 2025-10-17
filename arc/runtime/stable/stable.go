@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 var (
@@ -55,31 +56,30 @@ type stableFor struct {
 
 func (s *stableFor) Init(context.Context, func(string)) {}
 
-func (s *stableFor) Next(ctx context.Context, onOutput func(string)) {
-	if !s.state.RefreshInputs() {
-		return
-	}
-	data := s.state.Input(0)
-	for _, currentValue := range data.Data {
-		if s.value == nil || *s.value != currentValue {
-			s.value = &currentValue
-			s.lastChanged = s.now()
+func (s *stableFor) Next(_ context.Context, onOutput func(string)) {
+	if s.state.RefreshInputs() {
+		inputData := s.state.Input(0)
+		inputTime := s.state.InputTime(0)
+		if inputData.Len() > 0 {
+			for i := int64(0); i < inputData.Len(); i++ {
+				currentValue := telem.ValueAt[uint8](inputData, int(i))
+				currentTime := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+				if s.value == nil || *s.value != currentValue {
+					s.value = &currentValue
+					s.lastChanged = currentTime
+				}
+			}
 		}
 	}
+
 	if s.value == nil {
 		return
 	}
 	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || *s.lastSent != currentValue {
-			outData := s.state.Output(0)
-			outTime := s.state.OutputTime(0)
-			outData.Resize(1)
-			outData.Data[0] = currentValue
-			outTime.Resize(1)
-			now := s.now()
-			marshalF := telem.MarshalF[telem.TimeStamp](telem.TimeStampT)
-			marshalF(outTime.Data[0:8], now)
+			*s.state.Output(0) = telem.NewSeriesV[uint8](currentValue)
+			*s.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
 			s.lastSent = &currentValue
 			onOutput(ir.DefaultOutputParam)
 		}
@@ -98,24 +98,25 @@ func NewFactory(cfg FactoryConfig) node.Factory {
 	return &stableFactory{cfg: cfg}
 }
 
+type config struct {
+	Duration telem.TimeSpan
+}
+
+var configSchema = zyn.Object(map[string]zyn.Schema{
+	"duration": zyn.Int64().Coerce(),
+})
+
 func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.NotFound
 	}
-	var duration telem.TimeSpan
-	switch v := cfg.Node.ConfigValues["duration"].(type) {
-	case float64:
-		duration = telem.TimeSpan(v)
-	case int:
-		duration = telem.TimeSpan(v)
-	case int64:
-		duration = telem.TimeSpan(v)
-	default:
-		duration = telem.TimeSpan(0)
+	var configVals config
+	if err := configSchema.Parse(cfg.Node.ConfigValues, &configVals); err != nil {
+		return nil, err
 	}
 	now := f.cfg.Now
 	if now == nil {
 		now = telem.Now
 	}
-	return &stableFor{state: cfg.State, duration: duration, now: now}, nil
+	return &stableFor{state: cfg.State, duration: configVals.Duration, now: now}, nil
 }

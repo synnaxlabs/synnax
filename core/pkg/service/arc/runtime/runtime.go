@@ -222,6 +222,7 @@ func NewStateConfig(
 		ChannelDigests: channelDigests,
 		Edges:          module.IR.Edges,
 		ReactiveDeps:   reactiveDeps,
+		Nodes:          module.Nodes,
 	}, nil
 }
 
