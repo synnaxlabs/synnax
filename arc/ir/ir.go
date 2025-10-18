@@ -10,9 +10,7 @@
 package ir
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/x/set"
 )
 
 // DefaultOutputParam is the parameter name for single-output functions and stages.
@@ -25,28 +23,6 @@ const (
 	// RHSInputParam is the right-hand side parameter name for binary operators.
 	RHSInputParam = "b"
 )
-
-// Channels tracks which Synnax channels a node reads from and writes to.
-type Channels struct {
-	Read  set.Set[uint32] `json:"read"`
-	Write set.Set[uint32] `json:"write"`
-}
-
-// NewChannels creates an empty Channels with initialized maps.
-func NewChannels() Channels {
-	return Channels{
-		Read:  make(set.Set[uint32]),
-		Write: make(set.Set[uint32]),
-	}
-}
-
-// OverrideChannels creates a Channels from other, ensuring non-nil maps.
-func OverrideChannels(other Channels) Channels {
-	return Channels{
-		Read:  lo.Ternary(other.Read != nil, other.Read, make(set.Set[uint32])),
-		Write: lo.Ternary(other.Write != nil, other.Write, make(set.Set[uint32])),
-	}
-}
 
 // IR is the intermediate representation of an Arc program. It contains function
 // definitions, instantiated nodes, dataflow edges, execution stratification, and

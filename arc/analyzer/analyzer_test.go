@@ -222,9 +222,9 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
-	Describe("Type Signatures", func() {
-		Describe("Functions", func() {
-			It("Should bind function parameter and return types to the function signature", func() {
+	Describe("Functions", func() {
+		Describe("Input, Output, and Config Binding", func() {
+			It("Should bind function input and output types to the function signature", func() {
 				prog := MustSucceed(parser.Parse(`
 					func add(x f64, y f64) f64 {
 						return x + y
@@ -255,10 +255,8 @@ var _ = Describe("Analyzer", func() {
 				blockChildren := funcScope.FilterChildrenByKind(symbol.KindBlock)
 				Expect(blockChildren).To(HaveLen(1))
 			})
-		})
 
-		Describe("Tasks", func() {
-			It("Should bind func config, runtime params and return types to the func signature", func() {
+			It("Should bind func config, runtime params and output types to the func signature", func() {
 				prog := MustSucceed(parser.Parse(`
 				func controller{
 					setpoint f64
@@ -305,104 +303,133 @@ var _ = Describe("Analyzer", func() {
 				Expect(configScopeParamScopes[1].ID).To(Equal(1))
 			})
 		})
-	})
 
-	Describe("Return", func() {
-		It("Should return true for a valid return type on a function", func() {
-			prog := MustSucceed(parser.Parse(`
+		Describe("Output Statements", func() {
+			It("Should return true for a valid return type on a function", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() i64 {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-		})
+			})
 
-		It("Should correctly infer a literal return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should correctly infer a literal return type", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-		})
+			})
 
-		It("Should correctly infer an expression literal return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should correctly infer an expression literal return type", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 1 + 1
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-		})
+			})
 
-		It("Should return an error for a floating point literal on an integer return", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should return an error for a floating point literal on an integer return", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() i32 {
 					return 1.0
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
-		})
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
+				Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
+			})
 
-		It("Should not return an error for an integer literal on a floating point return", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should not return an error for an integer literal on a floating point return", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() f32 {
 					return 12
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 
-		})
+			})
 
-		It("Should return an error when there is a return statement on a void function", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should return an error when there is a return statement on a void function", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() {
 					return 5
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(ContainSubstring("unexpected return value in function/func with void return type"))
-		})
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
+				Expect(first.Message).To(ContainSubstring("unexpected return value in function/func with void return type"))
+			})
 
-		It("Should return an error for a missing return with a function that has a return type", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should return an error for a missing return with a function that has a return type", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() f64 {
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
-		})
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
+				Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
+			})
 
-		It("Should return an error for a function that doesn't have a return type on all code paths", func() {
-			prog := MustSucceed(parser.Parse(`
+			It("Should return an error for a function that doesn't have a return type on all code paths", func() {
+				prog := MustSucceed(parser.Parse(`
 				func dog() f64 {
 					if (5 > 3) {
 						return 2.3
 					}
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
+				Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
+			})
+		})
+
+		Describe("Channels", func() {
+			It("Should correctly bind global channels used in function body", func() {
+				prog := MustSucceed(parser.Parse(`
+					func add() f32 {
+						return (ox_pt_1 + ox_pt_2) / 2
+					}
+				`))
+				resolver := symbol.MapResolver{
+					"ox_pt_1": symbol.Symbol{
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   12,
+					},
+					"ox_pt_2": symbol.Symbol{
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   13,
+					},
+				}
+				ctx := context.CreateRoot(bCtx, prog, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+				f := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
+				Expect(f.Channels.Read).To(HaveLen(2))
+				Expect(f.Channels.Write).To(BeEmpty())
+				Expect(f.Channels.Read.Contains(12)).To(BeTrue())
+				Expect(f.Channels.Read.Contains(13)).To(BeTrue())
+			})
 		})
 	})
 

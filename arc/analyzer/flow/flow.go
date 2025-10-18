@@ -56,12 +56,12 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	stageType, ok := resolveStage(ctx, name)
+	fnType, ok := resolvefn(ctx, name)
 	if !ok {
 		return false
 	}
 
-	if _, ok := validateStageConfig(ctx, name, stageType.Type, ctx.AST.ConfigValues(), ctx.AST); !ok {
+	if _, ok := validatefnConfig(ctx, name, fnType.Type, ctx.AST.ConfigValues(), ctx.AST); !ok {
 		return false
 	}
 	if prevNode == nil {
@@ -82,8 +82,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			)
 			return false
 		}
-		if stageType.Type.Inputs.Count() > 0 {
-			_, paramType := stageType.Type.Inputs.At(0)
+		if fnType.Type.Inputs.Count() > 0 {
+			_, paramType := fnType.Type.Inputs.At(0)
 			if channelSym.Type.Kind != types.KindChan || channelSym.Type.ValueType == nil {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"%s is not a valid channel",
@@ -113,8 +113,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		if exprType.Kind == types.KindChan && exprType.ValueType != nil {
 			exprType = *exprType.ValueType
 		}
-		if stageType.Type.Inputs.Count() > 0 {
-			_, paramType := stageType.Type.Inputs.At(0)
+		if fnType.Type.Inputs.Count() > 0 {
+			_, paramType := fnType.Type.Inputs.At(0)
 			if err := atypes.Check(
 				ctx.Constraints,
 				exprType,
@@ -131,9 +131,9 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				return false
 			}
 		}
-	} else if prevStageNode := prevNode.Function(); prevStageNode != nil {
-		prevStageName := prevStageNode.IDENTIFIER().GetText()
-		prevStageType, ok := resolveStage(ctx, prevStageName)
+	} else if prevfnNode := prevNode.Function(); prevfnNode != nil {
+		prevfnName := prevfnNode.IDENTIFIER().GetText()
+		prevfnType, ok := resolvefn(ctx, prevfnName)
 		if !ok {
 			return false
 		}
@@ -148,31 +148,31 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 
-		if !hasRoutingTableBetween && stageType.Type.Inputs.Count() > 1 {
+		if !hasRoutingTableBetween && fnType.Type.Inputs.Count() > 1 {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s has more than one parameter", name),
 				ctx.AST,
 			)
 			return false
 		}
-		if !hasRoutingTableBetween && stageType.Type.Inputs.Count() > 0 {
-			_, t := stageType.Type.Inputs.At(0)
+		if !hasRoutingTableBetween && fnType.Type.Inputs.Count() > 0 {
+			_, t := fnType.Type.Inputs.At(0)
 			var prevOutputType types.Type
-			if outputType, ok := prevStageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			if outputType, ok := prevfnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				prevOutputType = outputType
-			} else if prevStageType.Type.Outputs.Count() > 0 {
+			} else if prevfnType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"func '%s' has named outputs and requires a routing table",
-					prevStageName,
+					prevfnName,
 				), ctx.AST)
 				return false
 			}
 			if err := atypes.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
-				"flow connection between stages"); err != nil {
+				"flow connection between fns"); err != nil {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"return type %s of %s is not equal to argument type %s of %s",
 					prevOutputType,
-					prevStageName,
+					prevfnName,
 					t,
 					name,
 				), ctx.AST)
@@ -193,7 +193,7 @@ func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool 
 	return true
 }
 
-func resolveStage[T antlr.ParserRuleContext](
+func resolvefn[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	name string,
 ) (*symbol.Scope, bool) {
@@ -209,10 +209,10 @@ func resolveStage[T antlr.ParserRuleContext](
 	return sym, true
 }
 
-func validateStageConfig[T antlr.ParserRuleContext](
+func validatefnConfig[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	stageName string,
-	stageType types.Type,
+	fnName string,
+	fnType types.Type,
 	configBlock parser.IConfigValuesContext,
 	configNode antlr.ParserRuleContext,
 ) (map[string]bool, bool) {
@@ -225,10 +225,10 @@ func validateStageConfig[T antlr.ParserRuleContext](
 		for _, configVal := range namedVals.AllNamedConfigValue() {
 			key := configVal.IDENTIFIER().GetText()
 			configParams[key] = true
-			expectedType, exists := stageType.Config.Get(key)
+			expectedType, exists := fnType.Config.Get(key)
 			if !exists {
 				ctx.Diagnostics.AddError(
-					errors.Newf("unknown config parameter '%s' for func '%s'", key, stageName),
+					errors.Newf("unknown config parameter '%s' for func '%s'", key, fnName),
 					configVal,
 				)
 				return nil, false
@@ -240,7 +240,7 @@ func validateStageConfig[T antlr.ParserRuleContext](
 				}
 				exprType := atypes.InferFromExpression(childCtx)
 				if err := atypes.Check(ctx.Constraints, expectedType, exprType, configVal,
-					"config parameter '"+key+"' for func '"+stageName+"'"); err != nil {
+					"config parameter '"+key+"' for func '"+fnName+"'"); err != nil {
 					ctx.Diagnostics.AddError(
 						errors.Newf(
 							"type mismatch: config parameter '%s' expects %s but got %s",
@@ -262,10 +262,10 @@ func validateStageConfig[T antlr.ParserRuleContext](
 		return nil, false
 	}
 
-	for paramName := range stageType.Config.Iter() {
+	for paramName := range fnType.Config.Iter() {
 		if !configParams[paramName] {
 			ctx.Diagnostics.AddError(
-				errors.Newf("missing required config parameter '%s' for func '%s'", paramName, stageName),
+				errors.Newf("missing required config parameter '%s' for func '%s'", paramName, fnName),
 				configNode,
 			)
 			return nil, false
@@ -331,33 +331,33 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 		return false
 	}
 
-	stageName := PrevFunc.IDENTIFIER().GetText()
-	stageType, ok := resolveStage(ctx, stageName)
+	fnName := PrevFunc.IDENTIFIER().GetText()
+	fnType, ok := resolvefn(ctx, fnName)
 	if !ok {
 		return false
 	}
 
-	_, hasDefaultOutput := stageType.Type.Outputs.Get(ir.DefaultOutputParam)
-	hasNamedOutputs := stageType.Type.Outputs.Count() > 1 || (stageType.Type.Outputs.Count() == 1 && !hasDefaultOutput)
+	_, hasDefaultOutput := fnType.Type.Outputs.Get(ir.DefaultOutputParam)
+	hasNamedOutputs := fnType.Type.Outputs.Count() > 1 || (fnType.Type.Outputs.Count() == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
 		ctx.Diagnostics.AddError(
-			errors.Newf("func '%s' does not have named outputs, cannot use routing table", stageName),
+			errors.Newf("func '%s' does not have named outputs, cannot use routing table", fnName),
 			ctx.AST,
 		)
 		return false
 	}
 
 	var (
-		nextFunc      parser.IFunctionContext
-		nextStageType types.Type
+		nextFunc   parser.IFunctionContext
+		nextfnType types.Type
 	)
 	for _, node := range nodesAfter {
 		if fn := node.Function(); fn != nil {
 			nextFunc = fn
-			nextStageName := nextFunc.IDENTIFIER().GetText()
-			nextStageScope, err := ctx.Scope.Resolve(ctx, nextStageName)
-			if err == nil && nextStageScope.Kind == symbol.KindFunction {
-				nextStageType = nextStageScope.Type
+			nextfnName := nextFunc.IDENTIFIER().GetText()
+			nextfnScope, err := ctx.Scope.Resolve(ctx, nextfnName)
+			if err == nil && nextfnScope.Kind == symbol.KindFunction {
+				nextfnType = nextfnScope.Type
 			}
 			break
 		}
@@ -367,10 +367,10 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.IDENTIFIER(0).GetText()
 
-		outputType, exists := stageType.Type.Outputs.Get(outputName)
+		outputType, exists := fnType.Type.Outputs.Get(outputName)
 		if !exists {
 			ctx.Diagnostics.AddError(
-				errors.Newf("func '%s' does not have output '%s'", stageName, outputName),
+				errors.Newf("func '%s' does not have output '%s'", fnName, outputName),
 				entry,
 			)
 			return false
@@ -388,7 +388,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 				return false
 			}
 
-			if _, exists := nextStageType.Inputs.Get(targetParamName); !exists {
+			if _, exists := nextfnType.Inputs.Get(targetParamName); !exists {
 				ctx.Diagnostics.AddError(
 					errors.Newf(
 						"func '%s' does not have parameter '%s'",
@@ -409,7 +409,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
-			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType, nextStageType, targetParam) {
+			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType, nextfnType, targetParam) {
 				return false
 			}
 		}
@@ -432,8 +432,8 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		return false
 	}
 
-	stageName := nextfunc.IDENTIFIER().GetText()
-	stageType, ok := resolveStage(ctx, stageName)
+	fnName := nextfunc.IDENTIFIER().GetText()
+	fnType, ok := resolvefn(ctx, fnName)
 	if !ok {
 		return false
 	}
@@ -456,10 +456,10 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 
 		paramName := lastNode.ChannelIdentifier().IDENTIFIER().GetText()
 
-		paramType, exists := stageType.Type.Inputs.Get(paramName)
+		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
 			ctx.Diagnostics.AddError(
-				errors.Newf("func '%s' does not have parameter '%s'", stageName, paramName),
+				errors.Newf("func '%s' does not have parameter '%s'", fnName, paramName),
 				lastNode,
 			)
 			return false
@@ -483,21 +483,21 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 func analyzeRoutingTargetWithParam(
 	ctx context.Context[parser.IFlowNodeContext],
 	sourceType types.Type,
-	nextStageType types.Type,
+	nextfnType types.Type,
 	targetParam *string,
 ) bool {
 	// Handle func invocation target
 	if fn := ctx.AST.Function(); fn != nil {
-		stageName := fn.IDENTIFIER().GetText()
-		stageType, ok := resolveStage(ctx, stageName)
+		fnName := fn.IDENTIFIER().GetText()
+		fnType, ok := resolvefn(ctx, fnName)
 		if !ok {
 			return false
 		}
 
-		if _, ok := validateStageConfig(
+		if _, ok := validatefnConfig(
 			ctx,
-			stageName,
-			stageType.Type,
+			fnName,
+			fnType.Type,
 			fn.ConfigValues(),
 			fn,
 		); !ok {
@@ -506,22 +506,22 @@ func analyzeRoutingTargetWithParam(
 
 		if targetParam != nil {
 			var outputType types.Type
-			if outType, ok := stageType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType
-			} else if stageType.Type.Outputs.Count() > 0 {
+			} else if fnType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"func '%s' has named outputs and requires explicit output selection",
-					stageName,
+					fnName,
 				), ctx.AST)
 				return false
 			}
 
-			if paramType, exists := nextStageType.Inputs.Get(*targetParam); exists {
+			if paramType, exists := nextfnType.Inputs.Get(*targetParam); exists {
 				if err := atypes.Check(ctx.Constraints, outputType, paramType, ctx.AST,
 					"routing table parameter mapping"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
 						"type mismatch: func %s output type %s does not match target parameter %s type %s",
-						stageName,
+						fnName,
 						outputType,
 						*targetParam,
 						paramType,
@@ -530,14 +530,14 @@ func analyzeRoutingTargetWithParam(
 				}
 			}
 		} else {
-			if stageType.Type.Inputs.Count() > 0 {
-				_, paramType := stageType.Type.Inputs.At(0)
+			if fnType.Type.Inputs.Count() > 0 {
+				_, paramType := fnType.Type.Inputs.At(0)
 				if err := atypes.Check(ctx.Constraints, sourceType, paramType, ctx.AST,
 					"routing table output to func parameter"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
 						"type mismatch: output type %s does not match func %s parameter type %s",
 						sourceType,
-						stageName,
+						fnName,
 						paramType,
 					), ctx.AST)
 					return false

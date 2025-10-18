@@ -72,39 +72,6 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Analyze", func() {
-		It("Should correctly analyze a single stage", func() {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "add",
-						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64(), types.I64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-						Body: ir.Body{Raw: `{
-							return a + b
-						}`},
-					},
-				},
-			}
-			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.Functions).To(HaveLen(1))
-			functionScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
-			Expect(functionScope.Children).To(HaveLen(3))
-			params := functionScope.FilterChildrenByKind(symbol.KindInput)
-			Expect(params).To(HaveLen(2))
-			Expect(params[0].Name).To(Equal("a"))
-			Expect(params[0].Type).To(Equal(types.I64()))
-			Expect(params[1].Name).To(Equal("b"))
-			Expect(params[1].Type).To(Equal(types.I64()))
-		})
-
 		It("Should correctly analyze a single function", func() {
 			g := graph.Graph{
 				Functions: []ir.Function{
@@ -129,7 +96,7 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(1))
 			funcScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
-			Expect(funcScope.Children).To(HaveLen(3))
+			Expect(funcScope.Children).To(HaveLen(4))
 			params := funcScope.FilterChildrenByKind(symbol.KindInput)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))

@@ -246,7 +246,7 @@ var _ = Describe("Flow Statements", func() {
 				output=valve_cmd
 			}
 
-			// Direct channel to channel piping (no stage)
+			// Direct channel to channel piping (no fn)
 			// This represents a direct connection/pass-through
 			sensor_chan -> output_chan
 
@@ -280,7 +280,7 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// Channel pass-through - these trigger tasks on channel updates
-			// The channel IS the implicit first parameter to the stage
+			// The channel IS the implicit first parameter to the fn
 			temperature -> controller{temp=temperature, setpoint=100.0}
 
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
@@ -313,12 +313,12 @@ var _ = Describe("Flow Statements", func() {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
-			// The analyzer should have converted the channel source to an "on" stage
+			// The analyzer should have converted the channel source to an "on" fn
 			// This test verifies that the "on" func is required in the resolver
 		})
 
 		It("Using channel as source", func() {
-			// Create a resolver without the "on" stage
+			// Create a resolver without the "on" fn
 			noOnResolver := symbol.MapResolver{
 				"sensor_chan": symbol.Symbol{
 					Name: "sensor_chan",
@@ -347,7 +347,7 @@ var _ = Describe("Flow Statements", func() {
 func alarm{} () {}
 func logger{} () {}
 
-// Expression as source - should be converted to anonymous stage
+// Expression as source - should be converted to anonymous fn
 // The expression "sensor_chan > 100" becomes an anonymous func that:
 // 1. Reads from sensor_chan
 // 2. Evaluates the comparison
@@ -391,7 +391,7 @@ sensor_chan > threshold -> alarm{}
 		})
 	})
 
-	Describe("Multi-Output Stages and Routing Tables", func() {
+	Describe("Multi-Output fns and Routing Tables", func() {
 		It("Should analyze func with multiple named outputs", func() {
 			ast := MustSucceed(parser.Parse(`
 			func demux{

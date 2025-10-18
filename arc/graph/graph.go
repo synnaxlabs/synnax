@@ -130,26 +130,31 @@ func Analyze(
 	}
 
 	// Step 3: Create Fresh Types for Each Node
-	freshTypes := make(map[string]types.Type)
+	freshFnTypes := make(map[string]types.Type)
 	for _, n := range g.Nodes {
 		fnSym, err := ctx.Scope.Resolve(ctx, n.Type)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, nil)
 			return ir.IR{}, *ctx.Diagnostics
 		}
-		freshTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
+		freshFnTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
 	}
 
 	// Step 4: Check Config Values Against Function Config Types
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
+		fnSym, err := ctx.Scope.Resolve(ctx, n.Type)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, nil)
+			return ir.IR{}, *ctx.Diagnostics
+		}
 		irNodes[i] = ir.Node{
 			Key:          n.Key,
 			Type:         n.Type,
 			ConfigValues: n.ConfigValues,
-			Channels:     ir.NewChannels(),
+			Channels:     fnSym.Channels.Copy(),
 		}
-		freshType := freshTypes[n.Key]
+		freshType := freshFnTypes[n.Key]
 		if freshType.Config == nil {
 			continue
 		}
@@ -200,7 +205,7 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 
-		sourceType, ok := freshTypes[sourceNode.Key].Outputs.Get(edge.Source.Param)
+		sourceType, ok := freshFnTypes[sourceNode.Key].Outputs.Get(edge.Source.Param)
 		if !ok {
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
@@ -212,7 +217,7 @@ func Analyze(
 			return ir.IR{}, *ctx.Diagnostics
 		}
 
-		targetType, ok := freshTypes[targetNode.Key].Inputs.Get(edge.Target.Param)
+		targetType, ok := freshFnTypes[targetNode.Key].Inputs.Get(edge.Target.Param)
 		if !ok {
 			ctx.Diagnostics.AddError(
 				errors.Wrapf(
@@ -242,7 +247,7 @@ func Analyze(
 
 	// Step 6: Build IR Nodes with Unified Type Constraints
 	for i, n := range g.Nodes {
-		substituted := ctx.Constraints.ApplySubstitutions(freshTypes[n.Key])
+		substituted := ctx.Constraints.ApplySubstitutions(freshFnTypes[n.Key])
 		irN := irNodes[i]
 		irN.Outputs = *substituted.Outputs
 		irN.Inputs = *substituted.Inputs

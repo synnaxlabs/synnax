@@ -40,6 +40,10 @@ const (
 	KindFunction
 )
 
+func NewFunctionProperties() FunctionProperties {
+	return FunctionProperties{Inputs: &Params{}, Outputs: &Params{}, Config: &Params{}}
+}
+
 type FunctionProperties struct {
 	Inputs  *maps.Ordered[string, Type] `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
 	Outputs *maps.Ordered[string, Type] `json:"outputs,omitempty" msgpack:"outputs,omitempty"`

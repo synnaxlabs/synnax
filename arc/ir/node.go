@@ -11,19 +11,20 @@ package ir
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
 // Node represents an instantiated function or stage in the dataflow graph. Each node
 // is an instance of a Function with concrete configuration values.
 type Node struct {
-	Key          string         `json:"key"`
-	Type         string         `json:"type"`
-	ConfigValues map[string]any `json:"config_values"`
-	Channels     Channels       `json:"channels"`
-	Config       types.Params   `json:"config"`
-	Inputs       types.Params   `json:"inputs"`
-	Outputs      types.Params   `json:"outputs"`
+	Key          string          `json:"key"`
+	Type         string          `json:"type"`
+	ConfigValues map[string]any  `json:"config_values"`
+	Channels     symbol.Channels `json:"channels"`
+	Config       types.Params    `json:"config"`
+	Inputs       types.Params    `json:"inputs"`
+	Outputs      types.Params    `json:"outputs"`
 }
 
 // Nodes is a collection of node instances.

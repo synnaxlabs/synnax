@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 package symbol
 
 import (
@@ -30,6 +21,34 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 	}
 }
 
+// Channels tracks which Synnax channels a node reads from and writes to.
+type Channels struct {
+	Read  set.Set[uint32] `json:"read"`
+	Write set.Set[uint32] `json:"write"`
+}
+
+func (c Channels) Copy() Channels {
+	return Channels{
+		Read:  c.Read.Copy(),
+		Write: c.Write.Copy(),
+	}
+}
+
+func NewChannels() Channels {
+	return Channels{
+		Read:  make(set.Set[uint32]),
+		Write: make(set.Set[uint32]),
+	}
+}
+
+// OverrideChannels creates a Channels from other, ensuring non-nil maps.
+func OverrideChannels(other Channels) Channels {
+	return Channels{
+		Read:  lo.Ternary(other.Read != nil, other.Read, make(set.Set[uint32])),
+		Write: lo.Ternary(other.Write != nil, other.Write, make(set.Set[uint32])),
+	}
+}
+
 type Scope struct {
 	Symbol
 	GlobalResolver Resolver
@@ -37,8 +56,7 @@ type Scope struct {
 	Children       []*Scope
 	Counter        *int
 	OnResolve      func(ctx context.Context, s *Scope) error
-	ChannelsRead   set.Set[uint32]
-	ChannelsWrite  set.Set[uint32]
+	Channels       Channels
 }
 
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {

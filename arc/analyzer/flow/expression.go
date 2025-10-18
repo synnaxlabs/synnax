@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeExpression converts an inline expression into a synthetic stage
+// analyzeExpression converts an inline expression into a synthetic fn
 func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	exprType := atypes.InferFromExpression(ctx)
 	if exprType.Kind == types.KindChan {
@@ -27,7 +27,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	}
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs.Put(ir.DefaultOutputParam, exprType)
-	stageScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Name: "",
 		Kind: symbol.KindFunction,
 		Type: t,
@@ -37,8 +37,8 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	stageScope = stageScope.AutoName("__expr_")
-	blockScope, err := stageScope.Add(ctx, symbol.Symbol{
+	fnScope = fnScope.AutoName("__expr_")
+	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Name: "",
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,

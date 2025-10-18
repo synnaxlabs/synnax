@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/maps"
-	"github.com/synnaxlabs/x/set"
 )
 
 type Diagnostics = diagnostics.Diagnostics
@@ -109,11 +108,10 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
-		fn.ChannelsRead = make(set.Set[uint32])
-		fn.ChannelsWrite = make(set.Set[uint32])
+		fn.Channels = symbol.NewChannels()
 		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
 			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
-				fn.ChannelsRead.Add(uint32(s.ID))
+				fn.Channels.Read.Add(uint32(s.ID))
 			}
 			return nil
 		}

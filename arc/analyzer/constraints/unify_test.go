@@ -115,6 +115,13 @@ var _ = Describe("Type Unification", func() {
 				Expect(system.Unify()).To(MatchError(ContainSubstring("cyclic")))
 			})
 
+			It("should detect cycles in series types", func() {
+				tv := types.NewTypeVariable("T", nil)
+				cyclicType := types.Series(tv)
+				system.AddEquality(tv, cyclicType, nil, "T = series T")
+				Expect(system.Unify()).To(MatchError(ContainSubstring("cyclic")))
+			})
+
 			It("should report unresolved type variables with no constraints", func() {
 				tv := types.NewTypeVariable("T", nil)
 				system.AddEquality(tv, tv, nil, "T = T") // Self-equality doesn't help
@@ -128,6 +135,25 @@ var _ = Describe("Type Unification", func() {
 				Expect(system.Unify()).To(Succeed())
 				substitution := MustBeOk(system.GetSubstitution("T"))
 				Expect(substitution).To(Equal(types.F64()))
+			})
+
+			It("should fail when unifying channel with non-channel type", func() {
+				chanF32 := types.Chan(types.F32())
+				system.AddEquality(chanF32, types.I32(), nil, "chan f32 = i32")
+				Expect(system.Unify()).To(MatchError(ContainSubstring("cannot unify channel")))
+			})
+
+			It("should fail when unifying series with non-series type", func() {
+				seriesF32 := types.Series(types.F32())
+				system.AddEquality(seriesF32, types.String(), nil, "series f32 = string")
+				Expect(system.Unify()).To(MatchError(ContainSubstring("cannot unify channel")))
+			})
+
+			It("should fail when constraint doesn't match and not compatible", func() {
+				f32Constraint := types.F32()
+				tv := types.NewTypeVariable("T", &f32Constraint)
+				system.AddEquality(tv, types.I32(), nil, "T = i32")
+				Expect(system.Unify()).To(MatchError(ContainSubstring("does not match constraint")))
 			})
 		})
 
@@ -150,6 +176,124 @@ var _ = Describe("Type Unification", func() {
 			system.AddEquality(tv1, types.F32(), nil, "tv1 = f32")
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.ApplySubstitutions(tv2)).To(Equal(types.F32()))
+		})
+
+		Describe("Type Variable Constraint Preferences", func() {
+			It("should prefer constrained type variable over unconstrained", func() {
+				constraint := types.NumericConstraint()
+				tv1 := types.NewTypeVariable("T1", &constraint)
+				tv2 := types.NewTypeVariable("T2", nil)
+				system.AddEquality(tv1, tv2, nil, "T1 = T2")
+				Expect(system.Unify()).To(Succeed())
+				sub2 := MustBeOk(system.GetSubstitution("T2"))
+				Expect(sub2.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sub2.Name).To(Equal("T1"))
+			})
+
+			It("should prefer constrained over unconstrained in reverse order", func() {
+				constraint := types.NumericConstraint()
+				tv1 := types.NewTypeVariable("T1", nil)
+				tv2 := types.NewTypeVariable("T2", &constraint)
+				system.AddEquality(tv1, tv2, nil, "T1 = T2")
+				Expect(system.Unify()).To(Succeed())
+				sub1 := MustBeOk(system.GetSubstitution("T1"))
+				Expect(sub1.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sub1.Name).To(Equal("T2"))
+			})
+
+			It("should handle two unconstrained variables with different names", func() {
+				tv1 := types.NewTypeVariable("A", nil)
+				tv2 := types.NewTypeVariable("B", nil)
+				system.AddEquality(tv1, tv2, nil, "A = B")
+				system.AddEquality(tv1, types.F32(), nil, "A = f32")
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(tv1)).To(Equal(types.F32()))
+				Expect(system.ApplySubstitutions(tv2)).To(Equal(types.F32()))
+			})
+		})
+
+		Describe("Numeric Promotion with Compatible Constraints", func() {
+			It("should promote i32 constraint with f32 value under compatible", func() {
+				i32Constraint := types.I32()
+				tv := types.NewTypeVariable("T", &i32Constraint)
+				system.AddCompatible(tv, types.F32(), nil, "T ~ f32")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.F32()))
+			})
+
+			It("should promote i32 constraint with f64 value under compatible", func() {
+				i32Constraint := types.I32()
+				tv := types.NewTypeVariable("T", &i32Constraint)
+				system.AddCompatible(tv, types.F64(), nil, "T ~ f64")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.F64()))
+			})
+
+			It("should promote i32 constraint with i64 value to f64 under compatible", func() {
+				i32Constraint := types.I32()
+				tv := types.NewTypeVariable("T", &i32Constraint)
+				system.AddCompatible(tv, types.I64(), nil, "T ~ i64")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				// When mixing 32-bit and 64-bit signed integers, promotes to F64
+				Expect(substitution).To(Equal(types.F64()))
+			})
+
+			It("should promote u32 constraint with u64 value under compatible", func() {
+				u32Constraint := types.U32()
+				tv := types.NewTypeVariable("T", &u32Constraint)
+				system.AddCompatible(tv, types.U64(), nil, "T ~ u64")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.U64()))
+			})
+
+			It("should promote i32 constraint with u32 value to i32 under compatible", func() {
+				i32Constraint := types.I32()
+				tv := types.NewTypeVariable("T", &i32Constraint)
+				system.AddCompatible(tv, types.U32(), nil, "T ~ u32")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.I32()))
+			})
+
+			It("should promote f32 constraint with i64 value to f64 under compatible", func() {
+				f32Constraint := types.F32()
+				tv := types.NewTypeVariable("T", &f32Constraint)
+				system.AddCompatible(tv, types.I64(), nil, "T ~ i64")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.F64()))
+			})
+
+			It("should allow compatible numeric types without type variables", func() {
+				system.AddCompatible(types.I32(), types.F32(), nil, "i32 ~ f32")
+				Expect(system.Unify()).To(Succeed())
+			})
+		})
+
+		Describe("Default Type Selection", func() {
+			It("should default numeric constraint to f64", func() {
+				constraint := types.NumericConstraint()
+				tv := types.NewTypeVariable("T", &constraint)
+				system.AddEquality(tv, tv, nil, "T = T")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.F64()))
+			})
+
+			It("should use concrete constraint type as default", func() {
+				f32Constraint := types.F32()
+				tv := types.NewTypeVariable("T", &f32Constraint)
+				// Unify with another constrained variable with same constraint
+				tv2 := types.NewTypeVariable("T", &f32Constraint)
+				system.AddEquality(tv, tv2, nil, "T = T")
+				Expect(system.Unify()).To(Succeed())
+				substitution := MustBeOk(system.GetSubstitution("T"))
+				Expect(substitution).To(Equal(types.F32()))
+			})
 		})
 
 		Describe("Complex Scenarios", func() {

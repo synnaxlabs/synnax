@@ -291,7 +291,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
 			ctx.Diagnostics.AddError(
-				errors.New("return statement not in function or stage"),
+				errors.New("return statement not in function or fn"),
 				ctx.AST,
 			)
 			return false
@@ -403,10 +403,10 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	}
 
 	if fnErr == nil && fn != nil {
-		if fn.ChannelsWrite == nil {
-			fn.ChannelsWrite = make(set.Set[uint32])
+		if fn.Channels.Write == nil {
+			fn.Channels.Write = make(set.Set[uint32])
 		}
-		fn.ChannelsWrite.Add(uint32(channelSym.ID))
+		fn.Channels.Write.Add(uint32(channelSym.ID))
 	}
 
 	expr := ctx.AST.Expression()

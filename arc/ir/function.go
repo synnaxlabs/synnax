@@ -12,6 +12,7 @@ package ir
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -24,12 +25,12 @@ type Body struct {
 // Function represents a function or stage definition in the IR. Functions are
 // templates that can be instantiated as nodes in the dataflow graph.
 type Function struct {
-	Key      string       `json:"key"`
-	Body     Body         `json:"body"`
-	Config   types.Params `json:"config"`
-	Inputs   types.Params `json:"inputs"`
-	Outputs  types.Params `json:"outputs"`
-	Channels Channels     `json:"channels"`
+	Key      string          `json:"key"`
+	Body     Body            `json:"body"`
+	Config   types.Params    `json:"config"`
+	Inputs   types.Params    `json:"inputs"`
+	Outputs  types.Params    `json:"outputs"`
+	Channels symbol.Channels `json:"channels"`
 }
 
 // Type returns the type signature of f.
