@@ -106,6 +106,8 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 	if shouldReset {
 		r.sampleCount = 0
 		r.state.Output(0).Resize(0)
+		// Refresh inputs again after reset to pick up fresh data (needed for time alignment/high water marking)
+		r.state.RefreshInputs()
 	}
 	inputData := r.state.Input(0)
 	if inputData.Len() == 0 {

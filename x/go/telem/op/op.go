@@ -3991,10 +3991,13 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / float64(inputLen)
 	} else {
@@ -4017,6 +4020,9 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
@@ -4028,7 +4034,7 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4051,6 +4057,9 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
@@ -4062,7 +4071,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4091,10 +4100,13 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / float32(inputLen)
 	} else {
@@ -4117,6 +4129,9 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
@@ -4128,7 +4143,7 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4151,6 +4166,9 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
@@ -4162,7 +4180,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4191,10 +4209,13 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / int64(inputLen)
 	} else {
@@ -4217,6 +4238,9 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
@@ -4228,7 +4252,7 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4251,6 +4275,9 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
@@ -4262,7 +4289,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4291,10 +4318,13 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / int32(inputLen)
 	} else {
@@ -4317,6 +4347,9 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
@@ -4328,7 +4361,7 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4351,6 +4384,9 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
@@ -4362,7 +4398,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4391,10 +4427,13 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / int16(inputLen)
 	} else {
@@ -4417,6 +4456,9 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
@@ -4428,7 +4470,7 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4451,6 +4493,9 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
@@ -4462,7 +4507,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4491,10 +4536,13 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / int8(inputLen)
 	} else {
@@ -4517,6 +4565,9 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
@@ -4528,7 +4579,7 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4551,6 +4602,9 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
@@ -4562,7 +4616,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4591,10 +4645,13 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / uint64(inputLen)
 	} else {
@@ -4617,6 +4674,9 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
@@ -4628,7 +4688,7 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4651,6 +4711,9 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
@@ -4662,7 +4725,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4691,10 +4754,13 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / uint32(inputLen)
 	} else {
@@ -4717,6 +4783,9 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
@@ -4728,7 +4797,7 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4751,6 +4820,9 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
@@ -4762,7 +4834,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4791,10 +4863,13 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / uint16(inputLen)
 	} else {
@@ -4817,6 +4892,9 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
@@ -4828,7 +4906,7 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4851,6 +4929,9 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
@@ -4862,7 +4943,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
@@ -4891,10 +4972,13 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / uint8(inputLen)
 	} else {
@@ -4917,6 +5001,9 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
@@ -4928,7 +5015,7 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -4951,6 +5038,9 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 
 	
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
@@ -4962,7 +5052,7 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {

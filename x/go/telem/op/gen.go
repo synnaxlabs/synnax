@@ -139,10 +139,13 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		newSum += inData[i]
 	}
 
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start: compute average of input samples
 		outData[0] = newSum / {{$.Type.GoType}}(inputLen)
 	} else {
@@ -154,6 +157,9 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 
 	return prevCount + inputLen
 	{{else if eq .Name "Min"}}
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
@@ -165,7 +171,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMin
 	} else {
@@ -177,6 +183,9 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 
 	return prevCount + inputLen
 	{{else if eq .Name "Max"}}
+	// Check if we're starting fresh (either no previous samples or output was reset)
+	outputLen := output.Len()
+	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
@@ -188,7 +197,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		}
 	}
 
-	if prevCount == 0 {
+	if freshStart {
 		// Fresh start
 		outData[0] = newMax
 	} else {
