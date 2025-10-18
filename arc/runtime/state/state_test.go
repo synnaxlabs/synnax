@@ -157,7 +157,8 @@ var _ = Describe("State", func() {
 				timeToWrite := telem.NewSeriesSecondsTSV(100, 200)
 				n.WriteChan(1, dataToWrite, timeToWrite)
 				fr := telem.Frame[uint32]{}
-				fr = s.FlushWrites(fr)
+				fr, changed := s.FlushWrites(fr)
+				Expect(changed).To(BeTrue())
 				Expect(len(fr.Get(1).Series)).To(Equal(1))
 				Expect(len(fr.Get(2).Series)).To(Equal(1))
 				Expect(fr.Get(1).Series[0]).To(telem.MatchSeries(dataToWrite))
@@ -175,7 +176,8 @@ var _ = Describe("State", func() {
 				n := s.Node("writer")
 				n.WriteChan(10, telem.NewSeriesV[int32](42), telem.NewSeriesSecondsTSV(1))
 				n.WriteChan(20, telem.NewSeriesV[int32](99), telem.NewSeriesSecondsTSV(2))
-				fr := s.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := s.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
 				Expect(len(fr.Get(10).Series)).To(Equal(1))
 				Expect(len(fr.Get(11).Series)).To(Equal(1))
 				Expect(len(fr.Get(20).Series)).To(Equal(1))
@@ -193,9 +195,11 @@ var _ = Describe("State", func() {
 				s := state.New(cfg)
 				n := s.Node("writer")
 				n.WriteChan(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
-				fr1 := s.FlushWrites(telem.Frame[uint32]{})
+				fr1, changed := s.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
 				Expect(len(fr1.Get(1).Series)).To(Equal(1))
-				fr2 := s.FlushWrites(telem.Frame[uint32]{})
+				fr2, changed := s.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeFalse())
 				Expect(len(fr2.Get(1).Series)).To(Equal(0))
 			})
 			It("Should accumulate multiple writes before flush", func() {
@@ -210,7 +214,8 @@ var _ = Describe("State", func() {
 				n := s.Node("writer")
 				n.WriteChan(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
 				n.WriteChan(3, telem.NewSeriesV[float32](2.0), telem.NewSeriesSecondsTSV(2))
-				fr := s.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := s.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
 				Expect(len(fr.Get(1).Series)).To(Equal(1))
 				Expect(len(fr.Get(3).Series)).To(Equal(1))
 			})
@@ -229,7 +234,7 @@ var _ = Describe("State", func() {
 					},
 					{
 						Key: "second",
-						Outputs: types.Params{
+						Inputs: types.Params{
 							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.F32()},
 						},
@@ -245,11 +250,11 @@ var _ = Describe("State", func() {
 			s := state.New(cfg)
 			first := s.Node("first")
 			second := s.Node("second")
-			Expect(first.RefreshInputs()).To(BeFalse())
+			Expect(first.RefreshInputs()).To(BeTrue())
 			Expect(second.RefreshInputs()).To(BeFalse())
 			*first.Output(0) = telem.NewSeriesV[float32](1, 2, 3)
 			*first.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			Expect(first.RefreshInputs()).To(BeFalse())
+			Expect(first.RefreshInputs()).To(BeTrue())
 			Expect(second.RefreshInputs()).To(BeTrue())
 			Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
 			Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))

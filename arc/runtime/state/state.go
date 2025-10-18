@@ -152,6 +152,11 @@ type Node struct {
 }
 
 func (n *Node) RefreshInputs() (recalculate bool) {
+	// If node has no inputs, always allow execution
+	if len(n.inputs) == 0 {
+		return true
+	}
+
 	for i, edge := range n.inputs {
 		sourceOutput, exists := n.state.outputs[edge.Source]
 		if !exists || sourceOutput.data.Len() == 0 || sourceOutput.time.Len() == 0 {
@@ -282,4 +287,16 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 
 func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 	n.state.writeChannel(key, value, time)
+}
+
+// ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
+func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
+	series, ok := s.channel.reads[key]
+	return series, ok
+}
+
+// WriteChannelValue writes a single value to a channel (for WASM runtime bindings).
+// For channels with an index, you should also write the timestamp.
+func (s *State) WriteChannelValue(key uint32, value telem.Series) {
+	s.channel.writes[key] = value
 }

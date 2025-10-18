@@ -17,7 +17,6 @@ import (
 // GetChannelRead returns the import index for a channel read function
 func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
 	suffix := getTypeSuffix(t)
-	return 0, nil
 	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
 		return funcIdx, nil
 	}

@@ -40,6 +40,10 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 			longestInputIdx = i
 		}
 	}
+	// If no inputs, execute once
+	if n.ir.Inputs.Count() == 0 {
+		maxLength = 1
+	}
 	if maxLength <= 0 {
 		return
 	}
@@ -50,7 +54,10 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		n.state.Output(i).Resize(maxLength)
 		n.state.OutputTime(i).Resize(maxLength)
 	}
-	longestInputTime := n.state.InputTime(longestInputIdx)
+	var longestInputTime telem.Series
+	if n.ir.Inputs.Count() > 0 {
+		longestInputTime = n.state.InputTime(longestInputIdx)
+	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs.Count() {
 			inputLen := n.state.Input(j).Len()
@@ -60,7 +67,12 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		if err != nil {
 			panic(err)
 		}
-		ts := valueAt(longestInputTime, int(i))
+		var ts uint64
+		if n.ir.Inputs.Count() > 0 {
+			ts = valueAt(longestInputTime, int(i))
+		} else {
+			ts = uint64(telem.Now())
+		}
 		for j, value := range res {
 			if value.changed {
 				setValueAt(*n.state.Output(j), n.offsets[j], value.value)

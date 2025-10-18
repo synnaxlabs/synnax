@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package wasm_test
 
 import (
@@ -9,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -84,7 +94,7 @@ var _ = Describe("Wasm", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod})
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -170,7 +180,7 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
 			*bNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod})
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -256,7 +266,7 @@ var _ = Describe("Wasm", func() {
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20)
 			*yNode.Output(0) = telem.NewSeriesV[float32](25.0)
 			*yNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod})
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -345,7 +355,7 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			*bNode.Output(0) = telem.NewSeriesV[int64](5)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod})
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -373,7 +383,7 @@ var _ = Describe("Wasm", func() {
 			Expect(productTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
 		})
 	})
-	
+
 	Describe("Next with empty inputs", func() {
 		It("Should not execute when all inputs are empty", func() {
 			g := arc.Graph{
@@ -457,7 +467,7 @@ var _ = Describe("Wasm", func() {
 			*numNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			*denNode.Output(0) = telem.NewSeriesV[float64]()
 			*denNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod})
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -470,6 +480,154 @@ var _ = Describe("Wasm", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 			result := *s.Node("divide").Output(0)
 			Expect(result.Len()).To(Equal(int64(0)))
+		})
+	})
+
+	Describe("Runtime Operations - Channel Read", func() {
+		It("Should read from channels using runtime bindings", func() {
+			resolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+					ID:   0,
+				},
+			}
+
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "read_channel",
+						Inputs: types.Params{
+							Keys:   []string{},
+							Values: []types.Type{},
+						},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+						Body: ir.Body{Raw: `{
+							value i32 := sensor
+							return value * 2
+						}`},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
+
+			cfg := state.Config{
+				ChannelDigests: []state.ChannelDigest{
+					{Key: 0, DataType: telem.Int32T},
+				},
+				Nodes: []ir.Node{
+					{
+						Key:  "read_channel",
+						Type: "read_channel",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+					},
+				},
+			}
+			s := state.New(cfg)
+
+			// Ingest test data to channel
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(0, telem.NewSeriesV[int32](21))
+			s.Ingest(fr, func(nodeKey string) {})
+
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
+			Expect(err).ToNot(HaveOccurred())
+			n, err := factory.Create(ctx, node.Config{
+				Node:   cfg.Nodes[0],
+				State:  s.Node("read_channel"),
+				Module: mod,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Trigger execution
+			changed := make(set.Set[string])
+			n.Next(ctx, func(output string) { changed.Add(output) })
+
+			// Verify result
+			result := *s.Node("read_channel").Output(0)
+			Expect(result.Len()).To(BeNumerically(">", 0))
+			vals := telem.UnmarshalSeries[int32](result)
+			Expect(vals[0]).To(Equal(int32(42)))
+		})
+	})
+
+	Describe("Runtime Operations - State Persistence", func() {
+		It("Should persist stateful variables across function calls", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "counter",
+						Inputs: types.Params{
+							Keys:   []string{},
+							Values: []types.Type{},
+						},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 1
+							return count
+						}`},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key:  "counter",
+						Type: "counter",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
+				},
+			}
+			s := state.New(cfg)
+
+			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
+			Expect(err).ToNot(HaveOccurred())
+			n, err := factory.Create(ctx, node.Config{
+				Node:   cfg.Nodes[0],
+				State:  s.Node("counter"),
+				Module: mod,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			// First call - should return 1
+			changed := make(set.Set[string])
+			n.Next(ctx, func(output string) { changed.Add(output) })
+			result1 := *s.Node("counter").Output(0)
+			Expect(result1.Len()).To(Equal(int64(1)))
+			vals1 := telem.UnmarshalSeries[int64](result1)
+			Expect(vals1[0]).To(Equal(int64(1)))
+
+			// Second call - should return 2 (state persisted)
+			changed = make(set.Set[string])
+			n.Next(ctx, func(output string) { changed.Add(output) })
+			result2 := *s.Node("counter").Output(0)
+			Expect(result2.Len()).To(Equal(int64(1)))
+			vals2 := telem.UnmarshalSeries[int64](result2)
+			Expect(vals2[0]).To(Equal(int64(2)))
+
+			// Third call - should return 3 (state persisted)
+			changed = make(set.Set[string])
+			n.Next(ctx, func(output string) { changed.Add(output) })
+			result3 := *s.Node("counter").Output(0)
+			Expect(result3.Len()).To(Equal(int64(1)))
+			vals3 := telem.UnmarshalSeries[int64](result3)
+			Expect(vals3[0]).To(Equal(int64(3)))
 		})
 	})
 })

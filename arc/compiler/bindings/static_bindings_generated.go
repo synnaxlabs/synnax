@@ -46,28 +46,28 @@ type Bindings struct {
 	ChannelBlockingReadString func(context.Context, uint32) uint32
 
 
-	// State operations - use proper Go types
-	StateLoadU8  func(context.Context, uint32, uint32) uint8
+	// State operations - use proper Go types (load takes initValue)
+	StateLoadU8  func(context.Context, uint32, uint32, uint8) uint8
 	StateStoreU8 func(context.Context, uint32, uint32, uint8)
-	StateLoadU16  func(context.Context, uint32, uint32) uint16
+	StateLoadU16  func(context.Context, uint32, uint32, uint16) uint16
 	StateStoreU16 func(context.Context, uint32, uint32, uint16)
-	StateLoadU32  func(context.Context, uint32, uint32) uint32
+	StateLoadU32  func(context.Context, uint32, uint32, uint32) uint32
 	StateStoreU32 func(context.Context, uint32, uint32, uint32)
-	StateLoadU64  func(context.Context, uint32, uint32) uint64
+	StateLoadU64  func(context.Context, uint32, uint32, uint64) uint64
 	StateStoreU64 func(context.Context, uint32, uint32, uint64)
-	StateLoadI8  func(context.Context, uint32, uint32) int8
+	StateLoadI8  func(context.Context, uint32, uint32, int8) int8
 	StateStoreI8 func(context.Context, uint32, uint32, int8)
-	StateLoadI16  func(context.Context, uint32, uint32) int16
+	StateLoadI16  func(context.Context, uint32, uint32, int16) int16
 	StateStoreI16 func(context.Context, uint32, uint32, int16)
-	StateLoadI32  func(context.Context, uint32, uint32) int32
+	StateLoadI32  func(context.Context, uint32, uint32, int32) int32
 	StateStoreI32 func(context.Context, uint32, uint32, int32)
-	StateLoadI64  func(context.Context, uint32, uint32) int64
+	StateLoadI64  func(context.Context, uint32, uint32, int64) int64
 	StateStoreI64 func(context.Context, uint32, uint32, int64)
-	StateLoadF32  func(context.Context, uint32, uint32) float32
+	StateLoadF32  func(context.Context, uint32, uint32, float32) float32
 	StateStoreF32 func(context.Context, uint32, uint32, float32)
-	StateLoadF64  func(context.Context, uint32, uint32) float64
+	StateLoadF64  func(context.Context, uint32, uint32, float64) float64
 	StateStoreF64 func(context.Context, uint32, uint32, float64)
-	StateLoadString  func(context.Context, uint32, uint32) uint32
+	StateLoadString  func(context.Context, uint32, uint32, uint32) uint32
 	StateStoreString func(context.Context, uint32, uint32, uint32)
 
 
@@ -497,7 +497,7 @@ func (b *Bindings) setDefaultStubs() {
 
 	// State operation stubs
 	if b.StateLoadU8 == nil {
-		b.StateLoadU8 = func(ctx context.Context, taskID uint32, key uint32) uint8 {
+		b.StateLoadU8 = func(ctx context.Context, taskID uint32, key uint32, initValue uint8) uint8 {
 			panic("state_load_u8 not implemented")
 		}
 	}
@@ -507,7 +507,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadU16 == nil {
-		b.StateLoadU16 = func(ctx context.Context, taskID uint32, key uint32) uint16 {
+		b.StateLoadU16 = func(ctx context.Context, taskID uint32, key uint32, initValue uint16) uint16 {
 			panic("state_load_u16 not implemented")
 		}
 	}
@@ -517,7 +517,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadU32 == nil {
-		b.StateLoadU32 = func(ctx context.Context, taskID uint32, key uint32) uint32 {
+		b.StateLoadU32 = func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
 			panic("state_load_u32 not implemented")
 		}
 	}
@@ -527,7 +527,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadU64 == nil {
-		b.StateLoadU64 = func(ctx context.Context, taskID uint32, key uint32) uint64 {
+		b.StateLoadU64 = func(ctx context.Context, taskID uint32, key uint32, initValue uint64) uint64 {
 			panic("state_load_u64 not implemented")
 		}
 	}
@@ -537,7 +537,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadI8 == nil {
-		b.StateLoadI8 = func(ctx context.Context, taskID uint32, key uint32) int8 {
+		b.StateLoadI8 = func(ctx context.Context, taskID uint32, key uint32, initValue int8) int8 {
 			panic("state_load_i8 not implemented")
 		}
 	}
@@ -547,7 +547,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadI16 == nil {
-		b.StateLoadI16 = func(ctx context.Context, taskID uint32, key uint32) int16 {
+		b.StateLoadI16 = func(ctx context.Context, taskID uint32, key uint32, initValue int16) int16 {
 			panic("state_load_i16 not implemented")
 		}
 	}
@@ -557,7 +557,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadI32 == nil {
-		b.StateLoadI32 = func(ctx context.Context, taskID uint32, key uint32) int32 {
+		b.StateLoadI32 = func(ctx context.Context, taskID uint32, key uint32, initValue int32) int32 {
 			panic("state_load_i32 not implemented")
 		}
 	}
@@ -567,7 +567,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadI64 == nil {
-		b.StateLoadI64 = func(ctx context.Context, taskID uint32, key uint32) int64 {
+		b.StateLoadI64 = func(ctx context.Context, taskID uint32, key uint32, initValue int64) int64 {
 			panic("state_load_i64 not implemented")
 		}
 	}
@@ -577,7 +577,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadF32 == nil {
-		b.StateLoadF32 = func(ctx context.Context, taskID uint32, key uint32) float32 {
+		b.StateLoadF32 = func(ctx context.Context, taskID uint32, key uint32, initValue float32) float32 {
 			panic("state_load_f32 not implemented")
 		}
 	}
@@ -587,7 +587,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadF64 == nil {
-		b.StateLoadF64 = func(ctx context.Context, taskID uint32, key uint32) float64 {
+		b.StateLoadF64 = func(ctx context.Context, taskID uint32, key uint32, initValue float64) float64 {
 			panic("state_load_f64 not implemented")
 		}
 	}
@@ -597,7 +597,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.StateLoadString == nil {
-		b.StateLoadString = func(ctx context.Context, taskID uint32, key uint32) uint32 {
+		b.StateLoadString = func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
 			panic("state_load_string not implemented")
 		}
 	}
@@ -1908,9 +1908,9 @@ func (b *Bindings) wrapChannelBlockingReadU8() func(context.Context, uint32) uin
 }
 
 // State operation wrappers for u8
-func (b *Bindings) wrapStateLoadU8() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadU8(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadU8() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadU8(ctx, taskID, key, uint8(initValue))
 		return uint32(result)
 	}
 }
@@ -1943,9 +1943,9 @@ func (b *Bindings) wrapChannelBlockingReadU16() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for u16
-func (b *Bindings) wrapStateLoadU16() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadU16(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadU16() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadU16(ctx, taskID, key, uint16(initValue))
 		return uint32(result)
 	}
 }
@@ -1978,9 +1978,9 @@ func (b *Bindings) wrapChannelBlockingReadU32() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for u32
-func (b *Bindings) wrapStateLoadU32() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadU32(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadU32() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadU32(ctx, taskID, key, uint32(initValue))
 		return uint32(result)
 	}
 }
@@ -2013,9 +2013,9 @@ func (b *Bindings) wrapChannelBlockingReadU64() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for u64
-func (b *Bindings) wrapStateLoadU64() func(context.Context, uint32, uint32) uint64 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint64 {
-		result := b.StateLoadU64(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadU64() func(context.Context, uint32, uint32, uint64) uint64 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint64) uint64 {
+		result := b.StateLoadU64(ctx, taskID, key, uint64(initValue))
 		return uint64(result)
 	}
 }
@@ -2048,9 +2048,9 @@ func (b *Bindings) wrapChannelBlockingReadI8() func(context.Context, uint32) uin
 }
 
 // State operation wrappers for i8
-func (b *Bindings) wrapStateLoadI8() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadI8(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadI8() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadI8(ctx, taskID, key, int8(initValue))
 		return uint32(result)
 	}
 }
@@ -2083,9 +2083,9 @@ func (b *Bindings) wrapChannelBlockingReadI16() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for i16
-func (b *Bindings) wrapStateLoadI16() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadI16(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadI16() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadI16(ctx, taskID, key, int16(initValue))
 		return uint32(result)
 	}
 }
@@ -2118,9 +2118,9 @@ func (b *Bindings) wrapChannelBlockingReadI32() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for i32
-func (b *Bindings) wrapStateLoadI32() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadI32(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadI32() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadI32(ctx, taskID, key, int32(initValue))
 		return uint32(result)
 	}
 }
@@ -2153,9 +2153,9 @@ func (b *Bindings) wrapChannelBlockingReadI64() func(context.Context, uint32) ui
 }
 
 // State operation wrappers for i64
-func (b *Bindings) wrapStateLoadI64() func(context.Context, uint32, uint32) uint64 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint64 {
-		result := b.StateLoadI64(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadI64() func(context.Context, uint32, uint32, uint64) uint64 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint64) uint64 {
+		result := b.StateLoadI64(ctx, taskID, key, int64(initValue))
 		return uint64(result)
 	}
 }
@@ -2188,9 +2188,9 @@ func (b *Bindings) wrapChannelBlockingReadF32() func(context.Context, uint32) fl
 }
 
 // State operation wrappers for f32
-func (b *Bindings) wrapStateLoadF32() func(context.Context, uint32, uint32) float32 {
-	return func(ctx context.Context, taskID uint32, key uint32) float32 {
-		result := b.StateLoadF32(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadF32() func(context.Context, uint32, uint32, float32) float32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue float32) float32 {
+		result := b.StateLoadF32(ctx, taskID, key, float32(initValue))
 		return float32(result)
 	}
 }
@@ -2223,9 +2223,9 @@ func (b *Bindings) wrapChannelBlockingReadF64() func(context.Context, uint32) fl
 }
 
 // State operation wrappers for f64
-func (b *Bindings) wrapStateLoadF64() func(context.Context, uint32, uint32) float64 {
-	return func(ctx context.Context, taskID uint32, key uint32) float64 {
-		result := b.StateLoadF64(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadF64() func(context.Context, uint32, uint32, float64) float64 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue float64) float64 {
+		result := b.StateLoadF64(ctx, taskID, key, float64(initValue))
 		return float64(result)
 	}
 }
@@ -2258,9 +2258,9 @@ func (b *Bindings) wrapChannelBlockingReadString() func(context.Context, uint32)
 }
 
 // State operation wrappers for string
-func (b *Bindings) wrapStateLoadString() func(context.Context, uint32, uint32) uint32 {
-	return func(ctx context.Context, taskID uint32, key uint32) uint32 {
-		result := b.StateLoadString(ctx, taskID, key)
+func (b *Bindings) wrapStateLoadString() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+		result := b.StateLoadString(ctx, taskID, key, uint32(initValue))
 		return uint32(result)
 	}
 }

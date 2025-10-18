@@ -60,7 +60,7 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics.Error()
 	}
-	output, err := compiler.Compile(ctx, inter, compiler.DisableHostImport())
+	output, err := compiler.Compile(ctx, inter)
 	return Module{IR: inter, Output: output}, nil
 }
 

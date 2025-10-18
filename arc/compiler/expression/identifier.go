@@ -50,15 +50,36 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	// TODO: This needs to be implemented
+	// Push funcID
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
+	emitZeroValue(ctx, t)
 	importIdx, err := ctx.Imports.GetStateLoad(t)
 	if err != nil {
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
 	return nil
+}
+
+func emitZeroValue[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	t types.Type,
+) {
+	switch t.Kind {
+	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+		ctx.Writer.WriteI32Const(0)
+	case types.KindI64, types.KindU64, types.KindTimeStamp, types.KindTimeSpan:
+		ctx.Writer.WriteI64Const(0)
+	case types.KindF32:
+		ctx.Writer.WriteF32Const(0.0)
+	case types.KindF64:
+		ctx.Writer.WriteF64Const(0.0)
+	case types.KindString:
+		ctx.Writer.WriteI32Const(0) // null string handle
+	default:
+		ctx.Writer.WriteI32Const(0)
+	}
 }
 
 func emitChannelRead[ASTNode antlr.ParserRuleContext](

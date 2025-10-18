@@ -66,23 +66,25 @@ func compileStatefulVariable(
 		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
 	}
 	varType := scope.Type
+	// Emit state load-or-initialize operation
+	// Push func ID (0 for now - runtime will provide actual ID)
+	ctx.Writer.WriteI32Const(0)
+	// Push state key
+	ctx.Writer.WriteI32Const(int32(scope.ID))
 	// Compile the initialization expression (analyzer guarantees type correctness)
 	_, err = expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
-	// Emit state store operation
-	// Push func ID (0 for now - runtime will provide actual ID)
-	ctx.Writer.WriteI32Const(0)
-	// Push state key
-	ctx.Writer.WriteI32Const(int32(scope.ID))
-	// Value is already on stack from expression compilation
-	// Call state store function
-	importIdx, err := ctx.Imports.GetStateStore(varType)
+	// Stack is now: [funcID, varID, initValue]
+	// Call state load function (runtime implements load-or-initialize logic)
+	importIdx, err := ctx.Imports.GetStateLoad(varType)
 	if err != nil {
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
+	// Stack is now: [value]
+	// Store in local variable
 	ctx.Writer.WriteLocalSet(scope.ID)
 	return nil
 }
@@ -124,13 +126,22 @@ func compileAssignment(
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}
+		// Value is on stack from expression compilation
+		// Need to rearrange to: [funcID, varID, value]
+		// First store value temporarily in local
+		ctx.Writer.WriteLocalSet(stateIdx.ID)
+		// Push funcID and varID
 		ctx.Writer.WriteI32Const(0) // func ID
 		ctx.Writer.WriteI32Const(int32(stateIdx.ID))
+		// Push value back from local
+		ctx.Writer.WriteLocalGet(stateIdx.ID)
+		// Stack is now: [funcID, varID, value]
 		importIdx, err := ctx.Imports.GetStateStore(varType)
 		if err != nil {
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
+		// Assignment complete - stack is empty
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {
