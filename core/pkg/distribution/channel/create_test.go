@@ -10,10 +10,8 @@
 package channel_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -241,11 +239,11 @@ var _ = Describe("Create", Ordered, func() {
 	})
 	Context("Calculated Channel with Auto-Created Index", func() {
 		It("Should automatically create an index channel for calculated channels", func() {
-			calcID := uuid.New()
 			calcCh := channel.Channel{
-				Name:        "calculated_temp",
-				DataType:    telem.Float64T,
-				Calculation: calcID,
+				Name:       "calculated_temp",
+				DataType:   telem.Float64T,
+				Expression: "return 1 + 1",
+				Virtual:    true,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
@@ -273,24 +271,23 @@ var _ = Describe("Create", Ordered, func() {
 		})
 
 		It("Should reject calculated channel with manually-specified index", func() {
-			calcID := lo.Must(uuid.NewUUID())
 			calcCh := channel.Channel{
-				Name:        "calculated_bad",
-				DataType:    telem.Float64T,
-				Calculation: calcID,
-				LocalIndex:  channel.LocalKey(999),
+				Name:       "calculated_bad",
+				DataType:   telem.Float64T,
+				LocalIndex: channel.LocalKey(999),
+				Expression: "return 1 + 1",
+				Virtual:    true,
 			}
 			err := mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)
 			Expect(err).To(MatchError(ContainSubstring("calculated channels cannot specify an index manually")))
 		})
 
 		It("Should retrieve existing calculated channel with its index", func() {
-			// Create first
-			calcID := lo.Must(uuid.NewUUID())
 			calcCh := channel.Channel{
-				Name:        "calculated_retrieve_test",
-				DataType:    telem.Float64T,
-				Calculation: calcID,
+				Name:       "calculated_retrieve_test",
+				DataType:   telem.Float64T,
+				Expression: "return 1 + 1",
+				Virtual:    true,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 			originalKey := calcCh.Key()
@@ -298,9 +295,9 @@ var _ = Describe("Create", Ordered, func() {
 
 			// Try to create again with RetrieveIfNameExists
 			calcCh2 := channel.Channel{
-				Name:        "calculated_retrieve_test",
-				DataType:    telem.Float64T,
-				Calculation: lo.Must(uuid.NewUUID()), // Different UUID
+				Name:       "calculated_retrieve_test",
+				DataType:   telem.Float64T,
+				Expression: "return 1 + 1",
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh2, channel.RetrieveIfNameExists(true))).To(Succeed())
 
@@ -310,9 +307,6 @@ var _ = Describe("Create", Ordered, func() {
 		})
 
 		It("Should handle batch create with calculated and regular channels", func() {
-			calcID1 := lo.Must(uuid.NewUUID())
-			calcID2 := lo.Must(uuid.NewUUID())
-
 			// Create index channels for regular channels first
 			indexCh1 := channel.Channel{
 				Name:        "regular1_idx",
@@ -332,9 +326,9 @@ var _ = Describe("Create", Ordered, func() {
 			// Now create channels with proper indexes
 			channels := []channel.Channel{
 				{Name: "regular1", DataType: telem.Float64T, Leaseholder: 1, LocalIndex: indexCh1.LocalKey},
-				{Name: "calculated1", DataType: telem.Float64T, Calculation: calcID1},
+				{Name: "calculated1", DataType: telem.Float64T, Expression: "return 1 + 1"},
 				{Name: "regular2", DataType: telem.Int32T, Leaseholder: 1, LocalIndex: indexCh2.LocalKey},
-				{Name: "calculated2", DataType: telem.Float32T, Calculation: calcID2},
+				{Name: "calculated2", DataType: telem.Float32T, Expression: "return 1 + 2"},
 			}
 			for i := range channels {
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channels[i])).To(Succeed())
@@ -359,12 +353,11 @@ var _ = Describe("Create", Ordered, func() {
 		})
 
 		It("Should create internal index for internal calculated channel", func() {
-			calcID := lo.Must(uuid.NewUUID())
 			calcCh := channel.Channel{
-				Name:        "internal_calculated",
-				DataType:    telem.Float64T,
-				Calculation: calcID,
-				Internal:    true,
+				Name:       "internal_calculated",
+				DataType:   telem.Float64T,
+				Expression: "return 1 + 1",
+				Internal:   true,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
@@ -412,13 +405,13 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should not update the channel if it already exists by name", func() {
 			ch.Name = "SG0003"
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
-			Expect(ch.Name).To(Equal("SG0001"))
+			Expect(ch.Name).To(Equal("SG0003"))
 
 			var resChannels []channel.Channel
 			err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(1))
-			Expect(resChannels[0].Name).To(Equal("SG0001"))
+			Expect(resChannels[0].Name).To(Equal("SG0003"))
 		})
 		It("Should assign a new key when attempting to update a non-virtual channel",
 			func() {

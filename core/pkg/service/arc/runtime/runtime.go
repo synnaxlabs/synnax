@@ -149,8 +149,8 @@ func (r *Runtime) Close() error {
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	r.state.Ingest(res.Frame.ToStorage(), r.scheduler.MarkNodesChange)
 	r.scheduler.Next(ctx)
-	fr := r.state.FlushWrites(telem.Frame[uint32]{})
-	if fr.Len() == 0 {
+	fr, changed := r.state.FlushWrites(telem.Frame[uint32]{})
+	if !changed {
 		return nil
 	}
 	return r.writer.Write(ctx, core.NewFrameFromStorage(fr))

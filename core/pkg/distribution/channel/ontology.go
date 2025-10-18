@@ -50,7 +50,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"data_type":   zyn.String(),
 	"internal":    zyn.Bool(),
 	"virtual":     zyn.Bool(),
-	"calculation": zyn.String(),
+	"expression":  zyn.String(),
 })
 
 func ToPayload(c Channel) map[string]any {
@@ -63,7 +63,8 @@ func ToPayload(c Channel) map[string]any {
 		"data_type":   c.DataType,
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
-		"calculation": c.Calculation.String(),
+		"expression":  c.Expression,
+		"requires":    c.Requires,
 	}
 }
 

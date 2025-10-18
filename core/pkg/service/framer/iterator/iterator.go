@@ -14,13 +14,12 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -153,18 +152,10 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 }
 
 func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculation.Calculator, error) {
-	var prog svcarc.Arc
-	if err := s.cfg.Arc.NewRetrieve().WhereKeys(ch.Calculation).Entry(&prog).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	compiled, err := arc.CompileGraph(ctx, prog.Graph, arc.WithResolver(s.cfg.Arc.SymbolResolver()))
-	if err != nil {
-		return nil, err
-	}
 	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
 		Channel:    ch,
-		Module:     compiled,
 		ChannelSvc: s.cfg.Channel,
+		Resolver:   s.cfg.Arc.SymbolResolver(),
 	})
 	return c, err
 }

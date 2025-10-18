@@ -82,12 +82,15 @@ func (s *State) Ingest(fr telem.Frame[uint32], markDirty func(nodeKey string)) {
 	}
 }
 
-func (s *State) FlushWrites(fr telem.Frame[uint32]) telem.Frame[uint32] {
+func (s *State) FlushWrites(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
+	if len(s.channel.writes) == 0 {
+		return fr, false
+	}
 	for key, data := range s.channel.writes {
 		fr = fr.Append(key, data)
 	}
 	clear(s.channel.writes)
-	return fr
+	return fr, true
 }
 
 func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {

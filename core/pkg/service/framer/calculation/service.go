@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 	"go/types"
 	"io"
 	"sync"
@@ -20,13 +21,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -43,13 +50,20 @@ type ServiceConfig struct {
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Service
-	Arc     *arc.Service
+	// ChannelObservable is used to listen to real-time changes in calculated channels
+	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
+	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
+	// StateCodec is the encoder/decoder used to communicate calculation state
+	// changes.
+	// [OPTIONAL]
+	StateCodec binary.Codec
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{}
+	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
 )
 
 // Validate implements config.Config.
@@ -57,6 +71,8 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
 	validate.NotNil(v, "Channel", c.Channel)
+	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
+	validate.NotNil(v, "StateCodec", c.StateCodec)
 	return v.Error()
 }
 
@@ -65,6 +81,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
+	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	return c
 }
 
@@ -74,6 +92,10 @@ type entry struct {
 	ch channel.Channel
 	// count is the number of active requests for the calculation.
 	count int
+	// calculation is used to gracefully stop the calculation.
+	calculation confluence.Closable
+	// shutdown is used to force stop the calculation by cancelling the context.
+	shutdown io.Closer
 }
 
 type Status = status.Status[types.Nil]
@@ -132,6 +154,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	s := &Service{cfg: cfg, w: w, stateKey: calculationStateCh.Key()}
+	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.entries = make(map[channel.Key]*entry)
 
 	return s, nil
@@ -149,7 +172,53 @@ func (s *Service) setStatus(
 	}
 }
 
-func (s *Service) releaseEntryCloser(ctx context.Context, key channel.Key) io.Closer {
+func (s *Service) handleChange(
+	ctx context.Context,
+	reader gorp.TxReader[channel.Key, channel.Channel],
+) {
+	c, ok := reader.Next(ctx)
+	if !ok {
+		return
+	}
+	// Don't stop calculating if the channel is deleted. The calculation will be
+	// automatically shut down when it is no longer needed.
+	if c.Variant != change.Set || !c.Value.IsCalculated() {
+		return
+	}
+	existing, found := s.mu.entries[c.Key]
+	if !found {
+		s.update(ctx, c.Value)
+		return
+	}
+	if existing.ch.Equals(c.Value, "Name") {
+		return
+	}
+	s.update(ctx, c.Value)
+}
+
+func (s *Service) update(ctx context.Context, ch channel.Channel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, found := s.mu.entries[ch.Key()]
+	if !found {
+		return
+	}
+	e.calculation.Close()
+	if err := e.shutdown.Close(); err != nil {
+		s.cfg.L.Error("failed to close calculated channel", zap.Error(err), zap.Stringer("key", ch))
+	}
+	delete(s.mu.entries, ch.Key())
+	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
+		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		// Even if the operation is not successful, we still want to store the
+		// latest requirements and expression in the entry.
+		e.ch.Requires = ch.Requires
+		e.ch.Expression = ch.Expression
+		s.mu.entries[ch.Key()] = e
+	}
+}
+
+func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 	return xio.CloserFunc(func() (err error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -162,9 +231,7 @@ func (s *Service) releaseEntryCloser(ctx context.Context, key channel.Key) io.Cl
 			return
 		}
 		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
-		if err := s.cfg.Arc.Stop(ctx, e.ch.Calculation); err != nil {
-			s.cfg.L.Error("failed to close calculation channel", zap.Error(err))
-		}
+		e.calculation.Close()
 		delete(s.mu.entries, key)
 		return
 	})
@@ -176,7 +243,13 @@ func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.disconnectFromChannelChanges()
+	for _, e := range s.mu.entries {
+		e.calculation.Close()
+	}
 	c := errors.NewCatcher(errors.WithAggregation())
+	for _, e := range s.mu.entries {
+		c.Exec(e.shutdown.Close)
+	}
 	c.Exec(s.w.Close)
 	return c.Error()
 }
@@ -192,29 +265,144 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.startCalculation(ctx, key, 1)
 }
 
+const defaultPipelineBufferSize = 50
+
 func (s *Service) startCalculation(
 	ctx context.Context,
 	key channel.Key,
 	initialCount int,
 ) (io.Closer, error) {
 	var ch channel.Channel
-	ch.LocalKey = key.LocalKey()
-	ch.Leaseholder = key.Leaseholder()
-	if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
-		return nil, err
+	// Wrap everything in a closure so we can properly propagate status changes.
+	closer, err := func() (io.Closer, error) {
+		ch.LocalKey = key.LocalKey()
+		ch.Leaseholder = key.Leaseholder()
+		if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		if !ch.IsCalculated() {
+			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+		}
+		if _, exists := s.mu.entries[key]; exists {
+			s.mu.entries[key].count++
+			return s.releaseEntryCloser(key), nil
+		}
+
+		var requires []channel.Channel
+		if err := s.cfg.Channel.NewRetrieve().
+			WhereKeys(ch.Requires...).
+			Entries(&requires).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+
+		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.Now(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
+		if err != nil {
+			return nil, err
+		}
+		p := plumber.New()
+		plumber.SetSegment(p, "streamer", streamer_)
+		plumber.SetSegment(p, "writer", writer_)
+
+		c, err := OpenCalculator(ctx, CalculatorConfig{
+			ChannelSvc: s.cfg.Channel,
+			Channel:    ch,
+		})
+		if err != nil {
+			return nil, err
+		}
+		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
+		plumber.SetSegment(
+			p,
+			"Calculator",
+			sc,
+			confluence.Defer(sc.close),
+		)
+
+		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
+		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
+			s.cfg.L.DPanic(
+				"write of calculated channel value failed",
+				zap.Stringer("channel", ch),
+			)
+		})
+		plumber.SetSink(p, "obs", o)
+		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
+		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
+		streamer_.InFrom(streamerRequests)
+		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+		s.mu.entries[ch.Key()] = &entry{
+			ch:          ch,
+			count:       initialCount,
+			calculation: streamerRequests,
+			shutdown:    signal.NewHardShutdown(sCtx, cancel),
+		}
+		p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
+		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
+		return s.releaseEntryCloser(key), nil
+	}()
+	if err != nil {
+		s.setStatus(ctx, status.Status[types.Nil]{
+			Key:         ch.Key().String(),
+			Variant:     status.ErrorVariant,
+			Message:     fmt.Sprintf("Failed to start calculation for %s", ch),
+			Description: err.Error(),
+		})
 	}
-	if !ch.IsCalculated() {
-		return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+	return closer, err
+}
+
+type onStatusChange func(ctx context.Context, status Status)
+
+type streamCalculationTransform struct {
+	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
+	calculators   []*Calculator
+	onStateChange onStatusChange
+}
+
+func newCalculationTransform(
+	calculators []*Calculator,
+	onChange onStatusChange,
+) *streamCalculationTransform {
+	t := &streamCalculationTransform{calculators: calculators}
+	t.Transform = t.transform
+	t.onStateChange = onChange
+	return t
+}
+
+func (t *streamCalculationTransform) transform(
+	ctx context.Context,
+	req framer.StreamerResponse,
+) (res framer.WriterRequest, send bool, err error) {
+	res.Command = writer.Write
+	var changed bool
+	for _, c := range t.calculators {
+		res.Frame, changed, err = c.Next(ctx, req.Frame, res.Frame)
+		if err != nil {
+			t.onStateChange(ctx, Status{
+				Key:         c.ch.Key().String(),
+				Variant:     status.ErrorVariant,
+				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
+				Description: err.Error(),
+			})
+		} else if changed {
+			send = true
+		}
 	}
-	if _, exists := s.mu.entries[key]; exists {
-		s.mu.entries[key].count++
-		return s.releaseEntryCloser(ctx, key), nil
-	}
-	var prog arc.Arc
-	prog.Deploy = true
-	if err := s.cfg.Arc.NewWriter(nil).Create(ctx, &prog); err != nil {
-		return nil, nil
-	}
-	s.mu.entries[key] = &entry{ch: ch, count: initialCount}
-	return s.releaseEntryCloser(ctx, key), nil
+	return res, send, nil
+}
+
+func (t *streamCalculationTransform) close() {
+	//for _, c := range t.calculators {
+	//c.Close()
+	//}
 }

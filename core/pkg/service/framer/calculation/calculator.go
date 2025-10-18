@@ -11,8 +11,11 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -22,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -43,7 +47,7 @@ type Calculator struct {
 type CalculatorConfig struct {
 	ChannelSvc channel.Readable
 	Channel    channel.Channel
-	Module     arc.Module
+	Resolver   arc.SymbolResolver
 }
 
 var (
@@ -53,17 +57,38 @@ var (
 
 // Override implements config.Config.
 func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
-	c.Module = override.Zero(c.Module, other.Module)
 	c.ChannelSvc = override.Nil(c.ChannelSvc, other.ChannelSvc)
 	c.Channel = other.Channel
+	c.Resolver = override.Nil(c.Resolver, other.Resolver)
 	return c
 }
 
 // Validate implements config.Config.
 func (c CalculatorConfig) Validate() error {
 	v := validate.New("arc.runtime")
-	validate.NotNil(v, "module", c.Module)
 	return v.Error()
+}
+
+func buildModule(ctx context.Context, cfg CalculatorConfig) arc.Module {
+	graph := arc.Graph{
+		Functions: ir.Functions{
+			{
+				Key: "calculation",
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.FromTelem(cfg.Channel.DataType)},
+				},
+				Body: ir.Body{Raw: cfg.Channel.Expression},
+			},
+		},
+		Nodes: []graph.Node{},
+	}
+	g, err := arc.CompileGraph(ctx, graph, arc.WithResolver(cfg.Resolver))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(g)
+	return arc.Module{}
 }
 
 // OpenCalculator opens a new calculator that evaluates the Expression of the provided
@@ -79,7 +104,8 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, cfg.Module)
+	module := buildModule(ctx, cfg)
+	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, module)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +116,12 @@ func OpenCalculator(
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
+	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		Module: module,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	f := node.MultiFactory{
 		opFactory,
@@ -97,21 +129,15 @@ func OpenCalculator(
 		selectFactory,
 		constantFactory,
 		stableFactory,
+		wasmFactory,
 	}
-	if len(cfg.Module.WASM) > 0 {
-		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
-			Module: cfg.Module,
-		})
-		if err != nil {
-			return nil, err
-		}
-		f = append(f, wasmFactory)
-	}
+
+	f = append(f, wasmFactory)
 	nodes := make(map[string]node.Node)
-	for _, irNode := range cfg.Module.Nodes {
+	for _, irNode := range module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
-			Module: cfg.Module,
+			Module: module,
 			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
@@ -120,7 +146,7 @@ func OpenCalculator(
 		nodes[irNode.Key] = n
 	}
 
-	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
+	scheduler := runtime.NewScheduler(module.IR, nodes)
 	scheduler.Init(ctx)
 	return &Calculator{
 		scheduler: scheduler,
@@ -148,8 +174,12 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 // is free to discard the returned value.
 //
 // Any error encountered during calculations is returned as well.
-func (c *Calculator) Next(ctx context.Context, fr framer.Frame) (framer.Frame, error) {
-	c.state.Ingest(fr.ToStorage(), c.scheduler.MarkNodesChange)
+func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Frame) (framer.Frame, bool, error) {
+	c.state.Ingest(inputFrame.ToStorage(), c.scheduler.MarkNodesChange)
 	c.scheduler.Next(ctx)
-	return core.NewFrameFromStorage(c.state.FlushWrites(fr.ToStorage())), nil
+	ofr, changed := c.state.FlushWrites(outputFrame.ToStorage())
+	if !changed {
+		return outputFrame, false, nil
+	}
+	return core.NewFrameFromStorage(ofr), true, nil
 }

@@ -10,13 +10,8 @@
 package iterator_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -143,75 +138,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			It("Should correctly calculate output values", func() {
-				key := uuid.New()
-				prog := arc.Graph{
-					Functions: []arc.Function{
-						{
-							Key: "calculation",
-							Inputs: types.Params{
-								Keys:   []string{"sensor_1_v", "sensor_2_v"},
-								Values: []types.Type{types.F32(), types.F32()},
-							},
-							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32()},
-							},
-							Body: ir.Body{Raw: `{
-								return (sensor_1_v + sensor_2_v)
-							}`},
-						},
-					},
-					Nodes: []graph.Node{
-						{
-							Key:  "sensor_1_on",
-							Type: "on",
-							ConfigValues: map[string]any{
-								"channel": uint32(dataCh1.Key()),
-							},
-						},
-						{
-							Key:  "sensor_2_on",
-							Type: "on",
-							ConfigValues: map[string]any{
-								"channel": uint32(dataCh2.Key()),
-							},
-						},
-						{
-							Key:  "calculation",
-							Type: "calculation",
-						},
-					},
-					Edges: []graph.Edge{
-						{
-							Source: graph.Handle{Node: "sensor_1_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: "sensor_1_v"},
-						},
-						{
-							Source: graph.Handle{Node: "sensor_2_on", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "calculation", Param: "sensor_2_v"},
-						},
-						{
-							Source: graph.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
-							Target: graph.Handle{Node: "writer", Param: ir.DefaultInputParam},
-						},
-					},
-				}
 				calculation := &channel.Channel{
-					Name:        "Output",
-					DataType:    telem.Float32T,
-					Calculation: key,
+					Name:       "Output",
+					DataType:   telem.Float32T,
+					Expression: "{return sensor_1 + sensor_2}",
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
-				prog.Nodes = append(prog.Nodes, graph.Node{
-					Key:          "writer",
-					Type:         "write",
-					ConfigValues: map[string]any{"channel": calculation.Key()},
-				})
-				Expect(arcSvc.NewWriter(nil).Create(ctx, &svcarc.Arc{
-					Key:   key,
-					Graph: prog,
-				})).To(Succeed())
-
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
 					Keys:   []channel.Key{calculation.Key()},
 					Bounds: telem.TimeRangeMax,
