@@ -120,10 +120,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation: cfg.Child("calculated"),
-		Channel:         cfg.Channel,
-		Framer:          cfg.Framer,
-		Arc:             cfg.Arc,
+		Instrumentation:   cfg.Child("calculated"),
+		Channel:           cfg.Channel,
+		Framer:            cfg.Framer,
+		Arc:               cfg.Arc,
+		ChannelObservable: cfg.Channel.NewObservable(),
 	})
 	if err != nil {
 		return nil, err

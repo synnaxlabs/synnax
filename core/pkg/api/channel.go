@@ -42,7 +42,8 @@ type Channel struct {
 	Alias       string          `json:"alias" msgpack:"alias"`
 	Virtual     bool            `json:"virtual" msgpack:"virtual"`
 	Internal    bool            `json:"internal" msgpack:"internal"`
-	Calculation uuid.UUID       `json:"calculation" msgpack:"calculation"`
+	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
+	Expression  string          `json:"expression" msgpack:"expression"`
 }
 
 // ChannelService is the central service for all things Channel related.
@@ -248,7 +249,8 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Density:     ch.DataType.Density(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
-			Calculation: ch.Calculation,
+			Expression:  ch.Expression,
+			Requires:    ch.Requires,
 		}
 	}
 	return translated
@@ -268,6 +270,8 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
+			Expression:  ch.Expression,
+			Requires:    ch.Requires,
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey

@@ -292,6 +292,22 @@ func UnmarshalF[T Sample](dt DataType) func(b []byte) T {
 	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
 
+// Arange creates a new Series containing count values starting from start, with each
+// subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
+// Panics if count is less than or equal to 0.
+func Arange[T Sample](start T, count int, spacing T) Series {
+	if count <= 0 {
+		panic("count must be greater than 0")
+	}
+
+	data := make([]T, count)
+	for i := 0; i < count; i++ {
+		data[i] = start + T(i)*spacing
+	}
+
+	return NewSeries(data)
+}
+
 // NewSeriesFromAny creates a single-value Series from a value of type any, casting it
 // to the specified DataType. This function handles numeric type conversions by first
 // converting to float64 as an intermediate representation, then casting to the target

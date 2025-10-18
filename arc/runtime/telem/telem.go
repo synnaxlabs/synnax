@@ -79,7 +79,11 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 		}
 		var timeSeries xtelem.Series
 		if indexData.DataType() == xtelem.UnknownT {
-			timeSeries = xtelem.NewSeriesV[xtelem.TimeStamp](xtelem.Now())
+			timeSeries = xtelem.Arange[xtelem.TimeStamp](
+				xtelem.Now(),
+				int(data.Len()),
+				1*xtelem.NanosecondTS,
+			)
 			timeSeries.Alignment = ser.Alignment
 		} else if len(indexData.Series) > i {
 			timeSeries = indexData.Series[i]

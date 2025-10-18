@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -58,6 +59,7 @@ type ServiceConfig struct {
 	// changes.
 	// [OPTIONAL]
 	StateCodec binary.Codec
+	Arc        *arc.Service
 }
 
 var (
@@ -69,10 +71,11 @@ var (
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel_observable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
+	validate.NotNil(v, "arc", c.Arc)
 	return v.Error()
 }
 
@@ -83,6 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
+	c.Arc = override.Nil(c.Arc, other.Arc)
 	return c
 }
 
@@ -297,7 +301,7 @@ func (s *Service) startCalculation(
 		}
 
 		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key()},
+			Keys:  channel.Keys{ch.Key(), ch.Index()},
 			Start: telem.Now(),
 		})
 		if err != nil {
@@ -314,6 +318,7 @@ func (s *Service) startCalculation(
 		c, err := OpenCalculator(ctx, CalculatorConfig{
 			ChannelSvc: s.cfg.Channel,
 			Channel:    ch,
+			Resolver:   s.cfg.Arc.SymbolResolver(),
 		})
 		if err != nil {
 			return nil, err

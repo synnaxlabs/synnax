@@ -238,6 +238,44 @@ var _ = Describe("Series", func() {
 				Expect(s.Len()).To(Equal(int64(1)))
 			})
 		})
+
+		Describe("Arange", func() {
+			It("Should create a series with the correct values for int64", func() {
+				s := telem.Arange[int64](0, 5, 2)
+				Expect(s.Len()).To(Equal(int64(5)))
+				Expect(s.DataType).To(Equal(telem.Int64T))
+				data := telem.UnmarshalSeries[int64](s)
+				Expect(data).To(Equal([]int64{0, 2, 4, 6, 8}))
+			})
+			It("Should create a series with the correct values for float64", func() {
+				s := telem.Arange[float64](0.0, 5, 0.5)
+				Expect(s.Len()).To(Equal(int64(5)))
+				Expect(s.DataType).To(Equal(telem.Float64T))
+				data := telem.UnmarshalSeries[float64](s)
+				Expect(data).To(Equal([]float64{0.0, 0.5, 1.0, 1.5, 2.0}))
+			})
+			It("Should create a series with a single value when count is 1", func() {
+				s := telem.Arange[int32](10, 1, 5)
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(s.DataType).To(Equal(telem.Int32T))
+				data := telem.UnmarshalSeries[int32](s)
+				Expect(data).To(Equal([]int32{10}))
+			})
+			It("Should create a series with negative spacing", func() {
+				s := telem.Arange[int64](10, 5, -2)
+				Expect(s.Len()).To(Equal(int64(5)))
+				data := telem.UnmarshalSeries[int64](s)
+				Expect(data).To(Equal([]int64{10, 8, 6, 4, 2}))
+			})
+			It("Should panic when count is less than or equal to 0", func() {
+				Expect(func() {
+					telem.Arange[int64](0, 0, 1)
+				}).To(Panic())
+				Expect(func() {
+					telem.Arange[int64](0, -1, 1)
+				}).To(Panic())
+			})
+		})
 	})
 
 	Describe("MakeSeries", func() {

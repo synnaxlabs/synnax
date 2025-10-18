@@ -10,10 +10,6 @@
 import { array, type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ as arcKeyZ } from "@/arc/payload";
-
-import { CALCULATION_STATUS_CHANNEL_NAME } from "./client";
-
 const errorMessage = "Channel key must be a valid uint32.";
 export const keyZ = z.uint32().or(
   z
@@ -43,7 +39,8 @@ export const payloadZ = z.object({
   internal: z.boolean(),
   virtual: z.boolean(),
   alias: z.string().optional(),
-  calculation: arcKeyZ.optional(),
+  expression: z.string().default(""),
+  requires: array.nullableZ(keyZ),
   status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
@@ -55,7 +52,8 @@ export const newZ = payloadZ.extend({
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
-  calculation: arcKeyZ.optional(),
+  expression: z.string().optional().default(""),
+  requires: array.nullableZ(keyZ).optional().default([]),
 });
 
 export interface New
