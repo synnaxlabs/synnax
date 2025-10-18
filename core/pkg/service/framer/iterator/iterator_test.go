@@ -139,9 +139,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 			It("Should correctly calculate output values", func() {
 				calculation := &channel.Channel{
-					Name:       "Output",
+					Name:       "output",
 					DataType:   telem.Float32T,
-					Expression: "{return sensor_1 + sensor_2}",
+					Expression: "return sensor_1 + sensor_2",
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{

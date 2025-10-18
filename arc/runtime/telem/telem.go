@@ -47,7 +47,7 @@ var (
 				Keys:   []string{ir.DefaultInputParam},
 				Values: []types.Type{types.NewTypeVariable("T", nil)},
 			},
-			Outputs: &types.Params{
+			Config: &types.Params{
 				Keys:   []string{"channel"},
 				Values: []types.Type{types.Chan(types.NewTypeVariable("T", nil))},
 			},

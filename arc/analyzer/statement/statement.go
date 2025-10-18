@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
@@ -403,9 +402,6 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	}
 
 	if fnErr == nil && fn != nil {
-		if fn.Channels.Write == nil {
-			fn.Channels.Write = make(set.Set[uint32])
-		}
 		fn.Channels.Write.Add(uint32(channelSym.ID))
 	}
 

@@ -111,11 +111,18 @@ func Analyze(
 	}
 
 	// Step 2: Analyze Function Bodies
-	for _, fn := range g.Functions {
+	for i, fn := range g.Functions {
 		funcScope, err := ctx.Scope.GetChildByParserRule(fn.Body.AST)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, *ctx.Diagnostics
+		}
+		funcScope.Channels = symbol.NewChannels()
+		funcScope.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
+			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
+				funcScope.Channels.Read[uint32(s.ID)] = s.Name
+			}
+			return nil
 		}
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
@@ -127,6 +134,8 @@ func Analyze(
 				return ir.IR{}, *ctx.Diagnostics
 			}
 		}
+		fn.Channels = funcScope.Channels
+		g.Functions[i] = fn
 	}
 
 	// Step 3: Create Fresh Types for Each Node

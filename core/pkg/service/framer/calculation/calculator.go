@@ -69,8 +69,8 @@ func (c CalculatorConfig) Validate() error {
 	return v.Error()
 }
 
-func buildModule(ctx context.Context, cfg CalculatorConfig) arc.Module {
-	graph := arc.Graph{
+func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) {
+	g := arc.Graph{
 		Functions: ir.Functions{
 			{
 				Key: "calculation",
@@ -78,17 +78,65 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) arc.Module {
 					Keys:   []string{ir.DefaultOutputParam},
 					Values: []types.Type{types.FromTelem(cfg.Channel.DataType)},
 				},
-				Body: ir.Body{Raw: cfg.Channel.Expression},
+				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 			},
 		},
 		Nodes: []graph.Node{},
 	}
-	g, err := arc.CompileGraph(ctx, graph, arc.WithResolver(cfg.Resolver))
+	preProcessed, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.Resolver))
 	if err != nil {
-		panic(err)
+		return arc.Module{}, err
 	}
-	fmt.Println(g)
-	return arc.Module{}
+	calcFn := preProcessed.Functions[0]
+	g2 := arc.Graph{
+		Functions: ir.Functions{
+			ir.Function{
+				Key:     "calculation",
+				Outputs: calcFn.Outputs,
+				Body:    calcFn.Body,
+			},
+		},
+		Nodes: []graph.Node{
+			{
+				Key:  "calculation",
+				Type: "calculation",
+			},
+			{
+				Key:  "write",
+				Type: "write",
+				ConfigValues: map[string]any{
+					"channel": cfg.Channel.Key(),
+				},
+			},
+		},
+		Edges: []graph.Edge{
+			{
+				Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
+			},
+		},
+	}
+	for k, v := range calcFn.Channels.Read {
+		sym, err := cfg.Resolver.Resolve(ctx, v)
+		if err != nil {
+			return arc.Module{}, err
+		}
+		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
+		g2.Nodes = append(g2.Nodes, graph.Node{
+			Key:          sym.Name,
+			Type:         "on",
+			ConfigValues: map[string]any{"channel": k},
+		})
+		g2.Edges = append(g2.Edges, graph.Edge{
+			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "calculation", Param: sym.Name},
+		})
+	}
+	postProcessed, err := arc.CompileGraph(ctx, g2, arc.WithResolver(cfg.Resolver))
+	if err != nil {
+		return arc.Module{}, err
+	}
+	return postProcessed, nil
 }
 
 // OpenCalculator opens a new calculator that evaluates the Expression of the provided
@@ -104,7 +152,10 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	module := buildModule(ctx, cfg)
+	module, err := buildModule(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
 	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, module)
 	if err != nil {
 		return nil, err

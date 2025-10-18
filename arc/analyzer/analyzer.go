@@ -111,7 +111,7 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		fn.Channels = symbol.NewChannels()
 		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
 			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
-				fn.Channels.Read.Add(uint32(s.ID))
+				fn.Channels.Read[uint32(s.ID)] = s.Name
 			}
 			return nil
 		}

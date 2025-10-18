@@ -23,8 +23,8 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 
 // Channels tracks which Synnax channels a node reads from and writes to.
 type Channels struct {
-	Read  set.Set[uint32] `json:"read"`
-	Write set.Set[uint32] `json:"write"`
+	Read  set.Mapped[uint32, string] `json:"read"`
+	Write set.Mapped[uint32, string] `json:"write"`
 }
 
 func (c Channels) Copy() Channels {
@@ -36,16 +36,8 @@ func (c Channels) Copy() Channels {
 
 func NewChannels() Channels {
 	return Channels{
-		Read:  make(set.Set[uint32]),
-		Write: make(set.Set[uint32]),
-	}
-}
-
-// OverrideChannels creates a Channels from other, ensuring non-nil maps.
-func OverrideChannels(other Channels) Channels {
-	return Channels{
-		Read:  lo.Ternary(other.Read != nil, other.Read, make(set.Set[uint32])),
-		Write: lo.Ternary(other.Write != nil, other.Write, make(set.Set[uint32])),
+		Read:  make(set.Mapped[uint32, string]),
+		Write: make(set.Mapped[uint32, string]),
 	}
 }
 
@@ -96,18 +88,18 @@ func (s *Scope) AutoName(prefix string) *Scope {
 
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
-		if existing, err := s.Resolve(ctx, sym.Name); err == nil {
-			if existing.AST == nil {
-				return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
-			}
-			tok := existing.AST.GetStart()
-			return nil, errors.Newf(
-				"name %s conflicts with existing symbol at line %d, col %d",
-				sym.Name,
-				tok.GetLine(),
-				tok.GetColumn(),
-			)
-		}
+		//if existing, err := s.Resolve(ctx, sym.Name); err == nil {
+		//	if existing.AST == nil {
+		//		return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
+		//	}
+		//	tok := existing.AST.GetStart()
+		//	return nil, errors.Newf(
+		//		"name %s conflicts with existing symbol at line %d, col %d",
+		//		sym.Name,
+		//		tok.GetLine(),
+		//		tok.GetColumn(),
+		//	)
+		//}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
 	if sym.Kind == KindFunction {
