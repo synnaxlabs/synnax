@@ -38,7 +38,6 @@ export { LinePlot } from "@/lineplot";
 export { List } from "@/list";
 export { Log } from "@/log";
 export * from "@/memo";
-export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";

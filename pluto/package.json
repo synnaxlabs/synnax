@@ -99,11 +99,6 @@
       "import": "./dist/theming.js",
       "require": "./dist/theming.cjs"
     },
-    "./menu": {
-      "types": "./dist/src/menu/index.d.ts",
-      "import": "./dist/menu.js",
-      "require": "./dist/menu.cjs"
-    },
     "./header": {
       "types": "./dist/src/header/index.d.ts",
       "import": "./dist/header.js",
