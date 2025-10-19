@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto/menu";
+import { List, Select } from "@synnaxlabs/pluto";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Platform } from "@/components/platform";
 
@@ -19,13 +26,24 @@ const ON_THIS_PAGE_ID = "on-this-page-heading";
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
   platforms?: Platform.Platform[];
-  url: string;
+}
+
+interface KeyedHeading extends Omit<MarkdownHeading, "slug"> {
+  key: string;
 }
 
 export const OnThisPage = ({
   headings = [],
   platforms = [],
 }: OnThisPageProps): ReactElement | null => {
+  const headingData: KeyedHeading[] = useMemo(
+    () =>
+      headings.map(({ slug, ...h }) => ({
+        ...h,
+        key: slug,
+      })),
+    [headings],
+  );
   const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
@@ -63,8 +81,8 @@ export const OnThisPage = ({
     };
 
     const observerOptions: IntersectionObserverInit = {
-      // Negative top margin accounts for `scroll-margin`.
-      // Negative bottom margin means heading needs to be towards top of viewport to trigger intersection.
+      // Negative top margin accounts for `scroll-margin`. Negative bottom margin means
+      // heading needs to be towards top of viewport to trigger intersection.
       rootMargin: "-50px 0% -66%",
       threshold: 1,
     };
@@ -80,36 +98,52 @@ export const OnThisPage = ({
     return () => headingsObserver.disconnect();
   }, [toc.current]);
 
-  // If there are no headings,
-  // return an empty div.
+  // If there are no headings, return an empty div.
   if (headings.length === 0) return null;
+
+  const getItem = useCallback(
+    (keys: string | string[]) => {
+      if (typeof keys === "string") return headingData.find((h) => h.key === keys);
+      return headingData.filter((h) => keys.includes(h.key));
+    },
+    [headingData],
+  ) as List.GetItem<string, KeyedHeading>;
 
   return (
     <>
       {platforms.length > 0 && <Platform.SelectButton platforms={platforms} />}
       <div ref={toc} style={{ flexGrow: 1 }}>
-        <Menu.Menu value={currentID}>
-          {headings
-            .filter(({ depth }) => depth > 1 && depth <= 3)
-            .map((heading) => (
-              <Menu.Item
-                href={`#${heading.slug}`}
-                level="small"
-                key={heading.slug}
-                itemKey={heading.slug}
-                id={heading.slug}
-                onClick={() => {
-                  setCurrentID(heading.slug);
-                }}
-                overflow="wrap"
-                className={`header-link ${heading.slug} depth-${heading.depth} ${
-                  currentID === heading.slug ? "current-header-link" : ""
-                }`.trim()}
-              >
-                {unescape(heading.text)}
-              </Menu.Item>
-            ))}
-        </Menu.Menu>
+        <Select.Frame<string, KeyedHeading>
+          data={headingData.map((h) => h.key)}
+          getItem={getItem}
+          onChange={(keys: string | string[]) => {
+            if (typeof keys === "string") setCurrentID(keys);
+            else setCurrentID(keys[0]);
+          }}
+        >
+          <List.Items<string, KeyedHeading>>
+            {(p) => {
+              const { getItem } = List.useUtilContext<string, KeyedHeading>();
+              const heading = getItem?.(p.key);
+              if (heading == null) return null;
+              return (
+                <Select.ListItem
+                  href={`#${heading.key}`}
+                  level="small"
+                  index={p.index}
+                  selected={currentID === heading.key}
+                  key={heading.key}
+                  itemKey={heading.key}
+                  id={heading.key}
+                  onClick={() => setCurrentID(heading.key)}
+                  className={`header-link ${heading.key} depth-${heading.depth}`.trim()}
+                >
+                  {unescape(heading.text)}
+                </Select.ListItem>
+              );
+            }}
+          </List.Items>
+        </Select.Frame>
       </div>
     </>
   );
