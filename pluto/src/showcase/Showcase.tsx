@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useState } from "react";
+
 import { Flex } from "@/flex";
 import { BreadcrumbShowcase } from "@/showcase/BreadcrumbShowcase";
 import { ButtonShowcase } from "@/showcase/ButtonShowcase";
-import { DISPLAY, PADDING_STYLE } from "@/showcase/constants";
+import { type Display, DISPLAYS } from "@/showcase/constants";
 import { DisplaySelector } from "@/showcase/DisplaySelector";
 import { DividerShowcase } from "@/showcase/DividerShowcase";
 import { FlexShowcase } from "@/showcase/FlexShowcase";
@@ -20,7 +22,6 @@ import { NoteShowcase } from "@/showcase/NoteShowcase";
 import { SelectShowcase } from "@/showcase/SelectShowcase";
 import { TagShowcase } from "@/showcase/TagShowcase";
 import { TextShowcase } from "@/showcase/TextShowcase";
-import { state } from "@/state";
 import { Text } from "@/text";
 
 const ShowcaseSection = ({
@@ -45,95 +46,93 @@ const ShowcaseSection = ({
   </Flex.Box>
 );
 
+interface ShowcaseItem {
+  key: Display;
+  title: string;
+  description: string;
+  component: React.ReactElement;
+}
+
+const showcaseItems: ShowcaseItem[] = [
+  {
+    key: "breadcrumb",
+    title: "Breadcrumb",
+    description:
+      "Navigation breadcrumb components for hierarchical path display and navigation.",
+    component: <BreadcrumbShowcase />,
+  },
+  {
+    key: "button",
+    title: "Button",
+    description:
+      "Interactive button components with various sizes, variants, states, and styling options.",
+    component: <ButtonShowcase />,
+  },
+  {
+    key: "divider",
+    title: "Divider",
+    description:
+      "Visual separator components for content organization and layout structure.",
+    component: <DividerShowcase />,
+  },
+  {
+    key: "flex",
+    title: "Flex",
+    description:
+      "Layout components using flexbox for responsive and flexible content arrangement.",
+    component: <FlexShowcase />,
+  },
+  {
+    key: "header",
+    title: "Header",
+    description:
+      "Header components with titles, actions, and dividers for module and section organization.",
+    component: <HeaderShowcase />,
+  },
+  {
+    key: "input",
+    title: "Input",
+    description:
+      "Form input components including text fields, numbers, dates, and switches with validation support.",
+    component: <InputShowcase />,
+  },
+  {
+    key: "note",
+    title: "Note",
+    description:
+      "Alert and notification components for displaying informational, warning, and error messages.",
+    component: <NoteShowcase />,
+  },
+  {
+    key: "select",
+    title: "Select",
+    description:
+      "Dropdown selection components for single and multiple value selection with search capabilities.",
+    component: <SelectShowcase />,
+  },
+  {
+    key: "tag",
+    title: "Tag",
+    description:
+      "Label and tag components for categorization, status indication, and metadata display.",
+    component: <TagShowcase />,
+  },
+  {
+    key: "text",
+    title: "Text",
+    description:
+      "Typography components for headings, body text, and inline elements with consistent styling and hierarchy.",
+    component: <TextShowcase />,
+  },
+];
+
 export const Showcase = () => {
-  const [display, setDisplay] = state.usePersisted<(typeof DISPLAY)[number][]>(
-    DISPLAY,
-    "display",
-  );
-
-  const showcaseItems = [
-    {
-      key: "text",
-      title: "Text",
-      description:
-        "Typography components for headings, body text, and inline elements with consistent styling and hierarchy.",
-      component: <TextShowcase />,
-    },
-    {
-      key: "button",
-      title: "Button",
-      description:
-        "Interactive button components with various sizes, variants, states, and styling options.",
-      component: <ButtonShowcase />,
-    },
-    {
-      key: "input",
-      title: "Input",
-      description:
-        "Form input components including text fields, numbers, dates, and switches with validation support.",
-      component: <InputShowcase />,
-    },
-    {
-      key: "select",
-      title: "Select",
-      description:
-        "Dropdown selection components for single and multiple value selection with search capabilities.",
-      component: <SelectShowcase />,
-    },
-    {
-      key: "note",
-      title: "Note",
-      description:
-        "Alert and notification components for displaying informational, warning, and error messages.",
-      component: <NoteShowcase />,
-    },
-    {
-      key: "tag",
-      title: "Tag",
-      description:
-        "Label and tag components for categorization, status indication, and metadata display.",
-      component: <TagShowcase />,
-    },
-    {
-      key: "flex",
-      title: "Flex",
-      description:
-        "Layout components using flexbox for responsive and flexible content arrangement.",
-      component: <FlexShowcase />,
-    },
-    {
-      key: "header",
-      title: "Header",
-      description:
-        "Header components with titles, actions, and dividers for module and section organization.",
-      component: <HeaderShowcase />,
-    },
-    {
-      key: "breadcrumb",
-      title: "Breadcrumb",
-      description:
-        "Navigation breadcrumb components for hierarchical path display and navigation.",
-      component: <BreadcrumbShowcase />,
-    },
-    {
-      key: "divider",
-      title: "Divider",
-      description:
-        "Visual separator components for content organization and layout structure.",
-      component: <DividerShowcase />,
-    },
-  ];
-
+  const [displays, setDisplays] = useState<Display[]>([...DISPLAYS]);
   return (
     <Flex.Box
       y
       gap="large"
-      style={{
-        ...PADDING_STYLE,
-        maxWidth: "1400px",
-        margin: "0 auto",
-        padding: "min(5rem, 5vw)",
-      }}
+      style={{ maxWidth: "1400px", margin: "0 auto", padding: "min(5rem, 5vw)" }}
     >
       <Flex.Box y background={1} bordered rounded={2} style={{ padding: "5rem" }}>
         <Text.Text level="h2" style={{ marginBottom: "0.5rem" }}>
@@ -143,21 +142,17 @@ export const Showcase = () => {
           Interactive showcase of all Pluto design system components. Select components
           to view their variants and usage examples.
         </Text.Text>
-        <DisplaySelector display={display} setDisplay={setDisplay} />
+        <DisplaySelector displays={displays} setDisplays={setDisplays} />
       </Flex.Box>
 
       <Flex.Box y gap="huge" style={{ minHeight: "50vh" }}>
-        {showcaseItems.length > 0 && display.length === 0 && (
+        {showcaseItems.length > 0 && displays.length === 0 && (
           <Flex.Box
             y
             gap="medium"
             align="center"
             justify="center"
-            style={{
-              padding: "4rem 2rem",
-              textAlign: "center",
-              opacity: 0.6,
-            }}
+            style={{ padding: "4rem 2rem", textAlign: "center", opacity: 0.6 }}
           >
             <Text.Text level="h3">No Components Selected</Text.Text>
             <Text.Text level="p">
@@ -168,7 +163,7 @@ export const Showcase = () => {
 
         {showcaseItems.map(
           ({ key, title, description, component }) =>
-            display.includes(key) && (
+            displays.includes(key) && (
               <ShowcaseSection key={key} title={title} description={description}>
                 {component}
               </ShowcaseSection>

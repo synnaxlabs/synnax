@@ -12,18 +12,17 @@ import { caseconv } from "@synnaxlabs/x";
 import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Select } from "@/select";
-import { DISPLAY } from "@/showcase/constants";
+import { type Display, DISPLAYS } from "@/showcase/constants";
 import { Text } from "@/text";
 
 interface DisplaySelectorProps {
-  display: (typeof DISPLAY)[number][];
-  setDisplay: (display: (typeof DISPLAY)[number][]) => void;
+  displays: Display[];
+  setDisplays: (displays: Display[]) => void;
 }
 
-export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) => {
-  const handleSelectAll = () => setDisplay([...DISPLAY]);
-  const handleClearAll = () => setDisplay([]);
-
+export const DisplaySelector = ({ displays, setDisplays }: DisplaySelectorProps) => {
+  const handleSelectAll = () => setDisplays([...DISPLAYS]);
+  const handleClearAll = () => setDisplays([]);
   return (
     <Flex.Box y gap="small">
       <Flex.Box x gap="small" align="center">
@@ -34,7 +33,7 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
           variant="text"
           size="small"
           onClick={handleSelectAll}
-          disabled={display.length === DISPLAY.length}
+          disabled={displays.length === DISPLAYS.length}
         >
           Select All
         </Button.Button>
@@ -42,17 +41,16 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
           variant="text"
           size="small"
           onClick={handleClearAll}
-          disabled={display.length === 0}
+          disabled={displays.length === 0}
         >
           Clear All
         </Button.Button>
         <Text.Text level="small" style={{ opacity: 0.6 }}>
-          {display.length} of {DISPLAY.length} selected
+          {displays.length} of {DISPLAYS.length} selected
         </Text.Text>
       </Flex.Box>
-
-      <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
-        {DISPLAY.map((d) => (
+      <Select.Buttons multiple keys={DISPLAYS} value={displays} onChange={setDisplays}>
+        {DISPLAYS.map((d) => (
           <Select.Button key={d} itemKey={d}>
             {caseconv.capitalize(d)}
           </Select.Button>
