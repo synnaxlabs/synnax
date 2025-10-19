@@ -44,17 +44,16 @@ Workspaces can be shared by
 [importing and exporting](/reference/console/workspaces#sharing-via-file) workspaces
 into directories to be stored on your desktop.
 
-### Windows Server Installer
+### Windows Core Installer
 
-The Windows version of the cluster can now be installed by an installer. This means you
-only need to download a single installer file, and then run it to install the cluster.
-More information can be found on our
-[cluster installation page](/reference/cluster/installation).
+The Windows version of the Core can now be installed by an installer. This means you
+only need to download a single installer file, and then run it to install the Core. More
+information can be found on our [Core installation page](/reference/core/installation).
 
 ### Python CLI Command Deprecation
 
 The previous `synnax` and `synnaxkit` CLI commands to access the Python client have been
-deprecated to avoid a name collision with the `synnax` CLI command for the cluster. To
+deprecated to avoid a name collision with the `synnax` CLI command for the Core. To
 access the Python client, you should now use the `sy` command:
 
 ```bash
@@ -66,10 +65,10 @@ sy login
 - A refactored version of the NI Digital Write Task was made with a more intuitive UI.
 - Schematic snapshots can now be renamed from their tab name.
 - NI Analog Read Task table scaling now only allows CSV files to be passed in.
-- The Synnax Demo Cluster is now automatically available on the cluster toolbar selector
+- The Synnax Demo Core is now automatically available on the Cores Dropdown selector
   when starting the Synnax Console.
 - Modals and the version info window are now no longer saved in workspaces.
-- Groups are now positioned above all other items within the resources toolbar.
+- Groups are now positioned above all other items within the Resources Toolbar.
 - Line plots render `uint8` data faster.
 - `Cmd + A` can now be used to group all schematic elements.
 
@@ -77,9 +76,9 @@ sy login
 
 - A needless orientation selector was removed from the schematic switch and button
   components.
-- A bug where items in the resources toolbar would get duplicated is now fixed.
-- Multinode clusters now support key-value state forwarding.
-- Groups can now be grouped correctly within the resources toolbar.
+- A bug where items in the Resources Toolbar would get duplicated is now fixed.
+- Multiple Core clusters now support key-value state forwarding.
+- Groups can now be grouped correctly within the Resources Toolbar.
 - Fixed an issue where the delete column option on the table cell context menu did not
   work.
 - Fixed an issue where the python client examples were not working.

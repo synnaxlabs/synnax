@@ -14,7 +14,7 @@ import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image, Video } from "@/components/Media";
 import { Platform } from "@/components/platform";
-import WindowsDownloadButton from "@/components/server/WindowsDownloadButton.astro";
+import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
@@ -29,16 +29,16 @@ export const components = mdxOverrides;
 />
 
 The first step to getting started with Synnax is to install two key components: the
-[Console](/reference/console/get-started) and [Cluster](/reference/cluster/quick-start).
+[Console](/reference/console/get-started) and [Core](/reference/core/quick-start).
 
 <Divider.Divider x />
 
-## Install the Console
+## Install the Synnax Console
 
-The console is our primary user interface for interacting with a Synnax deployment. We
-can set up visualizations to observe data, integrate and configure data acquisition
-devices, and manually control actuators on our system. Here's the link to download the
-latest version of the console for your OS:
+The Synnax Console is our primary user interface for interacting with a Synnax
+deployment. We can set up visualizations to observe data, integrate and configure data
+acquisition devices, and manually control actuators on our system. Here's the link to
+download the latest version of the Console for your OS:
 
 <br />
 <br />
@@ -56,27 +56,27 @@ this:
 ### Plotting Demo Data
 
 To make sure everything is working correctly, we'll plot some live data. Our team has a
-demo cluster running in the cloud that we can connect to. Head to the cluster dropdown
-in the bottom left corner, and select the cluster named `Demo`.
+demo Core running in the cloud that we can connect to. Head to the Core dropdown in the
+top-right corner, and select the Core named `Demo`.
 
 <Video client:only="react" id="console/clusters/switch" />
 
 You'll see the connection status badge on the right turn blue, indicating that the
 connection is healthy.
 
-Next, click on the workspace selector in the top right corner of the screen. This will
+Next, click on the workspace selector in the top-left corner of the screen. This will
 open a dropdown menu where we can select the workspace we want to use. Choose the "Demo"
-workspace. You'll see the console automatically re-configure its layout to match the
+workspace. You'll see the Console automatically re-configure its layout to match the
 workspace, and a new plot will appear with a live stream of data.
 
 <Divider.Divider x />
 
-## Installing the Cluster
+## Installing the Core
 
-Now that the Console is up and running, we'll install our own Synnax cluster locally.
-The cluster is the core of every Synnax deployment. It's where all sensor and actuator
-data is stored, and it serves as a central hub where all of our devices, operator
-consoles, and control sequences will communicate.
+Now that the Console is up and running, we'll install our own Synnax Core locally. The
+Core is the heart of every Synnax deployment. It's where all sensor and actuator data is
+stored, and it serves as a central hub where all of our devices, Consoles, and control
+sequences will communicate.
 
 <Platform.Tabs client:only="react">
 
@@ -85,38 +85,36 @@ consoles, and control sequences will communicate.
 ### Using Docker
 
 <Note.Note variant="error">
-  A Synnax cluster within a container has an isolated runtime, which means that it's not
+  A Synnax Core within a container has an isolated runtime, which means that it's not
   currently able to access devices attached to the host machine. If you're interested in
-  connecting data acquisition devices using our built-in drivers, we recommend
+  connecting data acquisition devices using the embedded Synnax Driver, we recommend
   installing Synnax directly on the host OS using one of the other installation methods.
 </Note.Note>
 
-The simplest way to start a single node cluster is by using the `synnaxlabs/synnax`
-Docker image, simply run:
+The simplest way to start a Core is by using the `synnaxlabs/synnax` Docker image:
 
 ```bash
 docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
 ```
 
-This will pull the latest version of Synnax from Docker Hub and start a single node
-cluster with the following parameters:
+This will pull the latest version of Synnax from Docker Hub and start a Core with the
+following parameters:
 
 `-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This
-allows access to the Synnax node from the host machine.
+allows access to the Synnax Core from the host machine.
 
-`--listen=localhost:9090` - This sets the address that the node will listen on. This is
-the reachable adress of the node, and is also the address that other nodes will use to
-connect when deploying a multi-node cluster.
+`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
+the reachable address of the Core.
 
-`--mem` - Tells the node to store all data in memory, which is useful for learning and
+`--mem` - Tells the Core to store all data in memory, which is useful for learning and
 development.
 
-`--insecure` - Tells the node to run without TLS.
+`--insecure` - Tells the Core to run without TLS.
 
 If you're interested in more details on these flags, see the
-[CLI Reference](/reference/cluster/cli-reference).
+[CLI Reference](/reference/core/cli-reference).
 
-To stop the node, simply press `Ctrl+C` in the terminal.
+To stop the Core, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
@@ -124,8 +122,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 ### Using Linux
 
-To start a single node cluster on Linux, first download the latest Synnax binary by
-running:
+To start a Core on Linux, first download the latest Synnax binary by running:
 
 <SynnaxDownloadURL os="linux" />
 
@@ -144,27 +141,26 @@ chmod +x /usr/local/bin/synnax
   You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
 </Note.Note>
 
-Finally, start the node:
+Finally, start the Core:
 
 ```bash
 synnax start --listen=localhost:9090 --mem --insecure
 ```
 
-This will start a single node cluster with the following parameters:
+This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the node will listen on. This is
-the reachable address of the node, and is also the address that other nodes will use to
-connect when deploying a multi-node cluster.
+`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
+the reachable address of the Core.
 
-`--mem` - Tells the node to store all data in memory, which is useful for learning and
+`--mem` - Tells the Core to store all data in memory, which is useful for learning and
 development.
 
-`--insecure` - Tells the node to run without TLS.
+`--insecure` - Tells the Core to run without TLS.
 
 If you're interested in more details on these flags, see the
-[CLI Reference](/reference/cluster/cli-reference).
+[CLI Reference](/reference/core/cli-reference).
 
-To stop the node, simply press `Ctrl+C` in the terminal.
+To stop the Core, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
@@ -172,8 +168,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 ### Using macOS
 
-To start a single node cluster on macOS, first download the latest Synnax binary by
-running:
+To start a Core on macOS, first download the latest Synnax binary by running:
 
 <SynnaxDownloadURL os="macos" />
 
@@ -192,27 +187,26 @@ chmod +x /usr/local/bin/synnax
   You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
 </Note.Note>
 
-Finally, start the node:
+Finally, start the Core:
 
 ```bash
 synnax start --listen=localhost:9090 --mem --insecure
 ```
 
-This will start a single node cluster with the following parameters:
+This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the node will listen on. This is
-the reachable adress of the node, and is also the address that other nodes will use to
-connect when deploying a multi-node cluster.
+`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
+the reachable address of the Core.
 
-`--mem` - Tells the node to store all data in memory, which is useful for learning and
+`--mem` - Tells the Core to store all data in memory, which is useful for learning and
 development.
 
-`--insecure` - Tells the node to run without TLS.
+`--insecure` - Tells the Core to run without TLS.
 
 If you're interested in more details on these flags, see the
-[CLI Reference](/reference/cluster/cli-reference).
+[CLI Reference](/reference/core/cli-reference).
 
-To stop the node, simply press `Ctrl+C` in the terminal.
+To stop the Core, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
@@ -220,7 +214,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 ### Using Windows
 
-To install the Synnax cluster on Windows, download and run the latest Synnax installer.
+To install the Synnax Core on Windows, download and run the latest Synnax installer.
 
 <br />
 <br />
@@ -234,38 +228,37 @@ To install the Synnax cluster on Windows, download and run the latest Synnax ins
 <br />
 <br />
 
-To start the node, run this:
+To start the Core, run this:
 
 ```powershell
 synnax start --listen=localhost:9090 --mem --insecure
 ```
 
-This will start a single node cluster with the following parameters:
+This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the node will listen on. This is
-the reachable address of the node, and is also the address that other nodes will use to
-connect when deploying a multi-node cluster.
+`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
+the reachable address of the Core.
 
-`--mem` - Tells the node to store all data in memory, which is useful for learning and
+`--mem` - Tells the Core to store all data in memory, which is useful for learning and
 development.
 
-`--insecure` - Tells the node to run without TLS.
+`--insecure` - Tells the Core to run without TLS.
 
 If you're interested in more details on these flags, see the
-[CLI Reference](/reference/cluster/cli-reference).
+[CLI Reference](/reference/core/cli-reference).
 
-To stop the node, simply press `Ctrl+C` in the terminal.
+To stop the Core, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
 </Platform.Tabs>
 
-### Connecting the Console to the Cluster
+### Connecting the Console to the Core
 
-Now that we have a local cluster running, we'll disconnect the console from the demo
-cluster and connect it to our own. We've pre-populated the console with a connection for
-the default admin user on a local cluster. To connect, head to the cluster dropdown in
-the bottom right corner of the console and select the cluster named `Local`.
+Now that we have a Core running, we'll disconnect the Console from the demo Core and
+connect it to our own. We've pre-populated the Console with a connection for the default
+admin user on a local Core. To connect, head to the Core dropdown in the top-right
+corner of the Console and select the Core named `Local`.
 
 <Video client:only="react" id="console/clusters/switch" />
 
@@ -300,6 +293,6 @@ connection, you'll need to re-add it. Here are the connection details:
 
 ## Next Steps
 
-Now that we have a local cluster running, it's time to start acquiring data from a
-device. Check out our [Device Drivers](/reference/device-drivers/get-started) to start
-integrating your own hardware.
+Now that we have a local Core running, it's time to start acquiring data from a device.
+Check out the [Synnax Driver](/reference/driver/get-started) to start integrating your
+own hardware.

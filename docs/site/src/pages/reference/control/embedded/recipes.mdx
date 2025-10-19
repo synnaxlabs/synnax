@@ -28,11 +28,11 @@ from a National Instruments (NI) device that is connected to pressure transducer
 writing to a set of digital outputs on another NI device that control a solenoid valve.
 
 In this setup, we'll create an
-[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task) that samples the
-pressure channels at 100 Hz, then we'll create an
-[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task) to write to the
-outputs of the device. We won't start any of them, so we're not acquiring data or
-controlling outputs yet.
+[NI Analog Read Task](/reference/driver/ni/analog-read-task) that samples the pressure
+channels at 100 Hz, then we'll create an
+[NI Digital Write Task](/reference/driver/ni/digital-write-task) to write to the outputs
+of the device. We won't start any of them, so we're not acquiring data or controlling
+outputs yet.
 
 First, we'll create the following control sequence that runs at 10 Hz:
 

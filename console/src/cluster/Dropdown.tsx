@@ -104,8 +104,8 @@ export const NoneConnected = (props: NoneConnectedProps): ReactElement => {
 
   return (
     <EmptyAction
-      message="No cluster connected."
-      action="Connect a cluster"
+      message="No Core connected."
+      action="Connect a Core"
       onClick={handleCluster}
       {...props}
     />
@@ -142,8 +142,8 @@ export const Dropdown = (): ReactElement => {
       if (!allNames.includes(name)) return true;
       addStatus({
         variant: "error",
-        message: `Cannot rename cluster to ${name}`,
-        description: `A cluster with name "${name}" already exists.`,
+        message: `Cannot rename Core to ${name}`,
+        description: `A Core with name "${name}" already exists.`,
       });
       return false;
     },
@@ -202,7 +202,7 @@ export const Dropdown = (): ReactElement => {
           </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
-          <Menu.HardReloadItem />
+          <Menu.ReloadConsoleItem />
         </PMenu.Menu>
       );
     },
@@ -226,7 +226,7 @@ export const Dropdown = (): ReactElement => {
             hideCaret
           >
             {disconnected ? <Icon.Connect /> : <Icon.Cluster />}
-            {cluster?.name ?? "Connect Cluster"}
+            {cluster?.name ?? "Connect a Core"}
           </Dialog.Trigger>
           <ConnectionBadge />
         </Flex.Box>
@@ -236,7 +236,7 @@ export const Dropdown = (): ReactElement => {
             <Header.Header grow borderColor={6} gap="small" x>
               <Header.Title level="h5">
                 <Icon.Cluster />
-                Clusters
+                Cores
               </Header.Title>
             </Header.Header>
             <Button.Button
