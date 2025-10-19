@@ -78,11 +78,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Status.LAYOUTS,
 };
 
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
-  ...Schematic.CONTEXT_MENUS,
-  ...LinePlot.CONTEXT_MENUS,
-};
-
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
@@ -157,13 +152,11 @@ export const Console = (): ReactElement => (
     <Provider store={store}>
       <Error.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Ontology.ServicesProvider services={SERVICES}>
-              <Palette.CommandProvider commands={COMMANDS}>
-                <MainUnderContext />
-              </Palette.CommandProvider>
-            </Ontology.ServicesProvider>
-          </Layout.ContextMenuProvider>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <Palette.CommandProvider commands={COMMANDS}>
+              <MainUnderContext />
+            </Palette.CommandProvider>
+          </Ontology.ServicesProvider>
         </Layout.RendererProvider>
       </Error.OverlayWithStore>
     </Provider>

@@ -644,9 +644,3 @@ export interface OnCloseProps {
  * rendered by a layout renderer of a specific type.
  */
 export type Renderer = ComponentType<RendererProps>;
-
-export interface ContextMenuProps {
-  layoutKey: string;
-}
-
-export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

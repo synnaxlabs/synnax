@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { extract } from "@/schematic/export";
 import { LAYOUT_TYPE, Schematic, SELECTABLE } from "@/schematic/Schematic";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
@@ -20,10 +20,6 @@ export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
-
-export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
-  [LAYOUT_TYPE]: Layout.MenuItems,
-};
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

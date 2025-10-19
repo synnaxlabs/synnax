@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layout/Content";
-export * from "@/layout/context";
 export * from "@/layout/Controls";
 export * from "@/layout/Menu";
 export * from "@/layout/middleware";
 export * from "@/layout/Modals";
 export * from "@/layout/nav";
 export * from "@/layout/palette";
+export * from "@/layout/RendererProvider";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
 export * from "@/layout/useDropOutside";

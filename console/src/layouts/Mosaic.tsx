@@ -71,15 +71,7 @@ export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
 const ContextMenu = ({ keys }: PContextMenu.MenuProps): ReactElement | null => {
   if (keys.length === 0) return <CMenu.ReloadConsoleItem />;
-  const layoutKey = keys[0];
-  const layout = Layout.useSelect(layoutKey);
-  if (layout == null) return null;
-  const C = Layout.useContextMenuRenderer(layout.type);
-  return C == null ? (
-    <Layout.MenuItems layoutKey={layoutKey} />
-  ) : (
-    <C layoutKey={layoutKey} />
-  );
+  return <Layout.MenuItems layoutKey={keys[0]} />;
 };
 
 interface ModalContentProps extends Tabs.Tab {
