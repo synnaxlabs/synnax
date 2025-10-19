@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package time
+package interval
 
 import (
 	"context"
@@ -165,4 +165,9 @@ func (w *Wheel) Disable(key string) {
 // Stop halts the time wheel.
 func (w *Wheel) Stop() {
 	close(w.stop)
+}
+
+// SetCallback sets the callback function for interval firing.
+func (w *Wheel) SetCallback(onTick func(string)) {
+	w.onTick = onTick
 }

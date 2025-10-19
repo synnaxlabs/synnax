@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/interval"
 	"github.com/synnaxlabs/arc/runtime/node"
-	timewheel "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -29,14 +29,14 @@ type Scheduler struct {
 	changed   set.Set[string]
 	nodes     map[string]*nodeState
 	currState *nodeState
-	timeWheel *timewheel.Wheel
+	timeWheel *interval.Wheel
 }
 
 func NewScheduler(
 	ctx context.Context,
 	prog ir.IR,
 	nodes map[string]node.Node,
-	timeWheel *timewheel.Wheel,
+	timeWheel *interval.Wheel,
 ) *Scheduler {
 	s := &Scheduler{
 		nodes:     make(map[string]*nodeState, len(prog.Nodes)),
@@ -44,6 +44,13 @@ func NewScheduler(
 		changed:   make(set.Set[string], len(prog.Nodes)),
 		timeWheel: timeWheel,
 	}
+
+	// Set callback on time wheel
+	if s.timeWheel != nil {
+		s.timeWheel.SetCallback(s.MarkNodesChange)
+		s.timeWheel.Start(ctx)
+	}
+
 	for _, n := range prog.Nodes {
 		s.nodes[n.Key] = &nodeState{
 			outgoing: lo.Filter(prog.Edges, func(item ir.Edge, _ int) bool {
@@ -51,11 +58,6 @@ func NewScheduler(
 			}),
 			node: nodes[n.Key],
 		}
-	}
-
-	// Start time wheel if provided
-	if s.timeWheel != nil {
-		s.timeWheel.Start(ctx)
 	}
 
 	return s
@@ -91,4 +93,8 @@ func (s *Scheduler) Next(ctx context.Context) {
 		}
 	}
 	clear(s.changed)
+}
+
+func (s *Scheduler) TimeWheel() *interval.Wheel {
+	return s.timeWheel
 }

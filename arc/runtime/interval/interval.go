@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	timewheel "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -55,7 +54,7 @@ var (
 // Node is a runtime implementation of the interval builtin stage.
 type Node struct {
 	key       string
-	timeWheel *timewheel.Wheel
+	timeWheel *Wheel
 	state     *state.Node
 }
 
@@ -104,7 +103,7 @@ func (n *Node) Next(ctx context.Context, markChanged func(output string)) {
 }
 
 type factory struct {
-	timeWheel *timewheel.Wheel
+	timeWheel *Wheel
 }
 
 type NodeConfig = node.Config
@@ -137,12 +136,8 @@ func (f *factory) Create(_ context.Context, cfg NodeConfig) (node.Node, error) {
 	}, nil
 }
 
-type Config struct {
-	TimeWheel *timewheel.Wheel
-}
-
-func NewFactory(cfg Config) node.Factory {
+func NewFactory(wheel *Wheel) *factory {
 	return &factory{
-		timeWheel: cfg.TimeWheel,
+		timeWheel: wheel,
 	}
 }

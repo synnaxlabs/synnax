@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/runtime/interval"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	timewheel "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +28,7 @@ var _ = Describe("Interval", func() {
 	var (
 		ctx       context.Context
 		cancel    context.CancelFunc
-		wheel     *timewheel.Wheel
+		wheel     *interval.Wheel
 		factory   node.Factory
 		progState *state.State
 	)
@@ -37,15 +36,14 @@ var _ = Describe("Interval", func() {
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
 
-		// Create time wheel with callback that does nothing
-		wheel = timewheel.NewWheel(10*gotime.Millisecond, func(key string) {
+		wheel = interval.NewWheel(10*gotime.Millisecond, nil)
+		factory = interval.NewFactory(wheel)
+
+		// Set callback for testing
+		wheel.SetCallback(func(key string) {
 			// Callback is called by time wheel, but we'll manually trigger node execution
 		})
 		wheel.Start(ctx)
-
-		factory = interval.NewFactory(interval.Config{
-			TimeWheel: wheel,
-		})
 
 		// Create minimal state for testing
 		progState = state.New(state.Config{

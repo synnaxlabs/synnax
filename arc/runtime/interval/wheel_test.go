@@ -7,44 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package time_test
+package interval_test
 
 import (
 	"context"
 	"sync"
-	"testing"
 	gotime "time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/runtime/interval"
 )
-
-func TestWheel(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Time Wheel Suite")
-}
 
 var _ = Describe("TimeWheel", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
-		wheel  *time.Wheel
-		fired  map[uint32]int
+		wheel  *interval.Wheel
+		fired  map[string]int
 		mu     sync.Mutex
 	)
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
-		fired = make(map[uint32]int)
+		fired = make(map[string]int)
 
-		onTick := func(id uint32) {
+		onTick := func(key string) {
 			mu.Lock()
-			fired[id]++
+			fired[key]++
 			mu.Unlock()
 		}
 
-		wheel = time.NewWheel(10*gotime.Millisecond, onTick)
+		wheel = interval.NewWheel(10*gotime.Millisecond, onTick)
 	})
 
 	AfterEach(func() {
@@ -54,14 +48,14 @@ var _ = Describe("TimeWheel", func() {
 
 	Describe("Single Interval", func() {
 		It("Should fire at regular intervals", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 			wheel.Start(ctx)
 
 			// Wait for ~150ms (should fire 3 times)
 			gotime.Sleep(155 * gotime.Millisecond)
 
 			mu.Lock()
-			count := fired[1]
+			count := fired["interval_1"]
 			mu.Unlock()
 
 			Expect(count).To(BeNumerically(">=", 2))
@@ -69,20 +63,20 @@ var _ = Describe("TimeWheel", func() {
 		})
 
 		It("Should respect initial delay", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 100*gotime.Millisecond)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 100*gotime.Millisecond)
 			wheel.Start(ctx)
 
 			// After 75ms, should not have fired yet (initial delay is 100ms)
 			gotime.Sleep(75 * gotime.Millisecond)
 			mu.Lock()
-			count1 := fired[1]
+			count1 := fired["interval_1"]
 			mu.Unlock()
 			Expect(count1).To(Equal(0))
 
 			// After another 100ms (175ms total), should have fired once
 			gotime.Sleep(100 * gotime.Millisecond)
 			mu.Lock()
-			count2 := fired[1]
+			count2 := fired["interval_1"]
 			mu.Unlock()
 			Expect(count2).To(BeNumerically(">=", 1))
 		})
@@ -90,15 +84,15 @@ var _ = Describe("TimeWheel", func() {
 
 	Describe("Multiple Intervals", func() {
 		It("Should handle different periods", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
-			wheel.Register(2, 100*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
+			wheel.Register("interval_2", 100*gotime.Millisecond, 0)
 			wheel.Start(ctx)
 
 			gotime.Sleep(210 * gotime.Millisecond)
 
 			mu.Lock()
-			count1 := fired[1]
-			count2 := fired[2]
+			count1 := fired["interval_1"]
+			count2 := fired["interval_2"]
 			mu.Unlock()
 
 			// Interval 1 (50ms) should fire ~4 times
@@ -113,23 +107,23 @@ var _ = Describe("TimeWheel", func() {
 
 	Describe("State Management", func() {
 		It("Should track tick count", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 			wheel.Start(ctx)
 
 			gotime.Sleep(155 * gotime.Millisecond)
 
-			tick, _, _, ok := wheel.GetState(1)
+			tick, _, _, ok := wheel.GetState("interval_1")
 			Expect(ok).To(BeTrue())
 			Expect(tick).To(BeNumerically(">=", 2))
 		})
 
 		It("Should return elapsed time", func() {
 			wheel.Start(ctx)
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 
 			gotime.Sleep(100 * gotime.Millisecond)
 
-			_, _, elapsed, ok := wheel.GetState(1)
+			_, _, elapsed, ok := wheel.GetState("interval_1")
 			Expect(ok).To(BeTrue())
 			Expect(int64(elapsed)).To(BeNumerically(">=", 100*1e6)) // nanoseconds
 		})
@@ -137,37 +131,37 @@ var _ = Describe("TimeWheel", func() {
 
 	Describe("Enable/Disable", func() {
 		It("Should stop firing when disabled", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 			wheel.Start(ctx)
 
 			gotime.Sleep(100 * gotime.Millisecond)
 
 			mu.Lock()
-			countBefore := fired[1]
+			countBefore := fired["interval_1"]
 			mu.Unlock()
 
-			wheel.Disable(1)
+			wheel.Disable("interval_1")
 			gotime.Sleep(100 * gotime.Millisecond)
 
 			mu.Lock()
-			countAfter := fired[1]
+			countAfter := fired["interval_1"]
 			mu.Unlock()
 
 			Expect(countAfter).To(Equal(countBefore))
 		})
 
 		It("Should resume firing when re-enabled", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 			wheel.Start(ctx)
-			wheel.Disable(1)
+			wheel.Disable("interval_1")
 
 			gotime.Sleep(100 * gotime.Millisecond)
 
-			wheel.Enable(1)
+			wheel.Enable("interval_1")
 			gotime.Sleep(100 * gotime.Millisecond)
 
 			mu.Lock()
-			count := fired[1]
+			count := fired["interval_1"]
 			mu.Unlock()
 
 			Expect(count).To(BeNumerically(">", 0))
@@ -176,25 +170,25 @@ var _ = Describe("TimeWheel", func() {
 
 	Describe("Unregister", func() {
 		It("Should stop firing when unregistered", func() {
-			wheel.Register(1, 50*gotime.Millisecond, 0)
+			wheel.Register("interval_1", 50*gotime.Millisecond, 0)
 			wheel.Start(ctx)
 
 			gotime.Sleep(100 * gotime.Millisecond)
 
-			wheel.Unregister(1)
+			wheel.Unregister("interval_1")
 			mu.Lock()
-			countBefore := fired[1]
+			countBefore := fired["interval_1"]
 			mu.Unlock()
 
 			gotime.Sleep(100 * gotime.Millisecond)
 
 			mu.Lock()
-			countAfter := fired[1]
+			countAfter := fired["interval_1"]
 			mu.Unlock()
 
 			Expect(countAfter).To(Equal(countBefore))
 
-			_, _, _, ok := wheel.GetState(1)
+			_, _, _, ok := wheel.GetState("interval_1")
 			Expect(ok).To(BeFalse())
 		})
 	})

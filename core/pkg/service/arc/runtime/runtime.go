@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
-	timewheel "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -298,24 +297,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	progState := state.New(stateCfg)
 
-	// Create time wheel - callback will be set after scheduler is created
-	var wheel *timewheel.Wheel
-	var scheduler *runtime.Scheduler
-	wheel = timewheel.NewWheel(10*gotime.Millisecond, func(key string) {
-		if scheduler != nil {
-			scheduler.MarkNodesChange(key)
-		}
-	})
-
 	telemFactory := arctelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	statusFactory := rstatus.NewFactory(cfg.Status)
-	intervalFactory := interval.NewFactory(interval.Config{
-		TimeWheel: wheel,
-	})
+
+	// Create time wheel for interval nodes
+	timeWheel := interval.NewWheel(10*gotime.Millisecond, nil)
+	intervalFactory := interval.NewFactory(timeWheel)
+
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -346,7 +338,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		}
 		nodes[irNode.Key] = n
 	}
-	scheduler = runtime.NewScheduler(ctx, cfg.Module.IR, nodes, wheel)
+
+	// Create scheduler with time wheel
+	scheduler := runtime.NewScheduler(ctx, cfg.Module.IR, nodes, timeWheel)
 	r := &Runtime{
 		scheduler: scheduler,
 		state:     progState,
