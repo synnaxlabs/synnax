@@ -28,7 +28,7 @@ func compileBinaryAdditive(
 		if err != nil {
 			return types.Type{}, err
 		}
-		op := "+"
+		var op string
 		if i <= len(ctx.AST.AllPLUS()) {
 			op = "+"
 		} else {

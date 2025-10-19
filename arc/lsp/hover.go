@@ -173,9 +173,8 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 		content.WriteString(formatFunctionSignature(sym))
 		content.WriteString("\n\n")
 		content.WriteString(formatFunctionKindDescription(sym))
-
 	case symbol.KindVariable:
-		content.WriteString(fmt.Sprintf("**Variable**\n\n"))
+		content.WriteString("**Variable**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
 	case symbol.KindStatefulVariable:
 		content.WriteString("**Stateful Variable** (persists across executions)\n\n")
