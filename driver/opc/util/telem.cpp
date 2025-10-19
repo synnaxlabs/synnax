@@ -112,12 +112,45 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     return {v, parse_error(status)};
 }
 
-size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-    if (s.data_type() == telem::TIMESTAMP_T &&
-        UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
+std::pair<size_t, xerrors::Error>
+write_to_series(telem::Series &s, const UA_Variant &v) {
+    if (s.data_type() == telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto dt = static_cast<const UA_DateTime *>(v.data);
-        return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
+        return {
+            s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt))),
+            xerrors::NIL
+        };
     }
-    return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
+
+    if (v.type == nullptr) {
+        return {0, xerrors::Error(xerrors::VALIDATION, "variant has null type")};
+    }
+
+    if (v.data == nullptr) {
+        return {0, xerrors::Error(xerrors::VALIDATION, "variant has null data")};
+    }
+
+    const bool is_scalar = UA_Variant_isScalar(&v);
+    if (!is_scalar && v.arrayLength == 0) {
+        return {
+            0,
+            xerrors::Error(xerrors::VALIDATION, "variant is array with zero length")
+        };
+    }
+
+    try {
+        return {
+            s.write(s.data_type().cast(v.data, ua_to_data_type(v.type))),
+            xerrors::NIL
+        };
+    } catch (const std::exception &e) {
+        return {
+            0,
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "exception during cast/write: " + std::string(e.what())
+            )
+        };
+    }
 }
 }
