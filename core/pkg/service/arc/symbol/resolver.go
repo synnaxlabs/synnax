@@ -13,6 +13,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -33,6 +34,15 @@ type channelResolver struct {
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
+func channelToSymbol(ch channel.Channel) symbol.Symbol {
+	return arc.Symbol{
+		Name: ch.Name,
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.FromTelem(ch.DataType)),
+		ID:   int(ch.Key()),
+	}
+}
+
 func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
 	key, err := strconv.Atoi(name)
 	ch := channel.Channel{}
@@ -45,12 +55,17 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	if err = q.Exec(ctx, nil); err != nil {
 		return arc.Symbol{}, err
 	}
-	return arc.Symbol{
-		Name: name,
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.FromTelem(ch.DataType)),
-		ID:   int(ch.Key()),
-	}, nil
+	return channelToSymbol(ch), nil
+}
+
+func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc.Symbol, error) {
+	var results []channel.Channel
+	if err := r.NewRetrieve().Search(name).Entries(&results).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return lo.Map(results, func(item channel.Channel, index int) arc.Symbol {
+		return channelToSymbol(item)
+	}), nil
 }
 
 func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
