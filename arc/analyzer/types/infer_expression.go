@@ -10,6 +10,7 @@
 package types
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -183,16 +184,58 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if text == "true" || text == "false" {
 		return types.U8()
 	}
+	// For numeric literals, create a type variable with appropriate constraint
+	// This allows the literal to adapt to the context
 	if isDecimalLiteral(text) {
-		if ctx.TypeHint.IsValid() && ctx.TypeHint.IsFloat() {
-			return ctx.TypeHint
-		}
-		return types.F64()
+		// Float literal - create type variable with float constraint
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("lit_%d_%d", line, col)
+
+		constraint := types.FloatConstraint()
+		tv := types.TypeVariable(tvName, &constraint)
+
+		// Record the type variable in the constraint system
+		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+
+		return tv
 	}
-	if ctx.TypeHint.IsValid() && ctx.TypeHint.IsNumeric() {
-		return ctx.TypeHint
+	if isIntegerLiteral(text) {
+		// Integer literal - create type variable with integer constraint
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("lit_%d_%d", line, col)
+
+		constraint := types.IntegerConstraint()
+		tv := types.TypeVariable(tvName, &constraint)
+
+		// Record the type variable in the constraint system
+		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+
+		return tv
 	}
+	// Fallback for non-numeric literals
 	return types.I64()
+}
+
+func isIntegerLiteral(text string) bool {
+	if len(text) == 0 {
+		return false
+	}
+	// Not a decimal literal means it's an integer
+	return !isDecimalLiteral(text) && isNumericText(text)
+}
+
+func isNumericText(text string) bool {
+	if len(text) == 0 {
+		return false
+	}
+	for _, c := range text {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func isDecimalLiteral(text string) bool {

@@ -55,6 +55,12 @@ func compileNumericLiteral(
 		case types.KindI32:
 			ctx.Writer.WriteI32Const(int32(value))
 			return types.I32(), nil
+		case types.KindU32:
+			ctx.Writer.WriteI32Const(int32(uint32(value)))
+			return types.U32(), nil
+		case types.KindU64:
+			ctx.Writer.WriteI64Const(int64(uint64(value)))
+			return types.U64(), nil
 		default:
 			ctx.Writer.WriteI64Const(value)
 			return types.I64(), nil
@@ -70,6 +76,19 @@ func compileNumericLiteral(
 		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
 			return types.F32(), nil
+		case types.KindI32:
+			// Float literal can be coerced to integer if hint requests it
+			ctx.Writer.WriteI32Const(int32(value))
+			return types.I32(), nil
+		case types.KindI64:
+			ctx.Writer.WriteI64Const(int64(value))
+			return types.I64(), nil
+		case types.KindU32:
+			ctx.Writer.WriteI32Const(int32(uint32(value)))
+			return types.U32(), nil
+		case types.KindU64:
+			ctx.Writer.WriteI64Const(int64(uint64(value)))
+			return types.U64(), nil
 		default:
 			ctx.Writer.WriteF64Const(value)
 			return types.F64(), nil

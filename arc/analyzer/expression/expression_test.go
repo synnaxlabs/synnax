@@ -111,7 +111,7 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should not allow comparison of an integer variable with a floating point literal", func() {
+		It("Should allow comparison of an integer variable with a floating point literal", func() {
 			ast := MustSucceed(parser.Parse(`
 			func testFunc() {
 				x i32 := 10
@@ -119,10 +119,8 @@ var _ = Describe("Expressions", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(Equal("type mismatch: cannot use i32 and f64 in > operation"))
+			// With literal inference, 5.0 should adapt to i32
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should validate logical operations on booleans", func() {

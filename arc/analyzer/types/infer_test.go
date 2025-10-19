@@ -79,20 +79,26 @@ var _ = Describe("Type Inference", func() {
 	})
 
 	Context("Literal type inference with type hints", func() {
-		It("should infer integer literals as i64 by default", func() {
+		It("should infer integer literals as type variables with integer constraint", func() {
 			expr := MustSucceed(parser.ParseExpression(`42`))
 			ctx := acontext.CreateRoot(bCtx, expr, testResolver)
 			inferredType := atypes.InferFromExpression(ctx)
 
-			Expect(inferredType.Kind).To(Equal(types.KindI64))
+			// Integer literals infer as type variables with integer constraint
+			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Constraint).ToNot(BeNil())
+			Expect(inferredType.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 		})
 
-		It("should infer decimal literals as f64 by default", func() {
+		It("should infer decimal literals as type variables with float constraint", func() {
 			expr := MustSucceed(parser.ParseExpression(`3.14`))
 			ctx := acontext.CreateRoot(bCtx, expr, testResolver)
 			inferredType := atypes.InferFromExpression(ctx)
 
-			Expect(inferredType.Kind).To(Equal(types.KindF64))
+			// Float literals infer as type variables with float constraint
+			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Constraint).ToNot(BeNil())
+			Expect(inferredType.Constraint.Kind).To(Equal(types.KindFloatConstant))
 		})
 
 		It("should infer literals from binary operation context - f32 channel", func() {

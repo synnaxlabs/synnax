@@ -100,13 +100,36 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		return nil
 	}
 
+	// Unwrap channels to their value type for compatibility checking
+	checkType := other
+	if checkType.Kind == types.KindChan && checkType.ValueType != nil {
+		checkType = *checkType.ValueType
+	}
+
 	if tv.Constraint == nil {
 		if occursIn(tv, other) {
 			return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
 		}
 	} else if tv.Constraint.Kind == types.KindNumericConstant {
-		if !other.IsNumeric() {
+		if !checkType.IsNumeric() {
 			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
+		}
+	} else if tv.Constraint.Kind == types.KindIntegerConstant {
+		// Integer constraint: accepts any integer type
+		if !checkType.IsInteger() && !checkType.IsFloat() {
+			return errors.Newf("type %v does not satisfy integer constraint", other)
+		}
+	} else if tv.Constraint.Kind == types.KindFloatConstant {
+		// Float constraint: accepts float types, or any numeric if compatible context
+		if source.Kind == KindCompatible {
+			if !checkType.IsNumeric() {
+				return errors.Newf("type %v does not satisfy float constraint in compatible context", other)
+			}
+		} else {
+			// In equality/assignment context, only accept floats
+			if !checkType.IsFloat() {
+				return errors.Newf("type %v does not satisfy float constraint", other)
+			}
 		}
 	} else if !types.Equal(*tv.Constraint, other) {
 		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
@@ -146,10 +169,16 @@ func occursIn(lhs, rhs types.Type) bool {
 }
 
 func defaultTypeForConstraint(constraint types.Type) types.Type {
-	if constraint.Kind == types.KindNumericConstant {
+	switch constraint.Kind {
+	case types.KindNumericConstant:
 		return types.F64()
+	case types.KindIntegerConstant:
+		return types.I64()
+	case types.KindFloatConstant:
+		return types.F64()
+	default:
+		return constraint
 	}
-	return constraint
 }
 
 func (s *System) String() string {

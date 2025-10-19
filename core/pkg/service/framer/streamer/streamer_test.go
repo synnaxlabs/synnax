@@ -17,8 +17,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -36,7 +39,29 @@ var _ = Describe("Streamer", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+			DB:       dist.DB,
+			Label:    labelSvc,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+			Channel:  dist.Channel,
+			Ontology: dist.Ontology,
+			DB:       dist.DB,
+			Framer:   dist.Framer,
+			Status:   statusSvc,
+			Signals:  dist.Signals,
+		}))
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			Arc:               arcSvc,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),

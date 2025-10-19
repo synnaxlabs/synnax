@@ -106,16 +106,23 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	}
 	firstType := infer(context.Child(ctx, items[0]))
 	opName := getOperator(ctx.AST)
-	if !check(firstType) {
+
+	// If first type is a type variable, we can't check it yet - will be validated during unification
+	if firstType.Kind != basetypes.KindTypeVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
 			ctx.AST,
 		)
 		return false
 	}
+
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType))
-		if !types.Compatible(firstType, nextType) {
+
+		// If either type is a type variable, add a constraint instead of checking directly
+		if firstType.Kind == basetypes.KindTypeVariable || nextType.Kind == basetypes.KindTypeVariable {
+			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
+		} else if !types.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
 				ctx.AST,

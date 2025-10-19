@@ -82,13 +82,21 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		if expression != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, expression))
 			if exprType.IsValid() && varType.IsValid() {
-				isLiteral := isLiteralExpression(context.Child(ctx, expression))
-				if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) || (!isLiteral && !atypes.Compatible(varType, exprType)) {
-					ctx.Diagnostics.AddError(
-						errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
-						ctx.AST,
-					)
-					return types.Type{}, false
+				// If either type is a type variable, add a constraint instead of checking directly
+				if exprType.Kind == types.KindTypeVariable || varType.Kind == types.KindTypeVariable {
+					if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
+						ctx.Diagnostics.AddError(err, ctx.AST)
+						return types.Type{}, false
+					}
+				} else {
+					isLiteral := isLiteralExpression(context.Child(ctx, expression))
+					if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) || (!isLiteral && !atypes.Compatible(varType, exprType)) {
+						ctx.Diagnostics.AddError(
+							errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
+							ctx.AST,
+						)
+						return types.Type{}, false
+					}
 				}
 			}
 		}
@@ -314,31 +322,39 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return false
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
-			isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
-			useLiteralRules := isLiteral || (actualReturnType.IsNumeric() && expectedReturnType.IsNumeric())
-			if useLiteralRules {
-				if !atypes.LiteralAssignmentCompatible(expectedReturnType, actualReturnType) {
-					ctx.Diagnostics.AddError(
-						errors.Newf(
-							"cannot return %s, expected %s",
-							actualReturnType,
-							expectedReturnType,
-						),
-						ctx.AST,
-					)
+			// If either type is a type variable, add a constraint instead of checking directly
+			if actualReturnType.Kind == types.KindTypeVariable || expectedReturnType.Kind == types.KindTypeVariable {
+				if err := atypes.Check(ctx.Constraints, expectedReturnType, actualReturnType, ctx.AST, "return type compatibility"); err != nil {
+					ctx.Diagnostics.AddError(err, ctx.AST)
 					return false
 				}
 			} else {
-				if !atypes.Compatible(expectedReturnType, actualReturnType) {
-					ctx.Diagnostics.AddError(
-						errors.Newf(
-							"cannot return %s, expected %s",
-							actualReturnType,
-							expectedReturnType,
-						),
-						ctx.AST,
-					)
-					return false
+				isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
+				useLiteralRules := isLiteral || (actualReturnType.IsNumeric() && expectedReturnType.IsNumeric())
+				if useLiteralRules {
+					if !atypes.LiteralAssignmentCompatible(expectedReturnType, actualReturnType) {
+						ctx.Diagnostics.AddError(
+							errors.Newf(
+								"cannot return %s, expected %s",
+								actualReturnType,
+								expectedReturnType,
+							),
+							ctx.AST,
+						)
+						return false
+					}
+				} else {
+					if !atypes.Compatible(expectedReturnType, actualReturnType) {
+						ctx.Diagnostics.AddError(
+							errors.Newf(
+								"cannot return %s, expected %s",
+								actualReturnType,
+								expectedReturnType,
+							),
+							ctx.AST,
+						)
+						return false
+					}
 				}
 			}
 		}
@@ -416,7 +432,13 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	if exprType.IsValid() && channelSym.Type.ValueType != nil {
-		if !atypes.Compatible(*channelSym.Type.ValueType, exprType) {
+		// If either type is a type variable, add a constraint instead of checking directly
+		if exprType.Kind == types.KindTypeVariable || channelSym.Type.ValueType.Kind == types.KindTypeVariable {
+			if err := atypes.Check(ctx.Constraints, *channelSym.Type.ValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return false
+			}
+		} else if !atypes.Compatible(*channelSym.Type.ValueType, exprType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf(
 					"type mismatch: cannot write %s to channel of type %s",
@@ -507,6 +529,16 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		return true
 	}
 	varType := varScope.Type
+
+	// If either type is a type variable, add a constraint instead of checking directly
+	if exprType.Kind == types.KindTypeVariable || varType.Kind == types.KindTypeVariable {
+		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+
 	if atypes.Compatible(varType, exprType) {
 		return true
 	}

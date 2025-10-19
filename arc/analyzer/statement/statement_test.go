@@ -38,7 +38,10 @@ var _ = Describe("Statement", func() {
 				Expect(statement.Analyze(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(sym.Type).To(Equal(types.F64()))
+				// Literals now infer as type variables with float constraint
+				Expect(sym.Type.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sym.Type.Constraint).ToNot(BeNil())
+				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindFloatConstant))
 			})
 
 			It("Should detect type mismatch", func() {
@@ -77,7 +80,10 @@ var _ = Describe("Statement", func() {
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
 				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
-				Expect(sym.Type).To(Equal(types.I64()))
+				// Literals now infer as type variables with integer constraint
+				Expect(sym.Type.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sym.Type.Constraint).ToNot(BeNil())
+				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 			})
 
 			It("Should analyze stateful variable with explicit type", func() {
@@ -260,7 +266,11 @@ var _ = Describe("Statement", func() {
 			It("Should analyze basic channel write with arrow", func() {
 				stmt := MustSucceed(parser.ParseStatement(`42.0 -> output`))
 				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
-				Expect(statement.Analyze(ctx)).To(BeTrue())
+				ok := statement.Analyze(ctx)
+				if !ok {
+					GinkgoWriter.Printf("Diagnostics: %v\n", ctx.Diagnostics)
+				}
+				Expect(ok).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 			})
 

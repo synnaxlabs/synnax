@@ -37,6 +37,8 @@ const (
 	KindSeries
 	KindTypeVariable
 	KindNumericConstant
+	KindIntegerConstant
+	KindFloatConstant
 	KindFunction
 )
 
@@ -148,6 +150,14 @@ func TypeVariable(name string, constraint *Type) Type {
 
 func NumericConstraint() Type {
 	return Type{Kind: KindNumericConstant}
+}
+
+func IntegerConstraint() Type {
+	return Type{Kind: KindIntegerConstant}
+}
+
+func FloatConstraint() Type {
+	return Type{Kind: KindFloatConstant}
 }
 
 // Function creates a function type with the given inputs, outputs, and optional config

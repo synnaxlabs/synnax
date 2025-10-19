@@ -107,6 +107,7 @@ var _ = Describe("Analyzer", func() {
 				varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
 				Expect(varScope.ID).To(Equal(0))
 				Expect(varScope.Name).To(Equal("x"))
+				// Integer literals default to i64 after unification
 				Expect(varScope.Type).To(Equal(types.I64()))
 			})
 
@@ -158,7 +159,7 @@ var _ = Describe("Analyzer", func() {
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				first := (*ctx.Diagnostics)[0]
-				Expect(first.Message).To(Equal("type mismatch: cannot assign f64 to i32"))
+				Expect(first.Message).To(ContainSubstring("does not satisfy float constraint"))
 			})
 
 			It("Should allow for variable declaration from a function parameter", func() {
@@ -348,7 +349,7 @@ var _ = Describe("Analyzer", func() {
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				first := (*ctx.Diagnostics)[0]
-				Expect(first.Message).To(ContainSubstring("cannot return f64, expected i32"))
+				Expect(first.Message).To(ContainSubstring("does not satisfy float constraint"))
 			})
 
 			It("Should not return an error for an integer literal on a floating point return", func() {

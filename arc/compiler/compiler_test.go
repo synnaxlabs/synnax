@@ -351,4 +351,270 @@ var _ = Describe("Compiler", func() {
 			Expect(remainder).To(Equal(uint64(2)))
 		})
 	})
+
+	Describe("Literal Type Inference", func() {
+		It("Should compile integer literal with f32 variable", func() {
+			output := MustSucceed(compile(`
+			func add_two(x f32) f32 {
+				return x + 2
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			add_two := mod.ExportedFunction("add_two")
+			Expect(add_two).ToNot(BeNil())
+
+			// Call with 3.5, expect 5.5
+			results := MustSucceed(add_two.Call(ctx, uint64(0x40600000))) // 3.5 as f32 bits
+			Expect(results).To(HaveLen(1))
+			// Result should be 5.5 as f32
+			Expect(results[0]).To(Equal(uint64(0x40b00000)))
+		})
+
+		It("Should compile decimal literal with i32 variable", func() {
+			output := MustSucceed(compile(`
+			func compare(x i32) u8 {
+				return x > 5.0
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compare := mod.ExportedFunction("compare")
+			Expect(compare).ToNot(BeNil())
+
+			// Test with 10, should return 1 (true)
+			results := MustSucceed(compare.Call(ctx, 10))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+
+			// Test with 3, should return 0 (false)
+			results = MustSucceed(compare.Call(ctx, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+		})
+
+		It("Should compile expression with multiple literals and f32 variable", func() {
+			output := MustSucceed(compile(`
+			func celsius_to_fahrenheit(celsius f32) f32 {
+				return celsius * 1.8 + 32
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			celsius_to_fahrenheit := mod.ExportedFunction("celsius_to_fahrenheit")
+			Expect(celsius_to_fahrenheit).ToNot(BeNil())
+
+			// Convert 0°C to °F, should be 32°F
+			results := MustSucceed(celsius_to_fahrenheit.Call(ctx, uint64(0x00000000))) // 0.0 as f32
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0x42000000))) // 32.0 as f32
+
+			// Convert 100°C to °F, should be 212°F
+			results = MustSucceed(celsius_to_fahrenheit.Call(ctx, uint64(0x42c80000))) // 100.0 as f32
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0x43540000))) // 212.0 as f32
+		})
+
+		It("Should compile literals in variable declarations", func() {
+			output := MustSucceed(compile(`
+			func calculate(base f32) f32 {
+				multiplier f32 := 2.5
+				offset f32 := 10
+				return base * multiplier + offset
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			calculate := mod.ExportedFunction("calculate")
+			Expect(calculate).ToNot(BeNil())
+
+			// calculate(4.0) = 4.0 * 2.5 + 10 = 20.0
+			results := MustSucceed(calculate.Call(ctx, uint64(0x40800000))) // 4.0 as f32
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0x41a00000))) // 20.0 as f32
+		})
+
+		It("Should compile literals with i64 variables", func() {
+			output := MustSucceed(compile(`
+			func increment(x i64) i64 {
+				return x + 1
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			increment := mod.ExportedFunction("increment")
+			Expect(increment).ToNot(BeNil())
+
+			results := MustSucceed(increment.Call(ctx, 41))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should compile complex arithmetic with mixed literal types", func() {
+			output := MustSucceed(compile(`
+			func calculate(a f64, b f64) f64 {
+				result f64 := 0
+				result = a * 2 + b * 3.5 - 10
+				return result
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			calculate := mod.ExportedFunction("calculate")
+			Expect(calculate).ToNot(BeNil())
+
+			// calculate(5.0, 2.0) = 5*2 + 2*3.5 - 10 = 10 + 7 - 10 = 7
+			results := MustSucceed(calculate.Call(ctx,
+				uint64(0x4014000000000000), // 5.0 as f64
+				uint64(0x4000000000000000), // 2.0 as f64
+			))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0x401c000000000000))) // 7.0 as f64
+		})
+
+		It("Should compile literals in return statements", func() {
+			output := MustSucceed(compile(`
+			func get_constant() f32 {
+				return 3.14159
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			get_constant := mod.ExportedFunction("get_constant")
+			Expect(get_constant).ToNot(BeNil())
+
+			results := MustSucceed(get_constant.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// Should be approximately 3.14159 as f32
+			Expect(results[0]).To(Equal(uint64(0x40490fd0)))
+		})
+
+		It("Should compile literals with i32 variables in assignments", func() {
+			output := MustSucceed(compile(`
+			func process(x i32) i32 {
+				result i32 := 0
+				result = x + 5
+				result = result * 2
+				return result
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			process := mod.ExportedFunction("process")
+			Expect(process).ToNot(BeNil())
+
+			// process(3) = (3 + 5) * 2 = 16
+			results := MustSucceed(process.Call(ctx, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(16)))
+		})
+
+		It("Should default integer literals to i64 when unconstrained", func() {
+			output := MustSucceed(compile(`
+			func get_answer() i64 {
+				x := 42
+				return x
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			get_answer := mod.ExportedFunction("get_answer")
+			Expect(get_answer).ToNot(BeNil())
+
+			results := MustSucceed(get_answer.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should default float literals to f64 when unconstrained", func() {
+			output := MustSucceed(compile(`
+			func get_pi() f64 {
+				x := 3.14
+				return x
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			get_pi := mod.ExportedFunction("get_pi")
+			Expect(get_pi).ToNot(BeNil())
+
+			results := MustSucceed(get_pi.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 3.14 as f64 bits
+			Expect(results[0]).To(Equal(uint64(0x40091eb851eb851f)))
+		})
+
+		It("Should allow float literals in comparisons with i64", func() {
+			output := MustSucceed(compile(`
+			func is_positive(x i64) u8 {
+				return x > 0.0
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			is_positive := mod.ExportedFunction("is_positive")
+			Expect(is_positive).ToNot(BeNil())
+
+			// Test positive value
+			results := MustSucceed(is_positive.Call(ctx, 50))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+
+			// Test zero
+			results = MustSucceed(is_positive.Call(ctx, 0))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+
+			// Test another positive
+			results = MustSucceed(is_positive.Call(ctx, 100))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should allow mixed f32 and integer literal arithmetic", func() {
+			output := MustSucceed(compile(`
+			func scale_and_offset(value f32) f32 {
+				scale f32 := 2
+				offset f32 := 10
+				return value * scale + offset
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			scale_and_offset := mod.ExportedFunction("scale_and_offset")
+			Expect(scale_and_offset).ToNot(BeNil())
+
+			// scale_and_offset(5.0) = 5.0 * 2 + 10 = 20.0
+			results := MustSucceed(scale_and_offset.Call(ctx, uint64(0x40a00000))) // 5.0 as f32
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0x41a00000))) // 20.0 as f32
+		})
+
+		It("Should execute complex literal inference with nested operations", func() {
+			output := MustSucceed(compile(`
+			func calculate(a i32, b i32) i32 {
+				threshold i32 := 10
+				multiplier i32 := 2
+				if a > threshold {
+					return a * multiplier + b
+				}
+				return b
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			calculate := mod.ExportedFunction("calculate")
+			Expect(calculate).ToNot(BeNil())
+
+			// Test a > threshold: calculate(15, 5) = 15 * 2 + 5 = 35
+			results := MustSucceed(calculate.Call(ctx, 15, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(35)))
+
+			// Test a <= threshold: calculate(8, 5) = 5
+			results = MustSucceed(calculate.Call(ctx, 8, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(5)))
+		})
+	})
 })
