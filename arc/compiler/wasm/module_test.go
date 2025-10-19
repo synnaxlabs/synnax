@@ -380,7 +380,7 @@ var _ = Describe("WASM Module", func() {
 			}
 
 			types, functions, _ := mod.Debug()
-			Expect(types).To(Equal(1))      // Should reuse type
+			Expect(types).To(Equal(1))     // Should reuse type
 			Expect(functions).To(Equal(5)) // Should have 5 functions
 		})
 	})
