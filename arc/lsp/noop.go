@@ -81,6 +81,10 @@ func (s *Server) DocumentLink(ctx context.Context, params *protocol.DocumentLink
 	return nil, nil
 }
 
+func (s *Server) DocumentSymbol(ctx context.Context, params *protocol.DocumentSymbolParams) ([]interface{}, error) {
+	return []interface{}{}, nil
+}
+
 func (s *Server) DocumentLinkResolve(ctx context.Context, params *protocol.DocumentLink) (*protocol.DocumentLink, error) {
 	return nil, nil
 }

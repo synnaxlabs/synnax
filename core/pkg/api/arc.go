@@ -169,7 +169,7 @@ func translateArcsFromService(arcs []arc.Arc) []Arc {
 }
 
 // ArcLSPMessage represents a single JSON-RPC message for the LSP
-type ArcLSPMessage = arctransport.LSPMessage
+type ArcLSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
 func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {

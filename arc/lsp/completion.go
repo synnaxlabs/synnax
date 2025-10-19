@@ -16,6 +16,222 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+type CompletionInfo struct {
+	Label        string
+	Detail       string
+	Doc          string
+	Insert       string
+	InsertFormat protocol.InsertTextFormat
+	Kind         protocol.CompletionItemKind
+}
+
+var completions = []CompletionInfo{
+	{
+		Label:  "i8",
+		Detail: "Signed 8-bit integer",
+		Doc:    "Range: -128 to 172",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "u8",
+		Detail: "Unsigned 8-bit integer",
+		Doc:    "Range: 0 to 255",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "i16",
+		Detail: "Signed 16-bit integer",
+		Doc:    "Range: -32768 to 32767",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "u16",
+		Detail: "Unsigned 16-bit integer",
+		Doc:    "Range: 0 to 65535",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "i32",
+		Detail: "Signed 32-bit integer",
+		Doc:    "Range: -2147483648 to 2147483647",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "u32",
+		Detail: "Unsigned 32-bit integer",
+		Doc:    "Range: 0 to 4294967295",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "i64",
+		Detail: "Signed 64-bit integer",
+		Doc:    "Range: -9223372036854775808 to 9223372036854775807",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "u64",
+		Detail: "Unsigned 64-bit integer",
+		Doc:    "Range: 0 to 18446744073709551615",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "f32",
+		Detail: "32-bit float",
+		Doc:    "Single precision floating point",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "f64",
+		Detail: "64-bit float",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "string",
+		Detail: "String type",
+		Doc:    "Immutable UTF-8 string",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "timestamp",
+		Detail: "Timestamp type",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "series",
+		Detail: "Series type",
+		Doc:    "Homogeneous array of values",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:  "chan",
+		Detail: "Channel type",
+		Doc:    "Communication channel",
+		Kind:   protocol.CompletionItemKindClass,
+	},
+	{
+		Label:        "len",
+		Detail:       "len(series) i64",
+		Doc:          "Returns the length of a series",
+		Insert:       "len($0)",
+		Kind:         protocol.CompletionItemKindFunction,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:        "now",
+		Detail:       "now() timestamp",
+		Doc:          "Returns the current timestamp",
+		Insert:       "now()",
+		Kind:         protocol.CompletionItemKindFunction,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:  "ns",
+		Detail: "Nanoseconds",
+		Doc:    "1/1000000000 seconds",
+		Insert: "ns",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "us",
+		Detail: "Microseconds",
+		Doc:    "1/1000000 seconds",
+		Insert: "us",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "ms",
+		Detail: "Milliseconds",
+		Doc:    "1/1000 seconds",
+		Insert: "ms",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "s",
+		Detail: "Seconds",
+		Doc:    "1 second",
+		Insert: "s",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "m",
+		Detail: "Minutes",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "h",
+		Detail: "Hours",
+		Doc:    "1 hour",
+		Insert: "h",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "hz",
+		Detail: "Hertz",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "khz",
+		Detail: "Kilohertz",
+		Doc:    "1000 hertz",
+		Insert: "khz",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "mhz",
+		Detail: "Megahertz",
+		Doc:    "1000000 hertz",
+		Insert: "mhz",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:  "ghz",
+		Detail: "Gigahertz",
+		Doc:    "1000000 hertz",
+		Insert: "ghz",
+		Kind:   protocol.CompletionItemKindUnit,
+	},
+	{
+		Label:        "func",
+		Detail:       "func declaration",
+		Doc:          "Declares a function",
+		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:        "if",
+		Detail:       "if statement",
+		Doc:          "Conditional statement",
+		Insert:       "if ${1:condition} {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:        "else",
+		Detail:       "else clause",
+		Doc:          "Alternative branch",
+		Insert:       "else {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:        "else if",
+		Detail:       "else-if clause",
+		Doc:          "Alternative conditional branch",
+		Insert:       "else if ${1:condition} {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+	{
+		Label:        "return",
+		Detail:       "return statement",
+		Doc:          "Returns a value",
+		Insert:       "return $0",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+	},
+}
+
 // Completion handles completion requests
 func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
 	s.mu.RLock()
@@ -26,7 +242,6 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 		return nil, nil
 	}
 
-	// Resolve the current line and prefix
 	lines := strings.Split(doc.Content, "\n")
 	if int(params.Position.Line) >= len(lines) {
 		return &protocol.CompletionList{}, nil
@@ -35,7 +250,6 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 	line := lines[params.Position.Line]
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
-		// FindChild the start of the current word
 		start := int(params.Position.Character)
 		for start > 0 && isWordChar(line[start-1]) {
 			start--
@@ -43,8 +257,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 		prefix = line[start:params.Position.Character]
 	}
 
-	// Generate completions based on context
-	items := s.getCompletionItems(prefix, line, params.Position)
+	items := s.getCompletionItems(ctx, doc, prefix, line, params.Position)
 
 	return &protocol.CompletionList{
 		IsIncomplete: false,
@@ -53,160 +266,62 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 }
 
 // getCompletionItems generates completion items based on context
-func (s *Server) getCompletionItems(prefix string, line string, pos protocol.Position) []protocol.CompletionItem {
-	items := []protocol.CompletionItem{}
+func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix string, line string, pos protocol.Position) []protocol.CompletionItem {
+	items := make([]protocol.CompletionItem, 0, len(completions))
 
-	// Check if we're at the start of a line or after whitespace
-	beforeCursor := line[:pos.Character]
-	trimmed := strings.TrimSpace(beforeCursor)
-
-	// Keywords
-	keywords := []struct {
-		label  string
-		detail string
-		doc    string
-		insert string
-	}{
-		{"func", "Function declaration", "Declares a function", "func ${1:name}($2) $3 {\n\t$0\n}"},
-		{"stage", "func declaration", "Declares a reactive stage", "func ${1:name}{\n\t$2\n} ($3) $4 {\n\t$0\n}"},
-		{"if", "If statement", "Conditional statement", "if ${1:condition} {\n\t$0\n}"},
-		{"else", "Else clause", "Alternative branch", "else {\n\t$0\n}"},
-		{"else if", "Else-if clause", "Alternative conditional branch", "else if ${1:condition} {\n\t$0\n}"},
-		{"return", "Return statement", "Returns a value", "return $0"},
-	}
-
-	for _, kw := range keywords {
-		if strings.HasPrefix(kw.label, prefix) {
-			item := protocol.CompletionItem{
-				Label:            kw.label,
-				Kind:             protocol.CompletionItemKindKeyword,
-				Detail:           kw.detail,
-				Documentation:    kw.doc,
-				InsertText:       kw.insert,
-				InsertTextFormat: protocol.InsertTextFormatSnippet,
-			}
-			items = append(items, item)
+	// Add built-in completions (keywords, types, functions, units)
+	for _, c := range completions {
+		if !strings.HasPrefix(c.Label, prefix) {
+			continue
 		}
+
+		item := protocol.CompletionItem{
+			Label:         c.Label,
+			Kind:          c.Kind,
+			Detail:        c.Detail,
+			Documentation: c.Doc,
+		}
+
+		if c.Insert != "" {
+			item.InsertText = c.Insert
+			item.InsertTextFormat = c.InsertFormat
+		}
+
+		items = append(items, item)
 	}
 
-	// Types
-	types := []struct {
-		label  string
-		detail string
-		doc    string
-	}{
-		{"i8", "Signed 8-bit integer", "Range: -128 to 127"},
-		{"i16", "Signed 16-bit integer", "Range: -32768 to 32767"},
-		{"i32", "Signed 32-bit integer", "Range: -2147483648 to 2147483647"},
-		{"i64", "Signed 64-bit integer", "Range: -9223372036854775808 to 9223372036854775807"},
-		{"u8", "Unsigned 8-bit integer", "Range: 0 to 255"},
-		{"u16", "Unsigned 16-bit integer", "Range: 0 to 65535"},
-		{"u32", "Unsigned 32-bit integer", "Range: 0 to 4294967295"},
-		{"u64", "Unsigned 64-bit integer", "Range: 0 to 18446744073709551615"},
-		{"f32", "32-bit float", "Single precision floating point"},
-		{"f64", "64-bit float", "Double precision floating point"},
-		{"string", "String type", "Immutable UTF-8 string"},
-		{"timestamp", "Timestamp type", "Nanoseconds since Unix epoch"},
-		{"timespan", "Timespan type", "Duration in nanoseconds"},
-		{"series", "Series type", "Homogeneous array of values"},
-		{"chan", "Channel type", "Communication channel"},
-	}
+	// Add symbols from the document's symbol table using ResolvePrefix
+	if doc.IR.Symbols != nil {
+		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, pos)
+		if scopeAtCursor != nil {
+			// Use ResolvePrefix to get all matching symbols from children, GlobalResolver, and parents
+			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
+			if err == nil {
+				for _, scope := range scopes {
+					var kind protocol.CompletionItemKind
+					var detail string
 
-	// Check if we're in a type position (after identifier or colon)
-	inTypePosition := strings.HasSuffix(trimmed, ":") ||
-		strings.Contains(trimmed, " ") && !strings.Contains(trimmed, "=")
+					typeStr := scope.Type.String()
+					if typeStr != "" {
+						if strings.Contains(typeStr, "->") {
+							kind = protocol.CompletionItemKindFunction
+						} else {
+							kind = protocol.CompletionItemKindVariable
+						}
+						detail = typeStr
+					} else {
+						kind = protocol.CompletionItemKindVariable
+					}
 
-	if inTypePosition || trimmed == "" {
-		for _, t := range types {
-			if strings.HasPrefix(t.label, prefix) {
-				item := protocol.CompletionItem{
-					Label:         t.label,
-					Kind:          protocol.CompletionItemKindClass,
-					Detail:        t.detail,
-					Documentation: t.doc,
+					items = append(items, protocol.CompletionItem{
+						Label:  scope.Name,
+						Kind:   kind,
+						Detail: detail,
+					})
 				}
-				items = append(items, item)
 			}
-		}
-	}
-
-	// Built-in functions
-	builtins := []struct {
-		label  string
-		detail string
-		doc    string
-		insert string
-	}{
-		{"len", "len(series) i64", "Returns the length of a series", "len($0)"},
-		{"now", "now() timestamp", "Returns the current timestamp", "now()"},
-	}
-
-	for _, b := range builtins {
-		if strings.HasPrefix(b.label, prefix) {
-			item := protocol.CompletionItem{
-				Label:            b.label,
-				Kind:             protocol.CompletionItemKindFunction,
-				Detail:           b.detail,
-				Documentation:    b.doc,
-				InsertText:       b.insert,
-				InsertTextFormat: protocol.InsertTextFormatSnippet,
-			}
-			items = append(items, item)
-		}
-	}
-
-	// Channel operations
-	if strings.Contains(line, "->") || strings.Contains(line, "<-") {
-		// Suggest channel-related completions
-		if strings.HasPrefix("chan", prefix) {
-			items = append(items, protocol.CompletionItem{
-				Label:  "chan",
-				Kind:   protocol.CompletionItemKindClass,
-				Detail: "Bidirectional channel",
-			})
-		}
-		if strings.HasPrefix("<-chan", prefix) {
-			items = append(items, protocol.CompletionItem{
-				Label:  "<-chan",
-				Kind:   protocol.CompletionItemKindClass,
-				Detail: "Read-only channel",
-			})
-		}
-		if strings.HasPrefix("->chan", prefix) {
-			items = append(items, protocol.CompletionItem{
-				Label:  "->chan",
-				Kind:   protocol.CompletionItemKindClass,
-				Detail: "Write-only channel",
-			})
-		}
-	}
-
-	// Temporal units
-	temporalUnits := []string{"ns", "us", "ms", "s", "m", "h", "hz", "khz", "mhz"}
-	for _, unit := range temporalUnits {
-		if strings.HasPrefix(unit, prefix) {
-			item := protocol.CompletionItem{
-				Label:  unit,
-				Kind:   protocol.CompletionItemKindUnit,
-				Detail: "Temporal/frequency unit",
-			}
-			items = append(items, item)
 		}
 	}
 
 	return items
-}
-
-// Definition handles go-to-definition requests
-func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
-	// TODO: Implement go-to-definition
-	// This would require building a symbol table from the parsed AST
-	return nil, nil
-}
-
-// DocumentSymbol handles document symbol requests
-func (s *Server) DocumentSymbol(ctx context.Context, params *protocol.DocumentSymbolParams) ([]interface{}, error) {
-	// TODO: Implement document symbols
-	// This would extract functions, tasks, and variables from the parsed AST
-	return []interface{}{}, nil
 }

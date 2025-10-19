@@ -168,6 +168,49 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	return nil, errors.Newf("undefined symbol: %s", name)
 }
 
+// ResolvePrefix returns all symbols whose names start with the given prefix.
+// It searches children, GlobalResolver, and parent scope, deduplicating results.
+func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, error) {
+	seen := make(map[string]bool)
+	var scopes []*Scope
+
+	// Check children
+	for _, child := range s.Children {
+		if strings.HasPrefix(child.Name, prefix) && !seen[child.Name] {
+			scopes = append(scopes, child)
+			seen[child.Name] = true
+		}
+	}
+
+	// Check GlobalResolver
+	if s.GlobalResolver != nil {
+		symbols, err := s.GlobalResolver.ResolvePrefix(ctx, prefix)
+		if err == nil {
+			for _, sym := range symbols {
+				if !seen[sym.Name] {
+					scopes = append(scopes, &Scope{Symbol: sym})
+					seen[sym.Name] = true
+				}
+			}
+		}
+	}
+
+	// Check parent scope
+	if s.Parent != nil {
+		parentScopes, err := s.Parent.ResolvePrefix(ctx, prefix)
+		if err == nil {
+			for _, scope := range parentScopes {
+				if !seen[scope.Name] {
+					scopes = append(scopes, scope)
+					seen[scope.Name] = true
+				}
+			}
+		}
+	}
+
+	return scopes, nil
+}
+
 func (s *Scope) String() string {
 	return s.stringWithIndent("")
 }

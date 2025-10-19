@@ -25,7 +25,6 @@ func ServeJSONRPC(
 	comms io.ReadWriteCloser,
 ) error {
 	conn := jsonrpc2.NewConn(jsonrpc2.NewStream(comms))
-	// Create a no-op logger for the client
 	client := protocol.ClientDispatcher(conn, zap.NewNop())
 	server.SetClient(client)
 	conn.Go(ctx, protocol.ServerHandler(server, nil))

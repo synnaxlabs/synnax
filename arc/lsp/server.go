@@ -17,7 +17,9 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/analyzer"
-	"github.com/synnaxlabs/arc/analyzer/diagnostics"
+	arcdiag "github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -25,8 +27,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config defines the configuration for opening an arc LSP Server.
 type Config struct {
+	// Instrumentation is used for logging, tracing, metrics, etc.
 	alamos.Instrumentation
+	// GlobalResolver allows the caller to define custom globals that will appear in
+	// LSP auto-complete and type checking. Typically used to provide standard library
+	// variables and functions as well as channels.
+	GlobalResolver symbol.Resolver
 }
 
 var (
@@ -37,6 +45,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
 	return c
 }
 
@@ -59,7 +68,8 @@ type Document struct {
 	URI      protocol.DocumentURI
 	Version  int32
 	Content  string
-	Analysis analyzer.Diagnostics // Cached analysis results
+	IR       ir.IR                 // Analyzed IR with symbol table
+	Analysis analyzer.Diagnostics // Cached analysis diagnostics
 }
 
 // New creates a new LSP server
@@ -213,94 +223,106 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 
 // publishDiagnostics parses the document and publishes syntax and semantic errors
 func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
-	oDiagnostics := []protocol.Diagnostic{}
-
-	// Parse the document
 	t, err := text.Parse(text.Text{Raw: content})
+	var diagnostics []protocol.Diagnostic
+
 	if err != nil {
-		// Extract parse errors
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "parse errors:") {
-			// Parse error format: "parse errors: [line X:Y message]"
-			parts := strings.Split(errMsg, "[")
-			for i := 1; i < len(parts); i++ {
-				part := strings.TrimSuffix(parts[i], "]")
-				if strings.HasPrefix(part, "line ") {
-					// Extract line, column, and message
-					var line, col int
-					var msg string
-					fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg)
-
-					// Resolve the rest of the message
-					msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
-					if msgStart >= 0 {
-						msg = part[msgStart+len(fmt.Sprintf("%d:%d ", line, col)):]
-					}
-
-					diagnostic := protocol.Diagnostic{
-						Range: protocol.Range{
-							Start: protocol.Position{
-								Line:      uint32(line - 1), // LSP is 0-based
-								Character: uint32(col),
-							},
-							End: protocol.Position{
-								Line:      uint32(line - 1),
-								Character: uint32(col + 1),
-							},
-						},
-						Severity: protocol.DiagnosticSeverityError,
-						Source:   "arc-parser",
-						Message:  msg,
-					}
-					oDiagnostics = append(oDiagnostics, diagnostic)
-				}
-			}
-		}
+		diagnostics = extractParseErrors(err)
 	} else {
-		// Run semantic analysis if parsing succeeded
-		_, diag := text.Analyze(ctx, t, nil)
+		analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 
-		// Store analysis results for other features (hover, completion, etc.)
 		s.mu.Lock()
 		if doc, ok := s.documents[uri]; ok {
-			doc.Analysis = diag
+			doc.IR = analyzedIR
+			doc.Analysis = analysisDiag
 		}
 		s.mu.Unlock()
 
-		// Convert semantic oDiagnostics to LSP oDiagnostics
-		for _, diag := range diag {
-			severity := protocol.DiagnosticSeverityError
-			switch diag.Severity {
-			case diagnostics.Warning:
-				severity = protocol.DiagnosticSeverityWarning
-			case diagnostics.Info:
-				severity = protocol.DiagnosticSeverityInformation
-			case diagnostics.Hint:
-				severity = protocol.DiagnosticSeverityHint
-			}
-
-			diagnostic := protocol.Diagnostic{
-				Range: protocol.Range{
-					Start: protocol.Position{
-						Line:      uint32(diag.Line - 1), // Convert to 0-based
-						Character: uint32(diag.Column),
-					},
-					End: protocol.Position{
-						Line:      uint32(diag.Line - 1),
-						Character: uint32(diag.Column + 10), // Approximate end
-					},
-				},
-				Severity: severity,
-				Source:   "arc-analyzer",
-				Message:  diag.Message,
-			}
-			oDiagnostics = append(oDiagnostics, diagnostic)
-		}
+		diagnostics = convertAnalysisDiagnostics(analysisDiag)
 	}
 
-	// Publish oDiagnostics
 	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
-		Diagnostics: oDiagnostics,
+		Diagnostics: diagnostics,
 	})
+}
+
+// extractParseErrors extracts LSP diagnostics from Arc parser errors
+func extractParseErrors(err error) []protocol.Diagnostic {
+	diagnostics := []protocol.Diagnostic{}
+	errMsg := err.Error()
+
+	if !strings.Contains(errMsg, "parse errors:") {
+		return diagnostics
+	}
+
+	parts := strings.Split(errMsg, "[")
+	for i := 1; i < len(parts); i++ {
+		part := strings.TrimSuffix(parts[i], "]")
+		if !strings.HasPrefix(part, "line ") {
+			continue
+		}
+
+		var line, col int
+		var msg string
+		fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg)
+
+		msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
+		if msgStart >= 0 {
+			msg = part[msgStart+len(fmt.Sprintf("%d:%d ", line, col)):]
+		}
+
+		diagnostics = append(diagnostics, protocol.Diagnostic{
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      uint32(line - 1),
+					Character: uint32(col),
+				},
+				End: protocol.Position{
+					Line:      uint32(line - 1),
+					Character: uint32(col + 1),
+				},
+			},
+			Severity: protocol.DiagnosticSeverityError,
+			Source:   "arc-parser",
+			Message:  msg,
+		})
+	}
+
+	return diagnostics
+}
+
+// convertAnalysisDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
+func convertAnalysisDiagnostics(analysisDiag analyzer.Diagnostics) []protocol.Diagnostic {
+	diagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
+
+	for _, diag := range analysisDiag {
+		severity := protocol.DiagnosticSeverityError
+		switch diag.Severity {
+		case arcdiag.Warning:
+			severity = protocol.DiagnosticSeverityWarning
+		case arcdiag.Info:
+			severity = protocol.DiagnosticSeverityInformation
+		case arcdiag.Hint:
+			severity = protocol.DiagnosticSeverityHint
+		}
+
+		diagnostics = append(diagnostics, protocol.Diagnostic{
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      uint32(diag.Line - 1),
+					Character: uint32(diag.Column),
+				},
+				End: protocol.Position{
+					Line:      uint32(diag.Line - 1),
+					Character: uint32(diag.Column + 10),
+				},
+			},
+			Severity: severity,
+			Source:   "arc-analyzer",
+			Message:  diag.Message,
+		})
+	}
+
+	return diagnostics
 }
