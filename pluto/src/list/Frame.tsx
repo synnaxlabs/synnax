@@ -123,6 +123,7 @@ export const useItem = <
   key: K,
 ): E | undefined => {
   const { getItem, subscribe } = useUtilContext<K, E>();
+  const getSnapshot = useCallback(() => getItem?.(key), [getItem, key]);
   return useSyncExternalStore(
     useCallback(
       (callback) => {
@@ -131,7 +132,8 @@ export const useItem = <
       },
       [key, subscribe],
     ),
-    useCallback(() => getItem?.(key), [getItem, key]),
+    getSnapshot,
+    getSnapshot,
   );
 };
 

@@ -93,13 +93,11 @@ export const useField = (<I, O = I>(
     (status: status.Crude) => setStatus(path, status),
     [path, setStatus],
   );
-  const state = useSyncExternalStore(
-    bind,
-    useCallback(
-      () => get<I>(path, { optional, defaultValue }),
-      [path, get, optional, defaultValue],
-    ),
+  const getSnapshot = useCallback(
+    () => get<I>(path, { optional, defaultValue }),
+    [path, get, optional, defaultValue],
   );
+  const state = useSyncExternalStore(bind, getSnapshot, getSnapshot);
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
@@ -151,10 +149,8 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   opts?: GetOptions<O> & ContextOptions<Z>,
 ): FieldState<O> | null => {
   const { get, bind } = useContext(opts?.ctx);
-  return useSyncExternalStore(
-    bind,
-    useCallback(() => get<O>(path, opts), [path, get, opts]),
-  );
+  const getSnapshot = useCallback(() => get<O>(path, opts), [path, get, opts]);
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(

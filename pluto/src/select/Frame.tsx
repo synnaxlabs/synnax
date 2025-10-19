@@ -147,22 +147,22 @@ export interface UseItemStateReturn {
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
   reactUseContext(Context) as unknown as ContextValue<K>;
 
-type ItemState = "none" | "selected" | "hovered" | "selected-hovered";
-
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { getState, onSelect, subscribe } = useContext();
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
+  const getSnapshot = useCallback(() => {
+    const state = getState();
+    const selected = isSelected(state.value, key);
+    const hovered = state.hover === key;
+    if (selected && hovered) return "selected-hovered";
+    if (selected) return "selected";
+    if (hovered) return "hovered";
+    return "none";
+  }, [key, getState]);
   const itemState = useSyncExternalStore(
     useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
-    useCallback((): ItemState => {
-      const state = getState();
-      const selected = isSelected(state.value, key);
-      const hovered = state.hover === key;
-      if (selected && hovered) return "selected-hovered";
-      if (selected) return "selected";
-      if (hovered) return "hovered";
-      return "none";
-    }, [key, getState]),
+    getSnapshot,
+    getSnapshot,
   );
   return useMemo(
     () => ({
@@ -176,7 +176,8 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
 
 export const useSelection = <K extends record.Key>(): K[] => {
   const { getState, subscribe } = useContext<K>();
-  const res = useSyncExternalStore(subscribe, () => getState().value);
+  const getSnapshot = useCallback(() => getState().value, [getState]);
+  const res = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return useMemo((): K[] => {
     if (res == null) return [];
     return array.toArray(res);
