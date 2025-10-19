@@ -97,18 +97,16 @@ func (s *Scope) AutoName(prefix string) *Scope {
 
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
-		//if existing, err := s.Resolve(ctx, sym.Name); err == nil {
-		//	if existing.AST == nil {
-		//		return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
-		//	}
-		//	tok := existing.AST.GetStart()
-		//	return nil, errors.Newf(
-		//		"name %s conflicts with existing symbol at line %d, col %d",
-		//		sym.Name,
-		//		tok.GetLine(),
-		//		tok.GetColumn(),
-		//	)
-		//}
+		// Don't return error on global symbol shadowing
+		if existing, err := s.Resolve(ctx, sym.Name); err == nil && existing.AST != nil {
+			tok := existing.AST.GetStart()
+			return nil, errors.Newf(
+				"name %s conflicts with existing symbol at line %d, col %d",
+				sym.Name,
+				tok.GetLine(),
+				tok.GetColumn(),
+			)
+		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
 	if sym.Kind == KindFunction {

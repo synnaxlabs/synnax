@@ -115,18 +115,16 @@ var _ = Describe("Scope", func() {
 			Expect(secondVarScope.Parent).To(Equal(funcScope))
 		})
 
-		It("Should return error when adding duplicate symbol", func() {
+		It("Should not return error when adding duplicate symbol that shadows a global", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
-			_, err := rootScope.Add(
+			MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()},
-			)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("conflicts with existing symbol"))
+			))
 		})
 	})
 
