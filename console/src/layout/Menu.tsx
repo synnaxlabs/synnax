@@ -21,17 +21,21 @@ import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { useRemover } from "@/layout/useRemover";
 import { Runtime } from "@/runtime";
 
-interface MenuItemProps {
+interface MenuItemProps extends Pick<PContextMenu.ItemProps, "showBottomDivider"> {
   layoutKey: string;
 }
 
-const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
+const FocusMenuItem = ({
+  layoutKey,
+  showBottomDivider,
+}: MenuItemProps): ReactElement => {
   const dispatch = useDispatch();
   const windowKey = useSelectWindowKey() as string;
   return (
     <PContextMenu.Item
       onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
       trigger={["Control", "L"]}
+      showBottomDivider={showBottomDivider}
     >
       <Icon.Focus />
       Focus
@@ -48,7 +52,10 @@ const useMoveIntoMainWindow = () => {
   };
 };
 
-const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
+const OpenInNewWindowMenuItem = ({
+  layoutKey,
+  showBottomDivider,
+}: MenuItemProps): ReactElement | null => {
   const openInNewWindow = useOpenInNewWindow();
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
@@ -57,6 +64,7 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
       onClick={() => openInNewWindow(layoutKey)}
       trigger={["Control", "O"]}
       triggerIndicator
+      showBottomDivider={showBottomDivider}
     >
       <Icon.OpenInNewWindow />
       Open in new window
@@ -66,25 +74,33 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
 
 const MoveToMainWindowMenuItem = ({
   layoutKey,
+  showBottomDivider,
 }: MenuItemProps): ReactElement | null => {
   const moveIntoMainWindow = useMoveIntoMainWindow();
   const windowKey = useSelectWindowKey();
   if (windowKey === MAIN_WINDOW) return null;
   return (
-    <PContextMenu.Item onClick={() => moveIntoMainWindow(layoutKey)}>
+    <PContextMenu.Item
+      onClick={() => moveIntoMainWindow(layoutKey)}
+      showBottomDivider={showBottomDivider}
+    >
       <Icon.OpenInNewWindow />
       Move to main window
     </PContextMenu.Item>
   );
 };
 
-const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
+const CloseMenuItem = ({
+  layoutKey,
+  showBottomDivider,
+}: MenuItemProps): ReactElement => {
   const remove = useRemover();
   return (
     <PContextMenu.Item
       onClick={() => remove(layoutKey)}
       trigger={["Control", "W"]}
       triggerIndicator
+      showBottomDivider={showBottomDivider}
     >
       <Icon.Close />
       Close
@@ -92,11 +108,15 @@ const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   );
 };
 
-const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
+const RenameMenuItem = ({
+  layoutKey,
+  showBottomDivider,
+}: MenuItemProps): ReactElement => (
   <PContextMenu.Item
     onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
     trigger={["Control", "E"]}
     triggerIndicator
+    showBottomDivider={showBottomDivider}
   >
     <Icon.Rename />
     Rename
@@ -108,7 +128,7 @@ interface SplitMenuItemProps extends MenuItemProps {}
 const splitMenuItemFactory = (
   direction: direction.Direction,
 ): FC<SplitMenuItemProps> => {
-  const C = ({ layoutKey }: SplitMenuItemProps) => {
+  const C = ({ layoutKey, showBottomDivider }: SplitMenuItemProps) => {
     const dispatch = useDispatch();
     const [windowKey, mosaic] = useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
@@ -119,6 +139,7 @@ const splitMenuItemFactory = (
         onClick={() =>
           dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
         }
+        showBottomDivider={showBottomDivider}
       >
         {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
         Split {direction === "x" ? "horizontally" : "vertically"}
@@ -138,15 +159,12 @@ export interface MenuItemsProps {
 export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
   <>
     <RenameMenuItem layoutKey={layoutKey} />
-    <CloseMenuItem layoutKey={layoutKey} />
-    <PContextMenu.Divider />
+    <CloseMenuItem layoutKey={layoutKey} showBottomDivider />
     <FocusMenuItem layoutKey={layoutKey} />
     {Runtime.ENGINE === "tauri" && <OpenInNewWindowMenuItem layoutKey={layoutKey} />}
-    <MoveToMainWindowMenuItem layoutKey={layoutKey} />
-    <PContextMenu.Divider />
+    <MoveToMainWindowMenuItem layoutKey={layoutKey} showBottomDivider />
     <SplitXMenuItem layoutKey={layoutKey} />
-    <SplitYMenuItem layoutKey={layoutKey} />
-    <PContextMenu.Divider />
+    <SplitYMenuItem layoutKey={layoutKey} showBottomDivider />
     <ContextMenu.ReloadConsoleItem />
   </>
 );

@@ -42,7 +42,7 @@ export const WriteChannelContextMenuItems: React.FC<
           Rename state channel
         </ContextMenu.Item>
       )}
-      <ContextMenu.Divider />
+      {canRenameCmdChannel && canRenameStateChannel && <ContextMenu.Divider />}
     </>
   );
 };

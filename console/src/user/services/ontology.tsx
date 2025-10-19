@@ -89,28 +89,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             </PContextMenu.Item>
           )}
           {canEditOrDelete && (
-            <>
-              <PContextMenu.Item onClick={handleRename}>
-                <Icon.Rename />
-                Change username
-              </PContextMenu.Item>
-              <PContextMenu.Divider />
-            </>
+            <PContextMenu.Item onClick={handleRename} showBottomDivider>
+              <Icon.Rename />
+              Change username
+            </PContextMenu.Item>
           )}
         </>
       )}
       {canEditOrDelete && !hasRootUser && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <PContextMenu.Divider />
-        </>
+        <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
       )}
-      {singleResource && (
-        <>
-          <Ontology.CopyContextMenuItem {...props} />
-          <PContextMenu.Divider />
-        </>
-      )}
+      {singleResource && <Ontology.CopyContextMenuItem {...props} showBottomDivider />}
       <ContextMenu.ReloadConsoleItem />
     </>
   );

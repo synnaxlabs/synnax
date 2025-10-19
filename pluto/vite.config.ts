@@ -38,7 +38,6 @@ export default defineConfig({
         ether: path.resolve(".", "src/ether.ts"),
         tabs: path.resolve(".", "src/tabs/index.ts"),
         theming: path.resolve(".", "src/theming/index.ts"),
-        menu: path.resolve(".", "src/menu/index.ts"),
         header: path.resolve(".", "src/header/index.ts"),
         flex: path.resolve(".", "src/flex/index.ts"),
         tree: path.resolve(".", "src/tree/index.ts"),

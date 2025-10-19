@@ -89,21 +89,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {isSingle && (
         <>
           <ContextMenu.RenameItem onClick={handleRename} />
-          <PContextMenu.Item onClick={createSequence}>
+          <PContextMenu.Item onClick={createSequence} showBottomDivider>
             <CreateSequenceIcon />
             Create control sequence
           </PContextMenu.Item>
-          <PContextMenu.Divider />
         </>
       )}
-      <ContextMenu.DeleteItem onClick={handleDelete} />
-      <PContextMenu.Divider />
-      {isSingle && (
-        <>
-          <Ontology.CopyContextMenuItem {...props} />
-          <PContextMenu.Divider />
-        </>
-      )}
+      <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
+      {isSingle && <Ontology.CopyContextMenuItem {...props} showBottomDivider />}
       <ContextMenu.ReloadConsoleItem />
     </>
   );

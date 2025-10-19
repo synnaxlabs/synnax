@@ -11,7 +11,7 @@ import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export interface CopyContextMenuItemProps
-  extends Pick<ContextMenu.ItemProps, "onClick"> {}
+  extends Omit<ContextMenu.ItemProps, "children"> {}
 
 export const CopyContextMenuItem = (props: CopyContextMenuItemProps): ReactElement => (
   <ContextMenu.Item {...props}>

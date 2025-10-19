@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import {
-  ContextMenu as PContextMenu,
-  Icon,
-  Mosaic,
-  Table as Core,
-} from "@synnaxlabs/pluto";
+import { Icon, Mosaic, Table as Core } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -67,15 +62,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
-      <ContextMenu.DeleteItem onClick={handleDelete} />
-      <Group.ContextMenuItem {...props} />
-      <PContextMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
+      <Group.ContextMenuItem {...props} showBottomDivider />
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={handleExport} />
           <Link.CopyContextMenuItem onClick={handleLink} />
-          <Ontology.CopyContextMenuItem {...props} />
-          <PContextMenu.Divider />
+          <Ontology.CopyContextMenuItem {...props} showBottomDivider />
         </>
       )}
       <ContextMenu.ReloadConsoleItem />

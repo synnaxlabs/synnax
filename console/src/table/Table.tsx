@@ -144,36 +144,32 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               <Icon.Add />
               Add row below
             </PContextMenu.Item>
-            <PContextMenu.Item onClick={handleAddRowAbove}>
+            <PContextMenu.Item onClick={handleAddRowAbove} showBottomDivider>
               <Icon.Add />
               Add row above
             </PContextMenu.Item>
-            <PContextMenu.Divider />
             <PContextMenu.Item onClick={handleAddColRight}>
               <Icon.Add />
               Add column right
             </PContextMenu.Item>
-            <PContextMenu.Item onClick={handleAddColLeft}>
+            <PContextMenu.Item onClick={handleAddColLeft} showBottomDivider>
               <Icon.Add />
               Add column left
             </PContextMenu.Item>
-            <PContextMenu.Divider />
             <PContextMenu.Item onClick={handleDeleteRow}>
               <Icon.Delete />
               Delete row
             </PContextMenu.Item>
-            <PContextMenu.Item onClick={handleDeleteCol}>
+            <PContextMenu.Item onClick={handleDeleteCol} showBottomDivider>
               <Icon.Delete />
               Delete column
             </PContextMenu.Item>
-            <PContextMenu.Divider />
           </>
         )}
-        <PContextMenu.Item onClick={handleToggleEdit}>
+        <PContextMenu.Item onClick={handleToggleEdit} showBottomDivider>
           {editable ? <Icon.EditOff /> : <Icon.Edit />}
           {`${editable ? "Disable" : "Enable"} editing`}
         </PContextMenu.Item>
-        <PContextMenu.Divider />
         <ContextMenu.ReloadConsoleItem />
       </>
     );

@@ -13,20 +13,29 @@ import { type ReactElement } from "react";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type TreeContextMenuProps } from "@/ontology/service";
 
-export const CopyContextMenuItem = (
-  props: TreeContextMenuProps,
-): ReactElement | null => {
+export interface CopyContextMenuItemProps
+  extends TreeContextMenuProps,
+    Pick<ContextMenu.ItemProps, "showBottomDivider"> {}
+
+export const CopyContextMenuItem = ({
+  showBottomDivider,
+  ...rest
+}: CopyContextMenuItemProps): ReactElement | null => {
   const copy = useCopyToClipboard();
   const {
     selection: { ids },
     state: { getResource },
-  } = props;
+  } = rest;
   if (ids.length !== 1) return null;
   const id = ids[0];
   const { data, name } = getResource(id);
   const handleClick = () => copy(JSON.stringify(data), `data for ${name}`);
   return (
-    <ContextMenu.Item size="small" onClick={handleClick}>
+    <ContextMenu.Item
+      size="small"
+      onClick={handleClick}
+      showBottomDivider={showBottomDivider}
+    >
       <Icon.Copy />
       Copy properties
     </ContextMenu.Item>

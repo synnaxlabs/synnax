@@ -12,7 +12,6 @@ import "@/hardware/modbus/task/Task.css";
 import { NotFoundError } from "@synnaxlabs/client";
 import {
   Component,
-  ContextMenu as PContextMenu,
   Flex,
   Form as PForm,
   Icon,
@@ -149,12 +148,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
   if (cmdChannel == null || cmdChannel == 0) return null;
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
-  return (
-    <>
-      <ContextMenu.RenameItem onClick={handleRename} />
-      <PContextMenu.Divider />
-    </>
-  );
+  return <ContextMenu.RenameItem onClick={handleRename} showBottomDivider />;
 };
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);

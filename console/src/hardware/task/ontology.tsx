@@ -112,10 +112,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <>
       <Group.ContextMenuItem {...props} />
       {hasNoSnapshots && range?.persisted === true && (
-        <>
-          <Range.SnapshotContextMenuItem range={range} onClick={handleRangeSnapshot} />
-          <PContextMenu.Divider />
-        </>
+        <Range.SnapshotContextMenuItem
+          range={range}
+          onClick={handleRangeSnapshot}
+          showBottomDivider
+        />
       )}
       {singleResource && (
         <>
@@ -123,14 +124,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             <Icon.Edit />
             {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
           </PContextMenu.Item>
-          <ContextMenu.RenameItem onClick={rename} />
+          <ContextMenu.RenameItem onClick={rename} showBottomDivider />
           <Link.CopyContextMenuItem onClick={handleLink} />
-          <Export.ContextMenuItem onClick={handleExport} />
-          <PContextMenu.Divider />
+          <Export.ContextMenuItem onClick={handleExport} showBottomDivider />
         </>
       )}
-      <ContextMenu.DeleteItem onClick={handleDelete} />
-      <PContextMenu.Divider />
+      <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
       <ContextMenu.ReloadConsoleItem />
     </>
   );

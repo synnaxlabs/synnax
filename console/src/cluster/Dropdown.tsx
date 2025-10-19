@@ -161,7 +161,6 @@ export const Dropdown = (): ReactElement => {
 
   const contextMenu = useCallback(
     ({ keys: [key] }: PContextMenu.MenuProps): ReactElement => {
-      if (key == null) return <Layout.DefaultContextMenu />;
       const handleLink = () => {
         const name = allClusters.find((c) => c.key === key)?.name;
         if (name == null) return;
@@ -180,14 +179,12 @@ export const Dropdown = (): ReactElement => {
               Connect
             </PContextMenu.Item>
           )}
-          <ContextMenu.RenameItem onClick={() => handleRename(key)} />
-          <PContextMenu.Divider />
-          <PContextMenu.Item onClick={() => handleRemove(key)}>
+          <ContextMenu.RenameItem onClick={() => handleRename(key)} showBottomDivider />
+          <PContextMenu.Item onClick={() => handleRemove(key)} showBottomDivider>
             <Icon.Delete />
             Remove
           </PContextMenu.Item>
-          <Link.CopyContextMenuItem onClick={handleLink} />
-          <PContextMenu.Divider />
+          <Link.CopyContextMenuItem onClick={handleLink} showBottomDivider />
           <ContextMenu.ReloadConsoleItem />
         </>
       );

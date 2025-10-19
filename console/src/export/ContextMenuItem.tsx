@@ -9,7 +9,7 @@
 
 import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 
-export interface ContextMenuItemProps extends Pick<ContextMenu.ItemProps, "onClick"> {}
+export interface ContextMenuItemProps extends Omit<ContextMenu.ItemProps, "children"> {}
 
 export const ContextMenuItem = (props: ContextMenuItemProps) => (
   <ContextMenu.Item {...props}>

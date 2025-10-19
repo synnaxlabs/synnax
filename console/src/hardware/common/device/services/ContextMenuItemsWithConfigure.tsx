@@ -33,13 +33,10 @@ export const ContextMenuItemsWithConfigure = ({
     placeLayout({ ...configureLayout, key: ids[0].key });
   return (
     <ContextMenuItems {...props}>
-      <>
-        <ContextMenu.Item onClick={handleEditConnection}>
-          <Icon.Edit />
-          Edit connection
-        </ContextMenu.Item>
-        <ContextMenu.Divider />
-      </>
+      <ContextMenu.Item onClick={handleEditConnection} showBottomDivider>
+        <Icon.Edit />
+        Edit connection
+      </ContextMenu.Item>
     </ContextMenuItems>
   );
 };

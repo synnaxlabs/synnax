@@ -37,7 +37,7 @@ import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 
 export interface SnapshotContextMenuItemProps
-  extends Pick<PContextMenu.ItemProps, "onClick"> {
+  extends Omit<PContextMenu.ItemProps, "children"> {
   range?: Range | null;
 }
 

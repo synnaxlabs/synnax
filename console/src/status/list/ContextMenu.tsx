@@ -59,7 +59,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   return (
     <>
-      {!isEmpty && <CMenu.DeleteItem onClick={handleDelete} />}
+      {!isEmpty && <CMenu.DeleteItem onClick={handleDelete} showBottomDivider />}
       <CMenu.RenameItem onClick={handleRename} />
     </>
   );

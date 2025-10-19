@@ -214,46 +214,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <>
-      {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
-      <Group.ContextMenuItem {...props} />
+      {singleResource && (
+        <ContextMenu.RenameItem onClick={handleRename} showBottomDivider />
+      )}
+      <Group.ContextMenuItem {...props} showBottomDivider />
       {isCalc && (
+        <PContextMenu.Item onClick={handleOpenCalculated} showBottomDivider>
+          <Icon.Edit />
+          Edit calculation
+        </PContextMenu.Item>
+      )}
+      {activeRange?.persisted === true && (singleResource || showDeleteAlias) && (
         <>
+          {singleResource && (
+            <PContextMenu.Item onClick={handleSetAlias}>
+              <Icon.Rename />
+              Set alias under {activeRange.name}
+            </PContextMenu.Item>
+          )}
+          {showDeleteAlias && (
+            <PContextMenu.Item onClick={handleDeleteAlias}>
+              <Icon.Delete />
+              Remove alias under {activeRange.name}
+            </PContextMenu.Item>
+          )}
           <PContextMenu.Divider />
-          <PContextMenu.Item onClick={handleOpenCalculated}>
-            <Icon.Edit />
-            Edit calculation
-          </PContextMenu.Item>
         </>
       )}
-      {activeRange != null &&
-        activeRange.persisted &&
-        (singleResource || showDeleteAlias) && (
-          <>
-            <PContextMenu.Divider />
-            {singleResource && (
-              <PContextMenu.Item onClick={handleSetAlias}>
-                <Icon.Rename />
-                Set alias under {activeRange.name}
-              </PContextMenu.Item>
-            )}
-            {showDeleteAlias && (
-              <PContextMenu.Item onClick={handleDeleteAlias}>
-                <Icon.Delete />
-                Remove alias under {activeRange.name}
-              </PContextMenu.Item>
-            )}
-            <PContextMenu.Divider />
-          </>
-        )}
-      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
       {singleResource && (
         <>
-          <PContextMenu.Divider />
           <Link.CopyContextMenuItem onClick={handleLink} />
-          <Ontology.CopyContextMenuItem {...props} />
+          <Ontology.CopyContextMenuItem {...props} showBottomDivider />
         </>
       )}
-      <PContextMenu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </>
   );

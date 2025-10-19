@@ -101,13 +101,10 @@ const ContextMenu = <C extends Channel>({
           )}
           {(canDisable || canEnable) && <PContextMenu.Divider />}
           {canTare && (
-            <>
-              <PContextMenu.Item onClick={handleTare}>
-                <Icon.Tare />
-                Tare
-              </PContextMenu.Item>
-              <PContextMenu.Divider />
-            </>
+            <PContextMenu.Item onClick={handleTare} showBottomDivider>
+              <Icon.Tare />
+              Tare
+            </PContextMenu.Item>
           )}
         </>
       )}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, ContextMenu as PContextMenu, Text } from "@synnaxlabs/pluto";
+import { Component, Text } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/components";
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
@@ -26,12 +26,7 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   const channel = channels.find((ch) => ch.key === key)?.channel;
   if (channel == null || channel == 0) return null;
   const handleRename = () => Text.edit(getChannelNameID(key));
-  return (
-    <>
-      <ContextMenu.RenameItem onClick={handleRename} />
-      <PContextMenu.Divider />
-    </>
-  );
+  return <ContextMenu.RenameItem onClick={handleRename} showBottomDivider />;
 };
 
 export const readChannelContextMenuItem = Component.renderProp(

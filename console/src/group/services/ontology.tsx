@@ -34,8 +34,8 @@ const useRename = createUseRename({
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
-    state: { getResource, nodes, shape },
+    selection: { ids },
+    state: { getResource, nodes },
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty(props);
@@ -44,26 +44,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const firstResource = getResource(firstID);
   const rename = useRename(props);
   const isSingle = ids.length === 1;
-  const isZeroDepth =
-    Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
-    ontology.idsEqual(rootID, ontology.ROOT_ID);
   const isDelete = ids.every((id) => {
     const node = Tree.findNode({ tree: nodes, key: ontology.idToString(id) });
     return node?.children == null || node?.children.length === 0;
   });
-  const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
   const handleUngroup = () => ungroup.update(props);
   const handleLink = () => copyLink({ name: firstResource.name, ontologyID: firstID });
   return (
     <>
       {isSingle && (
         <>
-          {!isZeroDepth && (
-            <>
-              <ContextMenu.RenameItem onClick={rename} />
-              <PContextMenu.Divider />
-            </>
-          )}
+          <ContextMenu.RenameItem onClick={rename} showBottomDivider />
           <PContextMenu.Item onClick={createEmptyGroup}>
             <Icon.Group />
             New group
@@ -71,20 +62,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <ContextMenuItem {...props} />
-      {!isZeroDepth && (
-        <>
-          <PContextMenu.Item onClick={handleUngroup}>
-            {ungroupIcon}
-            {isDelete ? "Delete" : "Ungroup"}
-          </PContextMenu.Item>
-          <PContextMenu.Divider />
-        </>
+      {isDelete ? (
+        <ContextMenu.DeleteItem onClick={handleUngroup} showBottomDivider />
+      ) : (
+        <PContextMenu.Item onClick={handleUngroup} showBottomDivider>
+          <Icon.Group />
+          Ungroup
+        </PContextMenu.Item>
       )}
       {isSingle && (
         <>
           <Ontology.CopyContextMenuItem {...props} />
-          <Link.CopyContextMenuItem onClick={handleLink} />
-          <PContextMenu.Divider />
+          <Link.CopyContextMenuItem onClick={handleLink} showBottomDivider />
         </>
       )}
       <ContextMenu.ReloadConsoleItem />

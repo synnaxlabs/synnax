@@ -370,28 +370,19 @@ const ContextMenu = ({
             <Icon.Edit />
             Edit configuration
           </PContextMenu.Item>
-          <PContextMenu.Divider />
-          <CMenu.RenameItem onClick={handleRename} />
+          <CMenu.RenameItem onClick={handleRename} showBottomDivider />
           <Export.ContextMenuItem onClick={handleExport} />
-          <Link.CopyContextMenuItem onClick={handleLink} />
-          <PContextMenu.Divider />
+          <Link.CopyContextMenuItem onClick={handleLink} showBottomDivider />
         </>
       )}
       {showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotContextMenuItem
-            range={activeRange}
-            onClick={handleRangeSnapshot}
-          />
-          <PContextMenu.Divider />
-        </>
+        <Range.SnapshotContextMenuItem
+          range={activeRange}
+          onClick={handleRangeSnapshot}
+          showBottomDivider
+        />
       )}
-      {someSelected && (
-        <>
-          <CMenu.DeleteItem onClick={handleDelete} />
-          <PContextMenu.Divider />
-        </>
-      )}
+      {someSelected && <CMenu.DeleteItem onClick={handleDelete} showBottomDivider />}
       <CMenu.ReloadConsoleItem />
     </>
   );

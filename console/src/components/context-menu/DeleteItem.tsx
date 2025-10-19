@@ -10,7 +10,7 @@
 import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export interface DeleteItemProps extends Pick<ContextMenu.ItemProps, "onClick"> {}
+export interface DeleteItemProps extends Omit<ContextMenu.ItemProps, "children"> {}
 
 export const DeleteItem = (props: DeleteItemProps): ReactElement => (
   <ContextMenu.Item {...props}>

@@ -122,11 +122,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     hasIdentifier(getMake(first.data?.make));
   return (
     <>
-      <Group.ContextMenuItem {...props} />
       {singleResource && (
         <>
-          <ContextMenu.RenameItem onClick={handleRename} />
-          {(showConfigure || showChangeIdentifier) && <PContextMenu.Divider />}
+          <ContextMenu.RenameItem onClick={handleRename} showBottomDivider />
           {showConfigure && (
             <PContextMenu.Item onClick={handleConfigure}>
               <Icon.Hardware />
@@ -139,23 +137,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
               Change identifier
             </PContextMenu.Item>
           )}
+          {(showConfigure || showChangeIdentifier) && <PContextMenu.Divider />}
         </>
       )}
-      <PContextMenu.Divider />
-      <ContextMenu.DeleteItem onClick={handleDelete} />
+      <Group.ContextMenuItem {...props} showBottomDivider />
+      <ContextMenu.DeleteItem onClick={handleDelete} showBottomDivider />
       {customMenuItems != null && (
         <>
-          <PContextMenu.Divider />
           {customMenuItems}
-        </>
-      )}
-      <PContextMenu.Divider />
-      {singleResource && (
-        <>
-          <Ontology.CopyContextMenuItem {...props} />
           <PContextMenu.Divider />
         </>
       )}
+      {singleResource && <Ontology.CopyContextMenuItem {...props} showBottomDivider />}
       <ContextMenu.ReloadConsoleItem />
     </>
   );

@@ -10,7 +10,7 @@
 import { ContextMenu, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export interface RenameItemProps extends Pick<ContextMenu.ItemProps, "onClick"> {}
+export interface RenameItemProps extends Omit<ContextMenu.ItemProps, "children"> {}
 
 export const RenameItem = (props: RenameItemProps): ReactElement => (
   <ContextMenu.Item {...props}>

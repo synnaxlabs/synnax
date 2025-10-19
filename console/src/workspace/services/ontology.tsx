@@ -217,14 +217,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   return (
     <>
       {singleResource && (
-        <>
-          <ContextMenu.RenameItem onClick={handleRename} />
-          <PContextMenu.Divider />
-        </>
+        <ContextMenu.RenameItem onClick={handleRename} showBottomDivider />
       )}
       <ContextMenu.DeleteItem onClick={handleDelete} />
-      <Group.ContextMenuItem {...props} />
-      <PContextMenu.Divider />
+      <Group.ContextMenuItem {...props} showBottomDivider />
       {singleResource && (
         <>
           <PContextMenu.Item onClick={handleCreatePlot}>
@@ -235,17 +231,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             <LogServices.CreateIcon />
             Create log
           </PContextMenu.Item>
-          <PContextMenu.Item onClick={handleCreateTable}>
-            <TableServices.CreateIcon />
-            Create table
-          </PContextMenu.Item>
           {canCreateSchematic && (
             <PContextMenu.Item onClick={handleCreateSchematic}>
               <SchematicServices.CreateIcon />
               Create schematic
             </PContextMenu.Item>
           )}
-          <PContextMenu.Divider />
+          <PContextMenu.Item onClick={handleCreateTable} showBottomDivider>
+            <TableServices.CreateIcon />
+            Create table
+          </PContextMenu.Item>
           <PContextMenu.Item onClick={handleImportPlot}>
             <LinePlotServices.ImportIcon />
             Import line plot(s)
@@ -260,15 +255,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
               Import schematic(s)
             </PContextMenu.Item>
           )}
-          <PContextMenu.Item onClick={importTable}>
+          <PContextMenu.Item onClick={importTable} showBottomDivider>
             <TableServices.ImportIcon />
             Import table(s)
           </PContextMenu.Item>
-          <PContextMenu.Divider />
           <Export.ContextMenuItem onClick={handleExport} />
           <Link.CopyContextMenuItem onClick={handleLink} />
-          <Ontology.CopyContextMenuItem {...props} />
-          <PContextMenu.Divider />
+          <Ontology.CopyContextMenuItem {...props} showBottomDivider />
         </>
       )}
       <ContextMenu.ReloadConsoleItem />

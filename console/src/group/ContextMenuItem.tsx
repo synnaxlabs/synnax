@@ -14,24 +14,21 @@ import { type ReactElement, useCallback } from "react";
 
 import { type Ontology } from "@/ontology";
 
-export interface ContextMenuItemProps extends Ontology.TreeContextMenuProps {
-  showBottomDivider?: boolean;
-}
+export interface ContextMenuItemProps
+  extends Ontology.TreeContextMenuProps,
+    Pick<ContextMenu.ItemProps, "showBottomDivider"> {}
 
 export const ContextMenuItem = ({
-  showBottomDivider = false,
+  showBottomDivider,
   ...rest
 }: ContextMenuItemProps): ReactElement | null => {
   const group = useCreateFromSelection();
   if (!canGroupSelection(rest)) return null;
   return (
-    <>
-      <ContextMenu.Item onClick={() => group(rest)}>
-        <Icon.Group />
-        Group
-      </ContextMenu.Item>
-      {showBottomDivider && <ContextMenu.Divider />}
-    </>
+    <ContextMenu.Item onClick={() => group(rest)} showBottomDivider={showBottomDivider}>
+      <Icon.Group />
+      Group
+    </ContextMenu.Item>
   );
 };
 
