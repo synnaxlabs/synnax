@@ -10,10 +10,9 @@
 import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { InputShowcaseText } from "@/showcase/InputShowcase";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { InputShowcaseText } from "./InputShowcase";
-import { SubcategorySection } from "./SubcategorySection";
 
 const INPUT_PLACEHOLDER = (
   <>

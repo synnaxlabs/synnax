@@ -14,9 +14,8 @@ import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 const SelectMultiple = () => {
   const [value, setValue] = useState<channel.Key[]>([]);

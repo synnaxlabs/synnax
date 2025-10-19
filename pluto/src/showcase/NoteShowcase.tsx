@@ -10,9 +10,8 @@
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Note } from "@/note";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export const NoteShowcase = () => (
   <Flex.Box y pack empty>

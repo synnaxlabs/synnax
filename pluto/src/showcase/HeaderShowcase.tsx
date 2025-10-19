@@ -11,9 +11,8 @@ import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Header } from "@/header";
 import { Icon } from "@/icon";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export const HeaderShowcase = () => (
   <Flex.Box y pack empty>

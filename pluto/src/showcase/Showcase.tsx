@@ -8,22 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@/flex";
+import { BreadcrumbShowcase } from "@/showcase/BreadcrumbShowcase";
+import { ButtonShowcase } from "@/showcase/ButtonShowcase";
+import { DISPLAY, PADDING_STYLE } from "@/showcase/constants";
+import { DisplaySelector } from "@/showcase/DisplaySelector";
+import { DividerShowcase } from "@/showcase/DividerShowcase";
+import { FlexShowcase } from "@/showcase/FlexShowcase";
+import { HeaderShowcase } from "@/showcase/HeaderShowcase";
+import { InputShowcase } from "@/showcase/InputShowcase";
+import { NoteShowcase } from "@/showcase/NoteShowcase";
+import { SelectShowcase } from "@/showcase/SelectShowcase";
+import { TagShowcase } from "@/showcase/TagShowcase";
+import { TextShowcase } from "@/showcase/TextShowcase";
 import { state } from "@/state";
 import { Text } from "@/text";
-
-import { BreadcrumbShowcase } from "./BreadcrumbShowcase";
-import { ButtonShowcase } from "./ButtonShowcase";
-import { DISPLAY, PADDING_STYLE } from "./constants";
-import { DisplaySelector } from "./DisplaySelector";
-import { DividerShowcase } from "./DividerShowcase";
-import { FlexShowcase } from "./FlexShowcase";
-import { HeaderShowcase } from "./HeaderShowcase";
-import { InputShowcase } from "./InputShowcase";
-import { MenuShowcase } from "./MenuShowcase";
-import { NoteShowcase } from "./NoteShowcase";
-import { SelectShowcase } from "./SelectShowcase";
-import { TagShowcase } from "./TagShowcase";
-import { TextShowcase } from "./TextShowcase";
 
 const ShowcaseSection = ({
   title,
@@ -81,13 +79,6 @@ export const Showcase = () => {
       description:
         "Dropdown selection components for single and multiple value selection with search capabilities.",
       component: <SelectShowcase />,
-    },
-    {
-      key: "menu",
-      title: "Menu",
-      description:
-        "Interactive menu components with selection states, icons, and context menu functionality.",
-      component: <MenuShowcase />,
     },
     {
       key: "note",

@@ -10,9 +10,8 @@
 import { Breadcrumb } from "@/breadcrumb";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export const BreadcrumbShowcase = () => {
   const segments = [

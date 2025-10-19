@@ -13,9 +13,8 @@ import { useState } from "react";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export interface InputShowcaseTextProps
   extends Optional<Input.TextProps, "value" | "onChange"> {}

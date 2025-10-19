@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@/flex";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export const TagShowcase = () => (
   <Flex.Box y pack empty>

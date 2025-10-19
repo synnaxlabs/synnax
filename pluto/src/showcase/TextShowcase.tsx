@@ -9,10 +9,9 @@
 
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-
-import { SubcategorySection } from "./SubcategorySection";
 
 export const TextShowcase = () => (
   <Flex.Box y pack empty rounded>

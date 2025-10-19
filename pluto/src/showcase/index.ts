@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./BreadcrumbShowcase";
-export * from "./ButtonShowcase";
-export * from "./constants";
-export * from "./DisplaySelector";
-export * from "./DividerShowcase";
-export * from "./FlexShowcase";
-export * from "./HeaderShowcase";
-export * from "./InputShowcase";
-export * from "./MenuShowcase";
-export * from "./NoteShowcase";
-export * from "./SelectShowcase";
-export * from "./Showcase";
-export * from "./SubcategorySection";
-export * from "./TagShowcase";
-export * from "./TextShowcase";
+export * from "@/showcase/BreadcrumbShowcase";
+export * from "@/showcase/ButtonShowcase";
+export * from "@/showcase/constants";
+export * from "@/showcase/DisplaySelector";
+export * from "@/showcase/DividerShowcase";
+export * from "@/showcase/FlexShowcase";
+export * from "@/showcase/HeaderShowcase";
+export * from "@/showcase/InputShowcase";
+export * from "@/showcase/NoteShowcase";
+export * from "@/showcase/SelectShowcase";
+export * from "@/showcase/Showcase";
+export * from "@/showcase/SubcategorySection";
+export * from "@/showcase/TagShowcase";
+export * from "@/showcase/TextShowcase";

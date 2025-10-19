@@ -12,9 +12,8 @@ import { caseconv } from "@synnaxlabs/x";
 import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Select } from "@/select";
+import { DISPLAY } from "@/showcase/constants";
 import { Text } from "@/text";
-
-import { DISPLAY } from "./constants";
 
 interface DisplaySelectorProps {
   display: (typeof DISPLAY)[number][];
