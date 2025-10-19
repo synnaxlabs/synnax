@@ -94,8 +94,7 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentSymbolProvider: true,
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes:     convertToSemanticTokenTypes(semanticTokenTypes),
-					TokenModifiers: convertToSemanticTokenModifiers(SemanticTokenModifiers),
+					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -118,14 +117,6 @@ func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
 	result := make([]protocol.SemanticTokenTypes, len(types))
 	for i, t := range types {
 		result[i] = protocol.SemanticTokenTypes(t)
-	}
-	return result
-}
-
-func convertToSemanticTokenModifiers(modifiers []string) []protocol.SemanticTokenModifiers {
-	result := make([]protocol.SemanticTokenModifiers, len(modifiers))
-	for i, m := range modifiers {
-		result[i] = protocol.SemanticTokenModifiers(m)
 	}
 	return result
 }
