@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -269,7 +270,13 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.startCalculation(ctx, key, 1)
 }
 
-const defaultPipelineBufferSize = 50
+const (
+	defaultPipelineBufferSize                 = 500
+	streamerAddr              address.Address = "streamer"
+	calculatorAddr            address.Address = "calculator"
+	writerAddr                address.Address = "writer"
+	writerObserverAddr        address.Address = "writer_observer"
+)
 
 func (s *Service) startCalculation(
 	ctx context.Context,
@@ -292,29 +299,6 @@ func (s *Service) startCalculation(
 			return s.releaseEntryCloser(key), nil
 		}
 
-		var requires []channel.Channel
-		if err := s.cfg.Channel.NewRetrieve().
-			WhereKeys(ch.Requires...).
-			Entries(&requires).
-			Exec(ctx, nil); err != nil {
-			return nil, err
-		}
-
-		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key(), ch.Index()},
-			Start: telem.Now(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
-		if err != nil {
-			return nil, err
-		}
-		p := plumber.New()
-		plumber.SetSegment(p, "streamer", streamer_)
-		plumber.SetSegment(p, "writer", writer_)
-
 		c, err := OpenCalculator(ctx, CalculatorConfig{
 			ChannelSvc: s.cfg.Channel,
 			Channel:    ch,
@@ -323,10 +307,25 @@ func (s *Service) startCalculation(
 		if err != nil {
 			return nil, err
 		}
+		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key(), ch.Index()},
+			Start: telem.Now(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: c.ReadFrom()})
+		if err != nil {
+			return nil, err
+		}
+		p := plumber.New()
+		plumber.SetSegment(p, streamerAddr, streamer_)
+		plumber.SetSegment(p, writerAddr, writer_)
+
 		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
 		plumber.SetSegment(
 			p,
-			"Calculator",
+			calculatorAddr,
 			sc,
 			confluence.Defer(sc.close),
 		)
@@ -338,10 +337,10 @@ func (s *Service) startCalculation(
 				zap.Stringer("channel", ch),
 			)
 		})
-		plumber.SetSink(p, "obs", o)
-		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
+		plumber.SetSink(p, writerObserverAddr, o)
+		plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterRequest](p, calculatorAddr, writerAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
 		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
 		streamer_.InFrom(streamerRequests)
 		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))

@@ -209,8 +209,8 @@ func OpenCalculator(
 
 func (c *Calculator) ReadFrom() channel.Keys {
 	ch := make([]channel.Key, 0, len(c.stateCfg.ChannelDigests)*2)
-	for _, v := range c.stateCfg.ChannelDigests {
-		ch = append(ch, channel.Key(v.Key), channel.Key(v.Index))
+	for k := range c.stateCfg.ReactiveDeps {
+		ch = append(ch, channel.Key(k))
 	}
 	return ch
 }
