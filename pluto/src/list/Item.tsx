@@ -60,14 +60,15 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   ...rest
 }: ItemProps<K, E>): ReactElement => (
   <Button.Button
-    // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
+    // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type
+    // info
     el={el as Button.ElementType}
     defaultEl="div"
     id={itemKey.toString()}
     variant="text"
-    onClick={(e: any) => {
+    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
       onSelect?.(itemKey);
-      onClick?.(e);
+      (onClick as React.MouseEventHandler<HTMLButtonElement> | undefined)?.(e);
     }}
     className={CSS(
       className,

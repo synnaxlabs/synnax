@@ -10,7 +10,25 @@
  */
 
 .console-nav__bar {
-    .pluto-menu-item {
+    .pluto-list__item {
+        &:not(.pluto--square) {
+            width: 100%;
+        }
+
+        &.pluto--selected {
+            background: var(--pluto-primary-z-40);
+        }
+
+        & .pluto-trigger-indicator {
+            opacity: 0;
+        }
+
+        &:hover {
+            & .pluto-trigger-indicator {
+                opacity: 1;
+            }
+        }
+
         position: relative;
         &.pluto--selected {
             background: var(--pluto-gray-l4);
@@ -43,7 +61,7 @@
     }
 
     &.pluto--location-left {
-        .pluto-menu-item::after {
+        .pluto-list__item::after {
             left: -1.5rem;
             border-top-right-radius: 0.5rem;
             border-bottom-right-radius: 0.5rem;
@@ -53,7 +71,7 @@
         }
     }
 
-    &.pluto--location-right .pluto-menu-item::after {
+    &.pluto--location-right .pluto-list__item::after {
         right: -1.5rem;
         border-top-left-radius: 0.5rem;
         border-bottom-left-radius: 0.5rem;
