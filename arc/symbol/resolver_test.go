@@ -97,7 +97,7 @@ var _ = Describe("CompoundResolver", func() {
 	Describe("ResolvePrefix", func() {
 		It("Should resolve from all sub-resolvers", func() {
 			resolver1 := symbol.MapResolver{
-				"foo":  symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
+				"foo":    symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 				"foobar": symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			resolver2 := symbol.MapResolver{

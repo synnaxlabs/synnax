@@ -84,11 +84,11 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			expected := WASM(
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID (first stateful var)
-				OpI64Const, int64(0),      // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID (first stateful var)
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in local
+				OpLocalSet, 0, // store in local
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
 		})
@@ -102,11 +102,11 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			expected := WASM(
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpI64Const, int64(0),      // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in local
+				OpLocalSet, 0, // store in local
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
 		})
@@ -125,17 +125,17 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
 			expected := WASM(
 				// Declaration: count $= 0
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpI64Const, int64(0),      // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in local
+				OpLocalSet, 0, // store in local
 				// Assignment: count = 5
-				OpI64Const, int64(5),      // new value
-				OpLocalSet, 0,             // store temporarily
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpLocalGet, 0,             // get value back
+				OpI64Const, int64(5), // new value
+				OpLocalSet, 0, // store temporarily
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpLocalGet, 0, // get value back
 				OpCall, uint64(stateStoreIdx),
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
@@ -154,19 +154,19 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			expected := WASM(
 				// Declaration: count $= 0
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpI64Const, int64(0),      // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in local
+				OpLocalSet, 0, // store in local
 				// Expression: count + 1
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpI64Const, int64(0),      // dummy init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
-				OpI64Const, int64(1),      // literal 1
-				OpI64Add,                  // count + 1
-				OpLocalSet, 1,             // store in x's local
+				OpI64Const, int64(1), // literal 1
+				OpI64Add,      // count + 1
+				OpLocalSet, 1, // store in x's local
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
 		})
@@ -185,28 +185,28 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			expected := WASM(
 				// Declaration: a $= 10
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID for a
-				OpI64Const, int64(10),     // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID for a
+				OpI64Const, int64(10), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in a's local
+				OpLocalSet, 0, // store in a's local
 				// Declaration: b $= 20
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(1),      // var ID for b
-				OpI64Const, int64(20),     // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(1), // var ID for b
+				OpI64Const, int64(20), // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 1,             // store in b's local
+				OpLocalSet, 1, // store in b's local
 				// Expression: a + b
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID for a
-				OpI64Const, int64(0),      // dummy init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID for a
+				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(1),      // var ID for b
-				OpI64Const, int64(0),      // dummy init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(1), // var ID for b
+				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
-				OpI64Add,                  // a + b
-				OpLocalSet, 2,             // store in c's local
+				OpI64Add,      // a + b
+				OpLocalSet, 2, // store in c's local
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
 		})
@@ -220,11 +220,11 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
 			expected := WASM(
-				OpI32Const, int32(0),      // func ID
-				OpI32Const, int32(0),      // var ID
-				OpF64Const, 20.5,          // init value
+				OpI32Const, int32(0), // func ID
+				OpI32Const, int32(0), // var ID
+				OpF64Const, 20.5, // init value
 				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,             // store in local
+				OpLocalSet, 0, // store in local
 			)
 			Expect(ctx.Writer.Bytes()).To(Equal(expected))
 		})

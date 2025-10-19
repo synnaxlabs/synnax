@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
 import { type AsyncDestructor } from "@synnaxlabs/x";
 import { MonacoLanguageClient } from "monaco-languageclient";
-import { type Message } from "vscode-jsonrpc";
-import { type MessageReader, type MessageWriter } from "vscode-jsonrpc";
+import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
-import { z } from "zod";
 
 import { type Extension } from "@/code/init/initialize";
 
@@ -22,10 +20,8 @@ const NOOP_DISPOSER = () => ({ dispose: () => {} });
 
 export const LANGUAGE = "arc";
 
-const lspMessageZ = z.object({ content: z.string() });
-
 interface FreighterTransportProps {
-  stream: Stream<typeof lspMessageZ, typeof lspMessageZ>;
+  stream: Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
 }
 
 const createFreighterTransport = ({
@@ -55,7 +51,9 @@ const createFreighterTransport = ({
           if (onMessageCallback != null) onMessageCallback(parsed);
         } catch (parseError) {
           if (onErrorCallback != null)
-            onErrorCallback(parseError instanceof Error ? parseError : new Error(String(parseError)));
+            onErrorCallback(
+              parseError instanceof Error ? parseError : new Error(String(parseError)),
+            );
         }
       }
     } finally {
@@ -73,18 +71,30 @@ const createFreighterTransport = ({
       receiveLoop().catch((err) => {
         if (onErrorCallback != null) onErrorCallback(err);
       });
-      return { dispose: () => { onMessageCallback = null; } };
+      return {
+        dispose: () => {
+          onMessageCallback = null;
+        },
+      };
     },
     dispose: () => {
       isClosed = true;
     },
     onError: (callback) => {
       onErrorCallback = callback;
-      return { dispose: () => { onErrorCallback = null; } };
+      return {
+        dispose: () => {
+          onErrorCallback = null;
+        },
+      };
     },
     onClose: (callback) => {
       onCloseCallback = callback;
-      return { dispose: () => { onCloseCallback = null; } };
+      return {
+        dispose: () => {
+          onCloseCallback = null;
+        },
+      };
     },
     onPartialMessage: NOOP_DISPOSER,
   };
@@ -101,11 +111,19 @@ const createFreighterTransport = ({
     onError: (callback) => {
       const wrappedCallback = (err: Error) => callback([err, undefined, undefined]);
       onErrorCallback = wrappedCallback;
-      return { dispose: () => { onErrorCallback = null; } };
+      return {
+        dispose: () => {
+          onErrorCallback = null;
+        },
+      };
     },
     onClose: (callback) => {
       onCloseCallback = callback;
-      return { dispose: () => { onCloseCallback = null; } };
+      return {
+        dispose: () => {
+          onCloseCallback = null;
+        },
+      };
     },
     end: () => {
       isClosed = true;

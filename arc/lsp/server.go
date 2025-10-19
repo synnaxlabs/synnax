@@ -68,7 +68,7 @@ type Document struct {
 	URI      protocol.DocumentURI
 	Version  int32
 	Content  string
-	IR       ir.IR                 // Analyzed IR with symbol table
+	IR       ir.IR                // Analyzed IR with symbol table
 	Analysis analyzer.Diagnostics // Cached analysis diagnostics
 }
 

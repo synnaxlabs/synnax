@@ -49,11 +49,7 @@ const retrieveResZ = z.object({ arcs: array.nullableZ(arcZ) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
-// LSP Message schema matching the server-side arctransport.LSPMessage
-const lspMessageZ = z.object({
-  content: z.string(),
-});
-
+export const lspMessageZ = z.object({ content: z.string() });
 export type LSPMessage = z.infer<typeof lspMessageZ>;
 
 export type RetrieveRequest = z.input<typeof retrieveReqZ>;

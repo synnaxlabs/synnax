@@ -24,25 +24,25 @@ import (
 // Runtime provides the actual implementation of Arc runtime functions.
 // This is the "business logic" layer that the bindings call.
 type Runtime struct {
-	state *state.State
-	memory api.Memory  // WASM memory for reading string literals
+	state  *state.State
+	memory api.Memory // WASM memory for reading string literals
 
 	// String storage - handle to string mapping
-	strings map[uint32]string
+	strings             map[uint32]string
 	stringHandleCounter uint32
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
-	stateU8 map[uint64]uint8
-	stateU16 map[uint64]uint16
-	stateU32 map[uint64]uint32
-	stateU64 map[uint64]uint64
-	stateI8 map[uint64]int8
-	stateI16 map[uint64]int16
-	stateI32 map[uint64]int32
-	stateI64 map[uint64]int64
-	stateF32 map[uint64]float32
-	stateF64 map[uint64]float64
+	stateU8     map[uint64]uint8
+	stateU16    map[uint64]uint16
+	stateU32    map[uint64]uint32
+	stateU64    map[uint64]uint64
+	stateI8     map[uint64]int8
+	stateI16    map[uint64]int16
+	stateI32    map[uint64]int32
+	stateI64    map[uint64]int64
+	stateF32    map[uint64]float32
+	stateF64    map[uint64]float64
 	stateString map[uint64]string
 
 	mu sync.RWMutex
@@ -50,21 +50,21 @@ type Runtime struct {
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
-		state: state,
-		memory: memory,
-		strings: make(map[uint32]string),
+		state:               state,
+		memory:              memory,
+		strings:             make(map[uint32]string),
 		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		stateU8: make(map[uint64]uint8),
-		stateU16: make(map[uint64]uint16),
-		stateU32: make(map[uint64]uint32),
-		stateU64: make(map[uint64]uint64),
-		stateI8: make(map[uint64]int8),
-		stateI16: make(map[uint64]int16),
-		stateI32: make(map[uint64]int32),
-		stateI64: make(map[uint64]int64),
-		stateF32: make(map[uint64]float32),
-		stateF64: make(map[uint64]float64),
-		stateString: make(map[uint64]string),
+		stateU8:             make(map[uint64]uint8),
+		stateU16:            make(map[uint64]uint16),
+		stateU32:            make(map[uint64]uint32),
+		stateU64:            make(map[uint64]uint64),
+		stateI8:             make(map[uint64]int8),
+		stateI16:            make(map[uint64]int16),
+		stateI32:            make(map[uint64]int32),
+		stateI64:            make(map[uint64]int64),
+		stateF32:            make(map[uint64]float32),
+		stateF64:            make(map[uint64]float64),
+		stateString:         make(map[uint64]string),
 	}
 }
 
@@ -81,7 +81,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 }
 
 // ===== Channel Operations =====
-
 
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
@@ -343,9 +342,7 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 	r.state.WriteChannelValue(channelID, series)
 }
 
-
 // ===== State Operations =====
-
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
@@ -576,7 +573,6 @@ func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32
 	key := stateKey(funcID, varID)
 	r.stateF64[key] = value
 }
-
 
 // ===== Generic Operations =====
 
