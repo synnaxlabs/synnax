@@ -131,9 +131,9 @@ describe("Arc LSP", () => {
         // Parse raw JSON notification
         const diagMsg = JSON.parse(diagResponse.content) as jsonRPC.Message;
         expect(diagMsg.jsonrpc).toBe("2.0");
-        if ("method" in diagMsg) {
+        if ("method" in diagMsg) 
           expect(diagMsg.method).toBe("textDocument/publishDiagnostics");
-        }
+        
       }
     }
 
@@ -164,9 +164,9 @@ describe("Arc LSP", () => {
     if (!initRes) throw new Error("Expected response");
 
     const initMsg = JSON.parse(initRes.content) as jsonRPC.Response;
-    if ("error" in initMsg) {
+    if ("error" in initMsg) 
       throw new Error(`LSP error: ${initMsg.error.message}`);
-    }
+    
 
     // Send initialized notification
     stream.send({
@@ -221,9 +221,9 @@ describe("Arc LSP", () => {
     expect(responseMsg.id).toBe(2);
 
     // Check for error response
-    if ("error" in responseMsg) {
+    if ("error" in responseMsg) 
       throw new Error(`LSP error: ${responseMsg.error.message}`);
-    }
+    
 
     stream.closeSend();
     client.close();
@@ -252,9 +252,9 @@ describe("Arc LSP", () => {
     const [initResponse] = await stream.receive();
     if (!initResponse) throw new Error("Expected response");
     const initMsg = JSON.parse(initResponse.content) as jsonRPC.Response;
-    if ("error" in initMsg) {
+    if ("error" in initMsg) 
       throw new Error(`LSP error: ${initMsg.error.message}`);
-    }
+    
     receivedMessages.push(initMsg);
 
     // Send multiple requests with different IDs
@@ -280,9 +280,9 @@ describe("Arc LSP", () => {
       const [response] = await stream.receive();
       if (!response) throw new Error("Expected response");
       const msg = JSON.parse(response.content) as jsonRPC.Response;
-      if ("error" in msg) {
+      if ("error" in msg) 
         throw new Error(`LSP error: ${msg.error.message}`);
-      }
+      
       receivedMessages.push(msg);
     }
 
@@ -328,9 +328,9 @@ describe("Arc LSP", () => {
     expect(parsed.id).toBe(999);
 
     // This test expects an error response for unknown method
-    if ("error" in parsed) {
+    if ("error" in parsed) 
       expect(parsed.error).toBeDefined();
-    }
+    
 
     stream.closeSend();
     client.close();
@@ -366,9 +366,9 @@ describe("Arc LSP", () => {
     if (!initRes) throw new Error("Expected response");
 
     const initMsg = JSON.parse(initRes.content) as jsonRPC.Response;
-    if ("error" in initMsg) {
+    if ("error" in initMsg) 
       throw new Error(`LSP error: ${initMsg.error.message}`);
-    }
+    
 
     // Verify server advertises semantic tokens support
     if ("result" in initMsg) {
@@ -427,9 +427,9 @@ describe("Arc LSP", () => {
     expect(tokenMsg.jsonrpc).toBe("2.0");
     expect(tokenMsg.id).toBe(2);
 
-    if ("error" in tokenMsg) {
+    if ("error" in tokenMsg) 
       throw new Error(`LSP error: ${tokenMsg.error.message}`);
-    }
+    
 
     // Verify semantic tokens are returned
     if ("result" in tokenMsg) {
