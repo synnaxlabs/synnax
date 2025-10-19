@@ -28,6 +28,7 @@ type Wheel struct {
 	startTime   time.Time
 	currentTick uint64
 	stop        chan struct{}
+	wg          sync.WaitGroup
 }
 
 // Interval represents a periodic timer registered with the time wheel.
@@ -57,10 +58,12 @@ func (w *Wheel) Start(ctx context.Context) {
 	w.startTime = time.Now()
 	w.ticker = time.NewTicker(w.resolution)
 
+	w.wg.Add(1)
 	go w.run(ctx)
 }
 
 func (w *Wheel) run(ctx context.Context) {
+	defer w.wg.Done()
 	defer w.ticker.Stop()
 
 	for {
@@ -162,9 +165,10 @@ func (w *Wheel) Disable(key string) {
 	}
 }
 
-// Stop halts the time wheel.
+// Stop halts the time wheel and waits for the goroutine to finish.
 func (w *Wheel) Stop() {
 	close(w.stop)
+	w.wg.Wait()
 }
 
 // SetCallback sets the callback function for interval firing.

@@ -42,8 +42,8 @@ var _ = Describe("TimeWheel", func() {
 	})
 
 	AfterEach(func() {
-		wheel.Stop()
 		cancel()
+		wheel.Stop()
 	})
 
 	Describe("Single Interval", func() {

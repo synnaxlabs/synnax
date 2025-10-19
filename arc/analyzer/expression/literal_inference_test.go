@@ -41,6 +41,16 @@ var _ = Describe("Literal Type Inference", func() {
 				Kind: symbol.KindVariable,
 				Type: types.I32(),
 			},
+			"sensor": symbol.Symbol{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			},
+			"integer_sensor": symbol.Symbol{
+				Name: "integer_sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I8()),
+			},
 		}
 	})
 
@@ -54,14 +64,7 @@ func test{} () {
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			ok := analyzer.AnalyzeProgram(ctx)
-
-			// Should not have type errors
-			if !ok {
-				GinkgoWriter.Printf("Diagnostics: %v\n", ctx.Diagnostics)
-			}
-			Expect(ok).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("should allow abc + 2 where abc is f32", func() {
@@ -73,10 +76,7 @@ func test{} () {
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			ok := analyzer.AnalyzeProgram(ctx)
-
-			Expect(ok).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("should allow 2.5 + abc where abc is f32", func() {
@@ -88,10 +88,7 @@ func test{} () {
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			ok := analyzer.AnalyzeProgram(ctx)
-
-			Expect(ok).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("should allow 5 + xyz where xyz is i32", func() {
@@ -103,10 +100,7 @@ func test{} () {
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			ok := analyzer.AnalyzeProgram(ctx)
-
-			Expect(ok).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("should infer correct type for expressions with multiple literals", func() {
@@ -118,10 +112,38 @@ func test{} () {
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			ok := analyzer.AnalyzeProgram(ctx)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
 
-			Expect(ok).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+		It("Should infer the correct type for channel and literal operations", func() {
+			program := MustSucceed(parser.Parse(`
+			func cat() f64 {
+				return 2 * sensor
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer the correct type for channel and several literal operations", func() {
+			program := MustSucceed(parser.Parse(`
+			func cat() f64 {
+				return 2 * sensor * 3.0 * sensor
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer the correct type for channel and several literal operations", func() {
+			program := MustSucceed(parser.Parse(`
+			func cat() f64 {
+				return 2.2 * integer_sensor
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(ctx.Diagnostics.Error()).To(MatchError(ContainSubstring("types f64 and i8 are not unifiable")))
 		})
 	})
 })

@@ -511,7 +511,7 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			firstDiag := (*ctx.Diagnostics)[0]
-			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
+			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
 		})
 
 		It("Should not return an error when adding a channel to a variable of the same type", func() {
