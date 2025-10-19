@@ -84,7 +84,7 @@ func openFileController(cfg Config) (*fileController, error) {
 }
 
 // realFileSizeCap returns the maximum allowed size of a file — though it may be
-// exceeded if commits are sparse. fc.ConfigValues.FileSize is the nominal file size to not
+// exceeded if commits are sparse. fc.Config.FileSize is the nominal file size to not
 // exceed, in reality, this size is set to 0.8 * the actual file size cap, therefore
 // the real size is 1.25 * the nominal size.
 func (fc *fileController) realFileSizeCap() telem.Size {

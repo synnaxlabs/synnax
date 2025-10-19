@@ -143,11 +143,12 @@ class TestIterator:
         idx_ch, data_ch = indexed_pair
         idx_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
         data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
+        print(data_ch.name)
 
         calc = client.channels.create(
             name="calc",
-            expression=f"return 2 * {data_ch.name}",
-            requires=[data_ch.key],
+            expression=f"return {data_ch.name} * 2",
+            requires=[],
             data_type=data_ch.data_type,
         )
         data = calc.read(sy.TimeRange.MAX)
