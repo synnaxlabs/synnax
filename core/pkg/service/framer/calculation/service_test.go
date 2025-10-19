@@ -31,8 +31,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var sleepInterval = 25 * time.Millisecond
-
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service

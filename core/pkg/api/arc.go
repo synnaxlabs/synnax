@@ -176,7 +176,7 @@ func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcL
 	// Create a new LSP server instance for this connection with a no-op logger
 	// to avoid nil pointer panics
 	lspServer, err := arclsp.New(arclsp.Config{
-		Instrumentation: s.Instrumentation.Child("arc_lsp"),
+		Instrumentation: s.Child("arc_lsp"),
 	})
 	if err != nil {
 		return err

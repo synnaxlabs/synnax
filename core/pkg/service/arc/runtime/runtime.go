@@ -220,7 +220,7 @@ func NewStateConfig(
 	}
 	return state.Config{
 		ChannelDigests: channelDigests,
-		Edges:          module.IR.Edges,
+		Edges:          module.Edges,
 		ReactiveDeps:   reactiveDeps,
 		Nodes:          module.Nodes,
 	}, nil

@@ -2,14 +2,19 @@
 
 ## Problem Statement
 
-The `Channels` field in `ir.Node` is not being properly populated during analysis and IR generation. This field tracks which Synnax channels each node reads from and writes to, which is critical for:
-1. **Reactive dependency tracking** - Knowing which nodes to mark dirty when channel data arrives
+The `Channels` field in `ir.Node` is not being properly populated during analysis and IR
+generation. This field tracks which Synnax channels each node reads from and writes to,
+which is critical for:
+
+1. **Reactive dependency tracking** - Knowing which nodes to mark dirty when channel
+   data arrives
 2. **Optimization** - Understanding data flow for scheduling and resource allocation
 3. **Validation** - Ensuring channel access patterns are correct
 
 ## Current State Analysis
 
 ### Data Structure (ir/ir.go:30-34)
+
 ```go
 type Channels struct {
     Read  set.Set[uint32] `json:"read"`   // Channel keys this node reads from
@@ -20,16 +25,23 @@ type Channels struct {
 ### Where Channels Are Partially Tracked
 
 #### 1. **text/text.go (Text-based flows)** ✅ WORKS PARTIALLY
-- `analyzeChannel()` (line 146-167): Tracks channel reads when a channel is used as a flow source
+
+- `analyzeChannel()` (line 146-167): Tracks channel reads when a channel is used as a
+  flow source
 - `extractConfigValues()` (line 189-206): Tracks config parameters that are channels
-- **Problem**: Only tracks channels in config and flow sources, NOT channels used in function bodies
+- **Problem**: Only tracks channels in config and flow sources, NOT channels used in
+  function bodies
 
 #### 2. **graph/graph.go (Graph-based flows)** ❌ INCOMPLETE
-- Line 198: Has a commented-out assertion `//Expect(firstNode.Channels.Read).To(HaveLen(1))`
+
+- Line 198: Has a commented-out assertion
+  `//Expect(firstNode.Channels.Read).To(HaveLen(1))`
 - **Problem**: Never populates Channels field at all in graph analysis
 
 #### 3. **analyzer/analyzer.go** ❌ PLACEHOLDER
-- Line 111-114: Has comment indicating channel tracking "will be handled at IR compilation stage"
+
+- Line 111-114: Has comment indicating channel tracking "will be handled at IR
+  compilation stage"
 - **Problem**: Never implemented - just a placeholder OnResolve hook
 
 ### Channel Usage Points in Arc Code
@@ -37,6 +49,7 @@ type Channels struct {
 Channels can be used in multiple ways:
 
 1. **Config parameters** (✅ tracked in text.go)
+
    ```arc
    stage controller{
        sensor chan f32
@@ -44,16 +57,19 @@ Channels can be used in multiple ways:
    ```
 
 2. **Flow sources** (✅ tracked in text.go)
+
    ```arc
    temperature_sensor -> stage{}
    ```
 
 3. **Flow targets** (❌ NOT tracked)
+
    ```arc
    stage{} -> output_channel
    ```
 
 4. **Channel reads in function body** (❌ NOT tracked)
+
    ```arc
    func process() {
        val := <-my_channel  // blocking read
@@ -62,6 +78,7 @@ Channels can be used in multiple ways:
    ```
 
 5. **Channel writes in function body** (❌ NOT tracked)
+
    ```arc
    func process() {
        42 -> output_channel
@@ -79,6 +96,7 @@ Channels can be used in multiple ways:
 ### Why This Matters
 
 From `runtime/state/state.go:57-72`:
+
 ```go
 func (s *State) Ingest(fr telem.Frame[uint32], markDirty func(nodeKey string)) {
     for rawI, key := range fr.RawKeys() {
@@ -91,13 +109,15 @@ func (s *State) Ingest(fr telem.Frame[uint32], markDirty func(nodeKey string)) {
 }
 ```
 
-The `ReactiveDeps map[uint32][]string` needs to be built from `Channels.Read` - it maps channel keys to nodes that read from them.
+The `ReactiveDeps map[uint32][]string` needs to be built from `Channels.Read` - it maps
+channel keys to nodes that read from them.
 
 ## Root Cause Analysis
 
 The problem stems from **two different compilation paths**:
 
 ### Path 1: Text-based (text/text.go)
+
 - Parse Arc source → AST
 - Analyze declarations
 - Build IR with flow statements converted to nodes/edges
@@ -105,23 +125,31 @@ The problem stems from **two different compilation paths**:
 - **Missing**: Tracking channels in function bodies
 
 ### Path 2: Graph-based (graph/graph.go)
+
 - Receive pre-built graph (from Console's visual editor)
 - Functions already parsed and in symbol table
 - Nodes and edges provided directly
 - **Missing**: ALL channel tracking
 
-The analyzer was designed to be the common point for both paths, but channel tracking was deferred with the assumption it would happen "at IR compilation stage" (analyzer.go:114) - **this never happened**.
+The analyzer was designed to be the common point for both paths, but channel tracking
+was deferred with the assumption it would happen "at IR compilation stage"
+(analyzer.go:114) - **this never happened**.
 
 ## Implementation Challenges
 
 ### Challenge 1: Two-Pass Problem
-Channels are resolved during analysis (when symbols are available), but IR is built after analysis. We need channel information in the IR, but channel tracking requires:
+
+Channels are resolved during analysis (when symbols are available), but IR is built
+after analysis. We need channel information in the IR, but channel tracking requires:
+
 - Symbol resolution (to map channel names → channel keys)
 - AST traversal (to find all channel operations)
 - Type information (to distinguish channels from variables)
 
 ### Challenge 2: Function Bodies Are Opaque in Graph Mode
+
 In graph mode, functions are already compiled. The `Function.Body` contains:
+
 ```go
 type Body struct {
     Raw string
@@ -132,13 +160,16 @@ type Body struct {
 If `Raw == ""`, we don't have source to analyze.
 
 ### Challenge 3: Channel Keys vs Channel Names
+
 - Channels are referred to by **name** in Arc source
 - The `Channels` struct uses **uint32 keys** (from Synnax)
 - Resolution happens via `symbol.Resolver.Resolve(ctx, name)` which returns `sym.ID`
 - The ID is only available during analysis, not during IR generation
 
 ### Challenge 4: Stateful Variables Complicate Tracking
+
 Stateful variables (`$=`) can hold channel references:
+
 ```arc
 stage foo{} () {
     ch $= sensor_channel
@@ -146,13 +177,15 @@ stage foo{} () {
 }
 ```
 
-Current type system can track this (`ch` has type `chan T`), but AST walker needs to follow variable types.
+Current type system can track this (`ch` has type `chan T`), but AST walker needs to
+follow variable types.
 
 ## Proposed Solution
 
 ### High-Level Approach
 
 **During Analysis Phase** (when we have symbol resolution):
+
 1. After type checking each function/stage body, perform a **channel tracking pass**
 2. Walk the AST to find all channel operations
 3. Resolve channel names to channel keys using the symbol table
@@ -166,6 +199,7 @@ Current type system can track this (`ch` has type `chan T`), but AST walker need
 **File**: `arc/symbol/symbol.go`
 
 Add channel tracking to the `Scope` structure:
+
 ```go
 type Scope struct {
     Symbol
@@ -722,22 +756,24 @@ func BuildReactiveDeps(nodes ir.Nodes) map[uint32][]string {
 ## Open Questions
 
 1. **How to handle channel references through variables?**
+
    ```arc
    stage foo{} () {
        ch $= sensor_channel
        val := <-ch
    }
    ```
+
    Answer: Track variable types during analysis, resolve transitively.
 
-2. **How to handle unresolved channels?**
-   Answer: Error during analysis (already happens with symbol resolution).
+2. **How to handle unresolved channels?** Answer: Error during analysis (already happens
+   with symbol resolution).
 
-3. **Should we track channel usage in nested blocks differently?**
-   Answer: No, union all reads/writes in function scope.
+3. **Should we track channel usage in nested blocks differently?** Answer: No, union all
+   reads/writes in function scope.
 
-4. **What about channels passed as function arguments?**
-   Answer: Not supported yet - functions can't take channels as runtime parameters, only config.
+4. **What about channels passed as function arguments?** Answer: Not supported yet -
+   functions can't take channels as runtime parameters, only config.
 
 ## Success Criteria
 

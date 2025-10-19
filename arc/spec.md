@@ -62,6 +62,7 @@ mask := data > 2.0               // [0, 0, 1] (series u8)
 ```
 
 **Rules**:
+
 - Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Scalar ops require explicit type cast (e.g., `data + f32(10)`)
@@ -88,7 +89,8 @@ FrequencyUnit ::= 'hz' | 'khz' | 'mhz'
 
 Examples: `100ms`, `5s`, `1m` (minute, not meter), `10hz` (= 100ms), `1khz` (= 1ms)
 
-**Note**: `m` is always minutes. Frequency units convert to timespan by inverting period.
+**Note**: `m` is always minutes. Frequency units convert to timespan by inverting
+period.
 
 ### Strings
 
@@ -134,11 +136,12 @@ TypeCast ::= Type '(' Expression ')'
 ### Operation Grammar
 
 ```
-ChannelOperation ::= ChannelWrite | ChannelRead
-ChannelWrite ::= Expression '->' Identifier | Identifier '<-' Expression
-ChannelRead ::= Identifier ':=' '<-' Identifier    // blocking
-              | Identifier ':=' Identifier          // non-blocking
-```
+
+ChannelOperation ::= ChannelWrite | ChannelRead ChannelWrite ::= Expression '->'
+Identifier | Identifier '<-' Expression ChannelRead ::= Identifier ':=' '<-' Identifier
+// blocking | Identifier ':=' Identifier // non-blocking
+
+````
 
 **Blocking read** (`<-chan`) removes oldest value from queue and waits if empty.
 **Non-blocking read** (`chan`) returns newest value immediately (or zero if never
@@ -148,12 +151,13 @@ written).
 value := <-sensor     // block until next value
 current := sensor     // get latest value now
 42 -> output          // write to channel
-```
+````
 
 ### Channel Semantics
 
 Channels are unbounded FIFO queues. All channels internally carry series; scalar
 operations are convenience wrappers:
+
 - Scalar write `42 -> ch` creates single-element series `[42]`
 - Scalar read `<-ch` returns first element of next series
 
@@ -182,8 +186,8 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) reset on each function/stage invocation.
-**Stateful variables** (`$=`) persist across stage activations.
+**Local variables** (`:=`) reset on each function/stage invocation. **Stateful
+variables** (`$=`) persist across stage activations.
 
 ```arc
 count := 0           // local
@@ -209,6 +213,7 @@ LogicalOp ::= '&&' | '||'
 ```
 
 **Precedence** (highest to lowest):
+
 1. `^` (right-associative)
 2. `-`, `!` (unary, right-associative)
 3. `*`, `/`, `%` (left-associative)
@@ -219,6 +224,7 @@ LogicalOp ::= '&&' | '||'
 **Note**: `^` is exponentiation, not XOR. No bitwise operations.
 
 Examples:
+
 ```arc
 power := 2 ^ 8           // 256
 neg := -2 ^ 2            // -4 (^ binds tighter than unary -)
@@ -318,6 +324,7 @@ controller{
 ### Stage Execution Model
 
 Stages are **purely event-driven** - they execute when receiving input values:
+
 - **First execution**: When ALL input channels have received at least one value
 - **Subsequent executions**: When ANY input channel receives new value
 - No implicit intervals - use `interval{}` stdlib stage for periodic execution
@@ -397,6 +404,7 @@ alarm_detector{} -> {
 ```
 
 **Inline expressions** can act as implicit stages in flows:
+
 ```arc
 temperature > 100 -> alarm{}              // comparison
 (sensor1 + sensor2) / 2 -> display        // arithmetic
@@ -424,7 +432,8 @@ circular dependencies are forbidden.
 
 ## Naming and Scoping
 
-**Global namespace**: All stages, functions, and external channels must have unique names.
+**Global namespace**: All stages, functions, and external channels must have unique
+names.
 
 **Variable scoping**: Variables are function/stage scoped. Cannot shadow global names.
 
@@ -466,11 +475,13 @@ Arc compiles exclusively to WebAssembly (WASM).
 ### WASM Module Structure
 
 Generated module contains:
+
 - **Imports**: Host functions for channel ops, series ops, state persistence, builtins
 - **Exports**: One function per stage/function
 - **Memory**: Optional linear memory for multi-output stages (1 page = 64KB)
 
 Example imports:
+
 ```wasm
 "env"."channel_read_f64": [i32] -> [f64]
 "env"."channel_write_i32": [i32, i32] -> []
@@ -490,27 +501,34 @@ Compiler produces JSON with base64-encoded WASM module plus metadata:
 {
   "version": "1.0.0",
   "module": "<base64-wasm-bytes>",
-  "stages": [{
-    "key": "controller",
-    "config": [{"name": "setpoint", "type": "f64"}],
-    "params": [{"name": "enable", "type": "u8"}],
-    "outputs": {"output": "f64"}
-  }],
-  "nodes": [{
-    "key": "controller_0",
-    "type": "controller",
-    "config": {"setpoint": 100}
-  }],
-  "edges": [{
-    "source": {"node": "sensor_0", "param": "output"},
-    "target": {"node": "controller_0", "param": "sensor"}
-  }]
+  "stages": [
+    {
+      "key": "controller",
+      "config": [{ "name": "setpoint", "type": "f64" }],
+      "params": [{ "name": "enable", "type": "u8" }],
+      "outputs": { "output": "f64" }
+    }
+  ],
+  "nodes": [
+    {
+      "key": "controller_0",
+      "type": "controller",
+      "config": { "setpoint": 100 }
+    }
+  ],
+  "edges": [
+    {
+      "source": { "node": "sensor_0", "param": "output" },
+      "target": { "node": "controller_0", "param": "sensor" }
+    }
+  ]
 }
 ```
 
 ### Multi-Output Memory Layout
 
 Multi-output stages/functions use reserved memory regions:
+
 ```
 [base_addr + 0]: dirty_flags (i64 bitmap)
 [base_addr + 8]: output0 value
@@ -524,6 +542,7 @@ Each multi-output callable gets its own memory region starting at 0x1000.
 
 Runtime computes execution strata for deterministic reactive scheduling. Nodes are
 assigned stratum levels via iterative deepening:
+
 - Initialize all nodes to stratum 0
 - If node A depends on B, then `stratum(A) = max(stratum(A), stratum(B) + 1)`
 - Execute nodes in stratum order (0, 1, 2, ...) each tick
@@ -559,6 +578,7 @@ Resolves external channels, stdlib stages, and stdlib functions during analysis.
 ### Runtime Responsibilities
 
 Runtime (Synnax server) handles:
+
 - Reactive scheduling with event queue
 - Channel management (unbounded FIFO queues)
 - Stage lifecycle and state persistence

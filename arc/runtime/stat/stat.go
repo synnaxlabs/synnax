@@ -136,7 +136,7 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	inputData := cfg.State.Input(0)
 	reductionFn := reductionMap[inputData.DataType]
 	resetIdx := -1
-	if _, found := cfg.Module.IR.Edges.FindByTarget(ir.Handle{
+	if _, found := cfg.Module.Edges.FindByTarget(ir.Handle{
 		Node:  cfg.Node.Key,
 		Param: resetParam,
 	}); found {

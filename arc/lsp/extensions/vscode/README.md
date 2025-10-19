@@ -1,11 +1,13 @@
 # Arc Language Support for VSCode
 
-This extension provides language support for the Arc programming language, including syntax highlighting, code completion, hover information, and error diagnostics.
+This extension provides language support for the Arc programming language, including
+syntax highlighting, code completion, hover information, and error diagnostics.
 
 ## Features
 
 - **Syntax Highlighting**: Full syntax highlighting for Arc language constructs
-- **Code Completion**: Context-aware code completion for keywords, types, and built-in functions
+- **Code Completion**: Context-aware code completion for keywords, types, and built-in
+  functions
 - **Hover Information**: Documentation on hover for language elements
 - **Error Diagnostics**: Real-time syntax error reporting
 - **Auto-formatting**: Automatic code formatting (coming soon)
@@ -13,7 +15,8 @@ This extension provides language support for the Arc programming language, inclu
 
 ## Requirements
 
-The Arc Language Server (`arc-lsp`) must be installed and available in your PATH, or you can configure the path in the extension settings.
+The Arc Language Server (`arc-lsp`) must be installed and available in your PATH, or you
+can configure the path in the extension settings.
 
 ### Building the Language Server
 
@@ -26,32 +29,36 @@ go build -o arc-lsp
 
 This extension contributes the following settings:
 
-* `arc.lsp.path`: Path to the Arc LSP executable (default: `arc-lsp`)
-* `arc.lsp.debug`: Enable debug logging for the Arc LSP (default: `false`)
-* `arc.lsp.logFile`: Path to the LSP log file, empty for stderr (default: `""`)
+- `arc.lsp.path`: Path to the Arc LSP executable (default: `arc-lsp`)
+- `arc.lsp.debug`: Enable debug logging for the Arc LSP (default: `false`)
+- `arc.lsp.logFile`: Path to the LSP log file, empty for stderr (default: `""`)
 
 ## Installation
 
 ### From Source
 
 1. Build the LSP server:
+
    ```bash
    cd arc/lsp
    go build -o arc-lsp
    ```
 
 2. Install extension dependencies:
+
    ```bash
    cd arc/lsp/extensions/vscode
    npm install
    ```
 
 3. Compile the extension:
+
    ```bash
    npm run compile
    ```
 
 4. Package the extension:
+
    ```bash
    npx vsce package
    ```
@@ -83,6 +90,7 @@ To develop the extension:
 ### 0.1.0
 
 Initial release with basic language support:
+
 - Syntax highlighting
 - Code completion
 - Hover information

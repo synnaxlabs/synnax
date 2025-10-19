@@ -4,7 +4,8 @@
 
 **Initial question:** How to express fan-out (one node to many)?
 
-**Critical insight:** Control systems need **conditional routing** (route differently based on state/conditions).
+**Critical insight:** Control systems need **conditional routing** (route differently
+based on state/conditions).
 
 **Conclusion:** Named output routing is **mandatory**, not optional.
 
@@ -13,6 +14,7 @@
 ## The Problem Space
 
 ### 1. Simple Fan-out (Original Question)
+
 ```
 sensor → controller_1
 sensor → controller_2
@@ -20,11 +22,13 @@ sensor → logger
 ```
 
 **Solutions:**
+
 - Multiple statements ✅ (works today)
 - Brackets `[a, b, c]` 🔧 (nice to have)
 - Explicit tee ✅ (works today)
 
 ### 2. Conditional Routing (Real Requirement)
+
 ```
 IF sensor > 100:
     route to alarm
@@ -33,6 +37,7 @@ ELSE:
 ```
 
 **ONLY solution:**
+
 - Named output routing 🚨 (REQUIRED)
 
 ---
@@ -40,10 +45,12 @@ ELSE:
 ## Why Conditional Routing Matters
 
 ### Arc's Execution Model
+
 - **Routing topology:** STATIC (graph structure fixed at compile time)
 - **Data flow:** DYNAMIC (which edges carry data varies at runtime)
 
 You **cannot** write:
+
 ```arc
 if (pressure > 100) {
     sensor -> alarm{}  // ❌ Flow statements not in control flow!
@@ -51,6 +58,7 @@ if (pressure > 100) {
 ```
 
 ### The Solution: Multi-Output Stages
+
 ```arc
 stage demux{threshold f64} (value f32) {
     high f32    // Output 1
@@ -79,6 +87,7 @@ Both paths exist in the graph, but only one receives non-zero data at runtime.
 ## Common Conditional Patterns
 
 ### Pattern 1: State-Based Routing
+
 ```arc
 stage state_router{} (value f32, state u8) {
     idle_out f32
@@ -94,6 +103,7 @@ sensor -> state_router{} -> {
 ```
 
 ### Pattern 2: Threshold Filtering
+
 ```arc
 stage range_splitter{low f64, high f64} (value f32) {
     below_range f32
@@ -109,6 +119,7 @@ sensor -> range_splitter{low: 50, high: 500} -> {
 ```
 
 ### Pattern 3: Sensor Selection
+
 ```arc
 stage redundant_selector{} (primary f32, backup f32, fault u8) f32 {
     return fault ? backup : primary
@@ -116,6 +127,7 @@ stage redundant_selector{} (primary f32, backup f32, fault u8) f32 {
 ```
 
 ### Pattern 4: Mode-Dependent Processing
+
 ```arc
 stage adaptive_logger{} (value f32, critical_mode u8) {
     high_rate_out f32
@@ -133,38 +145,40 @@ sensor -> adaptive_logger{} -> {
 ## Syntax Comparison for Conditionals
 
 ### Named Outputs (Winner)
+
 ```arc
 sensor -> demux{threshold: 100} -> {
     high -> alarm{},
     low -> logger{}
 }
 ```
-✅ Clear semantic mapping
-✅ Grouped under router
-✅ Visual structure preserved
-✅ Works with visual editor
+
+✅ Clear semantic mapping ✅ Grouped under router ✅ Visual structure preserved ✅ Works
+with visual editor
 
 ### Multiple Statements (Loses Structure)
+
 ```arc
 sensor -> demux{} -> high -> alarm{}
 sensor -> demux{} -> low -> logger{}
 ```
-❌ Relationship unclear
-❌ Repetitive
-❌ Can't see it's a conditional
+
+❌ Relationship unclear ❌ Repetitive ❌ Can't see it's a conditional
 
 ### Tee (Wrong Tool)
+
 ```arc
 sensor -> tee{alarm{}, logger{}}
 ```
-❌ Broadcasts to ALL (no decision)
-❌ Would need filters after tee (verbose)
+
+❌ Broadcasts to ALL (no decision) ❌ Would need filters after tee (verbose)
 
 ---
 
 ## Visual Graph Editor Implications
 
 ### Multi-Port Node Display
+
 ```
     ┌───────────┐
     │   demux   │
@@ -178,6 +192,7 @@ sensor -> tee{alarm{}, logger{}}
 ```
 
 ### Essential Features
+
 1. **Output port labels** - Show `high`, `low`, etc.
 2. **Port tooltips** - Display condition (e.g., "when value > threshold")
 3. **Runtime highlighting** - Active port glows during execution
@@ -185,7 +200,9 @@ sensor -> tee{alarm{}, logger{}}
 5. **Condition display** - Show routing logic in properties panel
 
 ### Text ↔ Graph Round-Trip
+
 Must preserve named output structure:
+
 ```
 Text: sensor -> demux{} -> {high -> alarm, low -> logger}
  ↓
@@ -204,6 +221,7 @@ Text: sensor -> demux -> high -> alarm; sensor -> demux -> low -> logger  ❌
 ### Grammar Changes (ArcParser.g4)
 
 #### 1. Multi-Output Stage Declarations
+
 ```antlr
 stageDeclaration
     : STAGE IDENTIFIER configBlock? LPAREN parameterList? RPAREN
@@ -225,6 +243,7 @@ namedReturn
 ```
 
 Example:
+
 ```arc
 stage demux{} (value f32) {
     high f32
@@ -233,6 +252,7 @@ stage demux{} (value f32) {
 ```
 
 #### 2. Named Output Routing
+
 ```antlr
 flowStatement
     : flowNode (ARROW flowNode)+ routingTable? SEMICOLON?
@@ -248,6 +268,7 @@ routingEntry
 ```
 
 Example:
+
 ```arc
 sensor -> demux{} -> {
     high -> alarm{},
@@ -265,6 +286,7 @@ sensor -> demux{} -> {
 ### Compiler Changes
 
 Minimal - IR already supports this via `Handle`:
+
 ```go
 type Handle struct {
     Node  string  // "demux_1"
@@ -318,23 +340,27 @@ stage select{} (option_0 f32, option_1 f32, which u8) f32
 ## Migration Path
 
 ### Phase 1: Core Named Outputs (CRITICAL)
+
 1. Update grammar for multi-output stage declarations
 2. Update grammar for named output routing tables
 3. Implement analyzer support
 4. Test basic demux patterns
 
 ### Phase 2: Visual Editor (HIGH PRIORITY)
+
 1. Multi-port node rendering
 2. Port labels and tooltips
 3. Edge routing from specific ports
 4. Round-trip Text ↔ Graph preservation
 
 ### Phase 3: Standard Library (IMPORTANT)
+
 1. Implement core conditional stages (demux, gate, select)
 2. Document conditional routing patterns
 3. Provide examples for common use cases
 
 ### Phase 4: Syntactic Sugar (NICE TO HAVE)
+
 1. Bracket syntax for sub-fan-out: `{high -> [alarm{}, log{}]}`
 2. Binding syntax: `stage{} as x; x.out -> target`
 3. Auto-generation of demux stages from inline expressions
@@ -344,6 +370,7 @@ stage select{} (option_0 f32, option_1 f32, which u8) f32
 ## Real-World Impact
 
 ### Before (Multiple Statements Only)
+
 ```arc
 // Hard to see this is state-dependent routing
 sensor -> router{} -> idle -> handler_a{}
@@ -352,6 +379,7 @@ sensor -> router{} -> error -> handler_c{}
 ```
 
 ### After (Named Outputs)
+
 ```arc
 // Clear conditional structure
 sensor -> state_router{} -> {
@@ -362,20 +390,24 @@ sensor -> state_router{} -> {
 ```
 
 ### Visual Editor Before
+
 ```
 [sensor] → [router] → [handler_a]
             [router] → [handler_b]
             [router] → [handler_c]
 ```
+
 Can't tell which path for which state!
 
 ### Visual Editor After
+
 ```
 [sensor] → [state_router]
              ├─ idle_out   → [handler_a]
              ├─ active_out → [handler_b]
              └─ error_out  → [handler_c]
 ```
+
 Crystal clear mapping!
 
 ---
@@ -384,7 +416,9 @@ Crystal clear mapping!
 
 **Conditional routing is not a nice-to-have - it's fundamental to control systems.**
 
-Named output routing must be a **first-class language feature**, not an afterthought. It affects:
+Named output routing must be a **first-class language feature**, not an afterthought. It
+affects:
+
 - Grammar design
 - Type system (multi-return stages)
 - Visual editor (multi-port nodes)
@@ -392,7 +426,8 @@ Named output routing must be a **first-class language feature**, not an aftertho
 - Example patterns
 - Documentation
 
-**Recommendation:** Implement named output routing immediately, before bracket syntax or other syntactic sugar. It's the foundation for expressing real control logic in Arc.
+**Recommendation:** Implement named output routing immediately, before bracket syntax or
+other syntactic sugar. It's the foundation for expressing real control logic in Arc.
 
 ---
 
@@ -414,19 +449,20 @@ stage demux{threshold f64} (value f32) {
 
 ### Options Explored
 
-| Approach | Example | Pros | Cons |
-|----------|---------|------|------|
-| **Sentinel values** | `low = 0.0` | Simple | 0 might be valid data, wastes execution |
-| **Undefined** | Don't assign | Natural | Requires tracking |
-| **Optional types** | `low = none` | Explicit | Adds type complexity |
-| **Void keyword** | `low = void` | Clear | New syntax |
-| **Reactive semantics** | Don't assign | Efficient | Implicit behavior |
-| **Return statement** | `return high: value` | Explicit | Only one output per execution |
-| **Enable flags** | `low_enabled = 0` | Explicit | Verbose |
+| Approach               | Example              | Pros      | Cons                                    |
+| ---------------------- | -------------------- | --------- | --------------------------------------- |
+| **Sentinel values**    | `low = 0.0`          | Simple    | 0 might be valid data, wastes execution |
+| **Undefined**          | Don't assign         | Natural   | Requires tracking                       |
+| **Optional types**     | `low = none`         | Explicit  | Adds type complexity                    |
+| **Void keyword**       | `low = void`         | Clear     | New syntax                              |
+| **Reactive semantics** | Don't assign         | Efficient | Implicit behavior                       |
+| **Return statement**   | `return high: value` | Explicit  | Only one output per execution           |
+| **Enable flags**       | `low_enabled = 0`    | Explicit  | Verbose                                 |
 
 ### Recommended: Reactive Semantics
 
-**Rule:** Outputs only "fire" when assigned. Unassigned outputs don't execute downstream stages.
+**Rule:** Outputs only "fire" when assigned. Unassigned outputs don't execute downstream
+stages.
 
 ```arc
 stage demux{threshold f64} (value f32) {
@@ -475,6 +511,7 @@ if (out->high_dirty) {
 ```
 
 **Benefits:**
+
 - Natural reactive semantics
 - Efficient (skip unnecessary execution)
 - No sentinel value confusion
@@ -482,6 +519,7 @@ if (out->high_dirty) {
 - Matches Arc's dataflow model
 
 **Static Analysis:**
+
 ```arc
 stage bad{} (value f32) {
     out f32

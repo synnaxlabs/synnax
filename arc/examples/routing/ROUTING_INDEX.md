@@ -7,20 +7,25 @@
 ## 📋 Start Here
 
 ### [RECOMMENDATIONS.md](./RECOMMENDATIONS.md) ⭐ **READ THIS FIRST**
+
 **Final design recommendations with implementation roadmap.**
 
-What to implement now, what to defer, grammar changes needed, 10-week implementation plan.
+What to implement now, what to defer, grammar changes needed, 10-week implementation
+plan.
 
-**TL;DR:** Implement named output routing with reactive semantics immediately. It's essential for control systems, not optional.
+**TL;DR:** Implement named output routing with reactive semantics immediately. It's
+essential for control systems, not optional.
 
 ---
 
 ## 📊 Summary Documents
 
 ### [ROUTING_SUMMARY.md](./ROUTING_SUMMARY.md)
+
 **Complete analysis of routing patterns and design decisions.**
 
 Covers:
+
 - Simple fan-out vs conditional routing
 - Why named outputs are mandatory
 - "Don't send" semantics (7 options analyzed)
@@ -28,9 +33,11 @@ Covers:
 - Grammar changes needed
 
 ### [README_ROUTING.md](./README_ROUTING.md)
+
 **Comprehensive guide to all routing approaches.**
 
 Covers:
+
 - Overview of each routing pattern
 - Files overview with status (✅ works, 🔧 proposed, ❌ not recommended)
 - Current grammar capabilities
@@ -44,13 +51,13 @@ Covers:
 
 **How to route one source to multiple targets?**
 
-| File | Description | Status |
-|------|-------------|--------|
-| [routing_multiple_statements.arc](./routing_multiple_statements.arc) | One statement per edge | ✅ Works today |
-| [routing_explicit_tee.arc](./routing_explicit_tee.arc) | Using `tee{}` stage | ✅ Works today |
-| [routing_brackets.arc](./routing_brackets.arc) | Proposed bracket syntax | 🔧 Needs grammar |
-| [routing_ir_comparison.arc](./routing_ir_comparison.arc) | Text → IR mapping | 📊 Analysis |
-| [routing_edge_cases.arc](./routing_edge_cases.arc) | Parsing ambiguities | 🤔 Design |
+| File                                                                 | Description             | Status           |
+| -------------------------------------------------------------------- | ----------------------- | ---------------- |
+| [routing_multiple_statements.arc](./routing_multiple_statements.arc) | One statement per edge  | ✅ Works today   |
+| [routing_explicit_tee.arc](./routing_explicit_tee.arc)               | Using `tee{}` stage     | ✅ Works today   |
+| [routing_brackets.arc](./routing_brackets.arc)                       | Proposed bracket syntax | 🔧 Needs grammar |
+| [routing_ir_comparison.arc](./routing_ir_comparison.arc)             | Text → IR mapping       | 📊 Analysis      |
+| [routing_edge_cases.arc](./routing_edge_cases.arc)                   | Parsing ambiguities     | 🤔 Design        |
 
 ---
 
@@ -58,13 +65,13 @@ Covers:
 
 **How to route differently based on state/conditions?**
 
-| File | Description | Key Insight |
-|------|-------------|-------------|
-| [routing_conditional.arc](./routing_conditional.arc) | All conditional patterns | ⭐ Demux, gate, switch, selector |
-| [routing_conditional_realistic.arc](./routing_conditional_realistic.arc) | Rocket engine examples | 🚀 Real-world patterns |
-| [routing_conditional_syntax_comparison.arc](./routing_conditional_syntax_comparison.arc) | Why named outputs win | 📊 Comparison matrix |
-| [routing_conditional_graph.arc](./routing_conditional_graph.arc) | Visual editor design | 🎨 Multi-port nodes |
-| [routing_named_outputs.arc](./routing_named_outputs.arc) | Named output syntax | 🚨 Required feature |
+| File                                                                                     | Description              | Key Insight                      |
+| ---------------------------------------------------------------------------------------- | ------------------------ | -------------------------------- |
+| [routing_conditional.arc](./routing_conditional.arc)                                     | All conditional patterns | ⭐ Demux, gate, switch, selector |
+| [routing_conditional_realistic.arc](./routing_conditional_realistic.arc)                 | Rocket engine examples   | 🚀 Real-world patterns           |
+| [routing_conditional_syntax_comparison.arc](./routing_conditional_syntax_comparison.arc) | Why named outputs win    | 📊 Comparison matrix             |
+| [routing_conditional_graph.arc](./routing_conditional_graph.arc)                         | Visual editor design     | 🎨 Multi-port nodes              |
+| [routing_named_outputs.arc](./routing_named_outputs.arc)                                 | Named output syntax      | 🚨 Required feature              |
 
 ---
 
@@ -72,11 +79,12 @@ Covers:
 
 **How to not send to an output?**
 
-| File | Description | Recommendation |
-|------|-------------|----------------|
+| File                                                             | Description        | Recommendation               |
+| ---------------------------------------------------------------- | ------------------ | ---------------------------- |
 | [routing_no_send_semantics.arc](./routing_no_send_semantics.arc) | 7 options explored | ✅ Reactive with dirty flags |
 
 **Options analyzed:**
+
 1. Sentinel values (0 = no data) ❌
 2. Undefined (don't assign) ✅ **Recommended**
 3. Optional types (f32?) ❌
@@ -89,35 +97,43 @@ Covers:
 
 ### Complete Examples
 
-| File | Description | Use For |
-|------|-------------|---------|
+| File                                                           | Description              | Use For                  |
+| -------------------------------------------------------------- | ------------------------ | ------------------------ |
 | [routing_complete_example.arc](./routing_complete_example.arc) | End-to-end rocket engine | Reference implementation |
-| [routing_comprehensive.arc](./routing_comprehensive.arc) | Mixed patterns | See all approaches |
+| [routing_comprehensive.arc](./routing_comprehensive.arc)       | Mixed patterns           | See all approaches       |
 
 ---
 
 ## 🗺️ Reading Paths
 
 ### Path 1: "I just want to know what to do"
+
 1. **[RECOMMENDATIONS.md](./RECOMMENDATIONS.md)** - Implementation roadmap
 2. **[routing_complete_example.arc](./routing_complete_example.arc)** - See it in action
 
 ### Path 2: "I want to understand the design"
+
 1. **[ROUTING_SUMMARY.md](./ROUTING_SUMMARY.md)** - Complete analysis
-2. **[routing_conditional_syntax_comparison.arc](./routing_conditional_syntax_comparison.arc)** - Why this approach
-3. **[routing_no_send_semantics.arc](./routing_no_send_semantics.arc)** - Design decisions
+2. **[routing_conditional_syntax_comparison.arc](./routing_conditional_syntax_comparison.arc)** -
+   Why this approach
+3. **[routing_no_send_semantics.arc](./routing_no_send_semantics.arc)** - Design
+   decisions
 
 ### Path 3: "I'm implementing the grammar"
+
 1. **[RECOMMENDATIONS.md](./RECOMMENDATIONS.md)** - Grammar changes needed
 2. **[routing_named_outputs.arc](./routing_named_outputs.arc)** - Syntax examples
 3. **[README_ROUTING.md](./README_ROUTING.md)** - Current grammar state
 
 ### Path 4: "I'm building the visual editor"
-1. **[routing_conditional_graph.arc](./routing_conditional_graph.arc)** - Multi-port node design
+
+1. **[routing_conditional_graph.arc](./routing_conditional_graph.arc)** - Multi-port
+   node design
 2. **[ROUTING_SUMMARY.md](./ROUTING_SUMMARY.md)** - Graph representation section
 3. **[routing_complete_example.arc](./routing_complete_example.arc)** - Visual examples
 
 ### Path 5: "I want to see all options"
+
 1. **[README_ROUTING.md](./README_ROUTING.md)** - All approaches overview
 2. **[routing_comprehensive.arc](./routing_comprehensive.arc)** - Mixed patterns
 3. **[routing_edge_cases.arc](./routing_edge_cases.arc)** - What could go wrong
@@ -127,10 +143,12 @@ Covers:
 ## 🔑 Key Concepts
 
 ### Static Topology, Dynamic Flow
+
 - **Routing topology:** Fixed at compile time (graph structure)
 - **Data flow:** Dynamic at runtime (which edges carry data)
 
 You can't write:
+
 ```arc
 if (condition) {
     sensor -> alarm{}  // ❌ Flow statements not in control flow
@@ -138,6 +156,7 @@ if (condition) {
 ```
 
 Instead:
+
 ```arc
 sensor -> demux{} -> {
     high -> alarm{},  // Both exist in graph
@@ -146,6 +165,7 @@ sensor -> demux{} -> {
 ```
 
 ### Reactive Semantics
+
 **Rule:** Outputs only "fire" when assigned.
 
 ```arc
@@ -161,9 +181,11 @@ stage demux{} (value f32) {
 ```
 
 ### Named Outputs Are Mandatory
+
 Not for fan-out (that's easy) - for **conditional routing** (that's essential).
 
 Control systems need to route data differently based on:
+
 - Engine state (idle, prestart, running, shutdown, fault)
 - Sensor thresholds (below, in-range, above)
 - Operating modes (manual, auto, emergency)
@@ -176,24 +198,28 @@ Control systems need to route data differently based on:
 ## 📈 Implementation Status
 
 ### ✅ Works Today
+
 - Multiple flow statements
 - Explicit tee stage
 - Single-output stages
 - Simple fan-out
 
 ### 🚨 Must Implement (Phase 1)
+
 - Named output stage declarations
 - Routing table syntax
 - Reactive semantics (dirty flags)
 - Static analysis for unassigned outputs
 
 ### 🔧 Nice to Have (Phase 2+)
+
 - Bracket syntax (pure desugar)
 - Visual editor multi-port nodes
 - Standard library conditional stages
 - Runtime visualization
 
 ### ❌ Not Recommended
+
 - Bracket fan-in (ambiguous)
 - Optional types for routing
 - Implicit tee creation
@@ -204,23 +230,28 @@ Control systems need to route data differently based on:
 ## 📝 Files by Status
 
 ### Works Today ✅
+
 - `routing_multiple_statements.arc`
 - `routing_explicit_tee.arc`
 
 ### Needs Grammar 🚨
+
 - `routing_named_outputs.arc`
 - `routing_conditional*.arc`
 - `routing_complete_example.arc`
 
 ### Proposed Syntax 🔧
+
 - `routing_brackets.arc`
 
 ### Analysis & Design 📊
+
 - `routing_ir_comparison.arc`
 - `routing_edge_cases.arc`
 - `routing_no_send_semantics.arc`
 
 ### Documentation 📚
+
 - `RECOMMENDATIONS.md`
 - `ROUTING_SUMMARY.md`
 - `README_ROUTING.md`
@@ -231,6 +262,7 @@ Control systems need to route data differently based on:
 ## 🎓 Learning Resources
 
 ### Concepts
+
 - **Fan-out:** One source, multiple targets
 - **Fan-in:** Multiple sources, one target
 - **Demux:** Route data to different outputs based on condition
@@ -240,6 +272,7 @@ Control systems need to route data differently based on:
 - **All:** Wait for all sources before firing
 
 ### Patterns
+
 - **State-dependent routing:** Route based on system state
 - **Threshold routing:** Route based on sensor values
 - **Redundancy management:** Switch between primary/backup
@@ -247,6 +280,7 @@ Control systems need to route data differently based on:
 - **Conditional logging:** High/low rate based on criticality
 
 ### Anti-Patterns
+
 - Using tee when you need demux
 - Sentinel values (0 = no data)
 - Bracket fan-in without explicit merge
@@ -259,6 +293,7 @@ Control systems need to route data differently based on:
 ### Syntax (Proposed)
 
 **Multi-output stage:**
+
 ```arc
 stage my_stage{} (input f32) {
     output_a f32
@@ -269,6 +304,7 @@ stage my_stage{} (input f32) {
 ```
 
 **Named routing:**
+
 ```arc
 source -> my_stage{} -> {
     output_a -> target_a{},
@@ -277,6 +313,7 @@ source -> my_stage{} -> {
 ```
 
 **Reactive semantics:**
+
 ```arc
 if (condition) {
     output_a = value  // Fires
@@ -301,23 +338,23 @@ if (condition) {
 
 ## ❓ FAQ
 
-**Q: Why not just use multiple statements?**
-A: They work for simple fan-out but lose semantic structure for conditionals. You can't see that outputs are mutually exclusive.
+**Q: Why not just use multiple statements?** A: They work for simple fan-out but lose
+semantic structure for conditionals. You can't see that outputs are mutually exclusive.
 
-**Q: Why not use tee for everything?**
-A: Tee broadcasts to ALL targets. Can't express "route to A OR B based on condition."
+**Q: Why not use tee for everything?** A: Tee broadcasts to ALL targets. Can't express
+"route to A OR B based on condition."
 
-**Q: Why reactive semantics instead of optional types?**
-A: Simpler, more efficient, matches dataflow model, no type system complexity.
+**Q: Why reactive semantics instead of optional types?** A: Simpler, more efficient,
+matches dataflow model, no type system complexity.
 
-**Q: Can I still use multiple statements?**
-A: Yes! They work for simple cases and will continue to work.
+**Q: Can I still use multiple statements?** A: Yes! They work for simple cases and will
+continue to work.
 
-**Q: When should I use brackets?**
-A: For sub-fan-out within routing tables: `{high -> [alarm{}, log{}]}`
+**Q: When should I use brackets?** A: For sub-fan-out within routing tables:
+`{high -> [alarm{}, log{}]}`
 
-**Q: How do I route from multiple sources to one target?**
-A: Use explicit `merge{}`, `all{}`, or `any{}` stages.
+**Q: How do I route from multiple sources to one target?** A: Use explicit `merge{}`,
+`all{}`, or `any{}` stages.
 
 ---
 
@@ -328,6 +365,7 @@ A: Use explicit `merge{}`, `all{}`, or `any{}` stages.
 **Need examples?** See `routing_complete_example.arc`
 
 **Want to discuss?** All design options explored in:
+
 - `ROUTING_SUMMARY.md`
 - `routing_no_send_semantics.arc`
 
@@ -335,5 +373,4 @@ A: Use explicit `merge{}`, `all{}`, or `any{}` stages.
 
 ---
 
-**Last updated:** 2025-10-06
-**Total files:** 15 (12 examples + 3 docs + 1 index)
+**Last updated:** 2025-10-06 **Total files:** 15 (12 examples + 3 docs + 1 index)
