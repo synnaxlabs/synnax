@@ -194,7 +194,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	}
 	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(requiredChans, func(item channel.Channel, index int) (channel.Key, bool) {
-		return item.Index(), item.Virtual == false
+		return item.Index(), !item.Virtual
 	})...))
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculated.Contains(item) && !item.Free()

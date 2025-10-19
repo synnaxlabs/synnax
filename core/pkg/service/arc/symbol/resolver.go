@@ -73,7 +73,7 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := symbol.CompoundResolver{
+	return symbol.CompoundResolver{
 		constant.SymbolResolver,
 		op.SymbolResolver,
 		selector.SymbolResolver,
@@ -81,6 +81,5 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		status.SymbolResolver,
 		telem.SymbolResolver,
 		&channelResolver{Readable: cfg.Channel},
-	}
-	return r, nil
+	}, nil
 }
