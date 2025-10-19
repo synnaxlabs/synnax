@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Write Data"
-description: "Use the TypeScript client to write data to the Synnax Core."
+description: "Use the TypeScript client to write to a Synnax cluster."
 next: "Stream Data"
 nextURL: "/reference/typescript-client/stream-data"
 prev: "Read Data"
@@ -12,7 +12,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax TypeScript client supports multiple methods for writing data to the Core. We
+The Synnax TypeScript client supports multiple methods for writing data to a cluster. We
 can write directly to a channel, or we can write to multiple channels in a streaming
 fashion using a writer.
 
@@ -144,7 +144,7 @@ This example will write 100 batches of 10 samples to the `temperature` channel, 
 roughly 100ms apart, and will commit all writes when finished.
 
 It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is safely stored in the Core.
+intermittently calling commit to ensure that the data is safely stored in the cluster.
 
 ### Closing the Writer
 
@@ -300,8 +300,9 @@ const writer = await client.openWriter({
 
 ## Common Pitfalls
 
-There are several common pitfalls to avoid when writing data to a Synnax Core. These are
-important to avoid as they can lead to performance degradation and/or control issues.
+There are several common pitfalls to avoid when writing data to a Synnax cluster. These
+are important to avoid as they can lead to performance degradation and/or control
+issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 
@@ -362,11 +363,11 @@ try {
 ### Calling Commit on Every Write
 
 If you're not using auto-commit, it's important to call `commit` on the writer
-periodically to ensure that the data is persisted to the Core . However, calling
+periodically to ensure that the data is persisted to the cluster. However, calling
 `commit` on every write is a bad idea. This is because `commit` requires a round-trip to
-the Core to ensure that the data is persisted. This can be very slow if you're writing a
-lot of data. If you're writing a lot of data, commit every few seconds or turn on
-auto-commit.
+the cluster to ensure that the data is persisted. This can be very slow if you're
+writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
+on auto-commit.
 
 This is a bad idea:
 

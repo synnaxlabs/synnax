@@ -16,22 +16,22 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
   [
     {
       itemKey: "ni.analogReadTask",
-      label: "Create analog read task",
+      label: "Create Analog Read Task",
       layout: Task.ANALOG_READ_LAYOUT,
     },
     {
       itemKey: "ni.analogWriteTask",
-      label: "Create analog write task",
+      label: "Create Analog Write Task",
       layout: Task.ANALOG_WRITE_LAYOUT,
     },
     {
       itemKey: "ni.digitalReadTask",
-      label: "Create digital read task",
+      label: "Create Digital Read Task",
       layout: Task.DIGITAL_READ_LAYOUT,
     },
     {
       itemKey: "ni.digitalWriteTask",
-      label: "Create digital write task",
+      label: "Create Digital Write Task",
       layout: Task.DIGITAL_WRITE_LAYOUT,
     },
   ];

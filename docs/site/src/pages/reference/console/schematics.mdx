@@ -60,7 +60,7 @@ workspace name in the ontology menu:
 ## Modes
 
 Schematics have three modes: **view**, **edit**, and **control**. To change modes, use
-the controls in the top-right corner of the schematic.
+the controls in the bottom-left hand corner of the schematic.
 
 <Table>
   <thead>
@@ -112,9 +112,8 @@ buttons, and tanks.
 
 ## Changing Symbol Properties
 
-When selected, a symbol's properties will appear in the bottom Visualization Toolbar.
-There are several tabs that can be used to fine-tune the look and behavior of the
-symbol.
+When selected, a symbol's properties will appear in the bottom toolbar. There are
+several tabs that can be used to fine-tune the look and behavior of the symbol.
 
 ### Style Tab
 
@@ -313,12 +312,11 @@ element displays the control status.
 <Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current user
 has control.
 
-<Icon.Circle color="var(--pluto-secondary-z)" /> Green circle indicates the current user
-has absolute control.
+<Icon.Circle color="green" /> Green circle indicates the current user has absolute
+control.
 
-<Icon.Circle color="var(--pluto-error-z)" /> Red circle indicates the current user does
-not have control as the command channel is being controlled by another user or an
-automated sequence.
+<Icon.Circle color="red" /> Red circle indicates the current user does not have control
+as the command channel is being controlled by another user or an automated sequence.
 
 The color of the bar indicates what is controlling the elements on the schematic. There
 is a legend on the display indicating what controlling node is what color.
@@ -331,8 +329,8 @@ is a legend on the display indicating what controlling node is what color.
 
 Oftentimes, you will want to save the configuration of a schematic to a particular
 range, so you can see exactly how a schematic looked at a certain point in time. To do
-this, you can snapshot a schematic to a range by finding the schematic in the Workspaces
-Toolbar, opening the context menu, and snapshotting the schematic to a range.
+this, you can snapshot a schematic to a range by finding the schematic in the resources
+toolbar, opening the context menu, and snapshotting the schematic to a range.
 
 <Video client:only="react" id="console/schematics/snapshot" />
 
@@ -389,6 +387,6 @@ section, and edit the colors of the region.
 
 ### Scaling the Symbol
 
-By default, Synnax uses the dimensions of the imported SVG to determine the default size
+By default, Synnax uses the dimensions of the imported SVG to determin the default size
 of the symbol when it is added to a schematic. To change this scale, simply drag the
 slider or enter a new value in the properties field.

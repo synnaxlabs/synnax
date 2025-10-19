@@ -193,7 +193,7 @@ public:
         return this->write_buf_to_dev();
     }
 
-    /// @brief flushes the current value buffer to the LabJack device, executing the
+    /// @brief flushes the current value buffer to the labjack device, executing the
     /// write.
     xerrors::Error write_buf_to_dev() const {
         int err_addr = 0;
@@ -206,7 +206,7 @@ public:
         );
     }
 
-    /// @brief implements pipeline::Sink to write to the LabJack device.
+    /// @brief implements pipeline::Sink to write to the Labjack device.
     xerrors::Error write(const synnax::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)

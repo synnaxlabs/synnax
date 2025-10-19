@@ -29,7 +29,7 @@ struct ReadResult : common::ReadResult {
     int64 skew = 0;
 };
 
-/// @brief a thin shim on top of NI-DAQmx that allows us to use different read
+/// @brief a thing shim on top of NI DAQMX that allows us to use different read
 /// interfaces for analog and digital tasks. It also allows us to mock the hardware
 /// during testing.
 template<typename T>
@@ -59,7 +59,7 @@ struct Base : virtual Hardware {
 protected:
     /// @brief the handle for the task.
     TaskHandle task_handle;
-    /// @brief the NI-DAQmx API.
+    /// @brief the NI DAQmx API.
     std::shared_ptr<::daqmx::SugaredAPI> dmx;
     /// @brief a flag to indicate if the task is running.
     std::atomic<bool> running = false;

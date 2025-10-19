@@ -123,7 +123,7 @@ describe("result", () => {
       const result = nullClientResult<TestState>("create channel");
 
       expect(result.status.description).toBe(
-        "Cannot create channel because no Core is connected.",
+        "Cannot create channel because no cluster is connected.",
       );
     });
 
@@ -132,7 +132,7 @@ describe("result", () => {
 
       expect(result.status.message).toBe("Failed to query database");
       expect(result.status.description).toBe(
-        "Cannot query database because no Core is connected.",
+        "Cannot query database because no cluster is connected.",
       );
     });
 

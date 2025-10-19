@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Python Client"
 heading: "The Synnax Python Client"
-description: "Use the Synnax Python client to interact with a Synnax Core."
+description: "Use the Synnax Python client to interact with a Synnax cluster."
 next: "Channels"
 nextURL: "/reference/python-client/channels"
 ---
@@ -19,7 +19,7 @@ including
 - Tooling to implement automated control of your hardware.
 - Change data capture (CDC) infrastructure to build automated analysis pipelines.
 
-In this section, we'll cover how to install the client and authenticate with a Core.
+In this section, we'll cover how to install the client and authenticate with a cluster.
 
 <Divider.Divider x />
 
@@ -41,16 +41,16 @@ pip install synnax
 
 <Divider.Divider x />
 
-## Authenticating with a Core
+## Authenticating with a Cluster
 
-There are two ways to authenticate with a Synnax Core: using the CLI to permanently
+There are two ways to authenticate with a Synnax cluster: using the CLI to permanently
 store your credentials, or passing your credentials directly to the client.
 
 ### The Synnax Login Command
 
-The easiest way to authenticate with a Core is with the `login` command. This will
-permanently store your credentials in the operating system's keychain, and allow you to
-use the client without passing credentials directly.
+The easiest way to authenticate with a Synnax cluster is with the `login` command. This
+will permanently store your credentials in the operating system's keychain, and allow
+you to use the client without passing credentials directly.
 
 We highly recommend this method when using Synnax for data analysis, as it makes it easy
 to use the client in a Jupyter notebook and share scripts without accidentally revealing
@@ -79,12 +79,12 @@ Password: # YOUR PASSWORD
 Secure connection? (y/n) (n):
 ```
 
-For the last question, enter `y` if your Core is running in secure mode, and `n`
+For the last question, enter `y` if your cluster is running in secure mode, and `n`
 otherwise. If all goes well, you should see the following message:
 
 ```
 Saved credentials. You can now use the Synnax Client
-without having to log in. To connect to the Core in a Python shell, use the following:
+without having to log in. To connect the cluster in a Python shell, use the following:
 
 from synnax import Synnax
 client = Synnax()

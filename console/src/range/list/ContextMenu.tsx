@@ -115,13 +115,13 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {someAreNotFavorites && (
         <PMenu.Item itemKey="favorite">
           <Icon.StarFilled />
-          Add to favorites
+          Add to Favorites
         </PMenu.Item>
       )}
       {someAreFavorites && (
         <PMenu.Item itemKey="unfavorite">
           <Icon.StarOutlined />
-          Remove from favorites
+          Remove from Favorites
         </PMenu.Item>
       )}
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
@@ -137,7 +137,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           <Divider.Divider x />
         </>
       )}
-      <Menu.ReloadConsoleItem />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

@@ -24,7 +24,7 @@
 #include "driver/task/common/factory.h"
 
 const std::string
-    NO_LIBS_MSG = "Cannot create the task because the NI-DAQmx and "
+    NO_LIBS_MSG = "Cannot create the task because the National Instruments DAQMX and "
                   "System Configuration libraries are not installed on this system.";
 
 ni::Factory::Factory(

@@ -15,8 +15,8 @@ import { Import } from "@/import";
 
 export const ingestRead = Common.Task.createIngestor(readConfigZ, READ_LAYOUT);
 
-export const importRead = Import.createImporter(ingestRead, "OPC UA Read Task");
+export const importRead = Import.createImporter(ingestRead, "OPC UA read task");
 
 export const ingestWrite = Common.Task.createIngestor(writeConfigZ, WRITE_LAYOUT);
 
-export const importWrite = Import.createImporter(ingestWrite, "OPC UA Write Task");
+export const importWrite = Import.createImporter(ingestWrite, "OPC UA write task");

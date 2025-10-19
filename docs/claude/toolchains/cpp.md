@@ -302,7 +302,7 @@ if (err) {
 
 - **Platform-specific code**: Always use Bazel `select()` for platform differences
 - **Include paths**: May differ between platforms (use conditional includes)
-- **SDKs required**: LabJack LJM, NI-DAQmx must be installed for compilation
+- **SDKs required**: LabJack LJM, NI DAQmx must be installed for compilation
 - **Modbus on NI Linux RT**: Excluded via Bazel config
 - **Smart pointers**: Use `std::move` when transferring ownership
 - **Memory leaks**: Run tests with valgrind or ASAN

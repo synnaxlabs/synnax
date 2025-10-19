@@ -10,16 +10,7 @@
 import "@/hardware/modbus/task/Task.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
-import {
-  Component,
-  Flex,
-  Form as PForm,
-  Icon,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -139,35 +130,12 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-interface ContextMenuItemProps
-  extends Common.Task.ContextMenuItemProps<OutputChannel> {}
-
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  if (keys.length !== 1) return null;
-  const key = keys[0];
-  const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
-  if (cmdChannel == null || cmdChannel == 0) return null;
-  const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
-  return (
-    <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Divider />
-    </>
-  );
-};
-
-const contextMenuItems = Component.renderProp(ContextMenuItem);
-
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
 > = () => (
   <Common.Task.Layouts.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
-    contextMenuItems={contextMenuItems}
   />
 );
 

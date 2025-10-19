@@ -27,7 +27,7 @@ export const ingestAnalogRead = Common.Task.createIngestor(
 
 export const importAnalogRead = Import.createImporter(
   ingestAnalogRead,
-  "NI Analog Read Task",
+  "NI analog read task",
 );
 
 export const ingestAnalogWrite = Common.Task.createIngestor(
@@ -37,7 +37,7 @@ export const ingestAnalogWrite = Common.Task.createIngestor(
 
 export const importAnalogWrite = Import.createImporter(
   ingestAnalogWrite,
-  "NI Analog Write Task",
+  "NI analog write task",
 );
 
 export const ingestDigitalRead = Common.Task.createIngestor(
@@ -47,7 +47,7 @@ export const ingestDigitalRead = Common.Task.createIngestor(
 
 export const importDigitalRead = Import.createImporter(
   ingestDigitalRead,
-  "NI Digital Read Task",
+  "NI digital read task",
 );
 
 export const ingestDigitalWrite = Common.Task.createIngestor(
@@ -57,5 +57,5 @@ export const ingestDigitalWrite = Common.Task.createIngestor(
 
 export const importDigitalWrite = Import.createImporter(
   ingestDigitalWrite,
-  "NI Digital Write Task",
+  "NI digital write task",
 );

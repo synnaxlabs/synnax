@@ -166,8 +166,7 @@ telem::DataType ua_to_data_type(const UA_DataType *dt);
 
 UA_DataType *data_type_to_ua(const telem::DataType &data_type);
 
-std::pair<size_t, xerrors::Error>
-write_to_series(telem::Series &s, const UA_Variant &v);
+size_t write_to_series(telem::Series &s, const UA_Variant &v);
 
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s);
 

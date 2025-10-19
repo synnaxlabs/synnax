@@ -1,0 +1,62 @@
+This video will walk you through the process of installing and configuring the essential
+components of Synnax. We'll start off by downloading the Console, which is our primary
+user interface for interacting with a Synnax deployment. We can use it for tasks like  
+visualizing real-time and historical telemetry, configuring data acquisition devices,
+and manually controlling actuators. Once that's done, we'll move on to installing the
+Cluster, which is the heart of every Synnax deployment. It's where all of our data is
+stored, and it's the central junction for devices, control sequences, and operator
+consoles. Let's get started.
+
+I am on the Synnax documentation home page, which you can find at docs.synnaxlabs.com.
+I'll hit this big button here to take me to the getting started guide, and then I'll
+head to the installation page.
+
+The first thing we'll see is a link to download the Console for our operating system.
+I'm on Mac, although we also support Windows. Once that's ready, I'll drag it into my
+applications folder, and then open Synnax from the dock.
+
+Once the Console is open, we'll see a splash screen with the Synnax logo and a few
+buttons. In order to make sure everything is up and running, we'll plot some demo data
+from a cluster that our team has running in the cloud. I'll open up the dropdown in the
+bottom right corner, and select the `Demo` cluster.
+
+We'll see the connection status badge turn blue, indicating that everything is working
+correctly. Now, we'll load up a workspace with some visualizations. Workspaces are a way
+to organize the console layout for a given use case. We'll dive more into workspaces in
+a later video, but for now, we'll just select the `Demo` workspace from the dropdown.
+
+Once everything has loaded, we'll see a new plot appear with a live stream of data. This
+is just a sine wave from a fake sensor, but it's a good introduction to what visualizing
+data feels like in Synnax.
+
+What we really want is to connect to our own hardware. To do that, we'll need to install
+a local Synnax cluster. First things first, I'll clear the current workspace and
+disconnect from the demo cluster.
+
+Then I'll head back to the documentation site and scroll down to the installation
+section. Just like the Console, the cluster is a single executable that you can install
+and run on your operating system. If you prefer containers, we also have an image
+available on Docker Hub.
+
+Unlike the Console, the cluster requires us to use the command line to install it. If
+you're unfamiliar with the terminal, don't worry. These commands are very simple, and
+I'll walk you through them step by step.
+
+I'll start off by showing you how to install the cluster on Mac and Linux. If you're on
+Windows, feel free to jump forwards.
+
+I'll open up my terminal, and copy the first command from the documentation. This will
+download the latest version of the cluster. I'll use `sudo chmod +x ./synnax` to make
+the file executable, and then run "./synnax version" to verify the install worked
+correctly.
+
+We recommend moving the binary into a more permanent location on your machine, and then
+adding that directory to your PATH environment variable. If you're unfamiliar with a
+PATH variable, it's just a list of directories that your machine uses to look up
+available commands.
+
+I'll move the binary into `/usr/local/bin`, renaming it to `synnax` to match the command
+name. Then, I'll add that directory to my PATH using the
+`export PATH=$PATH:/usr/local/bin` command.
+
+Now, I'll run `synnax version` again to verify that the install worked correctly.

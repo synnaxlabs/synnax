@@ -10,5 +10,5 @@
 const VERSION =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/core/pkg/version/VERSION";
 
-export const fetchVersion = async (): Promise<string> =>
+export const getVersion = async (): Promise<string> =>
   await (await fetch(VERSION)).text();

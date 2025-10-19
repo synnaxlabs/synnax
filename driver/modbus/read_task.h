@@ -318,7 +318,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief implements common::Source to read from a Modbus server.
+/// @brief implements common::Source to read from a modbus device.
 class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;

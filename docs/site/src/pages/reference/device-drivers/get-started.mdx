@@ -1,0 +1,62 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Device Drivers"
+heading: "Device Drivers"
+description: "Acquire data and control hardware from a number of vendors."
+nextURL: "/reference/device-drivers/installation"
+next: "Driver Installation"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax has developed a number of device drivers for a variety of vendors, including
+[National Instruments](https://www.ni.com), [LabJack](https://labjack.com),
+[OPC UA](https://opcfoundation.org) servers, and [Modbus TCP](https://modbus.org)
+servers. Synnax also supports building custom drivers for devices that are not natively
+supported.
+
+<Divider.Divider x />
+
+## Synnax Driver
+
+The Synnax Driver natively supports reading and writing data for
+[National Instruments](/reference/device-drivers/ni/get-started),
+[OPC UA](/reference/device-drivers/opc-ua/connect-server),
+[Modbus TCP](/reference/device-drivers/modbus/get-started), and
+[LabJack](/reference/device-drivers/labjack/get-started) devices.
+
+### Embedded Driver
+
+Every instance of the [Synnax Core](/reference/cluster/quick-start) comes with the
+Synnax Driver embedded inside. This driver will run on the same machine as the Synnax
+server, and starts automatically when the server starts. The embedded driver is
+recommended as the default driver for most users.
+
+### Driver Installation
+
+The [Synnax Driver](/reference/device-drivers/installation) can also be installed as a
+separate binary that can run on a different machine from the Synnax server. It is used
+to integrate data acquisition devices across multiple machines. The Driver connects to a
+Synnax Core over the network.
+
+#### Support for NI Linux Real-Time
+
+The Driver supports deployment on
+[NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html)
+controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and
+[NI PXI](https://www.ni.com/en/shop/pxi.html) systems.
+
+In addition to performing data acquisition and control tasks on real-time controllers,
+the Driver also supports running
+[embedded control sequences](/reference/control/embedded/get-started) on the real-time
+controller, allowing for precisely timed control sequences that run close to the
+hardware.
+
+<Divider.Divider x />
+
+## Building a Custom Driver
+
+If you don't see a driver for your hardware, you can build your own using the
+[Python client](/reference/python-client/device-driver).

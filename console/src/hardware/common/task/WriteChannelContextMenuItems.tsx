@@ -33,13 +33,13 @@ export const WriteChannelContextMenuItems: React.FC<
       {canRenameCmdChannel && (
         <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>
           <Icon.Rename />
-          Rename command channel
+          Rename Command Channel
         </Menu.Item>
       )}
       {canRenameStateChannel && (
         <Menu.Item itemKey="renameState" onClick={() => handleRename("state")}>
           <Icon.Rename />
-          Rename state channel
+          Rename State Channel
         </Menu.Item>
       )}
       <Menu.Divider />

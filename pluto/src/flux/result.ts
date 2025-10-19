@@ -155,7 +155,7 @@ export const nullClientResult = (<
   status: status.create<StatusDetails, "disabled">({
     variant: "disabled",
     message: `Failed to ${op}`,
-    description: `Cannot ${op} because no Core is connected.`,
+    description: `Cannot ${op} because no cluster is connected.`,
     details: statusDetails as z.output<StatusDetails>,
   }),
   data: undefined,

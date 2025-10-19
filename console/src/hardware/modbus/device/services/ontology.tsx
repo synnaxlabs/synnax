@@ -14,10 +14,10 @@ import { type Ontology } from "@/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
   [
-    { itemKey: "modbus.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
+    { itemKey: "modbus.readTask", label: "Create Read Task", layout: Task.READ_LAYOUT },
     {
       itemKey: "modbus.writeTask",
-      label: "Create write task",
+      label: "Create Write Task",
       layout: Task.WRITE_LAYOUT,
     },
   ];

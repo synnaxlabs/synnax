@@ -43,7 +43,7 @@ into the current architecture.
 # 4 - Setting up your Development Environment
 
 It's time to set up your development environment! Here are guides for
-[macOS](setup-macos.md) and for [windows](setup-windows.md).
+[macos](setup-macos.md) and for [windows](setup-windows.md).
 
 # 5 - Engineering Foundations
 

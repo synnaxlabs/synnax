@@ -17,8 +17,8 @@ export const components = mdxOverrides;
 <Image client:only="react" id="releases/0-41-0/thumbnail" themed={false} />
 
 Synnax v0.41.0 introduces the first major overhaul fo the Console UI since it's initial
-release. In the new Devices Toolbar, we've added real-time information on device health.
-It also includes a number of minor improvements to the Synnax Driver, and various bug
+release. In the new device toolbar, we've added real-time information on device health.
+It also includes a number of minor improvements to the Synnax driver, and various bug
 fixes.
 
 <Divider.Divider x />
@@ -30,7 +30,7 @@ simplify navigation and improve workflows.
 
 #### Deprecation and Eventual Removal of the Resources Toolbar
 
-The Resources Toolbar was the single stop for accessing all of Synnax's main data
+The resources toolbar was the single stop for accessing all of Synnax's main data
 structures. Channels, ranges, workspaces, users, and more are all available from this
 location. While this has advantages for flexibility, it has been a common source of
 confusion for understanding how Synnax's data model is organized. Displaying all
@@ -38,11 +38,11 @@ resources in one place also posed a challenge for various resource-specific layo
 customizations we wanted to make.
 
 To address these issues, we've decided to split the resources pane into a series of
-independent, category specific toolbars. There are new toolbars for devices, users,
-channels, and workspaces. workspace toolbars. The Ranges Toolbar and Tasks Toolbar have
-also been moved to the left-hand side of the Console.
+independent, category specific toolbars. There are new devices, users, channels, and
+workspace toolbars. The range and task toolbars have also been moved to the left hand
+side of the console.
 
-We're leaving the original Resources Toolbar in the Console for now, but we'll be
+We're leaving the original resources toolbar in the Console for now, but we'll be
 removing it in a future release once the new toolbars can meet all necessary
 functionality.
 
@@ -58,7 +58,7 @@ allocated the freed space to the central mosaic.
 
 #### Toolbar Hovering & Hotkeys
 
-Opening a toolbar on the current Console causes the entire central layout mosaic to
+Opening a toolbar on the current console causes the entire central layout mosaic to
 shift, this can cause issues with visualizations such as schematics that are precisely
 sized to fit within a particular view.
 
@@ -72,27 +72,28 @@ and double pressing `C` will open toolbar permanently.
 
 <Divider.Divider x />
 
-### Devices Toolbar
+### Device Toolbar
 
-The new Devices Toolbar provides real-time information on the status of Synnax Drivers
-and the devices connected to them. Synnax Drivers that are actively running will now
-show a blue heartbeat, and devices have a status indicators that shows the health of
+The new device toolbar provides real-time information on the status of Synnax device
+drivers and the devices connected to them. Synnax drivers that are actively running will
+now show a blue heartbeat, and devices have a status indicators that shows the health of
 their connection.
 
 <Divider.Divider x />
 
 ### Driver Task Auto-Start
 
-We've implemented a new auto start mechanism for all Synnax Driver tasks. This is a
-toggle that can be turned on and off within the task configuration dialog. When enabled,
-the task will **automatically start** on configuration and **Driver startup**.
+We've implemented a new auto start mechanism for all Synnax device driver tasks. This is
+a new toggle that can be turned on and off within the task configuration dialog. When
+enabled, the task will **automatically start** on configuration and **on driver
+startup**.
 
 <Divider.Divider x />
 
 ### Renaming Channels within Tasks
 
-Previously, the only way to rename a channel bound to a task was within the Resources
-Toolbar. We've added a new context menu item within all task configuration dialogs that
+Previously, the only way to rename a channel bound to a task was within the resources
+toolbar. We've added a new context menu item within all task configuration dialogs that
 allows you to rename a particular channel from within the dialog itself.
 
 ### Schematic Symbols

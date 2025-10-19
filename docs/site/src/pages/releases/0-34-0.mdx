@@ -17,27 +17,27 @@ export const components = mdxOverrides;
 
 <LabJack />
 
-Synnax version 0.34 introduces a built-in [LabJack driver](/reference/driver/labjack)
-supporting all T-Series devices.
+Synnax version 0.34 introduces a built-in
+[LabJack driver](/reference/device-drivers/labjack) supporting all T-Series devices.
 
-You can use a [write task](/reference/driver/labjack/write-task) to control digital and
-analog outputs on the device, and a [read task](/reference/driver/labjack/read-task) to
-acquire data from inputs.
+You can use a [write task](/reference/device-drivers/labjack/write-task) to control
+digital and analog outputs on the device, and a
+[read task](/reference/device-drivers/labjack/read-task) to acquire data from inputs.
 
 Synnax currently only supports LabJack devices on Windows, although we plan to add
 support for other operating systems soon.
 
 ### Taring Functionality
 
-Both [National Instruments](/reference/driver/ni) and
-[LabJack](/reference/driver/labjack) read tasks now support taring functionality. This
-feature allows you to zero out the current value of a read task.
+Both [National Instruments](/reference/device-drivers/ni) and
+[LabJack](/reference/device-drivers/labjack) read tasks now support taring
+functionality. This feature allows you to zero out the current value of a read task.
 
 ### Other Minor Improvements and Bug Fixes
 
 - Improved schematic connection line pathing.
 - Implemented [Python client](/reference/python-client) support for configuring and
-  running [OPC UA read tasks](/reference/driver/opc-ua/read-task).
+  running [OPC UA read tasks](/reference/device-drivers/opc-ua/read-task).
 - Font sizes on a [schematic](/reference/console/schematics) value are now configurable.
 - [Schematic](/reference/console/schematics) values can now be displayed in scientific
   notation.

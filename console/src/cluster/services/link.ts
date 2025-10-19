@@ -14,7 +14,7 @@ import { type Link } from "@/link";
 
 export const handleLink: Link.ClusterHandler = async ({ store, key }) => {
   const cluster = Cluster.select(store.getState(), key);
-  if (cluster == null) throw new Error(`Core with key ${key} not found`);
+  if (cluster == null) throw new Error(`Cluster with key ${key} not found`);
   store.dispatch(Cluster.setActive(key));
   return new Synnax(cluster);
 };

@@ -80,7 +80,7 @@ describe("retrieve", () => {
           expect(result.current.data).toEqual(undefined);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual(
-            "Cannot retrieve Resource because no Core is connected.",
+            "Cannot retrieve Resource because no cluster is connected.",
           );
         });
       });

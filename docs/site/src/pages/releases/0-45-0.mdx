@@ -22,8 +22,8 @@ export const components = mdxOverrides;
 
 Synnax v0.45 adds the ability to create, edit, and import custom symbols for schematics.
 
-We've also added metrics channels to the Core, which allow for monitoring the CPU and
-memory usage of the Core.
+We've also added metrics channels to the core node, which allow for monitoring the cpu
+and memory usage of the node.
 
 We've added staleness indicators to values in schematics. When a value has not been
 updated for a certain amount of time (5s by default), the color of the value will change
@@ -47,15 +47,15 @@ and/or version control.
 
 ### Metrics Channels
 
-We've added metrics channels to the Core, which allow for monitoring the CPU and memory
-usage of the Core.
+We've added metrics channels to the core node, which allow for monitoring the cpu and
+memory usage of the node.
 
 <Flex.Box x justify="center">
   <Image client:only="react" id="releases/0-45-0/metrics" themed={false} />
 </Flex.Box>
 
 These new channels are called `sy_node_x_cpu_percentage` and `sy_node_x_mem_percentage`,
-where `x` is the host key of the Core.
+where `x` is the host key of the node.
 
 <Divider.Divider x />
 

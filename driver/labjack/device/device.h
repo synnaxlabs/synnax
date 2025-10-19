@@ -248,7 +248,7 @@ public:
     }
 };
 
-/// @brief manager handles the lifecycle of LabJack devices, allowing callers to
+/// @brief manager handles the lifecycle of labjack devices, allowing callers to
 /// acquire and release devices for use at will.
 class Manager {
     std::mutex mu;

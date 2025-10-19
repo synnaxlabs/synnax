@@ -20,9 +20,10 @@ export const components = mdxOverrides;
   <Image client:only="react" id="console/ranges/range-3" themed={false} />
 </Diagram>
 
-[Ranges](/reference/concepts/ranges) are the primary means for organizing and accessing
-the data stored in a Synnax Core. They identify and name a specific time interval, and
-can be used to correlate metadata with channel telemetry.
+Ranges are the primary means for organizing and accessing the data stored in a Synnax
+cluster. They identify and name a specific time interval, and can be used to correlate
+metadata with channel telemetry. If you'd like a conceptual introduction to ranges and
+their use cases, visit the [concepts page](/reference/concepts/ranges) on ranges.
 
 <Divider.Divider x />
 
@@ -30,10 +31,10 @@ can be used to correlate metadata with channel telemetry.
 
 There are several ways to create ranges in the Synnax Console.
 
-### Using the Ranges Toolbar
+### Using the Range Toolbar
 
-The simplest way to create a new range is by clicking the **create** button in the
-Ranges Toolbar. This will open a dialog where you can fill in the required fields.
+The simplest way to create a new range is by clicking the **create** button in the range
+toolbar. This will open a dialog where you can fill in the required fields.
 
 <Video client:only="react" id="console/ranges/toolbar-create" />
 
@@ -57,23 +58,24 @@ automatically populate the `From` and `To` fields with the selected region.
 
 ## Finding Existing Ranges
 
-There are two primary ways to search for existing ranges in the Console: the Ranges
-Toolbar and Search and Command Palette.
+There are two primary ways to search for existing ranges in the console: the resources
+toolbar and command and search palette.
 
-### Using the Ranges Toolbar
+### Using the Resources Toolbar
 
-The Ranges Toolbar is located on the left side of the Console, and can be used to browse
-all of your Core's ranges.
+The resources toolbar is located on the left side of the console, and can be used to
+browse all of your cluster's resources, including ranges. All of your ranges can be
+found under the "Ranges" section.
 
 <Video client:only="react" id="console/ranges/resources" />
 
-We can load a specific range into our Ranges Toolbar by clicking on it.
+We can load a specific range into our ranges toolbar by clicking on it.
 
-### Search and Command Palette
+### Command and Search Palette
 
-The Search and Command Palette is located in the top center of the console, and can be
-used to search for resources and execute commands. We can find a permanently saved range
-just by typing its name into the palette.
+The command and search palette is located in the top center of the console, and can be
+used to search for cluster resources and execute commands. We can find a permanently
+saved range just by typing its name into the palette.
 
 <Video client:only="react" id="console/ranges/palette" />
 

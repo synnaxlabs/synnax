@@ -92,7 +92,7 @@ export class ControlError extends SynnaxError.sub("control") {}
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
 export class DisconnectedError extends SynnaxError.sub("disconnected") {
-  constructor(message: string = "Operation failed because no Core is connected.") {
+  constructor(message: string = "Operation failed because no cluster is connected.") {
     super(message);
   }
 }
@@ -161,7 +161,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
     return [
       res,
       new Unreachable({
-        message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
+        message: `Cannot reach cluster at ${err.url.host}:${err.url.port}`,
         url: err.url,
       }),
     ];

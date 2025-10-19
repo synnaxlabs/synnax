@@ -427,7 +427,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto recovered_state = ctx->states[2];
     EXPECT_EQ(recovered_state.key, "");
     EXPECT_EQ(recovered_state.variant, status::variant::SUCCESS);
-    EXPECT_EQ(recovered_state.message, "Task running");
+    EXPECT_EQ(recovered_state.message, "Task started successfully");
 
     read_task.stop("stop_cmd", true);
 

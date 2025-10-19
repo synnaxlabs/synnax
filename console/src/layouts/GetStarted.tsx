@@ -69,7 +69,7 @@ const NoCluster = (): ReactElement => {
       <Flex.Box x gap="large" justify="center" wrap>
         <Button.Button onClick={handleCluster} size="large" variant="filled">
           <Icon.Cluster />
-          Connect a Core
+          Connect a Cluster
         </Button.Button>
         <Button.Button onClick={handleVisualize} size="large" variant="filled">
           <Icon.Visualize />

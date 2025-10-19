@@ -156,16 +156,16 @@ struct ConnectionConfig {
     }
 };
 
-/// @brief controls access and caches connections to Modbus servers.
+/// @brief controls access and caches connections to modbus devices.
 class Manager {
-    /// @brief the current set of open Modbus servers.
+    /// @brief the current set of open modbus devices.
     std::unordered_map<std::string, std::weak_ptr<Device>> devices;
 
 public:
     Manager() = default;
 
-    /// @brief acquires a connection to a Modbus server, returning an error if the
-    /// server could not be connected to.
+    /// @brief acquires a connection to a modbus device, returning an error if the
+    /// device could not be connected to.
     /// @param config - the configuration for the connection.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {

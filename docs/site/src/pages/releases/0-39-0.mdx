@@ -25,8 +25,8 @@ export const components = mdxOverrides;
 </Diagram>
 
 Synnax v0.39.0 introduces embedded control sequences. Write and deploy tightly timed
-control loops directly within the Synnax Console. We've done major refactoring work on
-the Synnax Driver to make it more reliable and user-friendly.
+control loops directly within the Synnax console. We've done major refactoring work on
+our built-in device drivers to make them more reliable and user-friendly.
 
 ### Embedded Control Sequences
 
@@ -36,21 +36,21 @@ system does not replace the existing
 [Python-based control sequences](/reference/control/python), it can serve as an
 alternative in many situations.
 
-### NI Linux Real-Time Driver
+### NI Linux RT Driver
 
-We've released the [Synnax Driver](/reference/driver/installation) as a separate binary
-for deployment on NI controllers running NI Linux Real-Time. This allows you to acquire
+We've released the [Synnax Driver](/reference/device-drivers/installation) as a separate
+binary for deployment on NI controllers running Linux RT. This allows you to acquire
 data, control hardware, and even run embedded sequences directly on a cRIO controller.
 
 ### NI Analog Write Task
 
-We've added a new [NI Analog Write Task](/reference/driver/ni/analog-write-task) that
-allows you to write analog data to NI devices. This task is useful for a wide variety of
-applications, such as generating test signals or controlling hardware.
+We've added a new [NI Analog Write Task](/reference/device-drivers/ni/analog-write-task)
+that allows you to write analog data to NI devices. This task is useful for a wide
+variety of applications, such as generating test signals or controlling hardware.
 
 ### Driver Performance & Experience Improvements
 
-We've rewritten a large portion of the Synnax Driver to improve its performance and
+We've rewritten a large portion of our device drivers to improve their performance and
 stability. We've improved our device discovery mechanisms, made tasks more resilient to
 device disconnects, and made a number of changes to the Console task configuration UI's
 to make them easier to use.
@@ -66,19 +66,19 @@ to make them easier to use.
 
 - Improved and updated documentation for Writer error communication in the Python and
   TypeScript clients.
-- Added support for changing the default Console control authority.
+- Added support for changing the default console control authority.
 - Implemented a clock skew detection algorithm that warns when Synnax clients
-  communicating with a Core have a significant time difference.
-- Added warnings when you attempt to configure a task on a Driver that is not alive.
+  communicating with a cluster have a significant time difference.
+- Added warnings when you attempt to configure a task on a driver that is not alive.
 - Improved error messages in the Python client when methods require named parameters.
 
 ### Bug Fixes
 
 - Fixed a minor issue with releasing control authority from the Synnax Schematic.
-- Fixed a race condition on Core startup that would cause search indexing to fail.
-- Fixed an issue where hitting `Ctrl + C` immediately after starting a Core would not
-  stop the Core properly.
-- Fixed an issue where the Search and Command Palette would not properly switch between
+- Fixed a race condition on server startup that would cause search indexing to fail.
+- Fixed an issue where hitting `Ctrl + C` immediately after starting a cluster would not
+  stop the cluster properly.
+- Fixed an issue where the command & search palette would not properly switch between
   modes.
 - Fixed an issue where the theme would not change automatically when the system theme
   changes.

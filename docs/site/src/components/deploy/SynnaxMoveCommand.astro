@@ -1,9 +1,10 @@
 ---
 import CodeI from "@/components/code/CodeI.astro";
-import { fetchVersion } from "@/util/fetchVersion";
 const { os } = Astro.props;
 
-const version = await fetchVersion();
+const VERSION =
+    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/core/pkg/version/VERSION";
+const version = await (await fetch(VERSION)).text();
 ---
 
 <CodeI

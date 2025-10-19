@@ -104,7 +104,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.RenameItem />
           <PMenu.Item itemKey="createSequence">
             <CreateSequenceIcon />
-            Create control sequence
+            Create Control Sequence
           </PMenu.Item>
           <PMenu.Divider />
         </>
@@ -117,7 +117,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.ReloadConsoleItem />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

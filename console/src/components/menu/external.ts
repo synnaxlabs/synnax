@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/menu/DeleteItem";
-export * from "@/components/menu/ReloadConsoleItem";
+export * from "@/components/menu/HardReloadItem";
 export * from "@/components/menu/RenameItem";

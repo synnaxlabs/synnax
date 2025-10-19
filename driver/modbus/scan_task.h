@@ -21,7 +21,7 @@
 namespace modbus {
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
-/// @brief arguments for scanning a Modbus server on the network.
+/// @brief arguments for scanning a modbus device on the network.
 struct ScanCommandArgs {
     /// @brief connection parameters for the device.
     device::ConnectionConfig connection;
@@ -31,16 +31,16 @@ struct ScanCommandArgs {
         connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
-/// @brief scans for Modbus servers.
+/// @brief scans for modbus devices.
 class ScanTask final : public task::Task {
     /// @param ctx the task context used to communicate state changes back to Synnax.
     std::shared_ptr<task::Context> ctx;
     /// @param the task representation in Synnax.
     synnax::Task task;
-    /// @brief the device manager used to acquire connections to Modbus servers.
+    /// @brief the device manager used to acquire connections to modbus devices.
     std::shared_ptr<device::Manager> devices;
 
-    /// @brief tests the connection to a Modbus server.
+    /// @brief tests the connection to a modbus device.
     void test_connection(const task::Command &cmd) const {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);

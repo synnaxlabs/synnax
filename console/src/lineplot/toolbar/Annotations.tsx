@@ -123,7 +123,7 @@ const List = ({
                 Delete
               </PMenu.Item>
               <Divider.Divider x />
-              <Menu.ReloadConsoleItem />
+              <Menu.HardReloadItem />
             </PMenu.Menu>
           )}
           {...menuProps}

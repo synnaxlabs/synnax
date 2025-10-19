@@ -4,6 +4,7 @@ packages:
   - configs/**
   - console
   - docs/site
+  - docs/videos
   - drift
   - freighter/ts
   - pluto

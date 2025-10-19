@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Reads"
 heading: "Reading Data"
-description: "Learn the process for reading data from a Synnax Core."
+description: "Learn the process for reading data from a Synnax cluster."
 next: "Writes"
 nextURL: "/reference/concepts/writes"
 prev: "Ranges"
@@ -87,7 +87,7 @@ work with, so we recommend using a single request-response read when possible.
 
 Just like a read, an iterator can be created by providing a range and a list of
 channels. Creating an iterator will not return any data, but will instead open a
-persistent connection to the Core. You can then perform two categories of operation:
+persistent connection to the cluster. You can then perform two categories of operation:
 seeking and reading.
 
 ### Validity
@@ -97,7 +97,7 @@ indicate whether the iterator is healthy and has more data to read. An iterator 
 considered _invalid_ if it:
 
 1. Has accumulated an error. This typically happens when the iterator is unable to reach
-   the Core.
+   the cluster.
 2. Is not pointing at a valid sample. This can occur if the iterator has:
    - Exhausted its data, meaning the end of the range is reached during forward
      iteration, or the start of the range is reached during reverse iteration.
@@ -196,9 +196,9 @@ after executing the operation.
 
 ### Accessing the Iterator Value
 
-While read operations _do_ fetch frames from the Core, they do not return them directly.
-Instead, the current frame is kept in client-side memory, and can be accessed through
-the `value` method on the iterator.
+While read operations _do_ fetch frames from the cluster, they do not return them
+directly. Instead, the current frame is kept in client-side memory, and can be accessed
+through the `value` method on the iterator.
 
 This method returns a frame with the same format as in unary reads. If the iterator is
 invalid, calls to `value` have undefined behavior. If the iterator has been positioned

@@ -229,7 +229,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
           <PMenu.Item itemKey="openCalculated">
             <Icon.Edit />
-            Edit calculation
+            Edit Calculation
           </PMenu.Item>
         </>
       )}
@@ -241,13 +241,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             {singleResource && (
               <PMenu.Item itemKey="alias">
                 <Icon.Rename />
-                Set alias under {activeRange.name}
+                Set Alias Under {activeRange.name}
               </PMenu.Item>
             )}
             {showDeleteAlias && (
               <PMenu.Item itemKey="deleteAlias">
                 <Icon.Delete />
-                Remove alias under {activeRange.name}
+                Remove Alias Under {activeRange.name}
               </PMenu.Item>
             )}
             <PMenu.Divider />
@@ -265,7 +265,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

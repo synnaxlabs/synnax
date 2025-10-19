@@ -121,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Item itemKey="edit">
             <Icon.Edit />
-            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+            {`${resources[0].data?.snapshot ? "View" : "Edit"} Configuration`}
           </PMenu.Item>
           <Menu.RenameItem />
           <Link.CopyMenuItem />
@@ -134,7 +134,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Delete
       </PMenu.Item>
       <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

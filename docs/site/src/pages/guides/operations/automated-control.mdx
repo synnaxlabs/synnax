@@ -23,7 +23,7 @@ control sequence to pressurize and vent a pressure vessel.
 Before writing a control sequence, you should have done the following:
 
 - Downloaded the [Python client](/reference/python-client/get-started)
-- Downloaded and started the [Synnax Core](/reference/core/quick-start)
+- Downloaded and started the [Synnax server](/reference/cluster/quick-start)
 - Downloaded and started the [Synnax Console](/reference/console/get-started)
 
 ### Running a Simulated Data Acquisition System
@@ -61,13 +61,13 @@ At the top of your script, make sure to import the Synnax library:
 import synnax as sy
 ```
 
-The next step is to connect to a Synnax Core. This can be done by logging in with
+The next step is to connect to a Synnax cluster. This can be done by logging in with
 through the [CLI](/reference/python-client/get-started#the-synnax-login-command) or by
 [passing the credentials](/reference/python-client/get-started#passing-credentials-directly)
 into your script.
 
 After that, we will want to instantiate the Synnax client so we can interact with the
-Core:
+cluster:
 
 ```python
 client = sy.Synnax()
@@ -136,9 +136,8 @@ controller[PRESS_VALVE] = False
 ```
 
 <Note.Note variant="info">
-    [Lambda functions](/reference/control/python/get-started#lambda-expressions) are
-    short, anonymous functions in Python. This lambda function is equivalent to writing
-    a function like this:
+    Lambda functions are short, anonymous functions in Python. This lambda function can
+    be equivalent to writing a function like this:
 
     ```python
     def if_pressure_reached(controller):
@@ -150,6 +149,9 @@ controller[PRESS_VALVE] = False
     ```python
     controller.wait_until(if_pressure_reached, timeout = 20 * sy.TimeSpan.Second)
     ```
+
+    For more information on lambda functions, you can visit our [reference
+    page](/reference/control/python/get-started#lambda-expressions) on controllers.
 
 </Note.Note>
 
@@ -238,8 +240,8 @@ with client.control.acquire(
 ## Running the Control Sequence
 
 The first step to running the control sequence is to start a
-[Core](/reference/core/quick-start). After installing the Core you should run the
-following command:
+[local Synnax cluster](/reference/cluster/quick-start). After installing the server you
+should run the following command:
 
 ```shell
 synnax start --insecure --memory
@@ -261,8 +263,8 @@ python simulated_daq.py
 </Note.Note>
 
 Now its, time to open the Synnax Console to set up two visualizations of the tank. After
-opening the Console, you can connect to the Core using the same connection parameters in
-the Python script.
+opening the console, you can connect to the cluster using the same connection parameters
+in the Python script.
 
 <Video client:only="react" id="guides/operations/automated-control/connect-cluster" />
 
@@ -293,7 +295,7 @@ pressure in the tank:
 
 <Video client:only="react" id="guides/operations/automated-control/line-plot" />
 
-Once you finished setting up the line plot, your Console should look like this:
+Once you finished setting up the line plot, your console should look like this:
 
 <Image client:only="react" id="guides/operations/automated-control/workspace" />
 
@@ -304,7 +306,7 @@ script from earlier:
 python control_sequence.py
 ```
 
-You should see this result on the Console:
+You should see this result on the console:
 
 <Video client:only="react" id="guides/operations/automated-control/control-sequence" />
 
@@ -314,4 +316,4 @@ You should see this result on the Console:
 
 If you want to look at more examples of control sequences, visit our
 [GitHub repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control).
-You can find more information there about functions used in our Python client.
+You can find more informations about there about functions used in our Python client.

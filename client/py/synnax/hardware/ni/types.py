@@ -873,7 +873,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital write task
     configurable within the Synnax console. For detailed information on
-    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
+    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/device-drivers/ni/digital-write-task
 
     :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.
@@ -917,7 +917,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     cluster. This task is a programmatic representation of the digital read task
     configurable within the Synnax console. For detailed information on
     configuring/operating a digital read task,
-    see https://docs.synnaxlabs.com/reference/driver/ni/digital-read-task
+    see https://docs.synnaxlabs.com/reference/device-drivers/ni/digital-read-task
 
     :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.
@@ -965,7 +965,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     cluster. This task is a programmatic representation of the analog read task
     configurable within the Synnax console. For detailed information on
     configuring/operating a analog read task,
-    see https://docs.synnaxlabs.com/reference/driver/ni/analog-read-task
+    see https://docs.synnaxlabs.com/reference/device-drivers/ni/analog-read-task
 
     :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.

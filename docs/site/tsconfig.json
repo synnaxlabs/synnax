@@ -8,6 +8,7 @@
     "src/**/*",
     "static/env.d.ts",
     "astro.config.ts",
+    "astro.config.search.ts",
     "astro-components.d.ts",
     "eslint.config.ts"
   ]

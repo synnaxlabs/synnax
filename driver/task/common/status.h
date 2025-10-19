@@ -70,7 +70,7 @@ struct StatusHandler {
     void clear_warning() {
         if (this->status.variant != status::variant::WARNING) return;
         this->status.variant = status::variant::SUCCESS;
-        this->status.message = "Task running";
+        this->status.message = "Task started successfully";
         this->ctx->set_status(this->status);
     }
 

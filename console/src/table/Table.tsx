@@ -144,29 +144,29 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <>
           <PMenu.Item size="small" itemKey="addRowBelow">
             <Icon.Add />
-            Add row below
+            Add Row Below
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="addRowAbove">
             <Icon.Add />
-            Add row above
+            Add Row Above
           </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="addColRight">
             <Icon.Add />
-            Add column right
+            Add Column Right
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="addColLeft">
             <Icon.Add />
-            Add column left
+            Add Column Left
           </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="deleteRow">
             <Icon.Delete />
-            Delete row
+            Delete Row
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="deleteCol">
             <Icon.Delete />
-            Delete column
+            Delete Column
           </PMenu.Item>
           <PMenu.Divider />
         </>
@@ -176,7 +176,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         {`${editable ? "Disable" : "Enable"} editing`}
       </PMenu.Item>
       <PMenu.Divider />
-      <Menu.ReloadConsoleItem />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 

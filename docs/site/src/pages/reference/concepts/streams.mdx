@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Streams"
 heading: "Streaming Data"
-description: "Learn the process for streaming data from a Synnax Core."
+description: "Learn the process for streaming data from a Synnax cluster."
 prev: "Writes"
 prevURL: "/reference/concepts/writes"
 ---
@@ -12,15 +12,15 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This page walks you through the high level concepts for streaming real-time data from a
-Synnax Core. If you'd like a practical guide on reading data using a client library,
+Synnax cluster. If you'd like a practical guide on reading data using a client library,
 look at the respective pages for [Python](/reference/python-client/read-data) and
-[TypeScript](/reference/typescript-client/read-data).
+[Typescript](/reference/typescript-client/read-data).
 
 <Divider.Divider x />
 
 ## Overview
 
-Streaming data from a Synnax Core is useful for real-time data processing, live
+Streaming data from a Synnax cluster is useful for real-time data processing, live
 visualizations, and control sequences. The main interface for streaming data is the
 `Streamer` object.
 
