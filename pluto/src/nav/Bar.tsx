@@ -58,12 +58,15 @@ export interface BarContentProps extends Omit<Flex.BoxProps<"div">, "ref"> {
   className?: string;
 }
 
-const contentFactory =
-  (
-    pos: spatial.Alignment | "" | "absolute-center",
-  ): FunctionComponent<BarContentProps> =>
-  // eslint-disable-next-line react/display-name
-  ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
+const contentFactory = (
+  pos: spatial.Alignment | "" | "absolute-center",
+  displayName: string,
+): FunctionComponent<BarContentProps> => {
+  const C = ({
+    bordered = false,
+    className,
+    ...rest
+  }: BarContentProps): ReactElement => (
     <Flex.Box
       className={CSS(
         CSS.BE("navbar", "content"),
@@ -75,19 +78,17 @@ const contentFactory =
       {...rest}
     />
   );
+  C.displayName = displayName;
+  return C;
+};
 
 type CoreBarType = typeof CoreBar;
 
-const Start = contentFactory("start");
-Start.displayName = "NavbarStart";
-const End = contentFactory("end");
-End.displayName = "NavbarEnd";
-const Center = contentFactory("center");
-Center.displayName = "NavbarCenter";
-const Content = contentFactory("");
-Content.displayName = "NavbarContent";
-const AbsoluteCenter = contentFactory("absolute-center");
-AbsoluteCenter.displayName = "NavbarAbsoluteCenter";
+const Start = contentFactory("start", "NavbarStart");
+const End = contentFactory("end", "NavbarEnd");
+const Center = contentFactory("center", "NavbarCenter");
+const Content = contentFactory("", "NavbarContent");
+const AbsoluteCenter = contentFactory("absolute-center", "NavbarAbsoluteCenter");
 
 export interface BarType extends CoreBarType {
   Start: typeof Start;
@@ -97,10 +98,10 @@ export interface BarType extends CoreBarType {
   Content: typeof Content;
 }
 
-export const Bar = CoreBar as BarType;
-
-Bar.Start = Start;
-Bar.Center = Center;
-Bar.End = End;
-Bar.AbsoluteCenter = AbsoluteCenter;
-Bar.Content = Content;
+export const Bar: BarType = Object.assign(CoreBar, {
+  Start,
+  Center,
+  End,
+  AbsoluteCenter,
+  Content,
+});
