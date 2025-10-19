@@ -80,6 +80,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
+		time.Sleep(5 * time.Millisecond)
 		return w, sOutlet, func() {
 			Expect(w.Close()).To(Succeed())
 			cancel()

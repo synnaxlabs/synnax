@@ -128,14 +128,14 @@ func (r Retrieve) TraverseTo(t Traverser) Retrieve {
 	return r
 }
 
-// Entry binds the entry that the Inputs will fill results into. Calls to Entry will
+// Entry binds the entry that the query will fill results into. Calls to Entry will
 // override all previous calls to Entries or Entry.
 func (r Retrieve) Entry(res *Resource) Retrieve {
 	r.query.Current().Entry(res)
 	return r
 }
 
-// Entries binds a slice that the Inputs will fill results into. Calls to Entry will
+// Entries binds a slice that the query will fill results into. Calls to Entry will
 // override all previous calls to Entries or Entry.
 func (r Retrieve) Entries(res *[]Resource) Retrieve {
 	r.query.Current().Entries(res)

@@ -147,8 +147,7 @@ class TestIterator:
 
         calc = client.channels.create(
             name="calc",
-            expression=f"return {data_ch.name} * 2",
-            requires=[],
+            expression=f"return 2 * {data_ch.name}",
             data_type=data_ch.data_type,
         )
         data = calc.read(sy.TimeRange.MAX)

@@ -14,17 +14,20 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	gotime "time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime"
 	"github.com/synnaxlabs/arc/runtime/constant"
+	"github.com/synnaxlabs/arc/runtime/interval"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
+	timewheel "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -295,12 +298,24 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 	progState := state.New(stateCfg)
 
+	// Create time wheel - callback will be set after scheduler is created
+	var wheel *timewheel.Wheel
+	var scheduler *runtime.Scheduler
+	wheel = timewheel.NewWheel(10*gotime.Millisecond, func(key string) {
+		if scheduler != nil {
+			scheduler.MarkNodesChange(key)
+		}
+	})
+
 	telemFactory := arctelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	statusFactory := rstatus.NewFactory(cfg.Status)
+	intervalFactory := interval.NewFactory(interval.Config{
+		TimeWheel: wheel,
+	})
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -308,6 +323,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		constantFactory,
 		stableFactory,
 		statusFactory,
+		intervalFactory,
 	}
 	if len(cfg.Module.WASM) > 0 {
 		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
@@ -330,8 +346,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		}
 		nodes[irNode.Key] = n
 	}
-
-	scheduler := runtime.NewScheduler(cfg.Module.IR, nodes)
+	scheduler = runtime.NewScheduler(ctx, cfg.Module.IR, nodes, wheel)
 	r := &Runtime{
 		scheduler: scheduler,
 		state:     progState,

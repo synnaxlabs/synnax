@@ -197,7 +197,7 @@ func OpenCalculator(
 		nodes[irNode.Key] = n
 	}
 
-	scheduler := runtime.NewScheduler(module.IR, nodes)
+	scheduler := runtime.NewScheduler(ctx, module.IR, nodes, nil)
 	scheduler.Init(ctx)
 	return &Calculator{
 		scheduler: scheduler,
