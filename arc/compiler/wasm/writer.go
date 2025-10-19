@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -48,15 +49,13 @@ func (e *Writer) WriteI64Const(val int64) {
 // WriteF32Const writes a f32.const instruction
 func (e *Writer) WriteF32Const(val float32) {
 	e.WriteOpcode(OpF32Const)
-	bits := math.Float32bits(val)
-	binary.Write(&e.buf, binary.LittleEndian, bits)
+	lo.Must0(binary.Write(&e.buf, binary.LittleEndian, math.Float32bits(val)))
 }
 
 // WriteF64Const writes an f64.const instruction
 func (e *Writer) WriteF64Const(val float64) {
 	e.WriteOpcode(OpF64Const)
-	bits := math.Float64bits(val)
-	binary.Write(&e.buf, binary.LittleEndian, bits)
+	lo.Must0(binary.Write(&e.buf, binary.LittleEndian, math.Float64bits(val)))
 }
 
 // WriteLocalGet writes a local.get instruction

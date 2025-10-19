@@ -94,7 +94,7 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentSymbolProvider: true,
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes:     convertToSemanticTokenTypes(SemanticTokenTypes),
+					TokenTypes:     convertToSemanticTokenTypes(semanticTokenTypes),
 					TokenModifiers: convertToSemanticTokenModifiers(SemanticTokenModifiers),
 				},
 				"full": true,
@@ -131,12 +131,8 @@ func convertToSemanticTokenModifiers(modifiers []string) []protocol.SemanticToke
 }
 
 // Initialize handles the initialize request
-func (s *Server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
-	s.cfg.L.Info("Initializing arc LSP server",
-		zap.String("rootURI", string(params.RootURI)),
-		zap.String("clientName", params.ClientInfo.Name),
-	)
-
+func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+	s.cfg.L.Info("Initializing arc LSP server", zap.String("client_name", params.ClientInfo.Name))
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
 		ServerInfo:   &protocol.ServerInfo{Name: "arc-lsp", Version: "0.1.0"},
@@ -144,13 +140,13 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 }
 
 // Initialized handles the initialized notification
-func (s *Server) Initialized(ctx context.Context, params *protocol.InitializedParams) error {
+func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
 	s.cfg.L.Info("Server initialized")
 	return nil
 }
 
 // Shutdown handles the shutdown request
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *Server) Shutdown(_ context.Context) error {
 	s.cfg.L.Info("Shutting down server")
 	return nil
 }
@@ -168,7 +164,6 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 	}
 	s.mu.Unlock()
 
-	// Run diagnostics
 	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
 
 	return nil
@@ -212,13 +207,10 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	delete(s.documents, uri)
 	s.mu.Unlock()
 
-	// Clear diagnostics
-	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: []protocol.Diagnostic{},
 	})
-
-	return nil
 }
 
 // publishDiagnostics parses the document and publishes syntax and semantic errors
@@ -227,7 +219,10 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	var diagnostics []protocol.Diagnostic
 
 	if err != nil {
-		diagnostics = extractParseErrors(err)
+		diagnostics, err = extractParseErrors(err)
+		if err != nil {
+			s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
+		}
 	} else {
 		analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 
@@ -241,19 +236,25 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		diagnostics = convertAnalysisDiagnostics(analysisDiag)
 	}
 
-	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: diagnostics,
-	})
+	}); err != nil {
+		s.cfg.L.Error(
+			"failed to publish diagnostics",
+			zap.Error(err),
+			zap.String("uri", string(uri)),
+		)
+	}
 }
 
 // extractParseErrors extracts LSP diagnostics from Arc parser errors
-func extractParseErrors(err error) []protocol.Diagnostic {
-	diagnostics := []protocol.Diagnostic{}
+func extractParseErrors(err error) ([]protocol.Diagnostic, error) {
+	var diagnostics []protocol.Diagnostic
 	errMsg := err.Error()
 
 	if !strings.Contains(errMsg, "parse errors:") {
-		return diagnostics
+		return diagnostics, nil
 	}
 
 	parts := strings.Split(errMsg, "[")
@@ -265,7 +266,9 @@ func extractParseErrors(err error) []protocol.Diagnostic {
 
 		var line, col int
 		var msg string
-		fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg)
+		if _, err := fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg); err != nil {
+			return nil, err
+		}
 
 		msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
 		if msgStart >= 0 {
@@ -289,24 +292,28 @@ func extractParseErrors(err error) []protocol.Diagnostic {
 		})
 	}
 
-	return diagnostics
+	return diagnostics, nil
+}
+
+func severity(s arcdiag.Severity) protocol.DiagnosticSeverity {
+	var severity protocol.DiagnosticSeverity
+	switch s {
+	case arcdiag.Warning:
+		severity = protocol.DiagnosticSeverityWarning
+	case arcdiag.Info:
+		severity = protocol.DiagnosticSeverityInformation
+	case arcdiag.Hint:
+		severity = protocol.DiagnosticSeverityHint
+	case arcdiag.Error:
+		severity = protocol.DiagnosticSeverityError
+	}
+	return severity
 }
 
 // convertAnalysisDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
 func convertAnalysisDiagnostics(analysisDiag analyzer.Diagnostics) []protocol.Diagnostic {
 	diagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
-
 	for _, diag := range analysisDiag {
-		severity := protocol.DiagnosticSeverityError
-		switch diag.Severity {
-		case arcdiag.Warning:
-			severity = protocol.DiagnosticSeverityWarning
-		case arcdiag.Info:
-			severity = protocol.DiagnosticSeverityInformation
-		case arcdiag.Hint:
-			severity = protocol.DiagnosticSeverityHint
-		}
-
 		diagnostics = append(diagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
@@ -318,11 +325,10 @@ func convertAnalysisDiagnostics(analysisDiag analyzer.Diagnostics) []protocol.Di
 					Character: uint32(diag.Column + 10),
 				},
 			},
-			Severity: severity,
+			Severity: severity(diag.Severity),
 			Source:   "arc-analyzer",
 			Message:  diag.Message,
 		})
 	}
-
 	return diagnostics
 }

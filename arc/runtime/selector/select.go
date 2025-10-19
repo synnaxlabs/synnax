@@ -47,7 +47,7 @@ type selectNode struct{ *state.Node }
 func (s *selectNode) Init(context.Context, func(string)) {}
 
 func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
-	if !s.Node.RefreshInputs() {
+	if !s.RefreshInputs() {
 		return
 	}
 	data := s.Input(0)
@@ -70,7 +70,7 @@ func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
 	trueTime.Resize(trueCount)
 	falseData.Resize(falseCount)
 	falseTime.Resize(falseCount)
-	var trueIdx, falseIdx int = 0, 0
+	var trueIdx, falseIdx = 0, 0
 	for i := range data.Data {
 		if data.Data[i] == 1 {
 			trueData.Data[trueIdx] = 1

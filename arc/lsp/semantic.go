@@ -11,27 +11,23 @@ package lsp
 
 import (
 	"context"
-	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
 	"go.lsp.dev/protocol"
 )
 
-// Semantic token types (standard LSP types)
 const (
 	SemanticTokenTypeKeyword  uint32 = 0
 	SemanticTokenTypeType     uint32 = 1
 	SemanticTokenTypeOperator uint32 = 2
 	SemanticTokenTypeVariable uint32 = 3
-	SemanticTokenTypeFunction uint32 = 4
 	SemanticTokenTypeString   uint32 = 5
 	SemanticTokenTypeNumber   uint32 = 6
 	SemanticTokenTypeComment  uint32 = 7
 )
 
-// Token type legend for LSP client
-var SemanticTokenTypes = []string{
+var semanticTokenTypes = []string{
 	"keyword",
 	"type",
 	"operator",
@@ -42,11 +38,8 @@ var SemanticTokenTypes = []string{
 	"comment",
 }
 
-// Token modifiers (none for now)
-var SemanticTokenModifiers = []string{}
-
 // SemanticTokensFull implements textDocument/semanticTokens/full
-func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
 	uri := params.TextDocument.URI
 
 	s.mu.RLock()
@@ -173,11 +166,9 @@ func encodeSemanticTokens(tokens []token) []uint32 {
 	if len(tokens) == 0 {
 		return []uint32{}
 	}
-
 	encoded := make([]uint32, 0, len(tokens)*5)
 	prevLine := uint32(0)
 	prevChar := uint32(0)
-
 	for _, t := range tokens {
 		// Calculate deltas
 		deltaLine := t.line - prevLine
@@ -187,48 +178,12 @@ func encodeSemanticTokens(tokens []token) []uint32 {
 		} else {
 			deltaChar = t.startChar
 		}
-
 		// Encode: [deltaLine, deltaStartChar, length, tokenType, tokenModifiers]
 		encoded = append(encoded, deltaLine, deltaChar, t.length, t.tokenType, 0)
-
 		// Update previous position
 		prevLine = t.line
 		prevChar = t.startChar
 	}
 
 	return encoded
-}
-
-// Helper to include comments in semantic tokens
-// Since ANTLR skips comments, we need to extract them separately
-func extractComments(content string) []token {
-	var tokens []token
-	lines := strings.Split(content, "\n")
-
-	for lineIdx, line := range lines {
-		// Single-line comments
-		if idx := strings.Index(line, "//"); idx != -1 {
-			tokens = append(tokens, token{
-				line:      uint32(lineIdx),
-				startChar: uint32(idx),
-				length:    uint32(len(line) - idx),
-				tokenType: SemanticTokenTypeComment,
-			})
-		}
-
-		// Multi-line comments (simplified - doesn't handle multi-line properly)
-		if idx := strings.Index(line, "/*"); idx != -1 {
-			endIdx := strings.Index(line[idx:], "*/")
-			if endIdx != -1 {
-				tokens = append(tokens, token{
-					line:      uint32(lineIdx),
-					startChar: uint32(idx),
-					length:    uint32(endIdx + 2),
-					tokenType: SemanticTokenTypeComment,
-				})
-			}
-		}
-	}
-
-	return tokens
 }

@@ -109,10 +109,6 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
-func (s *State) getChannelIndexKey(key uint32) uint32 {
-	return s.indexes[key]
-}
-
 func (s *State) Node(key string) *Node {
 	inputs := s.cfg.Edges.GetInputs(key)
 	n := s.cfg.Nodes.Get(key)
