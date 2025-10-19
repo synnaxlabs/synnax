@@ -54,7 +54,7 @@ func compileBinaryMultiplicative(
 		if err != nil {
 			return types.Type{}, err
 		}
-		op := "*"
+		var op string
 		if i <= len(ctx.AST.AllSTAR()) {
 			op = "*"
 		} else if i <= len(ctx.AST.AllSTAR())+len(ctx.AST.AllSLASH()) {

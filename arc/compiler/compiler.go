@@ -128,12 +128,12 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
-		if child.Kind == symbol.KindVariable || child.Kind == symbol.KindStatefulVariable {
+		switch child.Kind {
+		case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindOutput:
 			locals = append(locals, wasm.ConvertType(child.Type))
-		} else if child.Kind == symbol.KindOutput {
-			locals = append(locals, wasm.ConvertType(child.Type))
-		} else if child.Kind == symbol.KindBlock {
+		case symbol.KindBlock:
 			locals = append(locals, collectLocals(child)...)
+		default:
 		}
 	}
 	return locals

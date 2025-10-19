@@ -15,24 +15,19 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 )
 
-func FunctionScope(ctx context.Context, t ir.Function) *symbol.Scope {
+func FunctionScope(ctx context.Context) *symbol.Scope {
 	symbols := &symbol.Scope{}
-	s := MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32()}))
-	return MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
+	s := testutil.MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32()}))
+	return testutil.MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
-	return NewContextWithFunctionType(ctx, ir.Function{})
-}
-
-func NewContextWithFunctionType(ctx context.Context, t ir.Function) ccontext.Context[antlr.ParserRuleContext] {
-	return ccontext.CreateRoot(ctx, FunctionScope(ctx, t), false)
+	return ccontext.CreateRoot(ctx, FunctionScope(ctx), false)
 }
 
 // WASM builds WASM bytecode from a variadic slice of opcodes and operands

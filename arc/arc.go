@@ -61,6 +61,9 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 		return Module{}, diagnostics.Error()
 	}
 	output, err := compiler.Compile(ctx, inter)
+	if err != nil {
+		return Module{}, err
+	}
 	return Module{IR: inter, Output: output}, nil
 }
 

@@ -21,7 +21,7 @@ import (
 )
 
 // Hover handles hover requests
-func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
 	s.mu.RUnlock()
@@ -168,7 +168,6 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 	// Format based on symbol kind
 	var content strings.Builder
 	content.WriteString(fmt.Sprintf("## %s\n\n", sym.Name))
-
 	switch sym.Kind {
 	case symbol.KindFunction:
 		content.WriteString(formatFunctionSignature(sym))
@@ -178,31 +177,24 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 	case symbol.KindVariable:
 		content.WriteString(fmt.Sprintf("**Variable**\n\n"))
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	case symbol.KindStatefulVariable:
-		content.WriteString(fmt.Sprintf("**Stateful Variable** (persists across executions)\n\n"))
+		content.WriteString("**Stateful Variable** (persists across executions)\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	case symbol.KindInput:
-		content.WriteString(fmt.Sprintf("**Input Parameter**\n\n"))
+		content.WriteString("**Input Parameter**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	case symbol.KindOutput:
-		content.WriteString(fmt.Sprintf("**Output Parameter**\n\n"))
+		content.WriteString("Output Parameter**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	case symbol.KindConfig:
-		content.WriteString(fmt.Sprintf("**Configuration Parameter**\n\n"))
+		content.WriteString("**Configuration Parameter**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	case symbol.KindChannel:
-		content.WriteString(fmt.Sprintf("**Channel**\n\n"))
+		content.WriteString("**Channel**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
-
 	default:
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
 	}
-
 	return content.String()
 }
 
