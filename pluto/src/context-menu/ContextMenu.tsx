@@ -10,7 +10,7 @@
 import "@/context-menu/ContextMenu.css";
 
 import { xy } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -30,7 +30,6 @@ export interface ContextMenuProps
 }
 
 const Internal = ({
-  ref,
   menu,
   visible,
   open,
@@ -42,12 +41,11 @@ const Internal = ({
   style,
   onClick,
   ...rest
-}: ContextMenuProps): ReactNode | null => {
+}: ContextMenuProps): ReactElement | null => {
   if (!visible) return null;
   return createPortal(
     <Flex.Box
       className={CSS(CSS_CLASS, CSS.bordered())}
-      ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={(e) => {
         close();
@@ -100,13 +98,9 @@ const Internal = ({
  * div component acting as the root element.
  * @param props.menu - The menu to show when the user right clicks.
  */
-export const ContextMenu = ({
-  menu,
-  children,
-  ...rest
-}: ContextMenuProps): ReactNode => (
+export const ContextMenu = ({ children, ...rest }: ContextMenuProps): ReactElement => (
   <>
-    <Internal menu={menu} {...rest} />
+    <Internal {...rest} />
     {children}
   </>
 );

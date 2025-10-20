@@ -36,7 +36,6 @@ export interface Open {
 
 /** Return value for the {@Menu.useContextMenu} hook. */
 export interface UseReturn extends State {
-  visible: boolean;
   close: () => void;
   open: Open;
   ref: RefCallback<HTMLDivElement>;
