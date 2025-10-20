@@ -139,8 +139,12 @@ class TestConductor:
         )
 
         # Initialize state and collections
-        self.start_time = datetime.now()
-        self.state = STATE.INITIALIZING
+        self.start_time: sy.TimeStamp = sy.TimeStamp.now()
+        self.conductor_range: sy.Range = self.create_range(
+            name=self.name,
+            start_time=self.start_time,
+        )
+        self.state: STATE = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
         self.sequences: List[Dict[str, Any]] = []
@@ -150,8 +154,8 @@ class TestConductor:
         self.client_manager_thread: Optional[threading.Thread] = None
         self.current_test_thread: Optional[threading.Thread] = None
         self._timeout_result: Optional[TestResult] = None
-        self.is_running = False
-        self.should_stop = False
+        self.is_running: bool = False
+        self.should_stop: bool = False
         self.status_callbacks: List[Callable[[TestResult], None]] = []
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
@@ -748,28 +752,44 @@ class TestConductor:
 
         return result
 
-    def create_ranges(self) -> None:
-        """Create a range in Synnax with the given name and time span."""
-        try:
-            conductor_range = self.client.ranges.create(
-                name=self.name,
-                time_range=sy.TimeRange(
-                    start=self.start_time,
-                    end=datetime.now(),
-                ),
+    def create_range(
+        self,
+        name: str,
+        start_time: datetime,
+        parent: Optional[sy.Range] = None,
+        color: str = "",
+    ) -> sy.Range:
+        """Create a range with end time 30 minutes in the future (shows as in-progress)."""
+        start = sy.TimeStamp(start_time)
+        end = start + (30 * sy.TimeSpan.MINUTE)
+
+        if parent is not None:
+            return parent.create_child_range(
+                name=name,
+                time_range=sy.TimeRange(start=start, end=end),
+                color=color,
             )
-            for i, test in enumerate(self.test_results):
-                color = COLORS[i % len(COLORS)]
-                conductor_range.create_child_range(
-                    name=test.name,
-                    time_range=sy.TimeRange(
-                        start=test.start_time,
-                        end=test.end_time,
-                    ),
-                    color=color,
-                )
-        except Exception as e:
-            raise RuntimeError(f"Failed to create range for {self.name}: {e}")
+        else:
+            return self.client.ranges.create(
+                name=name,
+                time_range=sy.TimeRange(start=start, end=end),
+                color=color,
+            )
+
+    def finalize_range(
+        self,
+        range_obj: sy.Range,
+        end_time: datetime,
+    ) -> sy.Range:
+        """Update a range's end time to mark it as completed."""
+        return self.client.ranges.create(
+            key=range_obj.key,
+            name=range_obj.name,
+            time_range=sy.TimeRange(
+                start=range_obj.time_range.start,
+                end=sy.TimeStamp(end_time),
+            ),
+        )
 
     def _test_runner_thread(
         self, test_def: TestDefinition, result_container: List[TestResult]
@@ -1063,8 +1083,23 @@ def main() -> None:
         conductor.shutdown()
         raise
     finally:
-        # Ranges must be created last for the test_conductor to be available as a parent.
-        conductor.create_ranges()
+        # Update conductor range end time and create child ranges
+        conductor.conductor_range = conductor.finalize_range(
+            range_obj=conductor.conductor_range,
+            end_time=datetime.now(),
+        )
+
+        # Create child ranges for each test
+        for i, test in enumerate(conductor.test_results):
+            color = COLORS[i % len(COLORS)]
+            conductor.conductor_range.create_child_range(
+                name=test.name,
+                time_range=sy.TimeRange(
+                    start=test.start_time,
+                    end=test.end_time,
+                ),
+                color=color,
+            )
         conductor.log_message(f"Fin.")
         if conductor.test_results:
             stats = conductor._get_test_statistics()
