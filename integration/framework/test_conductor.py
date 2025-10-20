@@ -21,7 +21,6 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
@@ -50,11 +49,12 @@ class TestResult:
 
     test_name: str
     status: STATUS
-    name: Optional[str] = None  # Custom name from test definition
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    name: Optional[str] = None
+    start_time: Optional[sy.TimeStamp] = None
+    end_time: Optional[sy.TimeStamp] = None
     error_message: Optional[str] = None
     duration: Optional[float] = None
+    range: Optional[sy.Range] = None
 
     def __post_init__(self) -> None:
         if self.start_time and self.end_time:
@@ -149,7 +149,7 @@ class TestConductor:
         self.test_results: List[TestResult] = []
         self.sequences: List[Dict[str, Any]] = []
         self.current_test: Optional[TestCase] = None
-        self.current_test_start_time: Optional[datetime] = None
+        self.current_test_start_time: Optional[sy.TimeStamp] = None
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self.client_manager_thread: Optional[threading.Thread] = None
         self.current_test_thread: Optional[threading.Thread] = None
@@ -159,7 +159,7 @@ class TestConductor:
         self.status_callbacks: List[Callable[[TestResult], None]] = []
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
-        self.active_tests: List[Tuple[TestCase, datetime]] = []
+        self.active_tests: List[Tuple[TestCase, sy.TimeStamp]] = []
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -691,7 +691,19 @@ class TestConductor:
             test_name=test_def.case,
             name=test_def.name or test_def.case.split("/")[-1],
             status=STATUS.PENDING,
-            start_time=datetime.now(),
+            start_time=sy.TimeStamp.now(),
+        )
+
+        # Get color for this test based on its index
+        test_index = len(self.test_results)
+        color = COLORS[test_index % len(COLORS)]
+
+        # Create range for this test case
+        result.range = self.create_range(
+            name=result.name or result.test_name,
+            start_time=result.start_time,
+            parent=self.conductor_range,
+            color=color,
         )
 
         try:
@@ -706,13 +718,13 @@ class TestConductor:
 
             # Track test for timeout monitoring
             if self.sequence_ordering == "asynchronous":
-                self.active_tests.append((test_instance, datetime.now()))
+                self.active_tests.append((test_instance, sy.TimeStamp.now()))
             else:
                 self.current_test = test_instance
-                self.current_test_start_time = datetime.now()
+                self.current_test_start_time = sy.TimeStamp.now()
 
             result.status = STATUS.RUNNING
-            result.start_time = datetime.now()
+            result.start_time = sy.TimeStamp.now()
             self._notify_status_change(result)
 
             # Execute the test
@@ -734,7 +746,14 @@ class TestConductor:
                 self.log_message(f"Traceback: {traceback.format_exc()}")
 
         finally:
-            result.end_time = datetime.now()
+            result.end_time = sy.TimeStamp.now()
+
+            # Finalize the test case range
+            if result.range is not None:
+                result.range = self.finalize_range(
+                    range_obj=result.range,
+                    end_time=result.end_time,
+                )
 
             # Clean up test tracking
             if self.sequence_ordering == "asynchronous":
@@ -755,7 +774,7 @@ class TestConductor:
     def create_range(
         self,
         name: str,
-        start_time: datetime,
+        start_time: sy.TimeStamp,
         parent: Optional[sy.Range] = None,
         color: str = "",
     ) -> sy.Range:
@@ -779,7 +798,7 @@ class TestConductor:
     def finalize_range(
         self,
         range_obj: sy.Range,
-        end_time: datetime,
+        end_time: sy.TimeStamp,
     ) -> sy.Range:
         """Update a range's end time to mark it as completed."""
         return self.client.ranges.create(
@@ -809,7 +828,7 @@ class TestConductor:
                 and self.current_test.Expected_Timeout > 0
             ):
                 elapsed_time = (
-                    datetime.now() - self.current_test_start_time
+                    sy.TimeStamp.now() - self.current_test_start_time
                 ).total_seconds()
                 if elapsed_time > self.current_test.Expected_Timeout:
                     self.kill_current_test()
@@ -823,7 +842,7 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-                        elapsed_time = (datetime.now() - start_time).total_seconds()
+                        elapsed_time = (sy.TimeStamp.now() - start_time).total_seconds()
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(
                                 f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)"
@@ -846,7 +865,7 @@ class TestConductor:
         # Create timeout result if this is a timeout kill
         if self.current_test_start_time:
             elapsed_time = (
-                datetime.now() - self.current_test_start_time
+                sy.TimeStamp.now() - self.current_test_start_time
             ).total_seconds()
             expected_timeout = getattr(self.current_test, "Expected_Timeout", -1)
 
@@ -873,7 +892,7 @@ class TestConductor:
                 ),
                 status=status,
                 start_time=self.current_test_start_time,
-                end_time=datetime.now(),
+                end_time=sy.TimeStamp.now(),
                 error_message=error_msg,
             )
 
@@ -1083,23 +1102,11 @@ def main() -> None:
         conductor.shutdown()
         raise
     finally:
-        # Update conductor range end time and create child ranges
+        # Update conductor range end time
         conductor.conductor_range = conductor.finalize_range(
             range_obj=conductor.conductor_range,
-            end_time=datetime.now(),
+            end_time=sy.TimeStamp.now(),
         )
-
-        # Create child ranges for each test
-        for i, test in enumerate(conductor.test_results):
-            color = COLORS[i % len(COLORS)]
-            conductor.conductor_range.create_child_range(
-                name=test.name,
-                time_range=sy.TimeRange(
-                    start=test.start_time,
-                    end=test.end_time,
-                ),
-                color=color,
-            )
         conductor.log_message(f"Fin.")
         if conductor.test_results:
             stats = conductor._get_test_statistics()
