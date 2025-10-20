@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/opc/telem/telem.h"
 
 TEST(TelemTest, testUAToDataType) {
@@ -66,16 +63,12 @@ TEST(TelemTest, testDataTypeToUA) {
 }
 
 TEST(TelemTest, testUAFloatArrayToSeries) {
-    // Test regular array conversion
     UA_Variant array_v;
     UA_Variant_init(&array_v);
     UA_Float floats[3] = {1.0f, 2.0f, 3.0f};
     UA_Variant_setArray(&array_v, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    telem::Series series(
-        telem::FLOAT32_T,
-        3
-    ); // Pre-allocate series with correct type and size
+    telem::Series series(telem::FLOAT32_T, 3);
     auto [written, err] = opc::telem::ua_array_write_to_series(series, &array_v, 3);
     ASSERT_NIL(err);
     EXPECT_EQ(series.size(), 3);
@@ -83,7 +76,7 @@ TEST(TelemTest, testUAFloatArrayToSeries) {
     EXPECT_EQ(series.at<float>(1), 2.0f);
     EXPECT_EQ(series.at<float>(2), 3.0f);
 
-    telem::Series s2(telem::FLOAT64_T, 3); // Pre-allocate second series
+    telem::Series s2(telem::FLOAT64_T, 3);
     auto [written2, err2] = opc::telem::ua_array_write_to_series(s2, &array_v, 3);
     ASSERT_NIL(err2);
     EXPECT_EQ(s2.size(), 3);
@@ -117,17 +110,14 @@ TEST(TelemTest, testWriteToSeries) {
 }
 
 TEST(TelemTest, testSeriesToVariant) {
-    // Create a series with a single value
     auto series = telem::Series(telem::FLOAT32_T, 1);
     float val = 42.0f;
     series.write(val);
 
-    // Convert to variant
     auto [variant, err] = opc::telem::series_to_variant(series);
     EXPECT_EQ(err, xerrors::NIL);
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 
-    // Clean up allocated variant memory
     UA_Variant_clear(&variant);
 }

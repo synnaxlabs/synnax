@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 
@@ -184,9 +181,9 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
     auto [conn2, err2] = pool.acquire(cfg_with_user, "[test] ");
     if (err2) {
-        GTEST_SKIP(
-        ) << "Skipping credentials test - server doesn't support alternate security: "
-          << err2.message();
+        GTEST_SKIP()
+            << "Skipping credentials test - server doesn't support alternate security: "
+            << err2.message();
     }
 
     EXPECT_NE(conn1.get(), conn2.get());

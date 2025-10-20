@@ -125,7 +125,6 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
                     continue;
                 }
 
-                // Verify connection health
                 UA_SessionState session_state;
                 UA_SecureChannelState channel_state;
                 UA_Client_getState(

@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/testutil/testutil.h"
@@ -53,7 +50,6 @@ TEST(ConnectionTest, testBasicConn) {
 
     server.stop();
 
-    // Clean up allocated variant memory
     UA_Variant_clear(&float_val);
 }
 
@@ -168,8 +164,6 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     UA_ReadResponse res = UA_Client_Service_read(client.get(), req);
     EXPECT_NE(res.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     UA_ReadResponse_clear(&res);
-
-    // node_id automatically cleaned up by RAII destructor
 }
 
 TEST(ConnectionTest, connectionAfterServerRestart) {
