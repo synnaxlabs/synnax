@@ -177,6 +177,7 @@ func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcL
 	// to avoid nil pointer panics
 	lspServer, err := arclsp.New(arclsp.Config{
 		Instrumentation: s.Child("arc_lsp"),
+		GlobalResolver:  s.internal.SymbolResolver(),
 	})
 	if err != nil {
 		return err

@@ -129,7 +129,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		}
 		if ch.IsCalculated() {
 			// Reject manually-specified indexes on calculated channels
-			if ch.LocalIndex != 0 {
+			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
 				return validate.PathedError(
 					errors.Wrap(validate.Error, "calculated channels cannot specify an index manually"),
 					"local_index",
@@ -142,10 +142,10 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		}
 	}
 
-	// Auto-create index channels for calculated channels
+	// Auto-create index channels for calculated channels (only for new calculated channels)
 	indexChannels := make([]Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.IsCalculated() {
+		if ch.IsCalculated() && ch.LocalKey == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
@@ -207,26 +207,34 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
-	// If existing channels are passed in, update the name
+	// If existing channels are passed in, update the name and expression (for calculated channels)
 	keys := KeysFromChannels(*channels)
-	if err := gorp.NewUpdate[Key, Channel]().
-		WhereKeys(keys...).
-		ChangeErr(
-			func(_ gorp.Context, c Channel) (Channel, error) {
-				idx := lo.IndexOf(keys, c.Key())
-				ic := (*channels)[idx]
-				// If RetrieveIfNameExists is true and user has provided channels to update, we need
-				// to reset those channels to the actual values to ensure the user does not mistakenly
-				// think the update was successful.
-				if opt.RetrieveIfNameExists {
-					(*channels)[idx] = c
+	// Filter out zero keys (channels that don't exist yet)
+	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
+	if len(existingKeys) > 0 {
+		if err := gorp.NewUpdate[Key, Channel]().
+			WhereKeys(existingKeys...).
+			ChangeErr(
+				func(_ gorp.Context, c Channel) (Channel, error) {
+					idx := lo.IndexOf(keys, c.Key())
+					ic := (*channels)[idx]
+					// If RetrieveIfNameExists is true and user has provided channels to update, we need
+					// to reset those channels to the actual values to ensure the user does not mistakenly
+					// think the update was successful.
+					if opt.RetrieveIfNameExists {
+						(*channels)[idx] = c
+						return c, nil
+					}
+					c.Name = ic.Name
+					// Update expression for calculated channels
+					if c.IsCalculated() && ic.IsCalculated() {
+						c.Expression = ic.Expression
+					}
 					return c, nil
-				}
-				c.Name = ic.Name
-				return c, nil
-			}).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
-		return err
+				}).
+			Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+			return err
+		}
 	}
 
 	if opt.OverwriteIfNameExistsAndDifferentProperties {

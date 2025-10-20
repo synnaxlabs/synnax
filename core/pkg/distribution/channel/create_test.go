@@ -373,6 +373,42 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(indexChannels[0].Internal).To(BeTrue())
 		})
 	})
+	Context("Updating Calculated Channel Expression", func() {
+		It("Should update expression when Create() called with existing key", func() {
+			// 1. Create calculated channel
+			calcCh := channel.Channel{
+				Name:       "temperature_calc",
+				DataType:   telem.Float64T,
+				Expression: "return channel('sensor1') * 2.5",
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+
+			originalKey := calcCh.Key()
+			originalIndexKey := calcCh.LocalIndex
+			originalName := calcCh.Name
+
+			// 2. Modify expression and call Create() again with same key
+			calcCh.Expression = "return channel('sensor1') * 3.0 + 10"
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+
+			// 3. Verify key unchanged
+			Expect(calcCh.Key()).To(Equal(originalKey))
+
+			// 4. Verify index unchanged
+			Expect(calcCh.LocalIndex).To(Equal(originalIndexKey))
+
+			// 5. Retrieve and verify expression updated, other fields preserved
+			var retrieved channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(originalKey).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Expression).To(Equal("return channel('sensor1') * 3.0 + 10"))
+			Expect(retrieved.Name).To(Equal(originalName))
+			Expect(retrieved.Key()).To(Equal(originalKey))
+		})
+	})
 	Context("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
