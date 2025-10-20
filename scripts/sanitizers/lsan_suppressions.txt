@@ -1,0 +1,27 @@
+# LeakSanitizer Suppression File
+# Format: leak:<pattern>
+# Pattern can match function names or library names
+# See: https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
+
+# ===== External Hardware SDKs =====
+
+
+# ===== Third-Party Libraries =====
+
+# open62541 OPC UA library
+
+# SY-3131
+# upstream: https://github.com/open62541/open62541/issues/5764
+# upstream: https://github.com/open62541/open62541/issues/348
+leak:UA_Client_*
+
+
+# ===== Standard Library / System =====
+
+
+# ===== Known Issues (Temporary - Link to GitHub issues) =====
+
+# Add temporary suppressions here with issue links
+# Example:
+# leak:driver::pipeline::Source::allocate
+# Issue: https://github.com/synnaxlabs/synnax/issues/XXXX

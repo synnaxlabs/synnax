@@ -28,7 +28,6 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.make = MAKE;
     dev.rack = synnax::rack_key_from_task_key(this->task.key);
     dev.configured = false;
-
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
