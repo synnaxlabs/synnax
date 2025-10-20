@@ -85,6 +85,7 @@ build:asan --copt=-fno-omit-frame-pointer
 build:asan --copt=-O1
 build:asan --copt=-g
 build:asan --copt=-fno-optimize-sibling-calls
+build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:asan --linkopt=-fsanitize=address
 build:asan --action_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
 build:asan --test_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
@@ -101,6 +102,7 @@ build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_
 build:lsan --copt=-fsanitize=leak
 build:lsan --copt=-fno-omit-frame-pointer
 build:lsan --copt=-g
+build:lsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:lsan --linkopt=-fsanitize=leak
 build:lsan --action_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
 build:lsan --test_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
@@ -115,6 +117,7 @@ build:ubsan --copt=-fsanitize=undefined
 build:ubsan --copt=-fno-sanitize-recover=undefined
 build:ubsan --copt=-fno-omit-frame-pointer
 build:ubsan --copt=-g
+build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:ubsan --linkopt=-fsanitize=undefined
 build:ubsan --action_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
 build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
