@@ -26,7 +26,7 @@ func compile(source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 	return ctx.Writer.Bytes()
 }
@@ -35,7 +35,7 @@ func compileBlock(source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 	return ctx.Writer.Bytes()
 }
@@ -46,7 +46,7 @@ var _ = Describe("Statement Compiler", func() {
 	// Output assignment compilation is tested via integration tests in the main compiler suite.
 
 	DescribeTable("Single Statement Bytecode Values", func(source string, instructions ...any) {
-		Expect(compile(source)).To(Equal(WASM(instructions...)))
+		Expect(compile(source)).To(MatchOpcodes(instructions...))
 	},
 		Entry(
 			"integer variable declaration with explicit type",
@@ -58,6 +58,18 @@ var _ = Describe("Statement Compiler", func() {
 			"floating point declaration with explicit type",
 			"x f64 := 42.42",
 			OpF64Const, 42.42,
+			OpLocalSet, 0,
+		),
+		Entry(
+			"f32 declaration with explicit type",
+			"x f32 := 42.42",
+			OpF32Const, float32(42.42),
+			OpLocalSet, 0,
+		),
+		Entry(
+			"f32 declaration with integer literal",
+			"x f32 := 42",
+			OpF32Const, float32(42),
 			OpLocalSet, 0,
 		),
 		Entry(
@@ -79,7 +91,7 @@ var _ = Describe("Statement Compiler", func() {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
@@ -97,18 +109,17 @@ var _ = Describe("Statement Compiler", func() {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 
 		It("Should compile stateful variable assignment", func() {
@@ -118,7 +129,7 @@ var _ = Describe("Statement Compiler", func() {
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
@@ -148,7 +159,7 @@ var _ = Describe("Statement Compiler", func() {
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
@@ -179,7 +190,7 @@ var _ = Describe("Statement Compiler", func() {
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
@@ -215,7 +226,7 @@ var _ = Describe("Statement Compiler", func() {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]

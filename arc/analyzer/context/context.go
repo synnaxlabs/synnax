@@ -24,6 +24,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Scope       *symbol.Scope
 	Diagnostics *diagnostics.Diagnostics
 	Constraints *constraints.System
+	TypeMap     map[antlr.ParserRuleContext]types.Type
 	AST         AST
 	TypeHint    types.Type
 }
@@ -48,6 +49,7 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 		Scope:       symbol.CreateRootScope(resolver),
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
+		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		AST:         ast,
 	}
 
@@ -59,6 +61,7 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		Scope:       ctx.Scope,
 		Diagnostics: ctx.Diagnostics,
 		Constraints: ctx.Constraints,
+		TypeMap:     ctx.TypeMap,
 		AST:         next,
 		TypeHint:    ctx.TypeHint,
 	}

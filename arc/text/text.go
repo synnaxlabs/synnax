@@ -50,7 +50,10 @@ func Analyze(
 	if !analyzer.AnalyzeProgram(ctx) {
 		return ir.IR{}, *ctx.Diagnostics
 	}
-	i := ir.IR{Symbols: ctx.Scope}
+	i := ir.IR{
+		Symbols: ctx.Scope,
+		TypeMap: ctx.TypeMap,
+	}
 
 	// func 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {

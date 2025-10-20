@@ -10,7 +10,9 @@
 package ir
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 // DefaultOutputParam is the parameter name for single-output functions and stages.
@@ -28,9 +30,10 @@ const (
 // definitions, instantiated nodes, dataflow edges, execution stratification, and
 // the symbol table from analysis.
 type IR struct {
-	Functions Functions     `json:"functions"`
-	Nodes     Nodes         `json:"nodes"`
-	Edges     Edges         `json:"edges"`
-	Strata    Strata        `json:"strata"`
-	Symbols   *symbol.Scope `json:"-"`
+	Functions Functions                              `json:"functions"`
+	Nodes     Nodes                                  `json:"nodes"`
+	Edges     Edges                                  `json:"edges"`
+	Strata    Strata                                 `json:"strata"`
+	Symbols   *symbol.Scope                          `json:"-"`
+	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"` // Inferred types from analyzer
 }

@@ -45,7 +45,25 @@ func compileNumericLiteral(
 		if err != nil {
 			return types.Type{}, errors.Newf("invalid integer literal: %s", text)
 		}
-		switch ctx.Hint.Kind {
+
+		// Determine target type: prefer hint over TypeMap
+		// The hint is set when we have an explicit type declaration (e.g., x i32 := 42)
+		// The TypeMap contains inferred types from the analyzer
+		targetType := ctx.Hint
+
+		// Only use TypeMap if no hint was provided
+		if !targetType.IsValid() {
+			// TypeMap is keyed by the parent Literal context, so we look up parent
+			if parent := ctx.AST.GetParent(); parent != nil {
+				if litCtx, ok := parent.(parser.ILiteralContext); ok {
+					if inferredType, ok := ctx.TypeMap[litCtx]; ok {
+						targetType = inferredType
+					}
+				}
+			}
+		}
+
+		switch targetType.Kind {
 		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
 			return types.F32(), nil
@@ -72,7 +90,25 @@ func compileNumericLiteral(
 		if err != nil {
 			return types.Type{}, errors.Newf("invalid float literal: %s", text)
 		}
-		switch ctx.Hint.Kind {
+
+		// Determine target type: prefer hint over TypeMap
+		// The hint is set when we have an explicit type declaration (e.g., x f32 := 42.0)
+		// The TypeMap contains inferred types from the analyzer
+		targetType := ctx.Hint
+
+		// Only use TypeMap if no hint was provided
+		if !targetType.IsValid() {
+			// TypeMap is keyed by the parent Literal context, so we look up parent
+			if parent := ctx.AST.GetParent(); parent != nil {
+				if litCtx, ok := parent.(parser.ILiteralContext); ok {
+					if inferredType, ok := ctx.TypeMap[litCtx]; ok {
+						targetType = inferredType
+					}
+				}
+			}
+		}
+
+		switch targetType.Kind {
 		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
 			return types.F32(), nil

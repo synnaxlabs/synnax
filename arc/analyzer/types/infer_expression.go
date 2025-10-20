@@ -109,12 +109,16 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 				nextType = *nextType.ValueType
 			}
 			if !Compatible(firstType, nextType) {
+				ctx.TypeMap[ctx.AST] = firstType
 				return firstType
 			}
 		}
+		ctx.TypeMap[ctx.AST] = firstType
 		return firstType
 	}
-	return InferPower(context.Child(ctx, powers[0]))
+	resultType := InferPower(context.Child(ctx, powers[0]))
+	ctx.TypeMap[ctx.AST] = resultType
+	return resultType
 }
 
 func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
@@ -179,10 +183,14 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
-		return types.String()
+		t := types.String()
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	if text == "true" || text == "false" {
-		return types.U8()
+		t := types.U8()
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	// For numeric literals, create a type variable with appropriate constraint
 	// This allows the literal to adapt to the context
@@ -198,6 +206,8 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
 
+		// Store type variable in map (will be substituted later)
+		ctx.TypeMap[ctx.AST] = tv
 		return tv
 	}
 	if isIntegerLiteral(text) {
@@ -212,10 +222,14 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
 
+		// Store type variable in map (will be substituted later)
+		ctx.TypeMap[ctx.AST] = tv
 		return tv
 	}
 	// Fallback for non-numeric literals
-	return types.I64()
+	t := types.I64()
+	ctx.TypeMap[ctx.AST] = t
+	return t
 }
 
 func isIntegerLiteral(text string) bool {

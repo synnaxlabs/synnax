@@ -270,12 +270,18 @@ func Analyze(
 		return ir.IR{}, *ctx.Diagnostics
 	}
 
-	// Step 8: Return IR
+	// Step 8: Substitute TypeMap after unification
+	for node, typ := range ctx.TypeMap {
+		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
+	}
+
+	// Step 9: Return IR
 	return ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
 		Nodes:     irNodes,
 		Symbols:   ctx.Scope,
 		Strata:    strata,
+		TypeMap:   ctx.TypeMap,
 	}, *ctx.Diagnostics
 }

@@ -30,7 +30,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	for _, opt := range opts {
 		opt(o)
 	}
-	ctx := ccontext.CreateRoot(ctx_, program.Symbols, o.disableHostImports)
+	ctx := ccontext.CreateRoot(ctx_, program.Symbols, program.TypeMap, o.disableHostImports)
 
 	outputMemoryCounter := uint32(0x1000)
 	hasMultiOutput := false

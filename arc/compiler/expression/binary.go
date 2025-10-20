@@ -15,6 +15,15 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// unwrapChannelType unwraps channel types to their value types
+// This mirrors the analyzer's behavior and ensures type hints work correctly
+func unwrapChannelType(t types.Type) types.Type {
+	if t.Kind == types.KindChan && t.ValueType != nil {
+		return *t.ValueType
+	}
+	return t
+}
+
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
@@ -23,8 +32,10 @@ func compileBinaryAdditive(
 	if err != nil {
 		return types.Type{}, err
 	}
+	// Unwrap channel types to use as hint for subsequent operands
+	hintType := unwrapChannelType(resultType)
 	for i := 1; i < len(muls); i++ {
-		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(resultType))
+		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(hintType))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -34,26 +45,33 @@ func compileBinaryAdditive(
 		} else {
 			op = "-"
 		}
-		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 			return types.Type{}, err
 		}
 	}
-	return resultType, nil
+	return hintType, nil
 }
 
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
 	pows := ctx.AST.AllPowerExpression()
+
+	// Compile first operand - literals will get their type from TypeMap
 	resultType, err := compilePower(context.Child(ctx, pows[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
+	// Unwrap channel types to use as hint for subsequent operands
+	hintType := unwrapChannelType(resultType)
+
+	// Compile remaining operands with the first operand's type as hint
 	for i := 1; i < len(pows); i++ {
-		_, err := compilePower(context.Child(ctx, pows[i]).WithHint(resultType))
+		_, err := compilePower(context.Child(ctx, pows[i]).WithHint(hintType))
 		if err != nil {
 			return types.Type{}, err
 		}
+
 		var op string
 		if i <= len(ctx.AST.AllSTAR()) {
 			op = "*"
@@ -62,11 +80,11 @@ func compileBinaryMultiplicative(
 		} else {
 			op = "%"
 		}
-		if err = ctx.Writer.WriteBinaryOpInferred(op, resultType); err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 			return types.Type{}, err
 		}
 	}
-	return resultType, nil
+	return hintType, nil
 }
 
 func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
@@ -75,7 +93,9 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	if err != nil {
 		return types.Type{}, err
 	}
-	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(leftType))
+	// Unwrap channel types for comparison operations
+	hintType := unwrapChannelType(leftType)
+	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(hintType))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -89,7 +109,7 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	} else if ctx.AST.GEQ(0) != nil {
 		op = ">="
 	}
-	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
+	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
 	return types.U8(), nil
@@ -101,7 +121,9 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	if err != nil {
 		return types.Type{}, err
 	}
-	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(leftType))
+	// Unwrap channel types for equality operations
+	hintType := unwrapChannelType(leftType)
+	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(hintType))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -111,7 +133,7 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	} else if ctx.AST.NEQ(0) != nil {
 		op = "!="
 	}
-	if err = ctx.Writer.WriteBinaryOpInferred(op, leftType); err != nil {
+	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
 	return types.U8(), nil

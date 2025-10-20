@@ -26,6 +26,7 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Scope   *symbol.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module
+	TypeMap map[antlr.ParserRuleContext]types.Type
 	AST     ASTNode
 	Hint    types.Type
 	// Outputs and OutputMemoryBase are set for multi-output stages/functions
@@ -40,6 +41,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Scope:            ctx.Scope,
 		Writer:           ctx.Writer,
 		Module:           ctx.Module,
+		TypeMap:          ctx.TypeMap,
 		AST:              node,
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
@@ -64,12 +66,14 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 func CreateRoot(
 	ctx_ context.Context,
 	symbols *symbol.Scope,
+	typeMap map[antlr.ParserRuleContext]types.Type,
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
 	ctx := Context[antlr.ParserRuleContext]{
 		Context: ctx_,
 		Module:  wasm.NewModule(),
 		Scope:   symbols,
+		TypeMap: typeMap,
 		Writer:  wasm.NewWriter(),
 	}
 	if !disableHostImports {

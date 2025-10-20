@@ -43,8 +43,15 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) bool {
 		if !applyTypeSubstitutions(ctx) {
 			return false
 		}
+		substituteTypeMap(ctx)
 	}
 	return true
+}
+
+func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
+	for node, typ := range ctx.TypeMap {
+		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
+	}
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {

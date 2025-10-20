@@ -59,7 +59,7 @@ var _ = Describe("Binary Operations", func() {
 			"f32(1.5) + f32(2.5)",
 			types.F32(),
 			OpF64Const,
-			float64(1.5),
+			1.5,
 			OpF32DemoteF64,
 			OpF32Const,
 			float32(2.5),
@@ -380,5 +380,514 @@ var _ = Describe("Binary Operations", func() {
 				OpF32Add,
 			)))
 		})
+
+		It("Should coerce a literal type", func() {
+			bytecode, exprType := compileWithAnalyzer("2 + x", symbol.MapResolver{
+				"x": symbol.Symbol{
+					Name: "x",
+					Kind: symbol.KindVariable,
+					Type: types.F64(),
+				},
+			})
+			Expect(exprType).To(Equal(types.F64()))
+			Expect(bytecode).To(Equal(WASM(
+				OpF64Const,
+				float64(2),
+				OpLocalGet, 0,
+				OpF64Add,
+			)))
+		})
+	})
+
+	Describe("Channel Literal Operations", func() {
+		DescribeTable("should correctly infer literal types from channel operations",
+			func(expr string, resolver symbol.MapResolver, expectedType types.Type, expectedOpcodes ...any) {
+				bytecode, exprType := compileWithAnalyzer(expr, resolver)
+				Expect(exprType).To(Equal(expectedType))
+				Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
+			},
+			Entry(
+				"f64 literal * f64 channel",
+				"2 * sensor",
+				symbol.MapResolver{
+					"sensor": symbol.Symbol{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.F64(),
+				OpF64Const,
+				float64(2),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Mul,
+			),
+
+			Entry(
+				"f64 channel * f64 literal",
+				"sensor * 2",
+				symbol.MapResolver{
+					"sensor": symbol.Symbol{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.F64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(2),
+				OpF64Mul,
+			),
+
+			Entry(
+				"i32 channel + i32 literal",
+				"temp + 10",
+				symbol.MapResolver{
+					"temp": symbol.Symbol{
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   0,
+					},
+				},
+				types.I32(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(18),
+				OpI32Const,
+				int32(10),
+				OpI32Add,
+			),
+
+			Entry(
+				"i32 literal + i32 channel",
+				"10 + temp",
+				symbol.MapResolver{
+					"temp": symbol.Symbol{
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   0,
+					},
+				},
+				types.I32(),
+				OpI32Const,
+				int32(10),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(18),
+				OpI32Add,
+			),
+
+			Entry(
+				"f64 channel - f64 literal",
+				"pressure - 5",
+				symbol.MapResolver{
+					"pressure": symbol.Symbol{
+						Name: "pressure",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.F64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(5),
+				OpF64Sub,
+			),
+
+			Entry(
+				"f64 literal / f64 channel",
+				"100 / rate",
+				symbol.MapResolver{
+					"rate": symbol.Symbol{
+						Name: "rate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.F64(),
+				OpF64Const,
+				float64(100),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Div,
+			),
+
+			Entry(
+				"i64 channel % i64 literal",
+				"count % 3",
+				symbol.MapResolver{
+					"count": symbol.Symbol{
+						Name: "count",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+						ID:   0,
+					},
+				},
+				types.I64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(21),
+				OpI64Const,
+				int64(3),
+				OpI64RemS,
+			),
+
+			Entry(
+				"f32 literal * f32 channel",
+				"0.5 * velocity",
+				symbol.MapResolver{
+					"velocity": symbol.Symbol{
+						Name: "velocity",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   0,
+					},
+				},
+				types.F32(),
+				OpF32Const,
+				float32(0.5),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(24),
+				OpF32Mul,
+			),
+
+			Entry(
+				"u32 channel + u32 literal",
+				"flags + 1",
+				symbol.MapResolver{
+					"flags": symbol.Symbol{
+						Name: "flags",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U32()),
+						ID:   0,
+					},
+				},
+				types.U32(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(6),
+				OpI32Const,
+				int32(1),
+				OpI32Add,
+			),
+
+			Entry(
+				"f64 channel > f64 literal",
+				"pressure > 100",
+				symbol.MapResolver{
+					"pressure": symbol.Symbol{
+						Name: "pressure",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(100),
+				OpF64Gt,
+			),
+
+			Entry(
+				"i32 literal < i32 channel",
+				"0 < temp",
+				symbol.MapResolver{
+					"temp": symbol.Symbol{
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(18),
+				OpI32LtS,
+			),
+
+			Entry(
+				"f64 channel >= f64 literal",
+				"altitude >= 1000",
+				symbol.MapResolver{
+					"altitude": symbol.Symbol{
+						Name: "altitude",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(1000),
+				OpF64Ge,
+			),
+
+			Entry(
+				"f64 channel == f64 literal",
+				"value == 3.14",
+				symbol.MapResolver{
+					"value": symbol.Symbol{
+						Name: "value",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(3.14),
+				OpF64Eq,
+			),
+
+			Entry(
+				"i32 literal != i32 channel",
+				"42 != answer",
+				symbol.MapResolver{
+					"answer": symbol.Symbol{
+						Name: "answer",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(42),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(18),
+				OpI32Ne,
+			),
+
+			Entry(
+				"complex: (literal * channel) + (literal * channel)",
+				"2 * a + 3 * b",
+				symbol.MapResolver{
+					"a": symbol.Symbol{
+						Name: "a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+					"b": symbol.Symbol{
+						Name: "b",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1,
+					},
+				},
+				types.F64(),
+				OpF64Const,
+				float64(2),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Mul,
+				OpF64Const,
+				float64(3),
+				OpI32Const,
+				int32(1),
+				OpCall,
+				uint32(27),
+				OpF64Mul,
+				OpF64Add,
+			),
+
+			Entry(
+				"complex: (channel + literal) > (channel - literal)",
+				"a + 5 > b - 3",
+				symbol.MapResolver{
+					"a": symbol.Symbol{
+						Name: "a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+					"b": symbol.Symbol{
+						Name: "b",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(5),
+				OpF64Add,
+				OpI32Const,
+				int32(1),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(3),
+				OpF64Sub,
+				OpF64Gt,
+			),
+
+			Entry(
+				"u64 channel + u64 literal",
+				"counter + 1000",
+				symbol.MapResolver{
+					"counter": symbol.Symbol{
+						Name: "counter",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U64()),
+						ID:   0,
+					},
+				},
+				types.U64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(9),
+				OpI64Const,
+				int64(1000),
+				OpI64Add,
+			),
+
+			Entry(
+				"u8 channel - u8 literal",
+				"byte - 5",
+				symbol.MapResolver{
+					"byte": symbol.Symbol{
+						Name: "byte",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   0,
+					},
+				},
+				types.U8(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(0),
+				OpI64Const,
+				int64(5),
+				OpI32Sub,
+			),
+
+			Entry(
+				"u16 channel * u16 literal",
+				"word * 3",
+				symbol.MapResolver{
+					"word": symbol.Symbol{
+						Name: "word",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U16()),
+						ID:   0,
+					},
+				},
+				types.U16(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(3),
+				OpI64Const,
+				int64(3),
+				OpI32Mul,
+			),
+
+			Entry(
+				"complex: channel - literal + channel",
+				"x - 10 + y",
+				symbol.MapResolver{
+					"x": symbol.Symbol{
+						Name: "x",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+					"y": symbol.Symbol{
+						Name: "y",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1,
+					},
+				},
+				types.F64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Const,
+				float64(10),
+				OpF64Add,
+				OpI32Const,
+				int32(1),
+				OpCall,
+				uint32(27),
+				OpF64Sub,
+			),
+
+			Entry(
+				"complex: literal / channel * literal",
+				"100 / rate * 2",
+				symbol.MapResolver{
+					"rate": symbol.Symbol{
+						Name: "rate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   0,
+					},
+				},
+				types.F64(),
+				OpF64Const,
+				float64(100),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(27),
+				OpF64Mul,
+				OpF64Const,
+				float64(2),
+				OpF64Div,
+			),
+		)
 	})
 })
