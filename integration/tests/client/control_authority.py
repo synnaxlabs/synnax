@@ -14,7 +14,9 @@ from framework.test_case import TestCase
 
 class ControlAuthority(TestCase):
     """
-    Reads a setpoint and opens or closes a valve based on the value.
+    Open multiple processes at different control authourities.
+    Make them take authority over non-virtual channels ("real" hardware control)
+    and command them all at the same time to force conflicts.
     """
 
     def setup(self) -> None:
@@ -25,78 +27,43 @@ class ControlAuthority(TestCase):
         '''
         self.set_manual_timeout(300)
 
-        # Get control authority from test parameters
-        self.control_authority = self.params.get("control_authority", 0)
+        self.control_authority = self.params.get("control_authority", -1)
         self.log(f"Running with control authority: {self.control_authority}")
 
-        # Create unique channel names based on control authority
-        self.ctrl_index_name = f"ctrl_index_{self.control_authority}"
-        self.ctrl_chan_name = f"ctrl_chan_{self.control_authority}"
+        self.subscribe(["press_vlv_cmd", "vent_vlv_cmd"])
 
-        self.subscribe(
-            [
-                "press_pt",
-                "end_test_state",
-                "test_flag_state",
-            ]
-        )
         super().setup()
 
     def run(self) -> None:
-        client: sy.Synnax = self.client
+        client = self.client
 
-        # Create index channel for command
-        ctrl_index_ch = client.channels.create(
-            name=self.ctrl_index_name,
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-        # Create command channel
-        client.channels.create(
-            name=self.ctrl_chan_name,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
-            index=ctrl_index_ch.key,
-        )
-
+        ctrl_valves = ["press_vlv_cmd", "vent_vlv_cmd"]
+        read_chans = ["end_test_cmd", "test_flag_cmd"]
+        
         with client.control.acquire(
-            name=f"Authority {self.control_authority}",
-            write_authorities=[self.control_authority],
-            write=[
-                self.ctrl_chan_name,
-            ],
-            read=["press_pt", "end_test_state", "test_flag_state"],
+            name = f"Auth {self.control_authority}",
+            write = ctrl_valves,
+            read = read_chans,
+            write_authorities = 1,
         ) as ctrl:
-            loop = sy.Loop(sy.Rate.HZ * 500)
+            loop = sy.Loop(sy.Rate.HZ * 100)
 
-            def test_active() -> bool:
-                return all([loop.wait(), self.should_continue])
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", False) == True)
+            ctrl.set_authority(self.control_authority)
+            test_flag_prev = True
 
-            if not ctrl.wait_until_defined(
-                # If press_pt is live, then the test is active
-                ["press_pt"], timeout=15
-            ):
-                self.fail("Timeout (15s) for press_pt")
-                return
+            while loop.wait() and self.should_continue:
 
-            test_flag_state_prev = None
-            while test_active():
-                end_test_state = ctrl["end_test_state"]
-                test_flag_state = ctrl["test_flag_state"]
+                test_flag = ctrl.get("test_flag_cmd")
+                end_test = ctrl.get("end_test_cmd")
 
-                if test_flag_state != test_flag_state_prev:
-                    if test_flag_state > 0.9:
+                if test_flag != test_flag_prev:
+                    if test_flag:
                         ctrl.set_authority(self.control_authority)
-                        ctrl[self.ctrl_chan_name] = 1
                     else:
-                        ctrl[self.ctrl_chan_name] = 0
                         ctrl.set_authority(0)
-                test_flag_state_prev = test_flag_state
+                    test_flag_prev = test_flag
 
-                # Check for test end
-                if end_test_state > 0.9:
+                if end_test == True:
                     self.log("End signal received")
-                    ctrl[self.ctrl_chan_name] = 0
-                    return
-
+                    break

@@ -25,7 +25,6 @@ class Setpoint_Press_Auto(TestCase):
                 "press_vlv_cmd",
                 "vent_vlv_cmd",
                 "press_pt",
-                "start_test_state",
                 "end_test_state",
             ]
         )
@@ -113,16 +112,16 @@ class Setpoint_Press_Auto(TestCase):
                     if pressure - setpoint > 2:
                         self._log_message("Venting")
                         mode = "vent"
-                        ctrl["vent_vlv_cmd"] = 1
+                        ctrl["vent_vlv_cmd"] = True
                     elif setpoint - pressure > 2:
                         self._log_message("Pressing")
                         mode = "press"
-                        ctrl["press_vlv_cmd"] = 1
+                        ctrl["press_vlv_cmd"] = True
 
                 elif mode == "press" and pressure > setpoint:
                     self._log_message("Holding")
                     mode = "hold"
-                    ctrl["press_vlv_cmd"] = 0
+                    ctrl["press_vlv_cmd"] = False
 
                 elif mode == "vent" and pressure < setpoint:
                     self._log_message("Holding")
@@ -130,10 +129,10 @@ class Setpoint_Press_Auto(TestCase):
                     ctrl["vent_vlv_cmd"] = 0
 
                 # Check for test end
-                if end_test_state > 0.9:
-                    self._log_message("End signal received")
-                    ctrl["press_vlv_cmd"] = 0
-                    ctrl["vent_vlv_cmd"] = 0
+                if end_test_state == True:
+                    self.log("End signal received")
+                    ctrl["press_vlv_cmd"] = False
+                    ctrl["vent_vlv_cmd"] = False
                     return
 
         self.fail("Test failed on timeout")

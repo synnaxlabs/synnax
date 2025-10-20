@@ -46,25 +46,19 @@ class Sim_DAQ(TestCase):
 
         # Start test channels:
         # -------------------
-        test_flag_cmd_time = client.channels.create(
-            name="test_flag_cmd_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
 
         test_flag_cmd = client.channels.create(
             name="test_flag_cmd",
             data_type=sy.DataType.UINT8,
             retrieve_if_name_exists=True,
-            index=test_flag_cmd_time.key,
+            virtual=True,
         )
 
-        test_flag_state = client.channels.create(
-            name="test_flag_state",
-            index=daq_time_ch.key,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
+        # Initialize virtual channel with a value
+        client.write(
+            sy.TimeStamp.now(),
+            test_flag_cmd.key,
+            [0]
         )
 
         # End test channels:
@@ -140,18 +134,6 @@ class Sim_DAQ(TestCase):
 
         state = {
             "daq_time": sy.TimeStamp.now(),
-            "test_flag_state": 0,
-            "end_test_state": 0,
-            "press_vlv_state": 0,
-            "vent_vlv_state": 0,
-            "press_pt": 0,
-        }
-
-        loop = sy.Loop(sy.Rate.HZ * 100)
-
-        state = {
-            "daq_time": sy.TimeStamp.now(),
-            "test_flag_state": 0,
             "end_test_state": 0,
             "press_vlv_state": 0,
             "vent_vlv_state": 0,
@@ -159,13 +141,12 @@ class Sim_DAQ(TestCase):
         }
 
         with client.open_streamer(
-            ["test_flag_cmd", "end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
+            ["end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
         ) as streamer:
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[
                     daq_time_ch.key,
-                    "test_flag_state",
                     "end_test_state",
                     "press_vlv_state",
                     "vent_vlv_state",
@@ -192,19 +173,15 @@ class Sim_DAQ(TestCase):
                         if len(press_vlv_cmd) > 0:
                             state["press_vlv_state"] = press_vlv_cmd[-1]
 
-                        test_flag_cmd = frame.get("test_flag_cmd")
-                        if len(test_flag_cmd) > 0:
-                            state["test_flag_state"] = test_flag_cmd[-1]
-
                         end_test_cmd = frame.get("end_test_cmd")
                         if len(end_test_cmd) > 0:
                             state["end_test_state"] = end_test_cmd[-1]
 
                     # Simulate pressure
-                    if state["press_vlv_state"] == 1:
+                    if state["press_vlv_state"] == True:
                         state["press_pt"] += 0.2
 
-                    if state["vent_vlv_state"] == 1:
+                    if state["vent_vlv_state"] == True:
                         state["press_pt"] -= 0.2
 
                     if state["press_pt"] < 0:
@@ -215,10 +192,10 @@ class Sim_DAQ(TestCase):
                     writer.write(state)
 
                     # Check for test end
-                    if state["end_test_state"] > 0.9:
-                        self._log_message("Controller has stopped. Ending simulation.")
+                    if state["end_test_state"] == True:
+                        self.log("Controller has stopped. Ending simulation.")
                         break
 
         assert state["press_pt"] < 10, "Pressure was left above 10"
-        assert state["press_vlv_state"] == 0, "Press valve was left open"
-        assert state["vent_vlv_state"] == 0, "Vent valve was left open"
+        assert state["press_vlv_state"] == False, "Press valve was left open"
+        assert state["vent_vlv_state"] == False, "Vent valve was left open"
