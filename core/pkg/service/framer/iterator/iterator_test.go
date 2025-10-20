@@ -92,7 +92,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
-		FDescribe("Calculations", func() {
+		Describe("Calculations", func() {
 			var (
 				indexCh *channel.Channel
 				idxData telem.Series
