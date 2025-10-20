@@ -21,8 +21,10 @@
 /// internal
 #include "x/cpp/defer/defer.h"
 
-#include "driver/opc/conn/conn.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/types/types.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
@@ -65,7 +67,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
-    opc::conn::Config conn;
+    opc::connection::Config connection;
     /// @brief keys of the index channels for the input channels.
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
@@ -78,7 +80,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
         array_size(other.array_size),
-        conn(std::move(other.conn)),
+        connection(std::move(other.connection)),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan) {}
@@ -116,7 +118,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
         const auto properties = xjson::Parser(dev.properties);
-        this->conn = opc::conn::Config(properties.child("connection"));
+        this->connection = opc::connection::Config(properties.child("connection"));
         if (properties.error()) {
             parser.field_err("device", properties.error().message());
             return;
@@ -188,19 +190,19 @@ static opc::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<opc::conn::Pool> pool;
-    opc::conn::Pool::Conn conn;
+    std::shared_ptr<opc::connection::Pool> pool;
+    opc::connection::Pool::Connection connection;
     opc::ReadRequestBuilder request_builder;
     loop::Timer timer;
 
     BaseReadTaskSource(
-        std::shared_ptr<opc::conn::Pool> pool,
+        std::shared_ptr<opc::connection::Pool> pool,
         ReadTaskConfig cfg,
         const ::telem::Rate rate
     ):
         cfg(std::move(cfg)),
         pool(std::move(pool)),
-        conn(nullptr, nullptr, ""),
+        connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)),
         timer(rate) {}
 
@@ -209,21 +211,24 @@ protected:
     }
 
     xerrors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.conn, "[opc.read] ");
+        auto [c, err] = pool->acquire(cfg.connection, "[opc.read] ");
         if (err) return err;
-        conn = std::move(c);
+        connection = std::move(c);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        conn = opc::conn::Pool::Conn(nullptr, nullptr, "");
+        connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
         return xerrors::NIL;
     }
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
 public:
-    ArrayReadTaskSource(std::shared_ptr<opc::conn::Pool> pool, ReadTaskConfig cfg):
+    ArrayReadTaskSource(
+        std::shared_ptr<opc::connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         BaseReadTaskSource(
             std::move(pool),
             std::move(cfg),
@@ -237,10 +242,11 @@ public:
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
-        opc::ReadResponse ua_res(
-            UA_Client_Service_read(this->conn.get(), this->request_builder.build())
-        );
-        if (res.error = util::parse_error(ua_res.get().responseHeader.serviceResult);
+        opc::ReadResponse ua_res(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        if (res.error = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
             res.error)
             return res;
         common::initialize_frame(
@@ -252,7 +258,7 @@ public:
         std::vector<std::string> error_messages;
         for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
             auto &result = ua_res.get().results[i];
-            if (res.error = util::parse_error(result.status); res.error) return res;
+            if (res.error = opc::errors::parse(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
             s.clear();
@@ -298,7 +304,10 @@ public:
 
 class UnaryReadTaskSource final : public BaseReadTaskSource {
 public:
-    UnaryReadTaskSource(std::shared_ptr<opc::conn::Pool> pool, ReadTaskConfig cfg):
+    UnaryReadTaskSource(
+        std::shared_ptr<opc::connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
@@ -313,9 +322,10 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::telem::TimeStamp::now();
-            opc::ReadResponse ua_res(
-                UA_Client_Service_read(this->conn.get(), this->request_builder.build())
-            );
+            opc::ReadResponse ua_res(UA_Client_Service_read(
+                this->connection.get(),
+                this->request_builder.build()
+            ));
             if (res.error = opc::errors::parse(
                     ua_res.get().responseHeader.serviceResult
                 );
@@ -324,8 +334,9 @@ public:
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];
-                if (res.error = util::parse_error(result.status); res.error) return res;
-                auto [written, write_err] = util::write_to_series(
+                if (res.error = opc::errors::parse(result.status); res.error)
+                    return res;
+                auto [written, write_err] = opc::telem::write_to_series(
                     fr.series->at(j),
                     result.value
                 );

@@ -16,10 +16,10 @@
 #include "open62541/client_highlevel.h"
 
 /// internal
-#include "driver/opc/conn/conn.h"
+#include "driver/opc/connection/connection.h"
 
-namespace opc::conn {
-std::pair<Pool::Conn, xerrors::Error>
+namespace opc::connection {
+std::pair<Pool::Connection, xerrors::Error>
 Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
                             cfg.security_mode + "|" + cfg.security_policy;
@@ -46,7 +46,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         UA_Client_run_iterate(entry.client.get(), 0);
                         VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
-                        return {Conn(entry.client, this, key), xerrors::NIL};
+                        return {Connection(entry.client, this, key), xerrors::NIL};
                     } else {
                         VLOG(1) << log_prefix << "Removing stale connection from pool";
                         entry.client.reset();
@@ -66,7 +66,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     auto [client, err] = connect(cfg, log_prefix);
-    if (err) { return {Conn(nullptr, nullptr, ""), err}; }
+    if (err) { return {Connection(nullptr, nullptr, ""), err}; }
 
     // Perform initial connection maintenance
     UA_Client_run_iterate(client.get(), 0);
@@ -77,7 +77,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
-    return {Conn(client, this, key), xerrors::NIL};
+    return {Connection(client, this, key), xerrors::NIL};
 }
 
 void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {

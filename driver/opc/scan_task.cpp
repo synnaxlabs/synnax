@@ -20,6 +20,7 @@
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
+#include "driver/opc/device/device.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
@@ -33,7 +34,7 @@ void ScanTask::exec(task::Command &cmd) {
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    std::shared_ptr<std::vector<opc::NodeProperties>> channels;
+    std::shared_ptr<std::vector<opc::Node>> channels;
 };
 
 static UA_StatusCode
@@ -99,7 +100,7 @@ void ScanTask::scan(const task::Command &cmd) const {
              }}
         );
 
-    auto [conn, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
+    auto [connection, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->set_status({
             .key = cmd.key,
@@ -111,8 +112,8 @@ void ScanTask::scan(const task::Command &cmd) const {
         });
 
     auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
-        conn.shared(),
-        std::make_shared<std::vector<opc::NodeProperties>>(),
+        connection.shared(),
+        std::make_shared<std::vector<opc::Node>>(),
     });
 
     UA_Client_forEachChildNodeCall(
@@ -127,7 +128,7 @@ void ScanTask::scan(const task::Command &cmd) const {
         .variant = status::variant::SUCCESS,
         .details = synnax::TaskStatusDetails{
             .task = task.key,
-            .data = opc::DeviceProperties(args.connection, *scan_ctx->channels)
+            .data = opc::device::Properties(args.connection, *scan_ctx->channels)
                         .to_json(),
         },
     });

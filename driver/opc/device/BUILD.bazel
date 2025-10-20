@@ -1,22 +1,16 @@
 cc_library(
-    name = "util",
-    srcs = [
-        "read.cpp",
-        "telem.cpp",
-    ],
+    name = "device",
     hdrs = [
-        "util.h",
+        "device.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/opc/errors",
         "//driver/opc/telem",
         "//driver/opc/types",
-        "//vendor/mbedtls",
         "//vendor/open62541",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "@glog",
     ],
 )
-

@@ -15,11 +15,11 @@
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/opc/conn/conn.h"
+#include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/testutil/testutil.h"
 
-TEST(ConnTest, testBasicConn) {
+TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;
     UA_Variant_init(&float_val);
     UA_Float float_data = 5.0f;
@@ -35,19 +35,19 @@ TEST(ConnTest, testBasicConn) {
     mock::Server server(server_cfg);
     server.start();
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
     auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        opc::conn::connect(cfg, "opc"),
+        opc::connection::connect(cfg, "opc"),
         (5 * telem::SECOND).chrono(),
         (250 * telem::MILLISECOND).chrono()
     );
     ASSERT_NE(client, nullptr);
 
-    auto ser = ASSERT_NIL_P(util::simple_read(client, "NS=1;S=test"));
+    auto ser = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=test"));
     ASSERT_EQ(ser.data_type(), telem::FLOAT32_T);
     ASSERT_EQ(ser.at<float>(0), 5.0f);
 
@@ -57,59 +57,59 @@ TEST(ConnTest, testBasicConn) {
     UA_Variant_clear(&float_val);
 }
 
-TEST(ConnTest, connectionRefused) {
-    opc::conn::Config cfg;
+TEST(ConnectionTest, connectionRefused) {
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:9999";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
-TEST(ConnTest, invalidEndpointFormat) {
-    opc::conn::Config cfg;
+TEST(ConnectionTest, invalidEndpointFormat) {
+    opc::connection::Config cfg;
     cfg.endpoint = "not-a-valid-endpoint";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
-TEST(ConnTest, emptyEndpoint) {
-    opc::conn::Config cfg;
+TEST(ConnectionTest, emptyEndpoint) {
+    opc::connection::Config cfg;
     cfg.endpoint = "";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
-TEST(ConnTest, invalidHostname) {
-    opc::conn::Config cfg;
+TEST(ConnectionTest, invalidHostname) {
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://nonexistent.invalid.hostname:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_TRUE(err);
 }
 
-TEST(ConnTest, disconnectAndReconnect) {
+TEST(ConnectionTest, disconnectAndReconnect) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4841;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::conn::connect(cfg, "test");
+    auto [client, err1] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err1);
     ASSERT_NE(client, nullptr);
 
@@ -123,7 +123,7 @@ TEST(ConnTest, disconnectAndReconnect) {
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
-    auto err2 = opc::conn::reconnect(client, cfg.endpoint);
+    auto err2 = opc::connection::reconnect(client, cfg.endpoint);
     ASSERT_FALSE(err2);
 
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
@@ -132,19 +132,19 @@ TEST(ConnTest, disconnectAndReconnect) {
     server.stop();
 }
 
-TEST(ConnTest, serverStopDuringConnection) {
+TEST(ConnectionTest, serverStopDuringConnection) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4842;
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::conn::connect(cfg, "test");
+    auto [client, err1] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err1);
     ASSERT_NE(client, nullptr);
 
@@ -172,7 +172,7 @@ TEST(ConnTest, serverStopDuringConnection) {
     // node_id automatically cleaned up by RAII destructor
 }
 
-TEST(ConnTest, connectionAfterServerRestart) {
+TEST(ConnectionTest, connectionAfterServerRestart) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4844;
 
@@ -180,12 +180,12 @@ TEST(ConnTest, connectionAfterServerRestart) {
     server->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client1, err1] = opc::conn::connect(cfg, "test");
+    auto [client1, err1] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err1);
     ASSERT_NE(client1, nullptr);
 
@@ -197,29 +197,29 @@ TEST(ConnTest, connectionAfterServerRestart) {
     server->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    auto [client2, err2] = opc::conn::connect(cfg, "test");
+    auto [client2, err2] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err2);
     ASSERT_NE(client2, nullptr);
 
     server->stop();
 }
 
-TEST(ConnTest, readAfterDisconnect) {
+TEST(ConnectionTest, readAfterDisconnect) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4845;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err);
 
-    auto [ser1, read_err1] = util::simple_read(client, "NS=1;S=TestFloat");
+    auto [ser1, read_err1] = opc::testutil::simple_read(client, "NS=1;S=TestFloat");
     ASSERT_FALSE(read_err1);
 
     UA_Client_disconnect(client.get());
@@ -232,19 +232,19 @@ TEST(ConnTest, readAfterDisconnect) {
     server.stop();
 }
 
-TEST(ConnTest, multipleDisconnects) {
+TEST(ConnectionTest, multipleDisconnects) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4846;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     ASSERT_FALSE(err);
 
     UA_Client_disconnect(client.get());
@@ -254,141 +254,141 @@ TEST(ConnTest, multipleDisconnects) {
     server.stop();
 }
 
-TEST(ConnTest, invalidUsernamePassword) {
+TEST(ConnectionTest, invalidUsernamePassword) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4847;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4847";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "invalid_user";
     cfg.password = "wrong_password";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
 }
 
-TEST(ConnTest, signModeWithNoEncryptionServer) {
+TEST(ConnectionTest, signModeWithNoEncryptionServer) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4848;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
 }
 
-TEST(ConnTest, signAndEncryptModeWithNoEncryptionServer) {
+TEST(ConnectionTest, signAndEncryptModeWithNoEncryptionServer) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4849;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "SignAndEncrypt";
     cfg.security_policy = "Basic256Sha256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
 }
 
-TEST(ConnTest, missingClientCertificate) {
+TEST(ConnectionTest, missingClientCertificate) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4850;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4850";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/path/to/missing/cert.pem";
     cfg.client_private_key = "/path/to/missing/key.pem";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();
 }
 
-TEST(ConnTest, emptyUsernameWithPassword) {
+TEST(ConnectionTest, emptyUsernameWithPassword) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4851;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4851";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "";
     cfg.password = "password";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
 }
 
-TEST(ConnTest, usernameWithEmptyPassword) {
+TEST(ConnectionTest, usernameWithEmptyPassword) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4852;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4852";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "username";
     cfg.password = "";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err || client != nullptr);
 
     server.stop();
 }
 
-TEST(ConnTest, invalidSecurityPolicy) {
+TEST(ConnectionTest, invalidSecurityPolicy) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4853;
     mock::Server server(server_cfg);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    opc::conn::Config cfg;
+    opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4853";
     cfg.security_mode = "Sign";
     cfg.security_policy = "InvalidPolicy999";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::conn::connect(cfg, "test");
+    auto [client, err] = opc::connection::connect(cfg, "test");
     EXPECT_TRUE(err);
 
     server.stop();

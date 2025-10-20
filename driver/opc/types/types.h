@@ -22,6 +22,43 @@
 #include "x/cpp/xjson/xjson.h"
 
 namespace opc {
+struct Node {
+    ::telem::DataType data_type;
+    std::string node_class;
+    std::string name;
+    std::string node_id;
+    bool is_array;
+
+    Node(
+        const ::telem::DataType &data_type,
+        const std::string &name,
+        const std::string &node_id,
+        const std::string &node_class,
+        const bool is_array
+    ):
+        data_type(data_type),
+        node_class(node_class),
+        name(name),
+        node_id(node_id),
+        is_array(is_array) {}
+
+    explicit Node(xjson::Parser &p):
+        data_type(::telem::DataType(p.required<std::string>("data_type"))),
+        name(p.required<std::string>("name")),
+        node_id(p.required<std::string>("node_id")),
+        is_array(p.optional<bool>("is_array", false)) {}
+
+    json to_json() const {
+        return {
+            {"data_type", data_type.name()},
+            {"name", name},
+            {"node_id", node_id},
+            {"node_class", node_class},
+            {"is_array", is_array}
+        };
+    }
+};
+
 class NodeId {
     UA_NodeId id_;
 

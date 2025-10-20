@@ -1,10 +1,10 @@
 cc_library(
-    name = "conn",
+    name = "connection",
     hdrs = [
-        "conn.h",
+        "connection.h",
     ],
     srcs = [
-        "conn.cpp",
+        "connection.cpp",
         "pool.cpp",
     ],
     visibility = ["//visibility:public"],
@@ -25,14 +25,14 @@ cc_library(
 cc_test(
     name = "conn_test",
     srcs = [
-        "conn_test.cpp",
+        "connection_test.cpp",
         "pool_test.cpp",
         "keepalive_test.cpp",
     ],
     deps = [
-        ":conn",
+        ":connection",
         "//driver/opc/mock",
-        "//driver/opc/util",
+        "//driver/opc/testutil",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

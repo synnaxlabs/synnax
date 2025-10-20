@@ -15,7 +15,7 @@
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 
-#include "driver/opc/conn/conn.h"
+#include "driver/opc/connection/connection.h"
 
 /// module
 #include "x/cpp/xerrors/errors.h"
@@ -24,7 +24,7 @@
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
 
-namespace opc::conn {
+namespace opc::connection {
 using ClientDeleter = void (*)(UA_Client *);
 
 ClientDeleter client_deleter() {
@@ -260,8 +260,7 @@ void fetch_endpoint_diagnostic_info(
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(
-                    INFO
+                LOG(INFO
                 ) << "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
@@ -300,8 +299,7 @@ connect(const Config &cfg, std::string log_prefix) {
             return {nullptr, err};
     }
 
-    const auto err = errors::parse(
-        UA_Client_connect(client.get(), cfg.endpoint.c_str())
+    const auto err = errors::parse(UA_Client_connect(client.get(), cfg.endpoint.c_str())
     );
     return {std::move(client), err};
 }

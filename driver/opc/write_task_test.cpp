@@ -18,6 +18,7 @@
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
+#include "driver/opc/testutil/testutil.h"
 #include "driver/opc/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -28,7 +29,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<opc::conn::Pool> conn_pool;
+    std::shared_ptr<opc::connection::Pool> conn_pool;
 
     // Command channels for different data types
     synnax::Channel bool_cmd_channel;
@@ -79,7 +80,7 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
 
-        opc::conn::Config conn_cfg;
+        opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -244,14 +245,14 @@ protected:
             reads
         );
 
-        conn_pool = std::make_shared<opc::conn::Pool>();
+        conn_pool = std::make_shared<opc::connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            opc::conn::connect(conn_cfg, "test"),
+            opc::connection::connect(conn_cfg, "test"),
             (5 * telem::SECOND).chrono(),
             (250 * telem::MILLISECOND).chrono()
         );
@@ -292,7 +293,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     // Save connection config before moving cfg
-    auto conn_cfg = cfg->conn;
+    auto conn_cfg = cfg->connection;
 
     auto wt = create_task();
     wt->start("start_cmd");
@@ -303,31 +304,40 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Connect and read back the values to verify they were written
-    auto [client, conn_err] = opc::conn::connect(
+    auto [client, conn_err] = opc::connection::connect(
         conn_cfg,
         "[test.write_verification] "
     );
     ASSERT_FALSE(conn_err) << conn_err;
 
     // Verify boolean value (should be 1)
-    auto [bool_result, bool_err] = util::simple_read(client, "NS=1;S=TestBoolean");
+    auto [bool_result, bool_err] = opc::testutil::simple_read(
+        client,
+        "NS=1;S=TestBoolean"
+    );
     ASSERT_FALSE(bool_err) << bool_err;
     EXPECT_EQ(bool_result.at<uint8_t>(0), 1);
 
     // Verify uint32 value (should be 12345)
-    auto [uint32_result, uint32_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    auto [uint32_result, uint32_err] = opc::testutil::simple_read(
+        client,
+        "NS=1;S=TestUInt32"
+    );
     ASSERT_FALSE(uint32_err) << uint32_err;
     EXPECT_EQ(uint32_result.at<uint32_t>(0), 12345);
 
     // Verify float value (should be 2.718f)
-    auto [float_result, float_err] = util::simple_read(client, "NS=1;S=TestFloat");
+    auto [float_result, float_err] = opc::testutil::simple_read(
+        client,
+        "NS=1;S=TestFloat"
+    );
     ASSERT_FALSE(float_err) << float_err;
     EXPECT_FLOAT_EQ(float_result.at<float>(0), 2.718f);
 }
 
 TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Save connection config before moving cfg
-    auto conn_cfg = cfg->conn;
+    auto conn_cfg = cfg->connection;
 
     auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
     ASSERT_FALSE(sink->start());
@@ -359,7 +369,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Restart the server and wait for it to be ready
     server->start();
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        opc::conn::connect(conn_cfg, "test"),
+        opc::connection::connect(conn_cfg, "test"),
         (5 * telem::SECOND).chrono(),
         (250 * telem::MILLISECOND).chrono()
     );
@@ -375,10 +385,10 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     EXPECT_FALSE(write_err3) << "Write after reconnect should succeed: " << write_err3;
 
     // Verify the third value was written
-    auto [client, conn_err] = opc::conn::connect(conn_cfg, "[test.reconnect] ");
+    auto [client, conn_err] = opc::connection::connect(conn_cfg, "[test.reconnect] ");
     ASSERT_FALSE(conn_err) << conn_err;
 
-    auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    auto [result, read_err] = opc::testutil::simple_read(client, "NS=1;S=TestUInt32");
     ASSERT_FALSE(read_err) << read_err;
     EXPECT_EQ(result.at<uint32_t>(0), 33333);
 
@@ -387,7 +397,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
 
 TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     // Save connection config before moving cfg
-    auto conn_cfg = cfg->conn;
+    auto conn_cfg = cfg->connection;
 
     auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
     ASSERT_FALSE(sink->start());
@@ -407,10 +417,10 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     }
 
     // Verify the final value
-    auto [client, conn_err] = opc::conn::connect(conn_cfg, "[test.multi_write] ");
+    auto [client, conn_err] = opc::connection::connect(conn_cfg, "[test.multi_write] ");
     ASSERT_FALSE(conn_err) << conn_err;
 
-    auto [result, read_err] = util::simple_read(client, "NS=1;S=TestUInt32");
+    auto [result, read_err] = opc::testutil::simple_read(client, "NS=1;S=TestUInt32");
     ASSERT_FALSE(read_err) << read_err;
     EXPECT_EQ(result.at<uint32_t>(0), 4000);
 

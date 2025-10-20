@@ -21,7 +21,7 @@ class TestScanTask : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<opc::conn::Pool> conn_pool;
+    std::shared_ptr<opc::connection::Pool> conn_pool;
     std::unique_ptr<mock::Server> server;
     synnax::Task task;
     synnax::Rack rack;
@@ -29,7 +29,7 @@ protected:
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
         ctx = std::make_shared<task::MockContext>(client);
-        conn_pool = std::make_shared<opc::conn::Pool>();
+        conn_pool = std::make_shared<opc::connection::Pool>();
 
         rack = ASSERT_NIL_P(client->hardware.create_rack("opc_scan_task_test_rack"));
 
@@ -40,12 +40,12 @@ protected:
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        opc::conn::Config test_conn_cfg;
+        opc::connection::Config test_conn_cfg;
         test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            opc::conn::connect(test_conn_cfg, "test"),
+            opc::connection::connect(test_conn_cfg, "test"),
             (5 * telem::SECOND).chrono(),
             (250 * telem::MILLISECOND).chrono()
         );
@@ -56,7 +56,7 @@ protected:
 TEST_F(TestScanTask, testBasicScan) {
     auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
 
-    opc::conn::Config conn_cfg;
+    opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
@@ -121,7 +121,7 @@ TEST_F(TestScanTask, testBasicScan) {
 TEST_F(TestScanTask, testConnectionPooling) {
     auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
 
-    opc::conn::Config conn_cfg;
+    opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
@@ -148,7 +148,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
 TEST_F(TestScanTask, testTestConnection) {
     auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
 
-    opc::conn::Config conn_cfg;
+    opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
@@ -172,7 +172,7 @@ TEST_F(TestScanTask, testTestConnection) {
 TEST_F(TestScanTask, testInvalidConnection) {
     auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
 
-    opc::conn::Config conn_cfg;
+    opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:9999";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";

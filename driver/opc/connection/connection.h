@@ -22,7 +22,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 
-namespace opc::conn {
+namespace opc::connection {
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.
@@ -91,26 +91,30 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
 
 class Pool {
 public:
-    class Conn {
+    class Connection {
     public:
-        Conn(std::shared_ptr<UA_Client> client, Pool *pool, const std::string &key):
+        Connection(
+            std::shared_ptr<UA_Client> client,
+            Pool *pool,
+            const std::string &key
+        ):
             client_(std::move(client)), pool_(pool), key_(key) {}
 
-        ~Conn() {
+        ~Connection() {
             if (pool_ && client_) { pool_->release(key_, client_); }
         }
 
-        Conn(const Conn &) = delete;
-        Conn &operator=(const Conn &) = delete;
+        Connection(const Connection &) = delete;
+        Connection &operator=(const Connection &) = delete;
 
-        Conn(Conn &&other) noexcept:
+        Connection(Connection &&other) noexcept:
             client_(std::move(other.client_)),
             pool_(other.pool_),
             key_(std::move(other.key_)) {
             other.pool_ = nullptr;
         }
 
-        Conn &operator=(Conn &&other) noexcept {
+        Connection &operator=(Connection &&other) noexcept {
             if (this != &other) {
                 if (pool_ && client_) { pool_->release(key_, client_); }
                 client_ = std::move(other.client_);
@@ -137,7 +141,7 @@ public:
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
-    std::pair<Conn, xerrors::Error>
+    std::pair<Connection, xerrors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
     size_t size() const;
@@ -153,6 +157,6 @@ private:
     std::unordered_map<std::string, std::vector<Entry>> connections_;
 
     void release(const std::string &key, std::shared_ptr<UA_Client> client);
-    friend class Conn;
+    friend class Connection;
 };
 }

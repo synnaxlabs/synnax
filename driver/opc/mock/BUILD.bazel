@@ -14,7 +14,7 @@ cc_binary(
     srcs = ["main.cpp"],
     deps = [
         ":mock",
-        "//driver/opc/util",
+        "//driver/opc/testutil",
         "//vendor/open62541",
         "@glog//:glog",
     ],

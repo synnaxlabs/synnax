@@ -19,9 +19,10 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/opc/conn/conn.h"
+#include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
 #include "driver/opc/types/types.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/write_task.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
 
@@ -50,7 +51,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
-    opc::conn::Config conn;
+    opc::connection::Config connection;
 
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -71,7 +72,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             return;
         }
         const auto properties = xjson::Parser(dev.properties);
-        this->conn = opc::conn::Config(properties.child("connection"));
+        this->connection = opc::connection::Config(properties.child("connection"));
         if (properties.error())
             parser.field_err("device", properties.error().message());
     }
@@ -93,26 +94,26 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<opc::conn::Pool> pool;
-    opc::conn::Pool::Conn conn;
+    std::shared_ptr<opc::connection::Pool> pool;
+    opc::connection::Pool::Connection connection;
     opc::WriteRequestBuilder builder;
 
 public:
-    WriteTaskSink(std::shared_ptr<opc::conn::Pool> pool, WriteTaskConfig cfg):
+    WriteTaskSink(std::shared_ptr<opc::connection::Pool> pool, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
         pool(std::move(pool)),
-        conn(nullptr, nullptr, "") {}
+        connection(nullptr, nullptr, "") {}
 
     xerrors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.conn, "[opc.write] ");
+        auto [c, err] = pool->acquire(cfg.connection, "[opc.write] ");
         if (err) return err;
-        conn = std::move(c);
+        connection = std::move(c);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        conn = opc::conn::Pool::Conn(nullptr, nullptr, "");
+        connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
         return xerrors::NIL;
     }
 
@@ -123,20 +124,20 @@ public:
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
           << err;
-        this->conn = opc::conn::Pool::Conn(nullptr, nullptr, "");
-        auto [c, conn_err] = this->pool->acquire(this->cfg.conn, "[opc.write] ");
+        this->connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
+        auto [c, conn_err] = this->pool->acquire(this->cfg.connection, "[opc.write] ");
         if (conn_err) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
             return conn_err;
         }
-        this->conn = std::move(c);
+        this->connection = std::move(c);
         LOG(INFO) << "[opc.write_task] reconnected successfully, retrying write";
         return this->perform_write(frame);
     }
 
 private:
     xerrors::Error perform_write(const synnax::Frame &frame) {
-        if (!this->conn) return opc::errors::NO_CONNECTION;
+        if (!this->connection) return opc::errors::NO_CONNECTION;
         this->builder.clear();
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
@@ -148,7 +149,7 @@ private:
         }
         if (this->builder.empty()) return xerrors::NIL;
         opc::WriteResponse res(
-            UA_Client_Service_write(this->conn.get(), this->builder.build())
+            UA_Client_Service_write(this->connection.get(), this->builder.build())
         );
         return opc::errors::parse(res.get().responseHeader.serviceResult);
     }

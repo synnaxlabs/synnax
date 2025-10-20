@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 /// internal
-#include "driver/opc/conn/conn.h"
+#include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 
 class ConnectionPoolTest : public ::testing::Test {
@@ -37,23 +37,23 @@ protected:
 
     mock::ServerConfig server_cfg_;
     std::unique_ptr<mock::Server> server_;
-    opc::conn::Config conn_cfg_;
+    opc::connection::Config conn_cfg_;
 };
 
 TEST_F(ConnectionPoolTest, AcquireNewConnection) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
-    auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+    auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err) << err.message();
-    ASSERT_TRUE(conn);
-    ASSERT_NE(conn.get(), nullptr);
+    ASSERT_TRUE(connection);
+    ASSERT_NE(connection.get(), nullptr);
 
     EXPECT_EQ(pool.size(), 1);
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
 }
 
 TEST_F(ConnectionPoolTest, ReuseConnection) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     {
         auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
@@ -72,7 +72,7 @@ TEST_F(ConnectionPoolTest, ReuseConnection) {
 }
 
 TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
@@ -93,10 +93,10 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     server2.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    opc::conn::Config cfg2 = conn_cfg_;
+    opc::connection::Config cfg2 = conn_cfg_;
     cfg2.endpoint = "opc.tcp://localhost:4846";
 
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
@@ -111,24 +111,24 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
 }
 
 TEST_F(ConnectionPoolTest, MoveSemantics) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err);
 
     auto *original_ptr = conn1.get();
 
-    opc::conn::Pool::Conn conn2 = std::move(conn1);
+    opc::connection::Pool::Connection conn2 = std::move(conn1);
     EXPECT_EQ(conn2.get(), original_ptr);
     EXPECT_FALSE(conn1);
 
-    opc::conn::Pool::Conn conn3(std::move(conn2));
+    opc::connection::Pool::Connection conn3(std::move(conn2));
     EXPECT_EQ(conn3.get(), original_ptr);
     EXPECT_FALSE(conn2);
 }
 
 TEST_F(ConnectionPoolTest, ThreadSafety) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
     const int num_threads = 10;
     const int acquisitions_per_thread = 5;
 
@@ -138,8 +138,8 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             for (int j = 0; j < acquisitions_per_thread; ++j) {
-                auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-                if (!err && conn) {
+                auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
+                if (!err && connection) {
                     success_count++;
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
@@ -155,13 +155,13 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
 }
 
 TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
     auto client_ptr = conn1.shared();
 
-    { opc::conn::Pool::Conn temp = std::move(conn1); }
+    { opc::connection::Pool::Connection temp = std::move(conn1); }
 
     UA_Client_disconnect(client_ptr.get());
 
@@ -173,20 +173,20 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
 }
 
 TEST_F(ConnectionPoolTest, DifferentCredentials) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
 
-    opc::conn::Config cfg_with_user = conn_cfg_;
+    opc::connection::Config cfg_with_user = conn_cfg_;
     cfg_with_user.security_mode = "Sign";
     cfg_with_user.security_policy = "Basic256";
 
     auto [conn2, err2] = pool.acquire(cfg_with_user, "[test] ");
     if (err2) {
-        GTEST_SKIP()
-            << "Skipping credentials test - server doesn't support alternate security: "
-            << err2.message();
+        GTEST_SKIP(
+        ) << "Skipping credentials test - server doesn't support alternate security: "
+          << err2.message();
     }
 
     EXPECT_NE(conn1.get(), conn2.get());
@@ -194,22 +194,22 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 }
 
 TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
-    opc::conn::Pool pool;
-    opc::conn::Config bad_cfg = conn_cfg_;
+    opc::connection::Pool pool;
+    opc::connection::Config bad_cfg = conn_cfg_;
     bad_cfg.endpoint = "opc.tcp://localhost:9999";
 
-    auto [conn, err] = pool.acquire(bad_cfg, "[test] ");
+    auto [connection, err] = pool.acquire(bad_cfg, "[test] ");
     ASSERT_TRUE(err);
     EXPECT_EQ(pool.size(), 0);
 }
 
 TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
 
-    conn1 = opc::conn::Pool::Conn(nullptr, nullptr, "");
+    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
     server_->stop();
@@ -226,12 +226,12 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
 }
 
 TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
-    opc::conn::Pool pool;
+    opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
 
-    conn1 = opc::conn::Pool::Conn(nullptr, nullptr, "");
+    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
 
     server_->stop();
     server_.reset();
