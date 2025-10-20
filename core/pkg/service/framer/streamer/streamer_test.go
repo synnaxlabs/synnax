@@ -202,7 +202,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 			writtenFr := core.MultiFrame(
 				keys,
 				[]telem.Series{

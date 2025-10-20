@@ -95,14 +95,13 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID (first stateful var)
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 
 		It("Should compile stateful variable declaration with inferred type", func() {
@@ -134,7 +133,7 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
@@ -148,8 +147,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpI32Const, int32(0), // var ID
 				OpLocalGet, 0, // get value back
 				OpCall, uint64(stateStoreIdx),
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 
 		It("Should compile stateful variable reference in expression", func() {
@@ -163,7 +161,7 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
@@ -178,8 +176,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpI64Const, int64(1), // literal 1
 				OpI64Add,      // count + 1
 				OpLocalSet, 1, // store in x's local
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 
 		It("Should compile multiple stateful variables", func() {
@@ -194,7 +191,7 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(statement.CompileBlock(context.Child(ctx, block))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: a $= 10
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID for a
@@ -218,8 +215,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpCall, uint64(stateLoadIdx),
 				OpI64Add,      // a + b
 				OpLocalSet, 2, // store in c's local
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 
 		It("Should compile stateful variable with different types", func() {
@@ -230,19 +226,18 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(statement.Compile(context.Child(ctx, stmt))).To(Succeed())
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
-			expected := WASM(
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpF64Const, 20.5, // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
-			)
-			Expect(ctx.Writer.Bytes()).To(Equal(expected))
+			))
 		})
 	})
 
 	DescribeTable("Multi Statement Bytecode Values", func(source string, instructions ...any) {
-		Expect(compileBlock(source)).To(Equal(WASM(instructions...)))
+		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
 	},
 		Entry("Dual Variable Declaration",
 			`

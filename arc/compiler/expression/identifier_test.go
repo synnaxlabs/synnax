@@ -28,7 +28,7 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			byteCode, exprType := compileWithCtx(ctx, "x")
-			Expect(byteCode).To(Equal(WASM(OpLocalGet, 0)))
+			Expect(byteCode).To(MatchOpcodes(OpLocalGet, 0))
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
@@ -40,12 +40,11 @@ var _ = Describe("Identifier Compilation", func() {
 			expr := MustSucceed(parser.ParseExpression("a + b"))
 			exprType := MustSucceed(expression.Compile(context.Child(ctx, expr)))
 			bytecode := ctx.Writer.Bytes()
-			expected := WASM(
+			Expect(bytecode).To(MatchOpcodes(
 				OpLocalGet, 0, // Resolve 'a'
 				OpLocalGet, 1, // Resolve 'b'
 				OpI32Add, // Add them
-			)
-			Expect(bytecode).To(Equal(expected))
+			))
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
@@ -56,14 +55,13 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.F64()}))
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "z", Kind: symbol.KindVariable, Type: types.F64()}))
 			bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
-			expected := WASM(
+			Expect(bytecode).To(MatchOpcodes(
 				OpLocalGet, 0, // Resolve 'x'
 				OpLocalGet, 1, // Resolve 'y'
 				OpF64Add,      // x + y
 				OpLocalGet, 2, // Resolve 'z'
 				OpF64Mul, // (x + y) * z
-			)
-			Expect(bytecode).To(Equal(expected))
+			))
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
@@ -72,12 +70,11 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "limit", Kind: symbol.KindVariable, Type: types.I32()}))
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.I32()}))
 			bytecode, exprType := compileWithCtx(ctx, "value > limit")
-			expected := WASM(
+			Expect(bytecode).To(MatchOpcodes(
 				OpLocalGet, 1, // Resolve 'value'
 				OpLocalGet, 0, // Resolve 'limit'
 				OpI32GtS, // value > limit
-			)
-			Expect(bytecode).To(Equal(expected))
+			))
 			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
 		})
 
@@ -86,7 +83,7 @@ var _ = Describe("Identifier Compilation", func() {
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.U8()}))
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "ready", Kind: symbol.KindVariable, Type: types.U8()}))
 			bytecode, exprType := compileWithCtx(ctx, "enabled && ready")
-			expected := WASM(
+			Expect(bytecode).To(MatchOpcodes(
 				// Load 'enabled'
 				OpLocalGet, 0,
 				// Normalize to boolean (0 or 1)
@@ -103,8 +100,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI32Const, int32(0),
 				OpI32Ne,
 				OpEnd,
-			)
-			Expect(bytecode).To(Equal(expected))
+			))
 			Expect(exprType).To(Equal(types.U8()))
 		})
 	})
@@ -116,12 +112,12 @@ var _ = Describe("Identifier Compilation", func() {
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(Equal(WASM(
+			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const,
 				int32(0),
 				OpCall,
 				uint64(i),
-			)))
+			))
 		})
 
 		It("Should correctly compile a channel read inside of an addition expression", func() {
@@ -130,7 +126,7 @@ var _ = Describe("Identifier Compilation", func() {
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")
 			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(Equal(WASM(
+			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const,
 				int32(0),
 				OpCall,
@@ -138,7 +134,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI32Const,
 				int32(1),
 				OpI32Add,
-			)))
+			))
 		})
 	})
 
@@ -151,8 +147,7 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.F64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "value")
-			expected := WASM(OpLocalGet, 0)
-			Expect(bytecode).To(Equal(expected))
+			Expect(bytecode).To(MatchOpcodes(OpLocalGet, 0))
 			Expect(exprType).To(Equal(types.F64()))
 		})
 	})

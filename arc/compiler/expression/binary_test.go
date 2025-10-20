@@ -373,12 +373,12 @@ var _ = Describe("Binary Operations", func() {
 			}))
 			compiled, t := compileWithCtx(ctx, "x + 1")
 			Expect(t).To(Equal(types.F32()))
-			Expect(compiled).To(Equal(WASM(
+			Expect(compiled).To(MatchOpcodes(
 				OpLocalGet, 0,
 				OpF32Const,
 				float32(1),
 				OpF32Add,
-			)))
+			))
 		})
 
 		It("Should coerce a literal type", func() {
@@ -390,12 +390,12 @@ var _ = Describe("Binary Operations", func() {
 				},
 			})
 			Expect(exprType).To(Equal(types.F64()))
-			Expect(bytecode).To(Equal(WASM(
+			Expect(bytecode).To(MatchOpcodes(
 				OpF64Const,
 				float64(2),
 				OpLocalGet, 0,
 				OpF64Add,
-			)))
+			))
 		})
 	})
 
