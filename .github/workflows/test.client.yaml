@@ -120,6 +120,7 @@ jobs:
               - MODULE.bazel
               - MODULE.bazel.lock
               - scripts/check_clang_format.sh
+              - scripts/sanitizers/**
               - x/cpp/**
             py:
               - *shared
@@ -213,7 +214,7 @@ jobs:
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp
 
-      - name: Test
+      - name: Test (Ubuntu)
         run:
           bazel test --config=asan-leak --test_output=all //client/cpp/...
           --nocache_test_results

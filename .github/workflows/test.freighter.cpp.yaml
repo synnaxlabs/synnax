@@ -75,10 +75,15 @@ jobs:
         run: scripts/check_clang_format.sh freighter/cpp
 
       - name: Test
-        run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            bazel test --config=asan-leak --test_output=all //freighter/cpp/... --nocache_test_results
-          else
-            bazel test --test_output=all //freighter/cpp/... --nocache_test_results
-          fi
+        if: matrix.os != 'ubuntu-latest'
+        run:
+          bazel test --config=asan --test_output=all //freighter/cpp/...
+          --nocache_test_results
+        shell: bash
+
+      - name: Test (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run:
+          bazel test --config=asan-leak --test_output=all //freighter/cpp/...
+          --nocache_test_results
         shell: bash
