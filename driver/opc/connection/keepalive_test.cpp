@@ -13,10 +13,10 @@
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
+#include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
-#include "driver/opc/util/conn_pool.h"
 
-using namespace util;
+using namespace opc::connection;
 
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
@@ -38,24 +38,24 @@ protected:
 
     mock::ServerConfig server_cfg_;
     std::unique_ptr<mock::Server> server_;
-    ConnectionConfig conn_cfg_;
+    Config conn_cfg_;
 };
 
 // Test that connections remain healthy when repeatedly acquired/released
 TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Acquire and release 100 times over ~10 seconds
     // This simulates normal task operation patterns
     for (int i = 0; i < 100; ++i) {
-        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_FALSE(err) << "Iteration " << i << ": " << err.message();
-        ASSERT_TRUE(conn);
+        ASSERT_TRUE(connection);
 
         // Verify connection is actually functional
         UA_SessionState session_state;
         UA_SecureChannelState channel_state;
-        UA_Client_getState(conn.get(), &channel_state, &session_state, nullptr);
+        UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)
             << "Iteration " << i << ": Session not activated";
@@ -63,7 +63,7 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
         // Simulate some work
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Connection auto-released when conn goes out of scope
+        // Connection auto-released when connection goes out of scope
     }
 
     // Connection should still be in pool and reusable
@@ -78,13 +78,13 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
 
 // Test that connections stay alive during idle periods between acquisitions
 TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Initial acquisition
     {
-        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_FALSE(err);
-        ASSERT_TRUE(conn);
+        ASSERT_TRUE(connection);
     }
 
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
@@ -107,7 +107,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
 
 // Test concurrent access with keep-alive
 TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
     std::atomic<int> success_count{0};
     std::atomic<int> failure_count{0};
 
@@ -119,16 +119,20 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&]() {
             for (int j = 0; j < iterations_per_thread; ++j) {
-                auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-                if (err || !conn) {
+                auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
+                if (err || !connection) {
                     failure_count++;
                     continue;
                 }
 
-                // Verify connection health
                 UA_SessionState session_state;
                 UA_SecureChannelState channel_state;
-                UA_Client_getState(conn.get(), &channel_state, &session_state, nullptr);
+                UA_Client_getState(
+                    connection.get(),
+                    &channel_state,
+                    &session_state,
+                    nullptr
+                );
 
                 if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                     success_count++;
@@ -151,11 +155,11 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
 // Test that run_iterate doesn't break existing functionality
 TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Acquire connection multiple times to trigger keep-alive
     for (int i = 0; i < 10; ++i) {
-        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_FALSE(err);
 
         // Try to read a node to verify connection is functional
@@ -163,7 +167,7 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
         UA_Variant_init(&value);
 
         UA_StatusCode status = UA_Client_readValueAttribute(
-            conn.get(),
+            connection.get(),
             UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME),
             &value
         );
@@ -178,10 +182,10 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
 
 // Test keep-alive with very short timeouts (for fast testing)
 TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
-    ConnectionPool pool;
+    Pool pool;
 
     // Configure very short timeouts for testing
-    ConnectionConfig short_cfg = conn_cfg_;
+    Config short_cfg = conn_cfg_;
     short_cfg.secure_channel_lifetime_ms = 15000; // 15 seconds
     short_cfg.session_timeout_ms = 30000; // 30 seconds
     short_cfg.client_timeout_ms = 15000; // 15 seconds
@@ -192,20 +196,20 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
     const int interval_seconds = 4; // 4s interval < 15s/2 lifetime
 
     for (int i = 0; i < num_iterations; ++i) {
-        auto [conn, err] = pool.acquire(short_cfg, "[test] ");
+        auto [connection, err] = pool.acquire(short_cfg, "[test] ");
         ASSERT_FALSE(err) << "Iteration " << i << ": " << err.message();
-        ASSERT_TRUE(conn);
+        ASSERT_TRUE(connection);
 
         // Verify connection is active
         UA_SessionState session_state;
         UA_SecureChannelState channel_state;
-        UA_Client_getState(conn.get(), &channel_state, &session_state, nullptr);
+        UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)
             << "Iteration " << i << ": Session not activated";
 
         // Wait before next iteration
-        // Connection released when conn goes out of scope
+        // Connection released when connection goes out of scope
         if (i < num_iterations - 1) {
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         }

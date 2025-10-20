@@ -12,15 +12,17 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 #include "open62541/types.h"
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "driver/opc/util/conn_pool.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/connection/connection.h"
+#include "driver/opc/types/types.h"
 #include "driver/task/task.h"
 #include "opc.h"
 
@@ -30,17 +32,17 @@ namespace opc {
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA
 /// server.A
 struct ScanCommandArgs {
-    util::ConnectionConfig connection;
+    opc::connection::Config connection;
     std::string node_id;
-    UA_NodeId node;
+    opc::NodeId node;
 
     explicit ScanCommandArgs(xjson::Parser &parser):
-        connection(util::ConnectionConfig(parser.child("connection"))),
+        connection(opc::connection::Config(parser.child("connection"))),
         node_id(parser.optional<std::string>("node_id", "")) {
         if (node_id.empty())
-            node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+            node = opc::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
-            node = util::parse_node_id("node_id", parser);
+            node = opc::NodeId::parse("node_id", parser);
     }
 };
 
@@ -52,7 +54,7 @@ public:
     explicit ScanTask(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
-        std::shared_ptr<util::ConnectionPool> conn_pool
+        std::shared_ptr<opc::connection::Pool> conn_pool
     ):
         ctx(std::move(ctx)), task(std::move(task)), conn_pool_(std::move(conn_pool)) {}
 
@@ -65,7 +67,7 @@ public:
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
-    std::shared_ptr<util::ConnectionPool> conn_pool_;
+    std::shared_ptr<opc::connection::Pool> conn_pool_;
 
     void scan(const task::Command &cmd) const;
 

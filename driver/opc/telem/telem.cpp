@@ -7,46 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// external
 #include "glog/logging.h"
 #include "open62541/types.h"
 
+/// module
 #include "x/cpp/telem/series.h"
+#include "x/cpp/telem/telem.h"
 
-#include "driver/opc/util/util.h"
+/// internal
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/telem/telem.h"
 
-namespace util {
-telem::DataType ua_to_data_type(const UA_DataType *dt) {
-    if (dt == &UA_TYPES[UA_TYPES_FLOAT]) return telem::FLOAT32_T;
-    if (dt == &UA_TYPES[UA_TYPES_DOUBLE]) return telem::FLOAT64_T;
-    if (dt == &UA_TYPES[UA_TYPES_SBYTE]) return telem::INT8_T;
-    if (dt == &UA_TYPES[UA_TYPES_INT16]) return telem::INT16_T;
-    if (dt == &UA_TYPES[UA_TYPES_INT32]) return telem::INT32_T;
-    if (dt == &UA_TYPES[UA_TYPES_INT64]) return telem::INT64_T;
-    if (dt == &UA_TYPES[UA_TYPES_BYTE]) return telem::UINT8_T;
-    if (dt == &UA_TYPES[UA_TYPES_UINT16]) return telem::UINT16_T;
-    if (dt == &UA_TYPES[UA_TYPES_UINT32]) return telem::UINT32_T;
-    if (dt == &UA_TYPES[UA_TYPES_UINT64]) return telem::UINT64_T;
-    if (dt == &UA_TYPES[UA_TYPES_STRING]) return telem::STRING_T;
-    if (dt == &UA_TYPES[UA_TYPES_DATETIME]) return telem::TIMESTAMP_T;
-    if (dt == &UA_TYPES[UA_TYPES_GUID]) return telem::UUID_T;
-    if (dt == &UA_TYPES[UA_TYPES_BOOLEAN]) return telem::UINT8_T;
-    return telem::UNKNOWN_T;
+namespace opc::telem {
+::telem::DataType ua_to_data_type(const UA_DataType *dt) {
+    if (dt == &UA_TYPES[UA_TYPES_FLOAT]) return ::telem::FLOAT32_T;
+    if (dt == &UA_TYPES[UA_TYPES_DOUBLE]) return ::telem::FLOAT64_T;
+    if (dt == &UA_TYPES[UA_TYPES_SBYTE]) return ::telem::INT8_T;
+    if (dt == &UA_TYPES[UA_TYPES_INT16]) return ::telem::INT16_T;
+    if (dt == &UA_TYPES[UA_TYPES_INT32]) return ::telem::INT32_T;
+    if (dt == &UA_TYPES[UA_TYPES_INT64]) return ::telem::INT64_T;
+    if (dt == &UA_TYPES[UA_TYPES_BYTE]) return ::telem::UINT8_T;
+    if (dt == &UA_TYPES[UA_TYPES_UINT16]) return ::telem::UINT16_T;
+    if (dt == &UA_TYPES[UA_TYPES_UINT32]) return ::telem::UINT32_T;
+    if (dt == &UA_TYPES[UA_TYPES_UINT64]) return ::telem::UINT64_T;
+    if (dt == &UA_TYPES[UA_TYPES_STRING]) return ::telem::STRING_T;
+    if (dt == &UA_TYPES[UA_TYPES_DATETIME]) return ::telem::TIMESTAMP_T;
+    if (dt == &UA_TYPES[UA_TYPES_GUID]) return ::telem::UUID_T;
+    if (dt == &UA_TYPES[UA_TYPES_BOOLEAN]) return ::telem::UINT8_T;
+    return ::telem::UNKNOWN_T;
 }
 
-UA_DataType *data_type_to_ua(const telem::DataType &data_type) {
-    if (data_type == telem::FLOAT32_T) return &UA_TYPES[UA_TYPES_FLOAT];
-    if (data_type == telem::FLOAT64_T) return &UA_TYPES[UA_TYPES_DOUBLE];
-    if (data_type == telem::INT8_T) return &UA_TYPES[UA_TYPES_SBYTE];
-    if (data_type == telem::INT16_T) return &UA_TYPES[UA_TYPES_INT16];
-    if (data_type == telem::INT32_T) return &UA_TYPES[UA_TYPES_INT32];
-    if (data_type == telem::INT64_T) return &UA_TYPES[UA_TYPES_INT64];
-    if (data_type == telem::UINT16_T) return &UA_TYPES[UA_TYPES_UINT16];
-    if (data_type == telem::UINT32_T) return &UA_TYPES[UA_TYPES_UINT32];
-    if (data_type == telem::UINT64_T) return &UA_TYPES[UA_TYPES_UINT64];
-    if (data_type == telem::STRING_T) return &UA_TYPES[UA_TYPES_STRING];
-    if (data_type == telem::TIMESTAMP_T) return &UA_TYPES[UA_TYPES_DATETIME];
-    if (data_type == telem::UUID_T) return &UA_TYPES[UA_TYPES_GUID];
-    if (data_type == telem::UINT8_T) return &UA_TYPES[UA_TYPES_BOOLEAN];
+UA_DataType *data_type_to_ua(const ::telem::DataType &data_type) {
+    if (data_type == ::telem::FLOAT32_T) return &UA_TYPES[UA_TYPES_FLOAT];
+    if (data_type == ::telem::FLOAT64_T) return &UA_TYPES[UA_TYPES_DOUBLE];
+    if (data_type == ::telem::INT8_T) return &UA_TYPES[UA_TYPES_SBYTE];
+    if (data_type == ::telem::INT16_T) return &UA_TYPES[UA_TYPES_INT16];
+    if (data_type == ::telem::INT32_T) return &UA_TYPES[UA_TYPES_INT32];
+    if (data_type == ::telem::INT64_T) return &UA_TYPES[UA_TYPES_INT64];
+    if (data_type == ::telem::UINT16_T) return &UA_TYPES[UA_TYPES_UINT16];
+    if (data_type == ::telem::UINT32_T) return &UA_TYPES[UA_TYPES_UINT32];
+    if (data_type == ::telem::UINT64_T) return &UA_TYPES[UA_TYPES_UINT64];
+    if (data_type == ::telem::STRING_T) return &UA_TYPES[UA_TYPES_STRING];
+    if (data_type == ::telem::TIMESTAMP_T) return &UA_TYPES[UA_TYPES_DATETIME];
+    if (data_type == ::telem::UUID_T) return &UA_TYPES[UA_TYPES_GUID];
+    if (data_type == ::telem::UINT8_T) return &UA_TYPES[UA_TYPES_BOOLEAN];
     return &UA_TYPES[UA_TYPES_VARIANT];
 }
 
@@ -64,7 +69,7 @@ inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
 }
 
 std::pair<size_t, xerrors::Error> ua_array_write_to_series(
-    telem::Series &series,
+    ::telem::Series &series,
     const UA_Variant *val,
     const size_t target_size,
     const std::string &name
@@ -103,18 +108,19 @@ std::pair<size_t, xerrors::Error> ua_array_write_to_series(
     };
 }
 
-std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) {
+std::pair<UA_Variant, xerrors::Error> series_to_variant(const ::telem::Series &s) {
     UA_Variant v;
     UA_Variant_init(&v);
     const auto dt = data_type_to_ua(s.data_type());
     auto sample = s.at(-1);
     const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(sample), dt);
-    return {v, parse_error(status)};
+    return {v, opc::errors::parse(status)};
 }
 
 std::pair<size_t, xerrors::Error>
-write_to_series(telem::Series &s, const UA_Variant &v) {
-    if (s.data_type() == telem::TIMESTAMP_T && v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
+write_to_series(::telem::Series &s, const UA_Variant &v) {
+    if (s.data_type() == ::telem::TIMESTAMP_T &&
+        v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto dt = static_cast<const UA_DateTime *>(v.data);
         return {
             s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt))),
