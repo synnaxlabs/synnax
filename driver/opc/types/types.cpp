@@ -7,19 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <iomanip>
+#include <map>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <sstream>
 
+/// external
 #include "open62541/types.h"
 
-#include "x/cpp/xjson/xjson.h"
+/// internal
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/types/types.h"
 
-#include "driver/opc/util/util.h"
-
-namespace util {
-///@brief Helper function to convert string GUID to UA_Guid
-inline UA_Guid string_to_guid(const std::string &guidStr) {
+namespace opc {
+namespace {
+/// @brief Helper function to convert string GUID to UA_Guid
+UA_Guid string_to_guid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
     std::sscanf(
@@ -42,7 +54,7 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
     return guid;
 }
 
-///@brief Helper function to convert a GUID to a string
+/// @brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0') << std::setw(8) << guid.data1 << "-"
@@ -55,51 +67,65 @@ std::string guid_to_string(const UA_Guid &guid) {
            << (guid.data4[7] & 0xFF);
     return stream.str();
 }
-
-/// @brief Parses a string NodeId into a UA_NodeId object
-UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
-    const std::string nodeIdStr = parser.required<std::string>(path);
-    if (!parser.ok()) return UA_NODEID_NULL;
-    auto [node_id, err] = parse_node_id(nodeIdStr);
-    if (err) {
-        parser.field_err(path, err.message());
-        return UA_NODEID_NULL;
-    }
-    return node_id;
 }
 
-std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
+NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
+    const std::string nodeIdStr = parser.required<std::string>(field_name);
+    if (!parser.ok()) return NodeId();
+    auto [node_id, err] = parse(nodeIdStr);
+    if (err) {
+        parser.field_err(field_name, err.message());
+        return NodeId();
+    }
+    return std::move(node_id);
+}
+
+std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {
-            UA_NODEID_NULL,
-            xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
-        };
+        return {NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
 
-    auto ns_index = static_cast<UA_UInt16>(std::stoi(matches[1].str()));
+    int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
-    UA_NodeId node_id = UA_NODEID_NULL;
+    UA_NodeId raw_id = UA_NODEID_NULL;
     if (type == "I")
-        node_id = UA_NODEID_NUMERIC(ns_index, std::stoul(identifier));
+        raw_id = UA_NODEID_NUMERIC(
+            static_cast<UA_UInt16>(nsIndex),
+            std::stoul(identifier)
+        );
     else if (type == "S")
-        node_id = UA_NODEID_STRING_ALLOC(ns_index, identifier.c_str());
+        raw_id = UA_NODEID_STRING_ALLOC(
+            static_cast<UA_UInt16>(nsIndex),
+            identifier.c_str()
+        );
     else if (type == "G")
-        node_id = UA_NODEID_GUID(ns_index, string_to_guid(identifier));
+        raw_id = UA_NODEID_GUID(
+            static_cast<UA_UInt16>(nsIndex),
+            string_to_guid(identifier)
+        );
     else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        node_id = UA_NODEID_BYTESTRING(ns_index, reinterpret_cast<char *>(data));
+        raw_id = UA_NODEID_BYTESTRING(
+            static_cast<UA_UInt16>(nsIndex),
+            reinterpret_cast<char *>(data)
+        );
         UA_free(data);
     }
-    return {node_id, xerrors::NIL};
+
+    // Wrap in RAII type - NodeId constructor will take ownership
+    NodeId result(raw_id);
+    // Clear the raw_id to prevent double-free (NodeId now owns it)
+    UA_NodeId_clear(&raw_id);
+    return {std::move(result), xerrors::NIL};
 }
 
-std::string node_id_to_string(const UA_NodeId &node_id) {
+std::string NodeId::to_string(const UA_NodeId &node_id) {
     std::ostringstream node_id_str;
     node_id_str << "NS=" << node_id.namespaceIndex << ";";
     switch (node_id.identifierType) {
@@ -142,5 +168,15 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
+}
+
+xerrors::Error WriteRequestBuilder::add_value(
+    const UA_NodeId &node_id,
+    const ::telem::Series &series
+) {
+    auto [variant, err] = opc::telem::series_to_variant(series);
+    if (err) return err;
+    add_value(node_id, variant);
+    return xerrors::NIL;
 }
 }

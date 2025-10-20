@@ -159,6 +159,16 @@ TEST_F(SetOperatorTest, BooleanTypeMismatch) {
     EXPECT_EQ(sink->writes->size(), 0);
 }
 
+TEST_F(SetOperatorTest, ChannelNotFound) {
+    SetupChannel(telem::FLOAT32_T);
+    ASSERT_NE(luaL_dostring(L, "set('nonexistent_channel', 3.14)"), 0);
+    EXPECT_EQ(sink->writes->size(), 0);
+    // Verify the error message contains the channel name
+    const char *error_msg = lua_tostring(L, -1);
+    EXPECT_NE(std::string(error_msg).find("nonexistent_channel"), std::string::npos);
+    EXPECT_NE(std::string(error_msg).find("not found"), std::string::npos);
+}
+
 class SetOperatorWithIndexTest : public testing::Test {
 protected:
     void SetupChannels(telem::DataType data_type) {
