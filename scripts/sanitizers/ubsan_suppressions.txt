@@ -1,0 +1,40 @@
+# UndefinedBehaviorSanitizer Suppression File
+# Format: <check>:<pattern>
+# Available checks: alignment, bool, bounds, enum, float-cast-overflow,
+#                   float-divide-by-zero, integer-divide-by-zero, nonnull-attribute,
+#                   null, object-size, pointer-overflow, return, returns-nonnull-attribute,
+#                   shift, signed-integer-overflow, unreachable, unsigned-integer-overflow,
+#                   vla-bound, vptr
+# See: https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html#suppressing-errors
+
+# ===== External Libraries =====
+
+# gRPC - Known overflow patterns in hash functions
+signed-integer-overflow:grpc*
+unsigned-integer-overflow:grpc*
+
+# Protocol Buffers
+signed-integer-overflow:google::protobuf*
+
+# open62541 OPC UA
+alignment:UA_*
+signed-integer-overflow:UA_*
+
+# nlohmann JSON library - Known intentional overflow in hash
+signed-integer-overflow:nlohmann::detail::hash*
+
+# ===== Vendor Code =====
+
+# Suppress all UBSan issues in vendor/ directory
+src:*/vendor/*
+
+# Suppress all UBSan issues in external Bazel dependencies
+src:*/.cache/bazel/*
+src:*/external/*
+
+# ===== Known Issues (Temporary - Link to GitHub issues) =====
+
+# Add temporary suppressions here with issue links
+# Example:
+# signed-integer-overflow:driver::pipeline::Acquisition::tick
+# Issue: https://github.com/synnaxlabs/synnax/issues/XXXX

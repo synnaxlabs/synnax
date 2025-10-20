@@ -11,6 +11,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   push:
@@ -26,6 +27,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   workflow_dispatch:
@@ -71,4 +73,14 @@ jobs:
         run: scripts/check_clang_format.sh x/cpp
 
       - name: Test
-        run: bazel test --test_output=all //x/cpp/... --nocache_test_results
+        if: matrix.os != 'ubuntu-latest'
+        run:
+          bazel test --config=asan --test_output=all //x/cpp/... --nocache_test_results
+        shell: bash
+
+      - name: Test (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run:
+          bazel test --config=asan-leak --test_output=all //x/cpp/...
+          --nocache_test_results
+        shell: bash

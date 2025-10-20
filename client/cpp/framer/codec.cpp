@@ -159,33 +159,83 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     }
 
     binary::Writer buf(output, byte_array_size);
-    buf.uint8(flags.encode());
-    buf.uint32(this->seq_num);
 
-    if (flags.equal_lens) { buf.uint32(static_cast<uint32_t>(cur_data_size)); }
+    if (buf.uint8(flags.encode()) != 1)
+        return xerrors::Error(xerrors::UNEXPECTED, "failed to write flags");
+    if (buf.uint32(this->seq_num) != 4)
+        return xerrors::Error(xerrors::UNEXPECTED, "failed to write sequence number");
 
-    if (flags.equal_time_ranges && !flags.time_ranges_zero) {
-        buf.int64(ref_tr.start.nanoseconds());
-        buf.int64(ref_tr.end.nanoseconds());
+    if (flags.equal_lens) {
+        if (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4)
+            return xerrors::Error(xerrors::UNEXPECTED, "failed to write data length");
     }
 
-    if (flags.equal_alignments && !flags.zero_alignments)
-        buf.uint64(ref_alignment.uint64());
+    if (flags.equal_time_ranges && !flags.time_ranges_zero) {
+        if (buf.int64(ref_tr.start.nanoseconds()) != 8)
+            return xerrors::Error(
+                xerrors::UNEXPECTED,
+                "failed to write time range start"
+            );
+        if (buf.int64(ref_tr.end.nanoseconds()) != 8)
+            return xerrors::Error(
+                xerrors::UNEXPECTED,
+                "failed to write time range end"
+            );
+    }
+
+    if (flags.equal_alignments && !flags.zero_alignments) {
+        if (buf.uint64(ref_alignment.uint64()) != 8)
+            return xerrors::Error(xerrors::UNEXPECTED, "failed to write alignment");
+    }
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &ser = frame.series->at(idx);
         const auto byte_size = ser.byte_size();
-        if (!flags.all_channels_present) buf.uint32(key);
+
+        if (!flags.all_channels_present) {
+            if (buf.uint32(key) != 4)
+                return xerrors::Error(
+                    xerrors::UNEXPECTED,
+                    "failed to write channel key"
+                );
+        }
+
         if (!flags.equal_lens) {
             const auto size = ser.data_type().is_variable() ? byte_size : ser.size();
-            buf.uint32(static_cast<uint32_t>(size));
+            if (buf.uint32(static_cast<uint32_t>(size)) != 4)
+                return xerrors::Error(
+                    xerrors::UNEXPECTED,
+                    "failed to write series length"
+                );
         }
-        buf.write(ser.data(), byte_size);
+
+        if (buf.write(ser.data(), byte_size) != byte_size)
+            return xerrors::Error(
+                xerrors::UNEXPECTED,
+                "failed to write series data: expected " + std::to_string(byte_size) +
+                    " bytes"
+            );
+
         if (!flags.equal_time_ranges) {
-            buf.int64(ser.time_range.start.nanoseconds());
-            buf.int64(ser.time_range.end.nanoseconds());
+            if (buf.int64(ser.time_range.start.nanoseconds()) != 8)
+                return xerrors::Error(
+                    xerrors::UNEXPECTED,
+                    "failed to write series time range start"
+                );
+            if (buf.int64(ser.time_range.end.nanoseconds()) != 8)
+                return xerrors::Error(
+                    xerrors::UNEXPECTED,
+                    "failed to write series time range end"
+                );
         }
-        if (!flags.equal_alignments) buf.uint64(ser.alignment.uint64());
+
+        if (!flags.equal_alignments) {
+            if (buf.uint64(ser.alignment.uint64()) != 8)
+                return xerrors::Error(
+                    xerrors::UNEXPECTED,
+                    "failed to write series alignment"
+                );
+        }
     }
 
     return xerrors::NIL;

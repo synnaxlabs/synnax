@@ -1,0 +1,21 @@
+cc_library(
+    name = "errors",
+    hdrs = ["errors.h"],
+    srcs = ["errors.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//vendor/open62541",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "errors_test",
+    srcs = ["errors_test.cpp"],
+    deps = [
+        ":errors",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

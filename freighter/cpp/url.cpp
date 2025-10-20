@@ -14,11 +14,28 @@
 namespace freighter {
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string join_paths(const std::string &a, const std::string &b) {
-    std::string result = (a.empty() || a[0] == '/') ? a : "/" + a;
-    if (b.empty()) return result + (result.back() == '/' ? "" : "/");
+    // Build result starting with "/" if a is empty, otherwise use a (adding "/" if
+    // needed)
+    std::string result;
+    if (a.empty()) {
+        result = "/";
+    } else {
+        result = (a[0] == '/') ? a : "/" + a;
+    }
+
+    // If b is empty, just ensure trailing slash
+    if (b.empty()) {
+        if (result.back() != '/') result += '/';
+        return result;
+    }
+
+    // Add b to result (ensuring single slash between a and b)
     if (result.back() != '/') result += '/';
     result += (b[0] == '/') ? b.substr(1) : b;
-    return result + (result.back() == '/' ? "" : "/");
+
+    // Ensure trailing slash
+    if (result.back() != '/') result += '/';
+    return result;
 }
 
 URL::URL(std::string ip, const std::uint16_t port, const std::string &path):

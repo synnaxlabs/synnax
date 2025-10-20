@@ -55,7 +55,7 @@ TEST(Sequence, nominal) {
 
     const auto script = R"(
         if read_channel == nil then
-            return 
+            return
         end
         set("write_channel", read_channel)
     )";
@@ -116,6 +116,36 @@ TEST(Sequence, compareNil) {
     ASSERT_FALSE(end_err) << next_err;
 }
 
+/// @brief it should return an error when trying to set a non-existent channel
+TEST(Sequence, channelNotFound) {
+    synnax::Channel write_channel;
+    write_channel.key = 1;
+    write_channel.name = "write_channel";
+    write_channel.data_type = telem::FLOAT64_T;
+    auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
+    auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
+        mock_sink,
+        std::vector{write_channel}
+    );
+    auto plugins = std::make_shared<plugins::MultiPlugin>(
+        std::vector<std::shared_ptr<plugins::Plugin>>{ch_write_plugin}
+    );
+    const auto script = R"(
+        set("nonexistent_channel", 42)
+    )";
+    auto seq = sequence::Sequence(plugins, script);
+    const auto start_err = seq.begin();
+    ASSERT_FALSE(start_err) << start_err;
+    const auto next_err = seq.next();
+    ASSERT_TRUE(next_err);
+    ASSERT_TRUE(next_err.matches(sequence::RUNTIME_ERROR));
+    EXPECT_NE(next_err.message().find("nonexistent_channel"), std::string::npos);
+    EXPECT_NE(next_err.message().find("not found"), std::string::npos);
+    const auto end_err = seq.end();
+    ASSERT_FALSE(end_err) << end_err;
+    EXPECT_EQ(mock_sink->writes->size(), 0);
+}
+
 /// @brief it should correctly restart and re-execute a sequence several times,
 /// including binding correct variable names and functions.
 TEST(Sequence, restart) {
@@ -158,7 +188,7 @@ TEST(Sequence, restart) {
 
     const auto script = R"(
         if read_channel == nil then
-            return 
+            return
         end
         set("write_channel", read_channel)
     )";

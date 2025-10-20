@@ -34,11 +34,11 @@ TEST(FrameTests, toProto) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
-    const auto p = new api::v1::Frame();
-    f.to_proto(p);
-    ASSERT_EQ(p->keys_size(), 1);
-    ASSERT_EQ(p->series_size(), 1);
-    const auto f2 = synnax::Frame(*p);
+    api::v1::Frame p;
+    f.to_proto(&p);
+    ASSERT_EQ(p.keys_size(), 1);
+    ASSERT_EQ(p.series_size(), 1);
+    const auto f2 = synnax::Frame(p);
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);

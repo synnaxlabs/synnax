@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <string>
 #include <unordered_map>
 
+/// external
 #include "open62541/types.h"
 
-#include "driver/opc/util/util.h"
+/// internal
+#include "driver/opc/errors/errors.h"
 
-namespace util {
+namespace opc::errors {
 static const std::unordered_map<uint32_t, std::string>
     STATUS_CODE_DESCRIPTIONS =
         {
@@ -401,12 +404,12 @@ static bool is_connection_status_code(const UA_StatusCode &status) {
            status == UA_STATUSCODE_BADCONNECTIONCLOSED;
 }
 
-xerrors::Error parse_error(const UA_StatusCode &status) {
+xerrors::Error parse(const UA_StatusCode &status) {
     if (status == UA_STATUSCODE_GOOD) return xerrors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
     const std::string message = status_code_description(status);
     if (is_connection_status_code(status))
-        return {UNREACHABLE_ERROR.sub(status_name), message};
-    return {CRITICAL_ERROR.sub(status_name), message};
+        return {UNREACHABLE.sub(status_name), message};
+    return {CRITICAL.sub(status_name), message};
 }
 }
