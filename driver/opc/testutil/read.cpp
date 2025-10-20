@@ -19,43 +19,40 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/xerrors/errors.h"
 
-#include "driver/opc/util/util.h"
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/testutil/testutil.h"
+#include "driver/opc/types/types.h"
 
-namespace util {
-std::pair<telem::Series, xerrors::Error>
+namespace opc::testutil {
+std::pair<::telem::Series, xerrors::Error>
 simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
-    // Parse the node ID string directly
-    auto [ua_node_id, parse_err] = parse_node_id(node_id);
-    if (parse_err) return {telem::Series(0), parse_err};
+    // Parse the node ID string - returns RAII-wrapped NodeId
+    auto [node_id_wrapper, parse_err] = opc::NodeId::parse(node_id);
+    if (parse_err) return {::telem::Series(0), parse_err};
 
-    // Read the value from the node
-    UA_Variant value;
-    UA_Variant_init(&value);
+    // Read the value from the node - RAII wrapper handles cleanup
+    opc::Variant value;
 
+    // Implicit conversion from NodeId to const UA_NodeId&
     UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
-        ua_node_id,
-        &value
+        node_id_wrapper, // Implicit conversion
+        value.ptr()
     );
 
-    // Clean up the node ID
-    UA_NodeId_clear(&ua_node_id);
-
     if (status != UA_STATUSCODE_GOOD) {
-        return {telem::Series(0), util::parse_error(status)};
+        return {::telem::Series(0), opc::errors::parse(status)};
     }
 
     // Convert the value to a telemetry series
-    telem::DataType data_type = util::ua_to_data_type(value.type);
-    telem::Series series(data_type, 1);
+    ::telem::DataType data_type = opc::telem::ua_to_data_type(value.get().type);
+    ::telem::Series series(data_type, 1);
 
     // Write the value to the series
-    auto [count, write_err] = util::write_to_series(series, value);
+    auto [count, write_err] = opc::telem::write_to_series(series, value.get());
 
-    // Clean up the variant
-    UA_Variant_clear(&value);
-
-    if (write_err) { return {telem::Series(0), write_err}; }
+    if (write_err) { return {::telem::Series(0), write_err}; }
 
     return {std::move(series), xerrors::NIL};
 }
