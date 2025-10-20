@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/access/client";
-export * from "@/access/payload";
-export * as role from "@/access/role";
+export * from "@/access/role/client";
+export * from "@/access/role/payload";

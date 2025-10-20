@@ -21,6 +21,7 @@ export const userZ = z.object({
   firstName: z.string().default(""),
   lastName: z.string().default(""),
   rootUser: z.boolean().default(true),
+  roles: keyZ.array().default([]),
 });
 export interface User extends z.infer<typeof userZ> {}
 

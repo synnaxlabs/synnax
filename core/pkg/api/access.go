@@ -135,3 +135,124 @@ func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
+
+// Role API endpoints
+
+type (
+	AccessCreateRoleRequest struct {
+		Roles []rbac.Role `json:"roles" msgpack:"roles"`
+	}
+	AccessCreateRoleResponse struct {
+		Roles []rbac.Role `json:"roles" msgpack:"roles"`
+	}
+)
+
+// CreateRole creates one or more roles.
+func (s *AccessService) CreateRole(ctx context.Context, req AccessCreateRoleRequest) (AccessCreateRoleResponse, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Objects: []ontology.ID{rbac.RoleOntologyID(uuid.Nil)}, // Type-level check
+		Action:  access.Create,
+	}); err != nil {
+		return AccessCreateRoleResponse{}, err
+	}
+
+	results := make([]rbac.Role, len(req.Roles))
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
+		for i, r := range req.Roles {
+			if r.Key == uuid.Nil {
+				r.Key = uuid.New()
+			}
+			if err := w.CreateRole(ctx, &r); err != nil {
+				return err
+			}
+			results[i] = r
+		}
+		return nil
+	}); err != nil {
+		return AccessCreateRoleResponse{}, err
+	}
+	return AccessCreateRoleResponse{Roles: results}, nil
+}
+
+type (
+	AccessRetrieveRoleRequest struct {
+		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	}
+	AccessRetrieveRoleResponse struct {
+		Roles []rbac.Role `json:"roles" msgpack:"roles"`
+	}
+)
+
+// RetrieveRole retrieves roles from the cluster.
+func (s *AccessService) RetrieveRole(ctx context.Context, req AccessRetrieveRoleRequest) (AccessRetrieveRoleResponse, error) {
+	var res AccessRetrieveRoleResponse
+	q := s.internal.NewRoleRetriever()
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
+		return AccessRetrieveRoleResponse{}, err
+	}
+
+	// Enforce access control
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{rbac.RoleOntologyID(uuid.Nil)}, // Type-level check
+	}); err != nil {
+		return AccessRetrieveRoleResponse{}, err
+	}
+
+	return res, nil
+}
+
+type AccessUpdateRoleRequest struct {
+	Role rbac.Role `json:"role" msgpack:"role"`
+}
+
+// UpdateRole updates an existing role.
+func (s *AccessService) UpdateRole(ctx context.Context, req AccessUpdateRoleRequest) (types.Nil, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Objects: []ontology.ID{req.Role.OntologyID()},
+		Action:  access.Update,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).UpdateRole(ctx, &req.Role)
+	})
+}
+
+type AccessDeleteRoleRequest struct {
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
+
+// DeleteRole deletes roles from the cluster. Builtin roles cannot be deleted.
+func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequest) (types.Nil, error) {
+	roleIDs := make([]ontology.ID, len(req.Keys))
+	for i, key := range req.Keys {
+		roleIDs[i] = rbac.RoleOntologyID(key)
+	}
+
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Objects: roleIDs,
+		Action:  access.Delete,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
+		for _, key := range req.Keys {
+			if err := w.DeleteRole(ctx, key); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

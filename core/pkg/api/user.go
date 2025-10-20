@@ -229,3 +229,44 @@ func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
+
+type (
+	UserAssignRolesRequest struct {
+		UserKey  uuid.UUID   `json:"user_key" msgpack:"user_key"`
+		RoleKeys []uuid.UUID `json:"role_keys" msgpack:"role_keys"`
+	}
+	UserUnassignRolesRequest struct {
+		UserKey  uuid.UUID   `json:"user_key" msgpack:"user_key"`
+		RoleKeys []uuid.UUID `json:"role_keys" msgpack:"role_keys"`
+	}
+)
+
+// AssignRoles assigns one or more roles to a user.
+func (s *UserService) AssignRoles(ctx context.Context, req UserAssignRolesRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Update,
+		Objects: []ontology.ID{user.OntologyID(req.UserKey)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).AssignRoles(ctx, req.UserKey, req.RoleKeys...)
+	})
+}
+
+// UnassignRoles removes one or more roles from a user.
+func (s *UserService) UnassignRoles(ctx context.Context, req UserUnassignRolesRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Update,
+		Objects: []ontology.ID{user.OntologyID(req.UserKey)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).UnassignRoles(ctx, req.UserKey, req.RoleKeys...)
+	})
+}

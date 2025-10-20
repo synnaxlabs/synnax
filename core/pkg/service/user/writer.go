@@ -120,3 +120,55 @@ func (w Writer) MaybeSetRootUser(
 		return u
 	}).Exec(ctx, w.tx)
 }
+
+// AssignRoles assigns the given roles to a user. Duplicate role assignments are
+// automatically deduplicated.
+func (w Writer) AssignRoles(
+	ctx context.Context,
+	userKey uuid.UUID,
+	roleKeys ...uuid.UUID,
+) error {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(userKey).Change(func(_ gorp.Context, u User) User {
+		// Create a set of existing roles for deduplication
+		existingRoles := make(map[uuid.UUID]bool)
+		for _, roleKey := range u.Roles {
+			existingRoles[roleKey] = true
+		}
+
+		// Add new roles if they don't already exist
+		for _, roleKey := range roleKeys {
+			if !existingRoles[roleKey] {
+				u.Roles = append(u.Roles, roleKey)
+				existingRoles[roleKey] = true
+			}
+		}
+
+		return u
+	}).Exec(ctx, w.tx)
+}
+
+// UnassignRoles removes the given roles from a user.
+func (w Writer) UnassignRoles(
+	ctx context.Context,
+	userKey uuid.UUID,
+	roleKeys ...uuid.UUID,
+) error {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(userKey).Change(func(_ gorp.Context, u User) User {
+		// Create a set of roles to remove for efficient lookup
+		toRemove := make(map[uuid.UUID]bool)
+		for _, roleKey := range roleKeys {
+			toRemove[roleKey] = true
+		}
+
+		// Filter out the roles to be removed
+		newRoles := make([]uuid.UUID, 0, len(u.Roles))
+		for _, roleKey := range u.Roles {
+			if !toRemove[roleKey] {
+				newRoles = append(newRoles, roleKey)
+			}
+		}
+
+		u.Roles = newRoles
+		return u
+	}).Exec(ctx, w.tx)
+}

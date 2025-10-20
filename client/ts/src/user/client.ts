@@ -154,6 +154,30 @@ export class Client {
       deleteResZ,
     );
   }
+
+  async assignRoles(userKey: Key, roleKey: Key): Promise<void>;
+  async assignRoles(userKey: Key, roleKeys: Key[]): Promise<void>;
+  async assignRoles(userKey: Key, roleKeys: Key | Key[]): Promise<void> {
+    const parsedRoleKeys = array.toArray(roleKeys);
+    await sendRequired(
+      this.client,
+      "/user/assign-roles",
+      z.object({ userKey: keyZ, roleKeys: keyZ.array() }),
+      z.object({}),
+    )({ userKey, roleKeys: parsedRoleKeys });
+  }
+
+  async unassignRoles(userKey: Key, roleKey: Key): Promise<void>;
+  async unassignRoles(userKey: Key, roleKeys: Key[]): Promise<void>;
+  async unassignRoles(userKey: Key, roleKeys: Key | Key[]): Promise<void> {
+    const parsedRoleKeys = array.toArray(roleKeys);
+    await sendRequired(
+      this.client,
+      "/user/unassign-roles",
+      z.object({ userKey: keyZ, roleKeys: keyZ.array() }),
+      z.object({}),
+    )({ userKey, roleKeys: parsedRoleKeys });
+  }
 }
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "user", key });
