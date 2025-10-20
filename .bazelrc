@@ -72,3 +72,61 @@ build:opt --strip=always
 build:opt --copt=-O3
 build:opt --copt=-flto
 build:opt --linkopt=-flto
+
+# ===== Sanitizers (Memory/Undefined Behavior Detection) =====
+
+# AddressSanitizer (ASan) - Detects memory errors
+# - Heap/stack buffer overflows
+# - Use-after-free
+# - Double-free
+# - Memory leaks (via LeakSanitizer on Linux only)
+build:asan --copt=-fsanitize=address
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --copt=-O1
+build:asan --copt=-g
+build:asan --copt=-fno-optimize-sibling-calls
+build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:asan --linkopt=-fsanitize=address
+build:asan --action_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan --test_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
+
+# ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
+build:asan-leak --config=asan
+build:asan-leak --copt=-fsanitize=leak
+build:asan-leak --linkopt=-fsanitize=leak
+build:asan-leak --action_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
+build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
+
+# LeakSanitizer (LSan) - Standalone leak detection (Linux only)
+build:lsan --copt=-fsanitize=leak
+build:lsan --copt=-fno-omit-frame-pointer
+build:lsan --copt=-g
+build:lsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:lsan --linkopt=-fsanitize=leak
+build:lsan --action_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
+build:lsan --test_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
+
+# UndefinedBehaviorSanitizer (UBSan) - Detects undefined behavior
+# - Integer overflow
+# - Null pointer dereference
+# - Misaligned pointer access
+# - Division by zero
+# - Invalid enum values
+build:ubsan --copt=-fsanitize=undefined
+build:ubsan --copt=-fno-sanitize-recover=undefined
+build:ubsan --copt=-fno-omit-frame-pointer
+build:ubsan --copt=-g
+build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:ubsan --linkopt=-fsanitize=undefined
+build:ubsan --action_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+
+# Combined sanitizers (recommended for local development)
+build:sanitize --config=asan
+build:sanitize --config=ubsan
+
+# Sanitizers for CI (optimized settings)
+build:sanitize-ci --config=sanitize
+build:sanitize-ci --test_output=errors
+build:sanitize-ci --test_summary=detailed

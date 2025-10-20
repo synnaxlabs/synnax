@@ -25,7 +25,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<util::ConnectionPool> conn_pool;
+    std::shared_ptr<opc::connection::Pool> conn_pool;
     synnax::Channel index_channel;
     synnax::Channel bool_channel;
     synnax::Channel uint16_channel;
@@ -88,7 +88,7 @@ protected:
             client->hardware.create_rack("opc_read_task_test_rack")
         );
 
-        util::ConnectionConfig conn_cfg;
+        opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -204,11 +204,22 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<util::ConnectionPool>();
+        conn_pool = std::make_shared<opc::connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+        // Wait for server to be ready by attempting to connect
+        opc::connection::Config test_conn_cfg;
+        test_conn_cfg.endpoint = conn_cfg.endpoint;
+        test_conn_cfg.security_mode = "None";
+        test_conn_cfg.security_policy = "None";
+        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            opc::connection::connect(test_conn_cfg, "test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
+        );
+        UA_Client_disconnect(test_client.get());
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
@@ -784,7 +795,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         ctx->client->hardware.create_rack("opc_invalid_bool_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -863,7 +874,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         ctx->client->hardware.create_rack("opc_invalid_float_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -941,7 +952,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         ctx->client->hardware.create_rack("opc_invalid_double_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";

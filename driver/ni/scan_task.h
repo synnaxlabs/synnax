@@ -10,7 +10,15 @@
 #pragma once
 
 #include <optional>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <string>
 #include <thread>
 #include <vector>
