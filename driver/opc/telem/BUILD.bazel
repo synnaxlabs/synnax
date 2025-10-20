@@ -1,0 +1,23 @@
+cc_library(
+    name = "telem",
+    hdrs = ["telem.h"],
+    srcs = ["telem.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/opc/errors",
+        "//vendor/open62541",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "telem_test",
+    srcs = ["telem_test.cpp"],
+    deps = [
+        ":telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

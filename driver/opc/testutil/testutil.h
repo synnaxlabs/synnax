@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type PropsWithoutRef } from "react";
+#include "open62541/client.h"
 
-export const createComponent = <P extends PropsWithoutRef<any>>(
-  Base: FC<P>,
-  props: Partial<P>,
-): FC<P> => {
-  const OC: FC<P> = (p) => <Base {...props} {...p} />;
-  OC.displayName = Base.displayName;
-  return OC;
-};
+#include "x/cpp/telem/telem.h"
+
+namespace opc::testutil {
+std::pair<::telem::Series, xerrors::Error>
+simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id);
+}
