@@ -59,12 +59,9 @@ export const createImporter: ImporterCreator =
       const storeState = store.getState();
       const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
       if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-        let ws = Workspace.select(storeState, workspaceKey);
-        if (ws == null) {
-          if (client == null) throw new DisconnectedError();
-          ws = await client.workspaces.retrieve(workspaceKey);
-        }
-        store.dispatch(Workspace.add(ws));
+        if (client == null) throw new DisconnectedError();
+        const ws = await client.workspaces.retrieve(workspaceKey);
+        store.dispatch(Workspace.setActive(ws));
         store.dispatch(
           Layout.setWorkspace({
             slice: ws.layout as Layout.SliceState,

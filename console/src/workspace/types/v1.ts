@@ -8,18 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { type workspace } from "@synnaxlabs/client";
-import { type migrate } from "@synnaxlabs/x";
+import { migrate } from "@synnaxlabs/x";
 
-export const VERSION = "0.0.0";
+import type * as v0 from "@/workspace/types/v0";
+
+export interface Workspace extends Omit<workspace.Workspace, "layout"> {}
+
+export const VERSION = "1.0.0";
 type Version = typeof VERSION;
 
 export interface SliceState extends migrate.Migratable<Version> {
-  active: string | null;
-  workspaces: Record<string, workspace.Workspace>;
+  active: Workspace | null;
 }
 
 export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   active: null,
-  workspaces: {},
 };
+
+export const SLICE_MIGRATION_NAME = "workspace.slice";
+
+export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
+  name: SLICE_MIGRATION_NAME,
+  migrate: ({ active, workspaces }) => {
+    const ws = active != null ? { name: workspaces[active].name, key: active } : null;
+    return { active: ws, version: VERSION };
+  },
+});

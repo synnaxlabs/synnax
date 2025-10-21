@@ -31,7 +31,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
-import { add, setActive } from "@/workspace/slice";
+import { setActive } from "@/workspace/slice";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<workspace.Key>): ReactElement | null => {
@@ -65,7 +65,7 @@ export const Selector = (): ReactElement => {
       }
       const ws = getItem(v);
       if (ws == null) throw new UnexpectedError(`Workspace ${v} not found`);
-      dispatch(add(ws));
+      dispatch(setActive(ws));
       dispatch(
         Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
       );
