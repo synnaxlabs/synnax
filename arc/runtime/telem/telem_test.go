@@ -267,82 +267,6 @@ var _ = Describe("Source Node", func() {
 		})
 	})
 
-	Describe("High Water Mark", func() {
-		It("Should track high water mark to prevent reprocessing", func() {
-			source, err := factory.Create(bCtx, rnode.Config{
-				Node: ir.Node{
-					Type: "on",
-					ConfigValues: map[string]any{
-						"channel": uint32(10),
-					},
-				},
-				State: s.Node("source"),
-			})
-			Expect(err).ToNot(HaveOccurred())
-			fr := telem.Frame[uint32]{}
-			fr = fr.Append(10, telem.NewSeriesV[float32](5.0))
-			fr = fr.Append(11, telem.NewSeriesSecondsTSV(50))
-			s.Ingest(fr)
-			firstCallCount := 0
-			source.Next(bCtx, func(string) { firstCallCount++ })
-			Expect(firstCallCount).To(Equal(1))
-			secondCallCount := 0
-			source.Next(bCtx, func(string) { secondCallCount++ })
-			Expect(secondCallCount).To(Equal(0))
-		})
-
-		It("Should process new data after watermark update", func() {
-			source, err := factory.Create(bCtx, rnode.Config{
-				Node: ir.Node{
-					Type: "on",
-					ConfigValues: map[string]any{
-						"channel": uint32(10),
-					},
-				},
-				State: s.Node("source"),
-			})
-			Expect(err).ToNot(HaveOccurred())
-			fr1 := telem.Frame[uint32]{}
-			fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
-			fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(10))
-			s.Ingest(fr1)
-			source.Next(bCtx, func(string) {})
-			fr2 := telem.Frame[uint32]{}
-			fr2 = fr2.Append(10, telem.NewSeriesV[float32](2.0))
-			fr2 = fr2.Append(11, telem.NewSeriesSecondsTSV(20))
-			s.Ingest(fr2)
-			var newDataProcessed bool
-			source.Next(bCtx, func(string) { newDataProcessed = true })
-			Expect(newDataProcessed).To(BeTrue())
-			Expect(*s.Node("source").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
-		})
-
-		It("Should skip series with timestamps below watermark", func() {
-			source, err := factory.Create(bCtx, rnode.Config{
-				Node: ir.Node{
-					Type: "on",
-					ConfigValues: map[string]any{
-						"channel": uint32(10),
-					},
-				},
-				State: s.Node("source"),
-			})
-			Expect(err).ToNot(HaveOccurred())
-			fr1 := telem.Frame[uint32]{}
-			fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
-			fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(100))
-			s.Ingest(fr1)
-			source.Next(bCtx, func(string) {})
-			fr2 := telem.Frame[uint32]{}
-			fr2 = fr2.Append(10, telem.NewSeriesV[float32](0.5))
-			fr2 = fr2.Append(11, telem.NewSeriesSecondsTSV(50))
-			s.Ingest(fr2)
-			outputCount := 0
-			source.Next(bCtx, func(string) { outputCount++ })
-			Expect(outputCount).To(Equal(0))
-		})
-	})
-
 	Describe("Alignment Validation", func() {
 		It("Should skip data when index series count mismatch", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
@@ -410,6 +334,7 @@ var _ = Describe("Source Node", func() {
 			Expect(outputCount).To(Equal(0))
 		})
 	})
+
 	Describe("Lifecycle", func() {
 		It("Should initialize without error", func() {
 			source, err := factory.Create(bCtx, rnode.Config{

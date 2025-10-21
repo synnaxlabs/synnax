@@ -40,7 +40,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) bool {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
-		if !applyTypeSubstitutions(ctx) {
+		if !applyTypeSubstitutionsToSymbols(ctx, ctx.Scope) {
 			return false
 		}
 		substituteTypeMap(ctx)
@@ -96,7 +96,7 @@ func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) bool {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
-		applySubstitutionsToScope(ctx, ctx.Scope)
+		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 	}
 	return true
 }
@@ -110,7 +110,7 @@ func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) bool {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
-		applySubstitutionsToScope(ctx, ctx.Scope)
+		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 	}
 	return true
 }
@@ -279,20 +279,12 @@ func ifStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return blockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-func applyTypeSubstitutions(ctx acontext.Context[parser.IProgramContext]) bool {
-	return applySubstitutionsToScopeGeneric(ctx, ctx.Scope)
-}
-
-func applySubstitutionsToScope[T antlr.ParserRuleContext](ctx acontext.Context[T], scope *symbol.Scope) bool {
-	return applySubstitutionsToScopeGeneric(ctx, scope)
-}
-
-func applySubstitutionsToScopeGeneric[T antlr.ParserRuleContext](ctx acontext.Context[T], scope *symbol.Scope) bool {
+func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](ctx acontext.Context[T], scope *symbol.Scope) bool {
 	if scope.Type.IsValid() {
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
 	for _, child := range scope.Children {
-		if !applySubstitutionsToScopeGeneric(ctx, child) {
+		if !applyTypeSubstitutionsToSymbols[T](ctx, child) {
 			return false
 		}
 	}
