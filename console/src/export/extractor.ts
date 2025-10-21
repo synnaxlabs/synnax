@@ -16,7 +16,7 @@ export interface ExtractorContext {
 }
 
 export interface FileInfo {
-  data: string;
+  data: unknown;
   name: string;
 }
 

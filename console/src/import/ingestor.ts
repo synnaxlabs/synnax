@@ -20,7 +20,7 @@ interface FileIngestorContext {
 }
 
 export interface FileIngestor {
-  (data: string, ctx: FileIngestorContext): void;
+  (data: unknown, ctx: FileIngestorContext): void;
 }
 
 export interface FileIngestors extends Record<string, FileIngestor> {}
@@ -33,5 +33,9 @@ interface DirectoryIngestorContext {
 }
 
 export interface DirectoryIngestor {
-  (name: string, file: Export.FileInfo[], ctx: DirectoryIngestorContext): Promise<void>;
+  (
+    name: string,
+    files: Export.FileInfo[],
+    ctx: DirectoryIngestorContext,
+  ): Promise<void>;
 }
