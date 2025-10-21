@@ -86,7 +86,7 @@ func (f Frame) ToStorage() ts.Frame {
 // FilterKeys returns a new frame containing only the series for the specified keys.
 // The original frame is not modified.
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
-	return Frame{f.Frame.FilterKeys(keys)}
+	return Frame{f.Frame.KeepKeys(keys)}
 }
 
 // ShallowCopy creates a shallow copy of the frame.

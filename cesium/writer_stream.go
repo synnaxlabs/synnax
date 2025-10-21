@@ -259,7 +259,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- req.Frame.FilterKeys(excludeUnauthorized)
+		w.relay.Inlet() <- req.Frame.ExcludeKeys(excludeUnauthorized)
 	}
 	return accumulatedErr
 }

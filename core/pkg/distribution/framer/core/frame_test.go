@@ -79,7 +79,7 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("FilterKeys", func() {
+	Describe("KeepKeys", func() {
 		It("Should filter frame to only include specified keys", func() {
 			f := core.MultiFrame([]channel.Key{1, 2, 3}, []telem.Series{
 				telem.NewSeriesV[int64](1, 2, 3),
