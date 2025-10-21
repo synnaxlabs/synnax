@@ -9,8 +9,6 @@
 
 from .analog_read import AnalogRead
 from .analog_write import AnalogWrite
-from .counter_read import CounterRead
-from .counter_write import CounterWrite
 from .channels.accelerometer import Accelerometer
 from .channels.analog import Analog
 from .channels.bridge import Bridge
@@ -38,6 +36,8 @@ from .channels.torque_bridge_two_point_linear import TorqueBridgeTwoPointLinear
 from .channels.two_edge_separation import TwoEdgeSeparation
 from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
+from .counter_read import CounterRead
+from .counter_write import CounterWrite
 from .ni import NITask
 
 __all__ = [
