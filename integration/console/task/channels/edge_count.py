@@ -22,7 +22,7 @@ class EdgeCount(Counter):
     Kwargs:
         port (int): Physical port number
         active_edge (str): "Rising" or "Falling"
-        count_direction (str): "CountUp", "CountDown", "ExternallyControlled"
+        count_direction (str): "Count Up", "Count Down", "Externally Controlled"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         initial_count (int): Initial count value
     """

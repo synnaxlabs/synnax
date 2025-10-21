@@ -13,7 +13,7 @@ from playwright.sync_api import Page
 
 from console.task.channels.pulse_output import PulseOutput
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -42,7 +42,7 @@ class CounterWrite(NITask):
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> PulseOutput:
+    ) -> NIChannel:
         """
         Add a counter write channel to the task.
 
@@ -86,7 +86,6 @@ class CounterWrite(NITask):
 
         Args:
             task_name: The name of the task.
-            state_update_rate: The state update rate for the CO task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
             **kwargs: Additional parameters.

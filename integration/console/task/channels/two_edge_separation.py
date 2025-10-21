@@ -23,9 +23,9 @@ class TwoEdgeSeparation(Counter):
         port (int): Physical port number
         min_val (float): Minimum value
         max_val (float): Maximum value
-        units (str): "Seconds" or "Ticks"
-        first_edge (str): "Rising" or "Falling"
-        second_edge (str): "Rising" or "Falling"
+        units: "Seconds" or "Ticks"
+        first_edge: "Rising" or "Falling"
+        second_edge: "Rising" or "Falling"
     """
 
     def __init__(
@@ -57,18 +57,14 @@ class TwoEdgeSeparation(Counter):
                 "Scaled Units"
             )
 
-        # Edge 1
-        if first_edge is not None:
-            console.click_btn("Edge 1")
-            console.select_from_dropdown(first_edge)
-            self.form_values["Edge 1"] = first_edge
-        else:
-            self.form_values["Edge 1"] = console.get_dropdown_value("Edge 1")
+        # Edge selection helper
+        def set_edge(label: str, value: Optional[str]) -> None:
+            if value is not None:
+                console.click_btn(label)
+                console.select_from_dropdown(value)
+                self.form_values[label] = value
+            else:
+                self.form_values[label] = console.get_dropdown_value(label)
 
-        # Edge 2
-        if second_edge is not None:
-            console.click_btn("Edge 2")
-            console.select_from_dropdown(second_edge)
-            self.form_values["Edge 2"] = second_edge
-        else:
-            self.form_values["Edge 2"] = console.get_dropdown_value("Edge 2")
+        set_edge("Edge 1", first_edge)
+        set_edge("Edge 2", second_edge)

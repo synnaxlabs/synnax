@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 
 import synnax as sy
@@ -75,12 +74,12 @@ class NICounterWriteForms(ConsoleCase):
         """Validate Pulse Output inputs"""
         self.log("Configuring channels of type Pulse Output")
         console = self.console
-        type = "Pulse Output"
+        channel_type = "Pulse Output"
 
         # Test with different idle state
         console.ni_co.add_channel(
             name="PulseOutput_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             port=2,
             idle_state="High",
@@ -89,7 +88,7 @@ class NICounterWriteForms(ConsoleCase):
         # Test with all parameters
         console.ni_co.add_channel(
             name="PulseOutput_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             port=3,
             initial_delay=1,

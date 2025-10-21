@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -27,7 +27,6 @@ import {
   counterWriteConfigZ,
   type counterWriteStatusDataZ,
   type counterWriteTypeZ,
-  ZERO_CO_CHANNEL,
   ZERO_COUNTER_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
@@ -147,9 +146,10 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
     }
   }
 
-  if (!deviceKey || deviceKey === "") {
-    throw new Error("No device selected. Please select a device from the 'Device' dropdown in the Properties section at the top of this form.");
-  }
+  if (!deviceKey || deviceKey === "")
+    throw new Error(
+      "No device selected. Please select a device from the 'Device' dropdown in the Properties section at the top of this form.",
+    );
 
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
     key: deviceKey,

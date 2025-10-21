@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
-import gc
 import glob
 import importlib.util
+import itertools
 import json
 import logging
 import os
@@ -367,9 +367,6 @@ class TestConductor:
         # Get all matrix keys and values
         matrix_keys = list(test_def.matrix.keys())
         matrix_values = [test_def.matrix[key] for key in matrix_keys]
-
-        # Generate all combinations using itertools.product
-        import itertools
         combinations = list(itertools.product(*matrix_values))
 
         expanded_tests = []

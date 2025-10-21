@@ -91,11 +91,11 @@ class NICounterReadForms(ConsoleCase):
         """Validate Edge Count inputs"""
         self.log("Configuring channels of type Edge Count")
         console = self.console
-        type = "Edge Count"
+        channel_type = "Edge Count"
 
         console.ni_ci.add_channel(
             name="EdgeCount_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             active_edge="Rising",
             count_direction="Count Up",
@@ -104,14 +104,14 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="EdgeCount_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             active_edge="Falling",
             count_direction="Count Down",
         )
         console.ni_ci.add_channel(
             name="EdgeCount_3",
-            type=type,
+            type=channel_type,
             device=device_name,
             count_direction="Externally Controlled",
         )
@@ -120,11 +120,11 @@ class NICounterReadForms(ConsoleCase):
         """Validate Frequency inputs"""
         self.log("Configuring channels of type Frequency")
         console = self.console
-        type = "Frequency"
+        channel_type = "Frequency"
 
         console.ni_ci.add_channel(
             name="Frequency_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1000,
@@ -134,7 +134,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Frequency_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             edge="Falling",
             units="Ticks",
@@ -142,21 +142,20 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Frequency_3",
-            type=type,
+            type=channel_type,
             device=device_name,
             meas_method="2 Counters (Large Range)",
         )
-
 
     def verify_period_inputs(self, device_name: str) -> None:
         """Validate Period inputs"""
         self.log("Configuring channels of type Period")
         console = self.console
-        type = "Period"
+        channel_type = "Period"
 
         console.ni_ci.add_channel(
             name="Period_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -167,7 +166,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Period_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             starting_edge="Falling",
             units="Ticks",
@@ -175,14 +174,14 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Period_3",
-            type=type,
+            type=channel_type,
             device=device_name,
             units="Custom",
             meas_method="2 Counters (Large Range)",
         )
         console.ni_ci.add_channel(
             name="Period_4",
-            type=type,
+            type=channel_type,
             device=device_name,
             meas_method="Dynamic Averaging",
         )
@@ -191,17 +190,17 @@ class NICounterReadForms(ConsoleCase):
         """Validate Pulse Width inputs"""
         self.log("Configuring channels of type Pulse Width")
         console = self.console
-        type = "Pulse Width"
+        channel_type = "Pulse Width"
 
         console.ni_ci.add_channel(
             name="PulseWidth_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             units="Custom",
         )
         console.ni_ci.add_channel(
             name="PulseWidth_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             starting_edge="Rising",
             units="Seconds",
@@ -209,7 +208,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="PulseWidth_3",
-            type=type,
+            type=channel_type,
             device=device_name,
             min_val=0.001,
             max_val=10,
@@ -221,17 +220,17 @@ class NICounterReadForms(ConsoleCase):
         """Validate Semi Period inputs"""
         self.log("Configuring channels of type Semi Period")
         console = self.console
-        type = "Semi Period"
+        channel_type = "Semi Period"
 
         console.ni_ci.add_channel(
             name="SemiPeriod_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             units="Custom",
         )
         console.ni_ci.add_channel(
             name="SemiPeriod_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -239,7 +238,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="SemiPeriod_3",
-            type=type,
+            type=channel_type,
             device=device_name,
             units="Ticks",
         )
@@ -248,11 +247,11 @@ class NICounterReadForms(ConsoleCase):
         """Validate Two Edge Separation inputs"""
         self.log("Configuring channels of type Two Edge Separation")
         console = self.console
-        type = "Two Edge Separation"
+        channel_type = "Two Edge Separation"
 
         console.ni_ci.add_channel(
             name="TwoEdgeSep_1",
-            type=type,
+            type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -262,7 +261,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="TwoEdgeSep_2",
-            type=type,
+            type=channel_type,
             device=device_name,
             units="Ticks",
             first_edge="Falling",

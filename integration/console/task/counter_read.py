@@ -19,7 +19,7 @@ from console.task.channels.pulse_width import PulseWidth
 from console.task.channels.semi_period import SemiPeriod
 from console.task.channels.two_edge_separation import TwoEdgeSeparation
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -53,7 +53,7 @@ class CounterRead(NITask):
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Counter:
+    ) -> NIChannel:
         """
         Add a counter read channel to the task.
 
@@ -93,12 +93,10 @@ class CounterRead(NITask):
         **kwargs: Any,
     ) -> None:
         """
-        Set the parameters for the NI CI task.
+        Set the parameters for the NI Counter Read task.
 
         Args:
             task_name: The name of the task.
-            sample_rate: The sample rate for the CI task.
-            stream_rate: The stream rate for the CI task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
             **kwargs: Additional parameters.

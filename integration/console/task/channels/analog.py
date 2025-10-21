@@ -121,7 +121,7 @@ class Analog:
         for key, expected_value in self.form_values.items():
             try:
                 actual_value = self.console.get_input_field(key)
-            except:
+            except Exception:
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (
@@ -137,5 +137,5 @@ class Analog:
                 .first.count()
                 > 0
             )
-        except:
+        except Exception:
             return False

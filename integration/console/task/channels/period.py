@@ -24,7 +24,7 @@ class Period(Counter):
         min_val (float): Minimum value
         max_val (float): Maximum value
         starting_edge (str): "Rising" or "Falling"
-        units (str): "Seconds", "Ticks", or "FromCustomScale"
+        units (str): "Seconds", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         meas_method (str): "1 Counter (Low Frequency)", "2 Counters (High Frequency)", "2 Counters (Large Range)", "Dynamic Averaging"
     """
@@ -35,7 +35,7 @@ class Period(Counter):
         name: str,
         device: str,
         starting_edge: Optional[Literal["Rising", "Falling"]] = None,
-        units: Optional[Literal["Seconds", "Ticks", "FromCustomScale"]] = None,
+        units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
         terminal: Optional[str] = None,
         meas_method: Optional[
             Literal[

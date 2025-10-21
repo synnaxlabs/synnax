@@ -15,25 +15,29 @@ import * as v0 from "@/hardware/ni/task/types/v0";
 
 type PortToIndexMap = Map<number, number>;
 
-const validateAnalogPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
-  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-  channels.forEach(({ device, port }, i) => {
-    if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
-    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel on the same device`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const createPortValidator =
+  (portTypeLabel: string) =>
+  ({
+    value: channels,
+    issues,
+  }: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
+    const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
+    channels.forEach(({ device, port }, i) => {
+      if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
+      const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
+      if (!portToIndexMap.has(port)) {
+        portToIndexMap.set(port, i);
+        return;
+      }
+      const index = portToIndexMap.get(port) as number;
+      const code = "custom";
+      const message = `${portTypeLabel} port ${port} has already been used on another channel on the same device`;
+      issues.push({ path: [index, "port"], code, message, input: channels });
+      issues.push({ path: [i, "port"], code, message, input: channels });
+    });
+  };
+
+const validateAnalogPorts = createPortValidator("");
 
 const aiChanExtensionShape = { device: Common.Device.keyZ };
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
@@ -393,25 +397,7 @@ export interface NewAnalogReadTask
 
 // ==================== Counter Read Task ====================
 
-const validateCounterPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<CIChannel[]>) => {
-  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-  channels.forEach(({ device, port }, i) => {
-    if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
-    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Counter port ${port} has already been used on another channel on the same device`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const validateCounterPorts = createPortValidator("Counter");
 
 const baseCounterReadConfigZ = v0.counterReadConfigZ
   .omit({ channels: true, device: true })
@@ -460,28 +446,7 @@ export interface NewCounterReadTask
 
 // ==================== Counter Write Config Migration ====================
 
-const validateCounterWritePorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<COChannel[]>) => {
-  const devicePortMap = new Map<string, Map<number, number>>();
-  channels.forEach(({ port, device }, i) => {
-    if (!devicePortMap.has(device)) {
-      devicePortMap.set(device, new Map([[port, i]]));
-      return;
-    }
-    const portToIndexMap = devicePortMap.get(device)!;
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Counter port ${port} has already been used on another channel on the same device`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const validateCounterWritePorts = createPortValidator("Counter");
 
 const baseCounterWriteConfigZ = v0.counterWriteConfigZ
   .omit({ channels: true, device: true })

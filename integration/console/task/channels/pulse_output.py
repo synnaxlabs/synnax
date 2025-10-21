@@ -29,7 +29,7 @@ class PulseOutput:
     name: str
     console: "Console"
     device: str
-    form_values: dict[str, str]
+    form_values: dict[str, Any]
 
     def __init__(
         self,
@@ -110,7 +110,7 @@ class PulseOutput:
         for key, expected_value in self.form_values.items():
             try:
                 actual_value = self.console.get_input_field(key)
-            except:
+            except Exception:
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (

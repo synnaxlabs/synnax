@@ -23,7 +23,7 @@ class SemiPeriod(Counter):
         port (int): Physical port number
         min_val (float): Minimum value
         max_val (float): Maximum value
-        units (str): "Seconds", "Ticks", or "FromCustomScale"
+        units (str): "Seconds", "Ticks", or "Custom"
     """
 
     def __init__(
@@ -31,7 +31,7 @@ class SemiPeriod(Counter):
         console: "Console",
         name: str,
         device: str,
-        units: Optional[Literal["Seconds", "Ticks", "FromCustomScale"]] = None,
+        units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize semi period channel with configuration."""

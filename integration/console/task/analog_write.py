@@ -15,7 +15,7 @@ from console.task.channels.analog import Analog
 from console.task.channels.current import Current
 from console.task.channels.voltage import Voltage
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -45,7 +45,7 @@ class AnalogWrite(NITask):
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add a channel to the NI AO task. Only Voltage and Current types are allowed.
         Terminal configuration and shunt resistor parameters are not supported for AO tasks.

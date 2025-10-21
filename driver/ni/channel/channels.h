@@ -102,6 +102,13 @@ static int32_t get_idle_state(const std::string &s) {
     return DAQmx_Val_Low;
 }
 
+static int32_t get_ci_count_direction(const std::string &s) {
+    if (s == "CountUp") return DAQmx_Val_CountUp;
+    if (s == "CountDown") return DAQmx_Val_CountDown;
+    if (s == "ExternallyControlled") return DAQmx_Val_ExtControlled;
+    return DAQmx_Val_CountUp;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -376,8 +383,8 @@ struct Analog : virtual Base {
 
     explicit Analog(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
-        min_val(cfg.optional<float>("min_val", 0)),
-        max_val(cfg.optional<float>("max_val", 0)),
+        min_val(cfg.optional<double>("min_val", 0)),
+        max_val(cfg.optional<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 };
 
@@ -444,8 +451,8 @@ struct Counter : virtual Base {
 
     explicit Counter(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
-        min_val(cfg.optional<float>("min_val", 0)),
-        max_val(cfg.optional<float>("max_val", 0)),
+        min_val(cfg.optional<double>("min_val", 0)),
+        max_val(cfg.optional<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 
     [[nodiscard]] std::string loc() const {
@@ -1229,13 +1236,6 @@ struct CIFrequency final : CICustomScale {
         );
     }
 };
-
-static int32_t get_ci_count_direction(const std::string &s) {
-    if (s == "CountUp") return DAQmx_Val_CountUp;
-    if (s == "CountDown") return DAQmx_Val_CountDown;
-    if (s == "ExternallyControlled") return DAQmx_Val_ExtControlled;
-    return DAQmx_Val_CountUp;
-}
 
 /// @brief Counter input edge count channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc

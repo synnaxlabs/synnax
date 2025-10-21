@@ -8,23 +8,28 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type
+from typing import TYPE_CHECKING, Any, Literal, Optional, Type, Union
 
 import synnax as sy
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
+from console.task.channels.counter import Counter
+from console.task.channels.pulse_output import PulseOutput
 
 from ..page import ConsolePage
 
 if TYPE_CHECKING:
     from console.console import Console
 
+# Union type for all NI channel types
+NIChannel = Union[Analog, Counter, PulseOutput]
+
 
 class NITask(ConsolePage):
-    """NI Task automation interface for managing analog channels."""
+    """NI Task automation interface for managing channels."""
 
-    channels: list[Analog]
+    channels: list[NIChannel]
     channels_by_name: list[str]
     task_name: str
 
@@ -41,7 +46,7 @@ class NITask(ConsolePage):
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add a channel to the task.
 
@@ -66,9 +71,9 @@ class NITask(ConsolePage):
         type: str,
         device: str,
         dev_name: Optional[str],
-        channel_class: Type[Analog],
+        channel_class: Type[NIChannel],
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Helper method for adding a channel with common UI automation logic.
 
