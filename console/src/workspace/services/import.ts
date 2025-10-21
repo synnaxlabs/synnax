@@ -42,7 +42,13 @@ export const ingest: Import.DirectoryIngestor = async (
   Object.entries(layout.layouts).forEach(([key, layout]) => {
     const ingest = fileIngestors[layout.type];
     if (ingest == null) return;
-    const data = files.find((file) => file.name === `${key}.json`)?.data;
+    let data = files.find(
+      (file) => file.name === `${layout.name}.json` || file.name === `${key}.json`,
+    )?.data;
+    data ??= files.find((file) => {
+      const unpacked = JSON.parse(file.data);
+      return unpacked.key === key || unpacked.name === layout.name;
+    })?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
     ingest(data, { layout, placeLayout, store });
   });
