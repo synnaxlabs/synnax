@@ -94,14 +94,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                 />
               )}
             </Form.Field>
-            <Form.Field<channel.Key[]>
-              path="requires"
-              required
-              label="Required Channels"
-              grow
-            >
-              {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
-            </Form.Field>
           </Flex.Box>
         </Form.Form>
       </Flex.Box>

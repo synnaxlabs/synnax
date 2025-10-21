@@ -179,7 +179,8 @@ func (s Series) String() string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(
 		&b,
-		"Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		"Series{Alignment: %v, TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		s.Alignment.String(),
 		s.TimeRange.String(),
 		s.DataType,
 		s.Len(),

@@ -26,7 +26,8 @@ type State struct {
 	outputs map[ir.Handle]*value
 	indexes map[uint32]uint32
 	channel struct {
-		reads, writes map[uint32]telem.Series
+		reads  map[uint32]telem.MultiSeries
+		writes map[uint32]telem.Series
 	}
 }
 
@@ -49,7 +50,7 @@ func New(cfg Config) *State {
 		outputs: make(map[ir.Handle]*value),
 		indexes: make(map[uint32]uint32),
 	}
-	s.channel.reads = make(map[uint32]telem.Series)
+	s.channel.reads = make(map[uint32]telem.MultiSeries)
 	s.channel.writes = make(map[uint32]telem.Series)
 	for _, d := range cfg.ChannelDigests {
 		s.indexes[d.Key] = d.Index
@@ -70,7 +71,7 @@ func (s *State) Ingest(fr telem.Frame[uint32], markDirty func(nodeKey string)) {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		s.channel.reads[key] = fr.RawSeriesAt(rawI)
+		s.channel.reads[key] = s.channel.reads[key].Append(fr.RawSeriesAt(rawI))
 		for _, nodeKey := range s.cfg.ReactiveDeps[key] {
 			markDirty(nodeKey)
 		}
@@ -95,10 +96,7 @@ func (s *State) FlushWrites(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) 
 
 func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
 	series, ok := s.channel.reads[key]
-	if !ok {
-		return telem.MultiSeries{}, false
-	}
-	return telem.MultiSeries{Series: []telem.Series{series}}, true
+	return series, ok
 }
 
 func (s *State) writeChannel(key uint32, data, time telem.Series) {
@@ -288,7 +286,10 @@ func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 // ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
 func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 	series, ok := s.channel.reads[key]
-	return series, ok
+	if !ok {
+		return telem.Series{}, false
+	}
+	return series.Series[series.Len()-1], ok
 }
 
 // WriteChannelValue writes a single value to a channel (for WASM runtime bindings).

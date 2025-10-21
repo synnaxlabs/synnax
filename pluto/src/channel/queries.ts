@@ -110,19 +110,14 @@ export const formSchema = channel.newZ
     path: ["dataType"],
   });
 
-export const calculatedFormSchema = formSchema
-  .safeExtend({
-    expression: z
-      .string()
-      .min(1, "Expression must not be empty")
-      .refine((v) => v.includes("return"), {
-        message: "Expression must contain a return statement",
-      }),
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one channel",
-    path: ["requires"],
-  });
+export const calculatedFormSchema = formSchema.safeExtend({
+  expression: z
+    .string()
+    .min(1, "Expression must not be empty")
+    .refine((v) => v.includes("return"), {
+      message: "Expression must contain a return statement",
+    }),
+});
 
 const channelToFormValues = (ch: channel.Channel) => ({
   ...ch.payload,

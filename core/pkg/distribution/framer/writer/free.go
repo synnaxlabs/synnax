@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -31,6 +32,7 @@ func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {
 	a := f.alignments[key]
 	if a == nil {
 		a = new(atomic.Uint32)
+		a.Store(cesium.ZeroLeadingAlignment)
 		f.alignments[key] = a
 	}
 	return telem.NewAlignment(a.Add(1), 0)

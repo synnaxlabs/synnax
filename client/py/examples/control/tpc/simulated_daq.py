@@ -65,7 +65,7 @@ for sensor in SENSORS:
     )
     print(s.name, s.key)
 
-loop = sy.Loop(sy.Rate.HZ * 30, precise=True)
+loop = sy.Loop(sy.Rate.HZ * 3000, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,

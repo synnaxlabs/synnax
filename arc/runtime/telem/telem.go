@@ -74,29 +74,29 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 	}
 	for i, ser := range data.Series {
 		ab := ser.AlignmentBounds()
-		if ab.Upper <= s.highWaterMark {
-			continue
-		}
-		var timeSeries xtelem.Series
-		if indexData.DataType() == xtelem.UnknownT {
-			timeSeries = xtelem.Arange[xtelem.TimeStamp](
-				xtelem.Now(),
-				int(data.Len()),
-				1*xtelem.NanosecondTS,
-			)
-			timeSeries.Alignment = ser.Alignment
-		} else if len(indexData.Series) > i {
-			timeSeries = indexData.Series[i]
-		} else {
+		if ab.Lower >= s.highWaterMark {
+			var timeSeries xtelem.Series
+			if indexData.DataType() == xtelem.UnknownT {
+				timeSeries = xtelem.Arange[xtelem.TimeStamp](
+					xtelem.Now(),
+					int(data.Len()),
+					1*xtelem.NanosecondTS,
+				)
+				timeSeries.Alignment = ser.Alignment
+			} else if len(indexData.Series) > i {
+				timeSeries = indexData.Series[i]
+			} else {
+				return
+			}
+			if timeSeries.Alignment != ser.Alignment {
+				return
+			}
+			*s.snode.Output(0) = ser
+			*s.snode.OutputTime(0) = timeSeries
+			s.highWaterMark = ab.Upper
+			onOutputChange(ir.DefaultOutputParam)
 			return
 		}
-		if timeSeries.Alignment != ser.Alignment {
-			return
-		}
-		*s.snode.Output(0) = ser
-		*s.snode.OutputTime(0) = timeSeries
-		s.highWaterMark = ab.Upper
-		onOutputChange(ir.DefaultOutputParam)
 	}
 }
 

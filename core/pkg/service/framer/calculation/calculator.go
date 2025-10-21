@@ -32,16 +32,18 @@ import (
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Calculator is an extension of the lua-based computron.Calculator to provide
 // specific functionality for evaluating calculations on channels using frame data.
 type Calculator struct {
-	ch        channel.Channel
-	state     *state.State
-	scheduler *runtime.Scheduler
-	stateCfg  state.Config
+	ch         channel.Channel
+	state      *state.State
+	scheduler  *runtime.Scheduler
+	stateCfg   state.Config
+	alignments map[channel.Key]telem.Alignment
 }
 
 type CalculatorConfig struct {
@@ -199,11 +201,16 @@ func OpenCalculator(
 
 	scheduler := runtime.NewScheduler(ctx, module.IR, nodes, nil) // Calculator doesn't use intervals
 	scheduler.Init(ctx)
+	alignments := make(map[channel.Key]telem.Alignment)
+	for _, ch := range stateCfg.ChannelDigests {
+		alignments[channel.Key(ch.Index)] = telem.Alignment(0)
+	}
 	return &Calculator{
-		scheduler: scheduler,
-		state:     progState,
-		ch:        cfg.Channel,
-		stateCfg:  stateCfg,
+		scheduler:  scheduler,
+		state:      progState,
+		ch:         cfg.Channel,
+		stateCfg:   stateCfg,
+		alignments: alignments,
 	}, nil
 }
 
@@ -226,11 +233,42 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 //
 // Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Frame) (framer.Frame, bool, error) {
+	for rawI, rawKey := range inputFrame.RawKeys() {
+		if inputFrame.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		v, ok := c.alignments[rawKey]
+		if ok && v == 0 {
+			c.alignments[rawKey] = inputFrame.RawSeriesAt(rawI).Alignment
+		}
+	}
 	c.state.Ingest(inputFrame.ToStorage(), c.scheduler.MarkNodesChange)
-	c.scheduler.Next(ctx)
-	ofr, changed := c.state.FlushWrites(outputFrame.ToStorage())
+	var (
+		ofr         = outputFrame.ToStorage()
+		currChanged bool
+		changed     bool
+	)
+	for {
+		c.scheduler.Next(ctx)
+		ofr, currChanged = c.state.FlushWrites(ofr)
+		if !currChanged {
+			break
+		}
+		changed = true
+	}
 	if !changed {
-		return outputFrame, false, nil
+		return outputFrame, changed, nil
+	}
+	var alignment telem.Alignment = 0
+	for _, v := range c.alignments {
+		alignment = alignment.Add(v)
+	}
+	for rawI, s := range ofr.RawSeries() {
+		if rawI < len(ofr.RawSeries())-2 {
+			continue
+		}
+		s.Alignment = alignment
+		ofr.SetRawSeriesAt(rawI, s)
 	}
 	return core.NewFrameFromStorage(ofr), true, nil
 }

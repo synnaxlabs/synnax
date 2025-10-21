@@ -77,3 +77,10 @@ func (a Alignment) MarshalJSON() ([]byte, error) {
 func (a Alignment) AddSamples(samples uint32) Alignment {
 	return NewAlignment(a.DomainIndex(), a.SampleIndex()+samples)
 }
+
+func (a Alignment) Add(other Alignment) Alignment {
+	return NewAlignment(
+		a.DomainIndex()+other.DomainIndex(),
+		a.SampleIndex()+other.SampleIndex(),
+	)
+}

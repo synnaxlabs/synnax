@@ -167,7 +167,6 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		required    = make(set.Set[channel.Key], len(channels))
 		calculated  = make(set.Set[channel.Key], len(channels))
 	)
-
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).

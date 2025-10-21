@@ -11,6 +11,7 @@ package wasm
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -28,9 +29,11 @@ type node struct {
 func (n *node) Init(context.Context, func(output string)) {}
 
 func (n *node) Next(ctx context.Context, markChanged func(output string)) {
+	fmt.Println("GO 1")
 	if !n.state.RefreshInputs() {
 		return
 	}
+	fmt.Println("GO 2")
 	maxLength := int64(0)
 	longestInputIdx := 0
 	for i := range n.ir.Inputs.Count() {

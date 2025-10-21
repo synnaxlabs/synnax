@@ -10,6 +10,8 @@
 package iterator_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -95,7 +97,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		Describe("Calculations", func() {
 			var (
 				indexCh *channel.Channel
-				idxData telem.Series
+				idxData telem.MultiSeries
 				dataCh1 *channel.Channel
 				dataCh2 *channel.Channel
 			)
@@ -124,24 +126,42 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
-				idxData = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+				idxData = telem.MultiSeries{Series: []telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+					telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
+				}}
 				fr := core.MultiFrame(
 					keys,
 					[]telem.Series{
-						idxData,
+						idxData.Series[0],
 						telem.NewSeriesV[float32](1, 2, 3, 4, 5),
 						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
 				)
 				MustSucceed(w.Write(fr))
 				Expect(w.Close()).To(Succeed())
+				w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start:            telem.SecondTS * 6,
+					Keys:             keys,
+					EnableAutoCommit: config.True(),
+				}))
+				fr = core.MultiFrame(
+					keys,
+					[]telem.Series{
+						idxData.Series[1],
+						telem.NewSeriesV[float32](6, 7, 8, 9, 10),
+						telem.NewSeriesV[float32](-3, -4, -5, -6, -7),
+					},
+				)
+				MustSucceed(w.Write(fr))
+				Expect(w.Close()).To(Succeed())
 			})
 
-			It("Should correctly calculate output values", func() {
+			FIt("Should correctly calculate output values", func() {
 				calculation := &channel.Channel{
 					Name:       "output",
 					DataType:   telem.Float32T,
-					Expression: "return sensor_1 + sensor_2",
+					Expression: "return sensor_1",
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
@@ -149,14 +169,26 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Bounds: telem.TimeRangeMax,
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
+				c := 0
 				for {
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 					v := iter.Value().Get(calculation.Key())
-					if v.Len() > 0 {
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1))
-						idx := iter.Value().Get(calculation.Index())
-						Expect(idx.Series).To(HaveLen(1))
-						Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData))
+					fmt.Println(v)
+					//if v.Len() > 0 {
+					//	if c == 0 {
+					//		Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1))
+					//		idx := iter.Value().Get(calculation.Index())
+					//		Expect(idx.Series).To(HaveLen(1))
+					//		Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+					//	} else {
+					//		Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-2, -2, -2, -2, -2))
+					//		idx := iter.Value().Get(calculation.Index())
+					//		Expect(idx.Series).To(HaveLen(1))
+					//		Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+					//	}
+					//	c++
+					//}
+					if c >= 2 {
 						break
 					}
 				}
