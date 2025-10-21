@@ -145,5 +145,15 @@ func test{} () {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(ctx.Diagnostics.Error()).To(MatchError(ContainSubstring("types f64 and i8 are not unifiable")))
 		})
+
+		It("Should infer the correct type for the direct return of a channel as an i8", func() {
+			program := MustSucceed(parser.Parse(`
+			func cat() i8 {
+				return integer_sensor
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
 	})
 })

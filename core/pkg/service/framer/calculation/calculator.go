@@ -203,7 +203,11 @@ func OpenCalculator(
 	scheduler.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
 	for _, ch := range stateCfg.ChannelDigests {
-		alignments[channel.Key(ch.Index)] = telem.Alignment(0)
+		if ch.Index == 0 {
+			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
+		} else {
+			alignments[channel.Key(ch.Index)] = telem.Alignment(0)
+		}
 	}
 	return &Calculator{
 		scheduler:  scheduler,
@@ -232,7 +236,11 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 // is free to discard the returned value.
 //
 // Any error encountered during calculations is returned as well.
-func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Frame) (framer.Frame, bool, error) {
+func (c *Calculator) Next(
+	ctx context.Context,
+	inputFrame,
+	outputFrame framer.Frame,
+) (framer.Frame, bool, error) {
 	for rawI, rawKey := range inputFrame.RawKeys() {
 		if inputFrame.ShouldExcludeRaw(rawI) {
 			continue
@@ -260,8 +268,9 @@ func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Fr
 		return outputFrame, changed, nil
 	}
 	var alignment telem.Alignment = 0
-	for _, v := range c.alignments {
+	for k, v := range c.alignments {
 		alignment = alignment.Add(v)
+		c.alignments[k] = 0
 	}
 	for rawI, s := range ofr.RawSeries() {
 		if rawI < len(ofr.RawSeries())-2 {
@@ -271,4 +280,8 @@ func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Fr
 		ofr.SetRawSeriesAt(rawI, s)
 	}
 	return core.NewFrameFromStorage(ofr), true, nil
+}
+
+func (c *Calculator) Close() error {
+	return nil
 }
