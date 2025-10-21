@@ -84,11 +84,11 @@ export const export_ = (
     );
     const fileInfos: Export.FileInfo[] = [];
     await Promise.all(
-      Object.values(toExport.layouts).map(async ({ type, key }) => {
+      Object.values(toExport.layouts).map(async ({ type, key, name }) => {
         const extractor = extractors[type];
         if (extractor == null) return;
         const fileData = (await extractor(key, { store, client })).data;
-        const fileName = `${key}.json`;
+        const fileName = `${name}.json`;
         fileInfos.push({ data: fileData, name: fileName });
       }),
     );
@@ -97,10 +97,7 @@ export const export_ = (
         await writeTextFile(await join(directory, name), data);
       }),
     );
-    addStatus({
-      variant: "success",
-      message: `Exported ${name} to ${directory}`,
-    });
+    addStatus({ variant: "success", message: `Exported ${name} to ${directory}` });
   }, `Failed to export ${name}`);
 };
 
