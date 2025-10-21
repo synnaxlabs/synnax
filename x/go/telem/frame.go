@@ -445,6 +445,9 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 // FilterKeys filters the frame to only include the keys in the given slice, returning
 // a shallow copy of the filtered frame.
 func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
+	if len(keys) == 0 {
+		return f
+	}
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {

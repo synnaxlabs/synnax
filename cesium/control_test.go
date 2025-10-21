@@ -268,6 +268,106 @@ var _ = Describe("Control", func() {
 					})
 				})
 
+				// Set up:
+				// Auto-Commit Enabled On Both
+				// Writer 1: Virtual Channel, Persisted Channel, Persisted Channel Index
+				// Writer 2: Persisted Channel, Persisted Channel Index
+				//
+				// Writer 1 starts of at authority 100 on all channels
+				// Writer 1 writes - confirm successful receive
+				// Writer 2 starts off at authority 0 on all channels
+				// Writer 2 changes to authority 200
+				// Writer 1 writes to virtual channel (no persisteds).
+				// - confirm successful write
+				//
+				Specify("One Virtual, One Persisted, Different Authorities, Partial Contention", func() {
+					var (
+						indexCHKey   = GenerateChannelKey()
+						dataChKey    = GenerateChannelKey()
+						virtualChKey = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Name: "persisted", Key: indexCHKey, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Name: "persisted_idx", Key: dataChKey, DataType: telem.Int16T, Index: indexCHKey},
+						cesium.Channel{Name: "virtual_cmd", Key: virtualChKey, DataType: telem.Uint8T, Virtual: true},
+					)).To(Succeed())
+					start := telem.SecondTS * 10
+					By("Opening the first writer")
+					w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject:    control.Subject{Name: "Writer One"},
+						Start:             start,
+						Channels:          []cesium.ChannelKey{virtualChKey, indexCHKey, dataChKey},
+						Authorities:       []control.Authority{100},
+						ErrOnUnauthorized: config.False(),
+						Sync:              config.True(),
+						EnableAutoCommit:  config.True(),
+					}))
+					By("Opening the second writer")
+					w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Start:             start,
+						ControlSubject:    control.Subject{Name: "Writer Two"},
+						Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
+						Authorities:       []control.Authority{0},
+						ErrOnUnauthorized: config.False(),
+						Sync:              config.True(),
+						EnableAutoCommit:  config.True(),
+					}))
+					dataStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels:    []cesium.ChannelKey{virtualChKey},
+						SendOpenAck: true,
+					}))
+					ctx, cancel := signal.Isolated()
+					defer cancel()
+					dataStreamerIn, dataStreamerOut := confluence.Attach(dataStreamer, 2)
+					dataStreamer.Flow(ctx, confluence.CloseOutputInletsOnExit())
+					Eventually(dataStreamerOut.Outlet()).Should(Receive())
+
+					controlStateStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels:    []cesium.ChannelKey{math.MaxUint32},
+						SendOpenAck: true,
+					}))
+					controlStreamerIn, controlStreamerOut := confluence.Attach(controlStateStreamer, 2)
+					controlStateStreamer.Flow(ctx, confluence.CloseOutputInletsOnExit())
+					Eventually(controlStreamerOut.Outlet()).Should(Receive())
+
+					By("Writing to the first writer")
+					Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
+						[]cesium.ChannelKey{virtualChKey, indexCHKey, dataChKey},
+						[]telem.Series{
+							telem.NewSeriesV[uint8](1),
+							telem.NewSeriesSecondsTSV(11),
+							telem.NewSeriesV[int16](2),
+						},
+					)))).To(BeTrue())
+
+					var fr cesium.StreamerResponse
+					Eventually(dataStreamerOut.Outlet()).Should(Receive(&fr))
+
+					Expect(w2.SetAuthority(cesium.WriterConfig{
+						Authorities: []control.Authority{200},
+					})).To(Succeed())
+
+					By("By propagating the control transfer")
+					Eventually(controlStreamerOut.Outlet()).Should(Receive())
+
+					By("Writing to the first writer")
+					Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
+						[]cesium.ChannelKey{virtualChKey},
+						[]telem.Series{telem.NewSeriesV[uint8](1)},
+					))))
+
+					var r cesium.StreamerResponse
+					Eventually(dataStreamerOut.Outlet()).Should(Receive(&r))
+
+					Expect(w1.Close()).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
+					dataStreamerIn.Close()
+					controlStreamerIn.Close()
+					Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
+					Eventually(controlStreamerOut.Outlet()).Should(BeClosed())
+				})
+
 				// Specs testing the control digest system correctly propagates control
 				// changes between contending writers.
 				Describe("Control digests", func() {
@@ -311,6 +411,7 @@ var _ = Describe("Control", func() {
 					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key: must be positive")))
 					Expect(db.Close()).To(Succeed())
 				})
+
 				It("Should not allow configuring a control channel with datatype not string", func() {
 					db := openDBOnFS(fs)
 					key := GenerateChannelKey()
