@@ -66,20 +66,12 @@ func New(cfg Config) *State {
 	return s
 }
 
-func (s *State) Ingest(fr telem.Frame[uint32], markDirty func(nodeKey string)) {
+func (s *State) Ingest(fr telem.Frame[uint32]) {
 	for rawI, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		s.channel.reads[key] = s.channel.reads[key].Append(fr.RawSeriesAt(rawI))
-		for _, nodeKey := range s.cfg.ReactiveDeps[key] {
-			markDirty(nodeKey)
-		}
-		if indexKey, ok := s.indexes[key]; ok {
-			for _, nodeKey := range s.cfg.ReactiveDeps[indexKey] {
-				markDirty(nodeKey)
-			}
-		}
 	}
 }
 
@@ -88,7 +80,7 @@ func (s *State) FlushWrites(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) 
 		return fr, false
 	}
 	for key, data := range s.channel.writes {
-		fr = fr.Append(key, data)
+		fr = fr.Append(key, data.DeepCopy())
 	}
 	clear(s.channel.writes)
 	return fr, true

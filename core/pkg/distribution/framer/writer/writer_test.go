@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -175,9 +176,9 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(1))
+			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(1))
+			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 			data = telem.NewSeriesV[int64](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
@@ -191,9 +192,9 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(1))
+			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(1))
+			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 			Expect(writer.Close()).To(Succeed())
 		})

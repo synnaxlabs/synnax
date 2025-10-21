@@ -242,7 +242,7 @@ func (c *Calculator) Next(ctx context.Context, inputFrame, outputFrame framer.Fr
 			c.alignments[rawKey] = inputFrame.RawSeriesAt(rawI).Alignment
 		}
 	}
-	c.state.Ingest(inputFrame.ToStorage(), c.scheduler.MarkNodesChange)
+	c.state.Ingest(inputFrame.ToStorage())
 	var (
 		ofr         = outputFrame.ToStorage()
 		currChanged bool

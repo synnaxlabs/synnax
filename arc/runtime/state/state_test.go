@@ -15,98 +15,16 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("State", func() {
-	Describe("Frame Ingestion", func() {
-		It("Should correctly mark reactive deps as dirty", func() {
-			cfg := state.Config{
-				ReactiveDeps: map[uint32][]string{
-					1: {"cat"},
-					2: {"dog"},
-				},
-			}
-			s := state.New(cfg)
-			fr := telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](12))
-			dirty := make(set.Set[string])
-			s.Ingest(fr, func(nodeKey string) { dirty.Add(nodeKey) })
-			Expect(dirty.Contains("cat")).To(BeTrue())
-			Expect(dirty.Contains("dog")).To(BeFalse())
-		})
-		It("Should mark multiple nodes dirty for same channel", func() {
-			cfg := state.Config{
-				ReactiveDeps: map[uint32][]string{
-					1: {"cat", "dog", "bird"},
-				},
-			}
-			s := state.New(cfg)
-			fr := telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](42))
-			dirty := make(set.Set[string])
-			s.Ingest(fr, func(nodeKey string) { dirty.Add(nodeKey) })
-			Expect(dirty.Contains("cat")).To(BeTrue())
-			Expect(dirty.Contains("dog")).To(BeTrue())
-			Expect(dirty.Contains("bird")).To(BeTrue())
-		})
-		It("Should mark deps dirty for index channel", func() {
-			cfg := state.Config{
-				ChannelDigests: []state.ChannelDigest{
-					{Key: 1, Index: 2},
-				},
-				ReactiveDeps: map[uint32][]string{
-					2: {"indexListener"},
-				},
-			}
-			s := state.New(cfg)
-			fr := telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](99))
-			dirty := make(set.Set[string])
-			s.Ingest(fr, func(nodeKey string) { dirty.Add(nodeKey) })
-			Expect(dirty.Contains("indexListener")).To(BeTrue())
-		})
-		It("Should mark deps dirty for both data and index channel", func() {
-			cfg := state.Config{
-				ChannelDigests: []state.ChannelDigest{
-					{Key: 1, Index: 2},
-				},
-				ReactiveDeps: map[uint32][]string{
-					1: {"dataListener"},
-					2: {"indexListener"},
-				},
-			}
-			s := state.New(cfg)
-			fr := telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](7.5))
-			dirty := make(set.Set[string])
-			s.Ingest(fr, func(nodeKey string) { dirty.Add(nodeKey) })
-			Expect(dirty.Contains("dataListener")).To(BeTrue())
-			Expect(dirty.Contains("indexListener")).To(BeTrue())
-		})
-		It("Should handle frame with multiple channels", func() {
-			cfg := state.Config{
-				ReactiveDeps: map[uint32][]string{
-					1: {"node1"},
-					2: {"node2"},
-					3: {"node3"},
-				},
-			}
-			s := state.New(cfg)
-			fr := telem.Frame[uint32]{}
-			fr = fr.Append(1, telem.NewSeriesV[float32](1.1))
-			fr = fr.Append(2, telem.NewSeriesV[float32](2.2))
-			fr = fr.Append(3, telem.NewSeriesV[float32](3.3))
-			dirty := make(set.Set[string])
-			s.Ingest(fr, func(nodeKey string) { dirty.Add(nodeKey) })
-			Expect(dirty.Contains("node1")).To(BeTrue())
-			Expect(dirty.Contains("node2")).To(BeTrue())
-			Expect(dirty.Contains("node3")).To(BeTrue())
-		})
-	})
 	Describe("Channel Operations", func() {
 		Describe("ReadChan", func() {
 			It("Should read channel data after ingestion", func() {
 				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
 				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
-				s.Ingest(fr, func(string) {})
+				s.Ingest(fr)
 				n := s.Node("test")
 				data, time, ok := n.ReadChan(10)
 				Expect(ok).To(BeTrue())
@@ -125,7 +43,7 @@ var _ = Describe("State", func() {
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(5, telem.NewSeriesV[int32](100, 200))
 				fr = fr.Append(6, telem.NewSeriesSecondsTSV(10, 20))
-				s.Ingest(fr, func(string) {})
+				s.Ingest(fr)
 				n := s.Node("test")
 				data, time, ok := n.ReadChan(5)
 				Expect(ok).To(BeTrue())
@@ -145,7 +63,7 @@ var _ = Describe("State", func() {
 			It("Should handle channel without index", func() {
 				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
 				fr := telem.UnaryFrame[uint32](7, telem.NewSeriesV[uint8](5, 10, 15))
-				s.Ingest(fr, func(string) {})
+				s.Ingest(fr)
 				n := s.Node("test")
 				_, time, ok := n.ReadChan(7)
 				Expect(ok).To(BeTrue())

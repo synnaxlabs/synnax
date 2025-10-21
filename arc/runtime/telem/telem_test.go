@@ -72,6 +72,7 @@ var _ = Describe("Telem Factory", func() {
 			Expect(node).ToNot(BeNil())
 		})
 	})
+
 	Describe("Sink Creation", func() {
 		It("Should create sink node for write type", func() {
 			cfg := rnode.Config{
@@ -88,6 +89,7 @@ var _ = Describe("Telem Factory", func() {
 			Expect(node).ToNot(BeNil())
 		})
 	})
+
 	Describe("Error Handling", func() {
 		It("Should return query.NotFound for unknown node type", func() {
 			cfg := rnode.Config{
@@ -157,6 +159,7 @@ var _ = Describe("Source Node", func() {
 		})
 		factory = rtelem.NewTelemFactory()
 	})
+
 	Describe("Data Reading", func() {
 		It("Should read channel data after ingestion", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
@@ -172,13 +175,14 @@ var _ = Describe("Source Node", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(10, telem.NewSeriesV[float32](1.5, 2.5, 3.5))
 			fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101, 102))
-			s.Ingest(fr, func(string) {})
+			s.Ingest(fr)
 			var outputChanged bool
 			source.Next(bCtx, func(string) { outputChanged = true })
 			Expect(outputChanged).To(BeTrue())
 			Expect(*s.Node("source").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1.5, 2.5, 3.5)))
 			Expect(*s.Node("source").OutputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
 		})
+
 		It("Should handle channel without index", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
 				Node: ir.Node{
@@ -191,7 +195,7 @@ var _ = Describe("Source Node", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			fr := telem.UnaryFrame[uint32](20, telem.NewSeriesV[int32](100, 200))
-			s.Ingest(fr, func(string) {})
+			s.Ingest(fr)
 			var outputChanged bool
 			source.Next(bCtx, func(string) { outputChanged = true })
 			Expect(outputChanged).To(BeTrue())
@@ -234,7 +238,7 @@ var _ = Describe("Source Node", func() {
 			t1.Alignment = telem.NewAlignment(1, 0)
 			fr1 = fr1.Append(10, d1)
 			fr1 = fr1.Append(11, t1)
-			s.Ingest(fr1, func(string) {})
+			s.Ingest(fr1)
 
 			fr2 := telem.Frame[uint32]{}
 			d2 := telem.NewSeriesV[float32](1.0)
@@ -243,7 +247,7 @@ var _ = Describe("Source Node", func() {
 			t2.Alignment = telem.NewAlignment(1, 1)
 			fr2 = fr2.Append(10, d2)
 			fr2 = fr2.Append(11, t2)
-			s.Ingest(fr2, func(string) {})
+			s.Ingest(fr2)
 
 			outputCount := 0
 
@@ -278,7 +282,7 @@ var _ = Describe("Source Node", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(10, telem.NewSeriesV[float32](5.0))
 			fr = fr.Append(11, telem.NewSeriesSecondsTSV(50))
-			s.Ingest(fr, func(string) {})
+			s.Ingest(fr)
 			firstCallCount := 0
 			source.Next(bCtx, func(string) { firstCallCount++ })
 			Expect(firstCallCount).To(Equal(1))
@@ -286,6 +290,7 @@ var _ = Describe("Source Node", func() {
 			source.Next(bCtx, func(string) { secondCallCount++ })
 			Expect(secondCallCount).To(Equal(0))
 		})
+
 		It("Should process new data after watermark update", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
 				Node: ir.Node{
@@ -300,17 +305,18 @@ var _ = Describe("Source Node", func() {
 			fr1 := telem.Frame[uint32]{}
 			fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
 			fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(10))
-			s.Ingest(fr1, func(string) {})
+			s.Ingest(fr1)
 			source.Next(bCtx, func(string) {})
 			fr2 := telem.Frame[uint32]{}
 			fr2 = fr2.Append(10, telem.NewSeriesV[float32](2.0))
 			fr2 = fr2.Append(11, telem.NewSeriesSecondsTSV(20))
-			s.Ingest(fr2, func(string) {})
+			s.Ingest(fr2)
 			var newDataProcessed bool
 			source.Next(bCtx, func(string) { newDataProcessed = true })
 			Expect(newDataProcessed).To(BeTrue())
 			Expect(*s.Node("source").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
+
 		It("Should skip series with timestamps below watermark", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
 				Node: ir.Node{
@@ -325,17 +331,18 @@ var _ = Describe("Source Node", func() {
 			fr1 := telem.Frame[uint32]{}
 			fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
 			fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(100))
-			s.Ingest(fr1, func(string) {})
+			s.Ingest(fr1)
 			source.Next(bCtx, func(string) {})
 			fr2 := telem.Frame[uint32]{}
 			fr2 = fr2.Append(10, telem.NewSeriesV[float32](0.5))
 			fr2 = fr2.Append(11, telem.NewSeriesSecondsTSV(50))
-			s.Ingest(fr2, func(string) {})
+			s.Ingest(fr2)
 			outputCount := 0
 			source.Next(bCtx, func(string) { outputCount++ })
 			Expect(outputCount).To(Equal(0))
 		})
 	})
+
 	Describe("Alignment Validation", func() {
 		It("Should skip data when index series count mismatch", func() {
 			source, err := factory.Create(bCtx, rnode.Config{
@@ -351,14 +358,15 @@ var _ = Describe("Source Node", func() {
 			fr1 := telem.Frame[uint32]{}
 			fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
 			fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(10))
-			s.Ingest(fr1, func(string) {})
+			s.Ingest(fr1)
 			fr2 := telem.Frame[uint32]{}
 			fr2 = fr2.Append(10, telem.NewSeriesV[float32](2.0))
-			s.Ingest(fr2, func(string) {})
+			s.Ingest(fr2)
 			callCount := 0
 			source.Next(bCtx, func(string) { callCount++ })
 			Expect(callCount).To(Equal(1))
 		})
+
 		It("Should skip data when alignment mismatch", func() {
 			cfg := state.Config{
 				ChannelDigests: []state.ChannelDigest{
@@ -396,7 +404,7 @@ var _ = Describe("Source Node", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(30, dataSeries)
 			fr = fr.Append(31, timeSeries)
-			s2.Ingest(fr, func(string) {})
+			s2.Ingest(fr)
 			outputCount := 0
 			source.Next(bCtx, func(string) { outputCount++ })
 			Expect(outputCount).To(Equal(0))
@@ -623,7 +631,7 @@ var _ = Describe("Integration", func() {
 			ingestFr := telem.Frame[uint32]{}
 			ingestFr = ingestFr.Append(1, telem.NewSeriesV[int32](42, 99))
 			ingestFr = ingestFr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
-			s.Ingest(ingestFr, func(string) {})
+			s.Ingest(ingestFr)
 			source.Next(bCtx, func(string) {})
 			Expect(s.Node("write").RefreshInputs()).To(BeTrue())
 			sink.Next(bCtx, func(string) {})
@@ -685,7 +693,7 @@ var _ = Describe("Integration", func() {
 			fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 200))
 			fr = fr.Append(20, telem.NewSeriesV[float64](3.3, 4.4))
 			fr = fr.Append(21, telem.NewSeriesSecondsTSV(100, 200))
-			s.Ingest(fr, func(string) {})
+			s.Ingest(fr)
 			source1.Next(bCtx, func(string) {})
 			source2.Next(bCtx, func(string) {})
 			Expect(s.Node("write1").RefreshInputs()).To(BeTrue())
@@ -731,7 +739,7 @@ var _ = Describe("Integration", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(50, telem.NewSeriesV[uint32](777))
 			fr = fr.Append(51, telem.NewSeriesSecondsTSV(999))
-			s.Ingest(fr, func(string) {})
+			s.Ingest(fr)
 			source.Next(bCtx, func(string) {})
 			Expect(s.Node("sink").RefreshInputs()).To(BeTrue())
 			sink.Next(bCtx, func(string) {})

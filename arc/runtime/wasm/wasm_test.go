@@ -535,7 +535,7 @@ var _ = Describe("Wasm", func() {
 			// Ingest test data to channel
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(0, telem.NewSeriesV[int32](21))
-			s.Ingest(fr, func(nodeKey string) {})
+			s.Ingest(fr)
 
 			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
 			Expect(err).ToNot(HaveOccurred())

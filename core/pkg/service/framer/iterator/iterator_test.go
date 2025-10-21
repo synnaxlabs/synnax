@@ -10,8 +10,6 @@
 package iterator_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -157,7 +155,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(w.Close()).To(Succeed())
 			})
 
-			FIt("Should correctly calculate output values", func() {
+			It("Should correctly calculate output values", func() {
 				calculation := &channel.Channel{
 					Name:       "output",
 					DataType:   telem.Float32T,
@@ -169,29 +167,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Bounds: telem.TimeRangeMax,
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
-				c := 0
-				for {
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value().Get(calculation.Key())
-					fmt.Println(v)
-					//if v.Len() > 0 {
-					//	if c == 0 {
-					//		Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-1, -1, -1, -1, -1))
-					//		idx := iter.Value().Get(calculation.Index())
-					//		Expect(idx.Series).To(HaveLen(1))
-					//		Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
-					//	} else {
-					//		Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-2, -2, -2, -2, -2))
-					//		idx := iter.Value().Get(calculation.Index())
-					//		Expect(idx.Series).To(HaveLen(1))
-					//		Expect(idx.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
-					//	}
-					//	c++
-					//}
-					if c >= 2 {
-						break
-					}
-				}
+				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+				v := iter.Value().Get(calculation.Key())
+				Expect(v.Series).To(HaveLen(2))
+				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4, 5))
+				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+				Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
+				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+				v = iter.Value().Get(indexCh.Key())
+				Expect(v.Series).To(HaveLen(2))
+				Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+				Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
 			})

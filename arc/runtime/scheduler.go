@@ -84,9 +84,9 @@ func (s *Scheduler) Init(ctx context.Context) {
 }
 
 func (s *Scheduler) Next(ctx context.Context) {
-	for _, stratum := range s.strata {
+	for i, stratum := range s.strata {
 		for _, nodeKey := range stratum {
-			if s.changed.Contains(nodeKey) {
+			if i == 0 || s.changed.Contains(nodeKey) {
 				s.currState = s.nodes[nodeKey]
 				s.currState.node.Next(ctx, s.markChanged)
 			}

@@ -230,6 +230,15 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
+func (s Series) DeepCopy() Series {
+	return Series{
+		TimeRange: s.TimeRange,
+		Alignment: s.Alignment,
+		DataType:  s.DataType,
+		Data:      slices.Clone(s.Data),
+	}
+}
+
 // DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {

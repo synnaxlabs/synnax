@@ -388,7 +388,7 @@ var _ = Describe("Series", func() {
 		Context("Short Series", func() {
 			It("Should show all values for series with <= 12 elements", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
-				Expect(s.String()).To(Equal("Series{TimeRange: 1970-01-01T00:00:00Z - 00:00:00 (0s), DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
+				Expect(s.String()).To(Equal("Series{Alignment: 0|0, TimeRange: 1970-01-01T00:00:00Z - 00:00:00 (0s), DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
 			})
 
 			It("Should properly format float values", func() {
