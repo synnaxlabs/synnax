@@ -90,7 +90,7 @@ export const export_ = (
       await join(directory, LAYOUT_FILE_NAME),
       JSON.stringify(toExport),
     );
-    const fileInfos: Export.FileInfo[] = [];
+    const fileInfos: Export.File[] = [];
     await Promise.all(
       Object.values(toExport.layouts).map(async ({ type, key, name }) => {
         const extractor = extractors[type];

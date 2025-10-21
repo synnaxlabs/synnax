@@ -15,7 +15,6 @@ import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
-import { type Export } from "@/export";
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
@@ -90,7 +89,7 @@ export const import_ = ({
     const files = await readDir(path);
     const fileData = await Promise.all(
       files.map(
-        async (file): Promise<Export.FileInfo> => ({
+        async (file): Promise<Import.File> => ({
           name: file.name,
           data: JSON.parse(await readTextFile(await join(path, file.name))),
         }),
