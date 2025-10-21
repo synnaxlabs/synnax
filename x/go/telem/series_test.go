@@ -388,7 +388,7 @@ var _ = Describe("Series", func() {
 		Context("Short Series", func() {
 			It("Should show all values for series with <= 12 elements", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
-				Expect(s.String()).To(Equal("Series{Alignment: 0|0, TimeRange: 1970-01-01T00:00:00Z - 00:00:00 (0s), DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
+				Expect(s.String()).To(Equal("Series{Alignment: 0-0, TimeRange: 1970-01-01T00:00:00Z - 00:00:00 (0s), DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
 			})
 
 			It("Should properly format float values", func() {
@@ -1179,6 +1179,125 @@ var _ = Describe("Series", func() {
 				Expect(s.DataType).To(Equal(telem.Float64T))
 				Expect(telem.ValueAt[float64](s, 0)).To(BeNumerically("~", 5.5))
 			})
+		})
+	})
+
+	Describe("CopyValue", func() {
+		It("Should copy a value from one series to another", func() {
+			src := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+			dst := telem.NewSeriesV[int64](10, 20, 30, 40, 50)
+			telem.CopyValue(dst, src, 0, 2)
+			Expect(telem.ValueAt[int64](dst, 0)).To(Equal(int64(3)))
+			Expect(telem.ValueAt[int64](dst, 1)).To(Equal(int64(20)))
+		})
+
+		It("Should copy values at different indices", func() {
+			src := telem.NewSeriesV[float64](1.1, 2.2, 3.3)
+			dst := telem.NewSeriesV[float64](0.0, 0.0, 0.0)
+			telem.CopyValue(dst, src, 1, 2)
+			Expect(telem.ValueAt[float64](dst, 1)).To(Equal(3.3))
+			Expect(telem.ValueAt[float64](dst, 0)).To(Equal(0.0))
+			Expect(telem.ValueAt[float64](dst, 2)).To(Equal(0.0))
+		})
+
+		It("Should work with different numeric types", func() {
+			src := telem.NewSeriesV[uint8](10, 20, 30)
+			dst := telem.NewSeriesV[uint8](0, 0, 0)
+			telem.CopyValue(dst, src, 2, 1)
+			Expect(telem.ValueAt[uint8](dst, 2)).To(Equal(uint8(20)))
+		})
+
+		It("Should panic when data types do not match", func() {
+			src := telem.NewSeriesV[int64](1, 2, 3)
+			dst := telem.NewSeriesV[int32](10, 20, 30)
+			Expect(func() {
+				telem.CopyValue(dst, src, 0, 0)
+			}).To(Panic())
+		})
+
+		It("Should panic when source is variable density", func() {
+			src := telem.NewSeriesStringsV("a", "b", "c")
+			dst := telem.NewSeriesStringsV("x", "y", "z")
+			Expect(func() {
+				telem.CopyValue(dst, src, 0, 0)
+			}).To(Panic())
+		})
+
+		It("Should panic when destination is variable density", func() {
+			src := telem.NewSeriesV[int64](1, 2, 3)
+			dst := telem.NewSeriesStringsV("x", "y", "z")
+			Expect(func() {
+				telem.CopyValue(dst, src, 0, 0)
+			}).To(Panic())
+		})
+	})
+
+	Describe("DeepCopy", func() {
+		It("Should create a deep copy of a series", func() {
+			original := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+			original.TimeRange = telem.TimeRange{Start: 100, End: 200}
+			original.Alignment = telem.NewAlignment(1, 5)
+
+			copied := original.DeepCopy()
+
+			Expect(copied.DataType).To(Equal(original.DataType))
+			Expect(copied.Len()).To(Equal(original.Len()))
+			Expect(copied.TimeRange).To(Equal(original.TimeRange))
+			Expect(copied.Alignment).To(Equal(original.Alignment))
+			Expect(telem.UnmarshalSeries[int64](copied)).To(Equal([]int64{1, 2, 3, 4, 5}))
+		})
+
+		It("Should create an independent copy that does not share data", func() {
+			original := telem.NewSeriesV[int64](1, 2, 3)
+			copied := original.DeepCopy()
+
+			telem.SetValueAt[int64](original, 0, 99)
+
+			Expect(telem.ValueAt[int64](original, 0)).To(Equal(int64(99)))
+			Expect(telem.ValueAt[int64](copied, 0)).To(Equal(int64(1)))
+		})
+
+		It("Should work with different data types", func() {
+			original := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
+			copied := original.DeepCopy()
+
+			Expect(copied.DataType).To(Equal(telem.Float32T))
+			Expect(telem.UnmarshalSeries[float32](copied)).To(Equal([]float32{1.1, 2.2, 3.3}))
+		})
+
+		It("Should work with variable density types", func() {
+			original := telem.NewSeriesStringsV("foo", "bar", "baz")
+			original.TimeRange = telem.TimeRange{Start: 10, End: 20}
+			original.Alignment = telem.NewAlignment(2, 3)
+
+			copied := original.DeepCopy()
+
+			Expect(copied.DataType).To(Equal(telem.StringT))
+			Expect(copied.Len()).To(Equal(int64(3)))
+			Expect(copied.TimeRange).To(Equal(original.TimeRange))
+			Expect(copied.Alignment).To(Equal(original.Alignment))
+			Expect(telem.UnmarshalStrings(copied.Data)).To(Equal([]string{"foo", "bar", "baz"}))
+		})
+
+		It("Should work with empty series", func() {
+			original := telem.Series{DataType: telem.Int64T}
+			copied := original.DeepCopy()
+
+			Expect(copied.Len()).To(Equal(int64(0)))
+			Expect(copied.DataType).To(Equal(telem.Int64T))
+			Expect(copied.Data).To(HaveLen(0))
+		})
+
+		It("Should preserve all fields correctly", func() {
+			original := telem.NewSeriesV[uint32](100, 200, 300)
+			original.TimeRange = telem.TimeRange{Start: telem.TimeStamp(1000), End: telem.TimeStamp(2000)}
+			original.Alignment = telem.NewAlignment(5, 10)
+
+			copied := original.DeepCopy()
+
+			Expect(copied.TimeRange.Start).To(Equal(telem.TimeStamp(1000)))
+			Expect(copied.TimeRange.End).To(Equal(telem.TimeStamp(2000)))
+			Expect(copied.Alignment).To(Equal(telem.NewAlignment(5, 10)))
 		})
 	})
 })
