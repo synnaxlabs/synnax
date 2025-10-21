@@ -65,10 +65,10 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
   return async (key) => {
     if (activeWS === key) return;
     if (client == null) throw new DisconnectedError();
-    const ws = await client.workspaces.retrieve(key);
+    const { layout, ...ws } = await client.workspaces.retrieve(key);
     dispatch(setActive(ws));
     dispatch(
-      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      Layout.setWorkspace({ slice: layout as Layout.SliceState, keepNav: false }),
     );
   };
 };

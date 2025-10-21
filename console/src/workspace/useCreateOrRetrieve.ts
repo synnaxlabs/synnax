@@ -28,18 +28,21 @@ export const useCreateOrRetrieve = () => {
     if (prevClient != null)
       handleError(
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
-        `Failed to save workspace ${activeWS.name}`,
+        `Failed to save workspace ${activeWS.name} to ${prevClient.props.name ?? "previous Core"}`,
       );
-    handleError(async () => {
-      try {
-        await client.workspaces.retrieve(activeWS.key);
-        dispatch(setActive(activeWS));
-        await client.workspaces.setLayout(activeWS.key, purgedLayout);
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw e;
-        await client.workspaces.create({ ...activeWS, layout: purgedLayout });
-        dispatch(setActive(activeWS));
-      }
-    }, `Failed to create workspace ${activeWS.name}`);
+    handleError(
+      async () => {
+        try {
+          await client.workspaces.retrieve(activeWS.key);
+          await client.workspaces.setLayout(activeWS.key, purgedLayout);
+          dispatch(setActive(activeWS));
+        } catch (e) {
+          if (!NotFoundError.matches(e)) throw e;
+          await client.workspaces.create({ ...activeWS, layout: purgedLayout });
+          dispatch(setActive(activeWS));
+        }
+      },
+      `Failed to create workspace ${activeWS.name} on ${client.props.name ?? "current Core"}`,
+    );
   };
 };
