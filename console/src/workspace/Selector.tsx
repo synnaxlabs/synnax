@@ -9,7 +9,7 @@
 
 import "@/workspace/Selector.css";
 
-import { type workspace } from "@synnaxlabs/client";
+import { UnexpectedError, type workspace } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -19,7 +19,6 @@ import {
   Input,
   List,
   Select,
-  Status,
   Synnax,
   Text,
   Workspace,
@@ -54,7 +53,6 @@ export const Selector = (): ReactElement => {
   const dispatch = useDispatch();
   const active = useSelectActive();
   const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Workspace.useList();
   const [search, setSearch] = useState("");
@@ -65,20 +63,15 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
-      if (client == null) return;
-      handleError(async () => {
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add(ws));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-        setDialogVisible(false);
-      }, "Failed to switch workspace");
+      const ws = getItem(v);
+      if (ws == null) throw new UnexpectedError(`Workspace ${v} not found`);
+      dispatch(add(ws));
+      dispatch(
+        Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      );
+      setDialogVisible(false);
     },
-    [active, client, dispatch, handleError],
+    [dispatch, getItem],
   );
 
   return (
