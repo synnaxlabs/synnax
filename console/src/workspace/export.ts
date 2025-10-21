@@ -9,6 +9,7 @@
 
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { strings } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -78,6 +79,13 @@ export const export_ = (
     )
       return;
     await mkdir(directory, { recursive: true });
+    // make sure that there are no repeated names in the layouts.
+    const namesSet = new Set<string>();
+    Object.values(toExport.layouts).forEach((layout) => {
+      const deduplicatedName = strings.deduplicateFileName(layout.name, namesSet);
+      layout.name = removeDirectory(deduplicatedName);
+      namesSet.add(layout.name);
+    });
     await writeTextFile(
       await join(directory, LAYOUT_FILE_NAME),
       JSON.stringify(toExport),
@@ -87,9 +95,8 @@ export const export_ = (
       Object.values(toExport.layouts).map(async ({ type, key, name }) => {
         const extractor = extractors[type];
         if (extractor == null) return;
-        const fileData = (await extractor(key, { store, client })).data;
-        const fileName = `${name}.json`;
-        fileInfos.push({ data: fileData, name: fileName });
+        const { data } = await extractor(key, { store, client });
+        fileInfos.push({ data, name: `${name}.json` });
       }),
     );
     await Promise.all(
