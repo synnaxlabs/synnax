@@ -33,7 +33,7 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
-export const selectorListItem = Component.renderProp(
+const listItem = Component.renderProp(
   (props: List.ItemProps<workspace.Key>): ReactElement | null => {
     const { itemKey } = props;
     const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
@@ -73,7 +73,6 @@ export const Selector = (): ReactElement => {
     },
     [dispatch, getItem],
   );
-
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
@@ -103,7 +102,7 @@ export const Selector = (): ReactElement => {
                 placeholder={
                   <>
                     <Icon.Search key="search" />
-                    Search Workspaces
+                    Search workspaces
                   </>
                 }
                 contrast={0}
@@ -147,7 +146,7 @@ export const Selector = (): ReactElement => {
               </Button.Button>
             </Flex.Box>
             <List.Items bordered borderColor={6} grow>
-              {selectorListItem}
+              {listItem}
             </List.Items>
           </Cluster.NoneConnectedBoundary>
         </Dialog.Dialog>
