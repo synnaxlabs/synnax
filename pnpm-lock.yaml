@@ -345,6 +345,9 @@ importers:
       monaco-languageclient:
         specifier: ^9.11.0
         version: 9.11.0
+      pluralize:
+        specifier: ^8.0.0
+        version: 8.0.0
       proxy-memoize:
         specifier: 'catalog:'
         version: 2.0.3
@@ -394,6 +397,9 @@ importers:
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@types/pluralize':
+        specifier: ^0.0.33
+        version: 0.0.33
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.13
@@ -2886,6 +2892,9 @@ packages:
 
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
+
+  '@types/pluralize@0.0.33':
+    resolution: {integrity: sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg==}
 
   '@types/react-color@3.0.13':
     resolution: {integrity: sha512-2c/9FZ4ixC5T3JzN0LP5Cke2Mf0MKOP2Eh0NPDPWmuVH3NjPyhEjqNMQpN1Phr5m74egAy+p2lYNAFrX1z9Yrg==}
@@ -9968,6 +9977,8 @@ snapshots:
       undici-types: 7.11.0
 
   '@types/offscreencanvas@2019.7.3': {}
+
+  '@types/pluralize@0.0.33': {}
 
   '@types/react-color@3.0.13(@types/react@19.1.13)':
     dependencies:
