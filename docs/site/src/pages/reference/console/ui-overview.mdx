@@ -3,8 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "UI Overview"
 heading: "Console UI Overview"
 description: "Navigate the Synnax Console UI."
-prev: "Clusters"
-prevURL: "/reference/console/clusters"
+prev: "Cores"
+prevURL: "/reference/console/cores"
 next: "Channels"
 nextURL: "/reference/console/channels"
 ---
@@ -16,8 +16,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The Synnax Console provides a flexible environment to display and interact with data
-stored and streamed through a Synnax cluster. It's interface is designed around two main
-UI elements: the central layout mosaic and side toolbars.
+stored and streamed through a Synnax Core. It's interface is designed around two main UI
+elements: the central layout mosaic and side toolbars.
 
 The central mosaic displays visualizations such as line plots and schematics, while the
 toolbars exists to provide access to resources, data ranges, tasks, and visualization
@@ -29,89 +29,59 @@ controls.
 
 To kick things off, we'll walk you through each of the toolbars and their functionality.
 
-### <Icon.Resources /> Resources
+### <Icon.Channel /> Channels
 
-The resource toolbar displays a file tree with folders for channels, ranges, users, and
-workspaces.
-
-<Video client:only="react" id="console/ui-overview/resources-toolbar" />
-
-<Table>
-  <thead>
-    <tr>
-      <th>Resource</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>[Channels](/reference/concepts/channels)</td>
-      <td>All channels in the the Synnax cluster.</td>
-    </tr>
-    <tr>
-      <td>[Devices](/reference/device-drivers)</td>
-      <td>The list of devices that are connected to the cluster.</td>
-    </tr>
-    <tr>
-      <td>[Ranges](/reference/console/ranges)</td>
-      <td>Saved times that you can use when loading data to view.</td>
-    </tr>
-    <tr>
-      <td>[Tasks](/reference/device-drivers)</td>
-      {
-        <td>
-          The current data acquisition and controls tasks running on devices connected
-          to the cluster.
-        </td>
-      }
-    </tr>
-    <tr>
-      <td>[Users](/reference/console/users)</td>
-      {
-        <td>
-          A list of all users registered in the cluster. The workspaces created by the
-          users can be found underneath their name.
-        </td>
-      }
-    </tr>
-    <tr>
-      <td>[Workspaces](/reference/console/workspaces)</td>
-      {
-        <td>
-          All created workspaces in the cluster. This tree includes workspaces created
-          by all users.
-        </td>
-      }
-    </tr>
-  </tbody>
-</Table>
+The [Channels Toolbar](/reference/console/channels) allows you to create, view, and
+access the channels you're interested in visualizing.
 
 ### <Icon.Range /> Ranges
 
-The [range toolbar](/reference/console/ranges) allows you to create, view, and access
-the ranges you're interested in visualizing.
+The [Ranges Toolbar](/reference/console/ranges) allows you to create, view, and access
+ranges that you have favorited in the Console.
 
 <Video client:only="react" id="console/ui-overview/range-toolbar" />
 
+### <Icon.Workspace /> Workspaces
+
+The [Workspaces Toolbar](/reference/console/workspaces) allows you to create and view
+workspaces that have been made by users in your Synnax deployment.
+
+### <Icon.Device /> Devices
+
+The [Devices Toolbar](/reference/driver) allows you to view and track the health of the
+devices you're interested in visualizing.
+
 ### <Icon.Task /> Tasks
 
-The [task toolbar](/reference/device-drivers) allows you to view, pause, and resume the
-current tasks running on the cluster.
+The [Tasks Toolbar](/reference/driver) allows you to view, pause, and resume the current
+tasks running on a Driver.
 
 <Video client:only="react" id="console/ui-overview/task-toolbar" />
 
-### <Icon.Visualize /> Visualizations
+### <Icon.User /> Users
 
-The visualization toolbar allows you to edit the properties of
+The [Users Toolbar](/reference/console/users) allows you to view and change permissions
+for users in your Synnax deployment.
+
+### <Icon.Visualize /> Visualization
+
+The Visualization Toolbar allows you to edit the properties of
 [line plots](/reference/console/line-plots), [logs](/reference/console/logs),
 [schematics](/reference/console/schematics), and [tables](/reference/console/tables).
 
 <Video client:only="react" id="console/ui-overview/visualization-toolbar" />
 
-### <Icon.Cluster /> Clusters
+## Selectors
 
-The [cluster toolbar](/reference/console/clusters) allows you to switch the current
-cluster that you are connected to and add new clusters.
+### <Icon.Workspace /> Workspace
+
+The [Workspace Selector](/reference/console/workspaces) allows you to create and view
+workspaces that you have favorited in the Console.
+
+### <Icon.Cluster /> Core
+
+The [Core Selector](/reference/console/cores) allows you to switch the current Core that
+you are connected to and add new Cores.
 
 <Video client:only="react" id="console/ui-overview/cluster-toolbar" />
 
@@ -140,7 +110,7 @@ You can also have multiple visualizations displayed at the same time:
 
 {/* prettier-ignore-start */}
 
-The Synnax documentation website can be opened from within the console by clicking the
+The Synnax documentation website can be opened from within the Console by clicking the
 <Icon.QuestionMark /> icon.
 
 {/* prettier-ignore-end */}
@@ -153,8 +123,8 @@ The Synnax documentation website can be opened from within the console by clicki
 
 {/* prettier-ignore-start */}
 
-The search and command palette at the top can be used to search for resources or to
-activate commands. Searching for resouces can be done by searching or pressing
+The Search and Command Palette at the top can be used to search for resources or to
+activate commands. Searching for resources can be done by searching or pressing
 <Icon.Keyboard.Control /> +`P` (Windows) / <Icon.Keyboard.Command /> +`P` (macOS). As an
 example of searching for resources, you could search for a test range and then
 automatically add it as the active range:
@@ -165,7 +135,7 @@ automatically add it as the active range:
 
 {/* prettier-ignore-start */}
 
-The search and command palette can run commands by entering a `>` into the toolbar or by
+The Search and Command Palette can run commands by entering a `>` into the toolbar or by
 pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
 <Icon.Keyboard.Command />+<Icon.Keyboard.Shift /> +`P` (macOS). This allows you to run
 commands such as toggling the color theme, creating a visualization, adding a range, or

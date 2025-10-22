@@ -86,7 +86,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   ScannedNode[],
   PDevice.FluxSubStore
 >({
-  name: "OPC Node",
+  name: "OPC UA Node",
   retrieve: async ({
     client,
     store,

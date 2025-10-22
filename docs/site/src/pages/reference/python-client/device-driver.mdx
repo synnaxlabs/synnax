@@ -11,11 +11,11 @@ import Code from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
 export const components = { pre: Code };
 
-While our [pre-built drivers](/reference/device-drivers) are great for the devices we
-support, you may need (or want) to integrate your own devices with Synnax. This guide
-will walk you through the process of building a reliable, performant driver using the
-Synnax Python client. We'll use an Arduino as an example device, but the process is very
-similar for other devices.
+While the [Synnax Driver](/reference/driver) is great for the devices we support, you
+may need (or want) to integrate your own devices with Synnax. This guide will walk you
+through the process of building a reliable, performant driver using the Synnax Python
+client. We'll use an Arduino as an example device, but the process is very similar for
+other devices.
 
 ### Outline
 
@@ -30,7 +30,7 @@ We'll split this guide into four sections:
 
 ## <StepText step={1} level="h2">Setup and Installation</StepText>
 
-We'll kick things off by downloading the Arduino IDE, starting a Synnax cluster, and
+We'll kick things off by downloading the Arduino IDE, starting a Synnax Core, and
 installing the relevant Python packages to communicate with both the Arduino and Synnax.
 
 ### <StepText step="1.1" level="h3">Downloading the Arduino IDE</StepText>
@@ -57,15 +57,15 @@ Synnax.
 ### <StepText step="1.2" level="h3">Installing Synnax</StepText>
 
 There are two components we need to install to get started with Synnax: the
-[cluster](/reference/cluster/quick-start) and the
-[console](/reference/console/get-started). The cluster is the central Synnax database
-that streams and permanently stores all of the data we collect from the Arduino. The
-console is a graphical interface for interacting with the cluster. It can be used to
-both visualize incoming data and send commands to the Arduino.
+[Core](/reference/core/quick-start) and the [Console](/reference/console/get-started).
+The Core is the central Synnax database that streams and permanently stores all of the
+data we collect from the Arduino. The Console is a graphical interface for interacting
+with the Core. It can be used to both visualize incoming data and send commands to the
+Arduino.
 
-#### <StepText step="1.2.1" level="h4">The Cluster</StepText>
+#### <StepText step="1.2.1" level="h4">The Core</StepText>
 
-The easiest way to install the cluster is using
+The easiest way to install the Core is using
 [Docker](https://www.docker.com/get-started). To run the latest version, you can use the
 following command:
 
@@ -93,18 +93,18 @@ CONTAINER ID   IMAGE                      COMMAND                  CREATED      
 
 #### <StepText step="1.2.2" level="h4"> The Console</StepText>
 
-Now that we have the cluster running, it's time to download and run the
+Now that we have the Core running, it's time to download and run the
 [Synnax Console](https://docs.synnaxlabs.com/reference/console/get-started).
 
-Once you've downloaded the console, you can run it by finding the "Synnax" app in your
+Once you've downloaded the Console, you can run it by finding the "Synnax" app in your
 start menu or launch pad. After it boots up, you'll see a screen like this:
 
 <Image id="console/get-started/window" client:only="react" />
 
-The next step is to connect the console to the cluster we just started. To do this,
-navigate to the clusters dropdown in the bottom left corner of the console, and click on
-the pre-populated "Local" option. You'll see the chip on the bottom right corner switch
-to "connected" once the console has successfully connected to the cluster.
+The next step is to connect the Console to the Core we just started. To do this,
+navigate to the Core Selector in the top-right corner of the Console, and click on the
+pre-populated "Local" option. You'll see the chip switch to "Connected" once the Console
+has successfully connected to the Core.
 
 <Video client:only="react" id="console/clusters/switch" />
 
@@ -166,13 +166,13 @@ void loop() {
 
 This code will continuously read from the analog pin at 10Hz and send the value over
 serial. To start running the code, you can upload it to the Arduino by hitting the
-"upload" button in the top right corner of the Arduino IDE.
+"upload" button in the top-right corner of the Arduino IDE.
 
 ### <StepText step="2.2" level="h3">Setting up the Serial Connection in Python</StepText>
 
 In our `driver.py` script, we'll import the `serial` package and set up the serial
 connection to the Arduino. To do this, we'll need to know the port we're using to
-connect to the Arduino. You can find that in the top right corner of the Arduino IDE
+connect to the Arduino. You can find that in the top-right corner of the Arduino IDE
 when the Arduino is connected to your computer over USB. We'll also need the baud rate,
 which we set to 9600 in the Arduino code.
 
@@ -228,7 +228,7 @@ That's all we need to do for the Arduino, now it's time to integrate it with Syn
 
 ### <StepText step="2.4" level="h3">Setting up the Synnax Client</StepText>
 
-The next step to tackle is setting up the Synnax client to communicate with the cluster.
+The next step to tackle is setting up the Synnax client to communicate with the Core.
 First, we'll add an import for the `synnax` package at the top of our file:
 
 ```python
@@ -238,7 +238,7 @@ import serial
 # ... rest of driver.py
 ```
 
-Then, we'll create a `Client` instance to interact with the Synnax cluster.
+Then, we'll create a `Client` instance to interact with the Synnax Core.
 
 ```python
 # ..imports
@@ -397,7 +397,7 @@ with client.open_writer(
 While the script is still running, we can switch back to the Synnax Console and set up a
 line plot to visualize the incoming data. To do this, we'll:
 
-1. Hit the `+` button in the top right corner of the console's central mosaic.
+1. Hit the `+` button in the top-right corner of the Console's central mosaic.
 2. Select the "Line Plot" component.
 3. In visualization controls, choose the "Y1" axis and set the "Channel" to
    `arduino_value`.
@@ -515,7 +515,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
 
 And that's it! We've now successfully created a write-only driver that can receive
 commands from Synnax to control the digital output on the Arduino. We'll run our updated
-script before we move into setting up the console. Here's the entire `driver_write.py`
+script before we move into setting up the Console. Here's the entire `driver_write.py`
 script for reference:
 
 <Details>
@@ -555,18 +555,18 @@ with client.open_streamer(["arduino_command"]) as streamer:
 ### <StepText step="3.5" level="h3">Controlling the Arduino from the Console</StepText>
 
 Now that we've uploaded the arduino code and started the Python script, we'll set up the
-console with a switch on a [schematic](/reference/console/schematics) to control the
+Console with a switch on a [schematic](/reference/console/schematics) to control the
 digital output on the Arduino:
 
-1. Hit the `+` button in the top right corner of the console's central mosaic.
+1. Hit the `+` button in the top-right corner of the Console's central mosaic.
 2. Select the "Schematic" component.
 3. In the symbols library, we'll drag a switch onto the schematic.
 4. In the "Properties" section, we'll go to the "Telemetry" tab.
 5. We'll set both the "State" and "Command" channels to `arduino_command`.
-6. We'll acquire control by hitting the "Acquire" button in the bottom right corner of
-   the schematic.
+6. We'll acquire control by hitting the "Acquire" button in the top-right corner of the
+   schematic.
 7. We'll click the switch to turn the Arduino's LED on and off, and see the state
-   updated in the console.
+   updated in the Console.
 
 <Video
   client:only="react"
@@ -592,7 +592,7 @@ but we're actually doing nothing.
 
 The way to fix this is to create a new channel, called a **state channel** that will
 reflect the actual value of the switch. We'll then use this state channel to toggle the
-switch in the console.
+switch in the Console.
 
 In this section, we'll create a new driver that does three things:
 
@@ -725,7 +725,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
 
 And that's it! We've now successfully created a read-write driver that can both control
 the digital output on the Arduino and read the analog input. We'll run our updated
-script before we move into setting up the console. Here's the entire
+script before we move into setting up the Console. Here's the entire
 `driver_readwrite.py` script for reference:
 
 <Details>
@@ -800,7 +800,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
 
 ### <StepText step="4.4" level="h3">Controlling the Arduino from the Console</StepText>
 
-As a final step, we'll set up the console with both a switch to control the digital
+As a final step, we'll set up the Console with both a switch to control the digital
 output and a plot to visualize the analog input.
 
 <Video

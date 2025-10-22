@@ -108,17 +108,3 @@ export const trimPrefix = (str: string, prefix: string): string => {
   if (str.startsWith(prefix)) return str.slice(prefix.length);
   return str;
 };
-
-export const pluralName = (name: string): string => {
-  if (name.length === 0) return name;
-  if (name[name.length - 1] === "y") return `${name.slice(0, -1)}ies`;
-  if (
-    name[name.length - 1] === "s" ||
-    name[name.length - 1] === "x" ||
-    name[name.length - 1] === "z" ||
-    name.endsWith("ch") ||
-    name.endsWith("sh")
-  )
-    return `${name}es`;
-  return `${name}s`;
-};

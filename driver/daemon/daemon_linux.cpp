@@ -33,7 +33,7 @@ bool should_stop = false;
 
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
-Documentation=https://docs.synnaxlabs.com/
+Documentation=https://docs.synnaxlabs.com/reference/driver
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=60

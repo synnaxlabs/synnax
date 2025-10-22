@@ -27,22 +27,31 @@ export const ingest: Import.DirectoryIngestor = async (
 ) => {
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.migrateSlice(JSON.parse(layoutData.data));
+  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
   const wsKey = uuid.create();
   const wsName = name;
   const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
   const createdWs = await client?.workspaces.create(ws);
-  store.dispatch(Workspace.add(createdWs ?? ws));
+  store.dispatch(Workspace.setActive(createdWs ?? ws));
   store.dispatch(
     Layout.setWorkspace({
       slice: (createdWs?.layout as Layout.SliceState) ?? layout,
       keepNav: false,
     }),
   );
+
   Object.entries(layout.layouts).forEach(([key, layout]) => {
     const ingest = fileIngestors[layout.type];
     if (ingest == null) return;
-    const data = files.find((file) => file.name === `${key}.json`)?.data;
+    const data = files.find(
+      (file) =>
+        file.name === `${layout.name}.json` ||
+        file.name === `${key}.json` ||
+        (typeof file.data === "object" &&
+          file.data != null &&
+          (("key" in file.data && file.data.key === key) ||
+            ("name" in file.data && file.data.name === layout.name))),
+    )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
     ingest(data, { layout, placeLayout, store });
   });
@@ -79,10 +88,12 @@ export const import_ = ({
     if (name == null) throw new Error("Cannot read workspace");
     const files = await readDir(path);
     const fileData = await Promise.all(
-      files.map(async (file) => ({
-        name: file.name,
-        data: await readTextFile(await join(path, file.name)),
-      })),
+      files.map(
+        async (file): Promise<Import.File> => ({
+          name: file.name,
+          data: JSON.parse(await readTextFile(await join(path, file.name))),
+        }),
+      ),
     );
     await ingest(name, fileData, { client, fileIngestors, placeLayout, store });
   }, `Failed to import ${name}`);

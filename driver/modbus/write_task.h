@@ -198,7 +198,7 @@ struct WriteTaskConfig {
     }
 };
 
-/// @brief implements common::Sink to write to a modbus device.
+/// @brief implements common::Sink to write to a Modbus server.
 class WriteTaskSink final : public common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;

@@ -11,8 +11,8 @@ server, see the [architecture](../docs/tech/architecture.md) document.
 
 ## Getting Started
 
-To start a Synnax cluster, visit the
-[deployment](https://docs.synnaxlabs.com/reference/cluster/quick-start) section of the
+To start a Synnax Core, visit the
+[deployment](https://docs.synnaxlabs.com/reference/core/quick-start) section of the
 Synnax documentation.
 
 ## Contributing

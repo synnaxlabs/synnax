@@ -382,7 +382,7 @@ const ContextMenu = ({
         <>
           <PMenu.Item itemKey="edit">
             <Icon.Edit />
-            Edit Configuration
+            Edit configuration
           </PMenu.Item>
           <PMenu.Divider />
           <Menu.RenameItem />
@@ -406,7 +406,7 @@ const ContextMenu = ({
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

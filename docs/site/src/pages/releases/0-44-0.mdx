@@ -17,8 +17,8 @@ export const components = mdxOverrides;
 
 <Image client:only="react" id="releases/0-44-0/thumbnail" themed={false} />
 
-Synnax v0.44 introduces an embedded Console into the Synnax Cluster, which can be used
-in place of the desktop Console application.
+Synnax v0.44 introduces an embedded Console into the Synnax Core, which can be used in
+place of the desktop Console application.
 
 We've also improved the data export process by adding dedicated CSV export buttons to
 both ranges and line plots.
@@ -30,8 +30,8 @@ user experience improvements to Synnax.
 
 ### Embedded Console
 
-Every Synnax cluster now comes with an embedded, browser-based Console. After starting
-the cluster using the default port of `9090`, you can access the Console at
+Every Synnax Core now comes with an embedded, browser-based Console. After starting the
+Core using the default port of `9090`, you can access the Console at
 `http://localhost:9090`.
 
 All functionality of the desktop Console is available in the embedded Console, with the
@@ -80,9 +80,8 @@ values written to one or more channels.
 
 ##### Python
 
-In Python, simply call `read_latest` with the channels and the number of values you want
-to read. Additional documentation can be found
-[here](/reference/python-client/read-data).
+In Python, simply [call `read_latest`](/reference/python-client/read-data) with the
+channels and the number of values you want to read.
 
 ```python
 import synnax as sy
@@ -98,8 +97,9 @@ print(client.read_latest(["daq_time", "ox_pt_1"], 1))
 
 ##### TypeScript
 
-The TypeScript client has a `readLatest` method that works in the same way. Additional
-documentation can be found [here](/reference/typescript-client/read-data).
+The TypeScript client has a
+[`readLatest` method](/reference/typescript-client/read-data) that works in the same
+way.
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -117,12 +117,12 @@ console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
 
 ### Minor Improvements and Bug Fixes
 
-- Added status indicators for devices and drivers to selection dialogs.
+- Added status indicators for devices and Drivers to selection dialogs.
 - Made a number of updates to real-time data fetching infrastructure, improving the
-  reactivity and performance of the console.
+  reactivity and performance of the Console.
 - Added `Command + W` and `Control + W` keyboard shortcuts to close modals, and added a
-  press and hold delay to close the application on MacOS.
-- Fixed an issue where the Palette would not properly switch between command and search
+  press and hold delay to close the application on macOS.
+- Fixed an issue where the Palette would not properly switch between search and command
   modes when closed and re-opened.
 - Added drag and drop importing and exporting of tasks.
 

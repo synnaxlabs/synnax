@@ -15,8 +15,8 @@ import { Import } from "@/import";
 
 export const ingestRead = Common.Task.createIngestor(readConfigZ, READ_LAYOUT);
 
-export const importRead = Import.createImporter(ingestRead, "LabJack read task");
+export const importRead = Import.createImporter(ingestRead, "LabJack Read Task");
 
 export const ingestWrite = Common.Task.createIngestor(writeConfigZ, WRITE_LAYOUT);
 
-export const importWrite = Import.createImporter(ingestWrite, "LabJack write task");
+export const importWrite = Import.createImporter(ingestWrite, "LabJack Write Task");

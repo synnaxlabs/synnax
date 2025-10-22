@@ -15,8 +15,8 @@ import { Import } from "@/import";
 
 export const ingestRead = Common.Task.createIngestor(readConfigZ, READ_LAYOUT);
 
-export const importRead = Import.createImporter(ingestRead, "Modbus read task");
+export const importRead = Import.createImporter(ingestRead, "Modbus Read Task");
 
 export const ingestWrite = Common.Task.createIngestor(writeConfigZ, WRITE_LAYOUT);
 
-export const importWrite = Import.createImporter(ingestWrite, "Modbus write task");
+export const importWrite = Import.createImporter(ingestWrite, "Modbus Write Task");

@@ -24,9 +24,7 @@ import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
-type ContextValue = core.Client;
-
-const Context = createContext<ContextValue | null>(null);
+const Context = createContext<core.Client | null>(null);
 
 export const useStore = <ScopedStore extends flux.Store>(
   scope?: string,
@@ -56,7 +54,7 @@ export const Provider = <ScopedStore extends flux.Store>({
   });
   const initializeClient = () => {
     if ("client" in cfg) return cfg.client;
-    return new core.Client<ScopedStore>({
+    return new core.Client({
       client: synnaxClient,
       storeConfig: cfg.storeConfig,
       handleError,

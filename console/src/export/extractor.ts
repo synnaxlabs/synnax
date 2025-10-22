@@ -15,7 +15,7 @@ export interface ExtractorContext {
   store: Store;
 }
 
-export interface FileInfo {
+export interface File {
   data: string;
   name: string;
 }
@@ -25,7 +25,7 @@ export interface FileInfo {
 // service that needs to export data. The file info can then be stored in a file system
 // and imported again using the importer interface.
 export interface Extractor {
-  (key: string, ctx: ExtractorContext): Promise<FileInfo>;
+  (key: string, ctx: ExtractorContext): Promise<File>;
 }
 
 export interface Extractors extends Record<string, Extractor> {}

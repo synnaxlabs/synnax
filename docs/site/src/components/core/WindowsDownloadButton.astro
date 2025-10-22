@@ -1,0 +1,12 @@
+---
+import { Button, Icon } from "@synnaxlabs/pluto";
+import { fetchVersion } from "@/util/fetchVersion";
+
+const version = await fetchVersion();
+const url = `https://github.com/synnaxlabs/synnax/releases/download/synnax-v${version}/synnax-setup-v${version}.exe`;
+---
+
+<Button.Button href={url} size="large" variant="filled">
+    <Icon.Download />
+    Download Synnax v{version} for Windows
+</Button.Button>

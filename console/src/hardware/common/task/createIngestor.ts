@@ -14,7 +14,7 @@ import { type Import } from "@/import";
 
 export const createIngestor =
   (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngestor =>
-  (data: string, { layout, placeLayout }) => {
-    const config = configSchema.parse(JSON.parse(data));
+  (data: unknown, { layout, placeLayout }) => {
+    const config = configSchema.parse(data);
     placeLayout({ ...zeroLayout, ...layout, key: layout.key, args: { config } });
   };

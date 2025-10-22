@@ -57,6 +57,7 @@ const SideEffect = (): null => {
   Channel.useListenForCalculationStatus();
   Range.useListenForChanges();
   Workspace.useSyncLayout();
+  Workspace.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();

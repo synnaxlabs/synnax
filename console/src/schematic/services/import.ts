@@ -13,7 +13,7 @@ import { selectHasPermission } from "@/schematic/selectors";
 import { anyStateZ } from "@/schematic/slice";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout, store }) => {
-  const state = anyStateZ.parse(JSON.parse(data));
+  const state = anyStateZ.parse(data);
   const canCreate = selectHasPermission(store.getState());
   if (!canCreate)
     throw new Error(
