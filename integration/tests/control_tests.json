@@ -10,7 +10,7 @@
         },
         {
           "case": "client/setpoint_press_auto",
-          "parameters": {"control_authority": 150}
+          "parameters": { "control_authority": 150 }
         },
         {
           "case": "client/sim_daq"
