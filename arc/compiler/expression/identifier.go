@@ -39,7 +39,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return types.Type{}, err
 		}
-		return *scope.Type.ValueType, nil
+		return scope.Type.Unwrap(), nil
 	default:
 		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
 	}

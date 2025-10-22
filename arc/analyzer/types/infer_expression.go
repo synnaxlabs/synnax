@@ -75,15 +75,9 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 		return types.Type{}
 	}
 	if len(multiplicatives) > 1 {
-		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
-		if firstType.Kind == types.KindChan && firstType.ValueType != nil {
-			firstType = *firstType.ValueType
-		}
+		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0])).Unwrap()
 		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
-			if nextType.Kind == types.KindChan && nextType.ValueType != nil {
-				nextType = *nextType.ValueType
-			}
+			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i])).Unwrap()
 			if !Compatible(firstType, nextType) {
 				return firstType
 			}
@@ -99,15 +93,9 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 		return types.Type{}
 	}
 	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0]))
-		if firstType.Kind == types.KindChan && firstType.ValueType != nil {
-			firstType = *firstType.ValueType
-		}
+		firstType := InferPower(context.Child(ctx, powers[0])).Unwrap()
 		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i]))
-			if nextType.Kind == types.KindChan && nextType.ValueType != nil {
-				nextType = *nextType.ValueType
-			}
+			nextType := InferPower(context.Child(ctx, powers[i])).Unwrap()
 			if !Compatible(firstType, nextType) {
 				ctx.TypeMap[ctx.AST] = firstType
 				return firstType
@@ -135,9 +123,7 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
 			if chanScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
-				if chanScope.Type.Kind == types.KindChan {
-					return *chanScope.Type.ValueType
-				}
+				return chanScope.Type.Unwrap()
 			}
 		}
 		return types.Type{}

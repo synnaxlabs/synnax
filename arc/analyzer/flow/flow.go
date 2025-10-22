@@ -84,16 +84,17 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		}
 		if fnType.Type.Inputs.Count() > 0 {
 			_, paramType := fnType.Type.Inputs.At(0)
-			if channelSym.Type.Kind != types.KindChan || channelSym.Type.ValueType == nil {
+			if channelSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"%s is not a valid channel",
 					channelName,
 				), ctx.AST)
 				return false
 			}
+			chanValueType := channelSym.Type.Unwrap()
 			if err = atypes.Check(
 				ctx.Constraints,
-				*channelSym.Type.ValueType,
+				chanValueType,
 				paramType,
 				ctx.AST,
 				"channel to func parameter connection",
@@ -101,7 +102,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				ctx.Diagnostics.AddError(errors.Newf(
 					"channel %s value type %s does not match func %s parameter type %s",
 					channelName,
-					channelSym.Type.ValueType,
+					chanValueType,
 					name,
 					paramType,
 				), ctx.AST)
@@ -109,10 +110,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
-		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
-		if exprType.Kind == types.KindChan && exprType.ValueType != nil {
-			exprType = *exprType.ValueType
-		}
+		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap()
 		if fnType.Type.Inputs.Count() > 0 {
 			_, paramType := fnType.Type.Inputs.At(0)
 			if err := atypes.Check(
@@ -560,11 +558,11 @@ func analyzeRoutingTargetWithParam(
 			return false
 		}
 
-		valueType := channelSym.Type.ValueType
+		valueType := channelSym.Type.Unwrap()
 		if err = atypes.Check(
 			ctx.Constraints,
 			sourceType,
-			*valueType,
+			valueType,
 			ctx.AST,
 			"routing table output to channel",
 		); err != nil {

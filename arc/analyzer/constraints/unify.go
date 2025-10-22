@@ -17,11 +17,49 @@ import (
 )
 
 func (s *System) Unify() error {
-	for _, c := range s.constraints {
-		if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
-			return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
+	const maxIterations = 100 // Prevent infinite loops
+
+	// Fixpoint iteration: repeat until no changes occur
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		changed := false
+
+		// Snapshot current substitutions to detect modifications
+		previousSubs := make(map[string]types.Type)
+		for k, v := range s.substitutions {
+			previousSubs[k] = v
+		}
+
+		// Process all constraints
+		for _, c := range s.constraints {
+			if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
+				return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
+			}
+		}
+
+		// Check if any substitutions were added or modified
+		if len(s.substitutions) != len(previousSubs) {
+			changed = true
+		} else {
+			for k, newVal := range s.substitutions {
+				if oldVal, exists := previousSubs[k]; !exists || !types.Equal(oldVal, newVal) {
+					changed = true
+					break
+				}
+			}
+		}
+
+		// If no changes occurred, we've reached a fixpoint
+		if !changed {
+			break
+		}
+
+		// Safety check for infinite loops
+		if iteration == maxIterations-1 {
+			return errors.Newf("type unification did not converge after %d iterations (possible constraint conflict)", maxIterations)
 		}
 	}
+
+	// Resolve remaining unresolved type variables with defaults
 	for name, tv := range s.typeVars {
 		if _, resolved := s.substitutions[name]; !resolved {
 			if tv.Constraint != nil {
@@ -39,11 +77,8 @@ func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
 }
 
 func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, visiting map[string]bool) error {
-	t1 = s.ApplySubstitutions(t1)
-	t2 = s.ApplySubstitutions(t2)
-	if types.Equal(t1, t2) {
-		return nil
-	}
+	// Check for type variables BEFORE applying substitutions
+	// This preserves the original type variable for updating
 	if t1.Kind == types.KindTypeVariable {
 		if visiting[t1.Name] {
 			return nil
@@ -63,9 +98,16 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 		return err
 	}
 
+	// Now apply substitutions for non-type-variable types
+	t1 = s.ApplySubstitutions(t1)
+	t2 = s.ApplySubstitutions(t2)
+	if types.Equal(t1, t2) {
+		return nil
+	}
+
 	if t1.Kind == types.KindChan || t1.Kind == types.KindSeries {
 		if t2.Kind == types.KindChan || t2.Kind == types.KindSeries {
-			return s.unifyTypesWithVisited(*t1.ValueType, *t2.ValueType, source, visiting)
+			return s.unifyTypesWithVisited(t1.Unwrap(), t2.Unwrap(), source, visiting)
 		}
 		return errors.Newf("cannot unify channel %v with %v", t1, t2)
 	}
@@ -80,6 +122,15 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, source Constraint, visiting map[string]bool) error {
 	if existing, exists := s.substitutions[tv.Name]; exists {
+		// Type variable already has a substitution
+		// If we're in a compatible context with numeric types, we may need to promote
+		if source.Kind == KindCompatible && existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
+			// Compute the promoted type
+			promoted := promoteNumericTypes(existing, other)
+			// Always update to promoted type (even if same as existing)
+			s.substitutions[tv.Name] = promoted
+			return s.unifyTypesWithVisited(promoted, other, source, visiting)
+		}
 		return s.unifyTypesWithVisited(existing, other, source, visiting)
 	}
 
@@ -101,10 +152,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 	}
 
 	// Unwrap channels to their value type for compatibility checking
-	checkType := other
-	if checkType.Kind == types.KindChan && checkType.ValueType != nil {
-		checkType = *checkType.ValueType
-	}
+	checkType := other.Unwrap()
 
 	if tv.Constraint == nil {
 		if occursIn(tv, other) {
@@ -115,8 +163,9 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
 		}
 	} else if tv.Constraint.Kind == types.KindIntegerConstant {
-		// Integer constraint: accepts any integer type
-		if !checkType.IsInteger() && !checkType.IsFloat() {
+		// Integer constraint: accepts any numeric type (for literal coercion)
+		// Integer literals can be coerced to floats: `x f32 := 42` is valid
+		if !checkType.IsNumeric() {
 			return errors.Newf("type %v does not satisfy integer constraint", other)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
@@ -163,7 +212,7 @@ func occursIn(lhs, rhs types.Type) bool {
 		return lhs.Name == rhs.Name
 	}
 	if rhs.Kind == types.KindChan || rhs.Kind == types.KindSeries {
-		return occursIn(lhs, *rhs.ValueType)
+		return occursIn(lhs, rhs.Unwrap())
 	}
 	return false
 }
@@ -179,6 +228,44 @@ func defaultTypeForConstraint(constraint types.Type) types.Type {
 	default:
 		return constraint
 	}
+}
+
+// promoteNumericTypes returns the promoted type when unifying two numeric types
+// Implements the promotion rules from promotion_test.go:
+// Rule 1: Float promotion (if either is float)
+// Rule 2: 64-bit integer promotion (if either is 64-bit)
+// Rule 3: 32-bit promotion (for smaller types)
+func promoteNumericTypes(t1, t2 types.Type) types.Type {
+	// Rule 1: Float Promotion
+	if t1.IsFloat() || t2.IsFloat() {
+		if t1.Is64Bit() || t2.Is64Bit() {
+			return types.F64()
+		}
+		return types.F32()
+	}
+
+	// Rule 2: 64-bit Integer Promotion
+	if t1.Is64Bit() || t2.Is64Bit() {
+		// Mixed signedness at 64-bit promotes to F64
+		if t1.IsSignedInteger() != t2.IsSignedInteger() {
+			return types.F64()
+		}
+		// Both unsigned 64-bit
+		if t1.IsUnsignedInteger() && t2.IsUnsignedInteger() {
+			return types.U64()
+		}
+		// Different widths with signed
+		if t1.IsSignedInteger() || t2.IsSignedInteger() {
+			return types.F64()
+		}
+	}
+
+	// Rule 3: 32-bit and Smaller Integer Promotion
+	// Mixed signedness at 32-bit or below
+	if t1.IsSignedInteger() || t2.IsSignedInteger() {
+		return types.I32()
+	}
+	return types.U32()
 }
 
 func (s *System) String() string {

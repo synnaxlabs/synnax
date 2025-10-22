@@ -15,15 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// unwrapChannelType unwraps channel types to their value types
-// This mirrors the analyzer's behavior and ensures type hints work correctly
-func unwrapChannelType(t types.Type) types.Type {
-	if t.Kind == types.KindChan && t.ValueType != nil {
-		return *t.ValueType
-	}
-	return t
-}
-
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
@@ -33,7 +24,7 @@ func compileBinaryAdditive(
 		return types.Type{}, err
 	}
 	// Unwrap channel types to use as hint for subsequent operands
-	hintType := unwrapChannelType(resultType)
+	hintType := resultType.Unwrap()
 	for i := 1; i < len(muls); i++ {
 		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(hintType))
 		if err != nil {
@@ -63,7 +54,7 @@ func compileBinaryMultiplicative(
 		return types.Type{}, err
 	}
 	// Unwrap channel types to use as hint for subsequent operands
-	hintType := unwrapChannelType(resultType)
+	hintType := resultType.Unwrap()
 
 	// Compile remaining operands with the first operand's type as hint
 	for i := 1; i < len(pows); i++ {
@@ -94,7 +85,7 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 		return types.Type{}, err
 	}
 	// Unwrap channel types for comparison operations
-	hintType := unwrapChannelType(leftType)
+	hintType := leftType.Unwrap()
 	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(hintType))
 	if err != nil {
 		return types.Type{}, err
@@ -122,7 +113,7 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 		return types.Type{}, err
 	}
 	// Unwrap channel types for equality operations
-	hintType := unwrapChannelType(leftType)
+	hintType := leftType.Unwrap()
 	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(hintType))
 	if err != nil {
 		return types.Type{}, err

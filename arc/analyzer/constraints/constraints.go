@@ -80,11 +80,8 @@ func (s *System) recordTypeVars(toRecord ...types.Type) {
 				s.typeVars[t.Name] = t
 			}
 		}
-		if t.Kind == types.KindChan && t.ValueType != nil {
-			s.recordTypeVars(*t.ValueType)
-		}
-		if t.Kind == types.KindSeries && t.ValueType != nil {
-			s.recordTypeVars(*t.ValueType)
+		if t.Kind == types.KindChan || t.Kind == types.KindSeries {
+			s.recordTypeVars(t.Unwrap())
 		}
 	}
 }
@@ -128,7 +125,7 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 		return t
 	}
 	if t.Kind == types.KindChan || t.Kind == types.KindSeries {
-		freshValue := s.applySubstitutionsWithVisited(*t.ValueType, visited)
+		freshValue := s.applySubstitutionsWithVisited(t.Unwrap(), visited)
 		if t.Kind == types.KindChan {
 			return types.Chan(freshValue)
 		}

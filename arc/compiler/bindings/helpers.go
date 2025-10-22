@@ -172,15 +172,17 @@ func getTypeSuffix(t types.Type) string {
 	case types.KindTimeStamp, types.KindTimeSpan:
 		return "i64"
 	case types.KindSeries:
-		if t.ValueType != nil {
-			return getTypeSuffix(*t.ValueType)
+		unwrapped := t.Unwrap()
+		if unwrapped.Kind != types.KindSeries {
+			return getTypeSuffix(unwrapped)
 		}
-		return "i32"
+		return "i32" // Fallback for malformed series with nil ValueType
 	case types.KindChan:
-		if t.ValueType != nil {
-			return getTypeSuffix(*t.ValueType)
+		unwrapped := t.Unwrap()
+		if unwrapped.Kind != types.KindChan {
+			return getTypeSuffix(unwrapped)
 		}
-		return "i32"
+		return "i32" // Fallback for malformed channel with nil ValueType
 	default:
 		return "i32"
 	}

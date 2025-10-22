@@ -296,6 +296,99 @@ var _ = Describe("Type Unification", func() {
 			})
 		})
 
+		Describe("Order Independence (Fixpoint Iteration)", func() {
+			It("should produce same result regardless of constraint order", func() {
+				// Test case: A = B, B = C, C = f32
+				// Order 1: forward (A→B→C→f32)
+				system1 := constraints.New()
+				tv1a := types.NewTypeVariable("A", nil)
+				tv1b := types.NewTypeVariable("B", nil)
+				tv1c := types.NewTypeVariable("C", nil)
+				system1.AddEquality(tv1a, tv1b, nil, "A = B")
+				system1.AddEquality(tv1b, tv1c, nil, "B = C")
+				system1.AddEquality(tv1c, types.F32(), nil, "C = f32")
+				Expect(system1.Unify()).To(Succeed())
+
+				// Order 2: reverse (f32→C→B→A)
+				system2 := constraints.New()
+				tv2a := types.NewTypeVariable("A", nil)
+				tv2b := types.NewTypeVariable("B", nil)
+				tv2c := types.NewTypeVariable("C", nil)
+				system2.AddEquality(tv2c, types.F32(), nil, "C = f32")
+				system2.AddEquality(tv2b, tv2c, nil, "B = C")
+				system2.AddEquality(tv2a, tv2b, nil, "A = B")
+				Expect(system2.Unify()).To(Succeed())
+
+				// Order 3: middle-out (B→C→f32, then A→B)
+				system3 := constraints.New()
+				tv3a := types.NewTypeVariable("A", nil)
+				tv3b := types.NewTypeVariable("B", nil)
+				tv3c := types.NewTypeVariable("C", nil)
+				system3.AddEquality(tv3b, tv3c, nil, "B = C")
+				system3.AddEquality(tv3c, types.F32(), nil, "C = f32")
+				system3.AddEquality(tv3a, tv3b, nil, "A = B")
+				Expect(system3.Unify()).To(Succeed())
+
+				// All should resolve to f32
+				Expect(system1.ApplySubstitutions(tv1a)).To(Equal(types.F32()))
+				Expect(system2.ApplySubstitutions(tv2a)).To(Equal(types.F32()))
+				Expect(system3.ApplySubstitutions(tv3a)).To(Equal(types.F32()))
+			})
+
+			It("should handle circular constraints without concrete type", func() {
+				// A = B, B = C, C = A (no concrete type)
+				constraint := types.NumericConstraint()
+				tv1 := types.NewTypeVariable("A", &constraint)
+				tv2 := types.NewTypeVariable("B", &constraint)
+				tv3 := types.NewTypeVariable("C", &constraint)
+				system.AddEquality(tv1, tv2, nil, "A = B")
+				system.AddEquality(tv2, tv3, nil, "B = C")
+				system.AddEquality(tv3, tv1, nil, "C = A")
+				Expect(system.Unify()).To(Succeed())
+				// Should default to f64 since all have numeric constraint
+				Expect(system.ApplySubstitutions(tv1)).To(Equal(types.F64()))
+			})
+
+			It("should handle complex graph with multiple constraint paths", func() {
+				// Graph: T1 = T2, T2 = T3, T1 = f32, T3 = T4
+				// Multiple paths to same conclusion
+				tv1 := types.NewTypeVariable("T1", nil)
+				tv2 := types.NewTypeVariable("T2", nil)
+				tv3 := types.NewTypeVariable("T3", nil)
+				tv4 := types.NewTypeVariable("T4", nil)
+				system.AddEquality(tv1, tv2, nil, "T1 = T2")
+				system.AddEquality(tv2, tv3, nil, "T2 = T3")
+				system.AddEquality(tv1, types.F32(), nil, "T1 = f32")
+				system.AddEquality(tv3, tv4, nil, "T3 = T4")
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(tv4)).To(Equal(types.F32()))
+			})
+
+			It("should detect constraint ordering bugs with compatible constraints", func() {
+				// Order shouldn't matter: T ~ i32, T ~ f32 should work
+				constraint := types.NumericConstraint()
+
+				// Order 1: i32 first
+				system1 := constraints.New()
+				tv1 := types.NewTypeVariable("T", &constraint)
+				system1.AddCompatible(tv1, types.I32(), nil, "T ~ i32")
+				system1.AddCompatible(tv1, types.F32(), nil, "T ~ f32")
+				Expect(system1.Unify()).To(Succeed())
+
+				// Order 2: f32 first
+				system2 := constraints.New()
+				tv2 := types.NewTypeVariable("T", &constraint)
+				system2.AddCompatible(tv2, types.F32(), nil, "T ~ f32")
+				system2.AddCompatible(tv2, types.I32(), nil, "T ~ i32")
+				Expect(system2.Unify()).To(Succeed())
+
+				// Both should resolve to f32 (float promotion)
+				result1 := MustBeOk(system1.GetSubstitution("T"))
+				result2 := MustBeOk(system2.GetSubstitution("T"))
+				Expect(result1).To(Equal(result2), "Results should be identical regardless of order")
+			})
+		})
+
 		Describe("Complex Scenarios", func() {
 			It("should handle multiple interconnected type variables", func() {
 				// sensor -> multiply{factor: 2.0} -> add{a, b} <- constant{}

@@ -34,7 +34,7 @@ func freshTypeWithMap(t types.Type, prefix string, mapping map[string]types.Type
 		return freshVar
 	}
 	if t.Kind == types.KindChan || t.Kind == types.KindSeries {
-		ft := freshTypeWithMap(*t.ValueType, prefix, mapping)
+		ft := freshTypeWithMap(t.Unwrap(), prefix, mapping)
 		return types.Type{Kind: t.Kind, ValueType: &ft}
 	}
 	if t.Kind == types.KindFunction {

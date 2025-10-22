@@ -133,12 +133,8 @@ func Compatible(
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
 	}
-	if t1.Kind == types.KindChan && t1.ValueType != nil {
-		t1 = *t1.ValueType
-	}
-	if t2.Kind == types.KindChan && t2.ValueType != nil {
-		t2 = *t2.ValueType
-	}
+	t1 = t1.Unwrap()
+	t2 = t2.Unwrap()
 	return t1.String() == t2.String()
 }
 
@@ -149,12 +145,8 @@ func LiteralAssignmentCompatible(
 		return false
 	}
 	// Unwrap channels to their value type, just like Compatible does
-	if variableType.Kind == types.KindChan && variableType.ValueType != nil {
-		variableType = *variableType.ValueType
-	}
-	if literalType.Kind == types.KindChan && literalType.ValueType != nil {
-		literalType = *literalType.ValueType
-	}
+	variableType = variableType.Unwrap()
+	literalType = literalType.Unwrap()
 	if variableType.String() == literalType.String() {
 		return true
 	}

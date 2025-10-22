@@ -94,13 +94,6 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func unwrapChannel(t basetypes.Type) basetypes.Type {
-	if t.Kind == basetypes.KindChan && t.ValueType != nil {
-		return *t.ValueType
-	}
-	return t
-}
-
 func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
@@ -111,7 +104,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	if len(items) <= 1 {
 		return true
 	}
-	firstType := unwrapChannel(infer(context.Child(ctx, items[0])))
+	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
 	// If first type is a type variable, we can't check it yet - will be validated during unification
@@ -124,7 +117,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	}
 
 	for i := 1; i < len(items); i++ {
-		nextType := unwrapChannel(infer(context.Child(ctx, items[i]).WithTypeHint(firstType)))
+		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
 		// If either type is a type variable, add a constraint instead of checking directly
 		if firstType.Kind == basetypes.KindTypeVariable || nextType.Kind == basetypes.KindTypeVariable {

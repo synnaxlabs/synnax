@@ -28,17 +28,13 @@ func Check(
 	}
 	if t1.Kind == types.KindChan {
 		if t2.Kind == types.KindChan {
-			if t1.ValueType != nil && t2.ValueType != nil {
-				return Check(cs, *t1.ValueType, *t2.ValueType, source, reason+" (channel value types)")
-			}
+			return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (channel value types)")
 		}
 		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
 	}
 	if t1.Kind == types.KindSeries {
 		if t2.Kind == types.KindSeries {
-			if t1.ValueType != nil && t2.ValueType != nil {
-				return Check(cs, *t1.ValueType, *t2.ValueType, source, reason+" (series element types)")
-			}
+			return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (series element types)")
 		}
 		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
 	}

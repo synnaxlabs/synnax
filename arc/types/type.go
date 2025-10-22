@@ -243,6 +243,15 @@ func (t Type) IsBool() bool {
 	return t.Kind == KindU8
 }
 
+// Unwrap returns the value type of chan/series types, or the type itself otherwise.
+// This eliminates the need for repeated unwrapping logic throughout the codebase.
+func (t Type) Unwrap() Type {
+	if (t.Kind == KindChan || t.Kind == KindSeries) && t.ValueType != nil {
+		return *t.ValueType
+	}
+	return t
+}
+
 func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 
 func Equal(t Type, v Type) bool {

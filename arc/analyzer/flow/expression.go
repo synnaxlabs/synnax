@@ -21,10 +21,7 @@ import (
 
 // analyzeExpression converts an inline expression into a synthetic fn
 func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
-	exprType := atypes.InferFromExpression(ctx)
-	if exprType.Kind == types.KindChan {
-		exprType = *exprType.ValueType
-	}
+	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs.Put(ir.DefaultOutputParam, exprType)
 	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{

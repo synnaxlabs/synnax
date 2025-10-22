@@ -168,7 +168,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 				_, err := childCtx.Scope.Add(ctx, symbol.Symbol{
 					Name: name,
 					Kind: symbol.KindChannel,
-					Type: *chanType.ValueType,
+					Type: chanType.Unwrap(),
 					AST:  ctx.AST,
 				})
 				if err != nil {
@@ -431,19 +431,20 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	}
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
-	if exprType.IsValid() && channelSym.Type.ValueType != nil {
+	if exprType.IsValid() {
+		chanValueType := channelSym.Type.Unwrap()
 		// If either type is a type variable, add a constraint instead of checking directly
-		if exprType.Kind == types.KindTypeVariable || channelSym.Type.ValueType.Kind == types.KindTypeVariable {
-			if err := atypes.Check(ctx.Constraints, *channelSym.Type.ValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
+		if exprType.Kind == types.KindTypeVariable || chanValueType.Kind == types.KindTypeVariable {
+			if err := atypes.Check(ctx.Constraints, chanValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
 			}
-		} else if !atypes.Compatible(*channelSym.Type.ValueType, exprType) {
+		} else if !atypes.Compatible(chanValueType, exprType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf(
 					"type mismatch: cannot write %s to channel of type %s",
 					exprType,
-					channelSym.Type.ValueType,
+					chanValueType,
 				),
 				ctx.AST,
 			)
