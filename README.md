@@ -60,5 +60,5 @@ monorepo. The following is a summary of each:
 
 # Attributions
 
-The Synnax core uses [Pebble](https://github.com/cockroachdb/pebble), and usage must
+The Synnax Core uses [Pebble](https://github.com/cockroachdb/pebble), and usage must
 follow their provided [disclaimer](licenses/BSD-3-Clause.txt).

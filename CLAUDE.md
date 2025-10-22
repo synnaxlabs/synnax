@@ -30,7 +30,7 @@ telemetry systems. The monorepo includes:
 
 ### Build Tools
 
-- **PNPM** for TypeScript packages
+- **pnpm** for TypeScript packages
 - **Turbo** for build orchestration
 - **Go workspace** for Go modules
 - **Poetry** for Python packages
