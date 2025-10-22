@@ -654,14 +654,14 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Run the driver for long periods with minimal memory leakage.
+- [ ] Run the Driver for long periods with minimal memory leakage.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices (e.g., analog read on an analog output device).
   - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
   - [ ] Device disconnection during a running task.
-- [ ] Shut down the server (`Ctrl + C`) without errors from the driver routine.
+- [ ] Shut down the Core (`Ctrl + C`) without errors from the Driver routine.
 
 ### Control Sequences
 
