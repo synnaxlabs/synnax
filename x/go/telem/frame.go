@@ -457,13 +457,13 @@ func notContains[T comparable](s []T, e T) bool {
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
 // returning a shallow copy of the filtered frame.
 func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
+	if len(keys) == 0 {
+		return f
+	}
 	return f.filter(keys, notContains)
 }
 
 func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
-	if len(keys) == 0 {
-		return f
-	}
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
