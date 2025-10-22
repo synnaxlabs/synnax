@@ -768,10 +768,6 @@ class TestCase(ABC):
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self.STATUS = STATUS.PENDING
 
-            self.teardown()
-
-            # PASSED set in _check_expectation()
-
         except Exception as e:
             if is_websocket_error(e):
                 pass
@@ -779,6 +775,7 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
+            self.teardown()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()

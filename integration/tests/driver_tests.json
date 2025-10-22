@@ -1,0 +1,16 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Driver Tests - OPC UA",
+      "tests": [
+        {
+          "case": "driver/opc_ua_basic"
+        },
+        {
+          "case": "driver/opc_ua_basic"
+        }
+      ]
+    }
+  ]
+}
