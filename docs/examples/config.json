@@ -1,7 +1,0 @@
-{
-  "listen": "localhost:9092",
-  "mem": true,
-  "insecure": true,
-  "username": "admin",
-  "password": "admin"
-}

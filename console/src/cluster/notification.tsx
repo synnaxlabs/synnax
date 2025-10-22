@@ -25,10 +25,10 @@ export const versionOutdatedAdapter: Notifications.Adapter<
         key="update"
         variant="outlined"
         size="small"
-        href="https://docs.synnaxlabs.com/reference/cluster/quick-start"
+        href="https://docs.synnaxlabs.com/reference/core/quick-start"
         target="_blank"
       >
-        Update Cluster
+        Update Core
       </Button.Button>,
     ];
   else nextStatus.actions = [<Version.OpenUpdateDialogAction key="update" />];

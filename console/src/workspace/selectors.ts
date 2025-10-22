@@ -10,33 +10,24 @@
 import { type workspace } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
-import { SLICE_NAME, type SliceState, type StoreState } from "@/workspace/slice";
+import { SLICE_NAME, type StoreState } from "@/workspace/slice";
+import { type SliceState, type Workspace } from "@/workspace/types";
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectActiveKey = (state: StoreState): string | null =>
+export const selectActive = (state: StoreState): Workspace | null =>
   selectState(state).active;
 
-export const useSelectActiveKey = (): string | null =>
+export const useSelectActive = (): Workspace | null => useMemoSelect(selectActive, []);
+
+export const selectActiveKey = (state: StoreState): workspace.Key | null =>
+  selectState(state).active?.key ?? null;
+
+export const useSelectActiveKey = (): workspace.Key | null =>
   useMemoSelect(selectActiveKey, []);
 
-export const selectActive = (state: StoreState): workspace.Workspace | null => {
-  const activeKey = selectActiveKey(state);
-  if (activeKey == null) return null;
-  return selectState(state).workspaces[activeKey];
-};
-
-export const useSelectActive = (): workspace.Workspace | null =>
-  useMemoSelect(selectActive, []);
-
-export const select = (state: StoreState, key: string): workspace.Workspace | null =>
-  selectState(state).workspaces[key];
-
-export const useSelect = (key: string): workspace.Workspace | null =>
-  useMemoSelect((state: StoreState) => select(state, key), [key]);
-
 export const selectActiveName = (state: StoreState): string | null =>
-  selectActive(state)?.name ?? null;
+  selectState(state).active?.name ?? null;
 
 export const useSelectActiveName = (): string | null =>
   useMemoSelect(selectActiveName, []);

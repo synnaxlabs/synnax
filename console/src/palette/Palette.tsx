@@ -84,7 +84,7 @@ export const Palette = ({
         >
           <Icon.Search />
           <Text.Text el="span" color={9}>
-            Search & Command
+            Search and Command
           </Text.Text>
         </Button.Button>
         <Dialog.Dialog

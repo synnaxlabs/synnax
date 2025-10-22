@@ -61,7 +61,7 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
       triggerIndicator
     >
       <Icon.OpenInNewWindow />
-      Open in New Window
+      Open in new window
     </PMenu.Item>
   );
 };
@@ -78,7 +78,7 @@ const MoveToMainWindowMenuItem = ({
       onClick={() => moveIntoMainWindow(layoutKey)}
     >
       <Icon.OpenInNewWindow />
-      Move to Main Window
+      Move to main window
     </PMenu.Item>
   );
 };
@@ -110,32 +110,27 @@ const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
   </PMenu.Item>
 );
 
-interface SplitMenuItemProps extends MenuItemProps {
-  children?: ReactElement;
-}
+interface SplitMenuItemProps extends MenuItemProps {}
 
 const splitMenuItemFactory = (
   direction: direction.Direction,
 ): FC<SplitMenuItemProps> => {
-  const C = ({ layoutKey, children }: SplitMenuItemProps) => {
+  const C = ({ layoutKey }: SplitMenuItemProps) => {
     const dispatch = useDispatch();
     const [windowKey, mosaic] = useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
     const canSplit = Mosaic.canSplit(mosaic, layoutKey);
     if (!canSplit) return null;
     return (
-      <>
-        {children}
-        <PMenu.Item
-          itemKey={`split${direction}`}
-          onClick={() =>
-            dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
-          }
-        >
-          {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
-          Split {direction === "x" ? "Horizontally" : "Vertically"}
-        </PMenu.Item>
-      </>
+      <PMenu.Item
+        itemKey={`split${direction}`}
+        onClick={() =>
+          dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
+        }
+      >
+        {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
+        Split {direction === "x" ? "horizontally" : "vertically"}
+      </PMenu.Item>
     );
   };
   C.displayName = `Split${direction.toUpperCase()}MenuItem`;
@@ -156,11 +151,10 @@ export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
     <FocusMenuItem layoutKey={layoutKey} />
     {Runtime.ENGINE === "tauri" && <OpenInNewWindowMenuItem layoutKey={layoutKey} />}
     <MoveToMainWindowMenuItem layoutKey={layoutKey} />
-    <SplitXMenuItem layoutKey={layoutKey}>
-      <PMenu.Divider />
-    </SplitXMenuItem>
+    <PMenu.Divider />
+    <SplitXMenuItem layoutKey={layoutKey} />
     <SplitYMenuItem layoutKey={layoutKey} />
     <PMenu.Divider />
-    <Menu.HardReloadItem />
+    <Menu.ReloadConsoleItem />
   </>
 );

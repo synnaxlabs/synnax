@@ -140,11 +140,11 @@ const RangeAnnotationContextMenu = ({
       </PMenu.Item>
       <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
-        Open in New Plot
+        Open in new plot
       </PMenu.Item>
       <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
-        View Details
+        View details
       </PMenu.Item>
     </PMenu.Menu>
   );
@@ -392,26 +392,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso">
-              <Icon.Range /> Copy ISO Time Range
+              <Icon.Range /> Copy ISO time range
             </PMenu.Item>
             <PMenu.Item itemKey="python">
-              <Icon.Python /> Copy Python Time Range
+              <Icon.Python /> Copy Python time range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript">
-              <Icon.TypeScript /> Copy TypeScript Time Range
+              <Icon.TypeScript /> Copy TypeScript time range
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range">
-              <Ranger.CreateIcon /> Create Range from Selection
+              <Ranger.CreateIcon /> Create range from selection
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
-              <Icon.CSV /> Download Region as CSV
+              <Icon.CSV /> Download region as CSV
             </PMenu.Item>
             <PMenu.Divider />
           </>
         )}
-        <Menu.HardReloadItem />
+        <Menu.ReloadConsoleItem />
       </PMenu.Menu>
     );
   };

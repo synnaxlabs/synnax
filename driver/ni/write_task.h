@@ -24,8 +24,7 @@
 #include "driver/task/common/write_task.h"
 
 namespace ni {
-/// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
-/// Write Task.
+/// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.

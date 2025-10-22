@@ -99,7 +99,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             disabled={client == null}
             tooltip={
               client == null
-                ? "No Cluster Connected"
+                ? "No Core Connected"
                 : `Save to ${client.props.name ?? "Synnax"}`
             }
             tooltipLocation="bottom"

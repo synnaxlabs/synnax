@@ -42,7 +42,7 @@ environments.
 
 ### 0 - Prerequisites
 
-Once you've set up your development environment (see [setup macos](../setup-macos.md)
+Once you've set up your development environment (see [setup macOS](../setup-macos.md)
 and [setup windows](../setup-windows.md)), have an issue you're ready to work, and have
 checked out a [branch](../git.md), you're ready to start developing.
 

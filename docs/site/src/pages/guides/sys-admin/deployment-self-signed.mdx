@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Deployment"
 heading: "Deploy with Self-Signed Certificates"
-description: "Deploy a single node cluster with self-signed certificates."
+description: "Deploy a Core with self-signed certificates."
 platforms: ["Linux", "Windows", "macOS"]
 ---
 
@@ -13,40 +13,39 @@ import { Platform } from "@/components/platform";
 
 export const components = mdxOverrides;
 
-This guide will walk you through every step of deploying a single-node cluster using
-self-signed certificates. We'll assume you have a remote server with a reachable IP
-address (and an optional domain name), and you have a local machine you'd like to use to
-connect to the cluster.
+This guide will walk you through every step of deploying a Core using self-signed
+certificates. We'll assume you have a remote Core with a reachable IP address (and an
+optional domain name), and you have a local machine you'd like to use to connect to the
+Core.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-#### Install the Synnax Node binary
+#### Install the Synnax Core binary
 
-This guide assumes you've installed the Synnax node binary onto the remote machine, and
+This guide assumes you've installed the Synnax Core binary onto the remote machine, and
 it's available in your `PATH` via the `synnax` command. For operating system-specific
-instructions, see the [installation guide](/reference/cluster/installation).
+instructions, see the [installation guide](/reference/core/installation).
 
 #### Install the Synnax Console
 
 This guide assumes you've installed the [Synnax Console](/reference/console/get-started)
-on your local machine. You can find the latest release
-[here](https://github.com/synnaxlabs/synnax/releases).
+on your local machine.
 
 <Divider.Divider x />
 
-## Starting the Node
+## Starting the Core
 
-On the remote machine, start the Synnax node with the following command:
+On the remote machine, start the Synnax Core with the following command:
 
 ```bash
 synnax start -l synnax.example.com:9090 --auto-cert --certs-dir=/usr/local/synnax/certs -d /usr/local/synnax/data
 ```
 
-This command will start a Synnax node that listens on port `9090`, stores its data in
-the `/usr/local/synnax/data` directory, and automatically generates self-signed
-certificates in the `/usr/local/synnax/certs` directory.
+This command will start a Core that listens on port `9090`, stores its data in the
+`/usr/local/synnax/data` directory, and automatically generates self-signed certificates
+in the `/usr/local/synnax/certs` directory.
 
 The host name is important, as it will be the reachable domain authorized by the
 self-signed certificate (the common name). If you have a domain name pointing to the
@@ -61,9 +60,9 @@ similar. We'll configure a local host alias for this domain on the local machine
 
 ## Installing the CA Certificate Locally
 
-In order to connect to the secure cluster, you'll need to add the CA certificate to the
+In order to connect to the secure Core, you'll need to add the CA certificate to the
 trusted store on your local machine. You'll need to do this for any machine you want to
-connect to the cluster from. See the operating system specific instructions below:
+connect to the Core from. See the operating system specific instructions below:
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 <Fragment slot="Linux">
@@ -131,7 +130,7 @@ Import-Certificate -FilePath C:\Users\LOCAL_USER\Downloads\synnax-ca.crt -CertSt
 
 If you don't have a domain name pointing to the remote machine, you'll need to configure
 an alias on your local machine that maps the IP address of the remote machine to the
-host name you used when starting the Synnax node. This is necessary because the CA
+host name you used when starting the Synnax Core. This is necessary because the CA
 certificate you installed on your local machine will only be valid for the host name you
 used when generating it.
 
@@ -140,7 +139,7 @@ To do this, follow the operating system specific instructions below:
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 <Fragment slot="Linux">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
-machine to the host name you used when starting the Synnax node. You can do this with the
+machine to the host name you used when starting the Synnax Core. You can do this with the
 following command:
 
 ```bash
@@ -150,7 +149,7 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 </Fragment>
 <Fragment slot="macOS">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
-machine to the host name you used when starting the Synnax node. You can do this with the
+machine to the host name you used when starting the Synnax Core. You can do this with the
 following command:
 
 ```bash
@@ -160,7 +159,7 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 </Fragment>
 <Fragment slot="Windows">
 You can add an entry to your `C:\Windows\System32\drivers\etc\hosts` file that maps the
-IP address of the remote machine to the host name you used when starting the Synnax node.
+IP address of the remote machine to the host name you used when starting the Synnax Core.
 You can do this by opening the file in a text editor with administrator privileges and
 adding the following line:
 

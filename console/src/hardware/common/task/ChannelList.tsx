@@ -118,7 +118,7 @@ const ContextMenu = <C extends Channel>({
           )}
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

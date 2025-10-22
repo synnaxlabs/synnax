@@ -37,13 +37,17 @@ been updated to match any changes in the release candidate:
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
-- [ ] `reference/cluster`
+- [ ] `reference/core`
 - [ ] `reference/concepts`
 - [ ] `reference/console`
 - [ ] `reference/control`
-- [ ] `reference/device-drivers/labjack`
-- [ ] `reference/device-drivers/ni`
-- [ ] `reference/device-drivers/opc-ua`
+- [ ] `reference/control/python`
+- [ ] `reference/control/embedded`
+- [ ] `reference/driver`
+- [ ] `reference/driver/labjack`
+- [ ] `reference/driver/modbus`
+- [ ] `reference/driver/ni`
+- [ ] `reference/driver/opc-ua`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 
@@ -650,14 +654,14 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Run the driver for long periods with minimal memory leakage.
+- [ ] Run the Driver for long periods with minimal memory leakage.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices (e.g., analog read on an analog output device).
   - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
   - [ ] Device disconnection during a running task.
-- [ ] Shut down the server (`Ctrl + C`) without errors from the driver routine.
+- [ ] Shut down the Core (`Ctrl + C`) without errors from the Driver routine.
 
 ### Control Sequences
 
@@ -829,9 +833,9 @@ I can successfully:
 - [ ] Connect to a Modbus TCP server.
 - [ ] Configure connection parameters (IP address, port, unit ID).
 - **Read Task**
-  - [ ] Read holding registers from a Modbus device.
-  - [ ] Read input registers from a Modbus device.
-  - [ ] Read coils and discrete inputs from a Modbus device.
+  - [ ] Read holding registers from a Modbus server.
+  - [ ] Read input registers from a Modbus server.
+  - [ ] Read coils and discrete inputs from a Modbus server.
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
@@ -842,12 +846,12 @@ I can successfully:
     - [ ] 10 Hz
     - [ ] 100 Hz
 - **Write Task**
-  - [ ] Write to holding registers on a Modbus device.
-  - [ ] Write to coils on a Modbus device.
+  - [ ] Write to holding registers on a Modbus server.
+  - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
-- [ ] Run tasks across multiple Modbus devices concurrently.
+- [ ] Run tasks across multiple Modbus servers concurrently.

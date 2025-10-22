@@ -9,13 +9,8 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
 
-import * as latest from "@/workspace/types";
-
-export type SliceState = latest.SliceState;
-export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
-export const migrateSlice = latest.migrateSlice;
+import { type SliceState, type Workspace, ZERO_SLICE_STATE } from "@/workspace/types";
 
 export const SLICE_NAME = "workspace";
 
@@ -23,18 +18,8 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-type SetActivePayload = string | null;
-
-export type AddPayload = workspace.Workspace | workspace.Workspace[];
-
-export interface Replace extends workspace.Workspace {}
-
-export interface RemovePayload {
-  keys: string[];
-}
-
-export interface RenamePayload {
-  key: string;
+export interface MaybeRenamePayload {
+  key: workspace.Key;
   name: string;
 }
 
@@ -42,35 +27,19 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    clear: (state) => {
-      state.active = null;
-      state.workspaces = {};
-    },
-    replace: (state, { payload }: PayloadAction<Replace>) => {
-      state.active = payload.key;
-      state.workspaces = { [payload.key]: payload };
-    },
-    setActive: (state, { payload }: PayloadAction<SetActivePayload>) => {
+    setActive: (state, { payload }: PayloadAction<Workspace | null>) => {
       state.active = payload;
     },
-    add: (state, { payload: workspaces }: PayloadAction<AddPayload>) => {
-      array.toArray(workspaces).forEach((workspace) => {
-        state.workspaces[workspace.key] = workspace;
-        state.active = workspace.key;
-      });
-    },
-    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      keys.forEach((key) => {
-        if (state.active === key) state.active = null;
-        delete state.workspaces[key];
-      });
-    },
-    rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
-      state.workspaces[key].name = name;
+    maybeRename: (
+      state,
+      { payload: { key, name } }: PayloadAction<MaybeRenamePayload>,
+    ) => {
+      if (state.active?.key !== key) return;
+      state.active.name = name;
     },
   },
 });
 
-export const { clear, replace, setActive, add, remove, rename } = actions;
+export const { setActive, maybeRename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

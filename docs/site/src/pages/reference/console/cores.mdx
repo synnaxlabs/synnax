@@ -1,0 +1,142 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Cores"
+description: "Connect to Synnax Cores in the Synnax Console."
+prev: "Requirements"
+prevURL: "/reference/console/requirements"
+next: "UI Overview"
+nextURL: "/reference/console/ui-overview"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import Code from "@/components/code/Code.astro";
+import { Video } from "@/components/Media";
+import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Divider.Divider x />
+
+## Adding a New Core
+
+Adding a new Core is as simple as clicking the **Connect** button in the top-right
+corner of the Core Selector and entering your connection parameters, as shown below:
+
+<Video client:only="react" id="console/clusters/connect" />
+
+This will add a new Core to the list and set it as active. The Console continuously
+monitors the connection to the Core and displays it in the top-right corner of the UI.
+
+### Parameters
+
+<Table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <b>Host</b>
+      </td>
+      <td>The hostname or IP address of the Core.</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Port</b>
+      </td>
+      <td>The port number of the Core.</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Username</b>
+      </td>
+      <td>The username to use when connecting to the Core.</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Password</b>
+      </td>
+      <td>The password to use when connecting to the Core.</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Secure</b>
+      </td>
+      {
+        <td>
+          Whether to use TLS when connecting to the Core. This parameter only works with
+          secure Cores.
+        </td>
+      }
+    </tr>
+  </tbody>
+</Table>
+
+### Demo Core
+
+Synnax has a demo Core that can be connected to which always plots some data. To
+connect, enter the following parameters:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <b>Host</b>
+      </td>
+      <td>demo.synnaxlabs.com</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Port</b>
+      </td>
+      <td>9090</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Username</b>
+      </td>
+      <td>synnax</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Password</b>
+      </td>
+      <td>seldon</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Secure</b>
+      </td>
+      <td>true</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Divider.Divider x />
+
+## Core Selector
+
+The Core Selector is located at the top-right of the screen. From this selector, you can
+add Cores and switch between them.
+
+If you have multiple Cores, you can switch between them by clicking on the Core you'd
+like to connect to in the selector:
+
+<Video client:only="react" id="console/clusters/switch" />
+
+Right-clicking on a Core in the selector will open a context menu with options to
+connect from, disconnect from, rename, and remove the Core:
+
+<Video client:only="react" id="console/clusters/context-menu" />
+
+You can also copy a link to the Core from the context menu. Opening this link will open
+the Synnax Console with the Core already connected.
