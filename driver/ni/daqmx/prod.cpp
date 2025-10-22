@@ -25,7 +25,7 @@ static const std::string LIB_NAME = "libnidaqmx.so.1";
 namespace daqmx {
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "failed to load DAQmx shared libraries. Are they installed?"
+    "NI DAQmx shared libraries are not installed."
 );
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {

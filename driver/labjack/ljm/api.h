@@ -23,7 +23,7 @@ const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "failed load LJM shared libraries. Are they installed? Expected to find them "
+    "LabJack LJM shared libraries are not installed. Expected to find them "
     "at " +
         LJM_LIBRARY_NAME
 );
