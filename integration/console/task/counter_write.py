@@ -79,6 +79,7 @@ class CounterWrite(NITask):
         task_name: Optional[str] = None,
         data_saving: Optional[bool] = None,
         auto_start: Optional[bool] = None,
+        state_update_rate: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -88,9 +89,9 @@ class CounterWrite(NITask):
             task_name: The name of the task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
+            state_update_rate: The state update rate for the CO task.
             **kwargs: Additional parameters.
         """
-        state_update_rate = kwargs.pop("state_update_rate", None)
 
         super().set_parameters(
             task_name=task_name,

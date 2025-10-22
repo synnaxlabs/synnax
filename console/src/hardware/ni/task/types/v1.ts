@@ -322,35 +322,9 @@ export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
 };
 export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
 
-// ==================== Counter Output Channels ====================
-
-const coChanExtensionShape = { device: Common.Device.keyZ };
-interface COChanExtension extends z.infer<z.ZodObject<typeof coChanExtensionShape>> {}
-const ZERO_CO_CHAN_EXTENSION: COChanExtension = { device: "" };
-
-const coPulseOutputChanZ = v0.coPulseOutputChanZ.extend(coChanExtensionShape);
-interface COPulseOutputChan extends z.infer<typeof coPulseOutputChanZ> {}
-const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
-  ...v0.ZERO_CO_PULSE_OUTPUT_CHAN,
-  ...ZERO_CO_CHAN_EXTENSION,
-};
-
-const coChannelZ = z.union([coPulseOutputChanZ]);
-export type COChannel = z.infer<typeof coChannelZ>;
-
-export const CO_CHANNEL_SCHEMAS: Record<v0.COChannelType, z.ZodType<COChannel>> = {
-  [v0.CO_PULSE_OUTPUT_CHAN_TYPE]: coPulseOutputChanZ,
-};
-
-export const ZERO_CO_CHANNELS: Record<v0.COChannelType, COChannel> = {
-  [v0.CO_PULSE_OUTPUT_CHAN_TYPE]: ZERO_CO_PULSE_OUTPUT_CHAN,
-};
-export const ZERO_CO_CHANNEL: COChannel =
-  ZERO_CO_CHANNELS[v0.CO_PULSE_OUTPUT_CHAN_TYPE];
-
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | COChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | v0.COChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
@@ -443,52 +417,3 @@ export interface CounterReadTask
   > {}
 export interface NewCounterReadTask
   extends task.New<typeof v0.counterReadTypeZ, typeof counterReadConfigZ> {}
-
-// ==================== Counter Write Config Migration ====================
-
-const validateCounterWritePorts = createPortValidator("Counter");
-
-const baseCounterWriteConfigZ = v0.counterWriteConfigZ
-  .omit({ channels: true, device: true })
-  .extend({
-    channels: z
-      .array(coChannelZ)
-      .check(Common.Task.validateWriteChannels)
-      .check(validateCounterWritePorts),
-  });
-export interface CounterWriteConfig extends z.infer<typeof baseCounterWriteConfigZ> {}
-export const counterWriteConfigZ = z.union([
-  v0.counterWriteConfigZ.transform<CounterWriteConfig>(
-    ({ channels, device, ...rest }) => ({
-      ...rest,
-      channels: channels.map((c) => ({ ...c, device })),
-    }),
-  ),
-  baseCounterWriteConfigZ,
-]);
-const ZERO_COUNTER_WRITE_CONFIG: CounterWriteConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
-  dataSaving: true,
-  stateRate: 10,
-  channels: [],
-};
-
-export interface CounterWritePayload
-  extends task.Payload<
-    typeof v0.counterWriteTypeZ,
-    typeof counterWriteConfigZ,
-    typeof v0.counterWriteStatusDataZ
-  > {}
-export const ZERO_COUNTER_WRITE_PAYLOAD: CounterWritePayload = {
-  ...v0.ZERO_COUNTER_WRITE_PAYLOAD,
-  config: ZERO_COUNTER_WRITE_CONFIG,
-};
-
-export interface CounterWriteTask
-  extends task.Task<
-    typeof v0.counterWriteTypeZ,
-    typeof counterWriteConfigZ,
-    typeof v0.counterWriteStatusDataZ
-  > {}
-export interface NewCounterWriteTask
-  extends task.New<typeof v0.counterWriteTypeZ, typeof counterWriteConfigZ> {}

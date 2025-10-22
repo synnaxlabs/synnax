@@ -164,30 +164,24 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
     dev.properties = Device.enrich(dev.model, dev.properties);
     let devModified = false;
 
-    // Initialize shared index for counter channels (use same index as analog input)
-    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
+    // Initialize index for counter channels
+    let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
     if (!shouldCreateIndex)
       try {
-        await client.channels.retrieve(dev.properties.analogInput.index);
+        await client.channels.retrieve(dev.properties.counterInput.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
         else throw e;
       }
+
     if (shouldCreateIndex) {
       devModified = true;
       const ciIndex = await client.channels.create({
-        name: `${dev.properties.identifier}_time`,
+        name: `${dev.properties.identifier}_ctr_time`,
         dataType: "timestamp",
         isIndex: true,
       });
-      dev.properties.analogInput.index = ciIndex.key;
-      dev.properties.analogInput.channels = {};
       dev.properties.counterInput.index = ciIndex.key;
-      dev.properties.counterInput.channels = {};
-    } else if (primitive.isZero(dev.properties.counterInput.index)) {
-      // If analog index exists but counter index doesn't, share it
-      devModified = true;
-      dev.properties.counterInput.index = dev.properties.analogInput.index;
       dev.properties.counterInput.channels = {};
     }
 

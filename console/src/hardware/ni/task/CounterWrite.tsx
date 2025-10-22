@@ -117,7 +117,7 @@ const getInitialValues: Common.Task.GetInitialValues<
       : ZERO_COUNTER_WRITE_PAYLOAD.config;
   return {
     ...ZERO_COUNTER_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? (cfg as any).device },
+    config: { ...cfg, device: deviceKey ?? cfg.device },
   };
 };
 
@@ -125,34 +125,8 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
   client,
   config,
 ) => {
-  if (config.channels.length === 0)
-    throw new Error("No channels configured for this task");
-
-  // Get device key from task config, or migrate from channel config for backward compatibility
-  let deviceKey = (config as any).device as string;
-
-  // Backward compatibility: if task doesn't have device but channels do, migrate it
-  if ((!deviceKey || deviceKey === "") && config.channels.length > 0) {
-    const firstChannelDevice = (config.channels[0] as any).device;
-    if (firstChannelDevice) {
-      deviceKey = firstChannelDevice;
-      // Update config.device for future saves
-      (config as any).device = deviceKey;
-      // Remove device from all channels
-      config.channels = config.channels.map((c) => {
-        const { device: _, ...rest } = c as any;
-        return rest as COChannel;
-      });
-    }
-  }
-
-  if (!deviceKey || deviceKey === "")
-    throw new Error(
-      "No device selected. Please select a device from the 'Device' dropdown in the Properties section at the top of this form.",
-    );
-
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
-    key: deviceKey,
+    key: config.device,
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);

@@ -14,7 +14,7 @@ import {
   CO_CHANNEL_SCHEMAS,
   CO_CHANNEL_TYPE_ICONS,
   CO_CHANNEL_TYPE_NAMES,
-  CO_PULSE_OUTPUT_CHAN_TYPE,
+  CO_CHANNEL_TYPES,
   type COChannel,
   type COChannelType,
   ZERO_CO_CHANNELS,
@@ -44,11 +44,11 @@ export const SelectCOChannelTypeField = Form.buildSelectField<COChannelType, Ent
   inputProps: {
     allowNone: false,
     resourceName: "Channel Type",
-    data: [CO_PULSE_OUTPUT_CHAN_TYPE].map((key) => {
-      const Icon = CO_CHANNEL_TYPE_ICONS[key as COChannelType];
+    data: CO_CHANNEL_TYPES.map((key) => {
+      const Icon = CO_CHANNEL_TYPE_ICONS[key];
       return {
         key,
-        name: CO_CHANNEL_TYPE_NAMES[key as COChannelType],
+        name: CO_CHANNEL_TYPE_NAMES[key],
         icon: <Icon color={8} />,
       };
     }) as Entry[],

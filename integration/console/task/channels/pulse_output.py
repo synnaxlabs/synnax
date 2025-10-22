@@ -9,11 +9,13 @@
 
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
+from console.task.channels.counter import Counter
+
 if TYPE_CHECKING:
     from console.console import Console
 
 
-class PulseOutput:
+class PulseOutput(Counter):
     """
     Pulse Output channel type for NI counter write tasks.
 

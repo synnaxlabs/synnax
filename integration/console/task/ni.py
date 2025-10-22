@@ -8,14 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Type, TypeVar, Union, cast
 
 import synnax as sy
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
-from console.task.channels.pulse_output import PulseOutput
 
 from ..page import ConsolePage
 
@@ -23,7 +22,8 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Union type for all NI channel types
-NIChannel = Union[Analog, Counter, PulseOutput]
+NIChannel = Union[Analog, Counter]
+NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
 
 
 class NITask(ConsolePage):
@@ -71,9 +71,9 @@ class NITask(ConsolePage):
         type: str,
         device: str,
         dev_name: Optional[str],
-        channel_class: Type[NIChannel],
+        channel_class: Type[NIChannelT],
         **kwargs: Any,
-    ) -> NIChannel:
+    ) -> NIChannelT:
         """
         Helper method for adding a channel with common UI automation logic.
 
@@ -128,7 +128,7 @@ class NITask(ConsolePage):
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
-        return channel
+        return cast(NIChannelT, channel)
 
     def assert_channel(self, name: str | list[str]) -> None:
         """
