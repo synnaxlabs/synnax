@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "TypeScript - Get Started"
 heading: "Synnax TypeScript Client"
-description: "Learn how to use our TypeScript client to interact with a Synnax cluster."
+description: "Learn how to use our TypeScript client to interact with a Synnax Core."
 next: "Channels"
 nextURL: "/reference/typescript-client/channels"
 ---
@@ -24,10 +24,10 @@ npm install @synnaxlabs/client
 
 <Divider.Divider x />
 
-## Authenticating with a Cluster
+## Authenticating with a Core
 
-To authenticate with a Synnax cluster, simply instantiate a new client with your
-connection parameters and credentials:
+To authenticate with a Synnax Core, simply instantiate a new client with your connection
+parameters and credentials:
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -43,10 +43,10 @@ const client = new Synnax({
 
 Here's a breakdown of the parameters you can pass to the client:
 
-| Parameter  | Description                                                                                                                                        | Default     |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `host`     | The hostname of the Synnax cluster                                                                                                                 | `localhost` |
-| `port`     | The port of the Synnax cluster                                                                                                                     | `9090`      |
-| `username` | The username to authenticate with                                                                                                                  | `""`        |
-| `password` | The password to authenticate with                                                                                                                  | `""`        |
-| `secure`   | Whether to use TLS encryption. This should be set to `true` if the cluster is using TLS. This should be true for [clusters running in production]. | `false`     |
+| Parameter  | Description                        |
+| ---------- | ---------------------------------- |
+| `host`     | The hostname of the Synnax Core    |
+| `port`     | The port of the Synnax Core        |
+| `username` | The username to authenticate with  |
+| `password` | The password to authenticate with. |
+| `secure`   | Whether to use TLS encryption.     |

@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Delete Data"
-description: "Use the TypeScript client to delete data from a Synnax cluster."
+description: "Use the TypeScript client to delete data from a Synnax Core."
 next: "Series and Frames"
 nextURL: "/reference/typescript-client/series-and-frames"
 prev: "Stream Data"
@@ -16,7 +16,7 @@ The Synnax client allows deletion of time ranges of data in any channel: after e
 deletion operation is complete, all future reads will no longer include the deleted
 data. However, it may take a while before the underlying file sizes decrease – this
 allows deletion operations to be served in a rapid manner and only actually collect the
-unwanted data when the load on the server is low.
+unwanted data when the load on the Core is low.
 
 Note the differences between deleting data and deleting a channel – once a channel is
 deleted, it no longer exists; whereas when some data in a channel is deleted, we can

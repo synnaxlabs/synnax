@@ -22,9 +22,9 @@ This directory contains two files:
 
 To run the example, make sure you have:
 
-1. A Synnax cluster running locally. See the
-   [Quick Start](https://docs.synnaxlabs.com/reference/cluster/quick-start) guide for
-   more information.
+1. A Synnax Core running locally. See the
+   [Quick Start](https://docs.synnaxlabs.com/reference/core/quick-start) guide for more
+   information.
 2. The Synnax Python client installed. See the
    [Getting Started](https://docs.synnaxlabs.com/reference/python-client/get-started)
    guide for more information.

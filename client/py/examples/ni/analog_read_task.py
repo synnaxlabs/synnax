@@ -15,7 +15,7 @@ This examples demonstrates how to configure and start an Analog Read Task on a N
 Instruments USB-6289 device.
 
 To run this example, you'll need to have your Synnax cluster properly configured to
-detect National Instruments devices: https://docs.synnaxlabs.com/reference/device-drivers/ni/get-started
+detect National Instruments devices: https://docs.synnaxlabs.com/reference/driver/ni/get-started
 
 You'll also need to have either a physical USB-6289 device or create a simulated device
 via the NI-MAX software.
