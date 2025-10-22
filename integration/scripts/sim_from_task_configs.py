@@ -22,7 +22,7 @@ import random
 import signal
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import synnax as sy
 
@@ -48,7 +48,7 @@ class SimDAQ:
         self.indices: Dict[str, sy.Channel] = {}
 
         # Channel mapping: config_key -> {name, synnax_key}
-        self.channel_mapping: List[Dict] = []
+        self.channel_mapping: List[Dict[str, Any]] = []
 
     def get_index(self, name: str) -> sy.Channel:
         """Get or create an index channel."""
@@ -61,7 +61,7 @@ class SimDAQ:
             )
         return self.indices[name]
 
-    def setup_channels(self):
+    def setup_channels(self) -> None:
         print("=" * 70)
         print("CREATING SIMULATED CHANNELS")
         print("=" * 70)
@@ -108,7 +108,9 @@ class SimDAQ:
         # Save channel mapping
         self._save_channel_mapping()
 
-    def _create_digital_outputs(self, channels: list, filename: str):
+    def _create_digital_outputs(
+        self, channels: list[Dict[str, Any]], filename: str
+    ) -> None:
         """Create digital output channels (valves)."""
         print(f"[{filename}] Digital outputs")
 
@@ -165,7 +167,9 @@ class SimDAQ:
             self.valve_states[state_name] = 0.0
             print(f"  ✓ {cmd_name} / {state_name}")
 
-    def _create_analog_inputs(self, channels: list, filename: str):
+    def _create_analog_inputs(
+        self, channels: list[Dict[str, Any]], filename: str
+    ) -> None:
         """Create analog input channels (sensors)."""
         print(f"[{filename}] Analog inputs")
 
@@ -202,7 +206,9 @@ class SimDAQ:
             self.sensor_channels.append((name, ch_type))
             print(f"  ✓ {name}")
 
-    def _create_analog_outputs(self, channels: list, filename: str):
+    def _create_analog_outputs(
+        self, channels: list[Dict[str, Any]], filename: str
+    ) -> None:
         """Create analog output channels."""
         print(f"[{filename}] Analog outputs")
 
@@ -260,7 +266,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _generate_sensor_name(
-        self, ch: dict, port: int, ch_type: str, index: int
+        self, ch: Dict[str, Any], port: int, ch_type: str, index: int
     ) -> str:
         """Generate a descriptive sensor name."""
         if ch_type == "ai_voltage":
@@ -281,7 +287,7 @@ class SimDAQ:
         else:
             return f"sensor_{index}"
 
-    def _save_channel_mapping(self):
+    def _save_channel_mapping(self) -> None:
         """Save channel mapping to JSON file."""
         mapping_file = self.config_dir / "channel_mapping.json"
         with open(mapping_file, "w") as f:
@@ -336,13 +342,13 @@ class SimDAQ:
         # Default
         return base * 10 + noise
 
-    def run(self):
+    def run(self) -> None:
         print("=" * 70)
         print("STARTING SIMULATED DAQ")
         print("=" * 70)
 
         # Setup signal handler
-        def stop(s, f):
+        def stop(s: int, f: Any) -> None:
             self.running = False
 
         signal.signal(signal.SIGINT, stop)
@@ -470,7 +476,7 @@ class SimDAQ:
             print(f"✓ Stopped after {iteration} iterations\n")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Simulated DAQ - Creates channels from Synnax task configs and writes simulated data.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

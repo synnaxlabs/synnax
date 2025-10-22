@@ -76,6 +76,7 @@ class TestDefinition:
     name: Optional[str] = None  # Optional custom name for the test case
     params: Dict[str, Any] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
+    matrix: Optional[Dict[str, List[Any]]] = None
 
     def __str__(self) -> str:
         """Return display name for test definition."""

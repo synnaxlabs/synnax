@@ -37,7 +37,9 @@ def load_channel_mapping(mapping_path: Path) -> Dict[int, int]:
     return key_map
 
 
-def transform_value(value: Any, key_map: Dict[int, int], all_config_keys: set) -> Any:
+def transform_value(
+    value: Any, key_map: Dict[int, int], all_config_keys: set[int]
+) -> Any:
     """Recursively transform values, replacing config keys with synnax keys."""
     if isinstance(value, dict):
         return {
@@ -59,7 +61,9 @@ def transform_value(value: Any, key_map: Dict[int, int], all_config_keys: set) -
         return value
 
 
-def transform_schematic(schematic_path: Path, mapping_path: Path, output_path: Path):
+def transform_schematic(
+    schematic_path: Path, mapping_path: Path, output_path: Path
+) -> None:
     """Transform schematic by replacing config keys with Synnax keys."""
     print(f"\n{'=' * 70}")
     print("SCHEMATIC TRANSFORMER")
@@ -114,7 +118,7 @@ def transform_schematic(schematic_path: Path, mapping_path: Path, output_path: P
     print(f"{'=' * 70}\n")
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Transform schematic by replacing config channel keys with Synnax keys.",

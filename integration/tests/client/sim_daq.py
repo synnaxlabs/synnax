@@ -155,7 +155,7 @@ class Sim_DAQ(TestCase):
 
                         end_test_cmd = frame.get("end_test_cmd")
                         if len(end_test_cmd) > 0:
-                            end_test_flag= end_test_cmd[-1]
+                            end_test_flag = end_test_cmd[-1]
 
                     # Simulate pressure
                     if state["press_vlv_state"] == True:
