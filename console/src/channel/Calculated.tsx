@@ -79,22 +79,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
               />
             )}
           </Form.Field>
-          <Flex.Box x>
-            <Form.Field<string>
-              path="dataType"
-              label="Output Data Type"
-              style={{ width: 150 }}
-            >
-              {({ variant: _, ...p }) => (
-                <Telem.SelectDataType
-                  {...p}
-                  disabled={isIndex}
-                  zIndex={100}
-                  style={{ width: 150 }}
-                />
-              )}
-            </Form.Field>
-          </Flex.Box>
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>

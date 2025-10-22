@@ -305,8 +305,11 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		}
 	}
 	var expectedReturnType types.Type
+	var isTypeInferenceMode bool
 	if enclosingScope.Kind == symbol.KindFunction {
 		expectedReturnType, _ = enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
+		// Type inference mode: function has empty outputs (used by AnalyzeFunctionBody)
+		isTypeInferenceMode = enclosingScope.Type.Outputs.Count() == 0
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
@@ -314,6 +317,12 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return false
 		}
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
+
+		// Skip validation in type inference mode - we're just collecting types
+		if isTypeInferenceMode {
+			return true
+		}
+
 		if !expectedReturnType.IsValid() {
 			ctx.Diagnostics.AddError(
 				errors.New("unexpected return value in function/func with void return type"),
@@ -548,4 +557,330 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		ctx.AST,
 	)
 	return false
+}
+
+// AnalyzeFunctionBody analyzes a block and infers its return type by examining
+// all return statements across control flow paths.
+// Returns (ok bool, inferredReturnType types.Type)
+func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (bool, types.Type) {
+	// Create a temporary function scope to allow return statement analysis
+	// Use an invalid return type to signal "type inference mode"
+	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  &types.Params{},
+			Outputs: &types.Params{}, // Empty outputs = type inference mode
+			Config:  &types.Params{},
+		}),
+		AST: ctx.AST,
+	})
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return false, types.Type{}
+	}
+
+	blockScope, err := funcScope.Add(ctx, symbol.Symbol{
+		Kind: symbol.KindBlock,
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return false, types.Type{}
+	}
+
+	var collectedReturnTypes []types.Type
+
+	for _, stmt := range ctx.AST.AllStatement() {
+		// Analyze statement (preserve existing behavior)
+		if !Analyze(context.Child(ctx, stmt).WithScope(blockScope)) {
+			return false, types.Type{}
+		}
+
+		// Extract return types if present (may be multiple from if/else branches)
+		returnTypes := collectStatementReturnTypes(
+			context.Child(ctx, stmt).WithScope(blockScope),
+		)
+		for _, rt := range returnTypes {
+			if rt.IsValid() {
+				collectedReturnTypes = append(collectedReturnTypes, rt)
+			}
+		}
+	}
+
+	// Unify collected types
+	inferredType, err := unifyReturnTypes(collectedReturnTypes, ctx.AST)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return false, types.Type{}
+	}
+
+	return true, inferredType
+}
+
+// collectStatementReturnTypes extracts all return types from a statement.
+// Returns a slice of types (empty if no returns).
+func collectStatementReturnTypes(
+	ctx context.Context[parser.IStatementContext],
+) []types.Type {
+	switch {
+	case ctx.AST.ReturnStatement() != nil:
+		returnStmt := ctx.AST.ReturnStatement()
+		returnExpr := returnStmt.Expression()
+		if returnExpr == nil {
+			// Return statement with no expression (void return)
+			return []types.Type{{}}
+		}
+		returnType := atypes.InferFromExpression(context.Child(ctx, returnExpr))
+		if returnType.IsValid() {
+			return []types.Type{returnType}
+		}
+		return []types.Type{}
+
+	case ctx.AST.IfStatement() != nil:
+		_, returnTypes := getIfStatementReturnTypes(
+			context.Child(ctx, ctx.AST.IfStatement()),
+		)
+		return returnTypes
+
+	default:
+		return []types.Type{}
+	}
+}
+
+// getStatementReturnType extracts the return type from a single statement.
+// Returns (hasReturn bool, returnType types.Type)
+func getStatementReturnType(
+	ctx context.Context[parser.IStatementContext],
+) (bool, types.Type) {
+	returnTypes := collectStatementReturnTypes(ctx)
+	if len(returnTypes) > 0 {
+		return true, returnTypes[0]
+	}
+	return false, types.Type{}
+}
+
+// getIfStatementReturnTypes recursively extracts return types from if/else branches.
+// Returns (allPathsReturn bool, returnTypes []types.Type)
+func getIfStatementReturnTypes(
+	ctx context.Context[parser.IIfStatementContext],
+) (bool, []types.Type) {
+	var returnTypes []types.Type
+	allPathsReturn := true
+
+	// Check main if block
+	if block := ctx.AST.Block(); block != nil {
+		hasReturn, blockTypes := getBlockReturnTypes(
+			context.Child(ctx, block),
+		)
+		if hasReturn {
+			returnTypes = append(returnTypes, blockTypes...)
+		} else {
+			allPathsReturn = false
+		}
+	}
+
+	// Check else-if clauses
+	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
+		if block := elseIfClause.Block(); block != nil {
+			hasReturn, blockTypes := getBlockReturnTypes(
+				context.Child(ctx, block),
+			)
+			if hasReturn {
+				returnTypes = append(returnTypes, blockTypes...)
+			} else {
+				allPathsReturn = false
+			}
+		}
+	}
+
+	// Check else clause
+	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
+		if block := elseClause.Block(); block != nil {
+			hasReturn, blockTypes := getBlockReturnTypes(
+				context.Child(ctx, block),
+			)
+			if hasReturn {
+				returnTypes = append(returnTypes, blockTypes...)
+			} else {
+				allPathsReturn = false
+			}
+		}
+	} else {
+		// No else clause means not all paths return
+		allPathsReturn = false
+	}
+
+	return allPathsReturn, returnTypes
+}
+
+// getBlockReturnTypes extracts all return types from a block's statements.
+// Returns (hasReturn bool, returnTypes []types.Type)
+func getBlockReturnTypes(
+	ctx context.Context[parser.IBlockContext],
+) (bool, []types.Type) {
+	var returnTypes []types.Type
+
+	for _, stmt := range ctx.AST.AllStatement() {
+		hasReturn, returnType := getStatementReturnType(
+			context.Child(ctx, stmt),
+		)
+		if hasReturn && returnType.IsValid() {
+			returnTypes = append(returnTypes, returnType)
+		}
+	}
+
+	return len(returnTypes) > 0, returnTypes
+}
+
+// unifyReturnTypes unifies multiple return types to find the smallest reasonable common type.
+func unifyReturnTypes(
+	returnTypes []types.Type,
+	astNode antlr.ParserRuleContext,
+) (types.Type, error) {
+	// No return types - invalid type (void function)
+	if len(returnTypes) == 0 {
+		return types.Type{}, nil
+	}
+
+	// Single return type - use it directly
+	if len(returnTypes) == 1 {
+		return returnTypes[0], nil
+	}
+
+	// Check if all types are equal
+	firstType := returnTypes[0]
+	allEqual := true
+	for _, t := range returnTypes[1:] {
+		if !types.Equal(firstType, t) {
+			allEqual = false
+			break
+		}
+	}
+	if allEqual {
+		return firstType, nil
+	}
+
+	// Check if all are numeric
+	allNumeric := true
+	hasFloat := false
+	hasSigned := false
+	hasUnsigned := false
+	maxBits := 0
+
+	for _, t := range returnTypes {
+		if !t.IsNumeric() {
+			allNumeric = false
+			break
+		}
+
+		if t.IsFloat() {
+			hasFloat = true
+			if t.Kind == types.KindF32 {
+				if maxBits < 32 {
+					maxBits = 32
+				}
+			} else if t.Kind == types.KindF64 {
+				if maxBits < 64 {
+					maxBits = 64
+				}
+			}
+		} else if t.IsInteger() {
+			if t.IsSignedInteger() {
+				hasSigned = true
+			} else if t.IsUnsignedInteger() {
+				hasUnsigned = true
+			}
+
+			bits := getTypeBits(t)
+			if bits > maxBits {
+				maxBits = bits
+			}
+		}
+	}
+
+	// If not all numeric, check for incompatibility
+	if !allNumeric {
+		return types.Type{}, errors.Newf(
+			"incompatible return types: cannot unify %s and %s",
+			returnTypes[0],
+			returnTypes[1],
+		)
+	}
+
+	// All numeric - unify to smallest reasonable type
+	if hasFloat {
+		// Any float present - cannot mix with integers
+		hasInteger := false
+		for _, t := range returnTypes {
+			if t.IsInteger() {
+				hasInteger = true
+				break
+			}
+		}
+		if hasInteger {
+			return types.Type{}, errors.New(
+				"mixed integer and floating-point returns are not allowed",
+			)
+		}
+
+		// All floats - use largest
+		if maxBits > 32 {
+			return types.F64(), nil
+		}
+		return types.F32(), nil
+	}
+
+	// All integers - find smallest that fits
+	if hasSigned && hasUnsigned {
+		// Mix of signed and unsigned - use signed version of next size up
+		if maxBits <= 8 {
+			return types.I16(), nil
+		} else if maxBits <= 16 {
+			return types.I32(), nil
+		} else if maxBits <= 32 {
+			return types.I64(), nil
+		}
+		return types.I64(), nil
+	}
+
+	if hasSigned {
+		if maxBits <= 8 {
+			return types.I8(), nil
+		} else if maxBits <= 16 {
+			return types.I16(), nil
+		} else if maxBits <= 32 {
+			return types.I32(), nil
+		}
+		return types.I64(), nil
+	}
+
+	// All unsigned
+	if maxBits <= 8 {
+		return types.U8(), nil
+	} else if maxBits <= 16 {
+		return types.U16(), nil
+	} else if maxBits <= 32 {
+		return types.U32(), nil
+	}
+	return types.U64(), nil
+}
+
+// getTypeBits returns the bit width of a numeric type
+func getTypeBits(t types.Type) int {
+	switch t.Kind {
+	case types.KindI8, types.KindU8:
+		return 8
+	case types.KindI16, types.KindU16:
+		return 16
+	case types.KindI32, types.KindU32:
+		return 32
+	case types.KindI64, types.KindU64:
+		return 64
+	case types.KindF32:
+		return 32
+	case types.KindF64:
+		return 64
+	default:
+		return 0
+	}
 }

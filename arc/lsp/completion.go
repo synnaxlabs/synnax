@@ -232,12 +232,10 @@ var completions = []CompletionInfo{
 	},
 }
 
-// Completion handles completion requests
 func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
 	s.mu.RUnlock()
-
 	if !ok {
 		return nil, nil
 	}
@@ -268,39 +266,27 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 // getCompletionItems generates completion items based on context
 func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix string, line string, pos protocol.Position) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0, len(completions))
-
-	// Add built-in completions (keywords, types, functions, units)
 	for _, c := range completions {
 		if !strings.HasPrefix(c.Label, prefix) {
 			continue
 		}
-
 		item := protocol.CompletionItem{
 			Label:         c.Label,
 			Kind:          c.Kind,
 			Detail:        c.Detail,
 			Documentation: c.Doc,
 		}
-
 		if c.Insert != "" {
 			item.InsertText = c.Insert
 			item.InsertTextFormat = c.InsertFormat
 		}
-
 		items = append(items, item)
 	}
 
-	// Add symbols from the document's symbol table using ResolvePrefix
 	if doc.IR.Symbols != nil {
-		// Map position to wrapped coordinates if this is a block expression
 		searchPos := pos
-		if doc.Wrapper != nil {
-			searchPos = doc.Wrapper.MapOriginalToWrapped(pos)
-		}
-
 		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 		if scopeAtCursor != nil {
-			// Use ResolvePrefix to get all matching symbols from children, GlobalResolver, and parents
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
 			if err == nil {
 				for _, scope := range scopes {
@@ -318,7 +304,6 @@ func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix s
 					} else {
 						kind = protocol.CompletionItemKindVariable
 					}
-
 					items = append(items, protocol.CompletionItem{
 						Label:  scope.Name,
 						Kind:   kind,
@@ -328,6 +313,5 @@ func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix s
 			}
 		}
 	}
-
 	return items
 }

@@ -530,4 +530,8 @@ var _ = Describe("Analyzer", func() {
 			Expect(thirdBlock.Children).To(BeEmpty())
 		})
 	})
+
+	Describe("Function Block Parsing", func() {
+
+	})
 })

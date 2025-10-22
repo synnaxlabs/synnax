@@ -15,7 +15,6 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Definition handles go-to-definition requests.
 func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
@@ -27,13 +26,7 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if word == "" {
 		return nil, nil
 	}
-
-	// Map position to wrapped coordinates if this is a block expression
 	searchPos := params.Position
-	if doc.Wrapper != nil {
-		searchPos = doc.Wrapper.MapOriginalToWrapped(params.Position)
-	}
-
 	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 	sym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil {

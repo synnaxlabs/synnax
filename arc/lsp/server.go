@@ -17,8 +17,11 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/analyzer"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	arcdiag "github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
@@ -71,7 +74,6 @@ type Document struct {
 	IR       ir.IR                // Analyzed IR with symbol table
 	Analysis analyzer.Diagnostics // Cached analysis diagnostics
 	Metadata *DocumentMetadata    // Metadata for calculated channels
-	Wrapper  *WrapperContext      // Wrapper context for position mapping
 }
 
 // New creates a new LSP server
@@ -147,22 +149,12 @@ func (s *Server) Shutdown(_ context.Context) error {
 // DidOpen handles opening a document
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := params.TextDocument.URI
-	s.cfg.L.Debug("Document opened", zap.String("uri", string(uri)))
-
-	// Extract metadata from URI if this is a block
+	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
 	metadata := ExtractMetadataFromURI(uri)
-	s.cfg.L.Debug("Metadata extraction result",
+	s.cfg.L.Debug("file meta-data",
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
-		zap.Bool("isBlock", metadata != nil && metadata.IsBlock))
-	if metadata != nil && metadata.IsBlock {
-		s.cfg.L.Info("Block document detected - will wrap expression",
-			zap.String("uri", string(uri)))
-	} else {
-		s.cfg.L.Debug("Not a block document - parsing as complete program",
-			zap.String("uri", string(uri)))
-	}
-
+		zap.Bool("isBlock", metadata != nil && metadata.IsFunctionBlock))
 	s.mu.Lock()
 	s.documents[uri] = &Document{
 		URI:      uri,
@@ -181,28 +173,21 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
-
 	s.mu.Lock()
 	if doc, ok := s.documents[uri]; ok {
-		// We use full document sync, so there should be exactly one change
 		if len(params.ContentChanges) > 0 {
 			doc.Version = params.TextDocument.Version
 			doc.Content = params.ContentChanges[0].Text
 		}
 	}
 	s.mu.Unlock()
-
-	// Resolve the updated content
 	s.mu.RLock()
 	content := ""
 	if doc, ok := s.documents[uri]; ok {
 		content = doc.Content
 	}
 	s.mu.RUnlock()
-
-	// Run diagnostics
 	s.publishDiagnostics(ctx, uri, content)
-
 	return nil
 }
 
@@ -223,66 +208,53 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 
 // publishDiagnostics parses the document and publishes syntax and semantic errors
 func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
-	// Get document metadata for wrapping
-	s.mu.RLock()
-	metadata := s.documents[uri].Metadata
-	s.mu.RUnlock()
-
-	// Wrap expression if this is a block
-	wrapper := WrapExpression(content, metadata)
-
-	s.cfg.L.Debug("Publishing diagnostics",
-		zap.String("uri", string(uri)),
-		zap.Bool("isBlock", metadata != nil && metadata.IsBlock),
-		zap.Bool("hasGlobalResolver", s.cfg.GlobalResolver != nil),
-		zap.String("original", content),
-		zap.String("wrapped", wrapper.WrappedContent))
-
-	// Parse the WRAPPED content
-	t, err := text.Parse(text.Text{Raw: wrapper.WrappedContent})
-	var diagnostics []protocol.Diagnostic
-
-	if err != nil {
-		diagnostics, err = extractParseErrors(err)
-		if err != nil {
-			s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
-		}
-	} else {
-		analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
-
-		s.cfg.L.Debug("Analysis complete",
-			zap.Bool("hasSymbols", analyzedIR.Symbols != nil),
-			zap.Int("diagnosticCount", len(analysisDiag)))
-
-		if len(analysisDiag) > 0 {
-			for i, diag := range analysisDiag {
-				s.cfg.L.Debug("Analysis diagnostic",
-					zap.Int("index", i),
-					zap.String("message", diag.Message))
-			}
-		}
-
-		s.mu.Lock()
-		if doc, ok := s.documents[uri]; ok {
-			doc.IR = analyzedIR
-			doc.Analysis = analysisDiag
-			doc.Wrapper = wrapper // Store wrapper for later position mapping
-		}
-		s.mu.Unlock()
-
-		diagnostics = convertAnalysisDiagnostics(analysisDiag)
+	s.mu.Lock()
+	doc, ok := s.documents[uri]
+	s.mu.Unlock()
+	s.cfg.L.Debug("analyzing program")
+	if !ok {
+		return
 	}
 
-	// Map diagnostic positions back to original expression coordinates
-	mappedDiagnostics := make([]protocol.Diagnostic, len(diagnostics))
-	for i, diag := range diagnostics {
-		mappedDiagnostics[i] = diag
-		mappedDiagnostics[i].Range = wrapper.MapDiagnosticRange(diag.Range)
+	// A nil slice here would mean that existing diagnostics would not be reset,
+	// spo we need to allocate a zero length sl
+	diagnostics := make([]protocol.Diagnostic, 0)
+	if doc.Metadata.IsFunctionBlock {
+		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
+		if err != nil {
+			diagnostics, err = extractParseErrors(err)
+			if err != nil {
+				s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
+			}
+		} else {
+			aCtx := acontext.CreateRoot[parser.IBlockContext](
+				ctx,
+				t,
+				s.cfg.GlobalResolver,
+			)
+			statement.AnalyzeFunctionBody(aCtx)
+			doc.IR = ir.IR{Symbols: aCtx.Scope}
+			doc.Analysis = *aCtx.Diagnostics
+			diagnostics = convertAnalysisDiagnostics(*aCtx.Diagnostics)
+		}
+	} else {
+		t, err := text.Parse(text.Text{Raw: content})
+		if err != nil {
+			diagnostics, err = extractParseErrors(err)
+			if err != nil {
+				s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
+			}
+		} else {
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
+			doc.IR = analyzedIR
+			doc.Analysis = analysisDiag
+			diagnostics = convertAnalysisDiagnostics(analysisDiag)
+		}
 	}
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
-		Diagnostics: mappedDiagnostics,
+		Diagnostics: diagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
@@ -296,29 +268,24 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 func extractParseErrors(err error) ([]protocol.Diagnostic, error) {
 	var diagnostics []protocol.Diagnostic
 	errMsg := err.Error()
-
 	if !strings.Contains(errMsg, "parse errors:") {
 		return diagnostics, nil
 	}
-
 	parts := strings.Split(errMsg, "[")
 	for i := 1; i < len(parts); i++ {
 		part := strings.TrimSuffix(parts[i], "]")
 		if !strings.HasPrefix(part, "line ") {
 			continue
 		}
-
 		var line, col int
 		var msg string
 		if _, err := fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg); err != nil {
 			return nil, err
 		}
-
 		msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
 		if msgStart >= 0 {
 			msg = part[msgStart+len(fmt.Sprintf("%d:%d ", line, col)):]
 		}
-
 		diagnostics = append(diagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
