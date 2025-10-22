@@ -22,18 +22,19 @@ referring to "George Washington" the first time, and then "Washington" thereafte
 The following components of the Console should be referenced with capital letters:
 
 - Channels Toolbar
-- Cores Dropdown
+- Core Selector
 - Devices Toolbar
 - Ranges Toolbar
 - Search and Command Palette
 - Tasks Toolbar
 - Users Toolbar
-- Workspaces Dropdown
+- Workspace Selector
 - Workspaces Toolbar
 
-Make sure to use the plural when referring to these ("Ranges Toolbar" not "Range
-Toolbar"). After referring to these once, you should use the lower case of the component
-type when referring to it ("toolbar", "dropdown", "palette").
+Make sure to use the correct form (plural or singular) when referring to these ("Ranges
+Toolbar" not "Range Toolbar", and "Visualization Toolbar" not "Visualizations Toolbar").
+After referring to these once, you should use the lower case of the component type when
+referring to it ("toolbar", "selector", "palette").
 
 ### Task Names
 
