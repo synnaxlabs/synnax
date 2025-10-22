@@ -14,8 +14,8 @@ import { type Ontology } from "@/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
   [
-    { itemKey: "opc.readTask", label: "Create Read Task", layout: Task.READ_LAYOUT },
-    { itemKey: "opc.writeTask", label: "Create Write Task", layout: Task.WRITE_LAYOUT },
+    { itemKey: "opc.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
+    { itemKey: "opc.writeTask", label: "Create write task", layout: Task.WRITE_LAYOUT },
   ];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (

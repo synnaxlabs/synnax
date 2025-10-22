@@ -9,7 +9,7 @@
 
 import "@/workspace/Selector.css";
 
-import { type workspace } from "@synnaxlabs/client";
+import { UnexpectedError, type workspace } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -19,7 +19,6 @@ import {
   Input,
   List,
   Select,
-  Status,
   Synnax,
   Text,
   Workspace,
@@ -32,9 +31,9 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
-import { add, setActive } from "@/workspace/slice";
+import { setActive } from "@/workspace/slice";
 
-export const selectorListItem = Component.renderProp(
+const listItem = Component.renderProp(
   (props: List.ItemProps<workspace.Key>): ReactElement | null => {
     const { itemKey } = props;
     const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
@@ -54,7 +53,6 @@ export const Selector = (): ReactElement => {
   const dispatch = useDispatch();
   const active = useSelectActive();
   const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Workspace.useList();
   const [search, setSearch] = useState("");
@@ -65,22 +63,16 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
-      if (client == null) return;
-      handleError(async () => {
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add(ws));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-        setDialogVisible(false);
-      }, "Failed to switch workspace");
+      const ws = getItem(v);
+      if (ws == null) throw new UnexpectedError(`Workspace ${v} not found`);
+      dispatch(setActive(ws));
+      dispatch(
+        Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      );
+      setDialogVisible(false);
     },
-    [active, client, dispatch, handleError],
+    [dispatch, getItem],
   );
-
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
@@ -110,7 +102,7 @@ export const Selector = (): ReactElement => {
                 placeholder={
                   <>
                     <Icon.Search key="search" />
-                    Search Workspaces
+                    Search workspaces
                   </>
                 }
                 contrast={0}
@@ -154,7 +146,7 @@ export const Selector = (): ReactElement => {
               </Button.Button>
             </Flex.Box>
             <List.Items bordered borderColor={6} grow>
-              {selectorListItem}
+              {listItem}
             </List.Items>
           </Cluster.NoneConnectedBoundary>
         </Dialog.Dialog>

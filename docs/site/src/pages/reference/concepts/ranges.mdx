@@ -14,8 +14,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 A range (short for _time range_) is a named time interval that labels interesting events
-in your cluster's data. Ranges are the primary means for organizing and accessing the
-data stored within Synnax, and can be used to correlate metadata with channel telemetry.
+in your Core's data. Ranges are the primary means for organizing and accessing the data
+stored within Synnax, and can be used to correlate metadata with channel telemetry.
 
 To create a range, you only need to specify a name, a starting timestamp, and an ending
 timestamp. While a range can be used to query the data within a channel, it is not
@@ -69,10 +69,10 @@ override them within the scope of the child range.
 
 Snapshots can be used to capture the configuration of a resource and tie it to a range.
 The most relevant example is a snapshot of a data acquisition or control
-[task](/reference/device-drivers). When you create a snapshot of a task, you're
-capturing critical information such as calibrations, scaling values, and mappings to
-physical ports and lines. The snapshot provides a permanent way to refer to the
-configuration of the task at the time the range was created.
+[task](/reference/driver). When you create a snapshot of a task, you're capturing
+critical information such as calibrations, scaling values, and mappings to physical
+ports and lines. The snapshot provides a permanent way to refer to the configuration of
+the task at the time the range was created.
 
 You can also create snapshots of other resources, such as
 [schematics](/reference/console/schematics).

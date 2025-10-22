@@ -74,21 +74,21 @@ export const deleteMenuItem = (
 export const setAsActiveMenuItem = (
   <PMenu.Item itemKey="setAsActive" gap="small">
     <Icon.Dynamic />
-    Set as Active Range
+    Set as active range
   </PMenu.Item>
 );
 
 export const clearActiveMenuItem = (
   <PMenu.Item itemKey="clearActive" gap="small">
     <Icon.Dynamic />
-    Clear Active Range
+    Clear active range
   </PMenu.Item>
 );
 
 export const viewDetailsMenuItem = (
   <PMenu.Item itemKey="details">
     <Icon.Details />
-    View Details
+    View details
   </PMenu.Item>
 );
 
@@ -99,7 +99,7 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
 export const addToNewPlotMenuItem = (
   <PMenu.Item itemKey="addToNewPlot">
     <AddToNewPlotIcon key="plot" />
-    Add to New Plot
+    Add to new plot
   </PMenu.Item>
 );
 
@@ -110,7 +110,7 @@ const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
 export const addToActivePlotMenuItem = (
   <PMenu.Item itemKey="addToActivePlot">
     <AddToActivePlotIcon key="plot" />
-    Add to Active Plot
+    Add to active plot
   </PMenu.Item>
 );
 
@@ -121,7 +121,7 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 export const createChildRangeMenuItem = (
   <PMenu.Item itemKey="addChildRange">
     <CreateChildRangeIcon key="plot" />
-    Create Child Range
+    Create child range
   </PMenu.Item>
 );
 
@@ -239,7 +239,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <PMenu.Item itemKey="create">
         <Icon.Add />
-        Create New
+        Create new
       </PMenu.Item>
       {rangeExists && (
         <>
@@ -255,7 +255,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           <PMenu.Divider />
           <PMenu.Item itemKey="remove">
             <Icon.Close />
-            Remove from Favorites
+            Remove from favorites
           </PMenu.Item>
           {rng.persisted ? (
             <>
@@ -269,7 +269,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
                 <PMenu.Divider />
                 <PMenu.Item itemKey="save">
                   <Icon.Save />
-                  Save to Synnax
+                  {`Save to ${client.props.name ?? "Synnax"}`}
                 </PMenu.Item>
               </>
             )
@@ -277,7 +277,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
         </>
       )}
       <PMenu.Divider />
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };
