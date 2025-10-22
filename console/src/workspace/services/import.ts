@@ -32,7 +32,7 @@ export const ingest: Import.DirectoryIngestor = async (
   const wsName = name;
   const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
   const createdWs = await client?.workspaces.create(ws);
-  store.dispatch(Workspace.add(createdWs ?? ws));
+  store.dispatch(Workspace.setActive(createdWs ?? ws));
   store.dispatch(
     Layout.setWorkspace({
       slice: (createdWs?.layout as Layout.SliceState) ?? layout,

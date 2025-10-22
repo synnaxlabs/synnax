@@ -21,7 +21,7 @@ import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
-import { select, selectActiveKey } from "@/workspace/selectors";
+import { selectActive } from "@/workspace/selectors";
 
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
@@ -43,23 +43,17 @@ export const export_ = (
     if (Runtime.ENGINE !== "tauri")
       throw new Error("Cannot export workspaces when running Synnax in the browser.");
     const storeState = store.getState();
-    const activeKey = selectActiveKey(storeState);
+    const active = selectActive(storeState);
     let toExport: Layout.SliceState;
-    if (activeKey === key || key == null) {
+    if (active?.key === key || key == null) {
       const file = Layout.selectSliceState(storeState);
       toExport = purgeExcludedLayouts(file);
-      if (activeKey != null) name = select(storeState, activeKey)?.name ?? "workspace";
+      if (active?.key != null) name = active.name;
     } else {
-      const existingWorkspace = select(storeState, key);
-      if (existingWorkspace != null) {
-        toExport = existingWorkspace.layout as Layout.SliceState;
-        name = existingWorkspace.name;
-      } else {
-        if (client == null) throw new DisconnectedError();
-        const ws = await client.workspaces.retrieve(key);
-        toExport = ws.layout as Layout.SliceState;
-        name = ws.name;
-      }
+      if (client == null) throw new DisconnectedError();
+      const ws = await client.workspaces.retrieve(key);
+      toExport = ws.layout as Layout.SliceState;
+      name = ws.name;
     }
     const parentDir = await open({
       directory: true,

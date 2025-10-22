@@ -41,7 +41,7 @@ import { EmptyAction, Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { clear } from "@/workspace/slice";
+import { setActive as setActiveWorkspace } from "@/workspace/slice";
 import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 interface ListItemProps extends CoreList.ItemProps<string> {
@@ -133,7 +133,7 @@ export const Dropdown = (): ReactElement => {
     dispatch(setActive(key));
     const cluster = allClusters.find((c) => c.key === key);
     if (cluster == null) {
-      dispatch(clear());
+      dispatch(setActiveWorkspace(null));
       return;
     }
     createWS(new Client(cluster));

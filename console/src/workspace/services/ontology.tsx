@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { array, deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -38,12 +38,11 @@ import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
-import { type RootState } from "@/store";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 import { useExport } from "@/workspace/export";
-import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
-import { add, rename, setActive } from "@/workspace/slice";
+import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
+import { maybeRename, setActive } from "@/workspace/slice";
 
 const useDelete = createUseDelete({
   type: "Workspace",
@@ -61,19 +60,15 @@ const useDelete = createUseDelete({
 
 const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
-  const store = useStore<RootState>();
   const activeWS = useSelectActiveKey();
   const client = Synnax.use();
   return async (key) => {
     if (activeWS === key) return;
-    let ws = select(store.getState(), key);
-    if (ws == null) {
-      if (client == null) throw new DisconnectedError();
-      ws = await client.workspaces.retrieve(key);
-    }
-    dispatch(add(ws));
+    if (client == null) throw new DisconnectedError();
+    const { layout, ...ws } = await client.workspaces.retrieve(key);
+    dispatch(setActive(ws));
     dispatch(
-      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      Layout.setWorkspace({ slice: layout as Layout.SliceState, keepNav: false }),
     );
   };
 };
@@ -182,8 +177,8 @@ const useRename = createUseRename({
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
-    store.dispatch(rename({ key, name }));
-    rollbacks.push(() => store.dispatch(rename({ key, name: oldName })));
+    store.dispatch(maybeRename({ key, name }));
+    rollbacks.push(() => store.dispatch(maybeRename({ key, name: oldName })));
     return { ...data, name };
   },
 });
@@ -301,7 +296,7 @@ const handleSelect: Ontology.HandleSelect = ({
   );
   handleError(async () => {
     const ws = await client.workspaces.retrieve(selection[0].id.key);
-    store.dispatch(add(ws));
+    store.dispatch(setActive(ws));
     store.dispatch(
       Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
     );
