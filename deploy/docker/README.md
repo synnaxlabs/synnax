@@ -2,8 +2,8 @@
 
 ## Quick Start
 
-To build and deploy the Synnax Deployer, along with synnax, run the following commands
-in the `deploy` directory:
+To build and deploy the Synnax Deployer, along with the Synnax Core, run the following
+commands in the `deploy` directory:
 
 ```bash
 docker build -t deployer . && docker run -v /var/run/docker.sock:/var/run/docker.sock -d --name deployer --network=host --restart unless-stopped deployer:latest
@@ -13,14 +13,14 @@ docker build -t deployer . && docker run -v /var/run/docker.sock:/var/run/docker
 
 The Synnax Deployer is a Docker container that manages the lifecycle of a synnax
 deployment. It is intended to be run alongside the main Synnax Docker container, and is
-responsible for keeping the Synnax server up to date.
+responsible for keeping the Synnax Core up to date.
 
 The Synnax Deployer does the following:
 
 - Periodically checks for updates to the Synnax Docker image by comparing the current
   local image tag with the latest tag on Docker Hub.
 - If an update is available, it pulls the latest image and starts polling the Synnax
-  server for a successful deployment readiness check.
+  Core for a successful deployment readiness check.
 - Once the check is successful, the Synnax Deployer stops the Synnax container, and
   starts a new container with the latest image.
 
