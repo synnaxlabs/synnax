@@ -598,7 +598,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			data1 := telem.NewSeriesV[int64](5, 15)
 			data1.Alignment = telem.NewAlignment(2, 1)
 			fr1 := core.UnaryFrame(bases[0].Key(), data1)
-			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
 
 			idx1 := telem.NewSeriesSecondsTSV(1, 2)
@@ -616,8 +616,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			data2 := telem.NewSeriesV[int64](25)
 			data2.Alignment = telem.NewAlignment(3, 2)
 			fr3 := core.UnaryFrame(bases[0].Key(), data2)
-			of = core.Frame{}
-			of, changed = MustSucceed2(c.Next(ctx, fr3, of))
+			of := core.Frame{}
+			_, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeFalse())
 
 			idx2 := telem.NewSeriesSecondsTSV(3)
@@ -659,13 +659,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idx.Alignment = telem.NewAlignment(5, 1)
 			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
-			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
 			ch1Data := telem.NewSeriesV[float64](10.0, 20.0, 30.0)
 			ch1Data.Alignment = telem.NewAlignment(5, 1)
 			fr2 := core.UnaryFrame(bases[0].Key(), ch1Data)
-			of = core.Frame{}
-			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
+			of := core.Frame{}
+			_, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeFalse())
 			ch2Data := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
 			ch2Data.Alignment = telem.NewAlignment(5, 1)
