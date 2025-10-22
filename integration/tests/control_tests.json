@@ -2,21 +2,6 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Control Authority Matrix",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "client/control_authority",
-          "matrix": {
-            "control_authority": [125, 150]
-          }
-        },
-        {
-          "case": "client/sim_daq"
-        }
-      ]
-    },
-    {
       "sequence_name": "Console Press Control - Setpoints",
       "sequence_order": "asynchronous",
       "tests": [
@@ -24,7 +9,8 @@
           "case": "console/setpoint_press_user"
         },
         {
-          "case": "client/setpoint_press_auto"
+          "case": "client/setpoint_press_auto",
+          "parameters": {"control_authority": 150}
         },
         {
           "case": "client/sim_daq"

@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
-import gc
 import glob
 import importlib.util
+import itertools
 import json
 import logging
 import os
@@ -346,6 +346,54 @@ class TestConductor:
             raise FileNotFoundError("No valid sequences found")
 
         self._process_sequences(all_sequences)
+
+    def _expand_matrix(self, test_def: TestDefinition) -> List[TestDefinition]:
+        """
+        Expand a test definition with a matrix into multiple test definitions.
+
+        Example:
+            matrix = {"mode": ["a", "b"], "rate": [100, 200]}
+            Expands to 4 tests with params:
+            - {"mode": "a", "rate": 100}
+            - {"mode": "a", "rate": 200}
+            - {"mode": "b", "rate": 100}
+            - {"mode": "b", "rate": 200}
+        """
+        if test_def.matrix is None or not test_def.matrix:
+            # No matrix, return single test
+            return [test_def]
+
+        # Get all matrix keys and values
+        matrix_keys = list(test_def.matrix.keys())
+        matrix_values = [test_def.matrix[key] for key in matrix_keys]
+
+        # Generate matrix combinations
+        combinations = list(itertools.product(*matrix_values))
+
+        expanded_tests = []
+        for combo in combinations:
+            # Create parameter dict from combination
+            combo_params = dict(zip(matrix_keys, combo))
+
+            # Merge with base params (matrix params override base params)
+            merged_params = {**test_def.params, **combo_params}
+
+            # Generate name from matrix values
+            matrix_suffix = "_".join(str(v) for v in combo)
+            base_name = test_def.name or test_def.case.split("/")[-1]
+            generated_name = f"{base_name}_{matrix_suffix}"
+
+            # Create new test definition
+            expanded_test = TestDefinition(
+                case=test_def.case,
+                name=generated_name,
+                params=merged_params,
+                expect=test_def.expect,
+                matrix=None,  # Expanded tests don't have matrix
+            )
+            expanded_tests.append(expanded_test)
+
+        return expanded_tests
 
     def _process_sequences(self, sequences_array: List[Any]) -> None:
         """Process a list of sequences and populate test_definitions and sequences."""

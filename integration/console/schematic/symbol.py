@@ -115,3 +115,14 @@ class Symbol(ABC):
     def delete(self) -> None:
         self._click_symbol()
         self.console.DELETE
+
+    def toggle_absolute_control(self) -> None:
+        """Toggle absolute control authority for this symbol by clicking its control chip button."""
+        # Locate the control chip button within this specific symbol's container
+        control_chip = self.symbol.locator(".pluto-control-chip").first
+
+        # Bring to front and click to ensure visibility and interaction
+        with self.bring_to_front(control_chip) as chip:
+            chip.click(force=True)
+
+        self.console.page.wait_for_timeout(100)

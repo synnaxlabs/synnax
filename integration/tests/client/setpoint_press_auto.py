@@ -20,12 +20,15 @@ class Setpoint_Press_Auto(TestCase):
     def setup(self) -> None:
 
         self.set_manual_timeout(120)
+        self.control_authority = self.params.get("control_authority", -1)
+
         self.subscribe(
             [
                 "press_vlv_cmd",
                 "vent_vlv_cmd",
                 "press_pt",
-                "end_test_state",
+                "end_test_cmd",
+                "test_flag_cmd",
             ]
         )
         super().setup()
@@ -36,57 +39,32 @@ class Setpoint_Press_Auto(TestCase):
         # Create Press Setpoint channel for console to write to:
         # -------------------
 
-        press_setpoint_time = client.channels.create(
-            name="press_setpoint_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-        press_setpoint_state = client.channels.create(
-            name="press_setpoint_state",
-            index=press_setpoint_time.key,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
-        )
-        press_setpoint_cmd_time = client.channels.create(
-            name="press_setpoint_cmd_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
         press_setpoint_cmd = client.channels.create(
             name="press_setpoint_cmd",
             data_type=sy.DataType.FLOAT32,
             retrieve_if_name_exists=True,
-            index=press_setpoint_cmd_time.key,
+            virtual=True,
         )
 
+        ctrl_valves = ["press_vlv_cmd", "vent_vlv_cmd"]
+        read_chans = ["press_pt", "press_setpoint_cmd", "test_flag_cmd", "end_test_cmd"]
         with client.control.acquire(
-            name="Pressurization Sequence",
-            write_authorities=[200],
-            write=[
-                "press_vlv_cmd",
-                "vent_vlv_cmd",
-                "press_setpoint_state",
-                "press_setpoint_time",
-            ],
-            read=["press_pt", "press_setpoint_cmd", "end_test_state"],
+            name="Pressurization Automation",
+            write_authorities=1,  # Start low
+            write=ctrl_valves,
+            read=read_chans,
         ) as ctrl:
+            # Define loop and stop conditions
             loop = sy.Loop(sy.Rate.HZ * 100)
 
             def test_active() -> bool:
                 return all([loop.wait(), self.should_continue])
 
-            # Initialize valves to closed
-            ctrl.set(
-                {
-                    "press_vlv_cmd": 0,
-                    "vent_vlv_cmd": 0,
-                    "press_setpoint_state": 0,
-                    "press_setpoint_time": sy.TimeStamp.now(),
-                }
-            )
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", False) == True)
+            ctrl.set_authority(self.control_authority)  # Set high
 
+            # Initialize valves to closed
+            ctrl.set({"press_vlv_cmd": 0, "vent_vlv_cmd": 0})
             if not ctrl.wait_until_defined(
                 ["press_pt", "press_setpoint_cmd"], timeout=60
             ):
@@ -96,12 +74,11 @@ class Setpoint_Press_Auto(TestCase):
             self._log_message("Starting pressurization logic")
             mode = "hold"
             setpoint_prev = None
-            while test_active():
 
+            while test_active():
+                end_test_cmd = ctrl.get("end_test_cmd", False)
                 setpoint = ctrl["press_setpoint_cmd"]
                 pressure = ctrl["press_pt"]
-                end_test_state = ctrl["end_test_state"]
-                ctrl["press_setpoint_state"] = setpoint
 
                 # Update on a new value
                 if setpoint != setpoint_prev:
@@ -129,7 +106,7 @@ class Setpoint_Press_Auto(TestCase):
                     ctrl["vent_vlv_cmd"] = 0
 
                 # Check for test end
-                if end_test_state == True:
+                if end_test_cmd == True:
                     self.log("End signal received")
                     ctrl["press_vlv_cmd"] = False
                     ctrl["vent_vlv_cmd"] = False

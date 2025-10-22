@@ -40,7 +40,9 @@ def load_channel_mapping(mapping_path: Path) -> Dict[int, int]:
 def transform_value(value: Any, key_map: Dict[int, int], all_config_keys: set) -> Any:
     """Recursively transform values, replacing config keys with synnax keys."""
     if isinstance(value, dict):
-        return {k: transform_value(v, key_map, all_config_keys) for k, v in value.items()}
+        return {
+            k: transform_value(v, key_map, all_config_keys) for k, v in value.items()
+        }
     elif isinstance(value, list):
         return [transform_value(item, key_map, all_config_keys) for item in value]
     elif isinstance(value, int):
@@ -95,7 +97,7 @@ def transform_schematic(schematic_path: Path, mapping_path: Path, output_path: P
     print(f"  Config keys found in schematic: {replacements}")
 
     # Count keys set to 0 (not in mapping but > 1000000)
-    zeros_set = transformed_str.count(': 0') - original_str.count(': 0')
+    zeros_set = transformed_str.count(": 0") - original_str.count(": 0")
     if zeros_set > 0:
         print(f"  Unknown channel keys replaced with 0: ~{zeros_set}")
 
@@ -132,22 +134,16 @@ The script will:
   3. Replace config keys with Synnax keys
   4. Replace unknown keys (>1000000) with 0
   5. Save the transformed schematic with '_transformed' suffix
-        """
+        """,
     )
     parser.add_argument(
-        "schematic",
-        type=str,
-        help="Path to schematic JSON file to transform"
+        "schematic", type=str, help="Path to schematic JSON file to transform"
     )
-    parser.add_argument(
-        "mapping",
-        type=str,
-        help="Path to channel_mapping.json file"
-    )
+    parser.add_argument("mapping", type=str, help="Path to channel_mapping.json file")
     parser.add_argument(
         "--output",
         type=str,
-        help="Output path for transformed schematic (default: <schematic>_transformed.json)"
+        help="Output path for transformed schematic (default: <schematic>_transformed.json)",
     )
 
     args = parser.parse_args()

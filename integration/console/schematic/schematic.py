@@ -101,14 +101,21 @@ class Schematic(ConsolePage):
         self,
         channel_name: str,
         show_control_chip: Optional[bool] = None,
+        no_state_channel: Optional[bool] = False,
     ) -> Valve:
         """Create a button symbol on the schematic.
         channel_name will be used for _state and _cmd channels.
         show_control_chip is whether to show the control chip.
         """
+
+        if not no_state_channel:
+            ch_state = f"{channel_name}_state"
+            ch_cmd = f"{channel_name}_cmd"
+        else:
+            ch_state = channel_name
+            ch_cmd = channel_name
+
         valve_id = self._add_symbol("Valve")
-        ch_state = f"{channel_name}_state"
-        ch_cmd = f"{channel_name}_cmd"
         valve = Valve(self.page, self.console, valve_id, channel_name)
         valve.edit_properties(
             state_channel=ch_state,
@@ -184,3 +191,12 @@ class Schematic(ConsolePage):
             )
 
         return handle_positions[handle]
+
+    def set_authority(self, authority: int) -> None:
+        """Set the control authority for the schematic page."""
+        if authority > 255 or authority < 0:
+            raise ValueError(
+                f"Control Authority must be between 0 and 255, got {authority}"
+            )
+        self.console.click("Control")
+        self.console.fill_input_field("Control Authority", str(authority))

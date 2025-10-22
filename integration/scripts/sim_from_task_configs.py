@@ -145,17 +145,21 @@ class SimDAQ:
 
             # Record mapping
             if config_cmd_key:
-                self.channel_mapping.append({
-                    "name": cmd_name,
-                    "config_key": config_cmd_key,
-                    "synnax_key": cmd_ch.key
-                })
+                self.channel_mapping.append(
+                    {
+                        "name": cmd_name,
+                        "config_key": config_cmd_key,
+                        "synnax_key": cmd_ch.key,
+                    }
+                )
             if config_state_key:
-                self.channel_mapping.append({
-                    "name": state_name,
-                    "config_key": config_state_key,
-                    "synnax_key": state_ch.key
-                })
+                self.channel_mapping.append(
+                    {
+                        "name": state_name,
+                        "config_key": config_state_key,
+                        "synnax_key": state_ch.key,
+                    }
+                )
 
             self.valve_pairs.append((cmd_name, state_name))
             self.valve_states[state_name] = 0.0
@@ -187,11 +191,13 @@ class SimDAQ:
 
             # Record mapping
             if config_key:
-                self.channel_mapping.append({
-                    "name": name,
-                    "config_key": config_key,
-                    "synnax_key": created_ch.key
-                })
+                self.channel_mapping.append(
+                    {
+                        "name": name,
+                        "config_key": config_key,
+                        "synnax_key": created_ch.key,
+                    }
+                )
 
             self.sensor_channels.append((name, ch_type))
             print(f"  ✓ {name}")
@@ -233,23 +239,29 @@ class SimDAQ:
 
             # Record mapping
             if config_cmd_key:
-                self.channel_mapping.append({
-                    "name": cmd_name,
-                    "config_key": config_cmd_key,
-                    "synnax_key": cmd_ch.key
-                })
+                self.channel_mapping.append(
+                    {
+                        "name": cmd_name,
+                        "config_key": config_cmd_key,
+                        "synnax_key": cmd_ch.key,
+                    }
+                )
             if config_state_key:
-                self.channel_mapping.append({
-                    "name": state_name,
-                    "config_key": config_state_key,
-                    "synnax_key": state_ch.key
-                })
+                self.channel_mapping.append(
+                    {
+                        "name": state_name,
+                        "config_key": config_state_key,
+                        "synnax_key": state_ch.key,
+                    }
+                )
 
             self.ao_pairs.append((cmd_name, state_name))
             self.ao_states[state_name] = 0.0
             print(f"  ✓ {cmd_name} / {state_name}")
 
-    def _generate_sensor_name(self, ch: dict, port: int, ch_type: str, index: int) -> str:
+    def _generate_sensor_name(
+        self, ch: dict, port: int, ch_type: str, index: int
+    ) -> str:
         """Generate a descriptive sensor name."""
         if ch_type == "ai_voltage":
             return f"voltage_{port}"
@@ -277,7 +289,9 @@ class SimDAQ:
         print(f"✓ Saved channel mapping to: {mapping_file}")
         print(f"  Total mappings: {len(self.channel_mapping)}\n")
 
-    def generate_sensor_value(self, name: str, ch_type: str, timestamp: sy.TimeStamp) -> float:
+    def generate_sensor_value(
+        self, name: str, ch_type: str, timestamp: sy.TimeStamp
+    ) -> float:
         """Generate realistic sensor data."""
         t = (timestamp - self.time_offset) / sy.TimeSpan.SECOND
         freq = 0.1 + (hash(name) % 10) * 0.05
@@ -336,8 +350,12 @@ class SimDAQ:
 
         # Build channel lists
         sensor_names = [name for name, _ in self.sensor_channels]
-        cmd_channels = [cmd for cmd, _ in self.valve_pairs] + [cmd for cmd, _ in self.ao_pairs]
-        state_channels = [state for _, state in self.valve_pairs] + [state for _, state in self.ao_pairs]
+        cmd_channels = [cmd for cmd, _ in self.valve_pairs] + [
+            cmd for cmd, _ in self.ao_pairs
+        ]
+        state_channels = [state for _, state in self.valve_pairs] + [
+            state for _, state in self.ao_pairs
+        ]
         write_channels = ["daq_time"] + sensor_names + state_channels
 
         print(f"\nConfiguration:")
@@ -386,7 +404,9 @@ class SimDAQ:
                                     if random.random() > 0.1:
                                         self.valve_states[state_name] = float(data[-1])
                                     if data[-1] != 0:
-                                        print(f"  [{timestamp}] {cmd_name} = {data[-1]}")
+                                        print(
+                                            f"  [{timestamp}] {cmd_name} = {data[-1]}"
+                                        )
 
                             # Process analog output commands
                             for cmd_name, state_name in self.ao_pairs:
@@ -394,9 +414,13 @@ class SimDAQ:
                                 if len(data) > 0:
                                     target = float(data[-1])
                                     current = self.ao_states.get(state_name, 0.0)
-                                    self.ao_states[state_name] = current + 0.8 * (target - current)
+                                    self.ao_states[state_name] = current + 0.8 * (
+                                        target - current
+                                    )
                                     if abs(target) > 0.001:
-                                        print(f"  [{timestamp}] {cmd_name} = {target:.4f}")
+                                        print(
+                                            f"  [{timestamp}] {cmd_name} = {target:.4f}"
+                                        )
                     except Exception as e:
                         if iteration % 1000 == 0:
                             print(f"  ⚠ Error: {e}")
@@ -406,7 +430,9 @@ class SimDAQ:
 
                 # Add sensor data
                 for name, ch_type in self.sensor_channels:
-                    frame_data[name] = self.generate_sensor_value(name, ch_type, timestamp)
+                    frame_data[name] = self.generate_sensor_value(
+                        name, ch_type, timestamp
+                    )
 
                 # Add valve states
                 for _, state_name in self.valve_pairs:
@@ -422,7 +448,9 @@ class SimDAQ:
 
                 # Status update every 10 seconds
                 if (timestamp - last_status) > sy.TimeSpan.SECOND * 10:
-                    print(f"  [{timestamp}] {iteration} frames, {len(frame_data)} channels")
+                    print(
+                        f"  [{timestamp}] {iteration} frames, {len(frame_data)} channels"
+                    )
                     last_status = timestamp
 
         except KeyboardInterrupt:
@@ -430,6 +458,7 @@ class SimDAQ:
         except Exception as e:
             print(f"\n\nERROR: {e}")
             import traceback
+
             traceback.print_exc()
         finally:
             print(f"\n{'=' * 70}")
@@ -460,12 +489,12 @@ The script will:
   3. Save a channel mapping file (config_key → synnax_key)
   4. Start writing simulated data at 100 Hz
   5. Listen for commands and update states accordingly
-        """
+        """,
     )
     parser.add_argument(
         "config_dir",
         type=str,
-        help="Path to directory containing Synnax task configuration JSON files"
+        help="Path to directory containing Synnax task configuration JSON files",
     )
 
     args = parser.parse_args()
