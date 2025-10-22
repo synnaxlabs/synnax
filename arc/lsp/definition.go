@@ -27,7 +27,14 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if word == "" {
 		return nil, nil
 	}
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
+
+	// Map position to wrapped coordinates if this is a block expression
+	searchPos := params.Position
+	if doc.Wrapper != nil {
+		searchPos = doc.Wrapper.MapOriginalToWrapped(params.Position)
+	}
+
+	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 	sym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil {
 		return nil, nil

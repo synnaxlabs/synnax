@@ -292,7 +292,13 @@ func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix s
 
 	// Add symbols from the document's symbol table using ResolvePrefix
 	if doc.IR.Symbols != nil {
-		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, pos)
+		// Map position to wrapped coordinates if this is a block expression
+		searchPos := pos
+		if doc.Wrapper != nil {
+			searchPos = doc.Wrapper.MapOriginalToWrapped(pos)
+		}
+
+		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 		if scopeAtCursor != nil {
 			// Use ResolvePrefix to get all matching symbols from children, GlobalResolver, and parents
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)

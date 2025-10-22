@@ -38,13 +38,38 @@ func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protoc
 		return nil, nil
 	}
 
+	s.cfg.L.Debug("Hover request",
+		zap.String("word", word),
+		zap.Uint32("line", params.Position.Line),
+		zap.Uint32("char", params.Position.Character),
+		zap.Bool("hasIR", doc.IR.Symbols != nil),
+		zap.Bool("hasWrapper", doc.Wrapper != nil))
+
 	// Try built-in keywords and types first
 	contents := s.getHoverContents(word)
 
 	// If not a built-in, try user-defined symbols from IR
 	if contents == "" && doc.IR.Symbols != nil {
+		// Map position to wrapped coordinates if this is a block expression
+		searchPos := params.Position
+		if doc.Wrapper != nil {
+			searchPos = doc.Wrapper.MapOriginalToWrapped(params.Position)
+			s.cfg.L.Debug("Mapped position for search",
+				zap.Uint32("originalLine", params.Position.Line),
+				zap.Uint32("originalChar", params.Position.Character),
+				zap.Uint32("wrappedLine", searchPos.Line),
+				zap.Uint32("wrappedChar", searchPos.Character))
+		}
+
 		// Find the scope at the cursor position for proper context
-		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
+		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
+		if scopeAtCursor != nil {
+			s.cfg.L.Debug("Found scope at cursor",
+				zap.String("scopeName", scopeAtCursor.Name),
+				zap.String("scopeKind", scopeAtCursor.String()))
+		} else {
+			s.cfg.L.Debug("No scope found at cursor")
+		}
 		contents = s.getUserSymbolHover(scopeAtCursor, word)
 	}
 
@@ -158,12 +183,25 @@ func parseInt(s string) int {
 
 // getUserSymbolHover returns hover documentation for user-defined symbols
 func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
+	if scope == nil {
+		s.cfg.L.Debug("getUserSymbolHover: scope is nil")
+		return ""
+	}
+
 	// Try to resolve the symbol in the symbol table from the given scope
 	// This will search upward through parent scopes automatically
 	sym, err := scope.Resolve(context.Background(), name)
 	if err != nil {
+		s.cfg.L.Debug("getUserSymbolHover: failed to resolve symbol",
+			zap.String("name", name),
+			zap.Error(err))
 		return ""
 	}
+
+	s.cfg.L.Debug("getUserSymbolHover: resolved symbol",
+		zap.String("name", sym.Name),
+		zap.String("kind", sym.Kind.String()),
+		zap.String("type", sym.Type.String()))
 
 	// Format based on symbol kind
 	var content strings.Builder

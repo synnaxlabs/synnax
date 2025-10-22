@@ -72,6 +72,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                 value={value}
                 language={Arc.LANGUAGE}
                 onChange={onChange}
+                isBlock
                 bordered
                 rounded
                 style={{ height: 150 }}

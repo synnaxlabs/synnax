@@ -48,7 +48,11 @@ func Analyze(
 	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
 	// func 1: Analyse the AST.
 	if !analyzer.AnalyzeProgram(ctx) {
-		return ir.IR{}, *ctx.Diagnostics
+		// Return scope and type map even on error so LSP features still work
+		return ir.IR{
+			Symbols: ctx.Scope,
+			TypeMap: ctx.TypeMap,
+		}, *ctx.Diagnostics
 	}
 	i := ir.IR{
 		Symbols: ctx.Scope,
