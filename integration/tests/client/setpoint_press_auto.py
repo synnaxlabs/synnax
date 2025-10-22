@@ -60,8 +60,17 @@ class Setpoint_Press_Auto(TestCase):
             def test_active() -> bool:
                 return all([loop.wait(), self.should_continue])
 
+            # ------------- Test 1: Control Authority --------------
+            # SY-3147: Pair this test with setpoint_press_user.py
+            # to ensure that the schematic control authority is working.
             ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1)
             ctrl.set_authority(self.control_authority)  # Set high
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 1) == 0)
+
+            # ------------- Test 2: Basic Control --------------
+            # setpoint_press_user will control setpoint via the
+            # console schematic.
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1)
 
             # Initialize valves to closed
             ctrl.set({"press_vlv_cmd": 0, "vent_vlv_cmd": 0})

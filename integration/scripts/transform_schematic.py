@@ -37,18 +37,26 @@ def load_channel_mapping(mapping_path: Path) -> Dict[int, int]:
     return key_map
 
 
-def transform_value(value: Any, key_map: Dict[int, int]) -> Any:
-    """Recursively transform values, replacing config keys with synnax keys."""
+def transform_value(value: Any, key_map: Dict[int, int], stats: Dict[str, int]) -> Any:
+    """Recursively transform values, replacing config keys with synnax keys.
+
+    Args:
+        value: The value to transform
+        key_map: Mapping of config_key -> synnax_key
+        stats: Dictionary to track replacement statistics
+    """
     if isinstance(value, dict):
-        return {k: transform_value(v, key_map) for k, v in value.items()}
+        return {k: transform_value(v, key_map, stats) for k, v in value.items()}
     elif isinstance(value, list):
-        return [transform_value(item, key_map) for item in value]
+        return [transform_value(item, key_map, stats) for item in value]
     elif isinstance(value, int):
         # If in key map, use the synnax key
         if value in key_map:
+            stats["mapped_replacements"] += 1
             return key_map[value]
         # If it looks like a channel key (> 1000000) but not in our configs, set to 0
         elif value > 1000000:
+            stats["unknown_to_zero"] += 1
             return 0
         # Otherwise keep the value as-is
         else:
@@ -76,29 +84,16 @@ def transform_schematic(
         schematic = json.load(f)
     print(f"✓ Loaded schematic\n")
 
-    # Transform schematic
+    # Transform schematic with statistics tracking
     print("Transforming channel keys...")
-    transformed = transform_value(schematic, key_map)
-
-    # Count and show replacements
-    original_str = json.dumps(schematic)
-    transformed_str = json.dumps(transformed)
+    stats = {"mapped_replacements": 0, "unknown_to_zero": 0}
+    transformed = transform_value(schematic, key_map, stats)
 
     print(f"\nReplacement summary:")
     print(f"  Config keys in mapping: {len(key_map)}")
-
-    # Count actual replacements
-    replacements = 0
-    for config_key in key_map.keys():
-        if str(config_key) in original_str:
-            replacements += 1
-
-    print(f"  Config keys found in schematic: {replacements}")
-
-    # Count keys set to 0 (not in mapping but > 1000000)
-    zeros_set = transformed_str.count(": 0") - original_str.count(": 0")
-    if zeros_set > 0:
-        print(f"  Unknown channel keys replaced with 0: ~{zeros_set}")
+    print(f"  Config keys replaced: {stats['mapped_replacements']}")
+    if stats["unknown_to_zero"] > 0:
+        print(f"  Unknown channel keys replaced with 0: {stats['unknown_to_zero']}")
 
     print(f"✓ Transformation complete\n")
 

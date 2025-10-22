@@ -147,15 +147,15 @@ class Sim_DAQ(TestCase):
                     if frame is not None:
                         vent_vlv_cmd = frame.get("vent_vlv_cmd")
                         if len(vent_vlv_cmd) > 0:
-                            state["vent_vlv_state"] = vent_vlv_cmd[-1]
+                            state["vent_vlv_state"] = vent_vlv_cmd[-1].item()
 
                         press_vlv_cmd = frame.get("press_vlv_cmd")
                         if len(press_vlv_cmd) > 0:
-                            state["press_vlv_state"] = press_vlv_cmd[-1]
+                            state["press_vlv_state"] = press_vlv_cmd[-1].item()
 
                         end_test_cmd = frame.get("end_test_cmd")
                         if len(end_test_cmd) > 0:
-                            end_test_flag = end_test_cmd[-1]
+                            end_test_flag = end_test_cmd[-1].item()
 
                     # Simulate pressure
                     if state["press_vlv_state"] == 1:

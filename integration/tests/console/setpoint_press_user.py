@@ -75,15 +75,14 @@ class Setpoint_Press_User(ConsoleCase):
         assert press_vlv_state == 0, "Press valve should be 0 on initial read"
         assert vent_vlv_state == 0, "Vent valve should be 0 on initial read"
 
-        start_cmd.press()
+        start_cmd.press()  # Set True
 
         # Take absolute control
         press_valve.toggle_absolute_control()
         vent_valve.toggle_absolute_control()
 
-        # Toggle
-        press_valve.press()
-        vent_valve.press()
+        press_valve.press()  # Set True
+        vent_valve.press()  # Set True
 
         # Assertions 2
         start_flag_val = self.read_tlm("test_flag_cmd")
@@ -93,16 +92,15 @@ class Setpoint_Press_User(ConsoleCase):
         assert press_vlv_state == 1, "Press valve should be 1 after first press"
         assert vent_vlv_state == 1, "Vent valve should be 1 after first press"
 
-        # Toggle
-        press_valve.press()
-        vent_valve.press()
+        press_valve.press()  # Set False
+        vent_valve.press()  # Set False
 
         # Release back to higher authority
         press_valve.toggle_absolute_control()
         vent_valve.toggle_absolute_control()
 
         # Check we can control something again
-        start_cmd.press()
+        start_cmd.press()  # Set False
 
         # Assertions 3
         start_flag_val = self.read_tlm("test_flag_cmd")
@@ -114,6 +112,8 @@ class Setpoint_Press_User(ConsoleCase):
 
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")
+        start_cmd.press()  # Set True
+
         setpoints = [30, 15, 60, 30, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
