@@ -78,7 +78,7 @@ export const createImporter: ImporterCreator =
           const fileName = path.split(sep()).pop();
           if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
           const name = trimFileName(fileName);
-          ingest(data, { layout: { name }, placeLayout, store });
+          ingest(JSON.parse(data), { layout: { name }, placeLayout, store });
         }, `Failed to import ${type} at ${path}`),
       );
     });
