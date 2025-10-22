@@ -151,6 +151,7 @@ const Form: FC<
 > = () => (
   <Common.Task.Layouts.List<InputChannel>
     createChannel={getOpenChannel}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
     listItem={listItem}
   />
 );

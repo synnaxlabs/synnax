@@ -16,12 +16,12 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
   [
     {
       itemKey: "labjack.readTask",
-      label: "Create Read Task",
+      label: "Create read task",
       layout: Task.READ_LAYOUT,
     },
     {
       itemKey: "labjack.writeTask",
-      label: "Create Write Task",
+      label: "Create write task",
       layout: Task.WRITE_LAYOUT,
     },
   ];

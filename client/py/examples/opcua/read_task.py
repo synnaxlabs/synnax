@@ -11,7 +11,7 @@
 This example demonstrates how to start and configure a read task on an OPC UA server.
 
 Before running this example, you will need to connect Synnax to an OPC UA server. See
-https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server.
+https://docs.synnaxlabs.com/reference/driver/opc-ua/connect-server.
 """
 
 import synnax as sy

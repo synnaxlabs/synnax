@@ -59,12 +59,9 @@ export const createImporter: ImporterCreator =
       const storeState = store.getState();
       const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
       if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-        let ws = Workspace.select(storeState, workspaceKey);
-        if (ws == null) {
-          if (client == null) throw new DisconnectedError();
-          ws = await client.workspaces.retrieve(workspaceKey);
-        }
-        store.dispatch(Workspace.add(ws));
+        if (client == null) throw new DisconnectedError();
+        const ws = await client.workspaces.retrieve(workspaceKey);
+        store.dispatch(Workspace.setActive(ws));
         store.dispatch(
           Layout.setWorkspace({
             slice: ws.layout as Layout.SliceState,
@@ -78,7 +75,7 @@ export const createImporter: ImporterCreator =
           const fileName = path.split(sep()).pop();
           if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
           const name = trimFileName(fileName);
-          ingest(data, { layout: { name }, placeLayout, store });
+          ingest(JSON.parse(data), { layout: { name }, placeLayout, store });
         }, `Failed to import ${type} at ${path}`),
       );
     });

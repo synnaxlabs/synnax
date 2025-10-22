@@ -41,6 +41,7 @@ async def create_array_variables(myobj, idx):
         arrays.append(arr)
     return arrays
 
+
 async def create_time_array(myobj, idx):
     """Create timestamp array variable."""
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -54,6 +55,7 @@ async def create_time_array(myobj, idx):
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
     return mytimearray
 
+
 async def create_float_variables(myobj, idx):
     """Create scalar float variables."""
     floats = []
@@ -64,6 +66,7 @@ async def create_float_variables(myobj, idx):
         await my_float.set_writable()
         floats.append(my_float)
     return floats
+
 
 async def create_bool_variables(myobj, idx):
     """Create scalar boolean variables."""
@@ -77,21 +80,17 @@ async def create_bool_variables(myobj, idx):
     return bools
 
 
-
 # Data Generation Functions
 def generate_timestamps(start, rate, size):
     """Generate array of timestamps."""
-    return [
-        start + datetime.timedelta(seconds=j * (1 / rate)) for j in range(size)
-    ]
+    return [start + datetime.timedelta(seconds=j * (1 / rate)) for j in range(size)]
+
 
 def generate_sinewave_values(timestamps, start_ref):
     """Generate sinewave values based on timestamps."""
     return [
-        math.sin((timestamp - start_ref).total_seconds())
-        for timestamp in timestamps
+        math.sin((timestamp - start_ref).total_seconds()) for timestamp in timestamps
     ]
-
 
 
 # Update Functions
@@ -101,7 +100,7 @@ def inject_error(values):
     """
 
     error_chance = random.random()
-    
+
     # Empty array
     if error_chance < 0.333:
         return []
@@ -112,9 +111,10 @@ def inject_error(values):
         return values[:size]
 
     # Array larger than expected
-    else: 
+    else:
         extra = random.randint(1, 3)
         return values + [values[-1] for _ in range(extra)]
+
 
 async def update_arrays(arrays, values, start_ref, cycle_count):
     """Update array variables with generated values.
@@ -142,8 +142,8 @@ async def update_floats(floats, elapsed):
         if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
             value = inject_error([value])
 
-        
         await float_var.set_value(value, varianttype=ua.VariantType.Float)
+
 
 async def update_bools(bools, elapsed):
     """Update scalar boolean variables with sequential square waves."""
@@ -154,7 +154,6 @@ async def update_bools(bools, elapsed):
             square_wave = inject_error([square_wave])
 
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
-
 
 
 async def main():
@@ -188,9 +187,7 @@ async def main():
 
             # Update all variables
             await update_arrays(arrays, sinewave_values, start_ref, cycle_count)
-            await mytimearray.set_value(
-                timestamps, varianttype=ua.VariantType.DateTime
-            )
+            await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             await update_floats(floats, elapsed)
             await update_bools(bools, elapsed)
 

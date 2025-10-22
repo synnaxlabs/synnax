@@ -83,7 +83,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

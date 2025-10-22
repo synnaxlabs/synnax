@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Read Data"
-description: "Use the Python client to read from a Synnax cluster."
+description: "Use the Python client to read data from a Synnax Core."
 next: "Write Data"
 nextURL: "/reference/python-client/write-data"
 prev: "Ranges"
@@ -12,8 +12,8 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Python client supports several different ways of reading data from a cluster. We can
-read directly from a channel, fetch a range and access its data, or leverage server side
+The Python client supports several different ways of reading data from a Core. We can
+read directly from a channel, fetch a range and access its data, or leverage server-side
 iterators for processing large queries. If you'd like a conceptual overview of how to
 read data in Synnax, check out the [reads](/reference/concepts/reads) page.
 
@@ -88,7 +88,7 @@ df = frame.to_df()
 While the above methods are useful for executing precise reads, they require us to know
 the exact range of time we're interested in reading.
 [Ranges](/reference/python-client/ranges) are a useful way of categorizing important
-time ranges in a cluster's data. We can read directly from these ranges.
+time ranges in Synnax. We can read directly from these ranges.
 
 We can access channels on a `Range` object and call `read` on them to access their data:
 
@@ -146,7 +146,7 @@ channels or a `Frame` for multiple channels.
 Single, multiple, and named reads will cover most use cases, but there are situations
 where it's necessary to process more data than can be stored in memory.
 
-Synnax supports server side iterators that allow us to process large queries in
+Synnax supports server-side iterators that allow us to process large queries in
 consistently sized chunks. By default, Synnax uses a chunk size of 100,000. To configure
 a custom chunk size, pass in the `chunk_size` argument to the `open_iterator` method
 with the desired number of samples per iteration.
@@ -161,12 +161,12 @@ with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
 
 ## Examples
 
-Many of the examples on our [examples page](/reference/python-client/examples) show how
-to effectively read data from a Synnax cluster. Some examples of note are:
+Many of [our examples](/reference/python-client/examples) show how to effectively read
+data from a Synnax Core. Some examples of note are:
 
 - [Plot](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/plot.py)
-  - Demonstrates how to plot data retrieved from a Synnax cluster.
+  - Demonstrates how to plot data retrieved from a Synnax Core.
 - [Export to CSV](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/export_to_csv.py)
-  - Demonstrates how to export data retrieved from a Synnax cluster to a CSV file.
+  - Demonstrates how to export data retrieved from a Synnax Core to a CSV file.
 - [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/read_latest.py)
   - Demonstrates how to read the latest x samples from a channel.

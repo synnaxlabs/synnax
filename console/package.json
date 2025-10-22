@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.46.8",
+  "version": "0.46.9",
   "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit",
@@ -46,6 +46,7 @@
     "compromise-dates": "catalog:",
     "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@^14.0.6",
     "monaco-languageclient": "^9.11.0",
+    "pluralize": "^8.0.0",
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -64,6 +65,7 @@
     "@synnaxlabs/tsconfig": "workspace:^",
     "@tauri-apps/cli": "^2.8.4",
     "@testing-library/react": "catalog:",
+    "@types/pluralize": "^0.0.33",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",

@@ -73,7 +73,7 @@ const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null 
   if (keys.length === 0)
     return (
       <PMenu.Menu level="small" gap="small">
-        <Menu.HardReloadItem />
+        <Menu.ReloadConsoleItem />
       </PMenu.Menu>
     );
   const layoutKey = keys[0];

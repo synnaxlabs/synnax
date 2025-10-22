@@ -22,7 +22,7 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
       const res = await confirm({
         message: "Are you sure you want to clear the Console's local storage?",
         description:
-          "This will remove all saved console data that is not persisted within a Synnax cluster.",
+          "This will remove all saved Console data that is not persisted within a Synnax Core.",
       });
       if (!res) return;
       store.dispatch(CLEAR_STATE as PayloadAction<any>);
