@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -41,7 +41,7 @@ import (
 type Calculator struct {
 	ch         channel.Channel
 	state      *state.State
-	scheduler  *runtime.Scheduler
+	scheduler  *scheduler.Scheduler
 	stateCfg   state.Config
 	alignments map[channel.Key]telem.Alignment
 }
@@ -199,8 +199,8 @@ func OpenCalculator(
 		nodes[irNode.Key] = n
 	}
 
-	scheduler := runtime.NewScheduler(ctx, module.IR, nodes, nil) // Calculator doesn't use intervals
-	scheduler.Init(ctx)
+	sched := scheduler.New(ctx, module.IR, nodes, nil) // Calculator doesn't use intervals
+	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
 	for _, ch := range stateCfg.ChannelDigests {
 		if ch.Index == 0 {
@@ -210,7 +210,7 @@ func OpenCalculator(
 		}
 	}
 	return &Calculator{
-		scheduler:  scheduler,
+		scheduler:  sched,
 		state:      progState,
 		ch:         cfg.Channel,
 		stateCfg:   stateCfg,

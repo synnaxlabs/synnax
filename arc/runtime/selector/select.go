@@ -44,9 +44,9 @@ var (
 
 type selectNode struct{ *state.Node }
 
-func (s *selectNode) Init(context.Context, func(string)) {}
+func (s *selectNode) Init(ctx node.Context) {}
 
-func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
+func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
@@ -83,10 +83,10 @@ func (s *selectNode) Next(_ context.Context, onOutput func(string)) {
 		}
 	}
 	if trueData.Len() > 0 {
-		onOutput(trueParamName)
+		ctx.MarkChanged(trueParamName)
 	}
 	if falseData.Len() > 0 {
-		onOutput(falseParamName)
+		ctx.MarkChanged(falseParamName)
 	}
 }
 

@@ -58,11 +58,11 @@ type Node struct {
 	state     *state.Node
 }
 
-func (n *Node) Init(ctx context.Context, markChanged func(output string)) {
+func (n *Node) Init(node.Context) {
 	// Nothing to do - time wheel manages the interval
 }
 
-func (n *Node) Next(ctx context.Context, markChanged func(output string)) {
+func (n *Node) Next(ctx node.Context) {
 	tick, timestamp, elapsed, ok := n.timeWheel.GetState(n.key)
 	if !ok {
 		return
@@ -97,9 +97,9 @@ func (n *Node) Next(ctx context.Context, markChanged func(output string)) {
 	telem.MarshalTimeStamp(elapsedTime.Data, timestamp)
 
 	// Mark all outputs as changed
-	markChanged(tickOutput)
-	markChanged(timestampOutput)
-	markChanged(elapsedOutput)
+	ctx.MarkChanged(tickOutput)
+	ctx.MarkChanged(timestampOutput)
+	ctx.MarkChanged(elapsedOutput)
 }
 
 type factory struct {

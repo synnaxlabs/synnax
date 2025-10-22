@@ -123,16 +123,16 @@ var _ = Describe("Interval", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Initialize node
-			n.Init(ctx, func(output string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			// Wait for at least one tick
 			gotime.Sleep(60 * gotime.Millisecond)
 
 			// Execute node
 			var changedOutputs []string
-			n.Next(ctx, func(output string) {
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
 				changedOutputs = append(changedOutputs, output)
-			})
+			}})
 
 			// Should have marked all outputs as changed
 			Expect(changedOutputs).To(ContainElements("tick", "timestamp", "elapsed"))
@@ -165,18 +165,18 @@ var _ = Describe("Interval", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			n.Init(ctx, func(output string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			// Wait for first tick
 			gotime.Sleep(40 * gotime.Millisecond)
-			n.Next(ctx, func(output string) {})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			stateNode := progState.Node("interval_1")
 			tick1 := telem.UnmarshalUint64[uint64](stateNode.Output(0).Data)
 
 			// Wait for second tick
 			gotime.Sleep(40 * gotime.Millisecond)
-			n.Next(ctx, func(output string) {})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			tick2 := telem.UnmarshalUint64[uint64](stateNode.Output(0).Data)
 
@@ -198,7 +198,7 @@ var _ = Describe("Interval", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			n.Init(ctx, func(output string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			// Wait for interval to fire
 			gotime.Sleep(110 * gotime.Millisecond)
@@ -225,7 +225,7 @@ var _ = Describe("Interval", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			n.Init(ctx, func(output string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {}})
 
 			// Before initial delay, tick should be 0
 			gotime.Sleep(80 * gotime.Millisecond)

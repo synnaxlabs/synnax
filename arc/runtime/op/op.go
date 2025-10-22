@@ -24,15 +24,15 @@ type binaryOperator struct {
 	op    op.Binary
 }
 
-func (n *binaryOperator) Init(context.Context, func(string)) {}
+func (n *binaryOperator) Init(ctx node.Context) {}
 
-func (n *binaryOperator) Next(_ context.Context, markChanged func(output string)) {
+func (n *binaryOperator) Next(ctx node.Context) {
 	if !n.state.RefreshInputs() {
 		return
 	}
 	n.op(n.state.Input(0), n.state.Input(1), n.state.Output(0))
 	*n.state.OutputTime(0) = n.state.InputTime(0)
-	markChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
 type operatorFactory struct{}

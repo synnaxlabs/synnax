@@ -57,9 +57,9 @@ type setStatus struct {
 	ins       alamos.Instrumentation
 }
 
-func (s *setStatus) Init(context.Context, func(string)) {}
+func (s *setStatus) Init(node.Context) {}
 
-func (s *setStatus) Next(ctx context.Context, _ func(string)) {
+func (s *setStatus) Next(ctx node.Context) {
 	s.stat.Time = telem.Now()
 	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
 		s.ins.L.Error("error setting status", zap.Error(err))

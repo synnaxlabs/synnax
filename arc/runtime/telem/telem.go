@@ -65,9 +65,9 @@ type source struct {
 	highWaterMark xtelem.Alignment
 }
 
-func (s *source) Init(context.Context, func(output string)) {}
+func (s *source) Init(node.Context) {}
 
-func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
+func (s *source) Next(ctx node.Context) {
 	data, indexData, ok := s.snode.ReadChan(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
@@ -94,7 +94,7 @@ func (s *source) Next(_ context.Context, onOutputChange func(param string)) {
 			*s.snode.Output(0) = ser
 			*s.snode.OutputTime(0) = timeSeries
 			s.highWaterMark = ab.Upper
-			onOutputChange(ir.DefaultOutputParam)
+			ctx.MarkChanged(ir.DefaultOutputParam)
 			return
 		}
 	}
@@ -105,9 +105,19 @@ type sink struct {
 	key   uint32
 }
 
-func (s *sink) Init(context.Context, func(output string)) {}
+func (s *sink) Init(ctx node.Context) {
+	if !s.state.RefreshInputs() {
+		return
+	}
+	data := s.state.Input(0)
+	time := s.state.InputTime(0)
+	if data.Len() == 0 {
+		return
+	}
+	s.state.WriteChan(s.key, data, time)
+}
 
-func (s *sink) Next(context.Context, func(param string)) {
+func (s *sink) Next(ctx node.Context) {
 	if !s.state.RefreshInputs() {
 		return
 	}

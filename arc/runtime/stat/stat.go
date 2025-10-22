@@ -75,11 +75,11 @@ type reduction struct {
 	now         func() telem.TimeStamp
 }
 
-func (r *reduction) Init(_ context.Context, _ func(output string)) {
+func (r *reduction) Init(_ node.Context) {
 	r.startTime = r.now()
 }
 
-func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) {
+func (r *reduction) Next(ctx node.Context) {
 	if !r.state.RefreshInputs() {
 		return
 	}
@@ -115,7 +115,7 @@ func (r *reduction) Next(_ context.Context, onOutputChange func(output string)) 
 	}
 	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.state.Output(0))
 	*r.state.OutputTime(0) = r.state.InputTime(0)
-	onOutputChange(ir.DefaultOutputParam)
+	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
 type Config struct {

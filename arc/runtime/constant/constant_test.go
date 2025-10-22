@@ -130,9 +130,9 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(output string) {
+			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {
 				outputs = append(outputs, output)
-			})
+			}})
 			Expect(outputs).To(HaveLen(1))
 			Expect(outputs[0]).To(Equal(ir.DefaultOutputParam))
 		})
@@ -142,7 +142,7 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := s.Node("const").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
 		})
@@ -155,7 +155,7 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			outTime := s.Node("const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
 			times := telem.UnmarshalSeries[telem.TimeStamp](*outTime)
@@ -169,7 +169,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[float64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[float64](*out)
 			Expect(vals[0]).To(Equal(2.718))
@@ -182,7 +182,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int32](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int32](*out)
 			Expect(vals[0]).To(Equal(int32(42)))
@@ -195,7 +195,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[uint8](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[uint8](*out)
 			Expect(vals[0]).To(Equal(uint8(255)))
@@ -227,7 +227,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			sink := s.Node("sink")
 			recalc := sink.RefreshInputs()
 			Expect(recalc).To(BeTrue())
@@ -243,7 +243,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
 			Expect(vals[0]).To(Equal(int64(0)))
@@ -256,7 +256,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
 			Expect(vals[0]).To(Equal(int64(-42)))
@@ -287,13 +287,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Init(ctx, func(string) {})
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			out1 := constNode.Output(0)
 			len1 := out1.Len()
 			outputs := []string{}
-			n.Next(ctx, func(output string) {
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
 				outputs = append(outputs, output)
-			})
+			}})
 			Expect(outputs).To(BeEmpty())
 			out2 := constNode.Output(0)
 			Expect(out2.Len()).To(Equal(len1))

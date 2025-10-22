@@ -54,9 +54,9 @@ type stableFor struct {
 	now         func() telem.TimeStamp
 }
 
-func (s *stableFor) Init(context.Context, func(string)) {}
+func (s *stableFor) Init(ctx node.Context) {}
 
-func (s *stableFor) Next(_ context.Context, onOutput func(string)) {
+func (s *stableFor) Next(ctx node.Context) {
 	if s.state.RefreshInputs() {
 		inputData := s.state.Input(0)
 		inputTime := s.state.InputTime(0)
@@ -81,7 +81,7 @@ func (s *stableFor) Next(_ context.Context, onOutput func(string)) {
 			*s.state.Output(0) = telem.NewSeriesV[uint8](currentValue)
 			*s.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
 			s.lastSent = &currentValue
-			onOutput(ir.DefaultOutputParam)
+			ctx.MarkChanged(ir.DefaultOutputParam)
 		}
 	}
 }

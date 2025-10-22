@@ -18,11 +18,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/interval"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -134,7 +134,7 @@ func (w *writerSeg) Close() error {
 }
 
 type Runtime struct {
-	scheduler *runtime.Scheduler
+	scheduler *scheduler.Scheduler
 	streamer  *streamerSeg
 	writer    *writerSeg
 	state     *state.State
@@ -340,11 +340,12 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	// Create scheduler with time wheel
-	scheduler := runtime.NewScheduler(ctx, cfg.Module.IR, nodes, timeWheel)
+	sched := scheduler.New(ctx, cfg.Module.IR, nodes, timeWheel)
 	r := &Runtime{
-		scheduler: scheduler,
+		scheduler: sched,
 		state:     progState,
 		streamer:  &streamerSeg{},
+		writer:    &writerSeg{},
 	}
 
 	readChannelKeys := make([]channel.Key, 0)

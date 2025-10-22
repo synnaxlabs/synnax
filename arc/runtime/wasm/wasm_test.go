@@ -103,7 +103,7 @@ var _ = Describe("Wasm", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("add").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
@@ -189,7 +189,7 @@ var _ = Describe("Wasm", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("multiply").Output(0)
 			Expect(result.Len()).To(Equal(int64(3)))
@@ -275,7 +275,7 @@ var _ = Describe("Wasm", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("subtract").Output(0)
 			Expect(result.Len()).To(Equal(int64(4)))
@@ -364,7 +364,7 @@ var _ = Describe("Wasm", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains("sum")).To(BeTrue())
 			Expect(changed.Contains("product")).To(BeTrue())
 			sumResult := *s.Node("math_ops").Output(0)
@@ -476,7 +476,7 @@ var _ = Describe("Wasm", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 			result := *s.Node("divide").Output(0)
 			Expect(result.Len()).To(Equal(int64(0)))
@@ -548,7 +548,7 @@ var _ = Describe("Wasm", func() {
 
 			// Trigger execution
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 
 			// Verify result
 			result := *s.Node("read_channel").Output(0)
@@ -607,7 +607,7 @@ var _ = Describe("Wasm", func() {
 
 			// First call - should return 1
 			changed := make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			result1 := *s.Node("counter").Output(0)
 			Expect(result1.Len()).To(Equal(int64(1)))
 			vals1 := telem.UnmarshalSeries[int64](result1)
@@ -615,7 +615,7 @@ var _ = Describe("Wasm", func() {
 
 			// Second call - should return 2 (state persisted)
 			changed = make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			result2 := *s.Node("counter").Output(0)
 			Expect(result2.Len()).To(Equal(int64(1)))
 			vals2 := telem.UnmarshalSeries[int64](result2)
@@ -623,7 +623,7 @@ var _ = Describe("Wasm", func() {
 
 			// Third call - should return 3 (state persisted)
 			changed = make(set.Set[string])
-			n.Next(ctx, func(output string) { changed.Add(output) })
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			result3 := *s.Node("counter").Output(0)
 			Expect(result3.Len()).To(Equal(int64(1)))
 			vals3 := telem.UnmarshalSeries[int64](result3)

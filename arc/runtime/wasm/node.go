@@ -10,14 +10,14 @@
 package wasm
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type node struct {
+type nodeImpl struct {
 	ir      ir.Node
 	state   *state.Node
 	wasm    *Function
@@ -25,12 +25,19 @@ type node struct {
 	offsets []int
 }
 
-func (n *node) Init(context.Context, func(output string)) {}
+func (n *nodeImpl) Init(node.Context) {}
 
-func (n *node) Next(ctx context.Context, markChanged func(output string)) {
+func (n *nodeImpl) Next(ctx node.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			ctx.ReportError(errors.Newf("WASM trap in node %s: %v", n.ir.Key, r))
+		}
+	}()
+
 	if !n.state.RefreshInputs() {
 		return
 	}
+
 	maxLength := int64(0)
 	longestInputIdx := 0
 	for i := range n.ir.Inputs.Count() {
@@ -59,13 +66,26 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 		longestInputTime = n.state.InputTime(longestInputIdx)
 	}
 	for i := int64(0); i < maxLength; i++ {
+		// Check cancellation periodically (every 100 samples)
+		if i%100 == 0 {
+			select {
+			case <-ctx.Done():
+				ctx.ReportError(ctx.Err())
+				return
+			default:
+			}
+		}
+
 		for j := range n.ir.Inputs.Count() {
 			inputLen := n.state.Input(j).Len()
 			n.inputs[j] = valueAt(n.state.Input(j), int(i%inputLen))
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
-			panic(err)
+			ctx.ReportError(errors.Wrapf(err,
+				"WASM execution failed in node %s at sample %d/%d",
+				n.ir.Key, i, maxLength))
+			continue // Skip this sample, use safe defaults
 		}
 		var ts uint64
 		if n.ir.Inputs.Count() > 0 {
@@ -78,7 +98,7 @@ func (n *node) Next(ctx context.Context, markChanged func(output string)) {
 				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
 				setValueAt(*n.state.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
-				markChanged(n.ir.Outputs.Keys[j])
+				ctx.MarkChanged(n.ir.Outputs.Keys[j])
 			}
 		}
 	}

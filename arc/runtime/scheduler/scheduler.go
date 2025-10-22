@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package scheduler
 
 import (
 	"context"
@@ -25,14 +25,20 @@ type nodeState struct {
 }
 
 type Scheduler struct {
-	strata    ir.Strata
-	changed   set.Set[string]
-	nodes     map[string]*nodeState
-	currState *nodeState
-	timeWheel *interval.Wheel
+	strata       ir.Strata
+	changed      set.Set[string]
+	nodes        map[string]*nodeState
+	currState    *nodeState
+	timeWheel    *interval.Wheel
+	errorHandler ErrorHandler
 }
 
-func NewScheduler(
+// ErrorHandler receives errors from node execution.
+type ErrorHandler interface {
+	HandleError(nodeKey string, err error)
+}
+
+func New(
 	ctx context.Context,
 	prog ir.IR,
 	nodes map[string]node.Node,
@@ -63,9 +69,12 @@ func NewScheduler(
 	return s
 }
 
+func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
+	s.errorHandler = handler
+}
+
 func (s *Scheduler) MarkNodesChange(nodeKey string) {
 	s.changed.Add(nodeKey)
-
 }
 
 func (s *Scheduler) markChanged(param string) {
@@ -76,10 +85,27 @@ func (s *Scheduler) markChanged(param string) {
 	}
 }
 
+func (s *Scheduler) makeReportError(nodeKey string) func(error) {
+	return func(err error) {
+		if s.errorHandler != nil {
+			s.errorHandler.HandleError(nodeKey, err)
+		}
+	}
+}
+
+func (s *Scheduler) makeContext(ctx context.Context, nodeKey string) node.Context {
+	return node.Context{
+		Context:     ctx,
+		MarkChanged: s.markChanged,
+		ReportError: s.makeReportError(nodeKey),
+	}
+}
+
 func (s *Scheduler) Init(ctx context.Context) {
 	for _, nodeKey := range s.strata[0] {
 		s.currState = s.nodes[nodeKey]
-		s.currState.node.Init(ctx, s.markChanged)
+		sctx := s.makeContext(ctx, nodeKey)
+		s.currState.node.Init(sctx)
 	}
 }
 
@@ -88,7 +114,8 @@ func (s *Scheduler) Next(ctx context.Context) {
 		for _, nodeKey := range stratum {
 			if i == 0 || s.changed.Contains(nodeKey) {
 				s.currState = s.nodes[nodeKey]
-				s.currState.node.Next(ctx, s.markChanged)
+				sctx := s.makeContext(ctx, nodeKey)
+				s.currState.node.Next(sctx)
 			}
 		}
 	}

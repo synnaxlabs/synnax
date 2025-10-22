@@ -32,7 +32,7 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 		return nil, query.NotFound
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
-	n := &node{
+	n := &nodeImpl{
 		ir:    cfg.Node,
 		state: cfg.State,
 		wasm: WrapFunction(

@@ -47,15 +47,15 @@ type constant struct {
 	value any
 }
 
-func (c constant) Init(_ context.Context, onOutputChange func(output string)) {
+func (c constant) Init(ctx node.Context) {
 	d := c.state.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.state.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-	onOutputChange(ir.DefaultOutputParam)
+	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c constant) Next(context.Context, func(output string)) {}
+func (c constant) Next(node.Context) {}
 
 type constantFactory struct{}
 
