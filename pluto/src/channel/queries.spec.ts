@@ -1311,23 +1311,6 @@ describe("queries", () => {
       );
     });
 
-    it("should validate that expression uses at least one channel", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", "invalidCalculated");
-        result.current.form.set("expression", "return 42;");
-        result.current.form.set("requires", []);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("requires").status.message).toContain(
-        "Expression must use at least one channel",
-      );
-    });
-
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,

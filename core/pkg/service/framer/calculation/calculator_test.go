@@ -604,7 +604,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			idx1 := telem.NewSeriesSecondsTSV(1, 2)
 			idx1.Alignment = telem.NewAlignment(2, 1)
 			fr2 := core.UnaryFrame(indexes[0].Key(), idx1)
-			of = core.Frame{}
+			of := core.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
@@ -616,7 +616,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			data2 := telem.NewSeriesV[int64](25)
 			data2.Alignment = telem.NewAlignment(3, 2)
 			fr3 := core.UnaryFrame(bases[0].Key(), data2)
-			of := core.Frame{}
+			of = core.Frame{}
 			_, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeFalse())
 
