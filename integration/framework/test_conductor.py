@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
+import gc
 import glob
 import importlib.util
 import itertools

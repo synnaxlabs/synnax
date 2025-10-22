@@ -52,7 +52,7 @@ class LatencyABCD(TestCase):
         """
         Setup the test case.
         """
-        self._log_message("WARNING (⚠️): This test does not have any reporting.")
+        self.log("WARNING (⚠️): This test does not have any reporting.")
         self.configure(loop_rate=0.01, manual_timeout=20)
 
         self.mode = self.name[-1]  # A, B, C, D
@@ -101,7 +101,7 @@ class LatencyABCD(TestCase):
         """
         Run the test case.
         """
-        self._log_message("Starting run()")
+        self.log("Starting run()")
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
@@ -162,4 +162,4 @@ class LatencyABCD(TestCase):
 
                 idx += 1
 
-            self._log_message("WARNING (⚠️): LatencyABC Report not implemented...")
+            self.log("WARNING (⚠️): LatencyABC Report not implemented...")

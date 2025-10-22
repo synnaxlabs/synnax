@@ -70,7 +70,7 @@ class BenchReport(TestCase):
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")
 
-        self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
+        self.log(f"Cycles/second: {cycles / bench_time.seconds}")
 
         # Convert times to milliseconds for better readability
         times_ms = [float(t.microseconds) / 1000 for t in times]
@@ -177,19 +177,19 @@ class BenchReport(TestCase):
         if p90 > max_p90:
             p90_msg += f" is greater than {max_p90}ms (FAILED)"
             self.fail()
-        self._log_message(p90_msg)
+        self.log(p90_msg)
 
         p95_msg = f"P95: {p95:.2f}ms"
         if p95 > max_p95:
             p95_msg += f" is greater than {max_p95}ms (FAILED)"
             self.fail()
-        self._log_message(p95_msg)
+        self.log(p95_msg)
 
         p99_msg = f"P99: {p99:.2f}ms"
         if p99 > max_p99:
             p99_msg += f" is greater than {max_p99}ms (FAILED)"
             self.fail()
-        self._log_message(p99_msg)
+        self.log(p99_msg)
 
         peak_to_peak_jitter_msg = f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms"
         if peak_to_peak_jitter > max_peak_to_peak_jitter:
@@ -197,17 +197,17 @@ class BenchReport(TestCase):
                 f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
             )
             self.fail()
-        self._log_message(peak_to_peak_jitter_msg)
+        self.log(peak_to_peak_jitter_msg)
 
         average_jitter_msg = f"Average jitter: {average_jitter:.2f}ms"
         if average_jitter > max_average_jitter:
             average_jitter_msg += f" is greater than {max_average_jitter}ms (FAILED)"
             self.fail()
-        self._log_message(average_jitter_msg)
+        self.log(average_jitter_msg)
 
         os.makedirs("tests/results", exist_ok=True)
         plt.savefig("tests/results/bench_load.png", dpi=300, bbox_inches="tight")
-        self._log_message(
+        self.log(
             f"Saved benchmark plot to: {os.path.abspath('tests/results/bench_load.png')}"
         )
         plt.close(fig)

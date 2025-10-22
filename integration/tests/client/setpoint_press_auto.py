@@ -71,7 +71,7 @@ class Setpoint_Press_Auto(TestCase):
                 self.fail("Timeout (60s) for press_pt and press_setpoint_cmd")
                 return
 
-            self._log_message("Starting pressurization logic")
+            self.log("Starting pressurization logic")
             mode = "hold"
             setpoint_prev = None
 
@@ -83,25 +83,25 @@ class Setpoint_Press_Auto(TestCase):
                 # Update on a new value
                 if setpoint != setpoint_prev:
                     setpoint_prev = setpoint
-                    self._log_message(f"Setpoint changed to {setpoint:.2f}")
+                    self.log(f"Setpoint changed to {setpoint:.2f}")
 
                 if mode == "hold":
                     if pressure - setpoint > 2:
-                        self._log_message("Venting")
+                        self.log("Venting")
                         mode = "vent"
                         ctrl["vent_vlv_cmd"] = True
                     elif setpoint - pressure > 2:
-                        self._log_message("Pressing")
+                        self.log("Pressing")
                         mode = "press"
                         ctrl["press_vlv_cmd"] = True
 
                 elif mode == "press" and pressure > setpoint:
-                    self._log_message("Holding")
+                    self.log("Holding")
                     mode = "hold"
                     ctrl["press_vlv_cmd"] = False
 
                 elif mode == "vent" and pressure < setpoint:
-                    self._log_message("Holding")
+                    self.log("Holding")
                     mode = "hold"
                     ctrl["vent_vlv_cmd"] = 0
 

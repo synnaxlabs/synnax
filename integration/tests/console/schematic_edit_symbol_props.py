@@ -22,13 +22,13 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
         self.console.schematic.new()
         self.test_value_props()
         self.test_button_props()
-        self._log_message("Test Complete")
+        self.log("Test Complete")
 
     def test_value_props(self) -> None:
-        self._log_message("Testing value props")
+        self.log("Testing value props")
         console = self.console
 
-        self._log_message("Checking default properties of schematic value")
+        self.log("Checking default properties of schematic value")
         value = console.schematic.create_value(f"{self.name}_uptime")
         default_props = value.get_properties()
 
@@ -44,7 +44,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
             default_props == expected_default_props
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
 
-        self._log_message("Checking edited properties of schematic value")
+        self.log("Checking edited properties of schematic value")
         expected_edited_props = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
@@ -67,7 +67,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
         value.delete()
 
-        self._log_message("Checking new node with non-default properties")
+        self.log("Checking new node with non-default properties")
         non_default_props = {
             "channel": f"{self.name}_state",
             "notation": "engineering",
@@ -91,10 +91,10 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
         non_default_value.delete()
 
     def test_button_props(self) -> None:
-        self._log_message("Testing button props")
+        self.log("Testing button props")
         console = self.console
 
-        self._log_message("Creating channels")
+        self.log("Creating channels")
         CHANNEL_NAME = "button_cmd"
         INDEX_NAME = "button_idx"
 
@@ -109,7 +109,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
             index=INDEX_NAME,
         )
 
-        self._log_message("Creating schematic button")
+        self.log("Creating schematic button")
         button = console.schematic.create_button(
             channel_name=CHANNEL_NAME,
         )
@@ -124,7 +124,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
             default_props == expected_default_props
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
 
-        self._log_message("Editing properties of schematic button")
+        self.log("Editing properties of schematic button")
         button.edit_properties(
             channel_name=CHANNEL_NAME,
             activation_delay=4.2,
@@ -144,7 +144,7 @@ class Schematic_Edit_Symbol_Props(ConsoleCase):
         ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
         button.delete()
 
-        self._log_message("Checking non-default properties of schematic button")
+        self.log("Checking non-default properties of schematic button")
         non_default_props = {
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,

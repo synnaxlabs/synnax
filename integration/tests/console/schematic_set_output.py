@@ -21,7 +21,7 @@ class Schematic_Set_Output(ConsoleCase):
         console = self.console
         console.schematic.new()
 
-        self._log_message("Creating channels")
+        self.log("Creating channels")
         CHANNEL_NAME = "command_channel"
         INDEX_NAME = "idx_channel"
 
@@ -36,7 +36,7 @@ class Schematic_Set_Output(ConsoleCase):
             index=INDEX_NAME,
         )
 
-        self._log_message("Creating schematic symbols")
+        self.log("Creating schematic symbols")
         setpoint_symbol = console.schematic.create_setpoint(CHANNEL_NAME)
         setpoint_symbol.move(-200, 0)
 
@@ -48,7 +48,7 @@ class Schematic_Set_Output(ConsoleCase):
         )
 
         set_p_value = 47.23
-        self._log_message(f"Verifying setpoint value: {set_p_value}")
+        self.log(f"Verifying setpoint value: {set_p_value}")
         setpoint_symbol.set_value(set_p_value)
         actual_value = self.get_value(CHANNEL_NAME)
 
@@ -57,7 +57,7 @@ class Schematic_Set_Output(ConsoleCase):
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {set_p_value}"
 
         set_p_value = 1.0101
-        self._log_message(f"Verifying setpoint value: {set_p_value}")
+        self.log(f"Verifying setpoint value: {set_p_value}")
         setpoint_symbol.set_value(set_p_value)
         actual_value = self.get_value(CHANNEL_NAME)
 

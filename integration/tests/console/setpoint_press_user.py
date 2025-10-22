@@ -116,7 +116,7 @@ class Setpoint_Press_User(ConsoleCase):
         self.log("Starting Basic Control Test (2/2)")
         setpoints = [30, 15, 60, 30, 0]
         for target in setpoints:
-            self._log_message(f"Target pressure: {target}")
+            self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
 
             while self.should_continue:
@@ -124,7 +124,7 @@ class Setpoint_Press_User(ConsoleCase):
                 if pressure_value is not None:
                     delta = abs(pressure_value - target)
                     if delta < 0.5:
-                        self._log_message(
+                        self.log(
                             f"Target pressure reached: {pressure_value:.2f}"
                         )
                         sy.sleep(1)

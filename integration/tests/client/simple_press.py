@@ -62,7 +62,7 @@ class Simple_Press(TestCase):
                     (lambda c: c[PRESSURE] > target_pressure),
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
-                    self._log_message(
+                    self.log(
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
                     ctrl[PRESS_VALVE] = False

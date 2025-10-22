@@ -54,37 +54,37 @@ class Pages_Open_Close(ConsoleCase):
             ("OPC UA Write Task", "OPC Write"),
         ]
 
-        self._log_message("(1/6) Create pages (Default names)")
+        self.log("(1/6) Create pages (Default names)")
         for p in pages:
             console.create_page(p)
         for p in pages:
             console.close_page(p)
 
-        self._log_message("(2/6) Create pages (Custom names)")
+        self.log("(2/6) Create pages (Custom names)")
         for page_type, page_name in pages_renamed:
             console.create_page(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.close_page(page_name)
 
-        self._log_message("(3/6) Create pages by cmd palette (Default names)")
+        self.log("(3/6) Create pages by cmd palette (Default names)")
         for p in pages:
             console._create_page_by_command_palette(p)
         for p in pages:
             console.close_page(p)
 
-        self._log_message("(4/6) Create pages by cmd palette (Custom names)")
+        self.log("(4/6) Create pages by cmd palette (Custom names)")
         for page_type, page_name in pages_renamed:
             console._create_page_by_command_palette(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.close_page(page_name)
 
-        self._log_message("(5/6) Create pages by (+) button (Default names)")
+        self.log("(5/6) Create pages by (+) button (Default names)")
         for p in pages:
             console._create_page_by_new_page_button(p)
         for p in pages:
             console.close_page(p)
 
-        self._log_message("(6/6) Create pages by (+) button (Custom names)")
+        self.log("(6/6) Create pages by (+) button (Custom names)")
         for page_type, page_name in pages_renamed:
             console._create_page_by_command_palette(page_type, page_name)
         for page_type, page_name in pages_renamed:
