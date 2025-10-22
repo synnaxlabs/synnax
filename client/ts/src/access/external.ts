@@ -9,4 +9,5 @@
 
 export * from "@/access/client";
 export * from "@/access/payload";
-export * as role from "@/access/role";
+export * from "@/access/policy";
+export * from "@/access/role";

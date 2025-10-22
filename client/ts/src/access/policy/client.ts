@@ -49,7 +49,14 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const retrieveResZ = z.object({ policies: array.nullableZ(policyZ) });
 
-const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
+const singleCreateArgsZ = newZ.transform((p) => ({ policies: [p] }));
+export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+
+export const multipleCreateArgsZ = newZ.array().transform((policies) => ({ policies }));
+
+export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
+export type CreateArgs = z.input<typeof createArgsZ>;
+
 const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -67,19 +74,13 @@ export class Client {
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
-  async create(policies: New | New[]): Promise<Policy | Policy[]> {
+  async create(policies: CreateArgs): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const parsedPolicies = newZ.array().parse(array.toArray(policies));
-    const req = parsedPolicies.map((policy) => ({
-      objects: array.toArray(policy.objects),
-      actions: array.toArray(policy.actions),
-      subjects: array.toArray(policy.subjects),
-    }));
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+    const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { policies: req },
-      createReqZ,
+      policies,
+      createArgsZ,
       createResZ,
     );
     return isMany ? res.policies : res.policies[0];

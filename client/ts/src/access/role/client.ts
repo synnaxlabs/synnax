@@ -11,30 +11,42 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type NewRole,
-  newRoleZ,
-  type Role,
-  roleZ,
-} from "@/access/role/payload";
+import { keyZ, type NewRole, newRoleZ, type Role, roleZ } from "@/access/role/payload";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
 });
 
-const createReqZ = z.object({ roles: newRoleZ.array() });
+const keyRetrieveRequestZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+const singleCreateArgsZ = newRoleZ.transform((r) => ({ roles: [r] }));
+export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+
+export const multipleCreateArgsZ = newRoleZ.array().transform((roles) => ({ roles }));
+
+export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
+export type CreateArgs = z.input<typeof createArgsZ>;
+
 const createResZ = z.object({ roles: roleZ.array() });
 const retrieveResZ = z.object({ roles: array.nullableZ(roleZ) });
-const updateReqZ = z.object({ role: roleZ });
-const updateResZ = z.object({});
-const deleteReqZ = z.object({ keys: keyZ.array() });
+
+export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+
+export const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
 const deleteResZ = z.object({});
+
+const deleteArgsZ = keyZ
+  .transform((key) => ({ keys: [key] }))
+  .or(keyZ.array().transform((keys) => ({ keys })));
+export type DeleteArgs = z.input<typeof deleteArgsZ>;
 
 const RETRIEVE_ENDPOINT = "/access/role/retrieve";
 const CREATE_ENDPOINT = "/access/role/create";
-const UPDATE_ENDPOINT = "/access/role/update";
 const DELETE_ENDPOINT = "/access/role/delete";
 
 export class Client {
@@ -48,50 +60,37 @@ export class Client {
   async create(roles: NewRole[]): Promise<Role[]>;
   async create(roles: NewRole | NewRole[]): Promise<Role | Role[]> {
     const isMany = Array.isArray(roles);
-    const parsedRoles = newRoleZ.array().parse(array.toArray(roles));
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+    const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      createReqZ,
+      roles,
+      createArgsZ,
       createResZ,
-    )({ roles: parsedRoles });
+    );
     return isMany ? res.roles : res.roles[0];
   }
 
-  async retrieve(key: Key): Promise<Role>;
-  async retrieve(keys: Key[]): Promise<Role[]>;
-  async retrieve(): Promise<Role[]>;
-  async retrieve(keys?: Key | Key[]): Promise<Role | Role[]> {
-    const parsedKeys = keys != null ? array.toArray(keys) : undefined;
-    const isSingle = typeof keys === "string";
-    const req = parsedKeys != null ? { keys: parsedKeys } : {};
-    const res = await sendRequired<typeof retrieveRequestZ, typeof retrieveResZ>(
+  async retrieve(args: RetrieveSingleParams): Promise<Role>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Role[]>;
+  async retrieve(args: RetrieveArgs): Promise<Role | Role[]> {
+    const isSingle = "key" in args;
+    const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      retrieveRequestZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
-    )(req);
+    );
     return isSingle ? res.roles[0] : res.roles;
   }
 
-  async update(role: Role): Promise<void> {
-    await sendRequired<typeof updateReqZ, typeof updateResZ>(
-      this.client,
-      UPDATE_ENDPOINT,
-      updateReqZ,
-      updateResZ,
-    )({ role });
-  }
-
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Key | Key[]): Promise<void> {
-    const parsedKeys = array.toArray(keys);
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+  async delete(args: DeleteArgs): Promise<void> {
+    await sendRequired<typeof deleteArgsZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      deleteReqZ,
+      args,
+      deleteArgsZ,
       deleteResZ,
-    )({ keys: parsedKeys });
+    );
   }
 }

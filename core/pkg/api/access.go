@@ -208,25 +208,6 @@ func (s *AccessService) RetrieveRole(ctx context.Context, req AccessRetrieveRole
 	return res, nil
 }
 
-type AccessUpdateRoleRequest struct {
-	Role rbac.Role `json:"role" msgpack:"role"`
-}
-
-// UpdateRole updates an existing role.
-func (s *AccessService) UpdateRole(ctx context.Context, req AccessUpdateRoleRequest) (types.Nil, error) {
-	if err := s.internal.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Objects: []ontology.ID{req.Role.OntologyID()},
-		Action:  access.Update,
-	}); err != nil {
-		return types.Nil{}, err
-	}
-
-	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).UpdateRole(ctx, &req.Role)
-	})
-}
-
 type AccessDeleteRoleRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
@@ -234,7 +215,6 @@ type AccessDeleteRoleRequest struct {
 // DeleteRole deletes roles from the cluster. Builtin roles cannot be deleted.
 func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequest) (types.Nil, error) {
 	roleIDs := make([]ontology.ID, len(req.Keys))
-	for i, key := range req.Keys {
 		roleIDs[i] = rbac.RoleOntologyID(key)
 	}
 

@@ -24,7 +24,6 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
-import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
@@ -45,7 +44,6 @@ const ZERO_STATE: RootState = {
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
-  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
@@ -61,7 +59,6 @@ const reducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
-  [Permissions.SLICE_NAME]: Permissions.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
@@ -77,7 +74,6 @@ export interface RootState {
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
-  [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
@@ -93,7 +89,6 @@ export type RootAction =
   | Layout.Action
   | LinePlot.Action
   | Log.Action
-  | Permissions.Action
   | Range.Action
   | Schematic.Action
   | Table.Action
@@ -119,7 +114,6 @@ export const migrateState = (prev: RootState): RootState => {
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
-  const permissions = Permissions.migrateSlice(prev.permissions);
   const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
@@ -133,7 +127,6 @@ export const migrateState = (prev: RootState): RootState => {
     range,
     docs,
     cluster,
-    permissions,
     arc,
   };
 };

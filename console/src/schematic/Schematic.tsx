@@ -41,11 +41,9 @@ import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
-  selectHasPermission,
   selectOptional,
   selectRequired,
   useSelectEditable,
-  useSelectHasPermission,
   useSelectNodeProps,
   useSelectRequired,
   useSelectRequiredViewportMode,
@@ -169,7 +167,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    30, // roughly the right time needed to prevent actions that get dispatch
+    // automatically by Diagram.tsx, like setNodes immediately following addElement
   );
   const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 
@@ -312,7 +311,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
-  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
+  const canEditSchematic = Access.useSelectHasPermission() && !schematic.snapshot;
 
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),

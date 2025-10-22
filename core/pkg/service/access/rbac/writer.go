@@ -51,16 +51,6 @@ func (w Writer) CreateRole(
 	return gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx)
 }
 
-// UpdateRole updates an existing role in the database.
-func (w Writer) UpdateRole(
-	ctx context.Context,
-	r *Role,
-) error {
-	return gorp.NewUpdate[uuid.UUID, Role]().WhereKeys(r.Key).Change(func(_ gorp.Context, existing Role) Role {
-		return *r
-	}).Exec(ctx, w.tx)
-}
-
 // DeleteRole removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) DeleteRole(

@@ -9,7 +9,6 @@
 
 import { Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
-import { selectHasPermission } from "@/schematic/selectors";
 import { anyStateZ } from "@/schematic/slice";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout, store }) => {

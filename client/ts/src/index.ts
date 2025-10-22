@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
-export { policy } from "@/access/policy";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";

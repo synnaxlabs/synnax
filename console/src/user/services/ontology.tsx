@@ -14,7 +14,6 @@ import { useCallback } from "react";
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
-import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
 const editPermissions = ({
@@ -23,8 +22,8 @@ const editPermissions = ({
   state: { getResource },
 }: Ontology.TreeContextMenuProps) => {
   const user = getResource(ids[0]).data as user.User;
-  const layout = Permissions.createEditLayout(user);
-  placeLayout(layout);
+  // const layout = Permissions.createEditLayout(user);
+  // placeLayout(layout);
 };
 
 const useDelete = createUseDelete({
@@ -74,28 +73,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     return user.rootUser;
   });
   const isNotCurrentUser = getResource(ids[0]).name !== client.props.username;
-  const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       {singleResource && isNotCurrentUser && (
         <>
-          {canEditPermissions && !hasRootUser && (
-            <PMenu.Item itemKey="permissions">
-              <Icon.Access />
-              Edit roles
-            </PMenu.Item>
-          )}
-          {canEditOrDelete && (
-            <>
-              <PMenu.Item itemKey="rename">
-                <Icon.Rename />
-                Change username
-              </PMenu.Item>
-              <PMenu.Divider />
-            </>
-          )}
+          <PMenu.Item itemKey="rename">
+            <Icon.Rename />
+            Change username
+          </PMenu.Item>
+          <PMenu.Divider />
         </>
       )}
       {canEditOrDelete && !hasRootUser && (

@@ -21,7 +21,7 @@ describe("Policy", () => {
   describe("create", () => {
     describe("one", () => {
       test("without key", async () => {
-        const policy = await client.access.policy.create({
+        const policy = await client.access.policies.create({
           subjects: "user",
           objects: ["user", "channel"],
           actions: "delete",
@@ -36,11 +36,11 @@ describe("Policy", () => {
         expect(policy.objects[0].type).toEqual("user");
         expect(policy.objects[1].type).toEqual("channel");
         expect(policy.actions).toEqual(["delete"]);
-        await client.access.policy.delete(policy.key);
+        await client.access.policies.delete(policy.key);
       });
 
       test("missing subjects", async () => {
-        const policy = await client.access.policy.create({
+        const policy = await client.access.policies.create({
           subjects: [],
           objects: [],
           actions: [],
@@ -49,13 +49,13 @@ describe("Policy", () => {
         expect(policy.subjects).toHaveLength(0);
         expect(policy.objects).toHaveLength(0);
         expect(policy.actions).toHaveLength(0);
-        const retrievedPolicy = await client.access.policy.retrieve({
+        const retrievedPolicy = await client.access.policies.retrieve({
           key: policy.key,
         });
         expect(retrievedPolicy).toMatchObject(policy);
       });
       test("missing objects", async () => {
-        const policy = await client.access.policy.create({
+        const policy = await client.access.policies.create({
           subjects: "user",
           objects: [],
           actions: [],
@@ -66,13 +66,13 @@ describe("Policy", () => {
         expect(policy.subjects[0].type).toEqual("user");
         expect(policy.objects).toHaveLength(0);
         expect(policy.actions).toHaveLength(0);
-        const retrievedPolicy = await client.access.policy.retrieve({
+        const retrievedPolicy = await client.access.policies.retrieve({
           key: policy.key,
         });
         expect(retrievedPolicy).toMatchObject(policy);
       });
       test("with key", async () => {
-        const policy = await client.access.policy.create({
+        const policy = await client.access.policies.create({
           subjects: [
             { type: "user", key: "1" },
             { type: "channel", key: "2" },
@@ -90,7 +90,7 @@ describe("Policy", () => {
         expect(policy.objects[0].key).toEqual("3");
         expect(policy.objects[0].type).toEqual("channel");
         expect(policy.actions).toEqual(["delete", "retrieve"]);
-        await client.access.policy.delete(policy.key);
+        await client.access.policies.delete(policy.key);
       });
     });
     describe("many", () => {
@@ -116,13 +116,13 @@ describe("Policy", () => {
             actions: ["delete"],
           },
         ];
-        const policies = await client.access.policy.create(policiesToCreate);
+        const policies = await client.access.policies.create(policiesToCreate);
         expect(policies[0]).toMatchObject(policiesToCreate[0]);
         expect(policies[1]).toMatchObject(policiesToCreate[1]);
-        await client.access.policy.delete([policies[0].key, policies[1].key]);
+        await client.access.policies.delete([policies[0].key, policies[1].key]);
       });
       test("without keys", async () => {
-        const policies = await client.access.policy.create([
+        const policies = await client.access.policies.create([
           {
             subjects: "user",
             objects: ["user", "schematic"],
@@ -155,13 +155,13 @@ describe("Policy", () => {
         expect(policies[1].objects[0].key).toEqual("");
         expect(policies[1].objects[0].type).toEqual("channel");
         expect(policies[1].actions).toEqual(["retrieve"]);
-        await client.access.policy.delete([policies[0].key, policies[1].key]);
+        await client.access.policies.delete([policies[0].key, policies[1].key]);
       });
     });
   });
   describe("retrieve", async () => {
     test("by key", async () => {
-      const policies = await client.access.policy.create([
+      const policies = await client.access.policies.create([
         {
           subjects: "user",
           objects: ["user", "channel"],
@@ -173,21 +173,21 @@ describe("Policy", () => {
           actions: "retrieve",
         },
       ]);
-      const result = await client.access.policy.retrieve({ key: policies[0].key });
+      const result = await client.access.policies.retrieve({ key: policies[0].key });
       expect(result).toMatchObject(policies[0]);
-      const results = await client.access.policy.retrieve({
+      const results = await client.access.policies.retrieve({
         keys: [policies[0].key, policies[1].key],
       });
       expect(results).toHaveLength(2);
       expect(results[0]).toMatchObject(policies[0]);
       expect(results[1]).toMatchObject(policies[1]);
       expect(results.sort()).toMatchObject(policies.sort());
-      await client.access.policy.delete([policies[0].key, policies[1].key]);
+      await client.access.policies.delete([policies[0].key, policies[1].key]);
     });
     test("by subject", async () => {
       const key1 = id.create();
       const key2 = id.create();
-      const created = await client.access.policy.create([
+      const created = await client.access.policies.create([
         {
           subjects: [
             { type: "user", key: key1 },
@@ -208,12 +208,12 @@ describe("Policy", () => {
           actions: "delete",
         },
       ]);
-      const received = await client.access.policy.retrieve({
+      const received = await client.access.policies.retrieve({
         for: user.ontologyID(key2),
       });
       const newReceived = received.filter((p) => created.some((c) => c.key === p.key));
       expect(created[0]).toMatchObject(newReceived[0]);
-      await client.access.policy.delete([created[0].key, created[1].key]);
+      await client.access.policies.delete([created[0].key, created[1].key]);
     });
   });
   describe("delete", async () => {
@@ -246,12 +246,12 @@ describe("Policy", () => {
         },
       ];
 
-      const created = await client.access.policy.create(policies);
-      await client.access.policy.delete(created[0].key);
+      const created = await client.access.policies.create(policies);
+      await client.access.policies.delete(created[0].key);
       await expect(
-        client.access.policy.retrieve({ key: created[0].key }),
+        client.access.policies.retrieve({ key: created[0].key }),
       ).rejects.toThrow();
-      await client.access.policy.delete(created[1].key);
+      await client.access.policies.delete(created[1].key);
     });
     test("many", async () => {
       const id1 = id.create();
@@ -282,13 +282,13 @@ describe("Policy", () => {
         },
       ];
 
-      const created = await client.access.policy.create(policies);
-      await client.access.policy.delete([created[0].key, created[1].key]);
+      const created = await client.access.policies.create(policies);
+      await client.access.policies.delete([created[0].key, created[1].key]);
       await expect(
-        client.access.policy.retrieve({ key: created[0].key }),
+        client.access.policies.retrieve({ key: created[0].key }),
       ).rejects.toThrow();
       await expect(
-        client.access.policy.retrieve({ key: created[1].key }),
+        client.access.policies.retrieve({ key: created[1].key }),
       ).rejects.toThrow();
     });
   });
@@ -304,7 +304,7 @@ describe("privilege", async () => {
       client2.users.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
 
-    const policy = await client.access.policy.create({
+    const policy = await client.access.policies.create({
       subjects: "user",
       objects: "user",
       actions: ["create"],
@@ -320,7 +320,7 @@ describe("privilege", async () => {
     expect(newUser.username).toEqual(newUsername);
 
     // Remove privileges
-    await client.access.policy.delete(policy.key);
+    await client.access.policies.delete(policy.key);
 
     await expect(
       client2.users.create({ username: id.create(), password: id.create() }),
