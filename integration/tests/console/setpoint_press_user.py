@@ -86,9 +86,9 @@ class Setpoint_Press_User(ConsoleCase):
         vent_valve.press()
 
         # Assertions 2
+        start_flag_val = self.read_tlm("test_flag_cmd")
         press_vlv_state = self.read_tlm("press_vlv_state")
         vent_vlv_state = self.read_tlm("vent_vlv_state")
-        start_flag_val = self.read_tlm("test_flag_cmd")
         assert start_flag_val == True, "Start flag should be True after press"
         assert press_vlv_state == True, "Press valve should be True after first press"
         assert vent_vlv_state == True, "Vent valve should be True after first press"

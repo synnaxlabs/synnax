@@ -37,16 +37,12 @@ def load_channel_mapping(mapping_path: Path) -> Dict[int, int]:
     return key_map
 
 
-def transform_value(
-    value: Any, key_map: Dict[int, int], all_config_keys: set[int]
-) -> Any:
+def transform_value(value: Any, key_map: Dict[int, int]) -> Any:
     """Recursively transform values, replacing config keys with synnax keys."""
     if isinstance(value, dict):
-        return {
-            k: transform_value(v, key_map, all_config_keys) for k, v in value.items()
-        }
+        return {k: transform_value(v, key_map) for k, v in value.items()}
     elif isinstance(value, list):
-        return [transform_value(item, key_map, all_config_keys) for item in value]
+        return [transform_value(item, key_map) for item in value]
     elif isinstance(value, int):
         # If in key map, use the synnax key
         if value in key_map:
@@ -82,8 +78,7 @@ def transform_schematic(
 
     # Transform schematic
     print("Transforming channel keys...")
-    all_config_keys = set(key_map.keys())
-    transformed = transform_value(schematic, key_map, all_config_keys)
+    transformed = transform_value(schematic, key_map)
 
     # Count and show replacements
     original_str = json.dumps(schematic)

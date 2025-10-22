@@ -423,9 +423,12 @@ class TestConductor:
                     name=test.get("name", None),
                     params=test.get("parameters", {}),
                     expect=test.get("expect", "PASSED"),
+                    matrix=test.get("matrix", None),
                 )
-                self.test_definitions.append(test_def)
-                seq_obj["tests"].append(test_def)
+                expanded_tests = self._expand_matrix(test_def)
+                for expanded_test in expanded_tests:
+                    self.test_definitions.append(expanded_test)
+                    seq_obj["tests"].append(expanded_test)
 
             seq_obj["end_idx"] = len(self.test_definitions)
             self.sequences.append(seq_obj)

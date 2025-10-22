@@ -407,8 +407,7 @@ class SimDAQ:
                             for cmd_name, state_name in self.valve_pairs:
                                 data = frame.get(cmd_name, [])
                                 if len(data) > 0:
-                                    if random.random() > 0.1:
-                                        self.valve_states[state_name] = float(data[-1])
+                                    self.valve_states[state_name] = float(data[-1])
                                     if data[-1] != 0:
                                         print(
                                             f"  [{timestamp}] {cmd_name} = {data[-1]}"

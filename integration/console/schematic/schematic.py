@@ -101,7 +101,7 @@ class Schematic(ConsolePage):
         self,
         channel_name: str,
         show_control_chip: Optional[bool] = None,
-        no_state_channel: Optional[bool] = False,
+        no_state_channel: bool = False,
     ) -> Valve:
         """Create a button symbol on the schematic.
         channel_name will be used for _state and _cmd channels.
