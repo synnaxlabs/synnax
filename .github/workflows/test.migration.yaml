@@ -96,7 +96,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push Current Server Image
+      - name: Build and Push Current Core Image
         uses: docker/build-push-action@v6
         with:
           context: .

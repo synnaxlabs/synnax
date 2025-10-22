@@ -180,7 +180,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - name: Install Node Dependencies
+      - name: Install Node.js Dependencies
         if: inputs.console
         run: pnpm install
 

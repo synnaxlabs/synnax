@@ -20,16 +20,16 @@ Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
 
-    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\synnax.bat"
 
     SetOutPath "$INSTDIR"
-    File /oname=synnax-server.exe "synnax-server.exe"
+    File /oname=synnax.exe "synnax.exe"
 
     # Create batch file alias
     FileOpen $0 "$INSTDIR\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 "synnax-server.exe %*$\r$\n"
+    FileWrite $0 "synnax.exe %*$\r$\n"
     FileClose $0
 
 
@@ -52,7 +52,7 @@ Section "Uninstall"
     DetailPrint "Note: $INSTDIR was not in system PATH, nothing to remove."
     DetailPrint "EnVar::DeleteValue (system PATH) returned: $0"
 
-    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\synnax.bat"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$DESKTOP\Synnax.lnk"

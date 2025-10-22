@@ -337,7 +337,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - name: Install Node Dependencies
+      - name: Install Node.js Dependencies
         run: pnpm install
 
       - name: Build Console Web Assets
@@ -400,7 +400,7 @@ jobs:
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
           Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
-          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax.exe
           makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
 
       - name: Sign Windows Installer

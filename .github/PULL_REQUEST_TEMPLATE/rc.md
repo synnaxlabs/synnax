@@ -88,7 +88,7 @@ I can successfully:
     - [ ] Clear an alias for a channel under a range.
     - [ ] Delete a channel.
     - [ ] Copy a link to a channel.
-    - [ ] Hard reload the console.
+    - [ ] Hard reload the Console.
 - **Search and Command Palette**
   - [ ] Open a channel plot by its name.
   - [ ] Open the "Create Channel" modal.
@@ -96,7 +96,7 @@ I can successfully:
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
-  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the core and console remain stable and the error is logged to the core and the console.
+  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
   - [ ] Plot a calculated channel that uses channels with hyphenated names.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
@@ -125,29 +125,29 @@ I can successfully:
   - Table Visualization Toolbar
   - Task Configuration Dialog
 
-### Clusters
+### Cores
 
 I can successfully:
 
-- **Connect Cluster Modal**
-  - [ ] Connect to a cluster.
+- **Connect Core Modal**
+  - [ ] Connect to a Core.
 - **Dropdown**
-  - [ ] Add a new cluster.
-  - [ ] Connect to a cluster by selecting it.
-  - [ ] Disconnect from a cluster by selecting it.
-  - [ ] View the default local cluster in the selector.
-  - [ ] View the default demo cluster in the selector.
+  - [ ] Add a new Core.
+  - [ ] Connect to a Core by selecting it.
+  - [ ] Disconnect from a Core by selecting it.
+  - [ ] View the default local Core in the selector.
+  - [ ] View the default demo Core in the selector.
   - **Context Menu**
-    - [ ] Connect to a cluster.
-    - [ ] Disconnect the active cluster.
-    - [ ] Rename a cluster.
-    - [ ] Remove a cluster.
-    - [ ] Copy a link to a cluster.
-    - [ ] Hard reload the console.
+    - [ ] Connect to a Core.
+    - [ ] Disconnect the active Core.
+    - [ ] Rename a Core.
+    - [ ] Remove a Core.
+    - [ ] Copy a link to a Core.
+    - [ ] Hard reload the Console.
 - **Search and Command Palette**
-  - [ ] Open the "Connect Cluster" modal.
-- [ ] Open a cluster from a link.
-- [ ] Receive meaningful feedback when a cluster connection fails.
+  - [ ] Open the "Connect Core" modal.
+- [ ] Open a Core from a link.
+- [ ] Receive meaningful feedback when a Core connection fails.
 
 ### Devices
 
@@ -543,7 +543,7 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
-- [ ] Start a task on driver boot up when the "Auto start" option is enabled.
+- [ ] Start a task on Driver boot up when the "Auto start" option is enabled.
 - [ ] Import a task from a file via the import task commands
 - [ ] Import a task from a file via drag-and-drop
 - [ ] Rename a task and ensure synchronization across:
@@ -693,7 +693,7 @@ I can successfully:
 
 - [ ] Enable and disable LabJack integration when starting the .
 - [ ] Recognize and connect to a LabJack device available locally.
-- [ ] Run the driver on a machine without the LabJack library installed.
+- [ ] Run the Driver on a machine without the LabJack library installed.
 - **Read Task**
   - [ ] Plot live analog data.
   - [ ] Plot live digital data.
@@ -728,20 +728,20 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Enable and disable NI integration when starting the driver.
+- [ ] Enable and disable NI integration when starting the Driver.
 - [ ] Recognize and connect to an NI device locally.
 - [ ] Recognize and connect to NI devices over the network.
 - [ ] Recognize and connect to physical and simulated devices.
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
-- [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
+- [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
 - [ ] <!-- prettier-ignore --> Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
   - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
-- [ ] Shut down the driver without errors during embedded operation.
+- [ ] Shut down the Driver without errors during embedded operation.
 - [ ] Run various tasks on a single device.
 - [ ] Run multiple tasks across multiple devices concurrently.
 - **Reliable data streaming at the following sample rates:**
@@ -759,13 +759,12 @@ I can successfully:
   - [ ] Tare data.
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
-  - [ ] Enable and disable data saving. <<<<<<< HEAD
+  - [ ] Enable and disable data saving.
   - [ ] Enabled auto-start, and ensure that the task automatically starts after
         configuration.
   - [ ] # Ensure no lag between sensor input and Synnax data recording.
   - [ ] <!-- prettier-ignore --> Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] Ensure no lag between sensor input and server data recording.
-    > > > > > > > rc
+  - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
     - [ ] Resistance (NI-9219)
@@ -800,7 +799,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Enable and disable OPC UA integration when starting the driver.
+- [ ] Enable and disable OPC UA integration when starting the Driver.
 - [ ] Connect to an unencrypted OPC UA server.
 - [ ] Connect to an encrypted OPC UA server.
 - [ ] Create additional channels and move them to existing sampling groups.
@@ -808,7 +807,7 @@ I can successfully:
 - **Read Task**
   - **Single Sampling**
     - [ ] Read from multiple channels.
-    - [ ] Autogenerate timestamps on the driver.
+    - [ ] Autogenerate timestamps on the Driver.
     - [ ] Read timestamps from the OPC UA server.
   - **Array Sampling**
     - [ ] Read from multiple channels.
@@ -816,12 +815,12 @@ I can successfully:
       - [ ] 1
       - [ ] 10
       - [ ] 100
-    - [ ] Autogenerate timestamps on the driver.
+    - [ ] Autogenerate timestamps on the Driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [ ] Avoid driver crashes when improper array sizes are specified.
+    - [ ] Avoid Driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] <!-- prettier-ignore --> Maintain driver operation during device disconnection or channel removal while a task is running.
+  - [ ] <!-- prettier-ignore --> Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
@@ -833,7 +832,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Enable and disable Modbus integration when starting the server.
+- [ ] Enable and disable Modbus integration when starting the Core.
 - [ ] Connect to a Modbus TCP server.
 - [ ] Configure connection parameters (IP address, port, unit ID).
 - **Read Task**
