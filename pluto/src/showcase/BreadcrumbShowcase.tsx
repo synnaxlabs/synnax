@@ -28,7 +28,7 @@ export const BreadcrumbShowcase = () => {
       LabJack T7
     </Breadcrumb.Segment>,
   ];
-  const URL = "https://docs.synnaxlabs.com/reference/cluster/cli-reference";
+  const URL = "https://docs.synnaxlabs.com/reference/core/cli-reference";
   return (
     <Flex.Box y pack empty>
       <SubcategorySection

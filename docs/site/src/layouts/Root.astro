@@ -50,9 +50,9 @@ const {
     </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        import { getVersion } from "@/util/fetchVersion";
+        import { fetchVersion } from "@/util/fetchVersion";
         const updateVersion = () => {
-            getVersion().then((version) => {
+            fetchVersion().then((version) => {
                 const versionElement = document.querySelectorAll(".version");
                 versionElement.forEach((element) => {
                     if (element.classList.contains("full")) element.innerHTML = version;

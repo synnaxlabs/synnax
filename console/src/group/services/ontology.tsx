@@ -66,7 +66,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           )}
           <PMenu.Item itemKey="newGroup">
             <Icon.Group />
-            New Group
+            New group
           </PMenu.Item>
         </>
       )}
@@ -87,7 +87,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };
