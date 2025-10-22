@@ -71,9 +71,9 @@ class Setpoint_Press_User(ConsoleCase):
         start_flag_val = self.read_tlm("test_flag_cmd")
         press_vlv_state = self.read_tlm("press_vlv_state")
         vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == False, "Start flag should be False on initial read"
-        assert press_vlv_state == False, "Press valve should be False on initial read"
-        assert vent_vlv_state == False, "Vent valve should be False on initial read"
+        assert start_flag_val == 0, "Start flag should be 0 on initial read"
+        assert press_vlv_state == 0, "Press valve should be 0 on initial read"
+        assert vent_vlv_state == 0, "Vent valve should be 0 on initial read"
 
         start_cmd.press()
 
@@ -89,9 +89,9 @@ class Setpoint_Press_User(ConsoleCase):
         start_flag_val = self.read_tlm("test_flag_cmd")
         press_vlv_state = self.read_tlm("press_vlv_state")
         vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == True, "Start flag should be True after press"
-        assert press_vlv_state == True, "Press valve should be True after first press"
-        assert vent_vlv_state == True, "Vent valve should be True after first press"
+        assert start_flag_val == 1, "Start flag should be 1 after press"
+        assert press_vlv_state == 1, "Press valve should be 1 after first press"
+        assert vent_vlv_state == 1, "Vent valve should be 1 after first press"
 
         # Toggle
         press_valve.press()
@@ -108,9 +108,9 @@ class Setpoint_Press_User(ConsoleCase):
         start_flag_val = self.read_tlm("test_flag_cmd")
         press_vlv_state = self.read_tlm("press_vlv_state")
         vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == False, "Start flag should be False after reset"
-        assert press_vlv_state == False, "Press valve should be False after reset"
-        assert vent_vlv_state == False, "Vent valve should be False after reset"
+        assert start_flag_val == 0, "Start flag should be 0 after reset"
+        assert press_vlv_state == 0, "Press valve should be 0 after reset"
+        assert vent_vlv_state == 0, "Vent valve should be 0 after reset"
 
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")

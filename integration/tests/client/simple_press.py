@@ -48,15 +48,15 @@ class Simple_Press(TestCase):
         ) as ctrl:
 
             target_pressure = 20
-            ctrl[PRESS_VALVE] = False
-            ctrl[VENT_VALVE] = False
+            ctrl[PRESS_VALVE] = 0
+            ctrl[VENT_VALVE] = 0
 
             # Pressurize the system
             for i in range(5):
                 if self.should_stop:
                     return
                 # Open press valve and wait
-                ctrl[PRESS_VALVE] = True
+                ctrl[PRESS_VALVE] = 1
                 self.assert_states(press_state=1, vent_state=0)
                 if ctrl.wait_until(
                     (lambda c: c[PRESSURE] > target_pressure),
@@ -65,7 +65,7 @@ class Simple_Press(TestCase):
                     self.log(
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
-                    ctrl[PRESS_VALVE] = False
+                    ctrl[PRESS_VALVE] = 0
                     self.assert_states(press_state=0, vent_state=0)
                     target_pressure += 20
                 else:
@@ -73,15 +73,15 @@ class Simple_Press(TestCase):
                     return
 
             # Depressurize the system
-            ctrl[VENT_VALVE] = True
+            ctrl[VENT_VALVE] = 1
             self.assert_states(press_state=0, vent_state=1)
             ctrl.wait_until(
                 lambda c: c[PRESSURE] < 5,
                 timeout=10 * sy.TimeSpan.SECOND,
             )
-            ctrl[VENT_VALVE] = False
+            ctrl[VENT_VALVE] = 0
             self.assert_states(press_state=0, vent_state=0)
-            ctrl[END_TEST_CMD] = True
+            ctrl[END_TEST_CMD] = 1
 
     def assert_states(self, press_state: int, vent_state: int) -> None:
         sy.sleep(1)

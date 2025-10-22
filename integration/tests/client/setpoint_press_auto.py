@@ -60,7 +60,7 @@ class Setpoint_Press_Auto(TestCase):
             def test_active() -> bool:
                 return all([loop.wait(), self.should_continue])
 
-            ctrl.wait_until(lambda c: c.get("test_flag_cmd", False) == True)
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1)
             ctrl.set_authority(self.control_authority)  # Set high
 
             # Initialize valves to closed
@@ -76,7 +76,7 @@ class Setpoint_Press_Auto(TestCase):
             setpoint_prev = None
 
             while test_active():
-                end_test_cmd = ctrl.get("end_test_cmd", False)
+                end_test_cmd = ctrl.get("end_test_cmd", 0)
                 setpoint = ctrl["press_setpoint_cmd"]
                 pressure = ctrl["press_pt"]
 
@@ -89,16 +89,16 @@ class Setpoint_Press_Auto(TestCase):
                     if pressure - setpoint > 2:
                         self.log("Venting")
                         mode = "vent"
-                        ctrl["vent_vlv_cmd"] = True
+                        ctrl["vent_vlv_cmd"] = 1
                     elif setpoint - pressure > 2:
                         self.log("Pressing")
                         mode = "press"
-                        ctrl["press_vlv_cmd"] = True
+                        ctrl["press_vlv_cmd"] = 1
 
                 elif mode == "press" and pressure > setpoint:
                     self.log("Holding")
                     mode = "hold"
-                    ctrl["press_vlv_cmd"] = False
+                    ctrl["press_vlv_cmd"] = 0
 
                 elif mode == "vent" and pressure < setpoint:
                     self.log("Holding")
@@ -106,10 +106,10 @@ class Setpoint_Press_Auto(TestCase):
                     ctrl["vent_vlv_cmd"] = 0
 
                 # Check for test end
-                if end_test_cmd == True:
+                if end_test_cmd == 1:
                     self.log("End signal received")
-                    ctrl["press_vlv_cmd"] = False
-                    ctrl["vent_vlv_cmd"] = False
+                    ctrl["press_vlv_cmd"] = 0
+                    ctrl["vent_vlv_cmd"] = 0
                     return
 
         self.fail("Test failed on timeout")

@@ -139,7 +139,7 @@ class Sim_DAQ(TestCase):
                     return all([loop.wait(), self.should_continue])
 
                 self.log("Sim DAQ running")
-                end_test_flag = False
+                end_test_flag = 0
                 while test_active():
                     # Read incoming commands
                     frame = streamer.read(timeout=0)
@@ -158,10 +158,10 @@ class Sim_DAQ(TestCase):
                             end_test_flag = end_test_cmd[-1]
 
                     # Simulate pressure
-                    if state["press_vlv_state"] == True:
+                    if state["press_vlv_state"] == 1:
                         state["press_pt"] += 0.2
 
-                    if state["vent_vlv_state"] == True:
+                    if state["vent_vlv_state"] == 1:
                         state["press_pt"] -= 0.2
 
                     if state["press_pt"] < 0:
@@ -172,10 +172,10 @@ class Sim_DAQ(TestCase):
                     writer.write(state)
 
                     # Check for test end
-                    if end_test_flag:
+                    if end_test_flag != 0:
                         self.log("Controller has stopped. Ending simulation.")
                         break
 
         assert state["press_pt"] < 10, "Pressure was left above 10"
-        assert state["press_vlv_state"] == False, "Press valve was left open"
-        assert state["vent_vlv_state"] == False, "Vent valve was left open"
+        assert state["press_vlv_state"] == 0, "Press valve was left open"
+        assert state["vent_vlv_state"] == 0, "Vent valve was left open"
