@@ -12,7 +12,7 @@ import { create } from "@/lineplot/layout";
 import { anyStateZ } from "@/lineplot/slice";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout }) => {
-  const state = anyStateZ.parse(JSON.parse(data));
+  const state = anyStateZ.parse(data);
   // create with an undefined key so we do not have to worry about the key that was from
   // the imported data overwriting existing line plots in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout }));

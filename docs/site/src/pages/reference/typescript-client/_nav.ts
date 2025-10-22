@@ -24,6 +24,11 @@ export const TYPESCRIPT_CLIENT_NAV: PageNavNode = {
       name: "Channels",
     },
     {
+      key: "/reference/typescript-client/ranges",
+      href: "/reference/typescript-client/ranges",
+      name: "Ranges",
+    },
+    {
       key: "/reference/typescript-client/read-data",
       href: "/reference/typescript-client/read-data",
       name: "Read Data",

@@ -43,7 +43,7 @@ inline xerrors::Error translate_error(const xerrors::Error &err) {
     return err;
 }
 
-/// @brief factory for creating and operating labjack tasks.
+/// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
     common::TimingConfig timing_cfg;
@@ -63,7 +63,7 @@ public:
     ):
         dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
-    /// @brief creates a new Labjack factory, loading the LJM library.
+    /// @brief creates a new LabJack factory, loading the LJM library.
     static std::unique_ptr<Factory>
     create(common::TimingConfig timing_cfg = common::TimingConfig());
 
