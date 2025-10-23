@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -191,6 +192,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
+	originalKeys := slices.Clone(cfg.Keys)
 	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(requiredChans, func(item channel.Channel, index int) (channel.Key, bool) {
 		return item.Index(), !item.Virtual
@@ -198,7 +200,15 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculated.Contains(item) && !item.Free()
 	})
-	return newCalculationTransform(calculators), nil
+	// PurgeKeys are channels inside of cfg.Keys that are required in ReadFrom
+	// but we're not requested
+	purgeKeys := make([]channel.Key, 0, len(cfg.Keys))
+	for _, key := range cfg.Keys {
+		if !lo.Contains(originalKeys, key) {
+			purgeKeys = append(purgeKeys, key)
+		}
+	}
+	return newCalculationTransform(purgeKeys, calculators), nil
 }
 
 type Iterator struct {

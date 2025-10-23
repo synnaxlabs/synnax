@@ -63,7 +63,6 @@ class Channel(ChannelPayload):
         virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
-        requires: ChannelKeys | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
@@ -106,7 +105,6 @@ class Channel(ChannelPayload):
             internal=internal,
             virtual=virtual,
             expression=expression,
-            requires=requires,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -183,7 +181,6 @@ class Channel(ChannelPayload):
             virtual=self.virtual,
             internal=self.internal,
             expression=self.expression,
-            requires=self.requires,
         )
 
 
@@ -242,7 +239,6 @@ class ChannelClient:
         leaseholder: int = 0,
         virtual: bool | None = None,
         expression: str = "",
-        requires: ChannelKeys | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -260,8 +256,6 @@ class ChannelClient:
         :param expression: An optional expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
-        :param requires: A list of keys of channels that the expression for the
-        calculated channel depends on in order to be evaluated. This should only be
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
@@ -295,7 +289,6 @@ class ChannelClient:
                     is_index=is_index,
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
-                    requires=requires,
                 )
             ]
         elif isinstance(channels, Channel):

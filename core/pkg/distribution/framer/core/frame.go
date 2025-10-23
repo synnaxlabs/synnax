@@ -80,13 +80,17 @@ func (f Frame) SplitByHost(host cluster.NodeKey) (local Frame, remote Frame, fre
 // ToStorage converts the frame to the storage layer frame format.
 // This is used when persisting the frame to storage.
 func (f Frame) ToStorage() ts.Frame {
-	return telem.UnsafeReinterpretFrameKeysAs[channel.Key, cesium.ChannelKey](f.Frame)
+	return telem.MultiFrame(channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
 }
 
 // FilterKeys returns a new frame containing only the series for the specified keys.
 // The original frame is not modified.
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
-	return Frame{f.Frame.FilterKeys(keys)}
+	return Frame{f.Frame.KeepKeys(keys)}
+}
+
+func (f Frame) ExcludeKeys(keys channel.Keys) Frame {
+	return Frame{f.Frame.ExcludeKeys(keys)}
 }
 
 // ShallowCopy creates a shallow copy of the frame.

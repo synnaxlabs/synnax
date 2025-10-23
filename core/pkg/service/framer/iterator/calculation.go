@@ -12,6 +12,7 @@ package iterator
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
@@ -20,14 +21,16 @@ import (
 
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
+	excludeKeys      channel.Keys
 	calculators      []*calculation.Calculator
 	accumulatedError error
 }
 
 func newCalculationTransform(
+	excludeKeys channel.Keys,
 	calculators []*calculation.Calculator,
 ) ResponseSegment {
-	t := &calculationTransform{calculators: calculators}
+	t := &calculationTransform{calculators: calculators, excludeKeys: excludeKeys}
 	t.Transform = t.transform
 	return t
 }
@@ -54,6 +57,10 @@ func (t *calculationTransform) transform(
 			t.accumulatedError = err
 			continue
 		}
+	}
+	res.Frame = res.Frame.ExcludeKeys(t.excludeKeys)
+	if res.Frame.Count() == 0 {
+		return framer.IteratorResponse{}, false, nil
 	}
 	return res, true, nil
 }

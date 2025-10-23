@@ -163,7 +163,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
-					Keys:   []channel.Key{calculation.Key()},
+					Keys:   []channel.Key{calculation.Key(), calculation.Index()},
 					Bounds: telem.TimeRangeMax,
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
@@ -174,7 +174,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
 				Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
-				v = iter.Value().Get(indexCh.Key())
+				v = iter.Value().Get(calculation.Index())
 				Expect(v.Series).To(HaveLen(2))
 				Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
 				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))

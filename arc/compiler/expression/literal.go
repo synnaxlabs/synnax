@@ -70,9 +70,21 @@ func compileNumericLiteral(
 		case types.KindF64:
 			ctx.Writer.WriteF64Const(float64(value))
 			return types.F64(), nil
+		case types.KindI8:
+			ctx.Writer.WriteI32Const(int32(int8(value)))
+			return types.I8(), nil
+		case types.KindI16:
+			ctx.Writer.WriteI32Const(int32(int16(value)))
+			return types.I16(), nil
 		case types.KindI32:
 			ctx.Writer.WriteI32Const(int32(value))
 			return types.I32(), nil
+		case types.KindU8:
+			ctx.Writer.WriteI32Const(int32(uint8(value)))
+			return types.U8(), nil
+		case types.KindU16:
+			ctx.Writer.WriteI32Const(int32(uint16(value)))
+			return types.U16(), nil
 		case types.KindU32:
 			ctx.Writer.WriteI32Const(int32(uint32(value)))
 			return types.U32(), nil
@@ -112,13 +124,25 @@ func compileNumericLiteral(
 		case types.KindF32:
 			ctx.Writer.WriteF32Const(float32(value))
 			return types.F32(), nil
-		case types.KindI32:
+		case types.KindI8:
 			// Float literal can be coerced to integer if hint requests it
+			ctx.Writer.WriteI32Const(int32(int8(value)))
+			return types.I8(), nil
+		case types.KindI16:
+			ctx.Writer.WriteI32Const(int32(int16(value)))
+			return types.I16(), nil
+		case types.KindI32:
 			ctx.Writer.WriteI32Const(int32(value))
 			return types.I32(), nil
 		case types.KindI64:
 			ctx.Writer.WriteI64Const(int64(value))
 			return types.I64(), nil
+		case types.KindU8:
+			ctx.Writer.WriteI32Const(int32(uint8(value)))
+			return types.U8(), nil
+		case types.KindU16:
+			ctx.Writer.WriteI32Const(int32(uint16(value)))
+			return types.U16(), nil
 		case types.KindU32:
 			ctx.Writer.WriteI32Const(int32(uint32(value)))
 			return types.U32(), nil
