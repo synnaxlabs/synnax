@@ -712,7 +712,8 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
-/// This prevents data from being written but not committed, making it unavailable for reads.
+/// This prevents data from being written but not committed, making it unavailable for
+/// reads.
 TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));

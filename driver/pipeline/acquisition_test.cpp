@@ -251,12 +251,8 @@ TEST(AcquisitionPipeline, testEnableAutoCommitValidation) {
 
     EXPECT_THROW(
         {
-            pipeline::Acquisition pipeline(
-                mock_factory,
-                bad_config,
-                source,
-                breaker::Config()
-            );
+            pipeline::Acquisition
+                pipeline(mock_factory, bad_config, source, breaker::Config());
         },
         std::runtime_error
     );
@@ -268,16 +264,10 @@ TEST(AcquisitionPipeline, testEnableAutoCommitValidation) {
         .enable_auto_commit = true,
     };
 
-    EXPECT_NO_THROW(
-        {
-            pipeline::Acquisition pipeline(
-                mock_factory,
-                good_config,
-                source,
-                breaker::Config()
-            );
-        }
-    );
+    EXPECT_NO_THROW({
+        pipeline::Acquisition
+            pipeline(mock_factory, good_config, source, breaker::Config());
+    });
 
     // This should also NOT throw because StreamOnly mode doesn't require auto-commit
     synnax::WriterConfig stream_only_config{
@@ -286,14 +276,8 @@ TEST(AcquisitionPipeline, testEnableAutoCommitValidation) {
         .enable_auto_commit = false,
     };
 
-    EXPECT_NO_THROW(
-        {
-            pipeline::Acquisition pipeline(
-                mock_factory,
-                stream_only_config,
-                source,
-                breaker::Config()
-            );
-        }
-    );
+    EXPECT_NO_THROW({
+        pipeline::Acquisition
+            pipeline(mock_factory, stream_only_config, source, breaker::Config());
+    });
 }

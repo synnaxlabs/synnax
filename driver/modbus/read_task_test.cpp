@@ -422,12 +422,15 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
-/// This prevents data from being written but not committed, making it unavailable for reads.
+/// This prevents data from being written but not committed, making it unavailable for
+/// reads.
 TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
     cfg["data_saving"] = true;
 
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, index_channel.key));
+    auto coil_ch = ASSERT_NIL_P(
+        sy->channels.create("coil", telem::UINT8_T, index_channel.key)
+    );
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
 
     auto p = xjson::Parser(cfg);
