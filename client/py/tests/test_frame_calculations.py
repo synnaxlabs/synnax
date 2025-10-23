@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from synnax.util.rand import rand_name
 
 
 @pytest.mark.framer
@@ -28,12 +29,12 @@ class TestCalculatedChannelStreaming:
         src_channels = client.channels.create(
             [
                 sy.Channel(
-                    name=f"test_a_54732",
+                    name=rand_name(),
                     index=timestamp_channel.key,
                     data_type=sy.DataType.FLOAT32,
                 ),
                 sy.Channel(
-                    name=f"test_b_67832",
+                    name=rand_name(),
                     index=timestamp_channel.key,
                     data_type=sy.DataType.FLOAT32,
                 ),
@@ -77,7 +78,7 @@ class TestCalculatedChannelStreaming:
 
     def test_stream_passthrough_virtual_channel(self, client: sy.Synnax):
         virt = client.channels.create(
-            name=f"virtual_channel_4463",
+            name=rand_name(),
             data_type=sy.DataType.FLOAT32,
             virtual=True,
         )
@@ -104,7 +105,7 @@ class TestCalculatedChannelStreaming:
 
     def test_stream_passthrough_virtual_u8_channel(self, client: sy.Synnax):
         virt = client.channels.create(
-            name=f"virtual_channel_4463",
+            name=rand_name(),
             data_type=sy.DataType.UINT8,
             virtual=True,
         )
@@ -142,7 +143,7 @@ class TestCalculatedChannelIteration:
         )
         src_channel = client.channels.create(
             sy.Channel(
-                name=f"test_a_iter_54732",
+                name=rand_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
@@ -244,20 +245,20 @@ class TestCalculatedChannelIteration:
         )
         src_channel = client.channels.create(
             sy.Channel(
-                name=f"test_a_iter_54953",
+                name=rand_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
         )
         calc_channel = client.channels.create(
             name="test_calc_iter",
-            expression="""
-            if (test_a_iter_54953 > 15) {
+            expression=f"""
+            if ({src_channel.name} > 15) {{
                 return 4
-            } else {
+            }} else {{
                 return 5
-            }
-            """,
+            }}
+            """
         )
         idx_data = [
             5 * sy.TimeSpan.SECOND,
@@ -288,3 +289,65 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
         )
+
+    def test_calculation_deleted_channel(self, client: sy.Synnax):
+        """Should correctly create and read from a basic calculated channel using iteration"""
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_iter",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        src_channel = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        calc_channel = client.channels.create(
+            name="test_calc_iter",
+            expression=f"""
+              if ({src_channel.name} > 15) {{
+                  return 4
+              }} else {{
+                  return 5
+              }}"""
+        )
+        idx_data = [
+            5 * sy.TimeSpan.SECOND,
+            6 * sy.TimeSpan.SECOND,
+            7 * sy.TimeSpan.SECOND,
+        ]
+        src_data = [10.0, 20.0, 30.0]
+        client.write(
+            5 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                src_channel.key: src_data,
+            },
+        )
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[
+                calc_channel.key,
+                calc_channel.index,
+            ],
+        )
+        assert len(res.channels) == 2
+        ts_ser = res[calc_channel.index]
+        data_ser = res[calc_channel.key]
+        assert len(ts_ser) == 3
+        assert ts_ser.alignment == data_ser.alignment
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(
+            data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
+        )
+        client.channels.delete(src_channel.key)
+        with pytest.raises(Exception, match="undefined symbol"):
+            client.read(
+                tr=sy.TimeRange.MAX,
+                channels=[
+                    calc_channel.key,
+                    calc_channel.index,
+                ],
+            )
