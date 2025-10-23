@@ -55,7 +55,7 @@ bool ni::Factory::check_health(
 
 std::unique_ptr<ni::Factory> ni::Factory::create(common::TimingConfig timing_cfg) {
     if (xos::get() == xos::MACOS_NAME)
-        LOG(WARNING) << "[NI] Integration is not supported on macOS";
+        LOG(WARNING) << "[ni] integration is not supported on macOS";
     auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
     if (syscfg_err) LOG(WARNING) << syscfg_err;
     auto [dmx, dmx_err] = daqmx::ProdAPI::load();

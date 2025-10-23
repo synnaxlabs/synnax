@@ -30,7 +30,7 @@ static const std::string LIB_NAME = "libnisyscfg.so";
 namespace syscfg {
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "NI System Configuration library is not installed."
+    "National Instruments System Configuration library is not installed."
 );
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {

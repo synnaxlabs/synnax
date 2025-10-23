@@ -23,9 +23,7 @@ const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "LabJack LJM shared libraries are not installed. Expected to find them "
-    "at " +
-        LJM_LIBRARY_NAME
+    "LabJack LJM shared library is not installed."
 );
 
 /// @brief API wrapped on top of LJM functions that the Synnax driver requires.
