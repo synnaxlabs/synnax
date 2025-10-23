@@ -141,7 +141,6 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
-  requires: [],
 };
 
 const retrieveSingle = async ({

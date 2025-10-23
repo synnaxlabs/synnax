@@ -82,10 +82,6 @@ class Channel(ChannelPayload):
         :param expression: An optional Lua expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
-        :param requires: A list of keys of channels that the expression for the
-        calculated channel depends on in order to be evaluated. This should only be
-        set if expression is not an empty string. If expression is not an empty string,
-        this should have at least one channel.
         :param internal: Boolean indicating whether the channel is internal. Internal
         channels are not visible to the user and are used for internal purposes only.
         :returns: The created channel.

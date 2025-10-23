@@ -114,10 +114,6 @@ export class Channel {
    */
   readonly expression: string;
   /**
-   * Only used for calculated channels. Specifies the channels required for calculation
-   */
-  readonly requires: Key[];
-  /**
    * The status of the channel.
    */
   readonly status?: Status;
@@ -135,7 +131,6 @@ export class Channel {
     alias,
     status: argsStatus,
     expression = "",
-    requires = [],
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
@@ -152,7 +147,6 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = keyZ.array().parse(requires ?? []);
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -179,7 +173,6 @@ export class Channel {
       internal: this.internal,
       virtual: this.virtual,
       expression: this.expression,
-      requires: this.requires,
       status: this.status,
     });
   }
@@ -434,27 +427,6 @@ export class Client {
 
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
-
-export const resolveCalculatedIndex = async (
-  retrieve: (key: Key) => Promise<Payload | null>,
-  channel: Payload,
-): Promise<Key | null> => {
-  if (!isCalculated(channel)) return channel.index;
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (!requiredChannel.virtual) return requiredChannel.index;
-  }
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (isCalculated(requiredChannel)) {
-      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
-      if (index != null) return index;
-    }
-  }
-  return null;
-};
 
 export const ontologyID = (key: Key): ontology.ID => ({
   type: "channel",

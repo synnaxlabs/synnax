@@ -146,7 +146,6 @@ class TestChannel:
             name="test",
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
-            requires=[base_v_channel.key],
             virtual=True,
         )
         channel = client.channels.create(channel)
@@ -167,7 +166,6 @@ class TestChannel:
             name="test",
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
-            requires=[base_v_channel.key],
         )
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"

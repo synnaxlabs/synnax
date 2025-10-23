@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const errorMessage = "Channel key must be a valid uint32.";
@@ -40,7 +40,6 @@ export const payloadZ = z.object({
   virtual: z.boolean(),
   alias: z.string().optional(),
   expression: z.string().default(""),
-  requires: array.nullableZ(keyZ),
   status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
@@ -53,7 +52,6 @@ export const newZ = payloadZ.extend({
   internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
   expression: z.string().optional().default(""),
-  requires: array.nullableZ(keyZ).optional().default([]),
 });
 
 export interface New

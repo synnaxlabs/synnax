@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { sleep } from "@synnaxlabs/x";
+import { id, sleep } from "@synnaxlabs/x";
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test, vi } from "vitest";
 
@@ -126,12 +126,12 @@ describe("Streamer", () => {
         // Create source channels with the timestamp index
         const [channelA, channelB] = await client.channels.create([
           {
-            name: "test_a",
+            name: id.create(),
             dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
           {
-            name: "test_b",
+            name: id.create(),
             dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
@@ -142,8 +142,7 @@ describe("Streamer", () => {
           name: "test_calc",
           dataType: DataType.FLOAT64,
           virtual: true,
-          expression: "return test_a + test_b",
-          requires: [channelA.key, channelB.key],
+          expression: `return ${channelA.name} + ${channelB.name}`,
         });
 
         // Set up streamer to listen for calculated results
@@ -178,14 +177,14 @@ describe("Streamer", () => {
       test("calculated channel with constant", async () => {
         // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
-          name: "calc_const_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
         // Create base channel with index
         const baseChannel = await client.channels.create({
-          name: "base_channel",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           index: timeChannel.key,
         });
@@ -196,11 +195,10 @@ describe("Streamer", () => {
           dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return ${baseChannel.name} + 5`,
-          requires: [],
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
-        await sleep.sleep(TimeSpan.milliseconds(5));
+        await sleep.sleep(TimeSpan.milliseconds(20));
 
         const startTime = TimeStamp.now();
         const writer = await client.openWriter({

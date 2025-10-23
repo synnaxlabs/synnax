@@ -104,7 +104,6 @@ tsk = ni.AnalogReadTask(
         ),
     ],
 )
-tsk.
 
 # This will create the task in Synnax and wait for the driver to validate that the
 # configuration is correct.
