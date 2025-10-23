@@ -20,8 +20,10 @@
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
+#include "driver/opc/device/device.h"
 #include "driver/opc/scan_task.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/types/types.h"
 
 namespace opc {
 void ScanTask::exec(task::Command &cmd) {
@@ -32,7 +34,7 @@ void ScanTask::exec(task::Command &cmd) {
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    std::shared_ptr<std::vector<util::NodeProperties>> channels;
+    std::shared_ptr<std::vector<opc::Node>> channels;
 };
 
 static UA_StatusCode
@@ -57,30 +59,29 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     req.nodesToRead = ids;
     req.nodesToReadSize = 3;
 
-    UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
-    UA_StatusCode status = res.responseHeader.serviceResult;
-    if (status != UA_STATUSCODE_GOOD) return status;
-    if (!res.results[0].hasValue) return res.results[0].status;
-    if (!res.results[1].hasValue) return res.results[1].status;
-    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
+    opc::ReadResponse res(UA_Client_Service_read(ua_client, req));
+    UA_StatusCode status = res.get().responseHeader.serviceResult;
+    if (status != UA_STATUSCODE_GOOD) { return status; }
+    if (!res.get().results[0].hasValue) { return res.get().results[0].status; }
+    if (!res.get().results[1].hasValue) { return res.get().results[1].status; }
+    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.get().results[0].value.data);
     auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
-        res.results[1].value.data
+        res.get().results[1].value.data
     );
     const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
-    auto data_type = telem::UNKNOWN_T;
+    auto data_type = ::telem::UNKNOWN_T;
     bool is_array = false;
-    if (cls == UA_NODECLASS_VARIABLE && res.results[2].hasValue) {
-        auto value = res.results[2].value;
-        data_type = util::ua_to_data_type(value.type);
+    if (cls == UA_NODECLASS_VARIABLE && res.get().results[2].hasValue) {
+        const auto &value = res.get().results[2].value;
+        data_type = opc::telem::ua_to_data_type(value.type);
         is_array = !UA_Variant_isScalar(&value);
-        UA_Variant_clear(&value);
     } else if (cls == UA_NODECLASS_VARIABLE)
         LOG(ERROR) << "[opc.scanner] No value for " << name;
     ctx->channels->emplace_back(
         data_type,
         name,
-        util::node_id_to_string(child_id),
-        util::node_class_to_string(cls),
+        opc::NodeId::to_string(child_id),
+        opc::node_class_to_string(cls),
         is_array
     );
     return status;
@@ -99,7 +100,7 @@ void ScanTask::scan(const task::Command &cmd) const {
              }}
         );
 
-    auto [conn, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
+    auto [connection, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->set_status({
             .key = cmd.key,
@@ -111,13 +112,13 @@ void ScanTask::scan(const task::Command &cmd) const {
         });
 
     auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
-        conn.shared(),
-        std::make_shared<std::vector<util::NodeProperties>>(),
+        connection.shared(),
+        std::make_shared<std::vector<opc::Node>>(),
     });
 
     UA_Client_forEachChildNodeCall(
         scan_ctx->client.get(),
-        args.node,
+        args.node.get(),
         node_iter,
         scan_ctx.get()
     );
@@ -127,7 +128,7 @@ void ScanTask::scan(const task::Command &cmd) const {
         .variant = status::variant::SUCCESS,
         .details = synnax::TaskStatusDetails{
             .task = task.key,
-            .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
+            .data = opc::device::Properties(args.connection, *scan_ctx->channels)
                         .to_json(),
         },
     });

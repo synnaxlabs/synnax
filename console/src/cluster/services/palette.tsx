@@ -15,7 +15,7 @@ import { Runtime } from "@/runtime";
 
 const CONNECT_COMMAND: Palette.Command = {
   key: "connect-cluster",
-  name: "Connect a Cluster",
+  name: "Connect a Core",
   icon: <AiFillApi />,
   onSelect: ({ placeLayout }) => placeLayout(Cluster.CONNECT_LAYOUT),
   visible: () => Runtime.ENGINE === "tauri",

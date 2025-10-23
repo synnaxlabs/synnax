@@ -1,9 +1,0 @@
-{
-  "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "types": ["webgl2", "offscreencanvas"],
-    "composite": true
-  },
-  "include": ["src/**/*"]
-}

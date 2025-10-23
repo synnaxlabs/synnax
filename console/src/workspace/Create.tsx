@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Button, Flex, Form, Input, Nav, Synnax, Workspace } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -16,7 +17,7 @@ import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 import { useSelectActiveKey } from "@/workspace/selectors";
-import { add } from "@/workspace/slice";
+import { setActive } from "@/workspace/slice";
 
 export const CREATE_LAYOUT_TYPE = "createWorkspace";
 
@@ -42,11 +43,11 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
     },
     afterSave: ({ value }) => {
       const ws = value();
-      const { key, ...rest } = ws;
-      if (key == null) return;
-      dispatch(add({ key, ...rest }));
+      const { key, name, layout } = ws;
+      if (key == null) throw new UnexpectedError("Workspace key is null");
+      dispatch(setActive({ key, name }));
       if (active != null)
-        dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
+        dispatch(Layout.setWorkspace({ slice: layout as Layout.SliceState }));
       onClose();
     },
   });
@@ -82,7 +83,11 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             form="create-workspace"
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
+            tooltip={
+              client == null
+                ? "No Core Connected"
+                : `Save to ${client.props.name ?? "Synnax"}`
+            }
             onClick={() => save()}
             trigger={Triggers.SAVE}
           >

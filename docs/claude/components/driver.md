@@ -288,7 +288,7 @@ linkopts = select({
 
 ## Common Gotchas
 
-- **SDK Requirements**: LabJack LJM, NI DAQmx must be installed
+- **SDK Requirements**: LabJack LJM, NI-DAQmx must be installed
 - **Modbus on NI Linux RT**: Excluded via Bazel config
 - **Platform-specific code**: Use Bazel `select()` mechanism
 - **Connection pooling**: Modbus and OPC UA share connections, LabJack/NI don't
