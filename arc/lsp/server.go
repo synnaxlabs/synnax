@@ -216,10 +216,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		return
 	}
 
-	// A nil slice here would mean that existing diagnostics would not be reset,
-	// so we need to allocate a zero length sl
-	// nolint: ineffassign
-	diagnostics := make([]protocol.Diagnostic, 0)
+	var diagnostics []protocol.Diagnostic
 	if doc.Metadata.IsFunctionBlock {
 		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
 		if err != nil {
