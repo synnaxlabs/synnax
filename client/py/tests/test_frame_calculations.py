@@ -235,7 +235,6 @@ class TestCalculatedChannelIteration:
             np.array(src_data_0 + src_data_1 + src_data_2, dtype=data_ser.data_type.np),
         )
 
-
     def test_conditional_calculated_channel(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
@@ -288,5 +287,3 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
         )
-
-

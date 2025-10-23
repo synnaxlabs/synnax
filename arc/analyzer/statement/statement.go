@@ -637,18 +637,6 @@ func collectStatementReturnTypes(
 	}
 }
 
-// getStatementReturnType extracts the return type from a single statement.
-// Returns (hasReturn bool, returnType types.Type)
-func getStatementReturnType(
-	ctx context.Context[parser.IStatementContext],
-) (bool, types.Type) {
-	returnTypes := collectStatementReturnTypes(ctx)
-	if len(returnTypes) > 0 {
-		return true, returnTypes[0]
-	}
-	return false, types.Type{}
-}
-
 // getIfStatementReturnTypes recursively extracts return types from if/else branches.
 // Returns (allPathsReturn bool, returnTypes []types.Type)
 func getIfStatementReturnTypes(
@@ -820,7 +808,7 @@ func unifyReturnTypes(
 				if maxBits < 32 {
 					maxBits = 32
 				}
-			} else if t.Kind == types.KindF64 {
+			} else {
 				if maxBits < 64 {
 					maxBits = 64
 				}
