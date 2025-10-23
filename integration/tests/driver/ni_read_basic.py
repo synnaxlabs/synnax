@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+import json
 from synnax.hardware import ni
 
 from framework.test_case import TestCase
@@ -27,7 +28,7 @@ class NIReadBasic(TestCase):
         # Get or create device
         dev = self._get_device()
         SAMPLE_RATE = 100  # Hz
-        TEST_DURATION = 3  # seconds
+        TEST_DURATION = 10  # seconds
 
         # Create single analog read task with one voltage channel
         task, channel_names = self._create_read_task(dev.key, SAMPLE_RATE)
@@ -35,7 +36,7 @@ class NIReadBasic(TestCase):
         self.log(f"=== Running task for {TEST_DURATION} seconds ===")
         self._start_task(task)
         start = sy.TimeStamp.now()
-        sy.sleep(TEST_DURATION)
+        sy.sleep(10)
         self._stop_task(task)
         end = sy.TimeStamp.now()
         self._delete_task(task)
@@ -79,7 +80,7 @@ class NIReadBasic(TestCase):
         client = self.client
         rack = client.hardware.racks.retrieve(name="Node 1 Embedded Driver")
         try:
-            dev = client.hardware.devices.retrieve(key="ni-test-device")
+            dev = client.hardware.devices.retrieve(name="NI 9205")
             self.log(f"Found existing device: {dev.name}")
         except:
             self.log("Creating new NI device")
@@ -87,11 +88,11 @@ class NIReadBasic(TestCase):
                 sy.Device(
                     key="ni-test-device",
                     rack=rack.key,
-                    name="NI Test Device",
-                    make="National Instruments",
-                    model="DAQmx",
-                    location="Dev1",
-                    properties='{"identifier": "Dev1"}',
+                    name="NI 9205",
+                    make="NI",
+                    model="9205",
+                    location="SYMod2AI",
+                    properties='{"identifier": "SYMod2AI"}',
                 )
             )
             self.log(f"Created device: {dev.key}")
@@ -101,7 +102,7 @@ class NIReadBasic(TestCase):
         self,
         device_key: str,
         sample_rate: float,
-    ) -> tuple[ni.AnalogReadTask, list[str]]:
+    ) -> tuple[sy.Task, list[str]]:
         """Create an NI Analog Read Task with a single voltage channel.
 
         Args:
@@ -142,21 +143,36 @@ class NIReadBasic(TestCase):
                 ),
             ],
         )
-        task = self.client.hardware.tasks.configure(task)
-        self.log(f"Task configured: {task.name}")
-        return task, [channel_name]
+        self.client.hardware.tasks.configure(task)
+        
+        self.log("Running Task for 10s")
+        task.start()
+        sy.sleep(10)
+        task.stop()
+        
+        tsk = ni.AnalogReadTask(self.client.hardware.tasks.retrieve(name="NI Analog Read - Voltage"))
+        tsk.config.data_saving = False
+        tsk.config.sample_rate = sy.Rate.HZ * 200
+        self.client.hardware.tasks.configure(tsk)
+        
+        self.log("Running reconfifured Task")
+        tsk.start()
 
-    def _start_task(self, task: ni.AnalogReadTask) -> None:
+
+        #self.log(f"Task configured: {task.name}")
+        return updated_task, [channel_name]
+
+    def _start_task(self, task: sy.Task) -> None:
         """Start the task."""
         self.log("Starting task...")
-        task.start()
+        task.execute_command_sync("start")
 
-    def _stop_task(self, task: ni.AnalogReadTask) -> None:
+    def _stop_task(self, task: sy.Task) -> None:
         """Stop the task."""
         self.log("Stopping task...")
-        task.stop()
+        task.execute_command_sync("stop")
 
-    def _delete_task(self, task: ni.AnalogReadTask) -> None:
+    def _delete_task(self, task: sy.Task) -> None:
         """Delete the task."""
         self.log("Deleting task...")
         self.client.hardware.tasks.delete(task.key)
