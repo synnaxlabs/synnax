@@ -6,9 +6,6 @@
       "tests": [
         {
           "case": "driver/opc_ua_basic"
-        },
-        {
-          "case": "driver/opc_ua_basic"
         }
       ]
     }

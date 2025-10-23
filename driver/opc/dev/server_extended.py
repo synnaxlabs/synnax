@@ -15,15 +15,15 @@ import random
 from asyncua import Server, ua
 
 # Configuration constants
-ARRAY_COUNT = 5
-ARRAY_SIZE = 5
-FLOAT_COUNT = 5
-BOOL_COUNT = 5
+ARRAY_COUNT = 10
+ARRAY_SIZE = 10
+FLOAT_COUNT = 10
+BOOL_COUNT = 10
 RATE = 100  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
-ERROR_INJECTION_RATE = 0.1  # 10% error rate
+ERROR_INJECTION_RATE = 0.05  # 5% error rate
 ERROR_ARRAY_INDEX = 2  # Which array to inject errors into
 ERROR_FLOAT_INDEX = 2  # Which float to inject errors into
 
