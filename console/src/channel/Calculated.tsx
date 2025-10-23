@@ -15,7 +15,6 @@ import {
   Input,
   Nav,
   Status,
-  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
@@ -41,12 +40,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
   });
 
   const [createMore, setCreateMore] = useState(false);
-
-  const isIndex = Form.useFieldValue<
-    boolean,
-    boolean,
-    typeof Channel.calculatedFormSchema
-  >("isIndex", { ctx: form });
 
   if (variant !== "success") return <Status.Summary status={status} />;
 

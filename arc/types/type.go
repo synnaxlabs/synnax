@@ -115,6 +115,10 @@ func (t Type) String() string {
 		return t.Name
 	case KindNumericConstant:
 		return "numeric"
+	case KindIntegerConstant:
+		return "integer"
+	case KindFloatConstant:
+		return "float"
 	case KindFunction:
 		return "function"
 	default:

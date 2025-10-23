@@ -27,8 +27,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return x
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 
@@ -37,10 +36,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return 42
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Integer literals infer as type variables, after unification defaults to i64
-			Expect(inferredType.Kind).To(Or(Equal(types.KindTypeVariable), Equal(types.KindI64)))
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType.Kind).To(Equal(types.KindI64))
 		})
 
 		It("Should infer f64 from single float literal return", func() {
@@ -48,10 +45,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return 3.14
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Float literals infer as type variables, after unification defaults to f64
-			Expect(inferredType.Kind).To(Or(Equal(types.KindTypeVariable), Equal(types.KindF64)))
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType.Kind).To(Equal(types.KindF64))
 		})
 
 		It("Should infer string from single string return", func() {
@@ -59,8 +54,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return "hello"
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.String()))
 		})
 
@@ -70,8 +64,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return x
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 	})
@@ -87,8 +80,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 
@@ -102,8 +94,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 
@@ -117,8 +108,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U16()))
 		})
 
@@ -132,8 +122,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I16()))
 		})
 
@@ -147,8 +136,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.F64()))
 		})
 
@@ -161,7 +149,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return "hello"
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, _ := statement.AnalyzeFunctionBody(ctx)
+			_, ok := statement.AnalyzeFunctionBody(ctx)
 			Expect(ok).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible return types"))
@@ -177,7 +165,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, _ := statement.AnalyzeFunctionBody(ctx)
+			_, ok := statement.AnalyzeFunctionBody(ctx)
 			Expect(ok).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("mixed integer and floating-point"))
@@ -200,8 +188,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 
@@ -217,10 +204,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Literals infer as type variables, but should unify to same type
-			Expect(inferredType.Kind).To(Or(Equal(types.KindTypeVariable), Equal(types.KindI64)))
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType.Kind).To(Equal(types.KindI64))
 		})
 
 		It("Should handle deeply nested if statements", func() {
@@ -242,9 +227,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return 4
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Should unify to u32 (largest unsigned type)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U32()))
 		})
 	})
@@ -253,8 +236,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It("Should return invalid type for empty block", func() {
 			block := MustSucceed(parser.ParseBlock(`{}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 
@@ -264,8 +246,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				y i32 := 2
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 
@@ -275,8 +256,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				3 * 4
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 	})
@@ -291,8 +271,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				y i32 := 2
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 
@@ -308,9 +287,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Should unify i8 and i16 to i16
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I16()))
 		})
 
@@ -325,8 +302,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return x
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I32()))
 		})
 	})
@@ -340,8 +316,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 
@@ -350,9 +325,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return 1
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Literal should infer as type variable
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType.Kind).To(Or(Equal(types.KindTypeVariable), Equal(types.KindI64)))
 		})
 
@@ -373,9 +346,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Should unify to i64 (largest)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I64()))
 		})
 
@@ -389,8 +360,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return b
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U64()))
 		})
 	})
@@ -401,7 +371,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return undefined_var
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, _ := statement.AnalyzeFunctionBody(ctx)
+			_, ok := statement.AnalyzeFunctionBody(ctx)
 			Expect(ok).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 		})
@@ -416,7 +386,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, _ := statement.AnalyzeFunctionBody(ctx)
+			_, ok := statement.AnalyzeFunctionBody(ctx)
 			Expect(ok).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible return types"))
@@ -434,9 +404,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Both are i8, should stay i8
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.I8()))
 		})
 
@@ -453,9 +421,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return z
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			ok, inferredType := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue())
-			// Should unify to u16
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U16()))
 		})
 	})
