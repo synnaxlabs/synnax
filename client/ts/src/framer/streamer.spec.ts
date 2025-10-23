@@ -47,7 +47,12 @@ describe("Streamer", () => {
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
     });
     it("should not throw an error when the streamer is opened with zero channels", async () => {
-      await expect(client.openStreamer([])).resolves.not.toThrow();
+      await expect(
+        (async () => {
+          const s = await client.openStreamer([]);
+          s.close();
+        })(),
+      ).resolves.not.toThrow();
     });
     it("should throw an error when the streamer is opened with a channel that does not exist", async () => {
       await expect(client.openStreamer([5678])).rejects.toThrow("not found");

@@ -257,6 +257,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
+	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.Config{

@@ -40,7 +40,6 @@ class TestCalculatedChannelStreaming:
         )
         calc_channel = client.channels.create(
             name="test_calc",
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {src_channels[0].name} + {src_channels[1].name}",
         )
         start = sy.TimeStamp.now()
@@ -83,7 +82,6 @@ class TestCalculatedChannelStreaming:
         )
         calc = client.channels.create(
             name="calc_channel",
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -111,7 +109,6 @@ class TestCalculatedChannelStreaming:
         )
         calc = client.channels.create(
             name="calc_channel",
-            data_type=sy.DataType.UINT8,
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -151,7 +148,6 @@ class TestCalculatedChannelIteration:
         )
         calc_channel = client.channels.create(
             name="test_calc_iter",
-            data_type=sy.DataType.FLOAT32,
             expression=f"return {src_channel.name}",
         )
         idx_data_1 = [
@@ -237,3 +233,60 @@ class TestCalculatedChannelIteration:
             data_ser,
             np.array(src_data_0 + src_data_1 + src_data_2, dtype=data_ser.data_type.np),
         )
+
+
+    def test_conditional_calculated_channel(self, client: sy.Synnax):
+        """Should correctly create and read from a basic calculated channel using iteration"""
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_iter",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        src_channel = client.channels.create(
+            sy.Channel(
+                name=f"test_a_iter_54953",
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        calc_channel = client.channels.create(
+            name="test_calc_iter",
+            expression="""
+            if (test_a_iter_54953 > 15) {
+                return test_a_iter_54953
+            } else {
+                return test_a_iter_54953 / 2
+            }
+            """,
+        )
+        idx_data = [
+            5 * sy.TimeSpan.SECOND,
+            6 * sy.TimeSpan.SECOND,
+            7 * sy.TimeSpan.SECOND,
+        ]
+        src_data = [10.0, 20.0, 30.0]
+        client.write(
+            5 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                src_channel.key: src_data,
+            },
+        )
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[
+                calc_channel.key,
+                calc_channel.index,
+            ],
+        )
+        assert len(res.channels) == 2
+        ts_ser = res[calc_channel.index]
+        data_ser = res[calc_channel.key]
+        assert len(ts_ser) == 3
+        assert ts_ser.alignment == data_ser.alignment
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(
+            data_ser, np.array([4, 5, 5], dtype=data_ser.data_type.np)
+        )
+
+

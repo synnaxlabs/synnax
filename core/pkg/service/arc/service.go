@@ -11,12 +11,17 @@ package arc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -29,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -137,6 +143,23 @@ func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
 	}
 	prog.Deploy = false
 	return s.NewWriter(nil).Create(ctx, &prog)
+}
+
+func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.DataType, error) {
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expr))
+	if err != nil {
+		return telem.UnknownT, err
+	}
+	aCtx := acontext.CreateRoot(
+		ctx,
+		t,
+		s.SymbolResolver(),
+	)
+	ok, dataType := statement.AnalyzeFunctionBody(aCtx)
+	if !ok {
+		return telem.UnknownT, aCtx.Diagnostics.Error()
+	}
+	return types.ToTelem(dataType), nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

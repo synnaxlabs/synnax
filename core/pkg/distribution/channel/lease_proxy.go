@@ -31,13 +31,14 @@ import (
 
 type leaseProxy struct {
 	ServiceConfig
-	createRouter  proxy.BatchFactory[Channel]
-	renameRouter  proxy.BatchFactory[renameBatchEntry]
-	keyRouter     proxy.BatchFactory[Key]
-	leasedCounter *counter
-	freeCounter   *counter
-	group         group.Group
-	mu            struct {
+	createRouter       proxy.BatchFactory[Channel]
+	renameRouter       proxy.BatchFactory[renameBatchEntry]
+	keyRouter          proxy.BatchFactory[Key]
+	leasedCounter      *counter
+	freeCounter        *counter
+	group              group.Group
+	analyzeCalculation CalculationAnalyzer
+	mu                 struct {
 		sync.RWMutex
 		externalNonVirtualSet *set.Integer[Key]
 	}
@@ -137,6 +138,14 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			channels[i].Leaseholder = cluster.Free
 			channels[i].Virtual = true
+			if lp.analyzeCalculation != nil {
+				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
+				if err != nil {
+					return err
+				}
+				channels[i].DataType = dt
+			}
+			// Perform analysis on calculated channels.
 		} else if ch.LocalKey != 0 {
 			channels[i].LocalKey = 0
 		}
