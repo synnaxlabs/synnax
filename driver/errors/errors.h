@@ -11,8 +11,8 @@
 
 #include <string>
 
-#include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xlib/xlib.h"
 
 namespace driver {
 const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
@@ -28,18 +28,18 @@ struct LibraryInfo {
 };
 
 namespace lib {
-    const LibraryInfo LABJACK_LJM = {
-        "LabJack LJM shared",
-        "https://support.labjack.com/docs/software-driver"
-    };
-    const LibraryInfo NI_DAQMX = {
-        "National Instruments DAQmx shared",
-        "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
-    };
-    const LibraryInfo NI_SYSCFG = {
-        "National Instruments System Configuration",
-        "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
-    };
+const LibraryInfo LABJACK_LJM = {
+    "LabJack LJM shared",
+    "https://support.labjack.com/docs/software-driver"
+};
+const LibraryInfo NI_DAQMX = {
+    "National Instruments DAQmx shared",
+    "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
+};
+const LibraryInfo NI_SYSCFG = {
+    "National Instruments System Configuration",
+    "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
+};
 }
 
 /// Standardized missing library error

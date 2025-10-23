@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <curl/curl.h>
 #include <vector>
 
 #include "gtest/gtest.h"
+#include <curl/curl.h>
 
 #include "x/cpp/xtest/xtest.h"
 
@@ -23,9 +23,10 @@ const std::vector<driver::LibraryInfo> ALL_LIBS = {
 };
 
 TEST(ErrorsTest, LibraryInfoNotEmpty) {
-    for (const auto &lib : ALL_LIBS) {
+    for (const auto &lib: ALL_LIBS) {
         EXPECT_FALSE(lib.name.empty()) << "Library name should not be empty";
-        EXPECT_FALSE(lib.url.empty()) << "Library URL should not be empty for " << lib.name;
+        EXPECT_FALSE(lib.url.empty())
+            << "Library URL should not be empty for " << lib.name;
     }
 }
 
@@ -37,7 +38,7 @@ TEST(ErrorsTest, URLsAreWellFormed) {
         return true;
     };
 
-    for (const auto &lib : ALL_LIBS) {
+    for (const auto &lib: ALL_LIBS) {
         EXPECT_TRUE(is_valid_url(lib.url)) << "URL is not well-formed for " << lib.name;
     }
 }
@@ -49,7 +50,7 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
 TEST(ErrorsTest, URLsAreReachable) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
-    for (const auto &lib : ALL_LIBS) {
+    for (const auto &lib: ALL_LIBS) {
         CURL *curl = curl_easy_init();
         ASSERT_NE(curl, nullptr) << "Failed to initialize curl for " << lib.name;
 
@@ -67,12 +68,15 @@ TEST(ErrorsTest, URLsAreReachable) {
         curl_easy_cleanup(curl);
 
         EXPECT_EQ(res, CURLE_OK) << "Failed to reach " << lib.name << " at " << lib.url
-                                  << " (curl error: " << curl_easy_strerror(res) << ")";
+                                 << " (curl error: " << curl_easy_strerror(res) << ")";
 
         if (res == CURLE_OK) {
-            EXPECT_NE(response_code, 404) << lib.name << " URL returned 404: " << lib.url;
-            EXPECT_GE(response_code, 200) << lib.name << " URL returned error code: " << response_code;
-            EXPECT_LT(response_code, 400) << lib.name << " URL returned error code: " << response_code;
+            EXPECT_NE(response_code, 404)
+                << lib.name << " URL returned 404: " << lib.url;
+            EXPECT_GE(response_code, 200)
+                << lib.name << " URL returned error code: " << response_code;
+            EXPECT_LT(response_code, 400)
+                << lib.name << " URL returned error code: " << response_code;
         }
     }
 
@@ -80,10 +84,7 @@ TEST(ErrorsTest, URLsAreReachable) {
 }
 
 TEST(ErrorsTest, LibraryInfoWithoutURL) {
-    driver::LibraryInfo no_url = {
-        "Test Library",
-        ""
-    };
+    driver::LibraryInfo no_url = {"Test Library", ""};
 
     auto err = driver::missing_lib(no_url);
 
