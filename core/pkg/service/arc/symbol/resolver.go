@@ -60,7 +60,10 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 
 func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
-	if err := r.NewRetrieve().Search(name).Entries(&results).Exec(ctx, nil); err != nil {
+	if err := r.NewRetrieve().
+		WhereInternal(false).
+		Search(name).
+		Entries(&results).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	return lo.Map(results, func(item channel.Channel, index int) arc.Symbol {

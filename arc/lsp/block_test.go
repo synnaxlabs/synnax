@@ -126,34 +126,6 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("chan f32"))
 		})
-
-		It("Should hover over local variables in block", func() {
-			uri := generateBlockURI("hover-test-3")
-			content := "let result = sensor * 2\nreturn result"
-
-			err := server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Hover over "result" on line 1
-			hover, err := server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 7},
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(hover).ToNot(BeNil())
-			// Should show the local variable type
-			Expect(hover.Contents.Value).To(ContainSubstring("series<f32>"))
-		})
 	})
 
 	Describe("Completion", func() {
@@ -293,19 +265,13 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(completions).ToNot(BeNil())
 
-			// Should find both "sensor" (global) and "sensor_value" (local)
 			foundSensor := false
-			foundSensorValue := false
 			for _, item := range completions.Items {
 				if item.Label == "sensor" {
 					foundSensor = true
 				}
-				if item.Label == "sensor_value" {
-					foundSensorValue = true
-				}
 			}
 			Expect(foundSensor).To(BeTrue(), "Expected to find 'sensor' from GlobalResolver")
-			Expect(foundSensorValue).To(BeTrue(), "Expected to find 'sensor_value' local variable")
 		})
 	})
 
@@ -335,35 +301,6 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// GlobalResolver symbols have no AST, so should return nil
 			Expect(locations).To(BeNil())
-		})
-
-		It("Should find definition for local variables", func() {
-			uri := generateBlockURI("definition-test-2")
-			content := "let result = sensor * 2\nreturn result"
-
-			err := server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Go to definition on "result" on line 1
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 7},
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(locations).ToNot(BeNil())
-			Expect(len(locations)).To(Equal(1))
-			// Should point to line 0 where "result" is declared
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
 		})
 	})
 

@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 import time
 
 import numpy as np
@@ -253,10 +254,9 @@ class TestCalculatedChannelIteration:
             name="test_calc_iter",
             expression="""
             if (test_a_iter_54953 > 15) {
-                return test_a_iter_54953
-            } else {
-                return test_a_iter_54953 / 2
+                return 4
             }
+            return 5
             """,
         )
         idx_data = [
@@ -286,7 +286,7 @@ class TestCalculatedChannelIteration:
         assert ts_ser.alignment == data_ser.alignment
         assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
         assert np.array_equal(
-            data_ser, np.array([4, 5, 5], dtype=data_ser.data_type.np)
+            data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
         )
 
 

@@ -21,12 +21,13 @@ import (
 
 type Context[AST antlr.ParserRuleContext] struct {
 	context.Context
-	Scope       *symbol.Scope
-	Diagnostics *diagnostics.Diagnostics
-	Constraints *constraints.System
-	TypeMap     map[antlr.ParserRuleContext]types.Type
-	AST         AST
-	TypeHint    types.Type
+	Scope               *symbol.Scope
+	Diagnostics         *diagnostics.Diagnostics
+	Constraints         *constraints.System
+	TypeMap             map[antlr.ParserRuleContext]types.Type
+	AST                 AST
+	TypeHint            types.Type
+	InTypeInferenceMode bool
 }
 
 func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
@@ -57,12 +58,13 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 
 func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 	return Context[N]{
-		Context:     ctx.Context,
-		Scope:       ctx.Scope,
-		Diagnostics: ctx.Diagnostics,
-		Constraints: ctx.Constraints,
-		TypeMap:     ctx.TypeMap,
-		AST:         next,
-		TypeHint:    ctx.TypeHint,
+		Context:             ctx.Context,
+		Scope:               ctx.Scope,
+		Diagnostics:         ctx.Diagnostics,
+		Constraints:         ctx.Constraints,
+		TypeMap:             ctx.TypeMap,
+		AST:                 next,
+		TypeHint:            ctx.TypeHint,
+		InTypeInferenceMode: ctx.InTypeInferenceMode,
 	}
 }

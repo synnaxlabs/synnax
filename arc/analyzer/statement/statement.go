@@ -305,11 +305,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		}
 	}
 	var expectedReturnType types.Type
-	var isTypeInferenceMode bool
 	if enclosingScope.Kind == symbol.KindFunction {
 		expectedReturnType, _ = enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
-		// Type inference mode: function has empty outputs (used by AnalyzeFunctionBody)
-		isTypeInferenceMode = enclosingScope.Type.Outputs.Count() == 0
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
@@ -318,17 +315,18 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		}
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
 
-		// Skip validation in type inference mode - we're just collecting types
-		if isTypeInferenceMode {
-			return true
-		}
-
-		if !expectedReturnType.IsValid() {
+		// Check for void function first - this error applies even in type inference mode
+		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
 			ctx.Diagnostics.AddError(
 				errors.New("unexpected return value in function/func with void return type"),
 				ctx.AST,
 			)
 			return false
+		}
+
+		// Skip type compatibility validation in type inference mode - we're just collecting types
+		if ctx.InTypeInferenceMode {
+			return true
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
 			// If either type is a type variable, add a constraint instead of checking directly
@@ -563,6 +561,9 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 // all return statements across control flow paths.
 // Returns (ok bool, inferredReturnType types.Type)
 func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type, bool) {
+	// Enable type inference mode for this analysis
+	ctx.InTypeInferenceMode = true
+
 	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -603,7 +604,7 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return types.Type{}, false
 	}
-	return inferredType, true
+	return inferredType.Unwrap(), true
 }
 
 // collectStatementReturnTypes extracts all return types from a statement.
