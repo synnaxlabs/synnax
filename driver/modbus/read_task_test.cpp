@@ -421,9 +421,9 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_EQ(fr.at<uint16_t>(input_ch.key, 0), 54321);
 }
 
-/// @brief Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for reads.
-TEST_F(ModbusReadTest, testWriterConfigAutoCommitEnabled) {
+TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
     cfg["data_saving"] = true;
 

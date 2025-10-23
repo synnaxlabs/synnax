@@ -1018,9 +1018,9 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_server->stop();
 }
 
-/// @brief Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for reads.
-TEST(OPCReadTaskConfig, testWriterConfigAutoCommitEnabled) {
+TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // Create rack and device

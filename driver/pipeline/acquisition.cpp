@@ -65,8 +65,8 @@ Acquisition::Acquisition(
     if (this->writer_config.mode == synnax::WriterMode::PersistStream &&
         !this->writer_config.enable_auto_commit) {
         throw std::runtime_error(
-            "[driver] acquisition pipeline: enable_auto_commit must be true when mode is "
-            "PersistStream. This is a driver implementation bug."
+            "[driver] acquisition pipeline: enable_auto_commit must be true "
+            "when mode is PersistStream. This is a driver implementation bug."
         );
     }
 }

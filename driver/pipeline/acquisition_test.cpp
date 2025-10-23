@@ -235,7 +235,7 @@ TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
     ASSERT_FALSE(pipeline.stop());
 }
 
-/// @brief Regression test: it should throw an error if enable_auto_commit is false
+/// Regression test: it should throw an error if enable_auto_commit is false
 /// when mode is PersistStream. This ensures all drivers set this flag correctly.
 TEST(AcquisitionPipeline, testEnableAutoCommitValidation) {
     auto writes = std::make_shared<std::vector<synnax::Frame>>();
