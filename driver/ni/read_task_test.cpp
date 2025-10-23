@@ -710,3 +710,34 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     EXPECT_TRUE(result.find("NI SIM") != std::string::npos);
     EXPECT_TRUE(result.find("below device minimum") != std::string::npos);
 }
+
+/// @brief Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// This prevents data from being written but not committed, making it unavailable for reads.
+TEST(ReadTaskConfigTest, testWriterConfigAutoCommitEnabled) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto dev = synnax::Device(
+        "test_device_key",
+        "test_device",
+        rack.key,
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+
+    auto j = base_analog_config();
+    j["data_saving"] = true;
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+
+    // Verify that writer_config has enable_auto_commit set to true
+    auto writer_cfg = cfg->writer();
+    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}

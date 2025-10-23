@@ -242,3 +242,41 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
+
+/// @brief Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// This prevents data from being written but not committed, making it unavailable for reads.
+TEST(TestReadTaskConfigParse, testWriterConfigAutoCommitEnabled) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto dev = synnax::Device(
+        "230227d9-02aa-47e4-b370-0d590add1bc1",
+        "test_device",
+        rack.key,
+        "dev1",
+        "labjack",
+        "T7",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+
+    auto j = basic_read_task_config();
+    j["data_saving"] = true;
+    j["channels"] = json::array(
+        {{{"port", "AIN0"},
+          {"enabled", true},
+          {"key", "8hYJO9zt6eS"},
+          {"channel", ch.key},
+          {"type", "AI"},
+          {"range", 5},
+          {"scale", {{"type", "none"}}}}}
+    );
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    // Verify that writer_config has enable_auto_commit set to true
+    auto writer_cfg = cfg->writer();
+    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
