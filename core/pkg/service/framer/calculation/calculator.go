@@ -44,6 +44,7 @@ type Calculator struct {
 	scheduler  *scheduler.Scheduler
 	stateCfg   state.Config
 	alignments map[channel.Key]telem.Alignment
+	timeRange  telem.TimeRange
 }
 
 type CalculatorConfig struct {
@@ -246,8 +247,15 @@ func (c *Calculator) Next(
 			continue
 		}
 		v, ok := c.alignments[rawKey]
+		s := inputFrame.RawSeriesAt(rawI)
 		if ok && v == 0 {
-			c.alignments[rawKey] = inputFrame.RawSeriesAt(rawI).Alignment
+			c.alignments[rawKey] = s.Alignment
+		}
+		if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
+			c.timeRange.Start = s.TimeRange.Start
+		}
+		if c.timeRange.End == 0 || s.TimeRange.End > s.TimeRange.End {
+			c.timeRange.End = s.TimeRange.End
 		}
 	}
 	c.state.Ingest(inputFrame.ToStorage())
@@ -277,6 +285,7 @@ func (c *Calculator) Next(
 			continue
 		}
 		s.Alignment = alignment
+		s.TimeRange = c.timeRange
 		ofr.SetRawSeriesAt(rawI, s)
 	}
 	return core.NewFrameFromStorage(ofr), true, nil

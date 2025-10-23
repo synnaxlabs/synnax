@@ -948,12 +948,12 @@ var _ = Describe("Binary Operations", func() {
 				uint32(27),
 				OpF64Const,
 				float64(10),
-				OpF64Add,
+				OpF64Sub,
 				OpI32Const,
 				int32(1),
 				OpCall,
 				uint32(27),
-				OpF64Sub,
+				OpF64Add,
 			),
 
 			Entry(
@@ -974,10 +974,10 @@ var _ = Describe("Binary Operations", func() {
 				int32(0),
 				OpCall,
 				uint32(27),
-				OpF64Mul,
+				OpF64Div,
 				OpF64Const,
 				float64(2),
-				OpF64Div,
+				OpF64Mul,
 			),
 		)
 	})

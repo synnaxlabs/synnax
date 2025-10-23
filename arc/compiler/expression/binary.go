@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -25,18 +26,26 @@ func compileBinaryAdditive(
 	}
 	// Unwrap channel types to use as hint for subsequent operands
 	hintType := resultType.Unwrap()
+
+	// Build list of operators in order by iterating through children
+	var operators []string
+	for _, child := range ctx.AST.GetChildren() {
+		if termNode, ok := child.(antlr.TerminalNode); ok {
+			switch termNode.GetSymbol().GetTokenType() {
+			case parser.ArcLexerPLUS:
+				operators = append(operators, "+")
+			case parser.ArcLexerMINUS:
+				operators = append(operators, "-")
+			}
+		}
+	}
+
 	for i := 1; i < len(muls); i++ {
 		_, err = compileMultiplicative(context.Child(ctx, muls[i]).WithHint(hintType))
 		if err != nil {
 			return types.Type{}, err
 		}
-		var op string
-		if i <= len(ctx.AST.AllPLUS()) {
-			op = "+"
-		} else {
-			op = "-"
-		}
-		if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 			return types.Type{}, err
 		}
 	}
@@ -56,22 +65,28 @@ func compileBinaryMultiplicative(
 	// Unwrap channel types to use as hint for subsequent operands
 	hintType := resultType.Unwrap()
 
+	// Build list of operators in order by iterating through children
+	var operators []string
+	for _, child := range ctx.AST.GetChildren() {
+		if termNode, ok := child.(antlr.TerminalNode); ok {
+			switch termNode.GetSymbol().GetTokenType() {
+			case parser.ArcLexerSTAR:
+				operators = append(operators, "*")
+			case parser.ArcLexerSLASH:
+				operators = append(operators, "/")
+			case parser.ArcLexerPERCENT:
+				operators = append(operators, "%")
+			}
+		}
+	}
+
 	// Compile remaining operands with the first operand's type as hint
 	for i := 1; i < len(pows); i++ {
 		_, err := compilePower(context.Child(ctx, pows[i]).WithHint(hintType))
 		if err != nil {
 			return types.Type{}, err
 		}
-
-		var op string
-		if i <= len(ctx.AST.AllSTAR()) {
-			op = "*"
-		} else if i <= len(ctx.AST.AllSTAR())+len(ctx.AST.AllSLASH()) {
-			op = "/"
-		} else {
-			op = "%"
-		}
-		if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
+		if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 			return types.Type{}, err
 		}
 	}

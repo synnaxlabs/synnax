@@ -11,6 +11,8 @@ package compiler_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -617,4 +619,180 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(5)))
 		})
 	})
+
+	DescribeTable("PEMDAS", func(expr string, expected float64) {
+		output := MustSucceed(compile(fmt.Sprintf(`
+			func dog(b i64) f64 {
+				return %s
+			}`, expr), nil))
+		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+		dog := mod.ExportedFunction("dog")
+		Expect(dog).ToNot(BeNil())
+		results := MustSucceed(dog.Call(ctx, 2))
+		Expect(results).To(HaveLen(1))
+		res := results[0]
+		Expect(math.Float64frombits(res)).To(Equal(expected))
+	},
+		// Basic operations
+		Entry("Addition",
+			"1.0 + 2.0",
+			3.0,
+		),
+		Entry("Subtraction",
+			"5.0 - 3.0",
+			2.0,
+		),
+		Entry("Multiplication",
+			"4.0 * 5.0",
+			20.0,
+		),
+		Entry("Division",
+			"10.0 / 2.0",
+			5.0,
+		),
+
+		// Multiplication before Addition
+		Entry("Multiplication before Addition: 2 + 3 * 4",
+			"2.0 + 3.0 * 4.0",
+			14.0, // 2 + 12 = 14
+		),
+		Entry("Multiplication before Addition: 3 * 4 + 2",
+			"3.0 * 4.0 + 2.0",
+			14.0, // 12 + 2 = 14
+		),
+		Entry("Multiple Multiplications with Addition: 2 * 3 + 4 * 5",
+			"2.0 * 3.0 + 4.0 * 5.0",
+			26.0, // 6 + 20 = 26
+		),
+
+		// Division before Addition
+		Entry("Division before Addition: 10 / 2 + 3",
+			"10.0 / 2.0 + 3.0",
+			8.0, // 5 + 3 = 8
+		),
+		Entry("Division before Addition: 3 + 10 / 2",
+			"3.0 + 10.0 / 2.0",
+			8.0, // 3 + 5 = 8
+		),
+
+		// Multiplication before Subtraction
+		Entry("Multiplication before Subtraction: 10 - 2 * 3",
+			"10.0 - 2.0 * 3.0",
+			4.0, // 10 - 6 = 4
+		),
+		Entry("Multiplication before Subtraction: 2 * 3 - 4",
+			"2.0 * 3.0 - 4.0",
+			2.0, // 6 - 4 = 2
+		),
+
+		// Division before Subtraction
+		Entry("Division before Subtraction: 20 - 10 / 2",
+			"20.0 - 10.0 / 2.0",
+			15.0, // 20 - 5 = 15
+		),
+		Entry("Division before Subtraction: 10 / 2 - 3",
+			"10.0 / 2.0 - 3.0",
+			2.0, // 5 - 3 = 2
+		),
+
+		// Left-to-Right Associativity: Addition/Subtraction
+		Entry("Left-to-Right Subtraction: 10 - 3 - 2",
+			"10.0 - 3.0 - 2.0",
+			5.0, // (10 - 3) - 2 = 7 - 2 = 5
+		),
+		Entry("Left-to-Right Addition: 1 + 2 + 3 + 4",
+			"1.0 + 2.0 + 3.0 + 4.0",
+			10.0, // ((1 + 2) + 3) + 4 = 10
+		),
+		Entry("Mixed Addition/Subtraction: 10 + 5 - 3 + 2",
+			"10.0 + 5.0 - 3.0 + 2.0",
+			14.0, // ((10 + 5) - 3) + 2 = 14
+		),
+
+		// Left-to-Right Associativity: Multiplication/Division
+		Entry("Left-to-Right Division: 20 / 4 / 2",
+			"20.0 / 4.0 / 2.0",
+			2.5, // (20 / 4) / 2 = 5 / 2 = 2.5
+		),
+		Entry("Left-to-Right Multiplication: 2 * 3 * 4",
+			"2.0 * 3.0 * 4.0",
+			24.0, // (2 * 3) * 4 = 6 * 4 = 24
+		),
+		Entry("Mixed Multiplication/Division: 100 / 2 * 5 / 10",
+			"100.0 / 2.0 * 5.0 / 10.0",
+			25.0, // ((100 / 2) * 5) / 10 = (50 * 5) / 10 = 250 / 10 = 25
+		),
+		Entry("Division then Multiplication (original bug): 1 / 2 * 500",
+			"1.0 / 2.0 * 500.0",
+			250.0, // (1 / 2) * 500 = 0.5 * 500 = 250
+		),
+
+		// Parentheses Override
+		Entry("Parentheses force addition before multiplication: (2 + 3) * 4",
+			"(2.0 + 3.0) * 4.0",
+			20.0, // 5 * 4 = 20
+		),
+		Entry("Parentheses force addition before division: 20 / (2 + 3)",
+			"20.0 / (2.0 + 3.0)",
+			4.0, // 20 / 5 = 4
+		),
+		Entry("Nested Parentheses: ((2 + 3) * 4) - 5",
+			"((2.0 + 3.0) * 4.0) - 5.0",
+			15.0, // (5 * 4) - 5 = 20 - 5 = 15
+		),
+		Entry("Multiple Parentheses Groups: (2 + 3) * (4 + 5)",
+			"(2.0 + 3.0) * (4.0 + 5.0)",
+			45.0, // 5 * 9 = 45
+		),
+
+		// Complex Mixed Operations
+		Entry("Complex: 2 + 3 * 4 - 5",
+			"2.0 + 3.0 * 4.0 - 5.0",
+			9.0, // 2 + 12 - 5 = 9
+		),
+		Entry("Complex: 10 / 2 + 3 * 4 - 1",
+			"10.0 / 2.0 + 3.0 * 4.0 - 1.0",
+			16.0, // 5 + 12 - 1 = 16
+		),
+		Entry("Complex: 100 - 20 / 4 + 3 * 2",
+			"100.0 - 20.0 / 4.0 + 3.0 * 2.0",
+			101.0, // 100 - 5 + 6 = 101
+		),
+		Entry("Complex: 50 / 10 * 2 + 8 - 3",
+			"50.0 / 10.0 * 2.0 + 8.0 - 3.0",
+			15.0, // ((50 / 10) * 2) + 8 - 3 = (5 * 2) + 8 - 3 = 10 + 8 - 3 = 15
+		),
+
+		// Edge Cases
+		Entry("All Additions: 1 + 2 + 3 + 4 + 5",
+			"1.0 + 2.0 + 3.0 + 4.0 + 5.0",
+			15.0,
+		),
+		Entry("All Multiplications: 2 * 3 * 4",
+			"2.0 * 3.0 * 4.0",
+			24.0,
+		),
+		Entry("Subtraction Chain: 100 - 10 - 5 - 3",
+			"100.0 - 10.0 - 5.0 - 3.0",
+			82.0, // ((100 - 10) - 5) - 3 = 82
+		),
+		Entry("Division Chain: 1000 / 10 / 5 / 2",
+			"1000.0 / 10.0 / 5.0 / 2.0",
+			10.0, // ((1000 / 10) / 5) / 2 = (100 / 5) / 2 = 20 / 2 = 10
+		),
+
+		// Realistic Calculations
+		Entry("Average: (10 + 20 + 30) / 3",
+			"(10.0 + 20.0 + 30.0) / 3.0",
+			20.0,
+		),
+		Entry("Percentage: 200 * 15 / 100",
+			"200.0 * 15.0 / 100.0",
+			30.0, // (200 * 15) / 100 = 3000 / 100 = 30
+		),
+		Entry("Temperature Conversion Formula-like: 9 / 5 * 100 + 32",
+			"9.0 / 5.0 * 100.0 + 32.0",
+			212.0, // ((9 / 5) * 100) + 32 = (1.8 * 100) + 32 = 180 + 32 = 212
+		),
+	)
 })
