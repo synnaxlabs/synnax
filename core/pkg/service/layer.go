@@ -152,17 +152,14 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(ctx, rbac.Config{
-		DB:             cfg.Distribution.DB,
-		UserRoleGetter: l.User, // user.Service implements UserRoleGetter
+	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 
-	// Run RBAC migration after both User and RBAC services are initialized
-	if err = l.User.MigrateToRBAC(ctx, l.RBAC); !ok(err, nil) {
-		return nil, err
-	}
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,

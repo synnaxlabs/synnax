@@ -23,11 +23,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "table"
+const OntologyType ontology.Type = "table"
 
 // OntologyID returns unique identifier for the table within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the tables within the ontology.
@@ -37,7 +37,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the tables from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the tables from the ontology ResourceIDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromTables returns the ontology IDs of the tables.
+// OntologyIDsFromTables returns the ontology ResourceIDs of the tables.
 func OntologyIDsFromTables(tables []Table) []ontology.ID {
 	return lo.Map(tables, func(l Table, _ int) ontology.ID {
 		return OntologyID(l.Key)
@@ -69,7 +69,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, Table]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

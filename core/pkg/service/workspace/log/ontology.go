@@ -23,11 +23,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "log"
+const OntologyType ontology.Type = "log"
 
 // OntologyID returns unique identifier for the log within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the logs within the ontology.
@@ -37,7 +37,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the logs from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the logs from the ontology ResourceIDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromLogs returns the ontology IDs of the logs.
+// OntologyIDsFromLogs returns the ontology ResourceIDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
 	return lo.Map(logs, func(l Log, _ int) ontology.ID {
 		return OntologyID(l.Key)
@@ -69,7 +69,7 @@ type change = changex.Change[uuid.UUID, Log]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

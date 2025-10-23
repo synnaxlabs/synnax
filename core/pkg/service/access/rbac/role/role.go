@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package rbac
+package role
 
 import (
 	"github.com/google/uuid"
@@ -27,8 +27,8 @@ type Role struct {
 	Description string `json:"description" msgpack:"description"`
 	// Policies is the list of policy UUIDs that this role grants.
 	Policies []uuid.UUID `json:"policies" msgpack:"policies"`
-	// Builtin indicates if this is a system-defined role that cannot be deleted.
-	Builtin bool `json:"builtin" msgpack:"builtin"`
+	// Internal indicates if this is a system-defined role that cannot be deleted.
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Role{}
@@ -40,14 +40,4 @@ func (r Role) GorpKey() uuid.UUID { return r.Key }
 func (r Role) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology ID for this role.
-func (r Role) OntologyID() ontology.ID {
-	return ontology.ID{Type: "role", Key: r.Key.String()}
-}
-
-// RoleOntologyID returns an ontology ID for a role with the given key.
-func RoleOntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: "role", Key: key.String()}
-}
-
-// RoleOntologyType is the ontology type string for roles.
-const RoleOntologyType = "role"
+func (r Role) OntologyID() ontology.ID { return OntologyID(r.Key) }

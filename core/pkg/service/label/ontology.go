@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "label"
+const OntologyType ontology.Type = "label"
 
 // Labels is an ontology.Traverser that allows the caller to traverse an ontology.Retrieve
 // query to find all the labels for a particular resource. Pass this traverser to
@@ -39,21 +39,21 @@ var (
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
-// OntologyIDs constructs a slice of unique ontology.IDs for the labels with the given
+// OntologyIDs constructs a slice of unique ontology.ResourceIDs for the labels with the given
 // keys.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// OntologyIDsFromLabels constructs a slice of unique ontology.IDs for the given labels.
+// OntologyIDsFromLabels constructs a slice of unique ontology.ResourceIDs for the given labels.
 func OntologyIDsFromLabels(labels []Label) []ontology.ID {
 	return lo.Map(labels, func(l Label, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
-// KeysFromOntologyIds extracts the label keys from the given ontology.IDs.
+// KeysFromOntologyIds extracts the label keys from the given ontology.ResourceIDs.
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -77,7 +77,7 @@ func newResource(l Label) ontology.Resource {
 
 type change = changex.Change[uuid.UUID, Label]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

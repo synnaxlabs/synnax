@@ -221,7 +221,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
-		search.Request{Term: term, Type: aliasOntologyType},
+		search.Request{Term: term, Type: AliasOntologyType},
 	)
 	if err != nil {
 		return nil, err

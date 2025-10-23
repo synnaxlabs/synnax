@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package rbac
+package policy
 
 import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -40,27 +39,4 @@ func (w Writer) Delete(
 	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
-// CreateRole creates a new role in the database.
-func (w Writer) CreateRole(
-	ctx context.Context,
-	r *Role,
-) error {
-	if r.Key == uuid.Nil {
-		r.Key = uuid.New()
-	}
-	return gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx)
-}
 
-// DeleteRole removes a role from the database. It will fail if the role is builtin
-// or if any users are assigned to the role.
-func (w Writer) DeleteRole(
-	ctx context.Context,
-	key uuid.UUID,
-) error {
-	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
-		if r.Builtin {
-			return errors.New("cannot delete builtin role")
-		}
-		return nil
-	}).Exec(ctx, w.tx)
-}

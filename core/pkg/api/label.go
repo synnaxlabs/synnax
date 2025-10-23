@@ -55,7 +55,7 @@ func (s *LabelService) Create(
 ) (res LabelCreateResponse, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: label.OntologyIDsFromLabels(req.Labels),
 	}); err != nil {
 		return res, err
@@ -117,7 +117,7 @@ func (s *LabelService) Retrieve(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: label.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
 		return LabelRetrieveResponse{}, err
@@ -135,7 +135,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -157,7 +157,7 @@ func (s *LabelService) Add(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
@@ -184,7 +184,7 @@ func (s *LabelService) Remove(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err

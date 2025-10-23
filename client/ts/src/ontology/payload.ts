@@ -22,7 +22,6 @@ export interface RelationshipDelete extends change.Delete<Relationship, undefine
 export const resourceTypeZ = z.enum([
   "label",
   "log",
-  "allow_all",
   "builtin",
   "cluster",
   "channel",
@@ -39,10 +38,12 @@ export const resourceTypeZ = z.enum([
   "device",
   "task",
   "policy",
+  "role",
   "table",
   "arc",
   "schematic_symbol",
   "status",
+  "allow_all",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

@@ -20,7 +20,6 @@ import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
-  useSelectHasPermission,
   useSelectIsSnapshot,
   useSelectRequiredToolbar,
   useSelectSelectedElementNames,

@@ -11,6 +11,7 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Arc,
   Arc as Core,
   Button,
@@ -32,7 +33,6 @@ import { z } from "zod";
 import {
   select,
   useSelect,
-  useSelectHasPermission,
   useSelectNodeProps,
   useSelectVersion,
   useSelectViewportMode,
@@ -189,7 +189,7 @@ const Controls = ({ arc }: StatusChipProps) => {
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const arc = useSelect(layoutKey);
+  const state = useSelect(layoutKey);
 
   const dispatch = useDispatch();
   const selector = useCallback(
@@ -203,10 +203,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const theme = Theming.use();
-  const viewportRef = useSyncedRef(arc.graph.viewport);
-
-  const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && arc.graph.editable)
+  const viewportRef = useSyncedRef(state.graph.viewport);
+  const canEdit = Access.useHasPermission({
+    objects: arc.ontologyID(layoutKey),
+    action: "create",
+  });
+  if (!canEdit && state.graph.editable)
     dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
@@ -296,7 +298,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const handleDoubleClick = useCallback(() => {
-    if (!arc.graph.editable) return;
+    if (!state.graph.editable) return;
     dispatch(
       Layout.setNavDrawerVisible({
         windowKey,
@@ -304,9 +306,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         value: true,
       }),
     );
-  }, [windowKey, arc.graph.editable, dispatch]);
-
-  const canEditArc = useSelectHasPermission();
+  }, [windowKey, state.graph.editable, dispatch]);
 
   const viewportMode = useSelectViewportMode();
 
@@ -362,19 +362,19 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
-        edges={arc.graph.edges}
-        nodes={arc.graph.nodes}
+        edges={state.graph.edges}
+        nodes={state.graph.nodes}
         // Turns out that setting the zoom value to 1 here doesn't have any negative
         // effects on the arc sizing and ensures that we position all the lines
         // in the correct place.
-        viewport={{ ...arc.graph.viewport, zoom: 1 }}
+        viewport={{ ...state.graph.viewport, zoom: 1 }}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={arc.graph.editable}
+        editable={state.graph.editable}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        fitViewOnResize={arc.graph.fitViewOnResize}
+        fitViewOnResize={state.graph.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
         {...dropProps}
@@ -382,11 +382,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
         <Diagram.Controls>
-          {canEditArc && <Diagram.ToggleEditControl />}
+          {canEdit && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
         </Diagram.Controls>
       </Core.Arc>
-      <Controls arc={arc} />
+      <Controls arc={state} />
     </div>
   );
 };

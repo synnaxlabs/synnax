@@ -25,6 +25,7 @@ import (
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
+	cmdauth "github.com/synnaxlabs/synnax/cmd/auth"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -34,6 +35,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -203,9 +206,13 @@ func start(cmd *cobra.Command) {
 		}); !ok(err, nil) {
 			return err
 		}
-
-		if err = maybeProvisionRootUser(
+		creds := auth.InsecureCredentials{
+			Username: viper.GetString(usernameFlag),
+			Password: password.Raw(viper.GetString(passwordFlag)),
+		}
+		if err = cmdauth.ProvisionRootUser(
 			ctx,
+			creds,
 			distributionLayer,
 			serviceLayer,
 		); !ok(err, nil) {

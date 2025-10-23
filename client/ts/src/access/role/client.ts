@@ -12,6 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type NewRole, newRoleZ, type Role, roleZ } from "@/access/role/payload";
+import { ontology } from "@/ontology";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -45,9 +46,27 @@ const deleteArgsZ = keyZ
   .or(keyZ.array().transform((keys) => ({ keys })));
 export type DeleteArgs = z.input<typeof deleteArgsZ>;
 
+const assignReqZ = z.object({
+  user: ontology.idZ,
+  role: keyZ,
+});
+export type AssignArgs = z.input<typeof assignReqZ>;
+
+const assignResZ = z.object({});
+
+const unassignReqZ = z.object({
+  user: ontology.idZ,
+  role: keyZ,
+});
+export type UnassignArgs = z.input<typeof unassignReqZ>;
+
+const unassignResZ = z.object({});
+
 const RETRIEVE_ENDPOINT = "/access/role/retrieve";
 const CREATE_ENDPOINT = "/access/role/create";
 const DELETE_ENDPOINT = "/access/role/delete";
+const ASSIGN_ENDPOINT = "/access/role/assign";
+const UNASSIGN_ENDPOINT = "/access/role/unassign";
 
 export class Client {
   private readonly client: UnaryClient;
@@ -91,6 +110,26 @@ export class Client {
       args,
       deleteArgsZ,
       deleteResZ,
+    );
+  }
+
+  async assign(args: AssignArgs): Promise<void> {
+    await sendRequired<typeof assignReqZ, typeof assignResZ>(
+      this.client,
+      ASSIGN_ENDPOINT,
+      args,
+      assignReqZ,
+      assignResZ,
+    );
+  }
+
+  async unassign(args: UnassignArgs): Promise<void> {
+    await sendRequired<typeof unassignReqZ, typeof unassignResZ>(
+      this.client,
+      UNASSIGN_ENDPOINT,
+      args,
+      unassignReqZ,
+      unassignResZ,
     );
   }
 }

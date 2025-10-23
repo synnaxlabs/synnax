@@ -105,17 +105,3 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 		}).
 		Exists(ctx, s.DB)
 }
-
-// GetUserRoles retrieves the role UUIDs assigned to a user. Returns an empty slice
-// if the user has no roles or if the user does not exist.
-func (s *Service) GetUserRoles(ctx context.Context, userKey uuid.UUID) ([]uuid.UUID, error) {
-	var u User
-	if err := s.NewRetrieve().WhereKeys(userKey).Entry(&u).Exec(ctx, s.DB); err != nil {
-		// If user not found, return empty slice
-		return []uuid.UUID{}, nil
-	}
-	if u.Roles == nil {
-		return []uuid.UUID{}, nil
-	}
-	return u.Roles, nil
-}

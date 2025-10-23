@@ -9,7 +9,7 @@
 
 import { type access, type ontology } from "@synnaxlabs/client";
 
-import { Flux } from "@/flux";
+import { type flux } from "@/flux/aether";
 import { type Ontology } from "@/ontology";
 
 export const POLICIES_FLUX_STORE_KEY = "policies";
@@ -21,17 +21,17 @@ const ROLE_RESOURCE_NAME = "Role";
 const ROLE_PLURAL_RESOURCE_NAME = "Roles";
 
 export interface RoleFluxStore
-  extends Flux.UnaryStore<access.role.Key, access.role.Role> {}
+  extends flux.UnaryStore<access.role.Key, access.role.Role> {}
 
 export interface PolicyFluxStore
-  extends Flux.UnaryStore<access.policy.Key, access.policy.Policy> {}
+  extends flux.UnaryStore<access.policy.Key, access.policy.Policy> {}
 
 export interface FluxSubStore extends Ontology.FluxSubStore {
   [POLICIES_FLUX_STORE_KEY]: PolicyFluxStore;
   [ROLES_FLUX_STORE_KEY]: RoleFluxStore;
 }
 
-export const ROLES_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+export const ROLES_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
   FluxSubStore,
   access.role.Key,
   access.role.Role
@@ -39,23 +39,10 @@ export const ROLES_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   listeners: [],
 };
 
-export const POLICIES_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
+export const POLICIES_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
   FluxSubStore,
   access.policy.Key,
   access.policy.Policy
 > = {
   listeners: [],
 };
-
-export type Action = "create" | "delete" | "retrieve" | "update";
-
-export interface PermissionsQuery {
-  subject?: ontology.ID;
-  objects?: ontology.ID | ontology.ID[];
-  action?: Action;
-}
-
-export const { useRetrieve: useHasPermission } = Flux.createRetrieve({
-  name: "Permissions",
-  retrieve: async ({ client, query, store }) => true,
-});

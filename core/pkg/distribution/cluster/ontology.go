@@ -28,20 +28,20 @@ import (
 )
 
 const (
-	nodeOntologyType    ontology.Type = "node"
-	clusterOntologyType ontology.Type = "cluster"
+	NodeOntologyType ontology.Type = "node"
+	OntologyType     ontology.Type = "cluster"
 )
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(key NodeKey) ontology.ID {
-	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
+	return ontology.ID{Type: NodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
 // OntologyID returns a unique identifier for a Cluster to use with a
 // resource Ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: clusterOntologyType, Key: key.String()}
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
 var (
@@ -61,7 +61,7 @@ type NodeOntologyService struct {
 	Cluster  Cluster
 }
 
-func (s *NodeOntologyService) Type() ontology.Type { return nodeOntologyType }
+func (s *NodeOntologyService) Type() ontology.Type { return NodeOntologyType }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
@@ -134,7 +134,7 @@ type OntologyService struct {
 
 var _ ontology.Service = (*OntologyService)(nil)
 
-func (s *OntologyService) Type() ontology.Type { return clusterOntologyType }
+func (s *OntologyService) Type() ontology.Type { return OntologyType }
 
 // schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }

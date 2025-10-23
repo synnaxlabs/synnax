@@ -23,11 +23,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "lineplot"
+const OntologyType ontology.Type = "lineplot"
 
 // OntologyID returns unique identifier for the lineplot within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the schematics within the ontology.
@@ -37,14 +37,14 @@ func OntologyIDs(ids []uuid.UUID) []ontology.ID {
 	})
 }
 
-// OntologyIDsFromLinePlots returns the ontology IDs of the schematics.
+// OntologyIDsFromLinePlots returns the ontology ResourceIDs of the schematics.
 func OntologyIDsFromLinePlots(lps []LinePlot) []ontology.ID {
 	return lo.Map(lps, func(lp LinePlot, _ int) ontology.ID {
 		return OntologyID(lp.Key)
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the schematics from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the schematics from the ontology ResourceIDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -69,7 +69,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, LinePlot]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

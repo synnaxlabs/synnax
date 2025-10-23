@@ -84,7 +84,7 @@ func (s *FrameService) FrameDelete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -155,7 +155,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (s *FrameService) openStreamer(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -382,7 +382,7 @@ func (s *FrameService) openWriter(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err

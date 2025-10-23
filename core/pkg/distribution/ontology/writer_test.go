@@ -121,7 +121,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		Describe("Defining a Relationship to Many Resources", func() {
-			It("Should define a relationship to many resources by their IDs", func() {
+			It("Should define a relationship to many resources by their ResourceIDs", func() {
 				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idOne,

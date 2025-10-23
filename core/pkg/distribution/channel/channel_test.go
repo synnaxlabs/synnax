@@ -103,7 +103,7 @@ var _ = Describe("Channel Tests", func() {
 			})
 		})
 		Describe("KeysFromOntologyIDs", func() {
-			It("Should should correctly parse a list of ontology IDs into a list of keys", func() {
+			It("Should should correctly parse a list of ontology ResourceIDs into a list of keys", func() {
 				ids := []ontology.ID{
 					{Type: "channel", Key: "1"},
 					{Type: "channel", Key: "2"},
@@ -112,7 +112,7 @@ var _ = Describe("Channel Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(keys).To(Equal(channel.Keys{1, 2}))
 			})
-			It("Should skip any ontology IDs that are not of the correct type", func() {
+			It("Should skip any ontology ResourceIDs that are not of the correct type", func() {
 				ids := []ontology.ID{
 					{Type: "channel", Key: "1"},
 					{Type: "not_channel", Key: "2"},

@@ -13,24 +13,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
-var (
-	ctx                  = context.Background()
-	userID               = user.OntologyID(uuid.New())
-	changePasswordPolicy = rbac.Policy{
-		Subjects: []ontology.ID{userID},
-		Objects:  []ontology.ID{userID},
-		Actions:  []access.Action{"changePassword"},
-	}
-)
+var ctx = context.Background()
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)

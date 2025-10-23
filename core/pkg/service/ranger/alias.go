@@ -63,10 +63,10 @@ func (a Alias) GorpKey() string { return aliasKey(a.Range, a.Channel) }
 // SetOptions implements gorp.Entry.
 func (a Alias) SetOptions() []any { return nil }
 
-const aliasOntologyType ontology.Type = "range-alias"
+const AliasOntologyType ontology.Type = "range-alias"
 
 func AliasOntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
-	return ontology.ID{Type: aliasOntologyType, Key: aliasKey(r, ch)}
+	return ontology.ID{Type: AliasOntologyType, Key: aliasKey(r, ch)}
 }
 
 func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
@@ -98,7 +98,7 @@ type (
 
 var _ ontology.Service = (*aliasOntologyService)(nil)
 
-func (a *aliasOntologyService) Type() ontology.Type { return aliasOntologyType }
+func (a *aliasOntologyService) Type() ontology.Type { return AliasOntologyType }
 
 // Schema implements ontology.Service.
 func (s *aliasOntologyService) Schema() zyn.Schema { return aliasSchema }

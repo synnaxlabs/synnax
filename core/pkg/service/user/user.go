@@ -31,11 +31,7 @@ type User struct {
 	LastName string `json:"last_name" msgpack:"last_name"`
 	// RootUser is a boolean that determines if the user is a root user. Root users are
 	// the users that configure the Synnax server, and have full access to the server.
-	// Deprecated: Use Roles field for role-based access control.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
-	// Roles is the list of role UUIDs assigned to this user. Users receive permissions
-	// from all policies associated with their assigned roles.
-	Roles []uuid.UUID `json:"roles" msgpack:"roles"`
 }
 
 var _ gorp.Entry[uuid.UUID] = User{}
