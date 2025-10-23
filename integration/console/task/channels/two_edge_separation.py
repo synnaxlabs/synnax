@@ -23,9 +23,9 @@ class TwoEdgeSeparation(Counter):
         port (int): Physical port number
         min_val (float): Minimum value
         max_val (float): Maximum value
-        units: "Seconds" or "Ticks"
-        first_edge: "Rising" or "Falling"
-        second_edge: "Rising" or "Falling"
+        units (Literal["Seconds", "Ticks"]): Scaled units
+        first_edge (Literal["Rising", "Falling"]): First edge
+        second_edge (Literal["Rising", "Falling"]): Second edge
     """
 
     def __init__(

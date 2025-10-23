@@ -99,7 +99,9 @@ class CounterRead(NITask):
             task_name: The name of the task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
-            **kwargs: Additional parameters.
+            **kwargs: Additional parameters including:
+                sample_rate (float): Sample rate for the task.
+                stream_rate (float): Stream rate for the task.
         """
         sample_rate = kwargs.pop("sample_rate", None)
         stream_rate = kwargs.pop("stream_rate", None)

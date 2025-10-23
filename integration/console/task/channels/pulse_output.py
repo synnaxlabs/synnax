@@ -24,14 +24,14 @@ class PulseOutput(Counter):
         initial_delay (float): Initial delay in seconds
         high_time (float): High time in seconds
         low_time (float): Low time in seconds
-        units (str): Scaled units (default: "Seconds")
-        idle_state (str): "Low" or "High"
+        units (Literal["Seconds", "Ticks"]): Scaled units (default: "Seconds")
+        idle_state (Literal["Low", "High"]): Idle state
     """
 
     name: str
     console: "Console"
     device: str
-    form_values: dict[str, Any]
+    form_values: dict[str, str]
 
     def __init__(
         self,
@@ -113,6 +113,7 @@ class PulseOutput(Counter):
             try:
                 actual_value = self.console.get_input_field(key)
             except Exception:
+                # Fallback to dropdown selector
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (
