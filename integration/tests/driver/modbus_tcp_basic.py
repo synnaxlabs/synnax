@@ -65,16 +65,16 @@ class ModbusTCPBasic(TestCase):
         all_channels = hr_chans + ir_chans + di_chans + co_chans
 
         self.log(f"=== Running all tasks for {TEST_DURATION} seconds ===")
+        sy.sleep(0.5)  # Give driver time to initialize tasks
         self._start_tasks(all_tasks)
-        # Give driver time to connect and start reading
-        sy.sleep(0.5)
         start = sy.TimeStamp.now()
         sy.sleep(TEST_DURATION)
         self._stop_tasks(all_tasks)
         end = sy.TimeStamp.now()
-        self._delete_tasks(all_tasks)
+        
 
         self._validate_data(all_channels, start, end, SAMPLE_RATE, TEST_DURATION)
+        self._delete_tasks(all_tasks)
 
     def _validate_data(
         self,
@@ -102,10 +102,10 @@ class ModbusTCPBasic(TestCase):
             ch = self.client.channels.retrieve(channel_name)
             data = ch.read(tr)
             sample_count = len(data)
-            self.log(f"Channel {channel_name}: {sample_count} data points")
-            # assert (
-            #     sample_count >= expected_samples
-            # ), f"Channel {channel_name} has {sample_count} samples, expected at least {expected_samples}"
+
+            assert (
+                sample_count >= expected_samples
+            ), f"Channel {channel_name} has {sample_count} samples, expected at least {expected_samples}"
 
         self.log("Data validation passed for all channels")
 
@@ -113,35 +113,30 @@ class ModbusTCPBasic(TestCase):
         """Get the Modbus TCP test device."""
         client = self.client
         rack = client.hardware.racks.retrieve(name="Node 1 Embedded Driver")
-
-        # Delete existing device if it exists to ensure clean state
         try:
-            existing_dev = client.hardware.devices.retrieve(key="modbus-tcp-test-server")
-            client.hardware.devices.delete(existing_dev.key)
-            self.log(f"Deleted existing device: {existing_dev.name}")
+            dev = client.hardware.devices.retrieve(key="modbus-tcp-test-server")
+            self.log(f"Found existing device: {dev.name}")
         except:
-            pass
-
-        self.log("Creating new Modbus TCP device")
-        dev = client.hardware.devices.create(
-            sy.Device(
-                key="modbus-tcp-test-server",
-                rack=rack.key,
-                name="Modbus TCP Test Server",
-                make="Modbus TCP",
-                model="Test Server",
-                location="127.0.0.1:5020",
-                properties=json.dumps({
-                    "connection": {
-                        "host": "127.0.0.1",
-                        "port": 5020,
-                        "swap_bytes": False,
-                        "swap_words": False
-                    }
-                }),
+            self.log("Creating new Modbus TCP device")
+            dev = client.hardware.devices.create(
+                sy.Device(
+                    key="modbus-tcp-test-server",
+                    rack=rack.key,
+                    name="Modbus TCP Test Server",
+                    make="Modbus TCP",
+                    model="Test Server",
+                    location="127.0.0.1:5020",
+                    properties=json.dumps({
+                        "connection": {
+                            "host": "127.0.0.1",
+                            "port": 5020,
+                            "swap_bytes": False,
+                            "swap_words": False
+                        }
+                    }),
+                )
             )
-        )
-        self.log(f"Created device: {dev.key}")
+            self.log(f"Created device: {dev.key}")
         return dev
 
     def _create_read_task(
@@ -217,7 +212,7 @@ class ModbusTCPBasic(TestCase):
         task_config = {
             "data_saving": True,
             "sample_rate": sample_rate,
-            "stream_rate": sample_rate,
+            "stream_rate": 10,  # Stream at 10Hz like OPC UA test
             "device": device_key,
             "channels": channels,
         }
@@ -235,7 +230,8 @@ class ModbusTCPBasic(TestCase):
         """Start a list of tasks."""
         self.log("Starting all tasks...")
         for task in tasks:
-            status = task.execute_command_sync("start")
+            #task.start()
+            status = task.start()
             self.log(f"Task {task.name} start status: {status.variant} - {status.message}")
 
     def _stop_tasks(self, tasks: list[sy.hardware.task.Task]) -> None:
