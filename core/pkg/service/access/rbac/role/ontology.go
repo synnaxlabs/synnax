@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "role"
+const OntologyType ontology.Type = "role"
 
 const (
 	// HasRole indicates that a resource is labeled by another resource. When
@@ -47,7 +47,7 @@ var (
 
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.ResourceIDs for the Roles with the given
@@ -84,7 +84,7 @@ func newResource(l Role) ontology.Resource {
 
 type change = changex.Change[uuid.UUID, Role]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

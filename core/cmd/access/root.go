@@ -44,7 +44,8 @@ import (
 var (
 	rootRoleName = "Root"
 	rootPolicy   = policy.Policy{
-		Name: rootRoleName,
+		Name:   rootRoleName,
+		Effect: policy.EffectAllow,
 		Objects: []ontology.ID{
 			{Type: label.OntologyType},
 			{Type: log.OntologyType},
@@ -66,6 +67,8 @@ var (
 			{Type: arc.OntologyType},
 			{Type: symbol.OntologyType},
 			{Type: status.OntologyType},
+			{Type: role.OntologyType},
+			{Type: policy.OntologyType},
 		},
 		Actions:  []access.Action{access.ActionAll},
 		Internal: true,

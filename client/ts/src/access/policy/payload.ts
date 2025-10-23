@@ -16,9 +16,13 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+const effectZ = z.enum(["allow", "deny"]);
+export type Effect = z.infer<typeof effectZ>;
+
 export const policyZ = z.object({
   key: keyZ,
-  subjects: array.nullableZ(ontology.idZ),
+  name: z.string(),
+  effect: effectZ,
   objects: array.nullableZ(ontology.idZ),
   actions: array.nullableZ(actionZ),
 });
@@ -26,8 +30,9 @@ export interface Policy extends z.infer<typeof policyZ> {}
 
 export const newZ = z.object({
   key: keyZ.optional(),
-  subjects: ontology.idZ.array().or(ontology.idZ),
-  objects: ontology.idZ.array().or(ontology.idZ),
-  actions: actionZ.array().or(actionZ),
+  name: z.string(),
+  effect: effectZ,
+  objects: ontology.idZ.array().or(ontology.idZ.transform((id) => [id])),
+  actions: actionZ.array().or(actionZ.transform((action) => [action])),
 });
 export interface New extends z.input<typeof newZ> {}

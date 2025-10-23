@@ -67,7 +67,7 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
+		Objects: []ontology.ID{{Type: user.OntologyType}},
 	}); err != nil {
 		return UserCreateResponse{}, err
 	}
