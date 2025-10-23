@@ -15,32 +15,34 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func Compile(ctx context.Context[parser.IStatementContext]) error {
+// Compile compiles a statement and returns whether execution diverged (return/break/etc)
+func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
-		return compileVariableDeclaration(context.Child(ctx, varDecl))
+		return false, compileVariableDeclaration(context.Child(ctx, varDecl))
 	}
 	if assign := ctx.AST.Assignment(); assign != nil {
-		return compileAssignment(context.Child(ctx, assign))
+		return false, compileAssignment(context.Child(ctx, assign))
 	}
 	if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
 		return compileIfStatement(context.Child(ctx, ifStmt))
 	}
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
-		return compileReturnStatement(context.Child(ctx, retStmt))
+		return true, compileReturnStatement(context.Child(ctx, retStmt))
 	}
 	if chanOp := ctx.AST.ChannelOperation(); chanOp != nil {
-		return compileChannelOperation(context.Child(ctx, chanOp))
+		return false, compileChannelOperation(context.Child(ctx, chanOp))
 	}
 	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
 		_, err := compileFunctionCall(context.Child(ctx, fnCall))
-		return err
+		return false, err
 	}
-	return errors.New("unknown statement type")
+	return false, errors.New("unknown statement type")
 }
 
-func CompileBlock(ctx context.Context[parser.IBlockContext]) error {
+// CompileBlock compiles a block and returns whether all paths diverged
+func CompileBlock(ctx context.Context[parser.IBlockContext]) (diverged bool, err error) {
 	if ctx.AST == nil {
-		return nil
+		return false, nil
 	}
 	blockScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
 	if err != nil {
@@ -48,9 +50,15 @@ func CompileBlock(ctx context.Context[parser.IBlockContext]) error {
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	for _, stmt := range ctx.AST.AllStatement() {
-		if err = Compile(context.Child(blockCtx, stmt)); err != nil {
-			return err
+		var stmtDiverged bool
+		stmtDiverged, err = Compile(context.Child(blockCtx, stmt))
+		if err != nil {
+			return false, err
+		}
+		// If we hit a diverging statement, all subsequent paths diverge
+		if stmtDiverged {
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }

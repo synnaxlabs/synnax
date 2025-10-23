@@ -104,7 +104,8 @@ func compileItem(
 	}
 
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		if err = statement.CompileBlock(ccontext.Child(ctx, blockCtx)); err != nil {
+		_, err = statement.CompileBlock(ccontext.Child(ctx, blockCtx))
+		if err != nil {
 			return errors.Wrapf(err, "failed to compile function '%s' body", ctx.Scope.Name)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {

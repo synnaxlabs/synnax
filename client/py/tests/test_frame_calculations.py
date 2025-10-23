@@ -254,8 +254,9 @@ class TestCalculatedChannelIteration:
             expression="""
             if (test_a_iter_54953 > 15) {
                 return 4
+            } else {
+                return 5
             }
-            return 5
             """,
         )
         idx_data = [

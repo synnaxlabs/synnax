@@ -99,6 +99,11 @@ func (e *Writer) WriteReturn() {
 	e.WriteOpcode(OpReturn)
 }
 
+// WriteUnreachable writes an unreachable instruction
+func (e *Writer) WriteUnreachable() {
+	e.WriteOpcode(OpUnreachable)
+}
+
 // WriteEnd writes an end instruction
 func (e *Writer) WriteEnd() {
 	e.WriteOpcode(OpEnd)

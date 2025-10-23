@@ -96,6 +96,195 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(42)))
 		})
+
+		It("Should compile a function with an else statement", func() {
+			output := MustSucceed(compile(`
+			func add(a i64, b i64) i64 {
+				if a > 0 {
+					return a
+				} else {
+					return b
+				}
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			add := mod.ExportedFunction("add")
+			Expect(add).ToNot(BeNil())
+			results := MustSucceed(add.Call(ctx, 10, 32))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(10)))
+		})
+
+		It("Should compile nested if-else where all branches return", func() {
+			output := MustSucceed(compile(`
+			func nested(a i64, b i64) i64 {
+				if a > 0 {
+					if b > 0 {
+						return a + b
+					} else {
+						return a
+					}
+				} else {
+					if b > 0 {
+						return b
+					} else {
+						return 0
+					}
+				}
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			nested := mod.ExportedFunction("nested")
+			Expect(nested).ToNot(BeNil())
+
+			// Test a > 0, b > 0
+			results := MustSucceed(nested.Call(ctx, 10, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(15)))
+
+			// Test a > 0, b <= 0
+			results = MustSucceed(nested.Call(ctx, 10, 0))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(10)))
+
+			// Test a <= 0, b > 0
+			results = MustSucceed(nested.Call(ctx, 0, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(5)))
+
+			// Test a <= 0, b <= 0
+			results = MustSucceed(nested.Call(ctx, 0, 0))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+		})
+
+		It("Should compile if-else where only some branches return", func() {
+			output := MustSucceed(compile(`
+			func partial(a i64, b i64) i64 {
+				x i64 := 0
+				if a > 0 {
+					if b > 0 {
+						return a + b
+					}
+					x = a
+				} else {
+					x = b
+				}
+				return x
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			partial := mod.ExportedFunction("partial")
+			Expect(partial).ToNot(BeNil())
+
+			// Test early return
+			results := MustSucceed(partial.Call(ctx, 10, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(15)))
+
+			// Test fall-through with a > 0, b <= 0
+			results = MustSucceed(partial.Call(ctx, 10, 0))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(10)))
+
+			// Test fall-through with a <= 0
+			results = MustSucceed(partial.Call(ctx, 0, 7))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(7)))
+		})
+
+		It("Should compile deeply nested if-else with all returns", func() {
+			output := MustSucceed(compile(`
+			func deep(a i64, b i64, c i64) i64 {
+				if a > 0 {
+					if b > 0 {
+						if c > 0 {
+							return a + b + c
+						} else {
+							return a + b
+						}
+					} else {
+						return a
+					}
+				} else {
+					return 0
+				}
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			deep := mod.ExportedFunction("deep")
+			Expect(deep).ToNot(BeNil())
+
+			// Test all positive
+			results := MustSucceed(deep.Call(ctx, 1, 2, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(6)))
+
+			// Test c <= 0
+			results = MustSucceed(deep.Call(ctx, 1, 2, 0))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(3)))
+
+			// Test b <= 0
+			results = MustSucceed(deep.Call(ctx, 1, 0, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+
+			// Test a <= 0
+			results = MustSucceed(deep.Call(ctx, 0, 2, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+		})
+
+		It("Should compile mixed nested returns with variables", func() {
+			output := MustSucceed(compile(`
+			func mixed(a i64, b i64) i64 {
+				result i64 := 0
+				if a > 10 {
+					if b > 10 {
+						return a * b
+					} else {
+						result = a
+					}
+				} else {
+					if b > 10 {
+						result = b
+					} else {
+						result = a + b
+					}
+				}
+				return result + 1
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			mixed := mod.ExportedFunction("mixed")
+			Expect(mixed).ToNot(BeNil())
+
+			// Test early return
+			results := MustSucceed(mixed.Call(ctx, 20, 30))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(600)))
+
+			// Test a > 10, b <= 10
+			results = MustSucceed(mixed.Call(ctx, 20, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(21)))
+
+			// Test a <= 10, b > 10
+			results = MustSucceed(mixed.Call(ctx, 5, 20))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(21)))
+
+			// Test a <= 10, b <= 10
+			results = MustSucceed(mixed.Call(ctx, 5, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(9)))
+		})
 	})
 
 	Describe("Function with Config Execution", func() {

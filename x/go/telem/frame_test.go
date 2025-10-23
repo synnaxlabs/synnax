@@ -188,6 +188,19 @@ var _ = Describe("Frame", func() {
 			filtered := fr.KeepKeys([]int{1048578})
 			Expect(filtered.Count()).To(Equal(2))
 		})
+
+		It("Should return an empty frame if no keys are kept", func() {
+			fr := telem.MultiFrame(
+				[]int{1048578, 1048579, 1048580},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				},
+			)
+			filtered := fr.KeepKeys([]int{})
+			Expect(filtered.Count()).To(Equal(0))
+		})
 	})
 
 	Describe("ExcludeKeys", func() {

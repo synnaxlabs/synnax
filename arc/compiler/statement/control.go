@@ -20,49 +20,79 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) error {
+func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverged bool, err error) {
 	if _, err := expression.Compile(context.Child(ctx, ctx.AST.Expression())); err != nil {
-		return errors.Wrap(err, "failed to compile if condition")
+		return false, errors.Wrap(err, "failed to compile if condition")
 	}
-	hasElse := ctx.AST.ElseClause() != nil || len(ctx.AST.AllElseIfClause()) > 0
+
+	hasElseClause := ctx.AST.ElseClause() != nil
+	hasElseIf := len(ctx.AST.AllElseIfClause()) > 0
+	hasElse := hasElseClause || hasElseIf
+
 	if hasElse {
 		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-		if err := CompileBlock(context.Child(ctx, ctx.AST.Block())); err != nil {
-			return errors.Wrap(err, "failed to compile if block")
+
+		// Compile the main if block
+		ifDiverged, err := CompileBlock(context.Child(ctx, ctx.AST.Block()))
+		if err != nil {
+			return false, errors.Wrap(err, "failed to compile if block")
 		}
 
+		// Track whether all branches diverge (starts with if branch)
+		allBranchesDiverge := ifDiverged
+
+		// Compile else-if clauses
 		for i, elseIfClause := range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteElse()
 			_, err := expression.Compile(context.Child(ctx, elseIfClause.Expression()))
 			if err != nil {
-				return errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
+				return false, errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
 			}
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-			if err = CompileBlock(context.Child(ctx, elseIfClause.Block())); err != nil {
-				return errors.Wrapf(err, "failed to compile else-if[%d] block", i)
+			elseIfDiverged, err := CompileBlock(context.Child(ctx, elseIfClause.Block()))
+			if err != nil {
+				return false, errors.Wrapf(err, "failed to compile else-if[%d] block", i)
 			}
-		}
-		if elseClause := ctx.AST.ElseClause(); elseClause != nil {
-			ctx.Writer.WriteElse()
-			if err := CompileBlock(context.Child(ctx, elseClause.Block())); err != nil {
-				return errors.Wrap(err, "failed to compile else block")
-			}
-		} else if len(ctx.AST.AllElseIfClause()) > 0 {
-			ctx.Writer.WriteElse()
+			allBranchesDiverge = allBranchesDiverge && elseIfDiverged
 		}
 
+		// Compile the final else clause
+		if hasElseClause {
+			ctx.Writer.WriteElse()
+			elseDiverged, err := CompileBlock(context.Child(ctx, ctx.AST.ElseClause().Block()))
+			if err != nil {
+				return false, errors.Wrap(err, "failed to compile else block")
+			}
+			allBranchesDiverge = allBranchesDiverge && elseDiverged
+		} else if hasElseIf {
+			// If we only have else-if without final else, not all paths are covered
+			ctx.Writer.WriteElse()
+			allBranchesDiverge = false
+		}
+
+		// Close all nested if blocks
 		for range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteEnd()
 		}
 		ctx.Writer.WriteEnd()
-		return nil
+
+		// Only add unreachable if we have a complete else clause and all branches diverged
+		if hasElseClause && allBranchesDiverge {
+			ctx.Writer.WriteUnreachable()
+			return true, nil
+		}
+
+		return false, nil
 	}
+
+	// Simple if without else
 	ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-	if err := CompileBlock(context.Child(ctx, ctx.AST.Block())); err != nil {
-		return errors.Wrap(err, "failed to compile if block")
+	_, err = CompileBlock(context.Child(ctx, ctx.AST.Block()))
+	if err != nil {
+		return false, errors.Wrap(err, "failed to compile if block")
 	}
 	ctx.Writer.WriteEnd()
-	return nil
+	return false, nil
 }
 
 func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext]) error {

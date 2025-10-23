@@ -395,7 +395,30 @@ var _ = Describe("Analyzer", func() {
 						return 2.3
 					}
 				}
-			`))
+				`))
+				ctx := context.CreateRoot(bCtx, prog, nil)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				first := (*ctx.Diagnostics)[0]
+				Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
+			})
+
+			It("Should return an error when the function doesn't have a return type on all code paths (deeply nested)", func() {
+				prog := MustSucceed(parser.Parse(`
+				func dog() f64 {
+					if (5 > 3) {
+						return 2.3
+					} else {
+						if (12 > 14) {
+							if (5 < 7) {
+								return 7
+							}
+						} else {
+							return 5
+						}
+					}
+				}
+				`))
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
