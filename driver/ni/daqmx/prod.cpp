@@ -14,6 +14,7 @@
 #include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xos/xos.h"
 
+#include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"
 
 #ifdef _WIN32
@@ -23,10 +24,7 @@ static const std::string LIB_NAME = "libnidaqmx.so.1";
 #endif
 
 namespace daqmx {
-const auto LOAD_ERROR = xerrors::Error(
-    xlib::LOAD_ERROR,
-    "National Instruments DAQmx shared library is not installed."
-);
+const auto LOAD_ERROR = driver::missing_lib(driver::lib::NI_DAQMX);
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     const auto os = xos::get();

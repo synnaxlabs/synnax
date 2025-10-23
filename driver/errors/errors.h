@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace driver {
@@ -19,4 +20,35 @@ const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
 const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
 const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
 const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
+
+/// Vendor library definitions
+struct LibraryInfo {
+    std::string name;
+    std::string url;
+};
+
+namespace lib {
+    const LibraryInfo LABJACK_LJM = {
+        "LabJack LJM shared",
+        "https://support.labjack.com/docs/software-driver"
+    };
+    const LibraryInfo NI_DAQMX = {
+        "National Instruments DAQmx shared",
+        "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
+    };
+    const LibraryInfo NI_SYSCFG = {
+        "National Instruments System Configuration",
+        "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
+    };
+}
+
+/// Standardized missing library error
+inline xerrors::Error missing_lib(const LibraryInfo &lib) {
+    std::string message = lib.name + " library is not installed.";
+    if (!lib.url.empty()) {
+        message += " Download here: " + lib.url + ". Restart Synnax after install.";
+    }
+    return xerrors::Error(xlib::LOAD_ERROR, message);
+}
+
 }

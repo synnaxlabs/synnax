@@ -3,6 +3,23 @@ cc_library(
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/xlib",
         "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "errors_test",
+    srcs = ["errors_test.cpp"],
+    linkopts = select({
+        "@platforms//os:macos": ["-lcurl"],
+        "@platforms//os:linux": ["-lcurl"],
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lcurl"],
+    }),
+    deps = [
+        ":errors",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
     ],
 )
