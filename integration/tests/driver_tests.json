@@ -5,7 +5,7 @@
       "sequence_name": "Driver Tests - OPC UA",
       "tests": [
         {
-          "case": "driver/opc_ua_basic"
+          "case": "driver/modbus_tcp_basic"
         }
       ]
     }
