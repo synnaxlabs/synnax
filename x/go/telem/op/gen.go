@@ -90,6 +90,15 @@ var reductionOperations = []ReductionOperation{
 	{Name: "Max", FuncName: "Max"},
 }
 
+type DerivativeOperation struct {
+	Name     string
+	FuncName string
+}
+
+var derivativeOperations = []DerivativeOperation{
+	{Name: "Derivative", FuncName: "Derivative"},
+}
+
 const headerTemplate = `
 package op
 
@@ -202,6 +211,73 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 }
 {{end}}`
 
+const derivativeFuncTemplate = `{{range $.Derivatives}}
+func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
+	dataLen := data.Len()
+	timeLen := time.Len()
+
+	if dataLen == 0 || timeLen == 0 {
+		output.Resize(0)
+		return
+	}
+
+	minLen := dataLen
+	if timeLen < minLen {
+		minLen = timeLen
+	}
+
+	// Set DataType BEFORE Resize so it can calculate the correct buffer size
+	{{if $.Type.IsFloat}}
+	{{if eq $.Type.Name "F64"}}
+	output.DataType = telem.Float64T
+	{{else}}
+	output.DataType = telem.Float32T
+	{{end}}
+	{{else}}
+	output.DataType = telem.Float64T
+	{{end}}
+
+	output.Resize(minLen)
+
+	dataVals := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](data.Data)
+	timeVals := xunsafe.CastSlice[uint8, int64](time.Data)
+	{{if $.Type.IsFloat}}
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	{{else}}
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+	{{end}}
+
+	// First element derivative is 0 (no previous point for backward difference)
+	outData[0] = 0.0
+
+	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
+	for i := int64(1); i < minLen; i++ {
+		{{if $.Type.IsUnsigned}}
+		// Handle unsigned types carefully to avoid underflow
+		var dy {{if $.Type.IsFloat}}{{$.Type.GoType}}{{else}}float64{{end}}
+		if dataVals[i] >= dataVals[i-1] {
+			dy = {{if not $.Type.IsFloat}}float64({{end}}dataVals[i] - dataVals[i-1]{{if not $.Type.IsFloat}}){{end}}
+		} else {
+			dy = -{{if not $.Type.IsFloat}}float64({{end}}dataVals[i-1] - dataVals[i]{{if not $.Type.IsFloat}}){{end}}
+		}
+		{{else}}
+		dy := {{if not $.Type.IsFloat}}float64({{end}}dataVals[i] - dataVals[i-1]{{if not $.Type.IsFloat}}){{end}}
+		{{end}}
+		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
+
+		if dt == 0 {
+			outData[i] = 0.0
+		} else {
+			{{if $.Type.IsFloat}}
+			outData[i] = dy / {{$.Type.GoType}}(dt)
+			{{else}}
+			outData[i] = dy / dt
+			{{end}}
+		}
+	}
+}
+{{end}}`
+
 const funcTemplate = `{{range $.Operations}}{{if .IsComp}}
 func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
@@ -284,6 +360,7 @@ func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
 	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
+	derivativeTmpl := template.Must(template.New("derivative").Parse(derivativeFuncTemplate))
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
@@ -322,6 +399,17 @@ func main() {
 		err := reductionTmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
 			"Reductions": reductionOperations,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Generate derivative operations for all types
+	for _, typ := range types {
+		err := derivativeTmpl.Execute(&buf, map[string]interface{}{
+			"Type":        typ,
+			"Derivatives": derivativeOperations,
 		})
 		if err != nil {
 			panic(err)

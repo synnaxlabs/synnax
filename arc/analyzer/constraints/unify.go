@@ -11,32 +11,24 @@ package constraints
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 func (s *System) Unify() error {
-	const maxIterations = 100 // Prevent infinite loops
-
-	// Fixpoint iteration: repeat until no changes occur
+	const maxIterations = 100
 	for iteration := 0; iteration < maxIterations; iteration++ {
-		changed := false
-
-		// Snapshot current substitutions to detect modifications
-		previousSubs := make(map[string]types.Type)
-		for k, v := range s.substitutions {
-			previousSubs[k] = v
-		}
-
-		// Process all constraints
+		var (
+			changed      = false
+			previousSubs = maps.Clone(s.substitutions)
+		)
 		for _, c := range s.constraints {
 			if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
 				return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
 			}
 		}
-
-		// Check if any substitutions were added or modified
 		if len(s.substitutions) != len(previousSubs) {
 			changed = true
 		} else {
@@ -47,12 +39,10 @@ func (s *System) Unify() error {
 				}
 			}
 		}
-
 		// If no changes occurred, we've reached a fixpoint
 		if !changed {
 			break
 		}
-
 		// Safety check for infinite loops
 		if iteration == maxIterations-1 {
 			return errors.Newf("type unification did not converge after %d iterations (possible constraint conflict)", maxIterations)
@@ -283,7 +273,6 @@ func (s *System) String() string {
 		}
 		result += "\n"
 	}
-
 	result += fmt.Sprintf("\nConstraints (%d):\n", len(s.constraints))
 	for i, c := range s.constraints {
 		kindStr := "≡"

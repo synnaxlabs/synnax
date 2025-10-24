@@ -243,7 +243,12 @@ func analyzeInputs(
 			ctx.Diagnostics.AddError(errors.Newf("duplicate input %s", inputName), input)
 			return false
 		}
-		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{Name: inputName, Kind: symbol.KindInput, Type: inputType, AST: input}); err != nil {
+		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: inputName,
+			Kind: symbol.KindInput,
+			Type: inputType,
+			AST:  input,
+		}); err != nil {
 			ctx.Diagnostics.AddError(err, input)
 			return false
 		}
@@ -279,7 +284,10 @@ func ifStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return blockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](ctx acontext.Context[T], scope *symbol.Scope) bool {
+func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	scope *symbol.Scope,
+) bool {
 	if scope.Type.IsValid() {
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
@@ -310,7 +318,12 @@ func analyzeConfig[T antlr.ParserRuleContext](
 			ctx.Diagnostics.AddError(errors.Newf("duplicate config %s", configName), cfg)
 			return false
 		}
-		if _, err := scope.Add(ctx, symbol.Symbol{Name: configName, Kind: symbol.KindConfig, Type: configType, AST: cfg}); err != nil {
+		if _, err := scope.Add(ctx, symbol.Symbol{
+			Name: configName,
+			Kind: symbol.KindConfig,
+			Type: configType,
+			AST:  cfg,
+		}); err != nil {
 			ctx.Diagnostics.AddError(err, cfg)
 			return false
 		}

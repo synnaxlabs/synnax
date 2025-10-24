@@ -537,7 +537,6 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		return true
 	}
 	varType := varScope.Type
-
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindTypeVariable || varType.Kind == types.KindTypeVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
@@ -546,7 +545,6 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		}
 		return true
 	}
-
 	if atypes.Compatible(varType, exprType) {
 		return true
 	}
@@ -561,9 +559,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 // all return statements across control flow paths.
 // Returns (ok bool, inferredReturnType types.Type)
 func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type, bool) {
-	// Enable type inference mode for this analysis
 	ctx.InTypeInferenceMode = true
-
 	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -599,7 +595,7 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 			}
 		}
 	}
-	inferredType, err := unifyReturnTypes(collectedReturnTypes, ctx.AST)
+	inferredType, err := unifyReturnTypes(collectedReturnTypes)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return types.Type{}, false
@@ -697,7 +693,6 @@ func getBlockReturnTypes(
 	ctx context.Context[parser.IBlockContext],
 ) (bool, []types.Type) {
 	var returnTypes []types.Type
-
 	for _, stmt := range ctx.AST.AllStatement() {
 		stmtTypes := collectStatementReturnTypes(context.Child(ctx, stmt))
 		for _, rt := range stmtTypes {
@@ -706,20 +701,16 @@ func getBlockReturnTypes(
 			}
 		}
 	}
-
 	return len(returnTypes) > 0, returnTypes
 }
 
 // unifyReturnTypes unifies multiple return types to find the smallest reasonable common type.
 func unifyReturnTypes(
 	returnTypes []types.Type,
-	astNode antlr.ParserRuleContext,
 ) (types.Type, error) {
-	// No return types - invalid type (void function)
 	if len(returnTypes) == 0 {
 		return types.Type{}, nil
 	}
-
 	if len(returnTypes) == 1 {
 		t := returnTypes[0]
 		// If it's a type variable (literal), resolve it to a concrete default type

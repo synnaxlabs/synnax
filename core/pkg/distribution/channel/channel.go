@@ -156,6 +156,10 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // followed by the keys that are absent in k.
 func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
 
+type Operation struct {
+	Type string `json:"type"`
+}
+
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
 // can be a physical sensor, software sensor, metric, event, or any other entity that
@@ -200,8 +204,12 @@ type Channel struct {
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
 	Internal bool `json:"internal" msgpack:"internal"`
+	//
+	Operations []Operation `json:"operations" msgpack:"operations"`
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
+	//
+	// Deprecated: only used for lua-based calculated channels.
 	Requires Keys `json:"requires" msgpack:"requires"`
 	// Expression is only used for calculated channels, and specifies the Lua expression
 	// to evaluate the calculated value.

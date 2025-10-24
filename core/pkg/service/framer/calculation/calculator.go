@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
+	"github.com/synnaxlabs/arc/runtime/derivative"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
@@ -170,6 +171,7 @@ func OpenCalculator(
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
+	derivativeFactory := derivative.NewFactory()
 	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
 		Module: module,
 	})
@@ -183,6 +185,7 @@ func OpenCalculator(
 		selectFactory,
 		constantFactory,
 		stableFactory,
+		derivativeFactory,
 		wasmFactory,
 	}
 
