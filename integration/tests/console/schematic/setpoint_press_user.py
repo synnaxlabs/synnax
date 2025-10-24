@@ -42,15 +42,6 @@ class SetpointPressUser(ConsoleCase):
         SETPOINT = "press_setpoint_cmd"
         PRESSURE = "press_pt"
 
-        self.log("Creating plot page")
-        console.plot.new()
-        console.plot.add_Y(
-            "Y1",
-            ["press_vlv_state", "vent_vlv_state"],
-        )
-        console.plot.add_Y("Y2", ["press_pt", "press_setpoint_state"])
-        console.plot.add_ranges(["30s"])
-
         self.log("Creating schematic symbols")
         console.schematic.new()
 
