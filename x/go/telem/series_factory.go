@@ -291,3 +291,80 @@ func UnmarshalF[T Sample](dt DataType) func(b []byte) T {
 	}
 	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
+
+// Arange creates a new Series containing count values starting from start, with each
+// subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
+// Panics if count is less than or equal to 0.
+func Arange[T Sample](start T, count int, spacing T) Series {
+	if count <= 0 {
+		panic("count must be greater than 0")
+	}
+
+	data := make([]T, count)
+	for i := 0; i < count; i++ {
+		data[i] = start + T(i)*spacing
+	}
+
+	return NewSeries(data)
+}
+
+// NewSeriesFromAny creates a single-value Series from a value of type any, casting it
+// to the specified DataType. This function handles numeric type conversions by first
+// converting to float64 as an intermediate representation, then casting to the target
+// type. Panics if the value is not a numeric type or if the DataType is not supported.
+func NewSeriesFromAny(value any, dt DataType) Series {
+	// Convert input value to float64 as intermediate representation
+	var floatVal float64
+	switch v := value.(type) {
+	case int:
+		floatVal = float64(v)
+	case int64:
+		floatVal = float64(v)
+	case int32:
+		floatVal = float64(v)
+	case int16:
+		floatVal = float64(v)
+	case int8:
+		floatVal = float64(v)
+	case uint64:
+		floatVal = float64(v)
+	case uint32:
+		floatVal = float64(v)
+	case uint16:
+		floatVal = float64(v)
+	case uint8:
+		floatVal = float64(v)
+	case float64:
+		floatVal = v
+	case float32:
+		floatVal = float64(v)
+	default:
+		panic(fmt.Sprintf("unsupported value type %T", value))
+	}
+
+	// Create series with value cast to the target data type
+	switch dt {
+	case Int64T:
+		return NewSeriesV[int64](int64(floatVal))
+	case Int32T:
+		return NewSeriesV[int32](int32(floatVal))
+	case Int16T:
+		return NewSeriesV[int16](int16(floatVal))
+	case Int8T:
+		return NewSeriesV[int8](int8(floatVal))
+	case Uint64T:
+		return NewSeriesV[uint64](uint64(floatVal))
+	case Uint32T:
+		return NewSeriesV[uint32](uint32(floatVal))
+	case Uint16T:
+		return NewSeriesV[uint16](uint16(floatVal))
+	case Uint8T:
+		return NewSeriesV[uint8](uint8(floatVal))
+	case Float64T:
+		return NewSeriesV[float64](floatVal)
+	case Float32T:
+		return NewSeriesV[float32](float32(floatVal))
+	default:
+		panic(fmt.Sprintf("unsupported data type %s", dt))
+	}
+}

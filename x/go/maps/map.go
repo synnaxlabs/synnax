@@ -16,6 +16,16 @@ type Ordered[K comparable, V any] struct {
 	Values []V
 }
 
+func (m *Ordered[K, V]) Copy() *Ordered[K, V] {
+	if m == nil {
+		return nil
+	}
+	cpy := &Ordered[K, V]{Keys: make([]K, len(m.Keys)), Values: make([]V, len(m.Values))}
+	copy(cpy.Keys, m.Keys)
+	copy(cpy.Values, m.Values)
+	return cpy
+}
+
 func (m *Ordered[K, V]) Count() int {
 	return len(m.Keys)
 }
