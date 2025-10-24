@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <vector>
+
+#include <errno.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/accesscontrol_default.h>
 #include <open62541/plugin/create_certificate.h>
@@ -14,15 +17,12 @@
 #include <open62541/plugin/securitypolicy.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
-
-#include <errno.h>
 #include <open62541/types.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 // #include <unistd.h> // For getcwd
 #include <iostream>
-
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -70,33 +70,12 @@ load_file(const char *const path) {
     return fileContents;
 }
 
-static UA_INLINE UA_StatusCode
-
-writeFile(const char *const path, const UA_ByteString buffer) {
-    FILE *fp = NULL;
-
-    fp = fopen(path, "wb");
-    if (fp == NULL) return UA_STATUSCODE_BADINTERNALERROR;
-
-    for (UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
-        int retVal = fputc(buffer.data[bufIndex], fp);
-        if (retVal == EOF) {
-            fclose(fp);
-            return UA_STATUSCODE_BADINTERNALERROR;
-        }
-    }
-
-    fclose(fp);
-    return UA_STATUSCODE_GOOD;
-}
-
 UA_Boolean running = true;
 
 static void stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
 }
-
 
 static UA_Boolean allowAddNode(
     UA_Server *server,
@@ -177,7 +156,7 @@ int main(int argc, char *argv[]) {
     /* Load the trustlist */
     size_t trustListSize = 0;
     if (argc > 3) trustListSize = (size_t) argc - 3;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    std::vector<UA_ByteString> trustList(trustListSize + 1);
     for (size_t i = 0; i < trustListSize; i++)
         trustList[i] = load_file(argv[i + 3]);
 
@@ -198,7 +177,7 @@ int main(int argc, char *argv[]) {
         4841,
         &certificate,
         &privateKey,
-        trustList,
+        trustList.data(),
         trustListSize,
         issuerList,
         issuerListSize,
@@ -212,10 +191,6 @@ int main(int argc, char *argv[]) {
             "Error setting up the server with security policies"
         );
     }
-    // set the security policy URI
-    char securityPolicyUriString
-        [] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
-    UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
@@ -279,7 +254,6 @@ int main(int argc, char *argv[]) {
         NULL
     );
 
-
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
@@ -290,7 +264,6 @@ int main(int argc, char *argv[]) {
     if (!running) goto cleanup; /* received ctrl-c already */
 
     // add a variable node to the adresspace
-
 
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);

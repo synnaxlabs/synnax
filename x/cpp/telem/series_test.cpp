@@ -7,20 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <iostream>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-/// protos
-#include "x/cpp/loop/loop.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-
 
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {
@@ -46,7 +41,6 @@ protected:
         ASSERT_EQ(v[0], value);
         ASSERT_EQ(s.at<T>(0), value);
     }
-
 
     void validate_sample_value_ctor(const T value) {
         telem::SampleValue val = value;
@@ -202,13 +196,12 @@ TEST(TestSeries, testInlineVectorConstruction) {
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const telem::Series s{vals};
-    const auto s2 = new telem::PBSeries();
-    s.to_proto(s2);
-    const telem::Series s3{*s2};
+    telem::PBSeries s2;
+    s.to_proto(&s2);
+    const telem::Series s3{s2};
     const auto v = s3.values<std::uint16_t>();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
-    delete s2;
 }
 
 /// @brief it should correctly construct a series from a single value.
@@ -228,9 +221,9 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const telem::Series s{vals};
-    const auto s2 = new telem::PBSeries();
-    s.to_proto(s2);
-    const telem::Series s3{*s2};
+    telem::PBSeries s2;
+    s.to_proto(&s2);
+    const telem::Series s3{s2};
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -920,7 +913,7 @@ TEST(TestSeries, testJSONValuesEmpty) {
 
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const telem::Series non_json_series(std::vector<int>{1, 2, 3});
-    ASSERT_THROW(non_json_series.json_values(), std::runtime_error);
+    ASSERT_THROW((void) non_json_series.json_values(), std::runtime_error);
 }
 
 TEST(TestSeries, testFillFromFixedSize) {

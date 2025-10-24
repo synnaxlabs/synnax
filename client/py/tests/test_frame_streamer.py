@@ -42,6 +42,13 @@ class TestStreamer:
             with client.open_streamer([123]):
                 pass
 
+    def test_open_streamer_channel_key_zero(self, client: sy.Synnax):
+        """Should throw an exception when a streamer is opened with a channel key of
+        zero"""
+        with pytest.raises(sy.NotFoundError):
+            with client.open_streamer([0, 0, 0]):
+                pass
+
     def test_update_channels(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should update the list of channels to stream"""
         with client.open_streamer([]) as s:

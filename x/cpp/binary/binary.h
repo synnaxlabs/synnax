@@ -36,40 +36,58 @@ public:
 
     /// @brief Writes a byte to the buffer
     /// @param value The byte to write
-    void uint8(const uint8_t value) { buf[offset++] = value; }
-
-    /// @brief Writes a 32-bit unsigned integer to the buffer
-    /// @param value The uint32 to write
-    void uint32(const uint32_t value) {
-        this->uint8(value);
-        this->uint8(value >> 8);
-        this->uint8(value >> 16);
-        this->uint8(value >> 24);
+    /// @return The number of bytes written (0 or 1)
+    size_t uint8(const uint8_t value) {
+        if (offset >= buf.size()) return 0;
+        buf[offset++] = value;
+        return 1;
     }
 
-    /// @brief Writes a 64-bit unsigned integer to the buffer
+    /// @brief Writes a 32-bit unsigned integer to the buffer (little-endian)
+    /// @param value The uint32 to write
+    /// @return The number of bytes written (0-4)
+    size_t uint32(const uint32_t value) {
+        size_t written = 0;
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
+        return written;
+    }
+
+    /// @brief Writes a 64-bit unsigned integer to the buffer (little-endian)
     /// @param value The uint64 to write
-    void uint64(const uint64_t value) {
-        this->uint8(value);
-        this->uint8(value >> 8);
-        this->uint8(value >> 16);
-        this->uint8(value >> 24);
-        this->uint8(value >> 32);
-        this->uint8(value >> 40);
-        this->uint8(value >> 48);
-        this->uint8(value >> 56);
+    /// @return The number of bytes written (0-8)
+    size_t uint64(const uint64_t value) {
+        size_t written = 0;
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
+        written += this->uint8(static_cast<uint8_t>(value >> 32));
+        written += this->uint8(static_cast<uint8_t>(value >> 40));
+        written += this->uint8(static_cast<uint8_t>(value >> 48));
+        written += this->uint8(static_cast<uint8_t>(value >> 56));
+        return written;
     }
 
     /// @brief Writes a 64-bit signed integer to the buffer
     /// @param value The int64 to write
-    void int64(const int64_t value) { this->uint64(static_cast<uint64_t>(value)); }
+    /// @return The number of bytes written (0-8)
+    size_t int64(const int64_t value) {
+        return this->uint64(static_cast<uint64_t>(value));
+    }
 
     /// @brief Writes raw bytes to the buffer
     /// @param data The bytes to write
     /// @param size The number of bytes to write
-    void write(const void *data, const size_t size) {
-        std::memcpy(buf.data() + offset, data, size);
-        offset += size;
+    /// @return The number of bytes actually written
+    size_t write(const void *data, const size_t size) {
+        const size_t available = buf.size() - offset;
+        const size_t to_write = size < available ? size : available;
+        std::memcpy(buf.data() + offset, data, to_write);
+        offset += to_write;
+        return to_write;
     }
 
     /// @brief Returns the buffer

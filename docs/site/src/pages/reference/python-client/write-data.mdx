@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Write Data"
-description: "Use the Python client to write to a Synnax cluster."
+description: "Use the Python client to write to a Synnax Core."
 next: "Stream Data"
 nextURL: "/reference/python-client/stream-data"
 prev: "Read Data"
@@ -12,8 +12,8 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax supports multiple methods for writing data to a cluster. We can write directly to
-a channel, fetch a range and set its data, or leverage writers for writing large volumes
+Synnax supports multiple methods for writing data to a Core. We can write directly to a
+channel, fetch a range and set its data, or leverage writers for writing large volumes
 of data.
 
 Writes in Synnax are more complicated than reads, and, as such, we recommend checking
@@ -178,7 +178,7 @@ This example will write 100 samples to the `my_precise_tc` channel, each spaced 
 0.1 seconds apart, and will commit all writes when finished.
 
 It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is persisted to the cluster.
+intermittently calling commit to ensure that the data is persisted to the Core.
 
 We recommend using writers within a context manager. This ensures that a writer is
 properly closed after use, ensuring that resources have been freed and sockets are
@@ -326,9 +326,8 @@ with client.open_writer(
 
 ## Common Pitfalls
 
-There are several common pitfalls to avoid when writing data to a Synnax cluster. These
-are important to avoid as they can lead to performance degradation and/or control
-issues.
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 

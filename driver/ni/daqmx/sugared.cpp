@@ -2033,7 +2033,6 @@ SugaredAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data)
     return process_error(dmx->GetReadTotalSampPerChanAcquired(taskHandle, data));
 }
 
-
 xerrors::Error SugaredAPI::CreateLinScale(
     const char scaleName[],
     float64 slope,
@@ -4260,7 +4259,6 @@ xerrors::Error SugaredAPI::SetRuntimeEnvironment(
         reserved2
     ));
 }
-
 
 xerrors::Error SugaredAPI::CreateCIAngEncoderChan(
     TaskHandle task,

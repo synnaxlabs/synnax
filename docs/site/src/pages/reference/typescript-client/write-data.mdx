@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Write Data"
-description: "Use the TypeScript client to write to a Synnax cluster."
+description: "Use the TypeScript client to write data to the Synnax Core."
 next: "Stream Data"
 nextURL: "/reference/typescript-client/stream-data"
 prev: "Read Data"
@@ -12,7 +12,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax TypeScript client supports multiple methods for writing data to a cluster. We
+The Synnax TypeScript client supports multiple methods for writing data to the Core. We
 can write directly to a channel, or we can write to multiple channels in a streaming
 fashion using a writer.
 
@@ -144,7 +144,7 @@ This example will write 100 batches of 10 samples to the `temperature` channel, 
 roughly 100ms apart, and will commit all writes when finished.
 
 It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is safely stored in the cluster.
+intermittently calling commit to ensure that the data is safely stored in the Core.
 
 ### Closing the Writer
 
@@ -320,9 +320,8 @@ const writer = await client.openWriter({
 
 ## Common Pitfalls
 
-There are several common pitfalls to avoid when writing data to a Synnax cluster. These
-are important to avoid as they can lead to performance degradation and/or control
-issues.
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 

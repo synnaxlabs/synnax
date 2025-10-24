@@ -10,7 +10,6 @@
 /// std.
 #include <memory>
 
-/// external.
 extern "C" {
 #include <lauxlib.h>
 #include <lua.h>

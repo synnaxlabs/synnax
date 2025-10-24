@@ -1,0 +1,18 @@
+# AddressSanitizer Suppression File
+# Format: <error_type>:<pattern>
+# See: https://github.com/google/sanitizers/wiki/AddressSanitizer#suppressing-memory-leaks
+
+# ===== External Hardware SDKs =====
+
+# ===== Third-Party Libraries =====
+
+# open62541 OPC UA
+interceptor_via_fun:UA_*
+interceptor_via_lib:libopen62541
+
+# ===== Known Issues (Temporary - Link to GitHub issues) =====
+
+# Add temporary suppressions here with issue links
+# Example:
+# heap-use-after-free:driver::pipeline::Source::read
+# Issue: https://github.com/synnaxlabs/synnax/issues/XXXX

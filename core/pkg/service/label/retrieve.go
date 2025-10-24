@@ -48,7 +48,9 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys.
 
 // WhereNames filters for labels whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(label *Label) bool { return lo.Contains(names, label.Name) })
+	r.gorp.Where(func(ctx gorp.Context, label *Label) (bool, error) {
+		return lo.Contains(names, label.Name), nil
+	})
 	return r
 }
 

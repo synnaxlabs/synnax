@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "client/cpp/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
@@ -37,11 +34,11 @@ TEST(FrameTests, toProto) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
-    const auto p = new api::v1::Frame();
-    f.to_proto(p);
-    ASSERT_EQ(p->keys_size(), 1);
-    ASSERT_EQ(p->series_size(), 1);
-    const auto f2 = synnax::Frame(*p);
+    api::v1::Frame p;
+    f.to_proto(&p);
+    ASSERT_EQ(p.keys_size(), 1);
+    ASSERT_EQ(p.series_size(), 1);
+    const auto f2 = synnax::Frame(p);
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
@@ -163,8 +160,9 @@ TEST(FrameTests, testIteration) {
     count = 0;
     for (auto [key, s]: const_frame) {
         count++;
-        if (key == 65537)
+        if (key == 65537) {
             ASSERT_EQ(s.at<float>(0), 10.0f); // Should see the modified value
+        }
     }
     ASSERT_EQ(count, 3);
 

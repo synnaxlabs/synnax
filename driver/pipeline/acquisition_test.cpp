@@ -10,13 +10,10 @@
 /// GTest
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
-#include "driver/pipeline/acquisition.h"
-
 #include "driver/errors/errors.h"
+#include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class MockSource final : public pipeline::Source {
@@ -236,4 +233,51 @@ TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
         breaker::Config()
     );
     ASSERT_FALSE(pipeline.stop());
+}
+
+/// Regression test: it should throw an error if enable_auto_commit is false
+/// when mode is PersistStream. This ensures all drivers set this flag correctly.
+TEST(AcquisitionPipeline, testEnableAutoCommitValidation) {
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
+
+    // This should throw because enable_auto_commit is false with PersistStream mode
+    synnax::WriterConfig bad_config{
+        .channels = {1},
+        .mode = synnax::WriterMode::PersistStream,
+        .enable_auto_commit = false,
+    };
+
+    EXPECT_THROW(
+        {
+            pipeline::Acquisition
+                pipeline(mock_factory, bad_config, source, breaker::Config());
+        },
+        std::runtime_error
+    );
+
+    // This should NOT throw because enable_auto_commit is true
+    synnax::WriterConfig good_config{
+        .channels = {1},
+        .mode = synnax::WriterMode::PersistStream,
+        .enable_auto_commit = true,
+    };
+
+    EXPECT_NO_THROW({
+        pipeline::Acquisition
+            pipeline(mock_factory, good_config, source, breaker::Config());
+    });
+
+    // This should also NOT throw because StreamOnly mode doesn't require auto-commit
+    synnax::WriterConfig stream_only_config{
+        .channels = {1},
+        .mode = synnax::WriterMode::StreamOnly,
+        .enable_auto_commit = false,
+    };
+
+    EXPECT_NO_THROW({
+        pipeline::Acquisition
+            pipeline(mock_factory, stream_only_config, source, breaker::Config());
+    });
 }

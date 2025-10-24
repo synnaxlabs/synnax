@@ -22,6 +22,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - vendor
       - x/cpp/**
       - x/go/**
@@ -49,6 +50,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - vendor
       - x/cpp/**
       - x/go/**
@@ -137,6 +139,8 @@ jobs:
         run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
-        run:
-          bazel test --test_output=all //driver/... --jobs=1
-          --test_tag_filters=-hardware --nocache_test_results
+        run: |
+          bazel test --config=asan-leak --test_output=all //driver/... \
+            --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
+            --spawn_strategy=local \
+            --jobs=1 --test_tag_filters=-hardware --nocache_test_results

@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/common.h"
@@ -235,7 +234,7 @@ public:
 };
 
 inline std::string skew_warning(const size_t skew) {
-    return "Synnax driver can't keep up with hardware data acquisition, and is "
+    return "Synnax Driver can't keep up with hardware data acquisition, and is "
            "trailing " +
            std::to_string(skew) +
            " samples behind. Lower the stream rate for the task.";

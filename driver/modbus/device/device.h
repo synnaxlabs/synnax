@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// external
 #include <utility>
 
 #include "glog/logging.h"
@@ -19,12 +18,10 @@
 #include "modbus/modbus.h"
 #endif
 
-/// module
 #include "x/cpp/xerrors/errors.h"
-
-/// internal
-#include "driver/errors/errors.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "driver/errors/errors.h"
 
 const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("modbus");
 const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("modbus");
@@ -159,16 +156,16 @@ struct ConnectionConfig {
     }
 };
 
-/// @brief controls access and caches connections to modbus devices.
+/// @brief controls access and caches connections to Modbus servers.
 class Manager {
-    /// @brief the current set of open modbus devices.
+    /// @brief the current set of open Modbus servers.
     std::unordered_map<std::string, std::weak_ptr<Device>> devices;
 
 public:
     Manager() = default;
 
-    /// @brief acquires a connection to a modbus device, returning an error if the
-    /// device could not be connected to.
+    /// @brief acquires a connection to a Modbus server, returning an error if the
+    /// server could not be connected to.
     /// @param config - the configuration for the connection.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {

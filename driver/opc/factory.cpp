@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
 #include "driver/opc/scan_task.h"
@@ -20,7 +18,7 @@
 common::ConfigureResult configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<util::ConnectionPool> &pool
+    const std::shared_ptr<opc::connection::Pool> &pool
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
@@ -46,7 +44,7 @@ common::ConfigureResult configure_read(
 common::ConfigureResult configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<util::ConnectionPool> &pool
+    const std::shared_ptr<opc::connection::Pool> &pool
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
@@ -63,7 +61,6 @@ common::ConfigureResult configure_write(
     );
     return result;
 }
-
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,

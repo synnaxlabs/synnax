@@ -135,7 +135,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {showChangeIdentifier && (
             <PMenu.Item itemKey="changeIdentifier">
               <Icon.Hardware />
-              Change Identifier
+              Change identifier
             </PMenu.Item>
           )}
         </>
@@ -158,7 +158,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

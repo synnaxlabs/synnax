@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <vector>
 
-/// external.
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
-/// internal
+#include "x/cpp/xos/xos.h"
+
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
@@ -24,13 +23,9 @@
 #include "driver/ni/write_task.h"
 #include "driver/task/common/factory.h"
 
-/// module
-#include "x/cpp/xos/xos.h"
-
 const std::string
-    NO_LIBS_MSG = "Cannot create the task because the National Instruments DAQMX and "
+    NO_LIBS_MSG = "Cannot create the task because the NI-DAQmx and "
                   "System Configuration libraries are not installed on this system.";
-
 
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -107,7 +102,6 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             common::WriteTask>(ctx, task);
     return common::handle_config_err(ctx, task, res);
 }
-
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 ni::Factory::configure_initial_tasks(

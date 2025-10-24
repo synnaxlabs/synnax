@@ -17,14 +17,11 @@ import { type RootState } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActiveKey } from "@/workspace/selectors";
 
-const SYNC_LAYOUT_DEBOUNCE = TimeSpan.milliseconds(250).milliseconds;
-const DUMMY_LAYOUT: Workspace.SaveLayoutParams = { key: "", layout: {} };
-
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
   const prevSyncRef = useRef<unknown>(null);
   const sync = Workspace.useSaveLayout({
-    debounce: SYNC_LAYOUT_DEBOUNCE,
+    debounce: TimeSpan.milliseconds(250).milliseconds,
     beforeUpdate: useCallback(async () => {
       const s = store.getState();
       const key = selectActiveKey(s);
@@ -37,5 +34,5 @@ export const useSyncLayout = (): void => {
     }, [store]),
   });
 
-  useEffect(() => store.subscribe(() => sync.update(DUMMY_LAYOUT)), []);
+  useEffect(() => store.subscribe(() => sync.update({ key: "", layout: {} })), []);
 };

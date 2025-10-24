@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/task/common/status.h"
 
 /// @brief it should correctly communicate the starting state of a task.
@@ -84,7 +81,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     const auto second = ctx->states[1];
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, status::variant::SUCCESS);
-    EXPECT_EQ(second.message, "Task started successfully");
+    EXPECT_EQ(second.message, "Task running");
 
     // Test that clear_warning doesn't do anything if not in warning state
     handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));

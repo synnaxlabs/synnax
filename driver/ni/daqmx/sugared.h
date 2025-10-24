@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/api.h"
 
