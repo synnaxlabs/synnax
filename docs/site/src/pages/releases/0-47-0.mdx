@@ -1,0 +1,34 @@
+---
+title: "Version 0.47 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import { Divider } from "@synnaxlabs/pluto";
+
+<Release
+    version="0.47.0"
+    date="Oct 24, 2025"
+    title="Schematic Control Reliability"
+>
+
+<Divider.Divider x />
+
+**What Changed:**
+
+Synnax v0.47 fixes a critical issue that caused schematics to become unresponsive when a
+higher authority process acquired control of a channel on the schematic. Schematics now
+handle partial authorization gracefully.
+
+**Impact:**
+
+- Schematics no longer freeze when control authority changes on a channel
+- Commands succeed on authorized channels while unauthorized channels are automatically
+  skipped
+- More reliable operation in multi-user and multi-system environments
+
+This fix significantly improves the reliability of schematics in complex control
+scenarios where multiple systems or users may be managing different aspects of the
+system simultaneously.
+
+</Release>
