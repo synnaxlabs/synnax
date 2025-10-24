@@ -66,13 +66,3 @@ export const Summary = ({
     </Flex.Box>
   );
 };
-
-export interface RemoteSummaryProps {
-  statusKey: string;
-}
-
-// export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
-//   const res = useRetrieve({ key: statusKey });
-//   const { key, ...rest } = res.data ?? res.status;
-//   return <Summary key={key} {...rest} />;
-// };
