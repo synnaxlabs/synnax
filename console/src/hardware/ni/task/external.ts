@@ -24,6 +24,8 @@ import {
 import {
   ingestAnalogRead,
   ingestAnalogWrite,
+  ingestCounterRead,
+  ingestCounterWrite,
   ingestDigitalRead,
   ingestDigitalWrite,
 } from "@/hardware/ni/task/import";
@@ -60,6 +62,8 @@ export const EXTRACTORS: Export.Extractors = {
 export const FILE_INGESTORS: Import.FileIngestors = {
   [ANALOG_READ_TYPE]: ingestAnalogRead,
   [ANALOG_WRITE_TYPE]: ingestAnalogWrite,
+  [COUNTER_READ_TYPE]: ingestCounterRead,
+  [COUNTER_WRITE_TYPE]: ingestCounterWrite,
   [DIGITAL_READ_TYPE]: ingestDigitalRead,
   [DIGITAL_WRITE_TYPE]: ingestDigitalWrite,
 };

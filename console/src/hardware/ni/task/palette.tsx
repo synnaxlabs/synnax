@@ -19,6 +19,8 @@ import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import {
   importAnalogRead,
   importAnalogWrite,
+  importCounterRead,
+  importCounterWrite,
   importDigitalRead,
   importDigitalWrite,
 } from "@/hardware/ni/task/import";
@@ -39,13 +41,6 @@ const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_WRITE_LAYOUT),
 };
 
-const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
-  key: "ni-create-digital-write-task",
-  name: "Create an NI Digital Write Task",
-  icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(DIGITAL_WRITE_LAYOUT),
-};
-
 const CREATE_COUNTER_READ_COMMAND: Palette.Command = {
   key: "ni-create-counter-read-task",
   name: "Create an NI Counter Read Task",
@@ -58,6 +53,13 @@ const CREATE_COUNTER_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Counter Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(COUNTER_WRITE_LAYOUT),
+};
+
+const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
+  key: "ni-create-digital-write-task",
+  name: "Create an NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: ({ placeLayout }) => placeLayout(DIGITAL_WRITE_LAYOUT),
 };
 
 const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -81,6 +83,22 @@ const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogWrite,
+};
+
+const IMPORT_COUNTER_READ_COMMAND: Palette.Command = {
+  key: "ni-import-counter-read-task",
+  name: "Import NI Counter Read Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.NI />,
+  onSelect: importCounterRead,
+};
+
+const IMPORT_COUNTER_WRITE_COMMAND: Palette.Command = {
+  key: "ni-import-counter-write-task",
+  name: "Import NI Counter Write Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.NI />,
+  onSelect: importCounterWrite,
 };
 
 const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -139,6 +157,8 @@ export const COMMANDS = [
   CREATE_DIGITAL_READ_COMMAND,
   IMPORT_ANALOG_READ_COMMAND,
   IMPORT_ANALOG_WRITE_COMMAND,
+  IMPORT_COUNTER_READ_COMMAND,
+  IMPORT_COUNTER_WRITE_COMMAND,
   IMPORT_DIGITAL_READ_COMMAND,
   IMPORT_DIGITAL_WRITE_COMMAND,
   TOGGLE_SCAN_TASK_COMMAND,
