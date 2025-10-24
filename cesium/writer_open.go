@@ -77,7 +77,7 @@ type WriterConfig struct {
 	// write, and will flush that commit to index on FS after the specified
 	// AutoIndexPersistInterval.
 	//
-	// [OPTIONAL] - Defaults to false.
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -107,7 +107,7 @@ func DefaultWriterConfig() WriterConfig {
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}
