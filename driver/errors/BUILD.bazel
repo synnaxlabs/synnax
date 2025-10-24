@@ -11,12 +11,6 @@ cc_library(
 cc_test(
     name = "errors_test",
     srcs = ["errors_test.cpp"],
-    linkopts = select({
-        "@platforms//os:macos": ["-lcurl"],
-        "@platforms//os:linux": ["-lcurl"],
-        "@platforms//os:windows": [],
-        "//conditions:default": ["-lcurl"],
-    }),
     deps = [
         ":errors",
         "//x/cpp/xtest",
