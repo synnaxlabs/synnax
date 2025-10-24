@@ -1017,3 +1017,56 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
 
     invalid_server->stop();
 }
+
+/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// This prevents data from being written but not committed, making it unavailable for
+/// reads.
+TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    // Create rack and device
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_test_rack"));
+
+    opc::connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+
+    synnax::Device dev(
+        "opc_test_device_key",
+        "OPC UA Test Device",
+        rack.key,
+        "opc.tcp://localhost:4840",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+    );
+    ASSERT_NIL(client->hardware.create_device(dev));
+
+    // Create index and data channels
+    auto index_ch = ASSERT_NIL_P(
+        client->channels.create("opc_test_index", telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(
+        client->channels.create("test_channel", telem::FLOAT32_T, index_ch.key, false)
+    );
+
+    // Create task config
+    json task_cfg{
+        {"data_saving", true},
+        {"device", dev.key},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"array_mode", false},
+        {"array_size", 1},
+        {"channels", json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
+    };
+
+    auto p = xjson::Parser(task_cfg);
+    auto cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    // Verify that writer_config has enable_auto_commit set to true
+    auto writer_cfg = cfg->writer_config();
+    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
