@@ -67,7 +67,6 @@ rough_rate = sy.Loop(sy.Rate.HZ * 30)
 with client.open_writer(
     start,
     [time_ch_1.key, time_ch_2.key, data_ch_1.key, data_ch_2.key],
-    enable_auto_commit=True,
 ) as writer:
     i = 0
     while rough_rate.wait():

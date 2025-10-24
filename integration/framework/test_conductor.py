@@ -230,7 +230,6 @@ class TestConductor:
             start=start_time,
             channels=[time, uptime, state, test_case_count, test_cases_ran],
             name=self.name,
-            enable_auto_commit=True,
         ) as writer:
             writer.write(self.tlm)  # Write initial state
 
