@@ -15,11 +15,11 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { runtime, TimeRange, unique } from "@synnaxlabs/x";
+import { csv as xcsv, runtime, TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 
-import { convertFrameGroups, type FrameGroup, sanitizeValue } from "@/csv/util";
+import { convertFrameGroups, type FrameGroup } from "@/csv/convertFrameGroups";
 import { Runtime } from "@/runtime";
 
 export interface DownloadArgs {
@@ -121,7 +121,7 @@ const download = async ({
       for (const { frame } of frameGroups)
         for (const key of frame.uniqueKeys) {
           const header = keysToColumnHeaders.get(key) ?? key.toString();
-          headers.push(sanitizeValue(header));
+          headers.push(xcsv.maybeEscapeField(header));
         }
       csv += `${headers.join(",")}${newlineSeparator}`;
       headerWritten = true;
@@ -131,7 +131,7 @@ const download = async ({
 
   if (savePath == null) Runtime.downloadFromBrowser(csv, "text/csv", `${fileName}.csv`);
   else {
-    await writeFile(savePath, new TextEncoder().encode(csv));
+    await writeTextFile(savePath, csv);
     addStatus({
       variant: "success",
       message: `Downloaded ${fileName} to ${savePath}`,

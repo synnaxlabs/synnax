@@ -8,18 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type Frame, UnexpectedError } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x/telem";
+import { compare, csv, DataType } from "@synnaxlabs/x";
 
 export interface FrameGroup {
   frame: Frame;
   index: channel.Key;
 }
 
-export type Newline = "\r\n" | "\n";
-
 export const convertFrameGroups = (
   frameGroups: FrameGroup[],
-  newline: Newline = "\n",
+  newline: csv.RecordDelimiter = "\n",
 ): string => {
   // validate that keys are not repeated between frames.
   const keySet = new Set<channel.Key>();
@@ -57,7 +55,7 @@ export const convertFrameGroups = (
       const entries: string[] = [];
       frame.uniqueKeys.forEach((key) => {
         const value = frame.get(key).at(i, true);
-        entries.push(sanitizeValue(value.toString()));
+        entries.push(csv.maybeEscapeField(value.toString()));
       });
       records.push({ time, records: entries.join(",") });
     }
@@ -114,41 +112,17 @@ export const convertFrameGroups = (
     });
     rows.push(row);
 
-    // insert the record into the correct place in the array based off of the
-    // timestamps using binary search.
+    // insert the record into the correct place in the array based off of the timestamps
+    // using binary search.
     for (const entry of currentEntries) {
       if (entry.records.length === 0) continue;
-      const nextTime = entry.records[0].time;
-      let left = 0;
-      let right = bodyEntries.length;
-      while (left < right) {
-        const mid = Math.floor((left + right) / 2);
-        if (bodyEntries[mid].records[0].time.valueOf() > nextTime.valueOf())
-          right = mid;
-        else left = mid + 1;
-      }
-      if (left === bodyEntries.length) bodyEntries.push(entry);
-      else bodyEntries.splice(left, 0, entry);
+      compare.insert(bodyEntries, entry, (a, b) =>
+        Number(a.records[0].time - b.records[0].time),
+      );
     }
   }
   if (rows.length === 0) return "";
   return rows.join(newline) + newline;
-};
-
-/**
- * Escapes a CSV value by wrapping it in double quotes if it contains
- * a comma, double quote, or newline. Also escapes any internal double quotes by doubling them.
- * For example, the value foo"bar,baz
- * becomes "foo""bar,baz"
- *
- * @param value -  The string value to sanitize for CSV output.
- * @returns The sanitized CSV-safe string.
- */
-
-export const sanitizeValue = (value: string): string => {
-  if (!/[",\n]/.test(value)) return value;
-  const escaped = value.replace(/"/g, '""');
-  return `"${escaped}"`;
 };
 
 interface RecordInfo {

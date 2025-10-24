@@ -10,9 +10,9 @@
 import { DataType, Frame, Series } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { convertFrameGroups, type FrameGroup, sanitizeValue } from "@/csv/util";
+import { convertFrameGroups, type FrameGroup } from "@/csv/convertFrameGroups";
 
-describe("csv.util", () => {
+describe("csv", () => {
   describe("convertFrameGroups", () => {
     describe("valid", () => {
       it("should correctly convert a frame with multiple channels", () => {
@@ -166,19 +166,6 @@ describe("csv.util", () => {
           "Series for channel 13 is not the same length (4) as the series for index channel 12 (3)",
         );
       });
-    });
-  });
-  describe("sanitizeValue", () => {
-    it("should correctly sanitize a value without special characters", () => {
-      expect(sanitizeValue("hello")).toBe("hello");
-      expect(sanitizeValue("123")).toBe("123");
-      expect(sanitizeValue("Call me Ishmael")).toBe("Call me Ishmael");
-    });
-    it("should correctly sanitize a value with special characters", () => {
-      expect(sanitizeValue("hello,world")).toBe('"hello,world"');
-      expect(sanitizeValue("hello\nworld")).toBe('"hello\nworld"');
-      expect(sanitizeValue("hello\r\nworld")).toBe('"hello\r\nworld"');
-      expect(sanitizeValue('"hello"')).toBe('"""hello"""');
     });
   });
 });
