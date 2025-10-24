@@ -11,31 +11,39 @@ from typing import TYPE_CHECKING, Any, Optional, Type
 
 from playwright.sync_api import Page
 
-from console.task.channels.analog import Analog
-from console.task.channels.current import Current
-from console.task.channels.voltage import Voltage
+from console.task.channels.counter import Counter
+from console.task.channels.edge_count import EdgeCount
+from console.task.channels.frequency import Frequency
+from console.task.channels.period import Period
+from console.task.channels.pulse_width import PulseWidth
+from console.task.channels.semi_period import SemiPeriod
+from console.task.channels.two_edge_separation import TwoEdgeSeparation
 
 from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
 
-# Channel type registry for NI Analog Output
-AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
-    "Voltage": Voltage,
-    "Current": Current,
+# Valid channel types for NI Counter Read tasks
+COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
+    "Edge Count": EdgeCount,
+    "Frequency": Frequency,
+    "Period": Period,
+    "Pulse Width": PulseWidth,
+    "Semi Period": SemiPeriod,
+    "Two Edge Separation": TwoEdgeSeparation,
 }
 
 
-class AnalogWrite(NITask):
-    """NI Analog Write/Output Task automation interface."""
+class CounterRead(NITask):
+    """NI Counter Read Task automation interface."""
 
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
-        self.page_type = "NI Analog Write Task"
+        self.page_type = "NI Counter Read Task"
 
     def new(self) -> str:
-        """Create a new NI AO task page."""
+        """Create a new NI CI task page."""
         return super().new()
 
     def add_channel(
@@ -47,12 +55,11 @@ class AnalogWrite(NITask):
         **kwargs: Any,
     ) -> NIChannel:
         """
-        Add a channel to the NI AO task. Only Voltage and Current types are allowed.
-        Terminal configuration and shunt resistor parameters are not supported for AO tasks.
+        Add a counter read channel to the task.
 
         Args:
             name: Channel name
-            type: Channel type (must be "Voltage" or "Current")
+            type: Channel type (must be valid for counter read tasks)
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -61,25 +68,20 @@ class AnalogWrite(NITask):
             The created channel instance
 
         Raises:
-            ValueError: If channel type is not valid for analog write tasks
+            ValueError: If channel type is not valid for counter read tasks
         """
-        if type not in AO_CHANNEL_TYPES:
+        if type not in COUNTER_READ_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Write: {type}. "
-                f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
+                f"Invalid channel type for NI Counter Read: {type}. "
+                f"Valid types: {list(COUNTER_READ_CHANNEL_TYPES.keys())}"
             )
-
-        # Remove parameters not supported for AO tasks
-        kwargs.pop("terminal_config", None)
-        kwargs.pop("shunt_resistor", None)
-        kwargs.pop("resistance", None)
 
         return self._add_channel_helper(
             name=name,
             type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=AO_CHANNEL_TYPES[type],
+            channel_class=COUNTER_READ_CHANNEL_TYPES[type],
             **kwargs,
         )
 
@@ -88,19 +90,21 @@ class AnalogWrite(NITask):
         task_name: Optional[str] = None,
         data_saving: Optional[bool] = None,
         auto_start: Optional[bool] = None,
-        state_update_rate: Optional[float] = None,
         **kwargs: Any,
     ) -> None:
         """
-        Set the parameters for the NI AO task.
+        Set the parameters for the NI Counter Read task.
 
         Args:
             task_name: The name of the task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
-            state_update_rate: The state update rate for the AO task.
-            **kwargs: Additional parameters.
+            **kwargs: Additional parameters including:
+                sample_rate (float): Sample rate for the task.
+                stream_rate (float): Stream rate for the task.
         """
+        sample_rate = kwargs.pop("sample_rate", None)
+        stream_rate = kwargs.pop("stream_rate", None)
 
         super().set_parameters(
             task_name=task_name,
@@ -109,5 +113,8 @@ class AnalogWrite(NITask):
             **kwargs,
         )
 
-        if state_update_rate is not None:
-            self.console.fill_input_field("State Update Rate", str(state_update_rate))
+        if sample_rate is not None:
+            self.console.fill_input_field("Sample Rate", str(sample_rate))
+
+        if stream_rate is not None:
+            self.console.fill_input_field("Stream Rate", str(stream_rate))

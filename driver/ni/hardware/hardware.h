@@ -128,6 +128,38 @@ struct AnalogReader final : Base, Reader<double> {
 
     int64 update_skew(const size_t &n_requested);
 };
+
+/// @brief a hardware interface for counter input tasks.
+struct CounterReader final : Base, Reader<double> {
+    /// @brief the total number of samples requested by calls to read() from
+    /// the user.
+    size_t total_samples_requested = 0;
+    /// @brief the total number of samples actually acquired from the hardware
+    /// by DAQmx.
+    uInt64 total_samples_acquired = 0;
+
+    CounterReader(
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    );
+    ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
+
+    xerrors::Error start() override;
+
+    int64 update_skew(const size_t &n_requested);
+};
+
+/// @brief Implementation of counter output writing using DAQmx
+struct CounterWriter final : Base, Writer<double> {
+    /// @brief Constructs a new counter writer
+    /// @param dmx The DAQmx API interface
+    /// @param task_handle Handle to the DAQmx task
+    CounterWriter(
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    );
+    xerrors::Error write(const std::vector<double> &data) override;
+};
 }
 
 namespace mock {

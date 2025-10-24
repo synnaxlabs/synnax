@@ -17,6 +17,8 @@ interface PickedEnrichedProperties
     Properties,
     | "analogInput"
     | "analogOutput"
+    | "counterInput"
+    | "counterOutput"
     | "digitalInputOutput"
     | "digitalInput"
     | "digitalOutput"

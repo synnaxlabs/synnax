@@ -37,7 +37,7 @@ from console.task.channels.torque_bridge_two_point_linear import (
 from console.task.channels.velocity_iepe import VelocityIEPE
 from console.task.channels.voltage import Voltage
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -83,7 +83,7 @@ class AnalogRead(NITask):
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add an analog read channel to the task.
 

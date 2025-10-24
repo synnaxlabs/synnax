@@ -7,16 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal, Optional
-
-import synnax as sy
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from console.console import Console
 
 
-class Analog:
-    """Base class for analog channel types in NI tasks."""
+class Counter:
+    """Base class for counter read channel types in NI tasks."""
 
     name: str
     console: "Console"
@@ -30,40 +28,20 @@ class Analog:
         device: str,
         type: str,
         port: Optional[int] = None,
-        terminal_config: Optional[
-            Literal[
-                "Default",
-                "Differential",
-                "Pseudo-Differential",
-                "Referenced Single Ended",
-                "Non-Referenced Single Ended",
-            ]
-        ] = None,
         min_val: Optional[float] = None,
         max_val: Optional[float] = None,
-        custom_scale: Optional[
-            Literal[
-                "None",
-                "Linear",
-                "Map",
-                "Table",
-            ]
-        ] = None,
     ) -> None:
         """
-        Initialize analog channel with common configuration.
+        Initialize counter read channel with common configuration.
 
         Args:
             console: Console automation interface
             name: Channel name
             device: Device identifier
-            type: Channel type (e.g., "Voltage", "Accelerometer")
+            type: Channel type (e.g., "Edge Count", "Frequency")
             port: Physical port number
-            terminal_config: "Default", "Differential", "Pseudo-Differential",
-                           "Referenced Single Ended", "Non-Referenced Single Ended"
             min_val: Minimum value
             max_val: Maximum value
-            custom_scale: "None", "Linear", "Map", "Table"
         """
         self.console = console
         self.device = device
@@ -86,38 +64,23 @@ class Analog:
         else:
             values["Port"] = console.get_input_field("Port")
 
-        if terminal_config is not None:
-            console.click_btn("Terminal Configuration")
-            console.select_from_dropdown(terminal_config)
-            values["Terminal Configuration"] = terminal_config
-        elif self.has_terminal_config():
-            values["Terminal Configuration"] = console.get_dropdown_value(
-                "Terminal Configuration"
-            )
-
+        # Min/Max values (not all counter types have these)
         if min_val is not None:
             console.fill_input_field("Minimum Value", str(min_val))
             values["Minimum Value"] = str(min_val)
-        elif type != "Microphone":
+        elif self.has_min_max():
             values["Minimum Value"] = console.get_input_field("Minimum Value")
 
         if max_val is not None:
             console.fill_input_field("Maximum Value", str(max_val))
             values["Maximum Value"] = str(max_val)
-        elif type != "Microphone":
+        elif self.has_min_max():
             values["Maximum Value"] = console.get_input_field("Maximum Value")
-
-        if custom_scale is not None:
-            console.click_btn("Custom Scaling")
-            console.select_from_dropdown(custom_scale)
-            values["Custom Scaling"] = custom_scale
-        elif type != "RTD":
-            values["Custom Scaling"] = console.get_dropdown_value("Custom Scaling")
 
         self.form_values = values
 
     def assert_form(self) -> None:
-
+        """Assert that form values match expected values."""
         for key, expected_value in self.form_values.items():
             try:
                 actual_value = self.console.get_input_field(key)
@@ -128,12 +91,13 @@ class Analog:
                 actual_value == expected_value
             ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
 
-    def has_terminal_config(self) -> bool:
+    def has_min_max(self) -> bool:
+        """Check if this channel type has min/max value fields."""
         try:
             return (
-                self.console.page.locator("text=Terminal Configuration")
+                self.console.page.locator("text=Minimum Value")
                 .locator("..")
-                .locator("button")
+                .locator("input")
                 .first.count()
                 > 0
             )

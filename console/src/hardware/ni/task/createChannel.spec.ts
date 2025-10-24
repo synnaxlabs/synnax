@@ -13,6 +13,8 @@ import { Task } from "@/hardware/ni/task";
 import {
   createAIChannel,
   createAOChannel,
+  createCIChannel,
+  createCOChannel,
   createDIChannel,
   createDOChannel,
 } from "@/hardware/ni/task/createChannel";
@@ -154,6 +156,166 @@ describe("createChannel", () => {
       expect(result.port).toBe(2);
       expect(result.cmdChannel).toBe(0);
       expect(result.stateChannel).toBe(0);
+    });
+  });
+
+  describe("createCIChannel", () => {
+    it("should create a new CI channel with port 0 when no channels exist", () => {
+      const channels: Task.CIChannel[] = [];
+      const result = createCIChannel(channels);
+      expect(result.port).toBe(0);
+      expect(result.key).toBeDefined();
+      expect(result.channel).toBe(0);
+      expect(result.type).toBe("ci_frequency");
+    });
+
+    it("should create a new CI channel with the next available port number", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNEL, key: "1", port: 0 },
+        { ...Task.ZERO_CI_CHANNEL, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels);
+      expect(result.port).toBe(2);
+      expect(result.key).toBeDefined();
+    });
+
+    it("should copy properties from the specified index channel", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_frequency");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy properties from ci_edge_count channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_edge_count, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_edge_count");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy properties from ci_period channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_period, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_period");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy properties from ci_pulse_width channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_pulse_width, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_pulse_width");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy properties from ci_semi_period channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_semi_period, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_semi_period");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy properties from ci_two_edge_sep channel type", () => {
+      const channels: Task.CIChannel[] = [
+        { ...Task.ZERO_CI_CHANNELS.ci_two_edge_sep, key: "1", port: 0, channel: 3 },
+        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      ];
+      const result = createCIChannel(channels, "1");
+      expect(result.type).toBe("ci_two_edge_sep");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.channel).not.toBe(3);
+    });
+  });
+
+  describe("createCOChannel", () => {
+    it("should create a new CO channel with port 0 when no channels exist", () => {
+      const channels: Task.COChannel[] = [];
+      const result = createCOChannel(channels);
+      expect(result.port).toBe(0);
+      expect(result.key).toBeDefined();
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+      expect(result.type).toBe("co_pulse_output");
+    });
+
+    it("should create a new CO channel with the next available port number", () => {
+      const channels: Task.COChannel[] = [
+        { ...Task.ZERO_CO_CHANNEL, key: "1", port: 0, cmdChannel: 3, stateChannel: 10 },
+        { ...Task.ZERO_CO_CHANNEL, key: "2", port: 1, cmdChannel: 4, stateChannel: 11 },
+      ];
+      const result = createCOChannel(channels);
+      expect(result.port).toBe(2);
+      expect(result.key).toBeDefined();
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+    });
+
+    it("should copy properties from the specified index channel", () => {
+      const channels: Task.COChannel[] = [
+        {
+          ...Task.ZERO_CO_CHANNELS.co_pulse_output,
+          key: "1",
+          port: 0,
+          cmdChannel: 3,
+          stateChannel: 10,
+          highTime: 0.005,
+          lowTime: 0.015,
+        },
+        {
+          ...Task.ZERO_CO_CHANNELS.co_pulse_output,
+          key: "2",
+          port: 1,
+          cmdChannel: 4,
+          stateChannel: 11,
+        },
+      ];
+      const result = createCOChannel(channels, "1");
+      expect(result.type).toBe("co_pulse_output");
+      expect(result.key).not.toBe("1");
+      expect(result.key).not.toBe("2");
+      expect(result.key.length).toBeGreaterThan(0);
+      expect(result.port).toBe(2);
+      expect(result.cmdChannel).toBe(0);
+      expect(result.stateChannel).toBe(0);
+      expect(result.highTime).toBe(0.005);
+      expect(result.lowTime).toBe(0.015);
     });
   });
 });

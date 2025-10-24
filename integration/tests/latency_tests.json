@@ -31,19 +31,8 @@
         },
         {
           "case": "latency/abcd",
-          "name": "async_a"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_b"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_c"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_d"
+          "name": "async",
+          "matrix": { "mode": ["a", "b", "c", "d"] }
         }
       ]
     }
