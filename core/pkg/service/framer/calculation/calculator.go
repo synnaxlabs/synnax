@@ -129,10 +129,23 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 				Key:  fmt.Sprintf("op_%d", i),
 				Type: o.Type,
 				ConfigValues: map[string]any{
-					"reset":    o.ResetChannel,
 					"duration": o.Duration,
 				},
 			})
+			if o.ResetChannel != 0 {
+				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
+				g2.Nodes = append(g2.Nodes, graph.Node{
+					Key:  resetKey,
+					Type: "on",
+					ConfigValues: map[string]any{
+						"channel": o.ResetChannel,
+					},
+				})
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: key, Param: "reset"},
+				})
+			}
 			if i == 0 {
 				g2.Edges = append(g2.Edges, graph.Edge{
 					Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},

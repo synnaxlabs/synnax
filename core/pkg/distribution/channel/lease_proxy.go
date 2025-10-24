@@ -238,6 +238,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					// Update expression for calculated channels
 					if c.IsCalculated() && ic.IsCalculated() {
 						c.Expression = ic.Expression
+						c.Operations = ic.Operations
 					}
 					return c, nil
 				}).

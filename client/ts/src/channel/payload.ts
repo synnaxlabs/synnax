@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
+import {
+  array,
+  type CrudeDataType,
+  DataType,
+  math,
+  status,
+  TimeSpan,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 const errorMessage = "Channel key must be a valid uint32.";
@@ -33,8 +41,8 @@ export type OperationType = z.infer<typeof operationType>;
 
 export const operationZ = z.object({
   type: operationType,
-  channel: keyZ.optional(),
-  duration: z.number().optional(),
+  resetChannel: keyZ.optional(),
+  duration: TimeSpan.z.optional(),
 });
 
 export type Operation = z.infer<typeof operationZ>;

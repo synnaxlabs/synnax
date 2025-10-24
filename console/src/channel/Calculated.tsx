@@ -9,7 +9,7 @@
 
 import "@/channel/Calculated.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -68,25 +68,35 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
             )}
           </Form.Field>
           <Flex.Box x>
-            <Form.Field<channel.OperationType> path="operation.type" label="Operation">
+            <Form.Field<channel.OperationType>
+              path="operations.0.type"
+              label="Operation"
+            >
               {(p) => (
                 <Select.Buttons keys={channel.OPERATION_TYPES} {...p}>
                   <Select.Button itemKey="none">None</Select.Button>
                   <Select.Button itemKey="min">Min</Select.Button>
                   <Select.Button itemKey="max">Max</Select.Button>
-                  <Select.Button itemKey="average">Average</Select.Button>
+                  <Select.Button itemKey="avg">Average</Select.Button>
                 </Select.Buttons>
               )}
             </Form.Field>
-            <Form.NumericField
-              path="operation.duration"
+            <Form.Field<TimeSpan>
+              path="operations.0.duration"
               label="Window"
-              helpText="The value will reset after this duration. If zero, the value will never reset."
+              helpText="The value will be reset after this duration. If zero, the value will never be reset."
               grow
-              inputProps={{ endContent: "S" }}
-            />
+            >
+              {({ value, onChange }) => (
+                <Input.Numeric
+                  value={new TimeSpan(value).seconds}
+                  onChange={(v) => onChange(TimeSpan.seconds(v))}
+                  endContent="S"
+                />
+              )}
+            </Form.Field>
             <Form.Field<channel.Key>
-              path="operation.channel"
+              path="operations.0.resetChannel"
               label="Reset Channel"
               helpText="When this channel is triggered, the calculation will be reset."
             >
