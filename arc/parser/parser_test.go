@@ -204,14 +204,14 @@ func add(x f64, y f64) f64 {
 			Expect(funcDecl.FUNC()).NotTo(BeNil())
 			Expect(funcDecl.IDENTIFIER().GetText()).To(Equal("add"))
 
-			params := funcDecl.ParameterList()
+			params := funcDecl.InputList()
 			Expect(params).NotTo(BeNil())
-			Expect(params.AllParameter()).To(HaveLen(2))
+			Expect(params.AllInput()).To(HaveLen(2))
 
-			Expect(params.Parameter(0).IDENTIFIER().GetText()).To(Equal("x"))
-			Expect(params.Parameter(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(params.Input(0).IDENTIFIER().GetText()).To(Equal("x"))
+			Expect(params.Input(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
-			returnType := funcDecl.ReturnType()
+			returnType := funcDecl.OutputType()
 			Expect(returnType).NotTo(BeNil())
 			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
@@ -233,25 +233,25 @@ func process(input <-chan f64, output ->chan f64) {
 }`)
 
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
-			params := funcDecl.ParameterList()
+			params := funcDecl.InputList()
 
 			// First parameter: input <-chan f64
-			param1 := params.Parameter(0)
+			param1 := params.Input(0)
 			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
 			Expect(param1.Type_().ChannelType().RECV_CHAN()).NotTo(BeNil())
 			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
 			// Second parameter: output ->chan f64
-			param2 := params.Parameter(1)
+			param2 := params.Input(1)
 			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
 			Expect(param2.Type_().ChannelType().SEND_CHAN()).NotTo(BeNil())
 		})
 	})
 
 	Describe("Tasks", func() {
-		It("Should parse stage with config block", func() {
+		It("Should parse function with config block", func() {
 			prog := parseProgram(`
-stage controller{
+func controller{
     setpoint f64
     sensor <-chan f64
     actuator ->chan f64
@@ -260,22 +260,22 @@ stage controller{
     error -> actuator
 }`)
 
-			taskDecl := prog.TopLevelItem(0).StageDeclaration()
+			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
-			Expect(taskDecl.STAGE()).NotTo(BeNil())
+			Expect(taskDecl.FUNC()).NotTo(BeNil())
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Config block
+			// ConfigValues block
 			config := taskDecl.ConfigBlock()
 			Expect(config).NotTo(BeNil())
-			Expect(config.AllConfigParameter()).To(HaveLen(3))
+			Expect(config.AllConfig()).To(HaveLen(3))
 
 			// Runtime parameters
-			params := taskDecl.ParameterList()
+			params := taskDecl.InputList()
 			Expect(params).NotTo(BeNil())
-			Expect(params.AllParameter()).To(HaveLen(1))
-			Expect(params.Parameter(0).IDENTIFIER().GetText()).To(Equal("enable"))
+			Expect(params.AllInput()).To(HaveLen(1))
+			Expect(params.Input(0).IDENTIFIER().GetText()).To(Equal("enable"))
 
 			// Raw
 			block := taskDecl.Block()
@@ -283,24 +283,24 @@ stage controller{
 			Expect(block.AllStatement()).To(HaveLen(2))
 		})
 
-		It("Should parse stage with return type", func() {
+		It("Should parse function with return type", func() {
 			prog := parseProgram(`
-stage doubler{
+func doubler{
     input <-chan f64
 } () f64 {
     return (<-input) * 2
 }`)
 
-			taskDecl := prog.TopLevelItem(0).StageDeclaration()
+			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
 
-			returnType := taskDecl.ReturnType()
+			returnType := taskDecl.OutputType()
 			Expect(returnType).NotTo(BeNil())
 			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 		})
 	})
 
-	Describe("Inter-Stage Flow", func() {
-		It("Should parse simple channel to stage flow", func() {
+	Describe("Inter-func Flow", func() {
+		It("Should parse simple channel to funcflow", func() {
 			prog := parseProgram(`sensor -> controller{} -> actuator`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
@@ -313,8 +313,8 @@ stage doubler{
 
 			// Second node: controller{}
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Third node: actuator
 			node3 := flow.FlowNode(2)
@@ -322,73 +322,73 @@ stage doubler{
 			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 		})
 
-		It("Should parse stage invocation with named config", func() {
+		It("Should parse func invocation with named config", func() {
 			prog := parseProgram(`
 controller{
-    setpoint: 100,
-    sensor: temp_sensor,
-    interval: 100ms
+    setpoint=100,
+    sensor=temp_sensor,
+    interval=100ms
 }(1) -> output`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			stage := node.StageInvocation()
+			invocation := node.Function()
 
-			Expect(stage.IDENTIFIER().GetText()).To(Equal("controller"))
+			Expect(invocation.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Config values
-			config := stage.ConfigValues()
+			// ConfigValues values
+			config := invocation.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.NamedConfigValues()).NotTo(BeNil())
 			Expect(config.NamedConfigValues().AllNamedConfigValue()).To(HaveLen(3))
 
 			// Runtime arguments
-			args := stage.Arguments()
+			args := invocation.Arguments()
 			Expect(args).NotTo(BeNil())
 			Expect(args.ArgumentList()).NotTo(BeNil())
 			Expect(args.ArgumentList().AllExpression()).To(HaveLen(1))
 		})
 
-		It("Should parse stage invocation with anonymous config", func() {
+		It("Should parse func invocation with anonymous config", func() {
 			prog := parseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
-			stage := node.StageInvocation()
+			invocation := node.Function()
 
-			Expect(stage.IDENTIFIER().GetText()).To(Equal("any"))
+			Expect(invocation.IDENTIFIER().GetText()).To(Equal("any"))
 
 			// Anonymous config values
-			config := stage.ConfigValues()
+			config := invocation.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues().AllExpression()).To(HaveLen(2))
 
-			// Check the second node also has stage invocation
+			// Check the second node also has func invocation
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
-		It("Should parse stage with anonymous arguments in complex flow", func() {
+		It("Should parse func with anonymous arguments in complex flow", func() {
 			prog := parseProgram(`
-stage average {} (first chan f64, second chan f64) chan f64 {
+func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
 
 any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
-			// Check stage declaration
-			taskDecl := prog.TopLevelItem(0).StageDeclaration()
+			// Check func declaration
+			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
 			node := flow.FlowNode(0)
-			stage := node.StageInvocation()
+			invocation := node.Function()
 
 			// Verify anonymous config
-			config := stage.ConfigValues()
+			config := invocation.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
 
@@ -418,31 +418,31 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should parse empty config in flow chains", func() {
 			prog := parseProgram(`
-stage average {} (first chan f64, second chan f64) chan f64 {
+func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
 
 any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
-			// Check stage declaration
-			taskDecl := prog.TopLevelItem(0).StageDeclaration()
+			// Check func declaration
+			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			Expect(taskDecl).NotTo(BeNil())
 
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
 
-			// Check first stage invocation (any)
+			// Check first func invocation (any)
 			node1 := flow.FlowNode(0)
-			Expect(node1.StageInvocation()).NotTo(BeNil())
-			Expect(node1.StageInvocation().IDENTIFIER().GetText()).To(Equal("any"))
+			Expect(node1.Function()).NotTo(BeNil())
+			Expect(node1.Function().IDENTIFIER().GetText()).To(Equal("any"))
 
-			// Check middle stage invocation (average with empty config)
+			// Check middle func invocation (average with empty config)
 			node2 := flow.FlowNode(1)
-			Expect(node2.StageInvocation()).NotTo(BeNil())
-			Expect(node2.StageInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			Expect(node2.Function()).NotTo(BeNil())
+			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 
 			// Verify average has empty config
-			avgConfig := node2.StageInvocation().ConfigValues()
+			avgConfig := node2.Function().ConfigValues()
 			Expect(avgConfig).NotTo(BeNil())
 			Expect(avgConfig.LBRACE()).NotTo(BeNil())
 			Expect(avgConfig.RBRACE()).NotTo(BeNil())
@@ -849,6 +849,389 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				}`)
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("parse errors"))
+			})
+		})
+	})
+
+	Describe("Named Output Routing", func() {
+		Context("Multi-Output func Declarations", func() {
+			It("Should parse func with multiple named outputs", func() {
+				prog := parseProgram(`
+func demux{
+    threshold f64
+} (value f32) {
+    high f32
+    low f32
+} {
+    if (value > f32(threshold)) {
+        high = value
+    } else {
+        low = value
+    }
+}`)
+
+				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				Expect(stageDecl).NotTo(BeNil())
+				Expect(stageDecl.IDENTIFIER().GetText()).To(Equal("demux"))
+
+				// Check multi-output block
+				returnType := stageDecl.OutputType()
+				Expect(returnType).NotTo(BeNil())
+
+				multiOutput := returnType.MultiOutputBlock()
+				Expect(multiOutput).NotTo(BeNil())
+				Expect(multiOutput.LBRACE()).NotTo(BeNil())
+				Expect(multiOutput.RBRACE()).NotTo(BeNil())
+
+				// Check named outputs
+				outputs := multiOutput.AllNamedOutput()
+				Expect(outputs).To(HaveLen(2))
+
+				// First output: high f32
+				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("high"))
+				Expect(outputs[0].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+
+				// Second output: low f32
+				Expect(outputs[1].IDENTIFIER().GetText()).To(Equal("low"))
+				Expect(outputs[1].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+			})
+
+			It("Should parse func with three named outputs", func() {
+				prog := parseProgram(`
+func range_classifier{
+    low f64
+    high f64
+} (value f32) {
+    below_range f32
+    in_range f32
+    above_range f32
+} {
+    // Logic
+}`)
+
+				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				returnType := stageDecl.OutputType()
+				multiOutput := returnType.MultiOutputBlock()
+
+				outputs := multiOutput.AllNamedOutput()
+				Expect(outputs).To(HaveLen(3))
+				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("below_range"))
+				Expect(outputs[1].IDENTIFIER().GetText()).To(Equal("in_range"))
+				Expect(outputs[2].IDENTIFIER().GetText()).To(Equal("above_range"))
+			})
+
+			It("Should still parse stages with single return type", func() {
+				prog := parseProgram(`
+func simple{} (value f32) f32 {
+    return value * 2.0
+}`)
+
+				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				returnType := stageDecl.OutputType()
+				Expect(returnType).NotTo(BeNil())
+
+				// Should have Type, not MultiOutputBlock
+				Expect(returnType.Type_()).NotTo(BeNil())
+				Expect(returnType.MultiOutputBlock()).To(BeNil())
+			})
+		})
+
+		Context("Routing Tables", func() {
+			It("Should parse simple routing table", func() {
+				prog := parseProgram(`
+sensor -> demux{threshold=100} -> {
+    high: alarm{},
+    low: logger{}
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				Expect(flow).NotTo(BeNil())
+
+				// Check routing table exists (should be one routing table)
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				Expect(routingTable).NotTo(BeNil())
+				Expect(routingTable.LBRACE()).NotTo(BeNil())
+				Expect(routingTable.RBRACE()).NotTo(BeNil())
+
+				// Check routing entries
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: high -> alarm{}
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
+				Expect(entries[0].AllARROW()).To(HaveLen(0))
+				highTargets := entries[0].AllFlowNode()
+				Expect(highTargets).To(HaveLen(1))
+				Expect(highTargets[0].Function()).NotTo(BeNil())
+				Expect(highTargets[0].Function().IDENTIFIER().GetText()).To(Equal("alarm"))
+
+				// Second entry: low -> logger{}
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("low"))
+				lowTargets := entries[1].AllFlowNode()
+				Expect(lowTargets).To(HaveLen(1))
+				Expect(lowTargets[0].Function()).NotTo(BeNil())
+				Expect(lowTargets[0].Function().IDENTIFIER().GetText()).To(Equal("logger"))
+			})
+
+			It("Should parse routing table with three outputs", func() {
+				prog := parseProgram(`
+sensor -> range_classifier{} -> {
+    below_range: low_alarm{},
+    in_range: controller{},
+    above_range: high_alarm{}
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+
+				Expect(entries).To(HaveLen(3))
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("below_range"))
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("in_range"))
+				Expect(entries[2].IDENTIFIER(0).GetText()).To(Equal("above_range"))
+			})
+
+			It("Should parse routing table to channels", func() {
+				prog := parseProgram(`
+processor -> splitter{} -> {
+    output_a: channel_a,
+    output_b: channel_b
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+
+				Expect(entries).To(HaveLen(2))
+
+				// Target can be channel identifier
+				targets := entries[0].AllFlowNode()
+				Expect(targets).To(HaveLen(1))
+				Expect(targets[0].ChannelIdentifier()).NotTo(BeNil())
+				Expect(targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("channel_a"))
+			})
+
+			It("Should parse flow without routing table", func() {
+				prog := parseProgram(`sensor -> controller{} -> actuator`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				Expect(flow).NotTo(BeNil())
+
+				// Routing table should be optional (no routing tables)
+				Expect(flow.AllRoutingTable()).To(HaveLen(0))
+			})
+
+			It("Should parse routing table with chained nodes", func() {
+				prog := parseProgram(`
+sensor -> state_router{} -> {
+    idle_out: processor{} -> idle_display{},
+    active_out: controller{} -> actuator
+}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: idle_out: processor{} -> idle_display{}
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
+				entry0Nodes := entries[0].AllFlowNode()
+				Expect(entry0Nodes).To(HaveLen(2))
+				Expect(entries[0].AllARROW()).To(HaveLen(1))
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
+				Expect(entry0Nodes[1].Function().IDENTIFIER().GetText()).To(Equal("idle_display"))
+
+				// Second entry: active_out: controller{} -> actuator
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
+				entry1Nodes := entries[1].AllFlowNode()
+				Expect(entry1Nodes).To(HaveLen(2))
+				Expect(entries[1].AllARROW()).To(HaveLen(1))
+				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
+				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+			})
+
+			It("Should parse routing table with parameter mapping", func() {
+				prog := parseProgram(`
+first{} -> {
+    outputA: processor{}: paramC,
+    outputB: paramD
+} -> second{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: outputA: processor{}: paramC
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("outputA"))
+				entry0Nodes := entry0.AllFlowNode()
+				Expect(entry0Nodes).To(HaveLen(1))
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("processor"))
+				// Check trailing parameter name
+				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("paramC"))
+
+				// Second entry: outputB: paramD (no trailing parameter)
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("outputB"))
+				entry1Nodes := entry1.AllFlowNode()
+				Expect(entry1Nodes).To(HaveLen(1))
+				Expect(entry1Nodes[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("paramD"))
+				// No trailing parameter
+				Expect(entry1.AllIDENTIFIER()).To(HaveLen(1))
+			})
+
+			It("Should parse routing table with chained processing and parameter mapping", func() {
+				prog := parseProgram(`
+stage1{} -> {
+    out1: filter{} -> amplifier{}: input,
+    out2: processor{} -> converter{}: value
+} -> stage2{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				routingTable := flow.AllRoutingTable()[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: out1: filter{} -> amplifier{}: input
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+				Expect(entry0.AllFlowNode()).To(HaveLen(2))
+				Expect(entry0.AllARROW()).To(HaveLen(1))
+				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+
+				// Second entry: out2: processor{} -> converter{}: value
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+				Expect(entry1.AllFlowNode()).To(HaveLen(2))
+				Expect(entry1.AllARROW()).To(HaveLen(1))
+				Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+			})
+		})
+
+		Context("Combined Multi-Output and Routing", func() {
+			It("Should parse complete example with multi-output func and routing", func() {
+				prog := parseProgram(`
+func demux{
+    threshold f64
+} (value f32) {
+    high f32
+    low f32
+} {
+    if (value > f32(threshold)) {
+        high = value
+    } else {
+        low = value
+    }
+}
+
+sensor -> demux{threshold=100.0} -> {
+    high: alarm{},
+    low: logger{}
+}`)
+
+				// Check func declaration
+				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				Expect(stageDecl).NotTo(BeNil())
+
+				multiOutput := stageDecl.OutputType().MultiOutputBlock()
+				Expect(multiOutput.AllNamedOutput()).To(HaveLen(2))
+
+				// Check flow statement
+				flow := prog.TopLevelItem(1).FlowStatement()
+				Expect(flow).NotTo(BeNil())
+
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+				Expect(allRoutingTables[0].AllRoutingEntry()).To(HaveLen(2))
+			})
+		})
+
+		Context("Input Routing Tables", func() {
+			It("Should parse simple input routing table", func() {
+				prog := parseProgram(`
+{
+    sensor1: a,
+    sensor2: b
+} -> add{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				Expect(flow).NotTo(BeNil())
+
+				// Check routing table exists at start
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: sensor1 -> a
+				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				entry0Targets := entries[0].AllFlowNode()
+				Expect(entry0Targets).To(HaveLen(1))
+				Expect(entry0Targets[0].ChannelIdentifier()).NotTo(BeNil())
+				Expect(entry0Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+
+				// Second entry: sensor2 -> b
+				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				entry1Targets := entries[1].AllFlowNode()
+				Expect(entry1Targets).To(HaveLen(1))
+				Expect(entry1Targets[0].ChannelIdentifier()).NotTo(BeNil())
+				Expect(entry1Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
+			})
+
+			It("Should parse input routing with flow chains", func() {
+				prog := parseProgram(`
+{
+    sensor1: lowpass{cutoff=0.5} -> a,
+    sensor2: scale{factor=2.0} -> b
+} -> add{}`)
+
+				flow := prog.TopLevelItem(0).FlowStatement()
+				allRoutingTables := flow.AllRoutingTable()
+				Expect(allRoutingTables).To(HaveLen(1))
+
+				routingTable := allRoutingTables[0]
+				entries := routingTable.AllRoutingEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: sensor1 -> lowpass{cutoff=0.5} -> a
+				entry0 := entries[0]
+				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				Expect(entry0.AllARROW()).To(HaveLen(1)) // sensor1 -> lowpass{} -> a
+				entry0Nodes := entry0.AllFlowNode()
+				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
+				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("lowpass"))
+				Expect(entry0Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+
+				// Second entry: sensor2 -> scale{factor=2.0} -> b
+				entry1 := entries[1]
+				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				Expect(entry1.AllARROW()).To(HaveLen(1))
+				entry1Nodes := entry1.AllFlowNode()
+				Expect(entry1Nodes).To(HaveLen(2))
+				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
+				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
 			})
 		})
 	})

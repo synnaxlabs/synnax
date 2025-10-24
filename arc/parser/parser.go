@@ -31,7 +31,6 @@ func Parse(source string) (IProgramContext, error) {
 	return tree, nil
 }
 
-// ErrorListener collects parsing errors
 type ErrorListener struct {
 	*antlr.DefaultErrorListener
 	Errors []string
@@ -46,7 +45,6 @@ func (e *ErrorListener) HasErrors() bool {
 	return len(e.Errors) > 0
 }
 
-// ParseExpression parses a single expression
 func ParseExpression(source string) (IExpressionContext, error) {
 	input := antlr.NewInputStream(source)
 	lexer := NewArcLexer(input)
@@ -62,7 +60,6 @@ func ParseExpression(source string) (IExpressionContext, error) {
 	return tree, nil
 }
 
-// ParseStatement parses a single statement
 func ParseStatement(source string) (IStatementContext, error) {
 	input := antlr.NewInputStream(source)
 	lexer := NewArcLexer(input)
@@ -78,7 +75,6 @@ func ParseStatement(source string) (IStatementContext, error) {
 	return tree, nil
 }
 
-// ParseBlock parses a block of statements
 func ParseBlock(source string) (IBlockContext, error) {
 	input := antlr.NewInputStream(source)
 	lexer := NewArcLexer(input)
