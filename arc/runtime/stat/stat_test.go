@@ -72,25 +72,30 @@ var _ = Describe("Stat", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("avg").Output(0)
+			resultTime := *s.Node("avg").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[float64](result)
 			Expect(vals[0]).To(BeNumerically("~", 20.0, 0.01))
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
 			*inputNode.Output(0) = telem.NewSeriesV[float64](40.0, 50.0, 60.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result = *s.Node("avg").Output(0)
+			resultTime = *s.Node("avg").OutputTime(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[float64](result)
 			Expect(vals[0]).To(BeNumerically("~", 50.0, 0.01))
+			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
 	})
 	Describe("min", func() {
 		It("Should compute running minimum with duration-based reset", func() {
-			currentTime := telem.TimeStamp(0)
-			mockNow := func() telem.TimeStamp {
-				return currentTime
-			}
 			cfg := state.Config{
 				Nodes: []ir.Node{
 					{
@@ -125,29 +130,42 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{Now: mockNow})
+			factory := stat.NewFactory(stat.Config{})
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:  cfg.Nodes[1],
 				State: s.Node("min"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			// First batch: timestamps [1s, 2s, 3s] with duration 5s
+			// No reset: 3s - 1s = 2s < 5s
 			*inputNode.Output(0) = telem.NewSeriesV[int32](50, 30, 70)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("min").Output(0)
+			resultTime := *s.Node("min").OutputTime(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[int32](result)
 			Expect(vals[0]).To(Equal(int32(30)))
-			currentTime += telem.SecondTS * 6
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
+			// Second batch: timestamps [6s, 7s, 8s]
+			// Reset: 6s - 1s = 5s >= 5s (triggers reset)
 			*inputNode.Output(0) = telem.NewSeriesV[int32](40, 20, 60)
-			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7, 8)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result = *s.Node("min").Output(0)
+			resultTime = *s.Node("min").OutputTime(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[int32](result)
 			Expect(vals[0]).To(Equal(int32(20)))
+			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 8)) // Last input timestamp after reset
 		})
 	})
 	Describe("max", func() {
@@ -211,8 +229,13 @@ var _ = Describe("Stat", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("max").Output(0)
+			resultTime := *s.Node("max").OutputTime(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[uint64](result)
 			Expect(vals[0]).To(Equal(uint64(50)))
+			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
 			*inputNode.Output(0) = telem.NewSeriesV[uint64](25, 15, 70)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 			*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
@@ -221,8 +244,13 @@ var _ = Describe("Stat", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result = *s.Node("max").Output(0)
+			resultTime = *s.Node("max").OutputTime(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[uint64](result)
 			Expect(vals[0]).To(Equal(uint64(70)))
+			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
 	})
 })

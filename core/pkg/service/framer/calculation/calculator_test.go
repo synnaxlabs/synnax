@@ -473,6 +473,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 	})
+
 	Describe("Data Types", func() {
 		Specify("Float32", func() {
 			bases := []channel.Channel{
@@ -507,6 +508,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 	})
+
 	Describe("Accumulation", func() {
 		Specify("Index after data", func() {
 			indexes := []channel.Channel{{
@@ -680,5 +682,57 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 1)))
 			Expect(c.Close()).To(Succeed())
 		})
+	})
+
+	It("Operations", func() {
+		idx := []channel.Channel{{
+			Name:     "time",
+			DataType: telem.TimeStampT,
+			IsIndex:  true,
+		}}
+		base := []channel.Channel{{
+			Name:     "base",
+			DataType: telem.Int64T,
+		}}
+		calc := channel.Channel{
+			Name:       "calc",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return base",
+			Operations: []channel.Operation{
+				{
+					Type:     "avg",
+					Duration: 6 * telem.Second,
+				},
+			},
+		}
+		c := open(&idx, &base, &calc)
+		d := telem.NewSeriesV[int64](10, 20, 30)
+		i := telem.NewSeriesSecondsTSV(1, 2, 3)
+		d.Alignment = telem.NewAlignment(1, 0)
+		i.Alignment = d.Alignment
+		fr := core.MultiFrame(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		Expect(changed).To(BeTrue())
+		Expect(o.Len()).To(BeEquivalentTo(1))
+		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(3)))
+		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+
+		d = telem.NewSeriesV[int64](40, 50, 60)
+		i = telem.NewSeriesSecondsTSV(4, 5, 6)
+		d.Alignment = telem.NewAlignment(1, 3)
+		i.Alignment = d.Alignment
+		fr = core.MultiFrame(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed = MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		Expect(changed).To(BeTrue())
+		Expect(o.Len()).To(BeEquivalentTo(1))
+		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(6)))
+		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 })

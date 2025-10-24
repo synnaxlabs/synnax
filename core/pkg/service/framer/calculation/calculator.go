@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
-	"github.com/synnaxlabs/arc/runtime/derivative"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
+	"github.com/synnaxlabs/arc/runtime/stat"
 	"github.com/synnaxlabs/arc/runtime/state"
 	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
@@ -113,12 +113,44 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 				},
 			},
 		},
-		Edges: []graph.Edge{
+	}
+	if len(cfg.Channel.Operations) == 0 {
+		g2.Edges = []graph.Edge{
 			{
 				Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
 			},
-		},
+		}
+	} else {
+		for i, o := range cfg.Channel.Operations {
+			key := fmt.Sprintf("op_%d", i)
+			nextKey := fmt.Sprintf("op_%d", i)
+			g2.Nodes = append(g2.Nodes, graph.Node{
+				Key:  fmt.Sprintf("op_%d", i),
+				Type: o.Type,
+				ConfigValues: map[string]any{
+					"reset":    o.ResetChannel,
+					"duration": o.Duration,
+				},
+			})
+			if i == 0 {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
+				})
+			}
+			if i == len(cfg.Channel.Operations)-1 {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
+				})
+			} else {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
+				})
+			}
+		}
 	}
 	for k, v := range calcFn.Channels.Read {
 		sym, err := cfg.Resolver.Resolve(ctx, v)
@@ -169,9 +201,9 @@ func OpenCalculator(
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
+	statFactory := stat.NewFactory(stat.Config{})
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	derivativeFactory := derivative.NewFactory()
 	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
 		Module: module,
 	})
@@ -185,8 +217,8 @@ func OpenCalculator(
 		selectFactory,
 		constantFactory,
 		stableFactory,
-		derivativeFactory,
 		wasmFactory,
+		statFactory,
 	}
 
 	f = append(f, wasmFactory)

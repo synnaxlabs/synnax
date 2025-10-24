@@ -153,13 +153,7 @@ export const Editor = ({
 }: EditorProps) => {
   const editorContainerRef = use({ value, onChange, language, isBlock });
   return (
-    <Flex.Box
-      y
-      grow
-      {...rest}
-      className={CSS(className, CSS.B("editor"))}
-      style={{ height: "100%", position: "relative", overflow: "hidden" }}
-    >
+    <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
       <div ref={editorContainerRef} style={{ height: "100%" }} />
     </Flex.Box>
   );

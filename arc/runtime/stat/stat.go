@@ -72,18 +72,25 @@ type reduction struct {
 	duration    telem.TimeSpan
 	resetCount  int64
 	startTime   telem.TimeStamp
-	now         func() telem.TimeStamp
 }
 
 func (r *reduction) Init(_ node.Context) {
-	r.startTime = r.now()
 }
 
 func (r *reduction) Next(ctx node.Context) {
 	if !r.state.RefreshInputs() {
 		return
 	}
+
+	// Initialize start time from first input data timestamp
+	inputTime := r.state.InputTime(0)
+	if r.startTime == 0 && inputTime.Len() > 0 {
+		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
+	}
+
 	shouldReset := false
+
+	// Signal-based reset
 	if r.resetIdx >= 0 {
 		resetData := r.state.Input(r.resetIdx)
 		if resetData.Len() > 0 {
@@ -93,33 +100,44 @@ func (r *reduction) Next(ctx node.Context) {
 			}
 		}
 	}
-	if r.duration > 0 {
-		currentTime := r.now()
+
+	// Duration-based reset (using input data timestamp)
+	if r.duration > 0 && inputTime.Len() > 0 {
+		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
 		if telem.TimeSpan(currentTime-r.startTime) >= r.duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
+
+	// Count-based reset
 	if r.resetCount > 0 && r.sampleCount >= r.resetCount {
 		shouldReset = true
 	}
+
 	if shouldReset {
 		r.sampleCount = 0
 		r.state.Output(0).Resize(0)
 		// Refresh inputs again after reset to pick up fresh data (needed for time alignment/high water marking)
 		r.state.RefreshInputs()
+		// Re-read input time after reset
+		inputTime = r.state.InputTime(0)
 	}
 	inputData := r.state.Input(0)
 	if inputData.Len() == 0 {
 		return
 	}
 	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.state.Output(0))
-	*r.state.OutputTime(0) = r.state.InputTime(0)
+	// Set output timestamp to the last (most recent) input timestamp
+	// Output has 1 value, so output time must also have 1 timestamp
+	if inputTime.Len() > 0 {
+		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		*r.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+	}
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
 type Config struct {
-	Now func() telem.TimeStamp
 }
 
 type reductionFactory struct {
@@ -150,10 +168,6 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	if countVal, ok := cfg.Node.ConfigValues[countParam]; ok {
 		resetCount = countVal.(int64)
 	}
-	nowFn := f.cfg.Now
-	if nowFn == nil {
-		nowFn = telem.Now
-	}
 	return &reduction{
 		state:       cfg.State,
 		resetIdx:    resetIdx,
@@ -161,7 +175,6 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 		sampleCount: 0,
 		duration:    duration,
 		resetCount:  resetCount,
-		now:         nowFn,
 	}, nil
 }
 

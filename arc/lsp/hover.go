@@ -87,39 +87,39 @@ func isWordChar(c byte) bool {
 func (s *Server) getHoverContents(word string) string {
 	switch word {
 	case "func":
-		return "## func\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
+		return "#### func\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
 	case "stage":
-		return "## stage\nDeclares a reactive stage.\n\n```arc\nfunc name{\n    config type\n} (runtime type) returnType {\n    // body\n}\n```"
+		return "#### stage\nDeclares a reactive stage.\n\n```arc\nfunc name{\n    config type\n} (runtime type) returnType {\n    // body\n}\n```"
 	case "if":
-		return "## if\nConditional statement.\n\n```arc\nif condition {\n    // body\n}\n```"
+		return "#### if\nConditional statement.\n\n```arc\nif condition {\n    // body\n}\n```"
 	case "else":
-		return "## else\nAlternative branch for if statement.\n\n```arc\nif condition {\n    // body\n} else {\n    // alternative\n}\n```"
+		return "#### else\nAlternative branch for if statement.\n\n```arc\nif condition {\n    // body\n} else {\n    // alternative\n}\n```"
 	case "return":
-		return "## return\nReturns a value from a function or stage."
+		return "#### return\nReturns a value from a function."
 	case "i8", "i16", "i32", "i64":
 		bits := word[1:]
-		return fmt.Sprintf("## %s\nSigned %s-bit integer.\n\nRange: -%d to %d", word, bits, 1<<(parseInt(bits)-1), (1<<(parseInt(bits)-1))-1)
+		return fmt.Sprintf("#### %s\nSigned %s-bit integer.\n\nRange: -%d to %d", word, bits, 1<<(parseInt(bits)-1), (1<<(parseInt(bits)-1))-1)
 	case "u8", "u16", "u32", "u64":
 		bits := word[1:]
-		return fmt.Sprintf("## %s\nUnsigned %s-bit integer.\n\nRange: 0 to %d", word, bits, (1<<parseInt(bits))-1)
+		return fmt.Sprintf("#### %s\nUnsigned %s-bit integer.\n\nRange: 0 to %d", word, bits, (1<<parseInt(bits))-1)
 	case "f32":
-		return "## f32\n32-bit floating point number (single precision)."
+		return "#### f32\n32-bit floating point number (single precision)."
 	case "f64":
-		return "## f64\n64-bit floating point number (double precision)."
+		return "#### f64\n64-bit floating point number (double precision)."
 	case "string":
-		return "## string\nImmutable UTF-8 encoded string."
+		return "#### string\nImmutable UTF-8 encoded string."
 	case "timestamp":
-		return "## timestamp\nPoint in time represented as nanoseconds since Unix epoch."
+		return "#### timestamp\nPoint in time represented as nanoseconds since Unix epoch."
 	case "timespan":
-		return "## timespan\nDuration represented as nanoseconds."
+		return "#### timespan\nDuration represented as nanoseconds."
 	case "series":
-		return "## series\nHomogeneous array of values.\n\n```arc\nseries f64\n```"
+		return "#### series\nHomogeneous array of values.\n\n```arc\nseries f64\n```"
 	case "chan":
-		return "## chan\nBidirectional channel for communication.\n\n```arc\nchan f64\n```"
+		return "#### chan\nBidirectional channel for communication.\n\n```arc\nchan f64\n```"
 	case "len":
-		return "## len\nReturns the length of a series.\n\n```arc\nlength := len(data)\n```"
+		return "#### len\nReturns the length of a series.\n\n```arc\nlength := len(data)\n```"
 	case "now":
-		return "## now\nReturns the current timestamp.\n\n```arc\ntime := now()\n```"
+		return "#### now\nReturns the current timestamp.\n\n```arc\ntime := now()\n```"
 	default:
 		return ""
 	}

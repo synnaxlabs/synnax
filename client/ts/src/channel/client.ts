@@ -26,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  type Operation,
   type Params,
   type Payload,
   payloadZ,
@@ -113,6 +114,7 @@ export class Channel {
    * the calculated value
    */
   readonly expression: string;
+  readonly operations: Operation[];
   /**
    * The status of the channel.
    */
@@ -131,11 +133,13 @@ export class Channel {
     alias,
     status: argsStatus,
     expression = "",
+    operations = [],
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
     status?: status.Crude;
+    operations?: Operation[];
   }) {
     this.key = keyZ.parse(key);
     this.name = name;
@@ -147,6 +151,7 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
+    this.operations = operations;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -174,6 +179,7 @@ export class Channel {
       virtual: this.virtual,
       expression: this.expression,
       status: this.status,
+      operations: this.operations,
     });
   }
 

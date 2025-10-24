@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
+import { array, type CrudeDataType, DataType, math, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const errorMessage = "Channel key must be a valid uint32.";
@@ -27,6 +27,18 @@ export type KeyOrName = Key | Name;
 export type KeysOrNames = Keys | Names;
 export type PrimitiveParams = Key | Name | Keys | Names;
 
+export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
+export const operationType = z.enum(OPERATION_TYPES);
+export type OperationType = z.infer<typeof operationType>;
+
+export const operationZ = z.object({
+  type: operationType,
+  channel: keyZ.optional(),
+  duration: z.number().optional(),
+});
+
+export type Operation = z.infer<typeof operationZ>;
+
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
@@ -41,6 +53,7 @@ export const payloadZ = z.object({
   alias: z.string().optional(),
   expression: z.string().default(""),
   status: statusZ.optional(),
+  operations: array.nullableZ(operationZ),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -52,6 +65,7 @@ export const newZ = payloadZ.extend({
   internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
   expression: z.string().optional().default(""),
+  operations: array.nullableZ(operationZ).optional(),
 });
 
 export interface New

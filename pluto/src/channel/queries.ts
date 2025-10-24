@@ -110,13 +110,14 @@ export const formSchema = channel.newZ
     path: ["dataType"],
   });
 
-export const calculatedFormSchema = formSchema.safeExtend({
+export const calculatedFormSchema = formSchema.omit({ operations: true }).safeExtend({
   expression: z
     .string()
     .min(1, "Expression must not be empty")
     .refine((v) => v.includes("return"), {
       message: "Expression must contain a return statement",
     }),
+  operation: channel.operationZ,
 });
 
 const channelToFormValues = (ch: channel.Channel) => ({
@@ -141,6 +142,11 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
+  operation: {
+    type: "none",
+    channel: 0,
+    duration: 0,
+  },
 };
 
 const retrieveSingle = async ({
