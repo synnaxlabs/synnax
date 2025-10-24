@@ -206,7 +206,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const viewportRef = useSyncedRef(state.graph.viewport);
   const canEdit = Access.useHasPermission({
     objects: arc.ontologyID(layoutKey),
-    action: "create",
+    actions: "create",
   });
   if (!canEdit && state.graph.editable)
     dispatch(setEditable({ key: layoutKey, editable: false }));

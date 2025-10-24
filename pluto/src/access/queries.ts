@@ -40,6 +40,7 @@ const retrievePoliciesForSubject = async ({
     const roles = store.roles.get(rels.map((r) => r.to.key));
     return store.policies.get(roles.flatMap((r) => r.policies));
   }
+  const roles = await client.access.roles.retrieve({ for: subject });
   return await client.access.policies.retrieve({ for: subject });
 };
 
