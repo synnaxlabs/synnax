@@ -73,7 +73,7 @@ const baseWriterConfigZ = z.object({
    * If enableAutoCommit is true, then the writer will commit after each write, and
    * will flush that commit to index after the specified autoIndexPersistInterval.
    */
-  enableAutoCommit: z.boolean().default(false),
+  enableAutoCommit: z.boolean().default(true),
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
