@@ -39,6 +39,7 @@ type WriterConfig struct {
 	// each write. If EnableAutoCommit is true, then the writer will commit after each
 	// write, and will flush that commit to index on FS after the specified
 	// AutoIndexPersistInterval.
+	//
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are

@@ -349,7 +349,6 @@ for (let i = 0; i < 100; i++) {
   const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    enableAutoCommit: true,
   });
   await writer.write({
     time: TimeStamp.now(),
@@ -366,7 +365,6 @@ Instead, repeatedly call `write` on a single writer:
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
-  enableAutoCommit: true,
 });
 try {
   for (let i = 0; i < 100; i++)

@@ -77,7 +77,7 @@ type WriterConfig struct {
 	// write, and will flush that commit to index on FS after the specified
 	// AutoIndexPersistInterval.
 	//
-	// [OPTIONAL] - Defaults to false.
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set

@@ -217,7 +217,6 @@ class Client:
             strict=strict,
             mode=WriterMode.PERSIST,
             err_on_unauthorized=True,
-            enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
             w.write(channels, series)
