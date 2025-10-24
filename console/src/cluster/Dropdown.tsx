@@ -9,17 +9,7 @@
 
 import "@/cluster/Dropdown.css";
 
-import { Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Dialog,
-  Flex,
-  List as CoreList,
-  Select,
-  Synnax,
-  Text,
-  User,
-} from "@synnaxlabs/pluto";
+import { Button, Dialog, Flex, Icon, Synnax, type Text, User } from "@synnaxlabs/pluto";
 import {
   type MouseEvent,
   type PropsWithChildren,
@@ -30,49 +20,10 @@ import { useDispatch } from "react-redux";
 
 import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
-import { useSelect } from "@/cluster/selectors";
-import { rename, setActive } from "@/cluster/slice";
+import { setActive } from "@/cluster/slice";
 import { EmptyAction } from "@/components";
-import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Workspace } from "@/workspace";
-
-interface ListItemProps extends CoreList.ItemProps<string> {
-  validateName: (name: string) => boolean;
-}
-
-const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
-  const dispatch = useDispatch();
-  const item = useSelect(rest.itemKey);
-  const { selected, onSelect } = Select.useItemState(rest.itemKey);
-  const handleChange = (value: string) => {
-    if (!validateName(value) || item == null) return;
-    dispatch(rename({ key: item.key, name: value }));
-  };
-
-  if (item == null) return null;
-  return (
-    <CoreList.Item
-      className={CSS(CSS.B("cluster-list-item"))}
-      y
-      selected={selected}
-      onSelect={onSelect}
-      gap="small"
-      {...rest}
-    >
-      <Text.MaybeEditable
-        id={`cluster-dropdown-${item.key}`}
-        weight={500}
-        value={item.name}
-        onChange={handleChange}
-        allowDoubleClick={false}
-      />
-      <Text.Text color={9} weight={450}>
-        {item.host}:{item.port}
-      </Text.Text>
-    </CoreList.Item>
-  );
-};
 
 export interface NoneConnectedBoundaryProps extends PropsWithChildren {}
 
@@ -153,8 +104,10 @@ export const Dropdown = (): ReactElement => {
             dispatch(Layout.clearWorkspace());
           }}
           variant="text"
+          full="x"
         >
-          Sign Out
+          <Icon.Logout />
+          Log out
         </Button.Button>
       </Dialog.Dialog>
     </Dialog.Frame>

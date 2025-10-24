@@ -185,8 +185,8 @@ export const ClusterList = ({ value, onChange }: ClusterListProps): ReactElement
             <Icon.Cluster />
             Cores
           </Header.Title>
-          <Button.Button onClick={() => placeLayout(CONNECT_LAYOUT)} variant="text">
-            Connect Core
+          <Button.Button onClick={() => placeLayout(CONNECT_LAYOUT)} variant="filled">
+            <Icon.Connect />
           </Button.Button>
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>

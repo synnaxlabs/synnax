@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/LoginScreen.css";
-
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Form, Status, Text, type Triggers } from "@synnaxlabs/pluto";
@@ -87,15 +85,22 @@ export const Login = (): ReactElement => {
             x
             style={{ width: "800px", height: "400px" }}
             grow={false}
-            rounded={1}
+            rounded={1.5}
             background={0}
           >
             <ClusterList value={selectedKey} onChange={setSelectedKey} />
-            <Flex.Box y gap="huge" style={{ padding: "10rem" }} bordered grow>
+            <Flex.Box
+              y
+              gap="huge"
+              style={{ padding: "10rem" }}
+              bordered
+              grow
+              className="magicpattern"
+            >
               <Form.Form<typeof credentialsZ> {...methods}>
                 <Flex.Box y align="center" grow gap="huge">
-                  <Text.Text level="h3" color={11} weight={450}>
-                    Connect to {selectedCluster?.name}
+                  <Text.Text level="h2" color={11} weight={450}>
+                    Log in to {selectedCluster?.name}
                   </Text.Text>
                   <Flex.Box y full="x" empty>
                     <Form.TextField
