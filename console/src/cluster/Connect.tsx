@@ -106,7 +106,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
               autoFocus: true,
               variant: "text",
               level: "h2",
-              placeholder: "My Synnax Cluster",
+              placeholder: "Synnax Core",
               grow: true,
             }}
           />

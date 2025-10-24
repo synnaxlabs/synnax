@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Writes"
 heading: "Writing Data"
-description: "Learn the process for writing data to a Synnax cluster."
+description: "Learn the process for writing data to a Synnax Core."
 next: "Streams"
 nextURL: "/reference/concepts/streams"
 prev: "Reads"
@@ -18,20 +18,20 @@ import Code from "@/components/code/Code.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This page documents the high-level process of writing data to a cluster, including
+This page documents the high-level process of writing data to a Core, including
 transactions, streaming/persistence modes, and dynamic control handoff. This page is a
 theoretical introduction. For practical guides on writing data using a client library,
-see the [Python Client](/reference/python-client/write-data) and
-[TypeScript Client](/reference/typescript-client/write-data) pages.
+see the [Python client](/reference/python-client/write-data) and
+[TypeScript client](/reference/typescript-client/write-data) pages.
 
 <Divider.Divider x />
 
 ## Introduction
 
-Writing data to Synnax involves sending batches of telemetry samples to a cluster. These
+Writing data to Synnax involves sending batches of telemetry samples to a Core. These
 batches are called [frames](/reference/concepts/overview#frames). The primary interface
 for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to
-pipes that continuously feed a cluster with frames of data for one or more channels.
+pipes that continuously feed a Core with frames of data for one or more channels.
 
 When ingesting historical data, it's common to quickly write many large frames of
 previously recorded values. These frames can contain tens of thousands to millions of
@@ -41,8 +41,8 @@ written over long periods of time.
 
 ### How writers are used in Synnax
 
-There can be many writers open on a single Synnax cluster at once. Each writer can serve
-a different purpose. For example, one writer might be responsible for sending incoming
+There can be many writers open on a single Synnax Core at once. Each writer can serve a
+different purpose. For example, one writer might be responsible for sending incoming
 sensor values from a device. Another writer can send control commands to a device with
 actuators connected to it.
 
@@ -63,12 +63,12 @@ a user clicks on a valve or other control element.
 
 ## Transactions
 
-Each writer governs an atomic transaction against the Synnax cluster. To begin a
+Each writer governs an atomic transaction against the Synnax Core. To begin a
 transaction, we open a new writer and start writing data frames using a file like
 interface. After we're done writing, we commit the writer to the database, making it
 available for reading. Synnax transactions are unique in that they can be committed
 **multiple** times, where each new commit extends the data written in the previous
-commit. After the final commit, the user closes the writer, at which point the cluster
+commit. After the final commit, the user closes the writer, at which point the Core
 releases all write-related resources and the transaction is complete.
 
 ### Open Phase
@@ -98,7 +98,7 @@ To start a new transaction, we need to provide the following information.
 
 Synnax will use these arguments to validate two things before opening the writer:
 
-1. That all channels exist in the Synnax cluster.
+1. That all channels exist in the Synnax Core.
 2. That no existing data overlaps with the provided timestamp.
 
 #### Optional Arguments
@@ -110,16 +110,17 @@ There are also a few optional arguments we can provide when opening a writer:
     <tr>
       <th>Argument</th>
       <th>Description</th>
+      <th>Default</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>
-        <a href="#persistencestreaming-modes">Mode</a>
+        <a href="#writer-modes">Mode</a>
       </td>
       {/* prettier-ignore */}
-      <td>The persistence/streaming mode of the writer. This can be persist only,
-                stream only, or stream + persist.</td>
+      <td>The persistence/streaming mode of the writer. This can be persist only, stream only, or stream and persist. </td>
+      <td>stream and persist</td>
     </tr>
     <tr>
       <td>
@@ -127,13 +128,15 @@ There are also a few optional arguments we can provide when opening a writer:
       </td>
       {/* prettier-ignore */}
       <td>The authority to set for the writer. This is used for dynamic control
-                handoff between multiple writers.</td>
+          handoff between multiple writers.</td>
+      <td>absolute (255)</td>
     </tr>
     <tr>
-      <td>Auto-Commit</td>
-      {/* prettier-ignore */}
-      <td>Whether writes should be immediately committed to the Synnax
-            Cluster.</td>
+      <td>
+        <a href="#auto-commit">Auto-Commit</a>
+      </td>
+      <td>Whether writes should be immediately committed to the Synnax Core.</td>
+      <td>true</td>
     </tr>
   </tbody>
 </Table>
@@ -179,17 +182,18 @@ by adding frames. It's common for writers to be open for many hours or even days
 ### Commit Phase
 
 Once we're ready to persist the transaction and make it available for reads, we call the
-`commit` method on our writer. During this phase, the cluster identifies the time range
-of the writer based on the provided starting timestamp and the samples written. The
-commit process succeeds and the write is now available for reads. After this phase
-completes, the transaction is moved back into the write phase. At this point, we can
-either write more frames to the cluster and commit again, or we can close the writer.
+`commit` method on our writer. During this phase, the Core identifies the time range of
+the writer based on the provided starting timestamp and the samples written. The commit
+process succeeds and the write is now available for reads. After this phase completes,
+the transaction is moved back into the write phase. At this point, we can either write
+more frames to the Core and commit again, or we can close the writer.
 
 #### Auto-commit
 
-If the writer is configured with auto-commit on, every write is immediately committed
-and available for reads. This method is useful for real-time data that does not need to
-be applied atomically.
+By default, writers are configured with auto-commit enabled. When auto-commit is on,
+every write is immediately committed and available for reads. This method is useful for
+real-time data that does not need to be applied atomically. You can disable auto-commit
+if you need to apply writes atomically in batches.
 
 ### Close Phase
 
@@ -209,17 +213,17 @@ Synnax supports three modes for writing data: persist, stream, and stream-and-pe
 When a writer is opened in **persist** mode, the data it writes will not be sent to
 streamers listening on the channel being written to. These writers can _not_ be used for
 real-time consumption or monitoring. Persist mode is commonly used when writing
-historical data to a cluster that doesn't represent the current state of the hardware
+historical data to a Core that doesn't represent the current state of the hardware
 system.
 
 ### Stream
 
-When opened in **stream** mode, the writer will not commit any written data to the
-cluster, and calls to `commit` will have no effect. This is useful when operating in
-scenarios where data is only needed for real-time consumption, but does not need to be
-accessed historically.
+When opened in **stream** mode, the writer will not commit any written data to the Core,
+and calls to `commit` will have no effect. This is useful when operating in scenarios
+where data is only needed for real-time consumption, but does not need to be accessed
+historically.
 
-### Stream + Persist
+### Stream and Persist
 
 When opened in **stream-and-persist** mode, the writer will both persist the samples and
 stream them to any streamers listening on the channel. This is the default mode for a

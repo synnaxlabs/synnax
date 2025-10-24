@@ -130,7 +130,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
+        message: `Cannot acquire control on ${this.state.name} because no Core has been connected.`,
         variant: "warning",
       });
 
@@ -153,7 +153,6 @@ export class Controller
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
-        enableAutoCommit: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
@@ -278,7 +277,7 @@ export class SetChannelValue
   set(...values: number[]): void {
     this.runAsync(async () => {
       const { client } = this.controller.internal;
-      if (client == null) throw new DisconnectedError("No cluster connected");
+      if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
       const ch = await client.channels.retrieve(this.props.channel);

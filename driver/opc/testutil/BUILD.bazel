@@ -1,0 +1,19 @@
+cc_library(
+    name = "testutil",
+    srcs = [
+        "read.cpp",
+    ],
+    hdrs = [
+        "testutil.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/opc/errors",
+        "//driver/opc/telem",
+        "//driver/opc/types",
+        "//vendor/open62541",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
+)
