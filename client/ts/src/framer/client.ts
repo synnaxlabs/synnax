@@ -125,7 +125,6 @@ export class Client {
         channels: Object.keys(data_),
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
-        enableAutoCommit: true,
         autoIndexPersistInterval: TimeSpan.MAX,
       });
       await w.write(data_);
@@ -136,7 +135,6 @@ export class Client {
       channels: channels as channel.Params,
       mode: WriterMode.Persist,
       errOnUnauthorized: true,
-      enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
     await w.write(channels as channel.Params, data);

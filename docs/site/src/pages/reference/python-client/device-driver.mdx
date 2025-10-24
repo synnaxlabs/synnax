@@ -314,9 +314,6 @@ with client.open_writer(
     start=sy.TimeStamp.now(),
     # The list of channels we'll be writing to.
     channels=["arduino_time", "arduino_value"]
-    # Tell Synnax to immediately persist all recorded data for
-    # historical access.
-    enable_auto_commit=True
 ) as writer:
     while True:
         # Read from the serial connection
@@ -378,7 +375,6 @@ else:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
-    enable_auto_commit=True
 ) as writer:
     while True:
         # Read from the serial connection
@@ -706,7 +702,6 @@ with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
-        enable_auto_commit=True
     ) as writer:
         while True:
             fr = streamer.read(timeout=0)
@@ -779,7 +774,6 @@ with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
-        enable_auto_commit=True
     ) as writer:
         while True:
             fr = streamer.read(timeout=0)

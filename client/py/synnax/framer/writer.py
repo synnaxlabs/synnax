@@ -69,7 +69,7 @@ class WriterConfig(Payload):
     keys: ChannelKeys
     mode: WriterMode = WriterMode.PERSIST_STREAM
     err_on_unauthorized: bool = False
-    enable_auto_commit: bool = False
+    enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
@@ -184,7 +184,7 @@ class Writer:
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
-        enable_auto_commit: bool = False,
+        enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         use_experimental_codec: bool = True,
     ) -> None:

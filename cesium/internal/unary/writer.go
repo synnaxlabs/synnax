@@ -48,7 +48,8 @@ type WriterConfig struct {
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
 	// EnableAutoCommit denotes whether each write is committed.
-	// [OPTIONAL] - Defaults to False
+	//
+	// [OPTIONAL] - Defaults to True
 	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk.
@@ -69,7 +70,7 @@ var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
 		Persist:                  config.True(),
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}

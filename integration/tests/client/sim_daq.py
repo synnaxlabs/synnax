@@ -172,7 +172,6 @@ class SimDaq(TestCase):
                     "press_pt",
                 ],
                 name="Simulated DAQ",
-                enable_auto_commit=True,
             ) as writer:
 
                 def test_active() -> bool:

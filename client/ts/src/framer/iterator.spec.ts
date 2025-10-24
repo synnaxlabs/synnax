@@ -68,7 +68,6 @@ describe("Iterator", () => {
     const writer = await client.openWriter({
       start: TimeStamp.SECOND,
       channels,
-      enableAutoCommit: true,
     });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 10),
