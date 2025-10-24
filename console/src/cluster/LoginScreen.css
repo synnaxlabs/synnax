@@ -10,7 +10,7 @@
  */
 
 .pluto-login-screen {
-    min-height: 100vh;
+    /* min-height: 100vh;
     .pluto-login-container {
         .synnax-logo {
             width: min(60rem, 80vw);
@@ -19,5 +19,5 @@
         top: 20%;
         width: 400px;
         padding: 4rem 8rem;
-    }
+    } */
 }

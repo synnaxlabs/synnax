@@ -144,3 +144,21 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
     await client.users.create(value());
   },
 });
+
+export const { useRetrieve } = Flux.createRetrieve<
+  Partial<RetrieveQuery>,
+  user.User,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query, store }) => {
+    const { key } = query;
+    if (key == null) {
+      const user = client?.auth?.user;
+      if (user == null) await client.connectivity.check();
+      return client?.auth?.user as user.User;
+    }
+    const user = await retrieveSingle({ client, query: { key }, store });
+    return user;
+  },
+});

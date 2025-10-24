@@ -11,14 +11,16 @@ import "@/cluster/LoginScreen.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Form, Status, type Triggers } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Status, Text, type Triggers } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { type ConnectionParams } from "@/cluster/detectConnection";
-import { type Cluster } from "@/cluster/types";
+import { ClusterList } from "@/auth/Guard";
+import { Cluster } from "@/cluster";
+import { setActive } from "@/cluster/slice";
+import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { set as setVersion } from "@/version/slice";
 
@@ -31,15 +33,13 @@ const credentialsZ = z.object({
 
 export interface Credentials extends z.infer<typeof credentialsZ> {}
 
-export interface LoginProps {
-  connection: ConnectionParams;
-  onSuccess: (cluster: Cluster) => void;
-}
-
-export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
+export const Login = (): ReactElement => {
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
+  const initialSelected = Cluster.useSelectMany()[0]?.key;
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(initialSelected);
+  const selectedCluster = Cluster.useSelect(selectedKey);
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
 
@@ -60,10 +60,10 @@ export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
 
   const handleSubmit = (): void =>
     handleError(async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate() || selectedCluster == null) return;
       const credentials = methods.value();
       setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...connection, ...credentials });
+      const client = new Client({ ...selectedCluster, ...credentials });
       const state = await client.connectivity.check();
       if (state.status !== "connected") {
         const message = state.message ?? "Unknown error";
@@ -71,54 +71,68 @@ export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
       }
       // Use the cluster's version as the console version on web.
       if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
-      onSuccess({
-        key: state.clusterKey,
-        name: "Core",
-        ...connection,
-        ...credentials,
-      });
+      dispatch(Cluster.set({ ...selectedCluster, ...credentials }));
+      dispatch(setActive(selectedCluster.key));
     }, "Failed to sign in");
 
   return (
     <>
       <Layouts.Notifications />
-      <Flex.Box className="pluto-login-screen" center y>
-        <Flex.Box className="pluto-login-container" y gap="huge">
-          <Flex.Box y gap="small" align="center">
-            <Logo variant="title" />
-          </Flex.Box>
-          <Form.Form<typeof credentialsZ> {...methods}>
-            <Flex.Box y empty align="center" grow>
-              <Flex.Box y grow full="x" empty>
-                <Form.TextField
-                  path="username"
-                  inputProps={{ placeholder: "synnax", autoFocus: true, size: "large" }}
-                />
-                <Form.TextField
-                  path="password"
-                  inputProps={{
-                    placeholder: "seldon",
-                    type: "password",
-                    size: "large",
-                  }}
-                />
-              </Flex.Box>
-              <Flex.Box style={{ height: "5rem" }}>
-                {stat.message !== "" && (
-                  <Status.Summary variant={stat.variant} message={stat.message} />
-                )}
-              </Flex.Box>
-              <Button.Button
-                onClick={handleSubmit}
-                status={stat.variant}
-                trigger={SIGN_IN_TRIGGER}
-                variant="filled"
-                size="large"
-              >
-                Sign In
-              </Button.Button>
+      <Layout.Modals />
+      <Flex.Box center background={1} gap="huge">
+        <Logo variant="title" style={{ height: "10rem" }} />
+        <Flex.Box y>
+          <Flex.Box
+            pack
+            x
+            style={{ width: "800px", height: "400px" }}
+            grow={false}
+            rounded={1}
+            background={0}
+          >
+            <ClusterList value={selectedKey} onChange={setSelectedKey} />
+            <Flex.Box y gap="huge" style={{ padding: "10rem" }} bordered grow>
+              <Form.Form<typeof credentialsZ> {...methods}>
+                <Flex.Box y align="center" grow gap="huge">
+                  <Text.Text level="h3" color={11} weight={450}>
+                    Connect to {selectedCluster?.name}
+                  </Text.Text>
+                  <Flex.Box y full="x" empty>
+                    <Form.TextField
+                      path="username"
+                      inputProps={{
+                        placeholder: "synnax",
+                        autoFocus: true,
+                        size: "large",
+                      }}
+                    />
+                    <Form.TextField
+                      path="password"
+                      inputProps={{
+                        placeholder: "seldon",
+                        type: "password",
+                        size: "large",
+                      }}
+                    />
+                  </Flex.Box>
+                  <Flex.Box style={{ height: "5rem" }}>
+                    {stat.message !== "" && (
+                      <Status.Summary variant={stat.variant} message={stat.message} />
+                    )}
+                  </Flex.Box>
+                  <Button.Button
+                    onClick={handleSubmit}
+                    status={stat.variant}
+                    trigger={SIGN_IN_TRIGGER}
+                    variant="filled"
+                    size="large"
+                  >
+                    Sign In
+                  </Button.Button>
+                </Flex.Box>
+              </Form.Form>
             </Flex.Box>
-          </Form.Form>
+          </Flex.Box>
         </Flex.Box>
       </Flex.Box>
     </>

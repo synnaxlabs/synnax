@@ -167,3 +167,22 @@ export default class Synnax extends framer.Client {
     this.connectivity.stopChecking();
   }
 }
+
+export const checkConnection = async ({
+  host,
+  port,
+  secure,
+}: Pick<SynnaxProps, "host" | "port" | "secure" | "retry">) => {
+  const transport = new Transport(
+    new URL({ host, port: Number(port) }),
+    undefined,
+    secure,
+  );
+  const [, err] = await transport.unary.send(
+    "/connectivity/check",
+    {},
+    z.object({}),
+    z.object({}),
+  );
+  if (err != null) throw err;
+};

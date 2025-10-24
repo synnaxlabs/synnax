@@ -49,8 +49,8 @@ export interface ChangeKeyPayload {
 }
 
 const checkName = (state: SliceState, name: string) => {
-  if (Object.values(state.clusters).some((c) => c.name === name))
-    throw new Error(`A cluster with the name ${name} already exists.`);
+  // if (Object.values(state.clusters).some((c) => c.name === name))
+  //   throw new Error(`A cluster with the name ${name} already exists.`);
 };
 
 const {
@@ -68,7 +68,6 @@ const {
       const predefinedKey = getPredefinedClusterKey(cluster);
       if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
-      state.activeCluster ??= cluster.key;
     },
     remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
       array.toArray(keys).forEach((key) => delete clusters[key]),

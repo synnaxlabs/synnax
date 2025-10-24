@@ -9,7 +9,7 @@
 
 import "@/cluster/Connect.css";
 
-import { type connection, Synnax as Client } from "@synnaxlabs/client";
+import { checkConnection, type connection, Synnax as Client } from "@synnaxlabs/client";
 import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -33,15 +33,20 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Cluster.Connect",
   icon: "Cluster",
   location: "modal",
-  window: { resizable: false, size: { height: 430, width: 650 }, navTop: true },
+  window: { resizable: false, size: { height: 300, width: 650 }, navTop: true },
 };
 
-const ZERO_VALUES: z.infer<typeof clusterZ> = {
+const baseFormSchema = clusterZ.pick({
+  name: true,
+  host: true,
+  port: true,
+  secure: true,
+});
+
+const ZERO_VALUES: z.infer<typeof baseFormSchema> = {
   name: "",
   host: "",
   port: "",
-  username: "",
-  password: "",
   secure: false,
 };
 
@@ -54,7 +59,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
   const names = useSelectAllNames();
-  const formSchema = clusterZ.check(({ value: { name }, issues }) => {
+  const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
     if (names.includes(name))
       issues.push({
         input: name,
@@ -69,23 +74,25 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     values: { ...ZERO_VALUES },
   });
 
-  const createWS = useCreateOrRetrieve();
-
   const handleSubmit = (): void =>
     handleError(async () => {
       if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
-      const state = await testConnection(data);
+      await checkConnection(data);
       setLoading(null);
-      setConnState(state);
-      if (state.status !== "connected") return;
+      setConnState({
+        status: "connected",
+        message: "Connected to cluster",
+        clusterKey: "123",
+        nodeVersion: "1.0.0",
+        clientVersion: "1.0.0",
+        clientServerCompatible: true,
+      });
       setTimeout(() => {
-        const clusterProps = { ...data, key: state.clusterKey };
-        dispatch(set(clusterProps));
-        dispatch(setActive(state.clusterKey));
-        createWS(new Client(clusterProps));
+        const clusterProps = { ...data, key: "123" };
+        dispatch(set({ ...clusterProps, username: "", password: "" }));
         onClose();
       }, 500);
     }, "Failed to connect to cluster");
@@ -117,17 +124,6 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
             <Form.Field<string> path="port">
               {(p) => <Input.Text placeholder="9090" {...p} />}
             </Form.Field>
-          </Flex.Box>
-          <Form.Field<string> path="username">
-            {(p) => <Input.Text placeholder="synnax" {...p} full="x" />}
-          </Form.Field>
-          <Flex.Box x align="stretch">
-            <Form.Field<string> path="password" grow>
-              {(p) => (
-                <Input.Text {...p} placeholder="seldon" type="password" full="x" />
-              )}
-            </Form.Field>
-            <Form.SwitchField path="secure" label="Secure" />
           </Flex.Box>
         </Flex.Box>
       </Form.Form>
