@@ -574,8 +574,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error> open_writer(const WriterConfig &cfg
-    ) const;
+    [[nodiscard]] std::pair<Writer, xerrors::Error>
+    open_writer(const WriterConfig &cfg) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
     /// information on configuration parameters, see StreamerConfig.

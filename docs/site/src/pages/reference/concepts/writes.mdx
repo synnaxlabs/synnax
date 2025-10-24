@@ -116,11 +116,11 @@ There are also a few optional arguments we can provide when opening a writer:
   <tbody>
     <tr>
       <td>
-        <a href="#persistencestreaming-modes">Mode</a>
+        <a href="#writer-modes">Mode</a>
       </td>
       {/* prettier-ignore */}
-      <td>The persistence/streaming mode of the writer. This can be persist only,
-                stream only, or stream + persist.</td>
+      <td>The persistence/streaming mode of the writer. This can be persist only, stream only, or stream and persist. </td>
+      <td>stream and persist</td>
     </tr>
     <tr>
       <td>
@@ -129,10 +129,14 @@ There are also a few optional arguments we can provide when opening a writer:
       {/* prettier-ignore */}
       <td>The authority to set for the writer. This is used for dynamic control
           handoff between multiple writers.</td>
+      <td>absolute (255)</td>
     </tr>
     <tr>
-      <td>Auto-Commit</td>
+      <td>
+        <a href="#auto-commit">Auto-Commit</a>
+      </td>
       <td>Whether writes should be immediately committed to the Synnax Core.</td>
+      <td>true</td>
     </tr>
   </tbody>
 </Table>
@@ -219,7 +223,7 @@ and calls to `commit` will have no effect. This is useful when operating in scen
 where data is only needed for real-time consumption, but does not need to be accessed
 historically.
 
-### Stream + Persist
+### Stream and Persist
 
 When opened in **stream-and-persist** mode, the writer will both persist the samples and
 stream them to any streamers listening on the channel. This is the default mode for a
