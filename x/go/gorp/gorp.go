@@ -22,7 +22,7 @@ import (
 func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
-// the Writer interface, so it can be provided to Params.set.
+// the Writer interface, so it can be provided to Inputs.set.
 type DB struct {
 	kv.DB
 	options

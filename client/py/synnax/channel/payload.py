@@ -38,7 +38,6 @@ class ChannelPayload(Payload):
     internal: bool = False
     virtual: bool = False
     expression: str | None = ""
-    requires: ChannelKeys | None = []
 
     def __str__(self):
         return f"Channel(name={self.name}, key={self.key})"

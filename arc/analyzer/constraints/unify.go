@@ -11,218 +11,255 @@ package constraints
 
 import (
 	"fmt"
+	"maps"
 
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Unify solves all constraints in the system and produces type substitutions
 func (s *System) Unify() error {
-	// Use a simple unification algorithm
-	// Process each constraint and try to unify the types
-	for _, c := range s.constraints {
-		if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
-			return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
+	const maxIterations = 100
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		var (
+			changed      = false
+			previousSubs = maps.Clone(s.substitutions)
+		)
+		for _, c := range s.constraints {
+			if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
+				return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
+			}
+		}
+		if len(s.substitutions) != len(previousSubs) {
+			changed = true
+		} else {
+			for k, newVal := range s.substitutions {
+				if oldVal, exists := previousSubs[k]; !exists || !types.Equal(oldVal, newVal) {
+					changed = true
+					break
+				}
+			}
+		}
+		// If no changes occurred, we've reached a fixpoint
+		if !changed {
+			break
+		}
+		// Safety check for infinite loops
+		if iteration == maxIterations-1 {
+			return errors.Newf("type unification did not converge after %d iterations (possible constraint conflict)", maxIterations)
 		}
 	}
 
-	// Check that all type variables have been resolved
+	// Resolve remaining unresolved type variables with defaults
 	for name, tv := range s.typeVars {
 		if _, resolved := s.substitutions[name]; !resolved {
-			// If not resolved, check if it has a constraint that provides a default
 			if tv.Constraint != nil {
-				// Use the constraint as a default (e.g., NumericConstraint -> F64)
-				s.substitutions[name] = defaultTypeForConstraint(tv.Constraint)
+				s.substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 			} else {
 				return errors.Newf("type variable %s could not be resolved", name)
 			}
 		}
 	}
-
 	return nil
 }
 
-// unifyTypes attempts to unify two types, updating substitutions as needed
-func (s *System) unifyTypes(t1, t2 ir.Type, source Constraint) error {
+func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
 	return s.unifyTypesWithVisited(t1, t2, source, make(map[string]bool))
 }
 
-// unifyTypesWithVisited is the internal recursive function with cycle detection
-func (s *System) unifyTypesWithVisited(t1, t2 ir.Type, source Constraint, visiting map[string]bool) error {
-	// Apply existing substitutions first
+func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, visiting map[string]bool) error {
+	// Check for type variables BEFORE applying substitutions
+	// This preserves the original type variable for updating
+	if t1.Kind == types.KindTypeVariable {
+		if visiting[t1.Name] {
+			return nil
+		}
+		visiting[t1.Name] = true
+		err := s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
+		delete(visiting, t1.Name)
+		return err
+	}
+	if t2.Kind == types.KindTypeVariable {
+		if visiting[t2.Name] {
+			return nil
+		}
+		visiting[t2.Name] = true
+		err := s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
+		delete(visiting, t2.Name)
+		return err
+	}
+
+	// Now apply substitutions for non-type-variable types
 	t1 = s.ApplySubstitutions(t1)
 	t2 = s.ApplySubstitutions(t2)
-
-	// If they're already equal, we're done
-	if ir.Equal(t1, t2) {
+	if types.Equal(t1, t2) {
 		return nil
 	}
 
-	// Handle type variables with cycle detection
-	if tv1, ok := t1.(ir.TypeVariable); ok {
-		if visiting[tv1.Name] {
-			// We're already visiting this type variable, which means there's a cycle
-			// Break the cycle by not recursing further
-			return nil
-		}
-		visiting[tv1.Name] = true
-		err := s.unifyTypeVariableWithVisited(tv1, t2, source, visiting)
-		delete(visiting, tv1.Name)
-		return err
-	}
-	if tv2, ok := t2.(ir.TypeVariable); ok {
-		if visiting[tv2.Name] {
-			// We're already visiting this type variable, which means there's a cycle
-			// Break the cycle by not recursing further
-			return nil
-		}
-		visiting[tv2.Name] = true
-		err := s.unifyTypeVariableWithVisited(tv2, t1, source, visiting)
-		delete(visiting, tv2.Name)
-		return err
-	}
-
-	// Handle compound types
-	if ch1, ok1 := t1.(ir.Chan); ok1 {
-		if ch2, ok2 := t2.(ir.Chan); ok2 {
-			return s.unifyTypesWithVisited(ch1.ValueType, ch2.ValueType, source, visiting)
+	if t1.Kind == types.KindChan || t1.Kind == types.KindSeries {
+		if t2.Kind == types.KindChan || t2.Kind == types.KindSeries {
+			return s.unifyTypesWithVisited(t1.Unwrap(), t2.Unwrap(), source, visiting)
 		}
 		return errors.Newf("cannot unify channel %v with %v", t1, t2)
 	}
 
-	if s1, ok1 := t1.(ir.Series); ok1 {
-		if s2, ok2 := t2.(ir.Series); ok2 {
-			return s.unifyTypesWithVisited(s1.ValueType, s2.ValueType, source, visiting)
-		}
-		return errors.Newf("cannot unify series %v with %v", t1, t2)
-	}
-
-	// Handle compatible types (for numeric promotion)
-	if source.Kind == KindCompatible && ir.IsNumeric(t1) && ir.IsNumeric(t2) {
-		// For compatible constraints, both numeric types can work together
-		// The actual promotion happens at codegen time
+	if source.Kind == KindCompatible && t1.IsNumeric() && t2.IsNumeric() {
 		return nil
 	}
 
-	// Types are not unifiable
 	return errors.Newf("types %v and %v are not unifiable", t1, t2)
 }
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
-func (s *System) unifyTypeVariableWithVisited(tv ir.TypeVariable, other ir.Type, source Constraint, visiting map[string]bool) error {
-	// Check if the type variable already has a substitution
+func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, source Constraint, visiting map[string]bool) error {
 	if existing, exists := s.substitutions[tv.Name]; exists {
-		// Try to unify the existing substitution with the new type
+		// Type variable already has a substitution
+		// If we're in a compatible context with numeric types, we may need to promote
+		if source.Kind == KindCompatible && existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
+			// Compute the promoted type
+			promoted := promoteNumericTypes(existing, other)
+			// Always update to promoted type (even if same as existing)
+			s.substitutions[tv.Name] = promoted
+			return s.unifyTypesWithVisited(promoted, other, source, visiting)
+		}
 		return s.unifyTypesWithVisited(existing, other, source, visiting)
 	}
 
-	// Check if other is also a type variable
-	if otherTV, ok := other.(ir.TypeVariable); ok {
-		// Check if the other variable has a substitution
-		if otherSub, exists := s.substitutions[otherTV.Name]; exists {
+	if other.Kind == types.KindTypeVariable {
+		if otherSub, exists := s.substitutions[other.Name]; exists {
 			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
 		}
-
-		// Neither has a substitution - link them
-		// Choose the one with more specific constraint
-		if tv.Constraint != nil && otherTV.Constraint == nil {
-			s.substitutions[otherTV.Name] = tv
+		if tv.Constraint != nil && other.Constraint == nil {
+			s.substitutions[other.Name] = tv
 			return nil
-		} else if otherTV.Constraint != nil && tv.Constraint == nil {
-			s.substitutions[tv.Name] = otherTV
+		} else if other.Constraint != nil && tv.Constraint == nil {
+			s.substitutions[tv.Name] = other
 			return nil
-		} else if tv.Name != otherTV.Name {
-			// Both have constraints or neither do - link one to the other
-			s.substitutions[tv.Name] = otherTV
+		} else if tv.Name != other.Name {
+			s.substitutions[tv.Name] = other
 			return nil
 		}
-		// Same variable, no-op
 		return nil
 	}
 
-	// Check if the type satisfies the variable's constraint
-	if tv.Constraint != nil {
-		if nc, ok := tv.Constraint.(ir.NumericConstraint); ok {
-			if !ir.IsNumeric(other) {
-				return errors.Newf("type %v does not satisfy constraint %v", other, nc)
+	// Unwrap channels to their value type for compatibility checking
+	checkType := other.Unwrap()
+
+	if tv.Constraint == nil {
+		if occursIn(tv, other) {
+			return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
+		}
+	} else if tv.Constraint.Kind == types.KindNumericConstant {
+		if !checkType.IsNumeric() {
+			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
+		}
+	} else if tv.Constraint.Kind == types.KindIntegerConstant {
+		// Integer constraint: accepts any numeric type (for literal coercion)
+		// Integer literals can be coerced to floats: `x f32 := 42` is valid
+		if !checkType.IsNumeric() {
+			return errors.Newf("type %v does not satisfy integer constraint", other)
+		}
+	} else if tv.Constraint.Kind == types.KindFloatConstant {
+		// Float constraint: accepts float types, or any numeric if compatible context
+		if source.Kind == KindCompatible {
+			if !checkType.IsNumeric() {
+				return errors.Newf("type %v does not satisfy float constraint in compatible context", other)
 			}
-		} else if !ir.Equal(tv.Constraint, other) {
-			// Constraint is a concrete type, must match exactly
-			// Unless we're in a compatible constraint and both are numeric
-			if source.Kind == KindCompatible && ir.IsNumeric(tv.Constraint) && ir.IsNumeric(other) {
-				// Allow different numeric types for compatible constraints
-				// Use the more general type
-				if ir.IsFloat(tv.Constraint) || ir.IsFloat(other) {
-					if ir.Is64Bit(tv.Constraint) || ir.Is64Bit(other) {
-						other = ir.F64{}
-					} else {
-						other = ir.F32{}
-					}
-				} else if ir.Is64Bit(tv.Constraint) || ir.Is64Bit(other) {
-					if ir.IsSignedInteger(tv.Constraint) || ir.IsSignedInteger(other) {
-						other = ir.I64{}
-					} else {
-						other = ir.U64{}
-					}
-				} else if ir.IsSignedInteger(tv.Constraint) || ir.IsSignedInteger(other) {
-					other = ir.I32{}
-				} else {
-					other = ir.U32{}
-				}
-			} else {
-				return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
+		} else {
+			// In equality/assignment context, only accept floats
+			if !checkType.IsFloat() {
+				return errors.Newf("type %v does not satisfy float constraint", other)
 			}
 		}
+	} else if !types.Equal(*tv.Constraint, other) {
+		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
+			if tv.Constraint.IsFloat() || other.IsFloat() {
+				if tv.Constraint.Is64Bit() || other.Is64Bit() {
+					other = types.F64()
+				} else {
+					other = types.F32()
+				}
+			} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
+				if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+					other = types.F64()
+				} else {
+					other = types.U64()
+				}
+			} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+				other = types.I32()
+			} else {
+				other = types.U32()
+			}
+		} else {
+			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
+		}
 	}
-
-	// Occurs check: make sure tv doesn't occur in other
-	if occursIn(tv, other) {
-		return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
-	}
-
-	// Create the substitution
 	s.substitutions[tv.Name] = other
 	return nil
 }
 
-// occursIn checks if a type variable occurs in another type (prevents infinite types)
-func occursIn(tv ir.TypeVariable, t ir.Type) bool {
-	if t == nil {
-		return false
+func occursIn(lhs, rhs types.Type) bool {
+	if rhs.Kind == types.KindTypeVariable {
+		return lhs.Name == rhs.Name
 	}
-
-	// Check if it's the same type variable
-	if otherTV, ok := t.(ir.TypeVariable); ok {
-		return tv.Name == otherTV.Name
+	if rhs.Kind == types.KindChan || rhs.Kind == types.KindSeries {
+		return occursIn(lhs, rhs.Unwrap())
 	}
-
-	// Check compound types
-	if ch, ok := t.(ir.Chan); ok {
-		return occursIn(tv, ch.ValueType)
-	}
-	if series, ok := t.(ir.Series); ok {
-		return occursIn(tv, series.ValueType)
-	}
-
 	return false
 }
 
-// defaultTypeForConstraint returns a default concrete type for a constraint
-func defaultTypeForConstraint(constraint ir.Type) ir.Type {
-	switch constraint.(type) {
-	case ir.NumericConstraint:
-		return ir.F64{} // Default to F64 for numeric
+func defaultTypeForConstraint(constraint types.Type) types.Type {
+	switch constraint.Kind {
+	case types.KindNumericConstant:
+		return types.F64()
+	case types.KindIntegerConstant:
+		return types.I64()
+	case types.KindFloatConstant:
+		return types.F64()
 	default:
-		// If it's a concrete type constraint, use it directly
 		return constraint
 	}
 }
 
-// DebugString returns a detailed debug string showing the unification process
-func (s *System) DebugString() string {
-	result := "=== Type Unification Debug ===\n"
+// promoteNumericTypes returns the promoted type when unifying two numeric types
+// Implements the promotion rules from promotion_test.go:
+// Rule 1: Float promotion (if either is float)
+// Rule 2: 64-bit integer promotion (if either is 64-bit)
+// Rule 3: 32-bit promotion (for smaller types)
+func promoteNumericTypes(t1, t2 types.Type) types.Type {
+	// Rule 1: Float Promotion
+	if t1.IsFloat() || t2.IsFloat() {
+		if t1.Is64Bit() || t2.Is64Bit() {
+			return types.F64()
+		}
+		return types.F32()
+	}
 
-	// Show type variables
+	// Rule 2: 64-bit Integer Promotion
+	if t1.Is64Bit() || t2.Is64Bit() {
+		// Mixed signedness at 64-bit promotes to F64
+		if t1.IsSignedInteger() != t2.IsSignedInteger() {
+			return types.F64()
+		}
+		// Both unsigned 64-bit
+		if t1.IsUnsignedInteger() && t2.IsUnsignedInteger() {
+			return types.U64()
+		}
+		// Different widths with signed
+		if t1.IsSignedInteger() || t2.IsSignedInteger() {
+			return types.F64()
+		}
+	}
+
+	// Rule 3: 32-bit and Smaller Integer Promotion
+	// Mixed signedness at 32-bit or below
+	if t1.IsSignedInteger() || t2.IsSignedInteger() {
+		return types.I32()
+	}
+	return types.U32()
+}
+
+func (s *System) String() string {
+	result := "=== Type Unification ===\n"
 	result += fmt.Sprintf("\nType Variables (%d):\n", len(s.typeVars))
 	for name, tv := range s.typeVars {
 		result += fmt.Sprintf("  %s", name)
@@ -236,8 +273,6 @@ func (s *System) DebugString() string {
 		}
 		result += "\n"
 	}
-
-	// Show constraints
 	result += fmt.Sprintf("\nConstraints (%d):\n", len(s.constraints))
 	for i, c := range s.constraints {
 		kindStr := "≡"
@@ -250,12 +285,9 @@ func (s *System) DebugString() string {
 		}
 		result += "\n"
 	}
-
-	// Show final substitutions
 	result += fmt.Sprintf("\nSubstitutions (%d):\n", len(s.substitutions))
 	for name, t := range s.substitutions {
 		result += fmt.Sprintf("  %s => %v\n", name, t)
 	}
-
 	return result
 }

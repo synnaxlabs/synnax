@@ -13,10 +13,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 type Text struct {
@@ -38,23 +43,38 @@ func Parse(t Text) (Text, error) {
 func Analyze(
 	ctx_ context.Context,
 	t Text,
-	resolver ir.SymbolResolver,
+	resolver symbol.Resolver,
 ) (ir.IR, analyzer.Diagnostics) {
 	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
-	// Stage 1: Analyse the AST.
+	// func 1: Analyse the AST.
 	if !analyzer.AnalyzeProgram(ctx) {
-		return ir.IR{}, *ctx.Diagnostics
+		// Return scope and type map even on error so LSP features still work
+		return ir.IR{
+			Symbols: ctx.Scope,
+			TypeMap: ctx.TypeMap,
+		}, *ctx.Diagnostics
 	}
-	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
+	i := ir.IR{
+		Symbols: ctx.Scope,
+		TypeMap: ctx.TypeMap,
+	}
 
-	// Stage 2: Iterate through the root scope children to assemble
-	// functions and stages.
+	// func 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
-		switch c.Kind {
-		case ir.KindStage:
-			i.Stages = append(i.Stages, c.Type.(ir.Stage))
-		case ir.KindFunction:
-			i.Functions = append(i.Functions, c.Type.(ir.Function))
+		if c.Kind == symbol.KindFunction {
+			fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+			var bodyAst antlr.ParserRuleContext = fnDecl
+			if ok {
+				bodyAst = fnDecl.Block()
+			}
+			i.Functions = append(i.Functions, ir.Function{
+				Key:      c.Name,
+				Body:     ir.Body{Raw: "", AST: bodyAst},
+				Config:   *c.Type.Config,
+				Inputs:   *c.Type.Inputs,
+				Outputs:  *c.Type.Outputs,
+				Channels: c.Channels.Copy(),
+			})
 		}
 	}
 
@@ -78,6 +98,18 @@ func Analyze(
 	}
 
 	return i, *ctx.Diagnostics
+}
+
+func Compile(
+	ctx_ context.Context,
+	ir ir.IR,
+	opts ...compiler.Option,
+) (module.Module, error) {
+	o, err := compiler.Compile(ctx_, ir, opts...)
+	if err != nil {
+		return module.Module{}, err
+	}
+	return module.Module{IR: ir, Output: o}, nil
 }
 
 func analyzeFlow(
@@ -110,8 +142,8 @@ func analyzeNode(
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return analyzeChannel(acontext.Child(ctx, channel), generateKey)
 	}
-	if stage := ctx.AST.StageInvocation(); stage != nil {
-		return analyzeStage(acontext.Child(ctx, stage), generateKey)
+	if fn := ctx.AST.Function(); fn != nil {
+		return analyzeFunction(acontext.Child(ctx, fn), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr))
@@ -132,19 +164,19 @@ func analyzeChannel(
 	}
 	chKey := uint32(sym.ID)
 	n := ir.Node{
-		Key:      nodeKey,
-		Type:     "on",
-		Config:   map[string]any{"channel": chKey},
-		Channels: ir.NewChannels(),
+		Key:          nodeKey,
+		Type:         "on",
+		ConfigValues: map[string]any{"channel": chKey},
+		Channels:     symbol.NewChannels(),
 	}
 	n.Channels.Read.Add(chKey)
-	h := ir.Handle{Node: nodeKey}
-	return n, h, false
+	h := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
+	return n, h, true
 }
 
 func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
-	stageType ir.Stage,
+	fnType types.Type,
 	node ir.Node,
 ) (map[string]any, bool) {
 	config := make(map[string]any)
@@ -158,16 +190,16 @@ func extractConfigValues(
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			key, _ := stageType.Params.At(i)
+			key, _ := fnType.Inputs.At(i)
 			config[key] = getExpressionText(expr)
 		}
 	}
 	for k, v := range config {
-		t, ok := stageType.Config.Get(k)
+		t, ok := fnType.Config.Get(k)
 		if !ok {
-			panic("config key not found in stage")
+			panic("config key not found in function")
 		}
-		if _, ok = t.(ir.Chan); ok {
+		if t.Kind == types.KindChan {
 			sym, err := ctx.Scope.Resolve(ctx, v.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
@@ -181,8 +213,8 @@ func extractConfigValues(
 	return config, true
 }
 
-func analyzeStage(
-	ctx acontext.Context[parser.IStageInvocationContext],
+func analyzeFunction(
+	ctx acontext.Context[parser.IFunctionContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, bool) {
 	var (
@@ -194,19 +226,19 @@ func analyzeStage(
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+	fnType := sym.Type
+	if fnType.Kind != types.KindFunction {
+		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: sym.Channels.Copy(),
 	}
 	config, ok := extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),
-		stageType,
+		fnType,
 		n,
 	)
 	if !ok {
@@ -219,7 +251,7 @@ func analyzeStage(
 			}
 		}
 	}
-	h := ir.Handle{Node: key, Param: "output"}
+	h := ir.Handle{Node: key, Param: "input"}
 	return n, h, true
 }
 
@@ -229,17 +261,12 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
-		return ir.Node{}, ir.Handle{}, false
-	}
 	n := ir.Node{
 		Key:      sym.Name,
 		Type:     sym.Name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: symbol.NewChannels(),
 	}
-	h := ir.Handle{Node: sym.Name, Param: ""}
+	h := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
 	return n, h, true
 }
 

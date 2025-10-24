@@ -1148,3 +1148,126 @@ class Bounds:
 
     def contains(self, value: float) -> bool:
         return self.lower < value <= self.upper
+
+
+class Alignment(int):
+    """Alignment is two array index values that can be used to represent
+    the location of a sample within an array of arrays. For example, if you have two arrays
+    that have 50 elements each, and you want the 15th element of the second array, you would
+    use Alignment(1, 15). The first index is called the 'domain index' and the second
+    index is called the 'sample index'. The domain index is the index of the array, and the
+    sample index is the index of the sample within that array.
+
+    You may think a better design is to just use a single number that overflows the arrays
+    before it, i.e., the value of our previous example would be 50 + 14 = 64. However, this
+    requires us to know the size of all arrays, which is not always possible.
+
+    While not as meaningful as a single number, Alignment is a uint64 that guarantees
+    that a larger value is, in fact, 'positionally' after a smaller value. This is useful
+    for ordering samples correctly.
+
+    The Alignment constructor accepts various types:
+
+    * int - Treats the int as a packed alignment value.
+    * tuple[int, int] - Treats as (domain_index, sample_index).
+    * Alignment - Returns a copy of the Alignment.
+    """
+
+    MAX_ALIGNMENT: ClassVar[int] = (1 << 64) - 1
+
+    def __new__(
+        cls, value: CrudeAlignment = 0, sample_idx: int | None = None
+    ) -> Alignment:
+        """Creates a new Alignment from various input types.
+
+        :param value: Either a packed int value, a tuple of (domain_idx, sample_idx),
+                      or an existing Alignment. Can also be a domain_idx if sample_idx is provided.
+        :param sample_idx: Optional sample index if value is provided as domain index.
+        :returns: A new Alignment.
+        """
+        if isinstance(value, Alignment):
+            return value
+        elif isinstance(value, tuple):
+            if len(value) != 2:
+                raise ValueError(
+                    f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
+                )
+            domain_idx, sample_idx = value
+            packed_value = (int(domain_idx) << 32) | int(sample_idx)
+        elif sample_idx is not None:
+            # Called as Alignment(domain_idx, sample_idx)
+            packed_value = (int(value) << 32) | int(sample_idx)
+        elif isinstance(value, (int, np.integer)):
+            # Packed value or zero
+            packed_value = int(value)
+        else:
+            raise TypeError(f"Cannot convert {type(value)} to Alignment")
+
+        return super().__new__(cls, packed_value)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
+        """Implemented for pydantic validation. Should not be used externally."""
+        return core_schema.no_info_after_validator_function(cls._validate, handler(int))
+
+    @classmethod
+    def _validate(cls, value: int) -> Alignment:
+        """Implemented for pydantic validation. Should not be used externally."""
+        # Use the constructor to handle all conversion logic
+        return cls(value)
+
+    @property
+    def domain_index(self) -> int:
+        """Returns the domain index of the Alignment. This is the index
+        in the array of arrays.
+
+        :returns: The domain index.
+        """
+        return int(self) >> 32
+
+    @property
+    def sample_index(self) -> int:
+        """Returns the sample index of the Alignment. This is the index within
+        a particular array.
+
+        :returns: The sample index.
+        """
+        return int(self) & 0xFFFFFFFF
+
+    def add_samples(self, samples: int) -> Alignment:
+        """Increments the sample index of the alignment.
+
+        :param samples: The number of samples to add.
+        :returns: A new Alignment with the sample index incremented.
+        """
+        return Alignment(self.domain_index, self.sample_index + samples)
+
+    def add(self, other: Alignment) -> Alignment:
+        """Adds another Alignment to this one.
+
+        :param other: The other Alignment to add.
+        :returns: A new Alignment with both domain and sample indices added.
+        """
+        return Alignment(
+            self.domain_index + other.domain_index,
+            self.sample_index + other.sample_index,
+        )
+
+    def __str__(self) -> str:
+        """Returns a string representation of the Alignment in the format 'domain-sample'.
+
+        :returns: A string representation of the Alignment.
+        """
+        return f"{self.domain_index}-{self.sample_index}"
+
+    def __repr__(self) -> str:
+        """Returns a string representation of the Alignment for debugging.
+
+        :returns: A string representation of the Alignment.
+        """
+        return f"Alignment({self.domain_index}, {self.sample_index})"
+
+
+CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment

@@ -156,6 +156,12 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // followed by the keys that are absent in k.
 func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
 
+type Operation struct {
+	Type         string         `json:"type"`
+	ResetChannel Key            `json:"reset_channel"`
+	Duration     telem.TimeSpan `json:"duration"`
+}
+
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
 // can be a physical sensor, software sensor, metric, event, or any other entity that
@@ -199,9 +205,12 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal bool `json:"internal" msgpack:"internal"`
+	Internal   bool        `json:"internal" msgpack:"internal"`
+	Operations []Operation `json:"operations" msgpack:"operations"`
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
+	//
+	// Deprecated: only used for lua-based calculated channels.
 	Requires Keys `json:"requires" msgpack:"requires"`
 	// Expression is only used for calculated channels, and specifies the Lua expression
 	// to evaluate the calculated value.
@@ -209,7 +218,7 @@ type Channel struct {
 }
 
 func (c Channel) IsCalculated() bool {
-	return c.Virtual && c.Expression != ""
+	return c.Expression != ""
 }
 
 // Equals returns true if the two channels are meaningfully equal to each other. This
@@ -232,6 +241,12 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"Concurrency", c.Concurrency == other.Concurrency},
 		{"Internal", c.Internal == other.Internal},
 		{"Expression", c.Expression == other.Expression},
+	}
+
+	if !lo.Contains(exclude, "Operations") {
+		if !slices.Equal(c.Operations, other.Operations) {
+			return false
+		}
 	}
 
 	for _, comp := range comparisons {

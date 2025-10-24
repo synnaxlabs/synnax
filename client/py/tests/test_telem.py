@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 from synnax import (
+    Alignment,
     ContiguityError,
     CrudeDataType,
     CrudeRate,
@@ -462,3 +463,150 @@ def test_convert_time_units(
     expected: int | float,
 ):
     assert convert_time_units(data, from_, to)[0] == expected
+
+
+@pytest.mark.telem
+class TestAlignment:
+    def test_construction(self):
+        """Should construct the alignment from the given domain and sample indexes"""
+        align = Alignment(2, 1)
+        assert align.sample_index == 1
+        assert align.domain_index == 2
+
+    def test_construction_zero(self):
+        """Should construct a zero alignment"""
+        align = Alignment(0, 0)
+        assert int(align) == 0
+
+    def test_default_construction(self):
+        """Should construct a zero alignment by default"""
+        align = Alignment()
+        assert align.domain_index == 0
+        assert align.sample_index == 0
+
+    def test_construction_from_packed_int(self):
+        """Should construct alignment from a packed integer value"""
+        # Create an alignment and get its packed value
+        align1 = Alignment(5, 10)
+        packed = int(align1)
+        # Reconstruct from the packed value
+        align2 = Alignment(packed)
+        assert align2.domain_index == 5
+        assert align2.sample_index == 10
+
+    def test_construction_from_tuple(self):
+        """Should construct alignment from a tuple"""
+        align = Alignment((3, 7))
+        assert align.domain_index == 3
+        assert align.sample_index == 7
+
+    def test_construction_from_alignment(self):
+        """Should return the same alignment when constructing from Alignment"""
+        align1 = Alignment(4, 8)
+        align2 = Alignment(align1)
+        assert align1 is align2  # Should be the same object
+        assert align2.domain_index == 4
+        assert align2.sample_index == 8
+
+    def test_domain_index_extraction(self):
+        """Should correctly extract the domain index from the packed value"""
+        align = Alignment(5, 10)
+        assert align.domain_index == 5
+
+    def test_sample_index_extraction(self):
+        """Should correctly extract the sample index from the packed value"""
+        align = Alignment(5, 10)
+        assert align.sample_index == 10
+
+    def test_add_samples(self):
+        """Should add to the alignment sample index"""
+        align = Alignment(2, 1)
+        align = align.add_samples(3)
+        assert align.sample_index == 4
+        assert align.domain_index == 2
+
+    def test_add_samples_overflow(self):
+        """Should handle sample index overflow correctly"""
+        align = Alignment(2, 0xFFFFFFFF - 1)
+        align = align.add_samples(1)
+        assert align.sample_index == 0xFFFFFFFF
+        assert align.domain_index == 2
+
+    def test_add(self):
+        """Should add both domain and sample indices"""
+        align1 = Alignment(2, 5)
+        align2 = Alignment(3, 10)
+        result = align1.add(align2)
+        assert result.domain_index == 5
+        assert result.sample_index == 15
+
+    def test_str(self):
+        """Should return the string representation of the alignment"""
+        align = Alignment(5, 7)
+        assert str(align) == "5-7"
+
+    def test_repr(self):
+        """Should return the repr representation of the alignment"""
+        align = Alignment(5, 7)
+        assert repr(align) == "Alignment(5, 7)"
+
+    def test_comparison(self):
+        """Should correctly compare alignments"""
+        align1 = Alignment(2, 5)
+        align2 = Alignment(2, 10)
+        align3 = Alignment(3, 5)
+
+        # Same domain, different sample
+        assert align1 < align2
+        assert align2 > align1
+
+        # Different domain
+        assert align2 < align3
+        assert align3 > align2
+
+    def test_equality(self):
+        """Should correctly compare equality of alignments"""
+        align1 = Alignment(2, 5)
+        align2 = Alignment(2, 5)
+        align3 = Alignment(3, 5)
+
+        assert align1 == align2
+        assert align1 != align3
+
+    def test_max_values(self):
+        """Should handle maximum values for domain and sample indices"""
+        max_uint32 = 0xFFFFFFFF
+        align = Alignment(max_uint32, max_uint32)
+        assert align.domain_index == max_uint32
+        assert align.sample_index == max_uint32
+
+    def test_large_domain_index(self):
+        """Should correctly handle large domain indices"""
+        align = Alignment(1000000, 50)
+        assert align.domain_index == 1000000
+        assert align.sample_index == 50
+
+    def test_int_conversion(self):
+        """Should correctly convert to int"""
+        align = Alignment(2, 1)
+        int_value = int(align)
+        # 2 << 32 | 1 = 8589934593
+        expected = (2 << 32) | 1
+        assert int_value == expected
+
+    def test_pydantic_validation(self):
+        """Should work with pydantic validation"""
+        from pydantic import BaseModel
+
+        class TestModel(BaseModel):
+            alignment: Alignment
+
+        model = TestModel(alignment=Alignment(5, 10))
+        assert model.alignment.domain_index == 5
+        assert model.alignment.sample_index == 10
+
+        # Should also accept int
+        packed_value = (5 << 32) | 10
+        model2 = TestModel(alignment=packed_value)
+        assert model2.alignment.domain_index == 5
+        assert model2.alignment.sample_index == 10

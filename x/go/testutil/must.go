@@ -36,3 +36,14 @@ func MustSucceed4[A, B, C, D any](a A, b B, c C, d D, err error) (A, B, C, D) {
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	return a, b, c, d
 }
+
+func MustBeOk[T any](value T, ok bool) T {
+	return MustBeOkWithOffset[T](1)(value, ok)
+}
+
+func MustBeOkWithOffset[T any](offset int) func(value T, ok bool) T {
+	return func(value T, ok bool) T {
+		gomega.ExpectWithOffset(offset+1, ok).To(gomega.BeTrue())
+		return value
+	}
+}
