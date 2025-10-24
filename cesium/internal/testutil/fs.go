@@ -26,8 +26,8 @@ var FileSystems = map[string]FSFactory{
 			func() error { return nil }
 	},
 	"osFS": func() (xfs.FS, func() error) {
-		dirName := MustSucceed(os.MkdirTemp("", "test-*"))
-		return MustSucceed(xfs.Default.Sub(dirName)),
+		dirName := testutil.MustSucceed(os.MkdirTemp("", "test-*"))
+		return testutil.MustSucceed(xfs.Default.Sub(dirName)),
 			func() error { return xfs.Default.Remove(dirName) }
 	},
 }

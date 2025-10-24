@@ -297,7 +297,6 @@ var _ = Describe("Control", func() {
 							Authorities:       []control.Authority{100},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
-							EnableAutoCommit:  config.True(),
 						}))
 						By("Opening the second writer")
 						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -307,7 +306,6 @@ var _ = Describe("Control", func() {
 							Authorities:       []control.Authority{0},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
-							EnableAutoCommit:  config.True(),
 						}))
 						dataStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{virtualChKey, indexCHKey, dataChKey},
