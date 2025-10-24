@@ -147,7 +147,7 @@ describe("Streamer", () => {
 
         // Set up streamer to listen for calculated results
         const streamer = await client.openStreamer(calcChannel.key);
-        await sleep.sleep(TimeSpan.milliseconds(10))
+        await sleep.sleep(TimeSpan.milliseconds(10));
 
         // Write test data
         const startTime = TimeStamp.now();
