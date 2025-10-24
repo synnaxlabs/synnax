@@ -122,7 +122,6 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
         sy.TimeStamp.now(),
         channels=["daq_time", "pressure", "press_vlv_state", "vent_vlv_state"],
         name="Simulated DAQ",
-        enable_auto_commit=True,
     ) as writer:
         while loop.wait():
             while True:

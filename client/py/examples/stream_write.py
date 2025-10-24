@@ -59,7 +59,6 @@ loop = sy.Loop(sy.Rate.HZ * 25)
 with client.open_writer(
     start,
     [time_channel.key, data_channel_1.key, data_channel_2.key],
-    enable_auto_commit=True,
 ) as writer:
     i = 0
     while loop.wait():
