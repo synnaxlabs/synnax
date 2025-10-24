@@ -432,7 +432,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("AutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: 50 * telem.Millisecond}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 50 * telem.Millisecond}))
 
 					modTime := MustSucceed(fs.Stat("index.domain")).ModTime()
 
@@ -471,7 +471,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				It("Should persist to disk every time when the interval is set to always persist", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
@@ -514,7 +514,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: 10 * telem.Second}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 10 * telem.Second}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
@@ -541,7 +541,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 1 * telem.Hour}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start:                    10 * telem.SecondTS,
+						AutoIndexPersistInterval: 1 * telem.Hour,
+						EnableAutoCommit:         config.False(),
+					}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
