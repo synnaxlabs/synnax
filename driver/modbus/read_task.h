@@ -314,7 +314,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             .channels = keys,
             .start = telem::TimeStamp::now(),
             .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
         };
     }
 };

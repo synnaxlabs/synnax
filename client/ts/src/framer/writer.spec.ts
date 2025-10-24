@@ -77,7 +77,6 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        enableAutoCommit: true,
       });
       const [index, data] = channels;
       try {
@@ -102,7 +101,6 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        enableAutoCommit: true,
         autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
       const [index, data] = channels;
@@ -122,7 +120,6 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        enableAutoCommit: true,
         autoIndexPersistInterval: TimeSpan.milliseconds(100),
       });
       const [index, data] = channels;
@@ -169,7 +166,6 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: [indexCh.key, dataCh.key],
-        enableAutoCommit: true,
       });
 
       await expect(async () => {
@@ -210,13 +206,11 @@ describe("Writer", () => {
         start,
         channels,
         authorities: 10,
-        enableAutoCommit: true,
       });
       const w2 = await client.openWriter({
         start,
         channels,
         authorities: 20,
-        enableAutoCommit: true,
       });
       const [index, data] = channels;
       await w1.write({
@@ -244,13 +238,11 @@ describe("Writer", () => {
         start,
         channels,
         authorities: 10,
-        enableAutoCommit: true,
       });
       const w2 = await client.openWriter({
         start,
         channels,
         authorities: 20,
-        enableAutoCommit: true,
       });
       const [index, data] = channels;
       await w1.write({

@@ -121,9 +121,7 @@ class TestStreamer:
         )
         assert_eventually_channels_are_found(client, [idx.key, data.key])
         with client.open_streamer(data.key) as s:
-            with client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
-            ) as w:
+            with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)
                 assert f is not None
@@ -157,7 +155,7 @@ class TestStreamer:
         assert_eventually_channels_are_found(node_2_client, [idx.key, data.key])
         with node_1_client.open_streamer(data.key) as s:
             with node_2_client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
+                sy.TimeStamp.now(), [idx.key, data.key]
             ) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)

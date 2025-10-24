@@ -49,7 +49,6 @@ else:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
-    enable_auto_commit=True,
 ) as writer:
     while True:
         # Read from the serial connection

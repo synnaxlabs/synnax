@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -121,9 +120,8 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				Start: telem.SecondTS,
+				Keys:  keys,
 			}))
 
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
@@ -162,9 +160,8 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				Start: telem.SecondTS,
+				Keys:  keys,
 			}))
 
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
@@ -278,9 +275,8 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				Start: telem.SecondTS,
+				Keys:  keys,
 			}))
 
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{

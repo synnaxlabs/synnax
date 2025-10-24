@@ -108,9 +108,6 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
         # A useful name that identifies the sequence to the rest of the system. We
         # highly recommend keeping these names unique across your sequences.
         name="Simulated DAQ",
-        # We enable auto-commit, which means that the writer will automatically persist
-        # all data written to Synnax as soon as it arrives.
-        enable_auto_commit=True,
     ) as writer:
         # Enter the main loop, which will run at 40Hz as set by the loop rate.
         while loop.wait():
