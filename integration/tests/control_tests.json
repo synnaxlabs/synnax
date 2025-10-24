@@ -6,7 +6,7 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/setpoint_press_user"
+          "case": "console/schematic/setpoint_press_user"
         },
         {
           "case": "client/setpoint_press_auto",
@@ -22,7 +22,7 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/simple_press_valves"
+          "case": "console/schematic/simple_press_valves"
         },
         {
           "case": "client/sim_daq"

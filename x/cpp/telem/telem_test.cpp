@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/telem/telem.h"
-
 #include "gtest/gtest.h"
+
+#include "x/cpp/telem/telem.h"
 
 namespace telem {
 /// @brief - it should initialize a timestamp from a long.
@@ -486,6 +486,33 @@ TEST(RateTests, testPeriodVariousFrequencies) {
     ASSERT_EQ(Rate(50).period().milliseconds(), 20); // 50 Hz should be 20ms
     ASSERT_EQ(Rate(100).period().milliseconds(), 10); // 100 Hz should be 10ms
     ASSERT_EQ(Rate(1000).period().milliseconds(), 1); // 1kHz should be 1ms
+}
+
+/// @brief Test that telem::Rate can be streamed with << operator
+TEST(RateTests, testRateStreamOperator) {
+    Rate rate_25(25.0);
+    std::ostringstream oss;
+    oss << rate_25;
+    EXPECT_EQ(oss.str(), "25 Hz");
+
+    Rate rate_100(100.5);
+    std::ostringstream oss2;
+    oss2 << rate_100;
+    EXPECT_EQ(oss2.str(), "100.5 Hz");
+
+    Rate rate_zero(0.0);
+    std::ostringstream oss3;
+    oss3 << rate_zero;
+    EXPECT_EQ(oss3.str(), "0 Hz");
+}
+
+/// @brief Test that Rate operator<< works in error messages
+TEST(RateTests, testRateInErrorMessage) {
+    Rate configured_rate(25.0);
+    std::ostringstream msg;
+    msg << "configured sample rate (" << configured_rate << ") is below device minimum";
+    EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
+    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
 
 ////////////////////////////////////////////////////////////

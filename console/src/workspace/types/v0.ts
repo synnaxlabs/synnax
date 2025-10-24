@@ -10,7 +10,7 @@
 import { type workspace } from "@synnaxlabs/client";
 import { type migrate } from "@synnaxlabs/x";
 
-const VERSION = "0.0.0";
+export const VERSION = "0.0.0";
 type Version = typeof VERSION;
 
 export interface SliceState extends migrate.Migratable<Version> {

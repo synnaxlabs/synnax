@@ -67,13 +67,13 @@ export const Search = (): ReactElement => (
 const ICONS: Record<string, Icon.ReactElement> = {
   "python-client": <Icon.Python />,
   "typescript-client": <Icon.TypeScript />,
-  cluster: <Icon.Cluster />,
+  core: <Icon.Cluster />,
   console: <Icon.Visualize />,
   concepts: <Icon.Concepts />,
   guides: <Icon.Guide />,
   "opc-ua": <Icon.Logo.OPC />,
   ni: <Icon.Logo.NI />,
-  "device-drivers": <Icon.Device />,
+  driver: <Icon.Device />,
   pluto: <Icon.Table />,
   releases: <Icon.Release />,
 };

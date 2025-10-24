@@ -387,7 +387,7 @@ func (r *routine) zapFields() []zap.Field {
 }
 
 func (r *routine) path() string {
-	insP := r.ctx.Instrumentation.Meta.Path
+	insP := r.ctx.Meta.Path
 	if len(insP) > 0 {
 		return insP + "." + r.key
 	}

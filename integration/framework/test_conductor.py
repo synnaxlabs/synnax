@@ -653,9 +653,9 @@ class TestConductor:
             # Extract the module name from the path (last part before .py)
             module_name = case_path.split("/")[-1]
 
-            # Convert module_name to PascalCase class name with underscores
-            # "pages_open_close" -> "Pages_Open_Close"
-            class_name = "_".join(word.capitalize() for word in module_name.split("_"))
+            # Convert module_name to PascalCase class name
+            # "pages_open_close" -> "PagesOpenClose"
+            class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
             # Try different possible file paths
             current_dir = os.getcwd()
@@ -709,13 +709,16 @@ class TestConductor:
                 test_class = getattr(module, class_name)
             except AttributeError:
                 # If exact class name not found, try to find any TestCase subclass
+                # that is defined in this module (not imported from elsewhere)
                 test_classes = [
                     getattr(module, name)
                     for name in dir(module)
                     if (
                         not name.startswith("_")
-                        and hasattr(getattr(module, name), "__bases__")
-                        and TestCase in getattr(module, name).__bases__
+                        and isinstance(getattr(module, name), type)
+                        and issubclass(getattr(module, name), TestCase)
+                        and getattr(module, name) is not TestCase
+                        and getattr(module, name).__module__ == module.__name__
                     )
                 ]
                 if test_classes:
@@ -838,7 +841,6 @@ class TestConductor:
                 and hasattr(self.current_test, "Expected_Timeout")
                 and self.current_test.Expected_Timeout > 0
             ):
-
                 elapsed_time = (
                     datetime.now() - self.current_test_start_time
                 ).total_seconds()
@@ -854,7 +856,6 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-
                         elapsed_time = (datetime.now() - start_time).total_seconds()
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(
@@ -1046,7 +1047,6 @@ def monitor_test_execution(conductor: TestConductor) -> None:
 
 def main() -> None:
     """Main entry point for the test conductor."""
-    gc.disable()
 
     parser = argparse.ArgumentParser(description="Run test sequences")
     parser.add_argument("--name", default="tc", help="Test conductor name")
@@ -1119,7 +1119,6 @@ def main() -> None:
         # Ranges must be created last for the test_conductor to be available as a parent.
         conductor.create_ranges()
         conductor.log_message(f"Fin.")
-        gc.enable()
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 

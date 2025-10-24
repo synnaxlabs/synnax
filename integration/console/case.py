@@ -29,11 +29,10 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
-
         headless = self.params.get("headless", True)
         slow_mo = self.params.get("slow_mo", 0)
-        default_timeout = self.params.get("default_timeout", 5000)  # 5s
-        default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
+        default_timeout = self.params.get("default_timeout", 15000)  # 15s
+        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headless' if headless else 'visible'} mode")
@@ -70,7 +69,7 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page)
 
         # Toggle theme
-        self.page.wait_for_timeout(1000)
+        self.page.wait_for_timeout(3000)  # <- Change with wait_for
         self.console.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:

@@ -14,7 +14,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Sim_DAQ(TestCase):
+class SimDaq(TestCase):
     """
     Simulated DAQ for press control sequence
     """

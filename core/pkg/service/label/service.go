@@ -73,7 +73,6 @@ func (c Config) Override(other Config) Config {
 type Service struct {
 	Config
 	signals io.Closer
-	group   group.Group
 }
 
 // OpenService opens a new label service using the provided configuration. If error

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { migrate } from "@synnaxlabs/x";
-import { TimeSpan } from "@synnaxlabs/x/telem";
+import { migrate, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
@@ -45,8 +44,8 @@ const createWarning = (
   clientVersion: string,
   clientIsNewer: boolean,
 ): string => {
-  const toUpgrade = clientIsNewer ? "cluster" : "client";
-  return `Synnax cluster node version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  const toUpgrade = clientIsNewer ? "Core" : "client";
+  return `Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
   https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
 };

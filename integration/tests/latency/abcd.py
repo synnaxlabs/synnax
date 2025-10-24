@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 
 import numpy as np
 import synnax as sy
 
-from framework.test_case import TestCase
+from tests.latency.latency import Latency
 
 
-class LatencyABCD(TestCase):
+class Abcd(Latency):
     """
 
     Testing the general, periodic latency of 3 async processes.
@@ -49,6 +48,7 @@ class LatencyABCD(TestCase):
     """
 
     def setup(self) -> None:
+        super().setup()
         """
         Setup the test case.
         """
@@ -131,7 +131,6 @@ class LatencyABCD(TestCase):
             idx = 0
 
             while self.loop.wait() and self.should_continue:
-
                 # Just assume we'll never exceed
                 # the 20 second limit for the np arrays
                 t_a = self.read_tlm("t_a")

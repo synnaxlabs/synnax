@@ -90,10 +90,11 @@ export const dataTransferItem = async (
     if (entry.type !== "application/json") throw new Error("not a JSON file");
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
+    const parsedData = JSON.parse(fileData);
     let hasBeenIngested = false;
     for (const ingest of Object.values(fileIngestors))
       try {
-        ingest(fileData, {
+        ingest(parsedData, {
           layout: { ...layout, name },
           placeLayout,
           store,
@@ -113,7 +114,7 @@ export const dataTransferItem = async (
     entry.files.map(async (file) => {
       const buffer = await file.arrayBuffer();
       const data = new TextDecoder().decode(buffer);
-      return { name: file.name, data };
+      return { name: file.name, data: JSON.parse(data) };
     }),
   );
   await ingestDirectory(entry.name, parsedFiles, {

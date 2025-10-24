@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <string>
 
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 namespace freighter {
@@ -27,7 +25,6 @@ const xerrors::Error STREAM_CLOSED = {
 };
 const xerrors::Error EOF_ERR = {"freighter.eof", "EOF"};
 const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
-
 
 /// @brief A simple URL builder.
 struct URL {

@@ -110,7 +110,6 @@ class TestCase(ABC):
         expect: str = "PASSED",
         **params: Any,
     ) -> None:
-
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:

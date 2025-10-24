@@ -52,12 +52,11 @@ var _ = Describe("Counter", func() {
 				Expect(f.Close()).To(Succeed())
 			})
 			It("Should read the existing value when the file does exist", func() {
-				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
-				_, err = f.Write([]byte{0x15, 0x1, 0x0, 0x0})
-				Expect(err).ToNot(HaveOccurred())
-
-				c, err := NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
+				c := MustSucceed(NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(277)))
 				Expect(f.Close()).To(Succeed())
 			})

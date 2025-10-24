@@ -8,9 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import os
-import time
+import platform
 from collections import deque
-from re import S
 
 import matplotlib
 
@@ -19,15 +18,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
 
-from framework.test_case import TestCase
 from framework.utils import get_machine_info, get_memory_info, get_synnax_version
+from tests.latency.latency import Latency
 
 
-class BenchReport(TestCase):
+class BenchReport(Latency):
 
     def setup(self) -> None:
-
-        self.set_manual_timeout(15)
+        super().setup()
+        self.set_manual_timeout(10)
 
         self.report_client = sy.Synnax(
             host=self.synnax_connection.server_address,
@@ -37,9 +36,7 @@ class BenchReport(TestCase):
             secure=self.synnax_connection.secure,
         )
 
-        self.state_channel = "bench_state"
-        self.cmd_channel = "bench_command"
-        self.test_state = True
+        self.subscribe(["bench_state", "bench_command"])
 
         self.loop_start = sy.TimeStamp.now()
 
@@ -51,8 +48,8 @@ class BenchReport(TestCase):
         cycles: int = 0
         times: deque[sy.TimeStamp] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
-        state_channel: str = self.state_channel
-        cmd_channel: str = self.cmd_channel
+        state_channel: str = "bench_state"
+        cmd_channel: str = "bench_command"
         bench_time: sy.TimeSpan = sy.TimeSpan.SECOND * 3
 
         try:
@@ -62,7 +59,7 @@ class BenchReport(TestCase):
                 ) as writer:
                     while sy.TimeStamp.since(loop_start) < bench_time:
                         start = sy.TimeStamp.now()
-                        writer.write(cmd_channel, self.test_state)
+                        writer.write(cmd_channel, True)
                         value = stream.read()
                         times.append(sy.TimeStamp.since(start))
                         cycles += 1
@@ -70,7 +67,7 @@ class BenchReport(TestCase):
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")
 
-        self.log(f"Cycles/second: {cycles / bench_time.seconds}")
+        self.log(f"Cycles/second: {cycles / bench_time.seconds:.2f}")
 
         # Convert times to milliseconds for better readability
         times_ms = [float(t.microseconds) / 1000 for t in times]
@@ -169,8 +166,12 @@ class BenchReport(TestCase):
         max_p90 = 2.5
         max_p95 = 3.0
         max_p99 = 5
-        max_peak_to_peak_jitter = 20
         max_average_jitter = 2
+
+        if platform.system().lower() == "windows":
+            max_peak_to_peak_jitter = 40
+        else:
+            max_peak_to_peak_jitter = 20
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"

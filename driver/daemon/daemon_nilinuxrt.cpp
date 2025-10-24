@@ -16,12 +16,10 @@
 #include <fstream>
 #include <thread>
 
-/// external.
+#include "glog/logging.h"
 #include <signal.h>
 #include <sys/stat.h>
-#include "glog/logging.h"
 
-/// internal
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
@@ -111,7 +109,7 @@ do_start() {
 
     # Wait for health check period
     sleep $HEALTH_CHECK_DELAY_SECONDS
-    
+
     # Check if process is running
     if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE") 2>/dev/null; then
         log_message "Process started successfully" "$GREEN"
@@ -128,7 +126,7 @@ do_stop() {
         log_message "$PRETTY_NAME is not currently running" "$YELLOW"
         return 0
     fi
-    
+
     PID=$(cat "$PIDFILE")
     if ! kill -0 "$PID" 2>/dev/null; then
         log_message "Removing stale PID file" "$YELLOW"
@@ -136,7 +134,7 @@ do_stop() {
         return 0
     fi
     log_message "Stopping $PRETTY_NAME with PID $PID" "$BLUE"
-    
+
     start-stop-daemon --stop --pidfile $PIDFILE --retry 30
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
@@ -281,7 +279,8 @@ xerrors::Error install_service() {
     LOG(INFO) << "checking for existing service";
     if (fs::exists(INIT_SCRIPT_PATH)) {
         LOG(INFO) << "existing service found, stopping and removing it";
-        system("/etc/init.d/synnax-driver stop");
+        if (int result = system("/etc/init.d/synnax-driver stop"); result != 0)
+            LOG(WARNING) << "failed to stop existing service (may not be running)";
         // Give it a moment to stop
         std::this_thread::sleep_for(std::chrono::seconds(2));
         // Uninstall the existing service
@@ -344,7 +343,10 @@ xerrors::Error install_service() {
 
 xerrors::Error uninstall_service() {
     LOG(INFO) << "Removing service";
-    system("update-rc.d -f synnax-driver remove");
+    if (int result = system("update-rc.d -f synnax-driver remove"); result != 0)
+        LOG(
+            WARNING
+        ) << "failed to remove service from runlevels (may not be installed)";
     fs::remove(INIT_SCRIPT_PATH);
 
     // Note: We intentionally don't remove the binary or user

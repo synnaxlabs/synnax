@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,14 +9,13 @@
 
 #pragma once
 
-/// std
 #include <memory>
 
-/// internal
-#include "driver/ni/daqmx/api.h"
-#include "driver/ni/daqmx/nidaqmx.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xlib/xlib.h"
+
+#include "driver/ni/daqmx/api.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 
 namespace daqmx {
 class ProdAPI final : public API {

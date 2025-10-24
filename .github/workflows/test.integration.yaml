@@ -207,6 +207,9 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     timeout-minutes: 75
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
@@ -273,7 +276,9 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -386,7 +391,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         shell: cmd
         working-directory: integration
         env:
@@ -409,7 +414,7 @@ jobs:
         run: integration/scripts/DebugTestEnvironmentWindows.cmd
 
   download-artifacts-macos:
-    name: Download Artifacts (macos)
+    name: Download Artifacts (macOS)
     timeout-minutes: 1
     runs-on:
       - self-hosted
@@ -430,7 +435,7 @@ jobs:
         run: integration/scripts/download_artifacts_unix.sh
 
   deploy-and-test-macos:
-    name: Deploy and Test (macos)
+    name: Deploy and Test (macOS)
     runs-on:
       - self-hosted
       - macos-latest
@@ -462,7 +467,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{
@@ -533,7 +538,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: integration
         run:
           poetry run test-conductor --name test-conductor-unix ${{

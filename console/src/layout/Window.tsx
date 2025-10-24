@@ -24,7 +24,7 @@ import { Runtime } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
-    <Menu.HardReloadItem />
+    <Menu.ReloadConsoleItem />
   </PMenu.Menu>
 );
 

@@ -1,7 +1,0 @@
-VERSION 0.7
-FROM golang:1.25
-
-source:
-    WORKDIR /aspen
-    COPY . .
-    SAVE ARTIFACT .

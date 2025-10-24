@@ -12,7 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 
 
-class Channel_Lifecycle(ConsoleCase):
+class ChannelLifecycle(ConsoleCase):
     """
     Test the lifecycle of channels
     """

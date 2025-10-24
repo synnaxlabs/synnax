@@ -12,7 +12,7 @@ import { create } from "@/log/Log";
 import { stateZ } from "@/log/slice";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout }) => {
-  const state = stateZ.parse(JSON.parse(data));
+  const state = stateZ.parse(data);
   // create with an undefined key so we do not have to worry about the key that was from
   // the imported data overwriting existing logs in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout }));

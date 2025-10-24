@@ -20,6 +20,7 @@ import {
   type ReactElement,
   use as reactUse,
   useCallback,
+  useMemo,
 } from "react";
 import z from "zod";
 
@@ -78,7 +79,7 @@ const createErrorDescription = (
   clientVersion: string,
   nodeVersion?: string,
 ): string =>
-  `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+  `Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
@@ -90,8 +91,9 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
     schema: synnax.Provider.stateZ,
     state: { props: null, state: null },
   });
+  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
   return (
-    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
     </Context>
   );
@@ -165,7 +167,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
         addStatus<StatusDetails>({
           variant: "warning",
-          message: "Incompatible cluster version",
+          message: "Incompatible Core version",
           description,
           details: {
             type: SERVER_VERSION_MISMATCH,

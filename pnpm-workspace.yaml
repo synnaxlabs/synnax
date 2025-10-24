@@ -4,7 +4,6 @@ packages:
   - configs/**
   - console
   - docs/site
-  - docs/videos
   - drift
   - freighter/ts
   - pluto
@@ -28,7 +27,7 @@ catalog:
   clsx: ^2.1.1
   compromise: ^14.14.4
   compromise-dates: ^3.7.1
-  eslint: ^9.35.0
+  eslint: ^9.37.0
   madge: ^8.0.0
   prettier: ^3.6.2
   proxy-memoize: 2.0.3

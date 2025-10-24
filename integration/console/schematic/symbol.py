@@ -31,7 +31,6 @@ class Symbol(ABC):
     def __init__(
         self, page: Page, console: "Console", symbol_id: str, channel_name: str
     ):
-
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 

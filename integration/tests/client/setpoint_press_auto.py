@@ -12,13 +12,12 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Setpoint_Press_Auto(TestCase):
+class SetpointPressAuto(TestCase):
     """
     Reads a setpoint and opens or closes a valve based on the value.
     """
 
     def setup(self) -> None:
-
         self.set_manual_timeout(120)
         self.control_authority = self.params.get("control_authority", -1)
 
