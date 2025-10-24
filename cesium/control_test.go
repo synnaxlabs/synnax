@@ -311,18 +311,18 @@ var _ = Describe("Control", func() {
 							Channels:    []cesium.ChannelKey{virtualChKey, indexCHKey, dataChKey},
 							SendOpenAck: true,
 						}))
-						ctx, cancel := signal.Isolated()
-						shutdown = signal.NewHardShutdown(ctx, cancel)
+						sCtx, cancel := signal.Isolated()
+						shutdown = signal.NewHardShutdown(sCtx, cancel)
 						dataStreamerIn, dataStreamerOut = confluence.Attach(dataStreamer, 2)
-						dataStreamer.Flow(ctx, confluence.CloseOutputInletsOnExit())
+						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
-						controlStateStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						controlStateStreamer := MustSucceed(db.NewStreamer(sCtx, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))
 						controlStreamerIn, controlStreamerOut = confluence.Attach(controlStateStreamer, 2)
-						controlStateStreamer.Flow(ctx, confluence.CloseOutputInletsOnExit())
+						controlStateStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 						Eventually(controlStreamerOut.Outlet()).Should(Receive())
 					})
 					AfterEach(func() {
