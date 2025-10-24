@@ -1,0 +1,112 @@
+genrule(
+    name = "build_open62541",
+    srcs = glob(["open62541/**"]) + ["//vendor/mbedtls:build_mbedtls"],
+    outs = [
+        "lib/open62541.lib",  # Windows will create this
+        "lib/libopen62541.a",  # Unix will create this
+        "include/open62541/client.h",
+        "include/open62541/client_config_default.h",
+        "include/open62541/client_highlevel.h",
+        "include/open62541/client_highlevel_async.h",
+        "include/open62541/client_subscriptions.h",
+        "include/open62541/common.h",
+        "include/open62541/config.h",
+        "include/open62541/nodeids.h",
+        "include/open62541/server.h",
+        "include/open62541/server_config_default.h",
+        "include/open62541/server_config_file_based.h",
+        "include/open62541/server_pubsub.h",
+        "include/open62541/statuscodes.h",
+        "include/open62541/types.h",
+        "include/open62541/types_generated.h",
+        "include/open62541/types_generated_handling.h",
+        "include/open62541/util.h",
+        "include/open62541/plugin/accesscontrol.h",
+        "include/open62541/plugin/accesscontrol_default.h",
+        "include/open62541/plugin/create_certificate.h",
+        "include/open62541/plugin/eventloop.h",
+        "include/open62541/plugin/historydatabase.h",
+        "include/open62541/plugin/log.h",
+        "include/open62541/plugin/log_stdout.h",
+        "include/open62541/plugin/log_syslog.h",
+        "include/open62541/plugin/nodestore.h",
+        "include/open62541/plugin/nodestore_default.h",
+        "include/open62541/plugin/pki.h",
+        "include/open62541/plugin/pki_default.h",
+        "include/open62541/plugin/securitypolicy.h",
+        "include/open62541/plugin/securitypolicy_default.h",
+        "include/open62541/plugin/historydata/history_data_backend.h",
+        "include/open62541/plugin/historydata/history_data_backend_memory.h",
+        "include/open62541/plugin/historydata/history_data_gathering.h",
+        "include/open62541/plugin/historydata/history_data_gathering_default.h",
+        "include/open62541/plugin/historydata/history_database_default.h",
+    ],
+    cmd_bash = select({
+        "@platforms//os:windows": """
+            rm -rf ./vendor/open62541/build && rm -rf ./vendor/open62541/out
+            mkdir -p ./vendor/open62541/build
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \\
+                 -DUA_NAMESPACE_ZERO=FULL \\
+                 -DCMAKE_INSTALL_PREFIX=./vendor/open62541/out \\
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS \\
+                 -DMBEDTLS_LIBRARY="$(GENDIR)/vendor/mbedtls/lib/mbedtls.lib" \\
+                 -DMBEDX509_LIBRARY="$(GENDIR)/vendor/mbedtls/lib/mbedx509.lib" \\
+                 -DMBEDCRYPTO_LIBRARY="$(GENDIR)/vendor/mbedtls/lib/mbedcrypto.lib" \\
+                 -DMBEDTLS_INCLUDE_DIRS="$(GENDIR)/vendor/mbedtls/include" \\
+                 -DCMAKE_OSX_ARCHITECTURES=x86_64 \\
+                 -B./vendor/open62541/build \\
+                 -S./vendor/open62541/open62541 \\
+                 ./vendor/open62541/open62541
+            cmake --build ./vendor/open62541/build --config RelWithDebInfo --target install
+            mkdir -p $(GENDIR)/vendor/open62541/lib
+            mkdir -p $(GENDIR)/vendor/open62541/include
+            cp -R ./vendor/open62541/out/lib/* $(GENDIR)/vendor/open62541/lib/
+            cp -R ./vendor/open62541/out/include/* $(GENDIR)/vendor/open62541/include/
+            # Create empty Unix library to satisfy Bazel
+            touch $(GENDIR)/vendor/open62541/lib/libopen62541.a
+            touch $(GENDIR)/vendor/open62541/include/open62541/plugin/log_syslog.h
+        """,
+        "//conditions:default": """
+            mbedtls_dir="$(GENDIR)/vendor/mbedtls"
+            rm -rf ./vendor/open62541/open62541/build && rm -rf ./vendor/open62541/open62541/out
+            mkdir -p ./vendor/open62541/open62541/build
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DUA_NAMESPACE_ZERO=FULL \
+                 -DCMAKE_INSTALL_PREFIX=./vendor/open62541/open62541/out \
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS  \
+                 -DMBEDTLS_INCLUDE_DIRS=$${mbedtls_dir}/include \
+                 -DMBEDTLS_LIBRARY=$${mbedtls_dir}/lib/libmbedtls.a \
+                 -DMBEDX509_LIBRARY=$${mbedtls_dir}/lib/libmbedx509.a \
+                 -DMBEDCRYPTO_LIBRARY=$${mbedtls_dir}/lib/libmbedcrypto.a \
+                 -B./vendor/open62541/open62541/build \
+                 -S./vendor/open62541/open62541 \
+                    ./vendor/open62541/open62541
+            cmake --build ./vendor/open62541/open62541/build --config RelWithDebInfo --target install
+            cp -R ./vendor/open62541/open62541/out/lib $(GENDIR)/vendor/open62541
+            cp -R ./vendor/open62541/open62541/out/include $(GENDIR)/vendor/open62541
+            # Create empty Windows library to satisfy Bazel
+            touch $(GENDIR)/vendor/open62541/lib/open62541.lib
+        """,
+    }),
+)
+
+cc_library(
+    name = "open62541",
+    srcs = select({
+        "@platforms//os:windows": ["lib/open62541.lib"],
+        "//conditions:default": ["lib/libopen62541.a"],
+    }),
+    hdrs = [":build_open62541"],
+    includes = ["include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/mbedtls",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+
+        ],
+    }),
+)

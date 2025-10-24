@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
@@ -657,9 +656,8 @@ var _ = Describe("Delete", func() {
 								cesium.Channel{Name: "Bohmer", Key: basic2, DataType: telem.Int64T, Index: index1},
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            10 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    10 * telem.SecondTS,
 							}))
 
 							By("Writing data to the channel")
@@ -700,9 +698,8 @@ var _ = Describe("Delete", func() {
 
 							By("Asserting that writes are still successful")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            11 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    11 * telem.SecondTS,
 							}))
 							MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{index1, basic1, basic2},

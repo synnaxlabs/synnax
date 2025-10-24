@@ -217,7 +217,6 @@ class TestCase(ABC):
                 start=start_time,
                 channels=list(self.tlm.keys()),
                 name=self.name,
-                enable_auto_commit=True,
             )
 
             while self.loop.wait() and not self.should_stop:

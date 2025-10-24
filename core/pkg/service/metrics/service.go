@@ -144,7 +144,6 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		framer.WriterConfig{
 			Keys:                     append(channel.KeysFromChannels(metricChannels), c.idx.Key()),
 			Start:                    telem.Now(),
-			EnableAutoCommit:         config.True(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
 	)

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/computron"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -50,9 +49,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             []channel.Key{ch.Key()},
-				EnableAutoCommit: config.True(),
+				Start: telem.SecondTS,
+				Keys:  []channel.Key{ch.Key()},
 			}))
 			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
@@ -96,9 +94,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-					Start:            telem.SecondTS,
-					Keys:             keys,
-					EnableAutoCommit: config.True(),
+					Start: telem.SecondTS,
+					Keys:  keys,
 				}))
 				fr := core.MultiFrame(
 					keys,
