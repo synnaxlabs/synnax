@@ -61,7 +61,15 @@ Acquisition::Acquisition(
     Base(breaker_config),
     factory(std::move(factory)),
     source(std::move(source)),
-    writer_config(std::move(writer_config)) {}
+    writer_config(std::move(writer_config)) {
+    if (this->writer_config.mode == synnax::WriterMode::PersistStream &&
+        !this->writer_config.enable_auto_commit) {
+        throw std::runtime_error(
+            "[driver] acquisition pipeline: enable_auto_commit must be true "
+            "when mode is PersistStream. This is a driver implementation bug."
+        );
+    }
+}
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
