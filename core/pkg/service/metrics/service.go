@@ -148,7 +148,6 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 				c.idx.Key(),
 			),
 			Start:                    telem.Now(),
-			EnableAutoCommit:         config.True(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
 	)

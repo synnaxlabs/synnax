@@ -83,7 +83,7 @@ class Client:
         suppress_warnings: bool = True,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
-        enable_auto_commit: bool = False,
+        enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
         use_experimental_codec: bool = True,
@@ -217,7 +217,6 @@ class Client:
             strict=strict,
             mode=WriterMode.PERSIST,
             err_on_unauthorized=True,
-            enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
             w.write(channels, series)
