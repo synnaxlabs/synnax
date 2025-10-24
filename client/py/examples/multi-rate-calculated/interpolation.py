@@ -75,7 +75,6 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["interpolation_time", "interpolation_data"],
-    enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
         for frame in streamer:

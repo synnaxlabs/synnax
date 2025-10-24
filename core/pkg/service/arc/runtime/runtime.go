@@ -269,10 +269,9 @@ func createWritePipeline(
 	w, err := frameSvc.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
-			ControlSubject:   control.Subject{Name: name},
-			Start:            telem.Now(),
-			Keys:             writeChannelKeys,
-			EnableAutoCommit: config.True(),
+			ControlSubject: control.Subject{Name: name},
+			Start:          telem.Now(),
+			Keys:           writeChannelKeys,
 		},
 	)
 	if err != nil {

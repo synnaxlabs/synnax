@@ -73,9 +73,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-				Start:            telem.SecondTS,
-				Keys:             []channel.Key{ch.Key()},
-				EnableAutoCommit: config.True(),
+				Start: telem.SecondTS,
+				Keys:  []channel.Key{ch.Key()},
 			}))
 			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
@@ -120,9 +119,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-					Start:            telem.SecondTS,
-					Keys:             keys,
-					EnableAutoCommit: config.True(),
+					Start: telem.SecondTS,
+					Keys:  keys,
 				}))
 				idxData = telem.MultiSeries{Series: []telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),

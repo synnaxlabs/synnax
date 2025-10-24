@@ -74,10 +74,12 @@ type Config struct {
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
-	// [OPTIONAL] - Defaults to false.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
@@ -132,7 +134,7 @@ func DefaultConfig() Config {
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}

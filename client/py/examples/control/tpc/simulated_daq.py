@@ -134,7 +134,6 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     with client.open_writer(
         sy.TimeStamp.now(),
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
-        enable_auto_commit=True,
     ) as writer:
         while loop.wait():
             try:
