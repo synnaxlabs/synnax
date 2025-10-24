@@ -141,10 +141,9 @@ class TestConductor:
         self.tests: List[Test] = []
         self.sequences: List[Dict[str, Any]] = []
         self.current_test: Optional[TestCase] = None
-        self.current_test_start_time: Optional[sy.TimeStamp] = None
+        self.current_test_result: Optional[Test] = None
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self.client_manager_thread: Optional[threading.Thread] = None
-        self.current_test_thread: Optional[threading.Thread] = None
         self._timeout_result: Optional[Test] = None
         self.is_running: bool = False
         self.should_stop: bool = False
@@ -469,7 +468,6 @@ class TestConductor:
                 target=self._test_runner_thread, args=(test_def, test_container)
             )
 
-            self.current_test_thread = test_thread
             test_thread.start()
             test_thread.join()
 
@@ -485,7 +483,6 @@ class TestConductor:
                 )
 
             self.tests.append(test_result)
-            self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
@@ -554,11 +551,6 @@ class TestConductor:
         # Wait for timeout monitor to finish
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
             self.timeout_monitor_thread.join()
-
-        # Wait for current test to complete
-        if self.current_test_thread and self.current_test_thread.is_alive():
-            self.current_test_thread.join()
-            self.log_message("Test Thread has stopped")
 
         self.state = STATE.COMPLETED
 
@@ -794,7 +786,9 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-                        elapsed_time = (sy.TimeStamp.now() - start_time) / sy.TimeSpan.SECOND
+                        elapsed_time = (
+                            sy.TimeStamp.now() - start_time
+                        ) / sy.TimeSpan.SECOND
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(
                                 f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)"
