@@ -114,7 +114,12 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 	if existing, exists := s.substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote
-		if source.Kind == KindCompatible && existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
+		// BUT: Only promote if both are CONCRETE types. If either is a type variable,
+		// just recursively unify without promotion.
+		if source.Kind == KindCompatible &&
+			existing.Kind != types.KindTypeVariable &&
+			other.Kind != types.KindTypeVariable &&
+			existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
 			// Compute the promoted type
 			promoted := promoteNumericTypes(existing, other)
 			// Always update to promoted type (even if same as existing)
@@ -170,7 +175,16 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 				return errors.Newf("type %v does not satisfy float constraint", other)
 			}
 		}
-	} else if !types.Equal(*tv.Constraint, other) {
+	}
+
+	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant),
+	// we've already validated compatibility above, so skip exact match check
+	isConstraintKind := tv.Constraint != nil && (
+		tv.Constraint.Kind == types.KindIntegerConstant ||
+		tv.Constraint.Kind == types.KindFloatConstant ||
+		tv.Constraint.Kind == types.KindNumericConstant)
+
+	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
 		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
 			if tv.Constraint.IsFloat() || other.IsFloat() {
 				if tv.Constraint.Is64Bit() || other.Is64Bit() {

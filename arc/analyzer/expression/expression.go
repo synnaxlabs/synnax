@@ -29,13 +29,9 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	return true
 }
 
-func getLogicalOrOperator(antlr.ParserRuleContext) string {
-	return "||"
-}
+func getLogicalOrOperator(antlr.ParserRuleContext) string { return "||" }
 
-func getLogicalAndOperator(antlr.ParserRuleContext) string {
-	return "&&"
-}
+func getLogicalAndOperator(antlr.ParserRuleContext) string { return "&&" }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
@@ -255,7 +251,10 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 		} else if ctx.AST.NOT() != nil {
 			if !operandType.IsBool() {
 				ctx.Diagnostics.AddError(
-					errors.Newf("operator ! requires boolean operand, received %s", operandType),
+					errors.Newf(
+						"operator ! requires boolean operand, received %s",
+						operandType,
+					),
 					ctx.AST,
 				)
 				return false
