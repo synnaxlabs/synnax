@@ -267,10 +267,7 @@ var _ = Describe("Series", func() {
 				data := telem.UnmarshalSeries[int64](s)
 				Expect(data).To(Equal([]int64{10, 8, 6, 4, 2}))
 			})
-			It("Should panic when count is less than or equal to 0", func() {
-				Expect(func() {
-					telem.Arange[int64](0, 0, 1)
-				}).To(Panic())
+			It("Should panic when count is less than 0", func() {
 				Expect(func() {
 					telem.Arange[int64](0, -1, 1)
 				}).To(Panic())
@@ -1099,20 +1096,117 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("Error cases", func() {
-			It("Should panic with unsupported value type", func() {
-				Expect(func() {
-					telem.NewSeriesFromAny("string", telem.Int64T)
-				}).To(Panic())
+		Describe("String conversions", func() {
+			It("Should convert string to StringT", func() {
+				s := telem.NewSeriesFromAny("hello", telem.StringT)
+				Expect(s.DataType).To(Equal(telem.StringT))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"hello"}))
 			})
 
+			It("Should convert int to string", func() {
+				s := telem.NewSeriesFromAny(42, telem.StringT)
+				Expect(s.DataType).To(Equal(telem.StringT))
+				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"42"}))
+			})
+
+			It("Should convert float to string", func() {
+				s := telem.NewSeriesFromAny(3.14, telem.StringT)
+				Expect(s.DataType).To(Equal(telem.StringT))
+				Expect(telem.UnmarshalStrings(s.Data)[0]).To(ContainSubstring("3.14"))
+			})
+
+			It("Should panic when converting string to numeric type", func() {
+				Expect(func() {
+					telem.NewSeriesFromAny("not a number", telem.Int64T)
+				}).To(Panic())
+			})
+		})
+
+		Describe("JSON conversions", func() {
+			It("Should convert JSON string to JSONT", func() {
+				jsonStr := `{"key":"value"}`
+				s := telem.NewSeriesFromAny(jsonStr, telem.JSONT)
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{jsonStr}))
+			})
+
+			It("Should convert struct to JSON", func() {
+				data := map[string]any{"name": "test", "value": 123}
+				s := telem.NewSeriesFromAny(data, telem.JSONT)
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(s.Len()).To(Equal(int64(1)))
+				jsonStr := telem.UnmarshalStrings(s.Data)[0]
+				Expect(jsonStr).To(ContainSubstring("name"))
+				Expect(jsonStr).To(ContainSubstring("test"))
+			})
+
+			It("Should convert []byte to JSON", func() {
+				jsonBytes := []byte(`{"test":true}`)
+				s := telem.NewSeriesFromAny(jsonBytes, telem.JSONT)
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{`{"test":true}`}))
+			})
+
+			It("Should convert numeric types to JSON", func() {
+				s := telem.NewSeriesFromAny(42, telem.JSONT)
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"42"}))
+			})
+		})
+
+		Describe("Bytes conversions", func() {
+			It("Should convert []byte to BytesT", func() {
+				data := []byte{0x01, 0x02, 0x03}
+				s := telem.NewSeriesFromAny(data, telem.BytesT)
+				Expect(s.DataType).To(Equal(telem.BytesT))
+				Expect(s.Len()).To(Equal(int64(1)))
+				Expect(s.Data[:len(data)]).To(Equal(data))
+			})
+
+			It("Should convert string to BytesT", func() {
+				s := telem.NewSeriesFromAny("hello", telem.BytesT)
+				Expect(s.DataType).To(Equal(telem.BytesT))
+				Expect(s.Data[:5]).To(Equal([]byte("hello")))
+			})
+
+			It("Should convert numeric types to BytesT", func() {
+				s := telem.NewSeriesFromAny(42, telem.BytesT)
+				Expect(s.DataType).To(Equal(telem.BytesT))
+				Expect(s.Data[:2]).To(Equal([]byte("42")))
+			})
+		})
+
+		Describe("TimeStamp conversions", func() {
+			It("Should convert TimeStamp to TimeStampT", func() {
+				ts := telem.TimeStamp(1000)
+				s := telem.NewSeriesFromAny(ts, telem.TimeStampT)
+				Expect(s.DataType).To(Equal(telem.TimeStampT))
+				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(ts))
+			})
+
+			It("Should convert int64 to TimeStamp", func() {
+				s := telem.NewSeriesFromAny(int64(5000), telem.TimeStampT)
+				Expect(s.DataType).To(Equal(telem.TimeStampT))
+				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(telem.TimeStamp(5000)))
+			})
+
+			It("Should panic when converting string to TimeStamp", func() {
+				Expect(func() {
+					telem.NewSeriesFromAny("2024-01-01", telem.TimeStampT)
+				}).To(Panic())
+			})
+		})
+
+		Describe("Error cases", func() {
 			It("Should panic with unsupported data type", func() {
 				Expect(func() {
-					telem.NewSeriesFromAny(42, telem.StringT)
+					telem.NewSeriesFromAny(42, telem.UUIDT)
 				}).To(Panic())
 			})
 
-			It("Should panic with nil value", func() {
+			It("Should panic with nil value for numeric type", func() {
 				Expect(func() {
 					telem.NewSeriesFromAny(nil, telem.Int64T)
 				}).To(Panic())
