@@ -141,6 +141,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create")
 	t.ArcDelete = fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
 	t.ArcRetrieve = fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve")
+	t.ArcLSP = fhttp.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage](router, "/api/v1/arc/lsp")
 
 	// STATUS
 	t.StatusSet = fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set")

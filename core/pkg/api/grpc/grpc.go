@@ -123,6 +123,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
 	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
 	a.ArcRetrieve = fnoop.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse]{}
+	a.ArcLSP = fnoop.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage]{}
 
 	return a, transports
 }

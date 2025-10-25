@@ -16,11 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -73,87 +76,95 @@ var _ = Describe("Runtime", Ordered, func() {
 				Status:  statusSvc,
 			}
 
-			resolver := MustSucceed(runtime.CreateResolver(cfg))
+			resolver := MustSucceed(symbol.CreateResolver(cfg))
 
 			graph := arc.Graph{
 				Nodes: []graph.Node{
-					{Node: arc.Node{
-						Key:    "on",
-						Type:   "on",
-						Config: map[string]any{"channel": ch.Key()},
-					}},
-					{Node: arc.Node{
-						Key:    "constant",
-						Type:   "constant",
-						Config: map[string]any{"value": 10},
-					}},
-					{Node: arc.Node{
-						Key:    "ge",
-						Type:   "ge",
-						Config: map[string]any{},
-					}},
-					{Node: arc.Node{
+					{
+						Key:          "on",
+						Type:         "on",
+						ConfigValues: map[string]any{"channel": ch.Key()},
+					},
+					{
+						Key:          "constant",
+						Type:         "constant",
+						ConfigValues: map[string]any{"value": 10},
+					},
+					{
+						Key:          "ge",
+						Type:         "ge",
+						ConfigValues: map[string]any{},
+					},
+					{
 						Key:  "stable_for",
 						Type: "stable_for",
-						Config: map[string]any{
-							"duration": int(telem.Millisecond * 1),
+						ConfigValues: map[string]any{
+							"duration": int(telem.Millisecond * 0),
 						},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "select",
 						Type: "select",
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "status_success",
 						Type: "set_status",
-						Config: map[string]any{
+						ConfigValues: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "success",
 							"name":       "OX Alarm",
 							"message":    "OX Pressure Nominal",
 						},
-					}},
-					{Node: arc.Node{
+					},
+					{
 						Key:  "status_error",
 						Type: "set_status",
-						Config: map[string]any{
+						ConfigValues: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "error",
 							"name":       "OX Alarm",
 							"message":    "OX Pressure Exceed",
 						},
-					}},
+					},
 				},
 				Edges: []arc.Edge{
 					{
-						Source: arc.Handle{Node: "on", Param: "output"},
-						Target: arc.Handle{Node: "ge", Param: "a"},
+						Source: arc.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "ge", Param: ir.LHSInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "constant", Param: "output"},
-						Target: arc.Handle{Node: "ge", Param: "b"},
+						Source: arc.Handle{Node: "constant", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "ge", Param: ir.RHSInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "ge", Param: "output"},
-						Target: arc.Handle{Node: "stable_for", Param: "input"},
+						Source: arc.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
 					},
 					{
-						Source: arc.Handle{Node: "stable_for", Param: "output"},
-						Target: arc.Handle{Node: "select", Param: "input"},
+						Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
+						Target: arc.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success", Param: "input"},
+						Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error", Param: "input"},
+						Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
 					},
 				},
 			}
 			cfg.Module = MustSucceed(arc.CompileGraph(ctx, graph, arc.WithResolver(resolver)))
 			Expect(cfg.Module.Nodes).To(HaveLen(7))
 			Expect(cfg.Module.Edges).To(HaveLen(6))
+			constantNode := cfg.Module.Nodes[1]
+			Expect(constantNode.Key).To(Equal("constant"))
+			v, _ := constantNode.Outputs.Get("output")
+			geNode := cfg.Module.Nodes[2]
+			Expect(geNode.Key).To(Equal("ge"))
+			geA, _ := geNode.Inputs.Get("a")
+			geB, _ := geNode.Inputs.Get("b")
+			Expect(v).To(Equal(types.F32()), "constant output should be f32, got: %v, ge.a: %v, ge.b: %v", v, geA, geB)
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
 			time.Sleep(time.Millisecond * 20)
@@ -171,6 +182,7 @@ var _ = Describe("Runtime", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](25),
 			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				var stat status.Status
