@@ -296,15 +296,10 @@ func UnmarshalF[T Sample](dt DataType) func(b []byte) T {
 // subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
 // Panics if count is less than or equal to 0.
 func Arange[T Sample](start T, count int, spacing T) Series {
-	if count <= 0 {
-		panic("count must be greater than 0")
-	}
-
 	data := make([]T, count)
 	for i := 0; i < count; i++ {
 		data[i] = start + T(i)*spacing
 	}
-
 	return NewSeries(data)
 }
 

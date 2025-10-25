@@ -124,16 +124,17 @@ func (s *Series) Resize(length int64) {
 	if s.DataType.IsVariable() {
 		panic("cannot resize variable-density series")
 	}
-	density := int(s.DataType.Density())
-	targetSize := int(length) * density
-	currentSize := len(s.Data)
+	var (
+		density     = int(s.DataType.Density())
+		targetSize  = int(length) * density
+		currentSize = len(s.Data)
+	)
 	if targetSize == currentSize {
 		return
 	}
 	if targetSize < currentSize {
 		s.Data = s.Data[:targetSize]
 	} else {
-		// Extend with zeros
 		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
 	}
 }
@@ -230,6 +231,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
+// DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
 		TimeRange: s.TimeRange,

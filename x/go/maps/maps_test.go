@@ -209,6 +209,136 @@ var _ = Describe("Ordered", func() {
 		})
 	})
 
+	Describe("Copy", func() {
+		It("Should create an independent copy of the map", func() {
+			m := &maps.Ordered[string, int]{
+				Keys:   []string{"first", "second", "third"},
+				Values: []int{1, 2, 3},
+			}
+			copy := m.Copy()
+
+			Expect(copy).NotTo(BeNil())
+			Expect(copy.Keys).To(Equal([]string{"first", "second", "third"}))
+			Expect(copy.Values).To(Equal([]int{1, 2, 3}))
+			Expect(copy.Count()).To(Equal(3))
+		})
+
+		It("Should return nil for nil receiver", func() {
+			var m *maps.Ordered[string, int]
+			copy := m.Copy()
+			Expect(copy).To(BeNil())
+		})
+
+		It("Should create independent slices", func() {
+			m := &maps.Ordered[string, int]{
+				Keys:   []string{"first", "second"},
+				Values: []int{1, 2},
+			}
+			copy := m.Copy()
+
+			// Modify the copy
+			copy.Put("third", 3)
+
+			// Original should not be affected
+			Expect(m.Count()).To(Equal(2))
+			Expect(m.Keys).To(Equal([]string{"first", "second"}))
+			Expect(m.Values).To(Equal([]int{1, 2}))
+
+			// Copy should have the new element
+			Expect(copy.Count()).To(Equal(3))
+			Expect(copy.Keys).To(Equal([]string{"first", "second", "third"}))
+			Expect(copy.Values).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("Should copy empty map", func() {
+			m := &maps.Ordered[string, int]{}
+			copy := m.Copy()
+
+			Expect(copy).NotTo(BeNil())
+			Expect(copy.Count()).To(Equal(0))
+			Expect(copy.Keys).To(BeEmpty())
+			Expect(copy.Values).To(BeEmpty())
+		})
+
+		It("Should work with different types", func() {
+			m := &maps.Ordered[int, string]{
+				Keys:   []int{1, 2, 3},
+				Values: []string{"one", "two", "three"},
+			}
+			copy := m.Copy()
+
+			Expect(copy.Keys).To(Equal([]int{1, 2, 3}))
+			Expect(copy.Values).To(Equal([]string{"one", "two", "three"}))
+
+			// Verify independence
+			copy.Put(4, "four")
+			Expect(m.Count()).To(Equal(3))
+			Expect(copy.Count()).To(Equal(4))
+		})
+
+		It("Should create shallow copy with pointer values", func() {
+			type Data struct {
+				Value int
+			}
+
+			m := &maps.Ordered[string, *Data]{
+				Keys:   []string{"key1"},
+				Values: []*Data{{Value: 42}},
+			}
+			copy := m.Copy()
+
+			// Keys and Values slices are independent
+			Expect(copy.Keys).To(Equal([]string{"key1"}))
+			Expect(&copy.Keys).NotTo(Equal(&m.Keys))
+			Expect(&copy.Values).NotTo(Equal(&m.Values))
+
+			// But the pointer values point to the same data (shallow copy)
+			Expect(copy.Values[0]).To(Equal(m.Values[0]))
+			copy.Values[0].Value = 99
+			Expect(m.Values[0].Value).To(Equal(99))
+		})
+
+		It("Should maintain insertion order in copy", func() {
+			m := &maps.Ordered[string, int]{}
+			m.Put("z", 26)
+			m.Put("a", 1)
+			m.Put("m", 13)
+
+			copy := m.Copy()
+
+			// Verify order is maintained
+			k0, v0 := copy.At(0)
+			Expect(k0).To(Equal("z"))
+			Expect(v0).To(Equal(26))
+
+			k1, v1 := copy.At(1)
+			Expect(k1).To(Equal("a"))
+			Expect(v1).To(Equal(1))
+
+			k2, v2 := copy.At(2)
+			Expect(k2).To(Equal("m"))
+			Expect(v2).To(Equal(13))
+		})
+
+		It("Should allow iteration over copy", func() {
+			m := &maps.Ordered[string, int]{
+				Keys:   []string{"a", "b", "c"},
+				Values: []int{1, 2, 3},
+			}
+			copy := m.Copy()
+
+			var keys []string
+			var sum int
+			for k, v := range copy.Iter() {
+				keys = append(keys, k)
+				sum += v
+			}
+
+			Expect(keys).To(Equal([]string{"a", "b", "c"}))
+			Expect(sum).To(Equal(6))
+		})
+	})
+
 	Describe("Integration tests", func() {
 		It("should handle a complete workflow", func() {
 			m := &maps.Ordered[string, int]{}
