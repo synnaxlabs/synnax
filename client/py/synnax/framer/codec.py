@@ -18,7 +18,7 @@ from freighter.codec import Codec as FreighterCodec
 from synnax.channel.payload import ChannelKey, ChannelKeys
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import DataType, Series, TimeRange
+from synnax.telem import Alignment, DataType, Series, TimeRange
 
 ZERO_ALIGNMENTS_FLAG_POS = 5
 EQUAL_ALIGNMENTS_FLAG_POS = 4
@@ -249,7 +249,7 @@ class Codec:
         data_len = 0
         start_time = 0
         end_time = 0
-        alignment = 0
+        alignment = Alignment(0)
 
         if flags.eq_len:
             data_len = struct.unpack_from("<I", buffer, idx)[0]
@@ -260,7 +260,7 @@ class Codec:
             idx += TIME_RANGE_SIZE
 
         if flags.eq_align and not flags.zero_alignments:
-            alignment = struct.unpack_from("<Q", buffer, idx)[0]
+            alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
             idx += ALIGNMENT_SIZE
 
         keys = list()
@@ -298,7 +298,7 @@ class Codec:
 
             curr_alignment = alignment
             if not flags.eq_align and not flags.zero_alignments:
-                curr_alignment = struct.unpack_from("<Q", buffer, idx)[0]
+                curr_alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
                 idx += ALIGNMENT_SIZE
 
             keys.append(key)
