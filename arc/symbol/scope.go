@@ -22,6 +22,10 @@ import (
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
+//
+// The root scope is initialized with a new ID counter starting at 0 and an optional
+// global resolver for built-in symbols. All scopes added to the root will share the
+// same counter unless they are functions, which create their own counters.
 func CreateRootScope(globalResolver Resolver) *Scope {
 	return &Scope{
 		GlobalResolver: globalResolver,
@@ -31,18 +35,23 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 }
 
 // Channels tracks which Synnax channels a node reads from and writes to.
+//
+// This is used for data flow analysis to understand which channels are accessed by
+// different parts of an Arc program. The maps use channel IDs as keys and channel
+// names as values.
 type Channels struct {
-	Read  set.Mapped[uint32, string] `json:"read"`
+	// Read contains Synnax channels that the node reads from.
+	Read set.Mapped[uint32, string] `json:"read"`
+	// Write contains Synnax channels that the node writes to.
 	Write set.Mapped[uint32, string] `json:"write"`
 }
 
+// Copy returns a deep copy of the Channels.
 func (c Channels) Copy() Channels {
-	return Channels{
-		Read:  c.Read.Copy(),
-		Write: c.Write.Copy(),
-	}
+	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
 }
 
+// NewChannels creates a new Channels with empty read and write sets.
 func NewChannels() Channels {
 	return Channels{
 		Read:  make(set.Mapped[uint32, string]),
@@ -50,14 +59,35 @@ func NewChannels() Channels {
 	}
 }
 
+// Scope represents a symbol scope in the hierarchical scope tree.
+//
+// Scopes form a tree structure where each scope can have a parent and multiple children.
+// The Symbol field is embedded, making each Scope also a Symbol. Scopes can have an
+// optional GlobalResolver for looking up built-in symbols, a Parent for lexical scoping,
+// and Children for nested scopes.
+//
+// ID Assignment: Each scope with a Counter (root and functions) assigns unique IDs to
+// variables, inputs, outputs, config, and stateful variables added to it or its descendants.
+// Functions create new Counter instances to isolate variable IDs per function.
+//
+// Resolution Order: When resolving a name via Resolve(), the search proceeds in order:
+//  1. Children of the current scope
+//  2. Parent scope (recursively)
+//  3. GlobalResolver (if non-nil)
 type Scope struct {
 	Symbol
+	// GlobalResolver provides global built-in symbols available from any scope.
 	GlobalResolver Resolver
-	Parent         *Scope
-	Children       []*Scope
-	Counter        *int
-	OnResolve      func(ctx context.Context, s *Scope) error
-	Channels       Channels
+	// Parent is the lexically enclosing scope. Nil for the root scope.
+	Parent *Scope
+	// Children are nested scopes within this scope.
+	Children []*Scope
+	// Counter is the ID counter for variable kinds. Functions create new counters.
+	Counter *int
+	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
+	OnResolve func(ctx context.Context, s *Scope) error
+	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
+	Channels Channels
 }
 
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
@@ -97,8 +127,10 @@ func (s *Scope) AutoName(prefix string) *Scope {
 
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
-		// Don't return error on global symbol shadowing
-		if existing, err := s.Resolve(ctx, sym.Name); err == nil && existing.AST != nil {
+		// Don't return error on global symbol shadowing. Global symbols have an
+		// empty AST.
+		existing, err := s.Resolve(ctx, sym.Name)
+		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
 				"name %s conflicts with existing symbol at line %d, col %d",
@@ -173,16 +205,12 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, error) {
 	seen := make(map[string]bool)
 	var scopes []*Scope
-
-	// Check children
 	for _, child := range s.Children {
 		if strings.HasPrefix(child.Name, prefix) && !seen[child.Name] {
 			scopes = append(scopes, child)
 			seen[child.Name] = true
 		}
 	}
-
-	// Check GlobalResolver
 	if s.GlobalResolver != nil {
 		symbols, err := s.GlobalResolver.ResolvePrefix(ctx, prefix)
 		if err == nil {
@@ -194,8 +222,6 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 			}
 		}
 	}
-
-	// Check parent scope
 	if s.Parent != nil {
 		parentScopes, err := s.Parent.ResolvePrefix(ctx, prefix)
 		if err == nil {
@@ -207,7 +233,6 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 			}
 		}
 	}
-
 	return scopes, nil
 }
 

@@ -40,7 +40,8 @@ func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K](c.param
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K](c.params, entry); return c }
 
-// Exec executes the Inputs against the provided DB. It returns any errors encountered during execution.
+// Exec executes the query against the provided transaction. It returns any errors
+// encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
