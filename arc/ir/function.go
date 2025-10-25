@@ -16,9 +16,13 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// Body represents the implementation of a function or stage.
+// Body represents the source code and AST of a function or stage implementation.
+// It contains both the original textual representation and the parsed abstract
+// syntax tree for code generation and analysis.
 type Body struct {
+	// Raw is the original source code as written by the user.
 	Raw string
+	// AST is the parsed abstract syntax tree from the parser.
 	AST antlr.ParserRuleContext
 }
 
