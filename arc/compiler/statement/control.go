@@ -143,11 +143,11 @@ func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error
 		return errors.Wrap(err, "failed to compile channel write value")
 	}
 	if _, err = ctx.Scope.Resolve(ctx, channelName); err != nil {
-		return errors.Wrapf(err, "channel '%s' not found", channelName)
+		return err
 	}
 	sym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
-		return errors.Newf("channel '%s' not in local context", channelName)
+		return err
 	}
 	ctx.Writer.WriteLocalGet(sym.ID)
 	importIdx, err := ctx.Imports.GetChannelWrite(valueType)

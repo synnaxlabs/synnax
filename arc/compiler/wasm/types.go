@@ -63,22 +63,6 @@ func ConvertType(t types.Type) ValueType {
 	return I32
 }
 
-// SizeOf returns the size in bytes of an IR type when stored in linear memory
-func SizeOf(t types.Type) uint32 {
-	switch t.Kind {
-	case types.KindI8, types.KindU8:
-		return 1
-	case types.KindI16, types.KindU16:
-		return 2
-	case types.KindI32, types.KindU32, types.KindF32:
-		return 4
-	case types.KindI64, types.KindU64, types.KindF64, types.KindTimeStamp, types.KindTimeSpan:
-		return 8
-	default:
-		return 4
-	}
-}
-
 func binaryOpcode(op string, t types.Type) (Opcode, error) {
 	isFloat := t.IsFloat()
 	is64bit := t.Is64Bit()

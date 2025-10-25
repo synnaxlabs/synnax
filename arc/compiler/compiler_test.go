@@ -546,20 +546,20 @@ var _ = Describe("Compiler", func() {
 	Describe("Literal Type Inference", func() {
 		It("Should compile integer literal with f32 variable", func() {
 			output := MustSucceed(compile(`
-			func add_two(x f32) f32 {
+			func addTwo(x f32) f32 {
 				return x + 2
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			add_two := mod.ExportedFunction("add_two")
-			Expect(add_two).ToNot(BeNil())
+			addTwo := mod.ExportedFunction("addTwo")
+			Expect(addTwo).ToNot(BeNil())
 
 			// Call with 3.5, expect 5.5
-			results := MustSucceed(add_two.Call(ctx, uint64(0x40600000))) // 3.5 as f32 bits
+			results := MustSucceed(addTwo.Call(ctx, uint64(math.Float32bits(3.5))))
 			Expect(results).To(HaveLen(1))
 			// Result should be 5.5 as f32
-			Expect(results[0]).To(Equal(uint64(0x40b00000)))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(5.5))))
 		})
 
 		It("Should compile decimal literal with i32 variable", func() {
@@ -586,24 +586,24 @@ var _ = Describe("Compiler", func() {
 
 		It("Should compile expression with multiple literals and f32 variable", func() {
 			output := MustSucceed(compile(`
-			func celsius_to_fahrenheit(celsius f32) f32 {
+			func celsiusToFahrenheit(celsius f32) f32 {
 				return celsius * 1.8 + 32
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			celsius_to_fahrenheit := mod.ExportedFunction("celsius_to_fahrenheit")
-			Expect(celsius_to_fahrenheit).ToNot(BeNil())
+			celsiusToFahrenheit := mod.ExportedFunction("celsiusToFahrenheit")
+			Expect(celsiusToFahrenheit).ToNot(BeNil())
 
 			// Convert 0°C to °F, should be 32°F
-			results := MustSucceed(celsius_to_fahrenheit.Call(ctx, uint64(0x00000000))) // 0.0 as f32
+			results := MustSucceed(celsiusToFahrenheit.Call(ctx, uint64(math.Float32bits(0.0))))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0x42000000))) // 32.0 as f32
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(32.0))))
 
 			// Convert 100°C to °F, should be 212°F
-			results = MustSucceed(celsius_to_fahrenheit.Call(ctx, uint64(0x42c80000))) // 100.0 as f32
+			results = MustSucceed(celsiusToFahrenheit.Call(ctx, uint64(math.Float32bits(100.0))))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0x43540000))) // 212.0 as f32
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(212.0))))
 		})
 
 		It("Should compile literals in variable declarations", func() {
@@ -620,9 +620,9 @@ var _ = Describe("Compiler", func() {
 			Expect(calculate).ToNot(BeNil())
 
 			// calculate(4.0) = 4.0 * 2.5 + 10 = 20.0
-			results := MustSucceed(calculate.Call(ctx, uint64(0x40800000))) // 4.0 as f32
+			results := MustSucceed(calculate.Call(ctx, uint64(math.Float32bits(4.0))))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0x41a00000))) // 20.0 as f32
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(20.0))))
 		})
 
 		It("Should compile literals with i64 variables", func() {
@@ -656,28 +656,28 @@ var _ = Describe("Compiler", func() {
 
 			// calculate(5.0, 2.0) = 5*2 + 2*3.5 - 10 = 10 + 7 - 10 = 7
 			results := MustSucceed(calculate.Call(ctx,
-				uint64(0x4014000000000000), // 5.0 as f64
-				uint64(0x4000000000000000), // 2.0 as f64
+				math.Float64bits(5.0),
+				math.Float64bits(2.0),
 			))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0x401c000000000000))) // 7.0 as f64
+			Expect(results[0]).To(Equal(math.Float64bits(7.0)))
 		})
 
 		It("Should compile literals in return statements", func() {
 			output := MustSucceed(compile(`
-			func get_constant() f32 {
+			func getConstant() f32 {
 				return 3.14159
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			get_constant := mod.ExportedFunction("get_constant")
-			Expect(get_constant).ToNot(BeNil())
+			getConstant := mod.ExportedFunction("getConstant")
+			Expect(getConstant).ToNot(BeNil())
 
-			results := MustSucceed(get_constant.Call(ctx))
+			results := MustSucceed(getConstant.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			// Should be approximately 3.14159 as f32
-			Expect(results[0]).To(Equal(uint64(0x40490fd0)))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(3.14159))))
 		})
 
 		It("Should compile literals with i32 variables in assignments", func() {
@@ -702,69 +702,69 @@ var _ = Describe("Compiler", func() {
 
 		It("Should default integer literals to i64 when unconstrained", func() {
 			output := MustSucceed(compile(`
-			func get_answer() i64 {
+			func getAnswer() i64 {
 				x := 42
 				return x
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			get_answer := mod.ExportedFunction("get_answer")
-			Expect(get_answer).ToNot(BeNil())
+			getAnswer := mod.ExportedFunction("getAnswer")
+			Expect(getAnswer).ToNot(BeNil())
 
-			results := MustSucceed(get_answer.Call(ctx))
+			results := MustSucceed(getAnswer.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(42)))
 		})
 
 		It("Should default float literals to f64 when unconstrained", func() {
 			output := MustSucceed(compile(`
-			func get_pi() f64 {
+			func getPi() f64 {
 				x := 3.14
 				return x
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			get_pi := mod.ExportedFunction("get_pi")
-			Expect(get_pi).ToNot(BeNil())
+			getPi := mod.ExportedFunction("getPi")
+			Expect(getPi).ToNot(BeNil())
 
-			results := MustSucceed(get_pi.Call(ctx))
+			results := MustSucceed(getPi.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			// 3.14 as f64 bits
-			Expect(results[0]).To(Equal(uint64(0x40091eb851eb851f)))
+			Expect(results[0]).To(Equal(math.Float64bits(3.14)))
 		})
 
 		It("Should allow float literals in comparisons with i64", func() {
 			output := MustSucceed(compile(`
-			func is_positive(x i64) u8 {
+			func isPositive(x i64) u8 {
 				return x > 0.0
 			}
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			is_positive := mod.ExportedFunction("is_positive")
-			Expect(is_positive).ToNot(BeNil())
+			isPositive := mod.ExportedFunction("isPositive")
+			Expect(isPositive).ToNot(BeNil())
 
 			// Test positive value
-			results := MustSucceed(is_positive.Call(ctx, 50))
+			results := MustSucceed(isPositive.Call(ctx, 50))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(1)))
 
 			// Test zero
-			results = MustSucceed(is_positive.Call(ctx, 0))
+			results = MustSucceed(isPositive.Call(ctx, 0))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(0)))
 
 			// Test another positive
-			results = MustSucceed(is_positive.Call(ctx, 100))
+			results = MustSucceed(isPositive.Call(ctx, 100))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(1)))
 		})
 
 		It("Should allow mixed f32 and integer literal arithmetic", func() {
 			output := MustSucceed(compile(`
-			func scale_and_offset(value f32) f32 {
+			func scaleAndOffset(value f32) f32 {
 				scale f32 := 2
 				offset f32 := 10
 				return value * scale + offset
@@ -772,13 +772,13 @@ var _ = Describe("Compiler", func() {
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			scale_and_offset := mod.ExportedFunction("scale_and_offset")
-			Expect(scale_and_offset).ToNot(BeNil())
+			scaleAndOffset := mod.ExportedFunction("scaleAndOffset")
+			Expect(scaleAndOffset).ToNot(BeNil())
 
-			// scale_and_offset(5.0) = 5.0 * 2 + 10 = 20.0
-			results := MustSucceed(scale_and_offset.Call(ctx, uint64(0x40a00000))) // 5.0 as f32
+			// scaleAndOffset(5.0) = 5.0 * 2 + 10 = 20.0
+			results := MustSucceed(scaleAndOffset.Call(ctx, uint64(math.Float32bits(5.0))))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0x41a00000))) // 20.0 as f32
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(20.0))))
 		})
 
 		It("Should execute complex literal inference with nested operations", func() {

@@ -33,7 +33,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return errors.Wrapf(err, "variable '%s' not found in symbol table", name)
+		return err
 	}
 	varType := varScope.Type
 	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
@@ -47,7 +47,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	}
 	local, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return errors.Wrapf(err, "failed to lookup local variable '%s'", name)
+		return err
 	}
 	ctx.Writer.WriteLocalSet(local.ID)
 	return nil
@@ -57,13 +57,10 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 func compileStatefulVariable(
 	ctx context.Context[parser.IStatefulVariableContext],
 ) error {
-	// Resolve the variable name
 	name := ctx.AST.IDENTIFIER().GetText()
-
-	// Look up the symbol to get its type
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
+		return err
 	}
 	varType := scope.Type
 	// Emit state load-or-initialize operation
@@ -98,7 +95,7 @@ func compileAssignment(
 	// Look up the symbol
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return errors.Wrapf(err, "variable '%s' not found", name)
+		return err
 	}
 	sym := scope.Symbol
 	varType := sym.Type
@@ -118,13 +115,13 @@ func compileAssignment(
 		// Regular local variable or input
 		local, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
-			return errors.Newf("local variable '%s' not allocated", name)
+			return err
 		}
 		ctx.Writer.WriteLocalSet(local.ID)
 	case symbol.KindStatefulVariable:
 		stateIdx, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
-			return errors.Newf("stateful variable '%s' not allocated", name)
+			return err
 		}
 		// Value is on stack from expression compilation
 		// Need to rearrange to: [funcID, varID, value]
@@ -184,7 +181,7 @@ func compileOutputAssignment(
 	// Step 3: Calculate memory offset for this output
 	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
 	for i := 0; i < outputIndex; i++ {
-		offset += wasm.SizeOf(ctx.Outputs.Values[i])
+		offset += uint32(ctx.Outputs.Values[i].Density())
 	}
 
 	// Step 4: Write value to output memory

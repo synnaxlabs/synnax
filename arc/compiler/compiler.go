@@ -50,9 +50,9 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
 			outputMemoryBases[i.Key] = outputMemoryBase
-			size := uint32(8) // dirty flags
+			var size uint32 = 8 // dirty flags
 			for _, outputType := range i.Outputs.Values {
-				size += wasm.SizeOf(outputType)
+				size += uint32(outputType.Density())
 			}
 			outputMemoryCounter += size
 		}

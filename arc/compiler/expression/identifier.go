@@ -23,7 +23,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 ) (types.Type, error) {
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		return types.Type{}, errors.Wrapf(err, "identifier '%s' not found", name)
+		return types.Type{}, err
 	}
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindConfig:

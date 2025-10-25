@@ -16,7 +16,7 @@ import (
 
 // GetChannelRead returns the import index for a channel read function
 func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -25,7 +25,7 @@ func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
 
 // GetChannelWrite returns the import index for a channel write function
 func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -34,7 +34,7 @@ func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
 
 // GetChannelBlockingRead returns the import index for a blocking channel read function
 func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.ChannelBlockingRead[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -43,7 +43,7 @@ func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
 
 // GetSeriesCreateEmpty returns the import index for creating an empty series
 func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.SeriesCreateEmpty[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -52,7 +52,7 @@ func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
 
 // GetSeriesIndex returns the import index for series indexing
 func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.SeriesIndex[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -61,7 +61,7 @@ func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
 
 // GetSeriesArithmetic returns the import index for series arithmetic operations
 func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	if isScalar {
@@ -100,7 +100,7 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 
 // GetSeriesComparison returns the import index for series comparison operations
 func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	switch op {
@@ -128,7 +128,7 @@ func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, er
 
 // GetStateLoad returns the import index for a state load function
 func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.StateLoad[suffix]; ok {
 		return funcIdx, nil
 	}
@@ -137,53 +137,9 @@ func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
 
 // GetStateStore returns the import index for a state store function
 func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 	if funcIdx, ok := idx.StateStore[suffix]; ok {
 		return funcIdx, nil
 	}
 	return 0, errors.Newf("no state store function for type %v", t)
-}
-
-// getTypeSuffix extracts the type suffix for import lookups
-func getTypeSuffix(t types.Type) string {
-	switch t.Kind {
-	case types.KindI8:
-		return "i8"
-	case types.KindI16:
-		return "i16"
-	case types.KindI32:
-		return "i32"
-	case types.KindI64:
-		return "i64"
-	case types.KindU8:
-		return "u8"
-	case types.KindU16:
-		return "u16"
-	case types.KindU32:
-		return "u32"
-	case types.KindU64:
-		return "u64"
-	case types.KindF32:
-		return "f32"
-	case types.KindF64:
-		return "f64"
-	case types.KindString:
-		return "string"
-	case types.KindTimeStamp, types.KindTimeSpan:
-		return "i64"
-	case types.KindSeries:
-		unwrapped := t.Unwrap()
-		if unwrapped.Kind != types.KindSeries {
-			return getTypeSuffix(unwrapped)
-		}
-		return "i32" // Fallback for malformed series with nil ValueType
-	case types.KindChan:
-		unwrapped := t.Unwrap()
-		if unwrapped.Kind != types.KindChan {
-			return getTypeSuffix(unwrapped)
-		}
-		return "i32" // Fallback for malformed channel with nil ValueType
-	default:
-		return "i32"
-	}
 }
