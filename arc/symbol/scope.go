@@ -127,8 +127,10 @@ func (s *Scope) AutoName(prefix string) *Scope {
 
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
-		// Don't return error on global symbol shadowing
-		if existing, err := s.Resolve(ctx, sym.Name); err == nil && existing.AST != nil {
+		// Don't return error on global symbol shadowing. Global symbols have an
+		// empty AST.
+		existing, err := s.Resolve(ctx, sym.Name)
+		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
 				"name %s conflicts with existing symbol at line %d, col %d",
