@@ -215,18 +215,18 @@ var _ = Describe("Ordered", func() {
 				Keys:   []string{"first", "second", "third"},
 				Values: []int{1, 2, 3},
 			}
-			copy := m.Copy()
+			cpy := m.Copy()
 
-			Expect(copy).NotTo(BeNil())
-			Expect(copy.Keys).To(Equal([]string{"first", "second", "third"}))
-			Expect(copy.Values).To(Equal([]int{1, 2, 3}))
-			Expect(copy.Count()).To(Equal(3))
+			Expect(cpy).NotTo(BeNil())
+			Expect(cpy.Keys).To(Equal([]string{"first", "second", "third"}))
+			Expect(cpy.Values).To(Equal([]int{1, 2, 3}))
+			Expect(cpy.Count()).To(Equal(3))
 		})
 
 		It("Should return nil for nil receiver", func() {
 			var m *maps.Ordered[string, int]
-			copy := m.Copy()
-			Expect(copy).To(BeNil())
+			cpy := m.Copy()
+			Expect(cpy).To(BeNil())
 		})
 
 		It("Should create independent slices", func() {
@@ -234,10 +234,10 @@ var _ = Describe("Ordered", func() {
 				Keys:   []string{"first", "second"},
 				Values: []int{1, 2},
 			}
-			copy := m.Copy()
+			cpy := m.Copy()
 
-			// Modify the copy
-			copy.Put("third", 3)
+			// Modify the cpy
+			cpy.Put("third", 3)
 
 			// Original should not be affected
 			Expect(m.Count()).To(Equal(2))
@@ -245,19 +245,19 @@ var _ = Describe("Ordered", func() {
 			Expect(m.Values).To(Equal([]int{1, 2}))
 
 			// Copy should have the new element
-			Expect(copy.Count()).To(Equal(3))
-			Expect(copy.Keys).To(Equal([]string{"first", "second", "third"}))
-			Expect(copy.Values).To(Equal([]int{1, 2, 3}))
+			Expect(cpy.Count()).To(Equal(3))
+			Expect(cpy.Keys).To(Equal([]string{"first", "second", "third"}))
+			Expect(cpy.Values).To(Equal([]int{1, 2, 3}))
 		})
 
 		It("Should copy empty map", func() {
 			m := &maps.Ordered[string, int]{}
-			copy := m.Copy()
+			cpy := m.Copy()
 
-			Expect(copy).NotTo(BeNil())
-			Expect(copy.Count()).To(Equal(0))
-			Expect(copy.Keys).To(BeEmpty())
-			Expect(copy.Values).To(BeEmpty())
+			Expect(cpy).NotTo(BeNil())
+			Expect(cpy.Count()).To(Equal(0))
+			Expect(cpy.Keys).To(BeEmpty())
+			Expect(cpy.Values).To(BeEmpty())
 		})
 
 		It("Should work with different types", func() {
@@ -265,15 +265,15 @@ var _ = Describe("Ordered", func() {
 				Keys:   []int{1, 2, 3},
 				Values: []string{"one", "two", "three"},
 			}
-			copy := m.Copy()
+			cpy := m.Copy()
 
-			Expect(copy.Keys).To(Equal([]int{1, 2, 3}))
-			Expect(copy.Values).To(Equal([]string{"one", "two", "three"}))
+			Expect(cpy.Keys).To(Equal([]int{1, 2, 3}))
+			Expect(cpy.Values).To(Equal([]string{"one", "two", "three"}))
 
 			// Verify independence
-			copy.Put(4, "four")
+			cpy.Put(4, "four")
 			Expect(m.Count()).To(Equal(3))
-			Expect(copy.Count()).To(Equal(4))
+			Expect(cpy.Count()).To(Equal(4))
 		})
 
 		It("Should create shallow copy with pointer values", func() {
@@ -285,16 +285,16 @@ var _ = Describe("Ordered", func() {
 				Keys:   []string{"key1"},
 				Values: []*Data{{Value: 42}},
 			}
-			copy := m.Copy()
+			cpy := m.Copy()
 
 			// Keys and Values slices are independent
-			Expect(copy.Keys).To(Equal([]string{"key1"}))
-			Expect(&copy.Keys).NotTo(Equal(&m.Keys))
-			Expect(&copy.Values).NotTo(Equal(&m.Values))
+			Expect(cpy.Keys).To(Equal([]string{"key1"}))
+			Expect(&cpy.Keys).NotTo(BeIdenticalTo(&m.Keys))
+			Expect(&cpy.Values).NotTo(BeIdenticalTo(&m.Values))
 
-			// But the pointer values point to the same data (shallow copy)
-			Expect(copy.Values[0]).To(Equal(m.Values[0]))
-			copy.Values[0].Value = 99
+			// But the pointer values point to the same data (shallow cpy)
+			Expect(cpy.Values[0]).To(Equal(m.Values[0]))
+			cpy.Values[0].Value = 99
 			Expect(m.Values[0].Value).To(Equal(99))
 		})
 
@@ -304,18 +304,18 @@ var _ = Describe("Ordered", func() {
 			m.Put("a", 1)
 			m.Put("m", 13)
 
-			copy := m.Copy()
+			cpy := m.Copy()
 
 			// Verify order is maintained
-			k0, v0 := copy.At(0)
+			k0, v0 := cpy.At(0)
 			Expect(k0).To(Equal("z"))
 			Expect(v0).To(Equal(26))
 
-			k1, v1 := copy.At(1)
+			k1, v1 := cpy.At(1)
 			Expect(k1).To(Equal("a"))
 			Expect(v1).To(Equal(1))
 
-			k2, v2 := copy.At(2)
+			k2, v2 := cpy.At(2)
 			Expect(k2).To(Equal("m"))
 			Expect(v2).To(Equal(13))
 		})
@@ -325,11 +325,11 @@ var _ = Describe("Ordered", func() {
 				Keys:   []string{"a", "b", "c"},
 				Values: []int{1, 2, 3},
 			}
-			copy := m.Copy()
+			cpy := m.Copy()
 
 			var keys []string
 			var sum int
-			for k, v := range copy.Iter() {
+			for k, v := range cpy.Iter() {
 				keys = append(keys, k)
 				sum += v
 			}
