@@ -14,63 +14,65 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/maps"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var resolver = ir.MapResolver{
-	"on": ir.Symbol{
+var resolver = symbol.MapResolver{
+	"on": symbol.Symbol{
 		Name: "on",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{
-			Config: maps.Ordered[string, ir.Type]{
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Config: &types.Params{
 				Keys:   []string{"channel"},
-				Values: []ir.Type{ir.String{}},
+				Values: []types.Type{types.String()},
 			},
-		},
+		}),
 	},
-	"once": ir.Symbol{
+	"once": symbol.Symbol{
 		Name: "once",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{},
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{}),
 	},
-	"processor": ir.Symbol{
+	"processor": symbol.Symbol{
 		Name: "processor",
-		Kind: ir.KindStage,
-		Type: &ir.Stage{},
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{}),
 	},
-	"sensor_chan": ir.Symbol{
+	"sensor_chan": symbol.Symbol{
 		Name: "sensor_chan",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"output_chan": ir.Symbol{
+	"output_chan": symbol.Symbol{
 		Name: "output_chan",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"temp_sensor": ir.Symbol{
+	"temp_sensor": symbol.Symbol{
 		Name: "temp_sensor",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"valve_cmd": ir.Symbol{
+	"valve_cmd": symbol.Symbol{
 		Name: "valve_cmd",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
-	"temperature": ir.Symbol{
+	"temperature": symbol.Symbol{
 		Name: "temperature",
-		Kind: ir.KindChannel,
-		Type: ir.Chan{ValueType: ir.F64{}},
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
 	},
 }
 
 var _ = Describe("Flow Statements", func() {
-	Describe("Channel to Stage Flows", func() {
-		It("Should parse simple channel to stage flow", func() {
+	Describe("Channel to func Flows", func() {
+		It("Should parse simple channel to func flow", func() {
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
@@ -89,21 +91,9 @@ var _ = Describe("Flow Statements", func() {
 			Expect(first.Message).To(Equal("undefined symbol: once"))
 		})
 
-		It("Should return an error when one of the symbols being called is not a stage", func() {
+		It("Should verify func config parameters match the expected signature types", func() {
 			ast := MustSucceed(parser.Parse(`
-			func dog() {
-			}
-			once{} -> dog{}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("dog is not a stage"))
-		})
-
-		It("Should verify stage config parameters match the expected signature types", func() {
-			ast := MustSucceed(parser.Parse(`
-			stage controller{
+			func controller{
 				setpoint f64
 				input <-chan f64
 				output ->chan f64
@@ -116,18 +106,18 @@ var _ = Describe("Flow Statements", func() {
 
 			// This should work - types match
 			sensor_chan -> controller{
-				setpoint: 100.0,
-				input: sensor_chan,
-				output: output_chan
+				setpoint=100.0,
+				input=sensor_chan,
+				output=output_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should detect when stage is invoked with missing required parameters", func() {
+		It("Should detect when func is invoked with missing required parameters", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage filter{
+			func filter{
 				threshold f64
 				input <-chan f64
 				output ->chan f64
@@ -140,7 +130,7 @@ var _ = Describe("Flow Statements", func() {
 
 			// Missing 'threshold' and 'output' parameters
 			sensor_chan -> filter{
-				input: sensor_chan
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -148,14 +138,14 @@ var _ = Describe("Flow Statements", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
 			Expect((*ctx.Diagnostics)[0].Message).To(Or(
-				Equal("missing required config parameter 'threshold' for stage 'filter'"),
-				Equal("missing required config parameter 'output' for stage 'filter'"),
+				Equal("missing required config parameter 'threshold' for func 'filter'"),
+				Equal("missing required config parameter 'output' for func 'filter'"),
 			))
 		})
 
-		It("Should detect when stage is invoked with extra parameters not in signature", func() {
+		It("Should detect when func is invoked with extra parameters not in signature", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage simple{
+			func simple{
 				input <-chan f64
 			} () {
 				value := <-input
@@ -163,19 +153,19 @@ var _ = Describe("Flow Statements", func() {
 
 			// 'extra' is not a valid config parameter for 'simple'
 			sensor_chan -> simple{
-				input: sensor_chan,
-				extra: 42.0
+				input=sensor_chan,
+				extra=42.0
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for stage 'simple'"))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
 		})
 
-		It("Should detect type mismatch in stage config parameters", func() {
+		It("Should detect type mismatch in func config parameters", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage typed_task{
+			func typed_task{
 				threshold f64
 				count u32
 				message string
@@ -192,10 +182,10 @@ var _ = Describe("Flow Statements", func() {
 			// - count should be u32, but given f64
 			// - message should be string, but given number
 			sensor_chan -> typed_task{
-				threshold: "not a number",
-				count: 3.14,
-				message: 42,
-				input: sensor_chan
+				threshold="not a number",
+				count=3.14,
+				message=42,
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -213,9 +203,9 @@ var _ = Describe("Flow Statements", func() {
 			Expect(hasTypeMismatch).To(BeTrue(), "Expected at least one type mismatch error")
 		})
 
-		It("Should accept correct types for stage config parameters", func() {
+		It("Should accept correct types for func config parameters", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage typed_task{
+			func typed_task{
 				threshold f64
 				count u32
 				message string
@@ -229,10 +219,10 @@ var _ = Describe("Flow Statements", func() {
 
 			// All types match correctly
 			sensor_chan -> typed_task{
-				threshold: 100.5,
-				count: u32(42),
-				message: "hello",
-				input: sensor_chan
+				threshold=100.5,
+				count=u32(42),
+				message="hello",
+				input=sensor_chan
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -241,7 +231,7 @@ var _ = Describe("Flow Statements", func() {
 
 		It("Should allow channels as both sources and targets in flow statements", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage process{
+			func process{
 				input <-chan f64
 				output ->chan f64
 			} () {
@@ -250,20 +240,20 @@ var _ = Describe("Flow Statements", func() {
 				processed -> output
 			}
 
-			// Channel as source -> stage -> channel as target
+			// Channel as source -> func -> channel as target
 			temp_sensor -> process{
-				input: temp_sensor,
-				output: valve_cmd
+				input=temp_sensor,
+				output=valve_cmd
 			}
 
-			// Direct channel to channel piping (no stage)
+			// Direct channel to channel piping (no fn)
 			// This represents a direct connection/pass-through
 			sensor_chan -> output_chan
 
-			// Channel as source in multi-stage flow
+			// Channel as source in multi-func flow
 			sensor_chan -> process{
-				input: sensor_chan,
-				output: output_chan
+				input=sensor_chan,
+				output=output_chan
 			} -> valve_cmd
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -272,14 +262,14 @@ var _ = Describe("Flow Statements", func() {
 
 		It("Should understand channel pass-through triggers tasks on new values", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage logger{
+			func logger{
 				value <-chan f64
 			} () {
 				v := <-value
 				// Log the value
 			}
 
-			stage controller{
+			func controller{
 				temp <-chan f64
 				setpoint f64
 			} () {
@@ -290,13 +280,13 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// Channel pass-through - these trigger tasks on channel updates
-			// The channel IS the implicit first parameter to the stage
-			temperature -> controller{temp: temperature, setpoint: 100.0}
+			// The channel IS the implicit first parameter to the fn
+			temperature -> controller{temp=temperature, setpoint=100.0}
 
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
-			sensor_chan -> logger{value: sensor_chan}
+			sensor_chan -> logger{value=sensor_chan}
 
-			// Even simpler - if stage has single channel input, it can be implicit
+			// Even simpler - if func has single channel input, it can be implicit
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
@@ -304,9 +294,9 @@ var _ = Describe("Flow Statements", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should implicitly convert channel sources to on{channel} stage invocations", func() {
+		It("Should implicitly convert channel sources to on{channel} func invocations", func() {
 			ast := MustSucceed(parser.Parse(`
-			stage display{
+			func display{
 				input <-chan f64
 			} () {
 				value := <-input
@@ -314,38 +304,38 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// This channel as source:
-			sensor_chan -> display{input: sensor_chan}
+			sensor_chan -> display{input=sensor_chan}
 
 			// Is implicitly converted to:
-			// on{channel: sensor_chan} -> display{input: sensor_chan}
-			// Where "on" is a stdlib stage that triggers when the channel receives a value
+			// on{channel=sensor_chan} -> display{input=sensor_chan}
+			// Where "on" is a stdlib func that triggers when the channel receives a value
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
-			// The analyzer should have converted the channel source to an "on" stage
-			// This test verifies that the "on" stage is required in the resolver
+			// The analyzer should have converted the channel source to an "on" fn
+			// This test verifies that the "on" func is required in the resolver
 		})
 
 		It("Using channel as source", func() {
-			// Create a resolver without the "on" stage
-			noOnResolver := ir.MapResolver{
-				"sensor_chan": ir.Symbol{
+			// Create a resolver without the "on" fn
+			noOnResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
 					Name: "sensor_chan",
-					Kind: ir.KindChannel,
-					Type: ir.Chan{ValueType: ir.F64{}},
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
 				},
 			}
 
 			ast := MustSucceed(parser.Parse(`
-			stage display{
+			func display{
 				input <-chan f64
 			} () {
 				value := <-input
 			}
 
-			// This should fail because "on" stage is not available
-			sensor_chan -> display{input: sensor_chan}
+			// This should fail because "on" func is not available
+			sensor_chan -> display{input=sensor_chan}
 			`))
 
 			ctx := context.CreateRoot(bCtx, ast, noOnResolver)
@@ -354,11 +344,11 @@ var _ = Describe("Flow Statements", func() {
 
 		It("Should convert expressions in flow statements to anonymous tasks", func() {
 			ast := MustSucceed(parser.Parse(`
-stage alarm{} () {}
-stage logger{} () {}
+func alarm{} () {}
+func logger{} () {}
 
-// Expression as source - should be converted to anonymous stage
-// The expression "sensor_chan > 100" becomes an anonymous stage that:
+// Expression as source - should be converted to anonymous fn
+// The expression "sensor_chan > 100" becomes an anonymous func that:
 // 1. Reads from sensor_chan
 // 2. Evaluates the comparison
 // 3. Outputs u8 (boolean) result
@@ -375,14 +365,14 @@ sensor_chan > 100 -> alarm{}
 
 		It("Should validate that expressions in flows only reference channels and literals", func() {
 			ast := MustSucceed(parser.Parse(`
-stage alarm{} () {}
+func alarm{} () {}
 
 func setup() {
 	threshold := 100  // Variables can only exist in functions/tasks
 }
 
 // This should fail - can't use variables in flow expressions
-// 'threshold' doesn't exist at the inter-stage layer scope
+// 'threshold' doesn't exist at the inter-func layer scope
 sensor_chan > threshold -> alarm{}
 			`))
 
@@ -398,6 +388,381 @@ sensor_chan > threshold -> alarm{}
 				}
 			}
 			Expect(foundError).To(BeTrue(), "Expected error about undefined symbol 'threshold'")
+		})
+	})
+
+	Describe("Multi-Output fns and Routing Tables", func() {
+		It("Should analyze func with multiple named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{
+				threshold f64
+			} (value f32) {
+				high f32
+				low f32
+			} {
+				if (value > f32(threshold)) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+
+			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
+			Expect(err).To(BeNil())
+			hasNamedOutputs := demuxSymbol.Type.Outputs.Count() > 1 || (demuxSymbol.Type.Outputs.Count() == 1 && func() bool {
+				_, exists := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
+				return !exists
+			}())
+			Expect(hasNamedOutputs).To(BeTrue())
+			Expect(demuxSymbol.Type.Outputs.Count()).To(Equal(2))
+
+			highType, exists := demuxSymbol.Type.Outputs.Get("high")
+			Expect(exists).To(BeTrue())
+			Expect(highType).To(Equal(types.F32()))
+
+			lowType, exists := demuxSymbol.Type.Outputs.Get("low")
+			Expect(exists).To(BeTrue())
+			Expect(lowType).To(Equal(types.F32()))
+		})
+
+		It("Should analyze routing table with named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{
+				threshold f64
+			} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > threshold) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func alarm{} (value f64) {}
+			func logger{} (value f64) {}
+
+			sensor_chan -> demux{threshold=100.0} -> {
+				high: alarm{},
+				low: logger{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should detect when routing table is used with func without named outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			func simple{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			func target{} (value f64) {}
+
+			sensor_chan -> simple{} -> {
+				output: target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have named outputs"))
+		})
+
+		It("Should detect when routing to non-existent output", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func target{} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high: target{},
+				medium: target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have output 'medium'"))
+		})
+
+		It("Should type-check routing table targets", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func u32_target{} (value u32) {}
+
+			sensor_chan -> demux{} -> {
+				high: u32_target{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should analyze routing table with chained nodes", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func multiplier{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			func alarm{} (value f64) {}
+			func logger{} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high: multiplier{} -> alarm{},
+				low: logger{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should route to channels in routing table", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan,
+				low: temp_sensor
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should warn about unassigned outputs", func() {
+			ast := MustSucceed(parser.Parse(`
+			func incomplete{} (value f32) {
+				high f32
+				low f32
+			} {
+				if (value > 100.0) {
+					high = value
+				}
+				// 'low' is never assigned
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			// Should have warning about unassigned output
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Warning))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
+		})
+
+		It("Should validate config parameters in routing table targets", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func configurable{
+				threshold f64
+			} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+				high: configurable{threshold=50.0},
+				low: configurable{}
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			// Should fail because 'low' route is missing required config parameter
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required config parameter"))
+		})
+
+		It("Should analyze routing table with parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func combiner{} (a f64, b f64) f64 {
+				return a + b
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: a,
+				low: temp_sensor: b
+			} -> combiner{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should detect invalid parameter name in routing table", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func doubler{} (a f64) f64 {
+				return a * 2.0
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: invalid_param
+			} -> doubler{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have parameter 'invalid_param'"))
+		})
+
+		It("Should type-check parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func multiplier{} (value f64) f64 {
+				return value * 2.0
+			}
+
+			func converter{} (a f32) f64 {
+				return f64(a) + 1.0
+			}
+
+			sensor_chan -> demux{} -> {
+				high: multiplier{}: a
+			} -> converter{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should analyze routing table with chained processing and parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			func filter{} (value f64) f64 {
+				return value
+			}
+
+			func amplifier{} (value f64) f64 {
+				return value * 10.0
+			}
+
+			func scaler{} (input f64, scale f64) f64 {
+				return input * scale
+			}
+
+			sensor_chan -> demux{} -> {
+				high: filter{} -> amplifier{}: input,
+				low: output_chan: scale
+			} -> scaler{}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should require next func when using parameter mapping", func() {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) {
+				high f64
+				low f64
+			} {
+				if (value > 100.0) {
+					high = value
+				} else {
+					low = value
+				}
+			}
+
+			sensor_chan -> demux{} -> {
+				high: output_chan: a
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a func after the routing table"))
 		})
 	})
 })
