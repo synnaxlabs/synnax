@@ -37,9 +37,7 @@ var _ = Describe("Types", func() {
 			It("should handle nested channels (chan of chan)", func() {
 				innerChan := types.Chan(types.I32())
 				outerChan := types.Chan(innerChan)
-				// First unwrap returns inner channel
 				Expect(outerChan.Unwrap()).To(Equal(innerChan))
-				// Second unwrap returns i32
 				Expect(outerChan.Unwrap().Unwrap()).To(Equal(types.I32()))
 			})
 		})
@@ -63,9 +61,7 @@ var _ = Describe("Types", func() {
 			It("should handle nested series (series of series)", func() {
 				innerSeries := types.Series(types.F64())
 				outerSeries := types.Series(innerSeries)
-				// First unwrap returns inner series
 				Expect(outerSeries.Unwrap()).To(Equal(innerSeries))
-				// Second unwrap returns f64
 				Expect(outerSeries.Unwrap().Unwrap()).To(Equal(types.F64()))
 			})
 		})
@@ -108,18 +104,14 @@ var _ = Describe("Types", func() {
 			It("should unwrap channel of series correctly", func() {
 				seriesType := types.Series(types.F32())
 				chanType := types.Chan(seriesType)
-				// Unwrap channel returns series
 				Expect(chanType.Unwrap()).To(Equal(seriesType))
-				// Further unwrap returns f32
 				Expect(chanType.Unwrap().Unwrap()).To(Equal(types.F32()))
 			})
 
 			It("should unwrap series of channel correctly", func() {
 				chanType := types.Chan(types.I64())
 				seriesType := types.Series(chanType)
-				// Unwrap series returns channel
 				Expect(seriesType.Unwrap()).To(Equal(chanType))
-				// Further unwrap returns i64
 				Expect(seriesType.Unwrap().Unwrap()).To(Equal(types.I64()))
 			})
 		})
@@ -127,20 +119,17 @@ var _ = Describe("Types", func() {
 		Describe("Edge cases", func() {
 			It("should handle invalid/zero type", func() {
 				var t types.Type
-				// Zero type should return itself (no panic)
 				Expect(func() { t.Unwrap() }).NotTo(Panic())
 				Expect(t.Unwrap()).To(Equal(t))
 			})
 
 			It("should handle channel with nil ValueType", func() {
 				chanType := types.Type{Kind: types.KindChan, ValueType: nil}
-				// Should return itself, not panic
 				Expect(chanType.Unwrap()).To(Equal(chanType))
 			})
 
 			It("should handle series with nil ValueType", func() {
 				seriesType := types.Type{Kind: types.KindSeries, ValueType: nil}
-				// Should return itself, not panic
 				Expect(seriesType.Unwrap()).To(Equal(seriesType))
 			})
 		})
@@ -154,19 +143,15 @@ var _ = Describe("Types", func() {
 			It("should be idempotent after unwrapping once", func() {
 				chanType := types.Chan(types.F64())
 				unwrapped := chanType.Unwrap()
-				// Unwrapping again should return same result
 				Expect(unwrapped.Unwrap()).To(Equal(unwrapped))
 			})
 
 			It("should fully unwrap nested types with repeated calls", func() {
 				nested := types.Chan(types.Series(types.I32()))
-				// First unwrap: chan -> series
 				firstUnwrap := nested.Unwrap()
 				Expect(firstUnwrap.Kind).To(Equal(types.KindSeries))
-				// Second unwrap: series -> i32
 				secondUnwrap := firstUnwrap.Unwrap()
 				Expect(secondUnwrap).To(Equal(types.I32()))
-				// Third unwrap: i32 -> i32 (idempotent)
 				thirdUnwrap := secondUnwrap.Unwrap()
 				Expect(thirdUnwrap).To(Equal(types.I32()))
 			})
