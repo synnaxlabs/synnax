@@ -18,6 +18,7 @@
 #include "x/cpp/xos/xos.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ni/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "driver/ni/syscfg/prod.h"
@@ -29,7 +30,7 @@ static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
 namespace syscfg {
-const auto LOAD_ERROR = driver::missing_lib(driver::lib::NI_SYSCFG);
+const auto LOAD_ERROR = driver::missing_lib(ni::NI_SYSCFG);
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     if (xos::get() == xos::MACOS_NAME) return {nullptr, xerrors::NIL};

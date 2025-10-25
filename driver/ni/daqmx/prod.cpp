@@ -16,6 +16,7 @@
 
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"
+#include "driver/ni/errors.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nicaiu.dll";
@@ -24,7 +25,7 @@ static const std::string LIB_NAME = "libnidaqmx.so.1";
 #endif
 
 namespace daqmx {
-const auto LOAD_ERROR = driver::missing_lib(driver::lib::NI_DAQMX);
+const auto LOAD_ERROR = driver::missing_lib(ni::NI_DAQMX);
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     const auto os = xos::get();

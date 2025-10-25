@@ -27,26 +27,12 @@ struct LibraryInfo {
     std::string url;
 };
 
-namespace lib {
-const LibraryInfo LABJACK_LJM = {
-    "LabJack LJM shared",
-    "https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit"
-};
-const LibraryInfo NI_DAQMX = {
-    "National Instruments NI-DAQmx shared",
-    "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
-};
-const LibraryInfo NI_SYSCFG = {
-    "National Instruments System Configuration",
-    "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
-};
-}
-
 /// Standardized missing library error
 inline xerrors::Error missing_lib(const LibraryInfo &lib) {
     std::string message = lib.name + " library is not installed.";
     if (!lib.url.empty()) {
-        message += " Download here: " + lib.url + ". Restart Driver after installation.";
+        message += " Download here: " + lib.url +
+                   ". Restart Driver after installation.";
     }
     return xerrors::Error(xlib::LOAD_ERROR, message);
 }

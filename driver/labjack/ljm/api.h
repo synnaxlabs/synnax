@@ -13,6 +13,7 @@
 #include "x/cpp/xos/xos.h"
 
 #include "driver/errors/errors.h"
+#include "driver/labjack/errors.h"
 #include "driver/labjack/ljm/LabJackM.h"
 
 namespace ljm {
@@ -22,7 +23,7 @@ const std::string LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
 const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
 
-const auto LOAD_ERROR = driver::missing_lib(driver::lib::LABJACK_LJM);
+const auto LOAD_ERROR = driver::missing_lib(labjack::LABJACK_LJM);
 
 /// @brief API wrapped on top of LJM functions that the Synnax driver requires.
 class API {

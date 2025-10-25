@@ -14,11 +14,13 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/errors/errors.h"
+#include "driver/labjack/errors.h"
+#include "driver/ni/errors.h"
 
 const std::vector<driver::LibraryInfo> ALL_LIBS = {
-    driver::lib::LABJACK_LJM,
-    driver::lib::NI_DAQMX,
-    driver::lib::NI_SYSCFG,
+    labjack::LABJACK_LJM,
+    ni::NI_DAQMX,
+    ni::NI_SYSCFG,
 };
 
 TEST(ErrorsTest, LibraryInfoNotEmpty) {

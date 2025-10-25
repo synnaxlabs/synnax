@@ -13,6 +13,8 @@ cc_test(
     srcs = ["errors_test.cpp"],
     deps = [
         ":errors",
+        "//driver/labjack:labjack_errors",
+        "//driver/ni:ni_errors",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
