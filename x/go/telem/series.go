@@ -153,13 +153,15 @@ func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	f(s.Data[i*int(s.DataType.Density()):], v)
 }
 
+// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
+// dst and src must have the same DataType, and that DataType cannot be of variable
+// density.
 func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
 		panic("cannot copy values from non-variable series")
 	}
-	dstDen := int(dst.DataType.Density())
-	srcDen := int(src.DataType.Density())
-	copy(dst.Data[dstIdx*dstDen:(dstIdx+1)*dstDen], src.Data[srcIdx*srcDen:(srcIdx+1)*srcDen])
+	den := int(dst.DataType.Density())
+	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
