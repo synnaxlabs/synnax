@@ -136,6 +136,16 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.CreateRootScope(globalResolver)
 			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 		})
+		It("Should return error when OnResolve callback fails during conflict check", func() {
+			rootScope := symbol.CreateRootScope(nil)
+			rule := antlr.NewBaseParserRuleContext(nil, 0)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32(), AST: rule}))
+			rootScope.OnResolve = func(_ context.Context, s *symbol.Scope) error {
+				return errors.New("resolve failed")
+			}
+			_, err := rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()})
+			Expect(err).ToNot(HaveOccurred())
+		})
 		It("Should allow symbols with empty names", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			child := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "", Kind: symbol.KindBlock}))
