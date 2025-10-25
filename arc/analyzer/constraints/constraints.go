@@ -30,16 +30,16 @@ type Constraint struct {
 }
 
 type System struct {
-	constraints   []Constraint
-	substitutions map[string]types.Type
-	typeVars      map[string]types.Type
+	Constraints   []Constraint
+	Substitutions map[string]types.Type
+	TypeVars      map[string]types.Type
 }
 
 func New() *System {
 	return &System{
-		constraints:   make([]Constraint, 0),
-		substitutions: make(map[string]types.Type),
-		typeVars:      make(map[string]types.Type),
+		Constraints:   make([]Constraint, 0),
+		Substitutions: make(map[string]types.Type),
+		TypeVars:      make(map[string]types.Type),
 	}
 }
 
@@ -49,7 +49,7 @@ func (s *System) AddEquality(
 	reason string,
 ) {
 	s.recordTypeVars(left, right)
-	s.constraints = append(s.constraints, Constraint{
+	s.Constraints = append(s.Constraints, Constraint{
 		Kind:   KindEquality,
 		Left:   left,
 		Right:  right,
@@ -64,7 +64,7 @@ func (s *System) AddCompatible(
 	reason string,
 ) {
 	s.recordTypeVars(left, right)
-	s.constraints = append(s.constraints, Constraint{
+	s.Constraints = append(s.Constraints, Constraint{
 		Kind:   KindCompatible,
 		Left:   left,
 		Right:  right,
@@ -76,8 +76,8 @@ func (s *System) AddCompatible(
 func (s *System) recordTypeVars(toRecord ...types.Type) {
 	for _, t := range toRecord {
 		if t.Kind == types.KindTypeVariable {
-			if _, exists := s.typeVars[t.Name]; !exists {
-				s.typeVars[t.Name] = t
+			if _, exists := s.TypeVars[t.Name]; !exists {
+				s.TypeVars[t.Name] = t
 			}
 		}
 		if t.Kind == types.KindChan || t.Kind == types.KindSeries {
@@ -86,25 +86,8 @@ func (s *System) recordTypeVars(toRecord ...types.Type) {
 	}
 }
 
-func (s *System) GetSubstitution(name string) (types.Type, bool) {
-	t, ok := s.substitutions[name]
-	return t, ok
-}
-
-func (s *System) SetSubstitution(name string, t types.Type) {
-	s.substitutions[name] = t
-}
-
-func (s *System) Constraints() []Constraint {
-	return s.constraints
-}
-
-func (s *System) TypeVariables() map[string]types.Type {
-	return s.typeVars
-}
-
 func (s *System) HasTypeVariables() bool {
-	return len(s.typeVars) > 0
+	return len(s.TypeVars) > 0
 }
 
 func (s *System) ApplySubstitutions(t types.Type) types.Type {
@@ -116,7 +99,7 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 		if visited[t.Name] {
 			return t
 		}
-		if sub, exists := s.substitutions[t.Name]; exists {
+		if sub, exists := s.Substitutions[t.Name]; exists {
 			visited[t.Name] = true
 			result := s.applySubstitutionsWithVisited(sub, visited)
 			visited[t.Name] = false

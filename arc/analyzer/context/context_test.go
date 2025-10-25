@@ -12,49 +12,17 @@ package context_test
 import (
 	stdcontext "context"
 
-	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// mockToken provides a minimal token implementation for testing
-type mockToken struct{}
-
-func (m *mockToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
-func (m *mockToken) GetTokenType() int                           { return 0 }
-func (m *mockToken) GetChannel() int                             { return 0 }
-func (m *mockToken) GetStart() int                               { return 0 }
-func (m *mockToken) GetStop() int                                { return 0 }
-func (m *mockToken) GetLine() int                                { return 1 }
-func (m *mockToken) GetColumn() int                              { return 1 }
-func (m *mockToken) GetText() string                             { return "" }
-func (m *mockToken) SetText(string)                              {}
-func (m *mockToken) GetTokenIndex() int                          { return 0 }
-func (m *mockToken) SetTokenIndex(int)                           {}
-func (m *mockToken) GetInputStream() antlr.CharStream            { return nil }
-func (m *mockToken) GetTokenSource() antlr.TokenSource           { return nil }
-func (m *mockToken) String() string                              { return "" }
-
-// mockAST is a minimal mock implementation of antlr.ParserRuleContext for testing
-type mockAST struct {
-	antlr.BaseParserRuleContext
-	id int
-}
-
-func (m *mockAST) GetStart() antlr.Token {
-	return &mockToken{}
-}
-
-func newMockAST(id int) *mockAST {
-	return &mockAST{id: id}
-}
 
 var _ = Describe("Context", func() {
 	var bCtx stdcontext.Context
@@ -65,7 +33,7 @@ var _ = Describe("Context", func() {
 
 	Describe("CreateRoot", func() {
 		It("Should initialize all fields correctly", func() {
-			ast := newMockAST(1)
+			ast := testutil.NewMockAST(1)
 			ctx := analyzerContext.CreateRoot(bCtx, ast, nil)
 			Expect(ctx.Context).To(Equal(bCtx))
 			Expect(ctx.Scope).ToNot(BeNil())
@@ -83,8 +51,8 @@ var _ = Describe("Context", func() {
 	Describe("Child", func() {
 		It("Should share all pointers except AST", func() {
 			var (
-				parentAST = newMockAST(1)
-				childAST  = newMockAST(2)
+				parentAST = testutil.NewMockAST(1)
+				childAST  = testutil.NewMockAST(2)
 				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
 				child     = analyzerContext.Child(parent, childAST)
 			)
@@ -100,21 +68,21 @@ var _ = Describe("Context", func() {
 
 		It("Should share state mutations", func() {
 			var (
-				parentAST = newMockAST(1)
-				childAST  = newMockAST(2)
+				parentAST = testutil.NewMockAST(1)
+				childAST  = testutil.NewMockAST(2)
 				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
 				child     = analyzerContext.Child(parent, childAST)
 			)
 			child.Diagnostics.AddInfo(errors.New("test diagnostic"), childAST)
 			Expect(*parent.Diagnostics).To(HaveLen(1))
-			testAST := newMockAST(3)
+			testAST := testutil.NewMockAST(3)
 			child.TypeMap[testAST] = types.I32()
 			Expect(parent.TypeMap[testAST]).To(Equal(types.I32()))
 		})
 
 		It("Should preserve parent's TypeHint and InTypeInferenceMode", func() {
-			parentAST := newMockAST(1)
-			childAST := newMockAST(2)
+			parentAST := testutil.NewMockAST(1)
+			childAST := testutil.NewMockAST(2)
 			parent := analyzerContext.CreateRoot(bCtx, parentAST, nil)
 			parent.TypeHint = types.F64()
 			parent.InTypeInferenceMode = true
@@ -127,7 +95,7 @@ var _ = Describe("Context", func() {
 	Describe("WithScope", func() {
 		It("Should return new context with updated scope", func() {
 			var (
-				ast           = newMockAST(1)
+				ast           = testutil.NewMockAST(1)
 				ctx           = analyzerContext.CreateRoot(bCtx, ast, nil)
 				originalScope = ctx.Scope
 				newScope      = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
@@ -152,7 +120,7 @@ var _ = Describe("Context", func() {
 	Describe("WithTypeHint", func() {
 		It("Should return new context with updated type hint", func() {
 			var (
-				ast    = newMockAST(1)
+				ast    = testutil.NewMockAST(1)
 				ctx    = analyzerContext.CreateRoot(bCtx, ast, nil)
 				newCtx = ctx.WithTypeHint(types.F64())
 			)
@@ -168,7 +136,7 @@ var _ = Describe("Context", func() {
 
 		It("Should allow chaining with WithScope", func() {
 			var (
-				ast      = newMockAST(1)
+				ast      = testutil.NewMockAST(1)
 				ctx      = analyzerContext.CreateRoot(bCtx, ast, nil)
 				newScope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
 					Name: "test",
@@ -192,7 +160,7 @@ var _ = Describe("Context", func() {
 					Kind: symbol.KindVariable,
 					Type: types.I32(),
 				}))
-				mockChild = newMockAST(99)
+				mockChild = testutil.NewMockAST(99)
 				finalCtx  = analyzerContext.Child(rootCtx, mockChild).
 						WithScope(newScope).
 						WithTypeHint(types.String())

@@ -27,16 +27,16 @@ var _ = Describe("Constraint System", func() {
 			tv2 := types.TypeVariable("U", &constraint)
 			system.AddEquality(tv1, types.F32(), nil, "test")
 			system.AddEquality(tv2, types.I32(), nil, "test")
-			Expect(system.TypeVariables()).To(HaveLen(2))
-			Expect(system.Constraints()).To(HaveLen(2))
+			Expect(system.TypeVars).To(HaveLen(2))
+			Expect(system.Constraints).To(HaveLen(2))
 		})
 
 		It("should track constraints between type variables", func() {
 			tv1 := types.TypeVariable("T", nil)
 			tv2 := types.TypeVariable("U", nil)
 			system.AddEquality(tv1, tv2, nil, "T = U")
-			Expect(system.TypeVariables()).To(HaveLen(2))
-			Expect(system.Constraints()).To(HaveLen(1))
+			Expect(system.TypeVars).To(HaveLen(2))
+			Expect(system.Constraints).To(HaveLen(1))
 		})
 
 		It("should handle nested type variables in channels", func() {
@@ -44,8 +44,8 @@ var _ = Describe("Constraint System", func() {
 			tv := types.TypeVariable("T", &constraint)
 			chanType := types.Chan(tv)
 			system.AddEquality(chanType, types.Chan(types.F32()), nil, "channel types")
-			Expect(system.TypeVariables()).To(HaveLen(1))
-			Expect(system.TypeVariables()["T"]).NotTo(BeNil())
+			Expect(system.TypeVars).To(HaveLen(1))
+			Expect(system.TypeVars["T"]).NotTo(BeNil())
 		})
 	})
 
@@ -64,7 +64,7 @@ var _ = Describe("Constraint System", func() {
 	Describe("ApplySubstitutions", func() {
 		It("should apply simple substitutions", func() {
 			tv := types.TypeVariable("T", nil)
-			system.SetSubstitution("T", types.F32())
+			system.Substitutions["T"] = types.F32()
 			result := system.ApplySubstitutions(tv)
 			Expect(result).To(Equal(types.F32()))
 		})
@@ -72,15 +72,15 @@ var _ = Describe("Constraint System", func() {
 		It("should apply substitutions recursively", func() {
 			tv1 := types.TypeVariable("T", nil)
 			tv2 := types.TypeVariable("U", nil)
-			system.SetSubstitution("T", tv2)
-			system.SetSubstitution("U", types.I64())
+			system.Substitutions["T"] = tv2
+			system.Substitutions["U"] = types.I64()
 			Expect(system.ApplySubstitutions(tv1)).To(Equal(types.I64()))
 		})
 
 		It("should apply substitutions in compound types", func() {
 			tv := types.TypeVariable("T", nil)
 			chanType := types.Chan(tv)
-			system.SetSubstitution("T", types.F64())
+			system.Substitutions["T"] = types.F64()
 			Expect(system.ApplySubstitutions(chanType)).To(Equal(types.Chan(types.F64())))
 		})
 
@@ -88,7 +88,7 @@ var _ = Describe("Constraint System", func() {
 			constraint := types.NumericConstraint()
 			tv := types.TypeVariable("T", &constraint)
 			seriesType := types.Series(tv)
-			system.SetSubstitution("T", types.I32())
+			system.Substitutions["T"] = types.I32()
 			Expect(system.ApplySubstitutions(seriesType)).To(Equal(types.Series(types.I32())))
 		})
 
@@ -97,7 +97,7 @@ var _ = Describe("Constraint System", func() {
 			props := types.NewFunctionProperties()
 			props.Inputs.Put("x", tv)
 			fnType := types.Function(props)
-			system.SetSubstitution("T", types.F32())
+			system.Substitutions["T"] = types.F32()
 			result := system.ApplySubstitutions(fnType)
 			inputType, ok := result.Inputs.Get("x")
 			Expect(ok).To(BeTrue())
@@ -109,7 +109,7 @@ var _ = Describe("Constraint System", func() {
 			props := types.NewFunctionProperties()
 			props.Outputs.Put("result", tv)
 			fnType := types.Function(props)
-			system.SetSubstitution("T", types.I64())
+			system.Substitutions["T"] = types.I64()
 			result := system.ApplySubstitutions(fnType)
 			outputType, ok := result.Outputs.Get("result")
 			Expect(ok).To(BeTrue())
@@ -121,7 +121,7 @@ var _ = Describe("Constraint System", func() {
 			props := types.NewFunctionProperties()
 			props.Config.Put("threshold", tv)
 			fnType := types.Function(props)
-			system.SetSubstitution("T", types.F64())
+			system.Substitutions["T"] = types.F64()
 			result := system.ApplySubstitutions(fnType)
 			configType, ok := result.Config.Get("threshold")
 			Expect(ok).To(BeTrue())
@@ -137,9 +137,9 @@ var _ = Describe("Constraint System", func() {
 			props.Outputs.Put("y", tv2)
 			props.Config.Put("z", tv3)
 			fnType := types.Function(props)
-			system.SetSubstitution("T1", types.F32())
-			system.SetSubstitution("T2", types.I32())
-			system.SetSubstitution("T3", types.String())
+			system.Substitutions["T1"] = types.F32()
+			system.Substitutions["T2"] = types.I32()
+			system.Substitutions["T3"] = types.String()
 			result := system.ApplySubstitutions(fnType)
 			inputType, _ := result.Inputs.Get("x")
 			outputType, _ := result.Outputs.Get("y")
@@ -152,8 +152,8 @@ var _ = Describe("Constraint System", func() {
 		It("should handle circular substitution chains correctly", func() {
 			tv1 := types.TypeVariable("A", nil)
 			tv2 := types.TypeVariable("B", nil)
-			system.SetSubstitution("A", tv2)
-			system.SetSubstitution("B", tv1)
+			system.Substitutions["A"] = tv2
+			system.Substitutions["B"] = tv1
 			result := system.ApplySubstitutions(tv1)
 			Expect(result.Kind).To(Equal(types.KindTypeVariable))
 		})
@@ -166,7 +166,7 @@ var _ = Describe("Constraint System", func() {
 			tv2 := types.TypeVariable("T2", nil)
 			system.AddEquality(tv1, types.F32(), nil, "T1 = f32")
 			system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")
-			system.SetSubstitution("T1", types.F32())
+			system.Substitutions["T1"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Type Variables"))
 			Expect(str).To(ContainSubstring("Constraints"))
@@ -181,7 +181,7 @@ var _ = Describe("Constraint System", func() {
 			tv2 := types.TypeVariable("Unresolved", nil)
 			system.AddEquality(tv1, types.F32(), nil, "test")
 			system.AddEquality(tv2, tv2, nil, "test")
-			system.SetSubstitution("Resolved", types.F32())
+			system.Substitutions["Resolved"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Resolved"))
 			Expect(str).To(ContainSubstring("=>"))

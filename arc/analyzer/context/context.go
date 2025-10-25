@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 // Package context provides the analysis context for the Arc language analyzer.
 //
 // Context is a generic container that flows through the entire semantic analysis
@@ -39,15 +38,6 @@
 //
 //	// Add type hint for expression analysis
 //	exprCtx := bodyCtx.WithTypeHint(types.I32())
-package context
-
-import (
-	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer/constraints"
-	"github.com/synnaxlabs/arc/analyzer/diagnostics"
-	"github.com/synnaxlabs/arc/symbol"
-)
-
 package context
 
 import (

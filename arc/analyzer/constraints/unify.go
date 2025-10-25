@@ -12,6 +12,7 @@ package constraints
 import (
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -22,17 +23,17 @@ func (s *System) Unify() error {
 	for iteration := 0; iteration < maxIterations; iteration++ {
 		var (
 			changed      = false
-			previousSubs = maps.Clone(s.substitutions)
+			previousSubs = maps.Clone(s.Substitutions)
 		)
-		for _, c := range s.constraints {
+		for _, c := range s.Constraints {
 			if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
 				return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
 			}
 		}
-		if len(s.substitutions) != len(previousSubs) {
+		if len(s.Substitutions) != len(previousSubs) {
 			changed = true
 		} else {
-			for k, newVal := range s.substitutions {
+			for k, newVal := range s.Substitutions {
 				if oldVal, exists := previousSubs[k]; !exists || !types.Equal(oldVal, newVal) {
 					changed = true
 					break
@@ -50,10 +51,10 @@ func (s *System) Unify() error {
 	}
 
 	// Resolve remaining unresolved type variables with defaults
-	for name, tv := range s.typeVars {
-		if _, resolved := s.substitutions[name]; !resolved {
+	for name, tv := range s.TypeVars {
+		if _, resolved := s.Substitutions[name]; !resolved {
 			if tv.Constraint != nil {
-				s.substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
+				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 			} else {
 				return errors.Newf("type variable %s could not be resolved", name)
 			}
@@ -111,7 +112,7 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, source Constraint, visiting map[string]bool) error {
-	if existing, exists := s.substitutions[tv.Name]; exists {
+	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote
 		// BUT: Only promote if both are CONCRETE types. If either is a type variable,
@@ -123,24 +124,24 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 			// Compute the promoted type
 			promoted := promoteNumericTypes(existing, other)
 			// Always update to promoted type (even if same as existing)
-			s.substitutions[tv.Name] = promoted
+			s.Substitutions[tv.Name] = promoted
 			return s.unifyTypesWithVisited(promoted, other, source, visiting)
 		}
 		return s.unifyTypesWithVisited(existing, other, source, visiting)
 	}
 
 	if other.Kind == types.KindTypeVariable {
-		if otherSub, exists := s.substitutions[other.Name]; exists {
+		if otherSub, exists := s.Substitutions[other.Name]; exists {
 			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
 		}
 		if tv.Constraint != nil && other.Constraint == nil {
-			s.substitutions[other.Name] = tv
+			s.Substitutions[other.Name] = tv
 			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {
-			s.substitutions[tv.Name] = other
+			s.Substitutions[tv.Name] = other
 			return nil
 		} else if tv.Name != other.Name {
-			s.substitutions[tv.Name] = other
+			s.Substitutions[tv.Name] = other
 			return nil
 		}
 		return nil
@@ -179,8 +180,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 
 	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant),
 	// we've already validated compatibility above, so skip exact match check
-	isConstraintKind := tv.Constraint != nil && (
-		tv.Constraint.Kind == types.KindIntegerConstant ||
+	isConstraintKind := tv.Constraint != nil && (tv.Constraint.Kind == types.KindIntegerConstant ||
 		tv.Constraint.Kind == types.KindFloatConstant ||
 		tv.Constraint.Kind == types.KindNumericConstant)
 
@@ -207,7 +207,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
 		}
 	}
-	s.substitutions[tv.Name] = other
+	s.Substitutions[tv.Name] = other
 	return nil
 }
 
@@ -273,35 +273,40 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 }
 
 func (s *System) String() string {
-	result := "=== Type Unification ===\n"
-	result += fmt.Sprintf("\nType Variables (%d):\n", len(s.typeVars))
-	for name, tv := range s.typeVars {
-		result += fmt.Sprintf("  %s", name)
+	var b strings.Builder
+	b.WriteString("=== Type Unification ===\n")
+
+	b.WriteString(fmt.Sprintf("\nType Variables (%d):\n", len(s.TypeVars)))
+	for name, tv := range s.TypeVars {
+		b.WriteString(fmt.Sprintf("  %s", name))
 		if tv.Constraint != nil {
-			result += fmt.Sprintf(" : %v", tv.Constraint)
+			b.WriteString(fmt.Sprintf(" : %v", tv.Constraint))
 		}
-		if sub, exists := s.substitutions[name]; exists {
-			result += fmt.Sprintf(" => %v", sub)
+		if sub, exists := s.Substitutions[name]; exists {
+			b.WriteString(fmt.Sprintf(" => %v", sub))
 		} else {
-			result += " (unresolved)"
+			b.WriteString(" (unresolved)")
 		}
-		result += "\n"
+		b.WriteString("\n")
 	}
-	result += fmt.Sprintf("\nConstraints (%d):\n", len(s.constraints))
-	for i, c := range s.constraints {
+
+	b.WriteString(fmt.Sprintf("\nConstraints (%d):\n", len(s.Constraints)))
+	for i, c := range s.Constraints {
 		kindStr := "≡"
 		if c.Kind == KindCompatible {
 			kindStr = "~"
 		}
-		result += fmt.Sprintf("  [%d] %v %s %v", i, c.Left, kindStr, c.Right)
+		b.WriteString(fmt.Sprintf("  [%d] %v %s %v", i, c.Left, kindStr, c.Right))
 		if c.Reason != "" {
-			result += fmt.Sprintf(" // %s", c.Reason)
+			b.WriteString(fmt.Sprintf(" // %s", c.Reason))
 		}
-		result += "\n"
+		b.WriteString("\n")
 	}
-	result += fmt.Sprintf("\nSubstitutions (%d):\n", len(s.substitutions))
-	for name, t := range s.substitutions {
-		result += fmt.Sprintf("  %s => %v\n", name, t)
+
+	b.WriteString(fmt.Sprintf("\nSubstitutions (%d):\n", len(s.Substitutions)))
+	for name, t := range s.Substitutions {
+		b.WriteString(fmt.Sprintf("  %s => %v\n", name, t))
 	}
-	return result
+
+	return b.String()
 }

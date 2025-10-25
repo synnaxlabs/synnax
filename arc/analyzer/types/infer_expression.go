@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// InferFromExpression determines the type of an Arc expression through recursive descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return InferLogicalOr(context.Child(ctx, logicalOr))
@@ -137,6 +138,7 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		// TODO: Handle function calls and indexing which might change the type
+		// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
 		return inferPrimaryType(context.Child(ctx, primary))
 	}
 	return types.Type{}

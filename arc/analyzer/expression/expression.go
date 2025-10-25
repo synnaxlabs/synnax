@@ -156,15 +156,15 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
-	rels := ctx.AST.AllRelationalExpression()
-	for _, relational := range rels {
+	relationships := ctx.AST.AllRelationalExpression()
+	for _, relational := range relationships {
 		if !analyzeRelational(context.Child(ctx, relational)) {
 			return false
 		}
 	}
 	return validateType(
 		ctx,
-		rels,
+		relationships,
 		getEqualityOperator,
 		types.InferRelational,
 		isAny,
