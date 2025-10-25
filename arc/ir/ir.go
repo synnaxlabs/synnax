@@ -79,10 +79,16 @@ import (
 // definitions, instantiated nodes, dataflow edges, execution stratification, and
 // the symbol table from analysis.
 type IR struct {
-	Functions Functions                              `json:"functions"`
-	Nodes     Nodes                                  `json:"nodes"`
-	Edges     Edges                                  `json:"edges"`
-	Strata    Strata                                 `json:"strata"`
-	Symbols   *symbol.Scope                          `json:"-"`
-	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"` // Inferred types from analyzer
+	// Functions contains all function and stage definitions in the program.
+	Functions Functions `json:"functions"`
+	// Nodes contains all instantiated function instances in the dataflow graph.
+	Nodes Nodes `json:"nodes"`
+	// Edges contains all dataflow connections between node parameters.
+	Edges Edges `json:"edges"`
+	// Strata contains the execution stratification for deterministic reactive execution.
+	Strata Strata `json:"strata"`
+	// Symbols is the symbol table from semantic analysis (not serialized to JSON).
+	Symbols *symbol.Scope `json:"-"`
+	// TypeMap contains inferred types from the analyzer (not serialized to JSON).
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

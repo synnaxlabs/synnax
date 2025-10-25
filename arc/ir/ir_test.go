@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("IR", func() {
 	Describe("JSON Marshaling", func() {
 		It("Should marshal and unmarshal a complete IR structure", func() {
-			// Create a complete IR with all components
 			inputs := types.Params{}
 			inputs.Put("a", types.I64())
 			inputs.Put("b", types.I64())
@@ -73,24 +73,20 @@ var _ = Describe("IR", func() {
 			err = json.Unmarshal(data, &restored)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Verify Functions
 			Expect(restored.Functions).To(HaveLen(1))
 			Expect(restored.Functions[0].Key).To(Equal("add"))
 			Expect(restored.Functions[0].Inputs.Count()).To(Equal(2))
 			Expect(restored.Functions[0].Outputs.Count()).To(Equal(1))
 
-			// Verify Nodes
 			Expect(restored.Nodes).To(HaveLen(1))
 			Expect(restored.Nodes[0].Key).To(Equal("node1"))
 			Expect(restored.Nodes[0].Type).To(Equal("add"))
 			Expect(restored.Nodes[0].ConfigValues["multiplier"]).To(Equal(2.0))
 
-			// Verify Edges
 			Expect(restored.Edges).To(HaveLen(2))
 			Expect(restored.Edges[0].Source.Node).To(Equal("input_a"))
 			Expect(restored.Edges[0].Target.Node).To(Equal("node1"))
 
-			// Verify Strata
 			Expect(restored.Strata).To(HaveLen(2))
 			Expect(restored.Strata[0]).To(HaveLen(2))
 			Expect(restored.Strata[1]).To(HaveLen(1))
@@ -104,13 +100,9 @@ var _ = Describe("IR", func() {
 				Strata:    ir.Strata{},
 			}
 
-			data, err := json.Marshal(original)
-			Expect(err).ToNot(HaveOccurred())
-
+			data := MustSucceed(json.Marshal(original))
 			var restored ir.IR
-			err = json.Unmarshal(data, &restored)
-			Expect(err).ToNot(HaveOccurred())
-
+			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Functions).To(BeEmpty())
 			Expect(restored.Nodes).To(BeEmpty())
 			Expect(restored.Edges).To(BeEmpty())
@@ -129,7 +121,6 @@ var _ = Describe("IR", func() {
 			data, err := json.Marshal(original)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Verify that the JSON doesn't contain "symbols" or "TypeMap" fields
 			jsonStr := string(data)
 			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))
 			Expect(jsonStr).ToNot(ContainSubstring("\"TypeMap\""))
@@ -138,7 +129,6 @@ var _ = Describe("IR", func() {
 
 	Describe("Complete IR Construction", func() {
 		It("Should build a complete IR with all components", func() {
-			// Create a simple dataflow: input -> add -> output
 			inputs := types.Params{}
 			inputs.Put(ir.LHSInputParam, types.I64())
 			inputs.Put(ir.RHSInputParam, types.I64())
@@ -181,19 +171,16 @@ var _ = Describe("IR", func() {
 				},
 			}
 
-			// Verify the IR is well-formed
 			Expect(program.Functions).To(HaveLen(1))
 			Expect(program.Nodes).To(HaveLen(4))
 			Expect(program.Edges).To(HaveLen(3))
 			Expect(program.Strata).To(HaveLen(3))
 
-			// Verify stratification is correct
 			Expect(program.Strata.Get("input_a")).To(Equal(0))
 			Expect(program.Strata.Get("input_b")).To(Equal(0))
 			Expect(program.Strata.Get("add_node")).To(Equal(1))
 			Expect(program.Strata.Get("output_c")).To(Equal(2))
 
-			// Verify edges connect properly
 			addInputs := program.Edges.GetInputs("add_node")
 			Expect(addInputs).To(HaveLen(2))
 
