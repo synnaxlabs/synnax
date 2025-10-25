@@ -42,7 +42,6 @@ func (s Severity) String() string {
 	}
 }
 
-// Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
 	Key      string   `json:"key"`
 	Severity Severity `json:"severity"`
@@ -65,10 +64,43 @@ func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{
-		Severity: Error,
-		Message:  err.Error(),
+	diag := Diagnostic{Severity: Error, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
 	}
+	*d = append(*d, diag)
+}
+
+func (d *Diagnostics) AddWarning(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Warning, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+func (d *Diagnostics) AddInfo(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Info, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+func (d *Diagnostics) AddHint(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Hint, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -85,7 +117,13 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString(fmt.Sprintf("%d:%d %s: %s", diag.Line, diag.Column, diag.Severity.String(), diag.Message))
+		sb.WriteString(fmt.Sprintf(
+			"%d:%d %s: %s",
+			diag.Line,
+			diag.Column,
+			diag.Severity.String(),
+			diag.Message,
+		))
 	}
 	return sb.String()
 }

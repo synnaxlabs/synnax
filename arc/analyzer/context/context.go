@@ -15,24 +15,27 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 type Context[AST antlr.ParserRuleContext] struct {
 	context.Context
-	Scope       *ir.Scope
-	Diagnostics *diagnostics.Diagnostics
-	Constraints *constraints.System
-	AST         AST
-	TypeHint    ir.Type
+	Scope               *symbol.Scope
+	Diagnostics         *diagnostics.Diagnostics
+	Constraints         *constraints.System
+	TypeMap             map[antlr.ParserRuleContext]types.Type
+	AST                 AST
+	TypeHint            types.Type
+	InTypeInferenceMode bool
 }
 
-func (c Context[AST]) WithScope(scope *ir.Scope) Context[AST] {
+func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
 	c.Scope = scope
 	return c
 }
 
-func (c Context[AST]) WithTypeHint(hint ir.Type) Context[AST] {
+func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	c.TypeHint = hint
 	return c
 }
@@ -40,13 +43,14 @@ func (c Context[AST]) WithTypeHint(hint ir.Type) Context[AST] {
 func CreateRoot[ASTNode antlr.ParserRuleContext](
 	ctx context.Context,
 	ast ASTNode,
-	resolver ir.SymbolResolver,
+	resolver symbol.Resolver,
 ) Context[ASTNode] {
 	return Context[ASTNode]{
 		Context:     ctx,
-		Scope:       ir.CreateRootScope(resolver),
+		Scope:       symbol.CreateRootScope(resolver),
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
+		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		AST:         ast,
 	}
 
@@ -54,11 +58,13 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 
 func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 	return Context[N]{
-		Context:     ctx.Context,
-		Scope:       ctx.Scope,
-		Diagnostics: ctx.Diagnostics,
-		Constraints: ctx.Constraints,
-		AST:         next,
-		TypeHint:    ctx.TypeHint,
+		Context:             ctx.Context,
+		Scope:               ctx.Scope,
+		Diagnostics:         ctx.Diagnostics,
+		Constraints:         ctx.Constraints,
+		TypeMap:             ctx.TypeMap,
+		AST:                 next,
+		TypeHint:            ctx.TypeHint,
+		InTypeInferenceMode: ctx.InTypeInferenceMode,
 	}
 }
