@@ -7,6 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package types implements the Arc type system, providing type representations,
+// type checking utilities, and conversions between Arc types and telemetry types.
+//
+// # Type Categories
+//
+// Primitive Types:
+//   - Integer types: u8, u16, u32, u64, i8, i16, i32, i64
+//   - Floating-point types: f32, f64
+//   - Temporal types: timestamp, timespan
+//   - String type: string
+//
+// Compound Types:
+//   - chan T: Channel type wrapping value type T
+//   - series T: Series type wrapping value type T
+//
+// Generic Types:
+//   - Type variables with optional constraints (numeric, integer, float)
+//
+// Function Types:
+//   - Functions with named inputs, outputs, and configuration parameters
+//
+// # Usage
+//
+// Creating types:
+//
+//	i32Type := types.I32()
+//	chanType := types.Chan(types.F64())
+//	seriesType := types.Series(types.TimeStamp())
+//
+// Type checking:
+//
+//	if t.IsNumeric() { ... }
+//	if t.IsInteger() { ... }
+//	if types.Equal(t1, t2) { ... }
+//
+// Unwrapping compound types:
+//
+//	chanType := types.Chan(types.I32())
+//	innerType := chanType.Unwrap() // returns I32()
+//
+// Converting to/from telemetry types:
+//
+//	arcType := types.FromTelem(telem.Float64T)
+//	telemType := types.ToTelem(types.F64())
 package types
 
 import (
@@ -16,42 +60,84 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// TypeKind represents the different categories of types in the Arc type system.
+// It is used as a discriminator in the Type tagged union.
 type TypeKind int
 
 const (
+	// KindInvalid represents an invalid or uninitialized type.
 	KindInvalid TypeKind = iota
+
+	// KindU8 is an 8-bit unsigned integer type.
 	KindU8
+	// KindU16 is a 16-bit unsigned integer type.
 	KindU16
+	// KindU32 is a 32-bit unsigned integer type.
 	KindU32
+	// KindU64 is a 64-bit unsigned integer type.
 	KindU64
+
+	// KindI8 is an 8-bit signed integer type.
 	KindI8
+	// KindI16 is a 16-bit signed integer type.
 	KindI16
+	// KindI32 is a 32-bit signed integer type.
 	KindI32
+	// KindI64 is a 64-bit signed integer type.
 	KindI64
+
+	// KindF32 is a 32-bit floating-point type.
 	KindF32
+	// KindF64 is a 64-bit floating-point type.
 	KindF64
+
+	// KindString is a UTF-8 string type.
 	KindString
+
+	// KindTimeStamp represents an absolute point in time.
 	KindTimeStamp
+	// KindTimeSpan represents a duration or time difference.
 	KindTimeSpan
+
+	// KindChan is a channel type (requires ValueType).
 	KindChan
+	// KindSeries is a series/array type (requires ValueType).
 	KindSeries
+
+	// KindTypeVariable is a generic type parameter (requires Name, optional Constraint).
 	KindTypeVariable
+
+	// KindNumericConstant is a constraint for any numeric type (integers or floats).
 	KindNumericConstant
+	// KindIntegerConstant is a constraint for any integer type (signed or unsigned).
 	KindIntegerConstant
+	// KindFloatConstant is a constraint for any floating-point type.
 	KindFloatConstant
+
+	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
 	KindFunction
 )
 
+// NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
 func NewFunctionProperties() FunctionProperties {
 	return FunctionProperties{Inputs: &Params{}, Outputs: &Params{}, Config: &Params{}}
 }
 
+// Params are named, ordered parameters for a function.
+type Params = maps.Ordered[string, Type]
+
+// FunctionProperties holds the inputs, outputs, and configuration parameters for function
+// types.
 type FunctionProperties struct {
-	Inputs  *maps.Ordered[string, Type] `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	Outputs *maps.Ordered[string, Type] `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	Config  *maps.Ordered[string, Type] `json:"config,omitempty" msgpack:"config,omitempty"`
+	// Inputs are the input parameters for the function.
+	Inputs *Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
+	// Outputs are the output/return values for the function.
+	Outputs *Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
+	// Config are the configuration parameters for the function.
+	Config *Params `json:"config,omitempty" msgpack:"config,omitempty"`
 }
 
+// Copy creates a deep copy of the function properties.
 func (f FunctionProperties) Copy() FunctionProperties {
 	return FunctionProperties{
 		Inputs:  f.Inputs.Copy(),
@@ -60,12 +146,17 @@ func (f FunctionProperties) Copy() FunctionProperties {
 	}
 }
 
-// Type represents a type in the Arc type system using a tagged union approach.
+// Type represents a type in the Arc type system using a tagged union.
 type Type struct {
-	Kind       TypeKind `json:"kind" msgpack:"kind"`
-	ValueType  *Type    `json:"value_type,omitempty" msgpack:"value_type,omitempty"`
-	Name       string   `json:"name,omitempty" msgpack:"name,omitempty"`
-	Constraint *Type    `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	// Kind is the discriminator that determines which type this represents.
+	Kind TypeKind `json:"kind" msgpack:"kind"`
+	// ValueType is the element type for compound types (chan, series).
+	ValueType *Type `json:"value_type,omitempty" msgpack:"value_type,omitempty"`
+	// Name is the identifier for type variables.
+	Name string `json:"name,omitempty" msgpack:"name,omitempty"`
+	// Constraint is the optional constraint for type variables.
+	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
 }
 
@@ -126,43 +217,66 @@ func (t Type) String() string {
 	}
 }
 
-func U8() Type        { return Type{Kind: KindU8} }
-func U16() Type       { return Type{Kind: KindU16} }
-func U32() Type       { return Type{Kind: KindU32} }
-func U64() Type       { return Type{Kind: KindU64} }
-func I8() Type        { return Type{Kind: KindI8} }
-func I16() Type       { return Type{Kind: KindI16} }
-func I32() Type       { return Type{Kind: KindI32} }
-func I64() Type       { return Type{Kind: KindI64} }
-func F32() Type       { return Type{Kind: KindF32} }
-func F64() Type       { return Type{Kind: KindF64} }
-func String() Type    { return Type{Kind: KindString} }
-func TimeStamp() Type { return Type{Kind: KindTimeStamp} }
-func TimeSpan() Type  { return Type{Kind: KindTimeSpan} }
+// U8 returns an 8-bit unsigned integer type.
+func U8() Type { return Type{Kind: KindU8} }
 
+// U16 returns a 16-bit unsigned integer type.
+func U16() Type { return Type{Kind: KindU16} }
+
+// U32 returns a 32-bit unsigned integer type.
+func U32() Type { return Type{Kind: KindU32} }
+
+// U64 returns a 64-bit unsigned integer type.
+func U64() Type { return Type{Kind: KindU64} }
+
+// I8 returns an 8-bit signed integer type.
+func I8() Type { return Type{Kind: KindI8} }
+
+// I16 returns a 16-bit signed integer type.
+func I16() Type { return Type{Kind: KindI16} }
+
+// I32 returns a 32-bit signed integer type.
+func I32() Type { return Type{Kind: KindI32} }
+
+// I64 returns a 64-bit signed integer type.
+func I64() Type { return Type{Kind: KindI64} }
+
+// F32 returns a 32-bit floating-point type.
+func F32() Type { return Type{Kind: KindF32} }
+
+// F64 returns a 64-bit floating-point type.
+func F64() Type { return Type{Kind: KindF64} }
+
+// String returns a UTF-8 string type.
+func String() Type { return Type{Kind: KindString} }
+
+// TimeStamp returns an absolute point in time type.
+func TimeStamp() Type { return Type{Kind: KindTimeStamp} }
+
+// TimeSpan returns a duration or time difference type.
+func TimeSpan() Type { return Type{Kind: KindTimeSpan} }
+
+// Chan returns a channel type wrapping the given value type.
 func Chan(valueType Type) Type {
 	return Type{Kind: KindChan, ValueType: &valueType}
 }
 
-func Series(valueType Type) Type {
-	return Type{Kind: KindSeries, ValueType: &valueType}
-}
+// Series returns a series/array type wrapping the given value type.
+func Series(valueType Type) Type { return Type{Kind: KindSeries, ValueType: &valueType} }
 
+// TypeVariable returns a generic type parameter with optional constraint.
 func TypeVariable(name string, constraint *Type) Type {
 	return Type{Kind: KindTypeVariable, Name: name, Constraint: constraint}
 }
 
-func NumericConstraint() Type {
-	return Type{Kind: KindNumericConstant}
-}
+// NumericConstraint returns a constraint accepting any numeric type (integers or floats).
+func NumericConstraint() Type { return Type{Kind: KindNumericConstant} }
 
-func IntegerConstraint() Type {
-	return Type{Kind: KindIntegerConstant}
-}
+// IntegerConstraint returns a constraint accepting any integer type (signed or unsigned).
+func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 
-func FloatConstraint() Type {
-	return Type{Kind: KindFloatConstant}
-}
+// FloatConstraint returns a constraint accepting any floating-point type.
+func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 
 // Function creates a function type with the given inputs, outputs, and optional config
 func Function(props FunctionProperties) Type {
@@ -178,11 +292,9 @@ func Function(props FunctionProperties) Type {
 	return Type{Kind: KindFunction, FunctionProperties: props}
 }
 
-// Params is a type alias for ordered maps of types
-type Params = maps.Ordered[string, Type]
-
-// Type utility functions
-
+// IsNumeric returns true if the type is a numeric type (integer or float).
+// For channel types, it checks the value type. For type variables, it checks
+// if the constraint is a numeric constraint or if the constraint itself is numeric.
 func (t Type) IsNumeric() bool {
 	if t.Kind == KindChan && t.ValueType != nil {
 		return t.ValueType.IsNumeric()
@@ -191,7 +303,9 @@ func (t Type) IsNumeric() bool {
 		if t.Constraint == nil {
 			return false // Unconstrained type variable is not specifically numeric
 		}
-		if t.Constraint.Kind == KindNumericConstant {
+		if t.Constraint.Kind == KindNumericConstant ||
+			t.Constraint.Kind == KindIntegerConstant ||
+			t.Constraint.Kind == KindFloatConstant {
 			return true
 		}
 		return t.Constraint.IsNumeric()
@@ -199,13 +313,15 @@ func (t Type) IsNumeric() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
-		KindF32, KindF64:
+		KindF32, KindF64,
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant:
 		return true
 	default:
 		return false
 	}
 }
 
+// IsInteger returns true if the type is an integer type (signed or unsigned).
 func (t Type) IsInteger() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
@@ -216,6 +332,7 @@ func (t Type) IsInteger() bool {
 	}
 }
 
+// IsSignedInteger returns true if the type is a signed integer type.
 func (t Type) IsSignedInteger() bool {
 	switch t.Kind {
 	case KindI8, KindI16, KindI32, KindI64:
@@ -225,6 +342,7 @@ func (t Type) IsSignedInteger() bool {
 	}
 }
 
+// IsUnsignedInteger returns true if the type is an unsigned integer type.
 func (t Type) IsUnsignedInteger() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64:
@@ -234,6 +352,7 @@ func (t Type) IsUnsignedInteger() bool {
 	}
 }
 
+// IsFloat returns true if the type is a floating-point type.
 func (t Type) IsFloat() bool {
 	switch t.Kind {
 	case KindF32, KindF64:
@@ -243,6 +362,7 @@ func (t Type) IsFloat() bool {
 	}
 }
 
+// IsBool returns true if the type is a boolean type (u8).
 func (t Type) IsBool() bool {
 	return t.Kind == KindU8
 }
@@ -256,8 +376,13 @@ func (t Type) Unwrap() Type {
 	return t
 }
 
+// IsValid returns true if the type is not invalid or uninitialized.
 func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 
+// Equal compares two types for structural equality.
+// For compound types (chan, series), it recursively compares value types.
+// For type variables, it compares names and constraints.
+// For function types, it compares inputs, outputs, and config parameters.
 func Equal(t Type, v Type) bool {
 	if t.Kind != v.Kind {
 		return false
@@ -290,20 +415,20 @@ func Equal(t Type, v Type) bool {
 
 	// For function types, check inputs, outputs, and config
 	if t.Kind == KindFunction {
-		if !equalNamedTypes(t.Inputs, v.Inputs) {
+		if !paramsEqual(t.Inputs, v.Inputs) {
 			return false
 		}
-		if !equalNamedTypes(t.Outputs, v.Outputs) {
+		if !paramsEqual(t.Outputs, v.Outputs) {
 			return false
 		}
-		return equalNamedTypes(t.Config, v.Config)
+		return paramsEqual(t.Config, v.Config)
 	}
 
 	return true
 }
 
-// equalNamedTypes checks if two Params (maps.Ordered) are equal
-func equalNamedTypes(a, b *Params) bool {
+// paramsEqual checks if two Params (maps.Ordered) are equal
+func paramsEqual(a, b *Params) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -325,6 +450,7 @@ func equalNamedTypes(a, b *Params) bool {
 	return true
 }
 
+// Is64Bit returns true if the type uses 64-bit representation.
 func (t Type) Is64Bit() bool {
 	switch t.Kind {
 	case KindI64, KindU64, KindTimeStamp, KindTimeSpan, KindF64:
@@ -334,13 +460,36 @@ func (t Type) Is64Bit() bool {
 	}
 }
 
+// Density returns the size in bytes of the primitive type.
+// Panics if the type is not a fixed-size primitive (e.g., compound types, type variables, string).
+func (t Type) Density() int {
+	switch t.Kind {
+	case KindU8, KindI8:
+		return 1
+	case KindU16, KindI16:
+		return 2
+	case KindU32, KindI32, KindF32:
+		return 4
+	case KindU64, KindI64, KindF64, KindTimeStamp, KindTimeSpan:
+		return 8
+	default:
+		panic("Density: type is not a fixed-size primitive: " + t.String())
+	}
+}
+
 var (
+	// UnsignedIntegers contains all unsigned integer types.
 	UnsignedIntegers = []Type{U8(), U16(), U32(), U64()}
-	SignedIntegers   = []Type{I8(), I16(), I32(), I64()}
-	Floats           = []Type{F32(), F64()}
-	Numerics         = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
+	// SignedIntegers contains all signed integer types.
+	SignedIntegers = []Type{I8(), I16(), I32(), I64()}
+	// Floats contains all floating-point types.
+	Floats = []Type{F32(), F64()}
+	// Numerics contains all numeric types (unsigned, signed, and floating-point).
+	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
 )
 
+// FromTelem converts a telemetry data type to an Arc type.
+// Returns an invalid type for unknown telemetry types.
 func FromTelem(t telem.DataType) Type {
 	switch t {
 	case telem.Uint8T:
@@ -372,6 +521,8 @@ func FromTelem(t telem.DataType) Type {
 	}
 }
 
+// ToTelem converts an Arc type to a telemetry data type.
+// Returns telem.UnknownT for Arc types that don't have a telemetry equivalent.
 func ToTelem(t Type) telem.DataType {
 	switch t.Kind {
 	case KindU8:
@@ -403,9 +554,4 @@ func ToTelem(t Type) telem.DataType {
 	default:
 		return telem.UnknownT
 	}
-}
-
-// NewTypeVariable creates a new type variable with the given name and constraint
-func NewTypeVariable(name string, constraint *Type) Type {
-	return TypeVariable(name, constraint)
 }

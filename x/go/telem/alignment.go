@@ -64,8 +64,11 @@ func (a Alignment) String() string {
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalJSONStringUint64(b)
+	if err != nil {
+		return err
+	}
 	*a = Alignment(n)
-	return err
+	return nil
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -76,11 +79,4 @@ func (a Alignment) MarshalJSON() ([]byte, error) {
 // AddSamples increments the sample index of the alignment.
 func (a Alignment) AddSamples(samples uint32) Alignment {
 	return NewAlignment(a.DomainIndex(), a.SampleIndex()+samples)
-}
-
-func (a Alignment) Add(other Alignment) Alignment {
-	return NewAlignment(
-		a.DomainIndex()+other.DomainIndex(),
-		a.SampleIndex()+other.SampleIndex(),
-	)
 }
