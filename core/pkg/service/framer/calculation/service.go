@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -58,6 +60,7 @@ type ServiceConfig struct {
 	// changes.
 	// [OPTIONAL]
 	StateCodec binary.Codec
+	Arc        *arc.Service
 }
 
 var (
@@ -69,10 +72,11 @@ var (
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel_observable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
+	validate.NotNil(v, "arc", c.Arc)
 	return v.Error()
 }
 
@@ -83,6 +87,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
+	c.Arc = override.Nil(c.Arc, other.Arc)
 	return c
 }
 
@@ -265,7 +270,13 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.startCalculation(ctx, key, 1)
 }
 
-const defaultPipelineBufferSize = 50
+const (
+	defaultPipelineBufferSize                 = 500
+	streamerAddr              address.Address = "streamer"
+	calculatorAddr            address.Address = "calculator"
+	writerAddr                address.Address = "writer"
+	writerObserverAddr        address.Address = "writer_observer"
+)
 
 func (s *Service) startCalculation(
 	ctx context.Context,
@@ -288,37 +299,33 @@ func (s *Service) startCalculation(
 			return s.releaseEntryCloser(key), nil
 		}
 
-		var requires []channel.Channel
-		if err := s.cfg.Channel.NewRetrieve().
-			WhereKeys(ch.Requires...).
-			Entries(&requires).
-			Exec(ctx, nil); err != nil {
+		c, err := OpenCalculator(ctx, CalculatorConfig{
+			ChannelSvc: s.cfg.Channel,
+			Channel:    ch,
+			Resolver:   s.cfg.Arc.SymbolResolver(),
+		})
+		if err != nil {
 			return nil, err
 		}
-
 		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key()},
+			Keys:  channel.Keys{ch.Key(), ch.Index()},
 			Start: telem.Now(),
 		})
 		if err != nil {
 			return nil, err
 		}
-		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
+		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: c.ReadFrom()})
 		if err != nil {
 			return nil, err
 		}
 		p := plumber.New()
-		plumber.SetSegment(p, "streamer", streamer_)
-		plumber.SetSegment(p, "writer", writer_)
+		plumber.SetSegment(p, streamerAddr, streamer_)
+		plumber.SetSegment(p, writerAddr, writer_)
 
-		c, err := OpenCalculator(ch, requires)
-		if err != nil {
-			return nil, err
-		}
 		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
 		plumber.SetSegment(
 			p,
-			"Calculator",
+			calculatorAddr,
 			sc,
 			confluence.Defer(sc.close),
 		)
@@ -330,10 +337,10 @@ func (s *Service) startCalculation(
 				zap.Stringer("channel", ch),
 			)
 		})
-		plumber.SetSink(p, "obs", o)
-		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
+		plumber.SetSink(p, writerObserverAddr, o)
+		plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterRequest](p, calculatorAddr, writerAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
 		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
 		streamer_.InFrom(streamerRequests)
 		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
@@ -381,8 +388,9 @@ func (t *streamCalculationTransform) transform(
 	req framer.StreamerResponse,
 ) (res framer.WriterRequest, send bool, err error) {
 	res.Command = writer.Write
+	var changed bool
 	for _, c := range t.calculators {
-		s, err := c.Next(req.Frame)
+		res.Frame, changed, err = c.Next(ctx, req.Frame, res.Frame)
 		if err != nil {
 			t.onStateChange(ctx, Status{
 				Key:         c.ch.Key().String(),
@@ -390,8 +398,7 @@ func (t *streamCalculationTransform) transform(
 				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
 				Description: err.Error(),
 			})
-		} else if s.Len() > 0 {
-			res.Frame = res.Frame.Append(c.ch.Key(), s)
+		} else if changed {
 			send = true
 		}
 	}
@@ -399,7 +406,7 @@ func (t *streamCalculationTransform) transform(
 }
 
 func (t *streamCalculationTransform) close() {
-	for _, c := range t.calculators {
-		c.Close()
-	}
+	//for _, c := range t.calculators {
+	//c.Close()
+	//}
 }

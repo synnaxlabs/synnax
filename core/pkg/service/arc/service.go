@@ -11,23 +11,30 @@ package arc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -105,6 +112,10 @@ type Service struct {
 	}
 }
 
+func (s *Service) SymbolResolver() arc.SymbolResolver {
+	return s.symbolResolver
+}
+
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -116,9 +127,44 @@ func (s *Service) Close() error {
 	return c.Error()
 }
 
+func (s *Service) Deploy(ctx context.Context, key uuid.UUID) error {
+	var prog Arc
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
+		return nil
+	}
+	prog.Deploy = true
+	return s.NewWriter(nil).Create(ctx, &prog)
+}
+
+func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
+	var prog Arc
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
+		return nil
+	}
+	prog.Deploy = false
+	return s.NewWriter(nil).Create(ctx, &prog)
+}
+
+func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.DataType, error) {
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expr))
+	if err != nil {
+		return telem.UnknownT, err
+	}
+	aCtx := acontext.CreateRoot(
+		ctx,
+		t,
+		s.SymbolResolver(),
+	)
+	dataType, ok := statement.AnalyzeFunctionBody(aCtx)
+	if !ok {
+		return telem.UnknownT, aCtx.Diagnostics.Error()
+	}
+	return types.ToTelem(dataType), nil
+}
+
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
+// See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -128,7 +174,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer xio.MultiCloser
 		s      = &Service{cfg: cfg}
 	)
-	s.symbolResolver, err = runtime.CreateResolver(cfg.baseRuntimeConfig())
+	s.symbolResolver, err = symbol.CreateResolver(cfg.baseRuntimeConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +195,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 // NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// will execute the operations directly on the underlyinu gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),

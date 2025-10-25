@@ -15,6 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	arclsp "github.com/synnaxlabs/arc/lsp"
+	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -29,15 +33,18 @@ type Arc struct {
 type ArcService struct {
 	dbProvider
 	accessProvider
+	alamos.Instrumentation
+
 	internal *arc.Service
 	status   *status.Service
 }
 
 func NewArcService(p Provider) *ArcService {
 	return &ArcService{
-		dbProvider:     p.db,
-		accessProvider: p.access,
-		internal:       p.Service.Arc,
+		dbProvider:      p.db,
+		accessProvider:  p.access,
+		Instrumentation: p.Instrumentation,
+		internal:        p.Service.Arc,
 	}
 }
 
@@ -159,4 +166,21 @@ func translateArcsToService(arcs []Arc) []arc.Arc {
 
 func translateArcsFromService(arcs []arc.Arc) []Arc {
 	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
+}
+
+// ArcLSPMessage represents a single JSON-RPC message for the LSP
+type ArcLSPMessage = arctransport.JSONRPCMessage
+
+// LSP handles LSP protocol messages over a Freighter stream
+func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
+	// Create a new LSP server instance for this connection with a no-op logger
+	// to avoid nil pointer panics
+	lspServer, err := arclsp.New(arclsp.Config{
+		Instrumentation: s.Child("arc").Child("lsp"),
+		GlobalResolver:  s.internal.SymbolResolver(),
+	})
+	if err != nil {
+		return err
+	}
+	return arctransport.ServeFreighter(ctx, lspServer, stream)
 }
