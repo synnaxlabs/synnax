@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package statement implements semantic analysis for Arc statements including variable
+// declarations, assignments, conditionals, and channel operations.
 package statement
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// AnalyzeBlock validates a block of statements in a new scope.
 func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 	blockScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
@@ -40,6 +43,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 	return true
 }
 
+// Analyze validates a statement and dispatches to specialized handlers based on statement type.
 func Analyze(ctx context.Context[parser.IStatementContext]) bool {
 	switch {
 	case ctx.AST.VariableDeclaration() != nil:

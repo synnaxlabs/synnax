@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Unify solves all accumulated constraints by computing type variable substitutions.
+// Returns an error if constraints conflict or cannot converge within iteration limit.
 func (s *System) Unify() error {
 	const maxIterations = 100
 	for iteration := 0; iteration < maxIterations; iteration++ {
@@ -272,6 +274,8 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 	return types.U32()
 }
 
+// String formats the constraint system for debugging with type variables,
+// constraints, and substitutions.
 func (s *System) String() string {
 	var b strings.Builder
 	b.WriteString("=== Type Unification ===\n")

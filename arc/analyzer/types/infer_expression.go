@@ -49,12 +49,12 @@ func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) t
 }
 
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
-	rels := ctx.AST.AllRelationalExpression()
-	if len(rels) > 1 {
+	relExpressions := ctx.AST.AllRelationalExpression()
+	if len(relExpressions) > 1 {
 		return types.U8()
 	}
-	if len(rels) == 1 {
-		return InferRelational(context.Child(ctx, rels[0]))
+	if len(relExpressions) == 1 {
+		return InferRelational(context.Child(ctx, relExpressions[0]))
 	}
 	return types.Type{}
 }

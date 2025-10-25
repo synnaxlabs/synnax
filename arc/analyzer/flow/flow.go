@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package flow implements semantic analysis for Arc flow statements connecting channels
+// and functions into reactive data pipelines.
 package flow
 
 import (
@@ -21,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Analyze processes a flow statement and returns true if successful
+// Analyze validates a flow statement's node chain and routing tables.
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 	for i, node := range ctx.AST.AllFlowNode() {
 		var prevNode parser.IFlowNodeContext

@@ -85,8 +85,8 @@ func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
 // WithTypeHint returns a new context with an updated type hint. The original context
 // is not mutated. All other fields (including shared state pointers) are preserved.
 //
-// Type hints are used for bottom-up type inference, where the expected type of an
-// expression is known from context (e.g., the declared type of a variable being
+// Type hints are used for bottom-up type inference, where the expected type of
+// expression is known from context (e.g., the declared type of variable being
 // assigned).
 func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	c.TypeHint = hint

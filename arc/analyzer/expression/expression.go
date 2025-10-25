@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package expression implements type checking and semantic analysis for Arc expressions.
 package expression
 
 import (
@@ -22,6 +23,7 @@ func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
 func isAny(p basetypes.Type) bool     { return true }
 
+// Analyze validates type correctness of an expression and accumulates constraints.
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return analyzeLogicalOr(context.Child(ctx, logicalOr))
@@ -156,15 +158,15 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
-	relationships := ctx.AST.AllRelationalExpression()
-	for _, relational := range relationships {
+	relExpressions := ctx.AST.AllRelationalExpression()
+	for _, relational := range relExpressions {
 		if !analyzeRelational(context.Child(ctx, relational)) {
 			return false
 		}
 	}
 	return validateType(
 		ctx,
-		relationships,
+		relExpressions,
 		getEqualityOperator,
 		types.InferRelational,
 		isAny,

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package constraints implements type constraint collection and unification.
 package constraints
 
 import (
@@ -14,13 +15,17 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// Kind classifies constraint relationships between types.
 type Kind int
 
 const (
+	// KindEquality requires exact type equality after substitution.
 	KindEquality Kind = iota
+	// KindCompatible allows numeric type promotion between compatible types.
 	KindCompatible
 )
 
+// Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
 	Kind   Kind
 	Left   types.Type
@@ -29,12 +34,14 @@ type Constraint struct {
 	Reason string
 }
 
+// System accumulates type constraints and computes substitutions via unification.
 type System struct {
 	Constraints   []Constraint
 	Substitutions map[string]types.Type
 	TypeVars      map[string]types.Type
 }
 
+// New creates an empty constraint system.
 func New() *System {
 	return &System{
 		Constraints:   make([]Constraint, 0),
@@ -43,6 +50,7 @@ func New() *System {
 	}
 }
 
+// AddEquality adds an equality constraint requiring left and right to unify to the same type.
 func (s *System) AddEquality(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
@@ -58,6 +66,7 @@ func (s *System) AddEquality(
 	})
 }
 
+// AddCompatible adds a compatibility constraint allowing numeric promotion between left and right.
 func (s *System) AddCompatible(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
@@ -86,10 +95,12 @@ func (s *System) recordTypeVars(toRecord ...types.Type) {
 	}
 }
 
+// HasTypeVariables returns true if the system has recorded any type variables.
 func (s *System) HasTypeVariables() bool {
 	return len(s.TypeVars) > 0
 }
 
+// ApplySubstitutions replaces type variables in t with their computed substitutions.
 func (s *System) ApplySubstitutions(t types.Type) types.Type {
 	return s.applySubstitutionsWithVisited(t, make(map[string]bool))
 }
