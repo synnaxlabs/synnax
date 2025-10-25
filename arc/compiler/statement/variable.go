@@ -45,11 +45,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 			return err
 		}
 	}
-	local, err := ctx.Scope.Resolve(ctx, name)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteLocalSet(local.ID)
+	ctx.Writer.WriteLocalSet(varScope.ID)
 	return nil
 }
 
@@ -113,25 +109,17 @@ func compileAssignment(
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindInput:
 		// Regular local variable or input
-		local, err := ctx.Scope.Resolve(ctx, name)
-		if err != nil {
-			return err
-		}
-		ctx.Writer.WriteLocalSet(local.ID)
+		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
-		stateIdx, err := ctx.Scope.Resolve(ctx, name)
-		if err != nil {
-			return err
-		}
 		// Value is on stack from expression compilation
 		// Need to rearrange to: [funcID, varID, value]
 		// First store value temporarily in local
-		ctx.Writer.WriteLocalSet(stateIdx.ID)
+		ctx.Writer.WriteLocalSet(scope.ID)
 		// Push funcID and varID
 		ctx.Writer.WriteI32Const(0) // func ID
-		ctx.Writer.WriteI32Const(int32(stateIdx.ID))
+		ctx.Writer.WriteI32Const(int32(scope.ID))
 		// Push value back from local
-		ctx.Writer.WriteLocalGet(stateIdx.ID)
+		ctx.Writer.WriteLocalGet(scope.ID)
 		// Stack is now: [funcID, varID, value]
 		importIdx, err := ctx.Imports.GetStateStore(varType)
 		if err != nil {
@@ -151,7 +139,7 @@ func compileAssignment(
 	return nil
 }
 
-// compileOutputAssignment handles assignment to named outputs in multi-output stages/functions
+// compileOutputAssignment handles assignment to named outputs in multi-output functions
 // Memory layout at OutputMemoryBase:
 //
 //	[0:8]   dirty_flags (i64 bitmap)

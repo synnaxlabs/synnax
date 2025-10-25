@@ -18,7 +18,6 @@ import (
 
 // WASM binary format constants
 const (
-	Version       = 0x00000001 // version 1 (little endian)
 	SectionCustom = 0x00
 	SectionType   = 0x01
 	SectionImport = 0x02
@@ -26,6 +25,7 @@ const (
 	SectionMemory = 0x05
 	SectionExport = 0x07
 	SectionCode   = 0x0a
+	FuncType      = 0x60
 )
 
 // ValueType represents WASM value types
@@ -48,7 +48,12 @@ const (
 	ExportGlobal ExportKind = 0x03
 )
 
-var MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
+var (
+	// The WASM magic number that must be present at the start of all files.
+	MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
+	// Version is the version of WASM the arc compiler compiles to (V1)
+	Version = []byte{0x01, 0x00, 0x00, 0x00}
+)
 
 func ConvertType(t types.Type) ValueType {
 	if t.Kind == types.KindF64 {

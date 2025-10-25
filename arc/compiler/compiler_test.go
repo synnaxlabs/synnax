@@ -807,6 +807,30 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(5)))
 		})
+
+		It("Should correctly execute signed comparison with negative numbers", func() {
+			output := MustSucceed(compile(`
+			func test(a i32) u8 {
+				return a > -10
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			test := mod.ExportedFunction("test")
+			Expect(test).ToNot(BeNil())
+
+			// Test: -5 > -10 should be true (signed comparison)
+			negFive := int32(-5)
+			results := MustSucceed(test.Call(ctx, uint64(uint32(negFive))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // true
+
+			// Test: -15 > -10 should be false
+			negFifteen := int32(-15)
+			results = MustSucceed(test.Call(ctx, uint64(uint32(negFifteen))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0))) // false
+		})
 	})
 
 	DescribeTable("PEMDAS", func(expr string, expected float64) {
@@ -823,46 +847,26 @@ var _ = Describe("Compiler", func() {
 		Expect(math.Float64frombits(res)).To(Equal(expected))
 	},
 		// Basic operations
-		Entry("Addition",
-			"1.0 + 2.0",
-			3.0,
-		),
-		Entry("Subtraction",
-			"5.0 - 3.0",
-			2.0,
-		),
-		Entry("Multiplication",
-			"4.0 * 5.0",
-			20.0,
-		),
-		Entry("Division",
-			"10.0 / 2.0",
-			5.0,
-		),
+		Entry("Addition", "1.0 + 2.0", 3.0),
+		Entry("Subtraction", "5.0 - 3.0", 2.0),
+		Entry("Multiplication", "4.0 * 5.0", 20.0),
+		Entry("Division", "10.0 / 2.0", 5.0),
 
 		// Multiplication before Addition
 		Entry("Multiplication before Addition: 2 + 3 * 4",
 			"2.0 + 3.0 * 4.0",
-			14.0, // 2 + 12 = 14
+			14.0,
 		),
 		Entry("Multiplication before Addition: 3 * 4 + 2",
 			"3.0 * 4.0 + 2.0",
-			14.0, // 12 + 2 = 14
+			14.0,
 		),
 		Entry("Multiple Multiplications with Addition: 2 * 3 + 4 * 5",
 			"2.0 * 3.0 + 4.0 * 5.0",
-			26.0, // 6 + 20 = 26
+			26.0,
 		),
-
-		// Division before Addition
-		Entry("Division before Addition: 10 / 2 + 3",
-			"10.0 / 2.0 + 3.0",
-			8.0, // 5 + 3 = 8
-		),
-		Entry("Division before Addition: 3 + 10 / 2",
-			"3.0 + 10.0 / 2.0",
-			8.0, // 3 + 5 = 8
-		),
+		Entry("Division before Addition", "10.0 / 2.0 + 3.0", 8.0),
+		Entry("Division before Addition", "3.0 + 10.0 / 2.0", 8.0),
 
 		// Multiplication before Subtraction
 		Entry("Multiplication before Subtraction: 10 - 2 * 3",

@@ -33,7 +33,7 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 		return false, compileChannelOperation(context.Child(ctx, chanOp))
 	}
 	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
-		_, err := compileFunctionCall(context.Child(ctx, fnCall))
+		_, err = compileFunctionCall(context.Child(ctx, fnCall))
 		return false, err
 	}
 	return false, errors.New("unknown statement type")

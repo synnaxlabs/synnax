@@ -7,6 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package compiler implements the Arc language compiler, translating Arc intermediate
+// representation (IR) into WebAssembly bytecode.
+//
+// The compiler follows a multi-stage pipeline:
+//  1. Expression compilation (recursive descent with operator precedence)
+//  2. Statement compilation (control flow, variables, assignments)
+//  3. WebAssembly module generation (types, imports, functions, exports)
+//  4. Bytecode emission (WASM instruction encoding)
+//
+// The compiler maintains type information through the compilation process and
+// generates calls to host functions for channel operations, series manipulation,
+// and state persistence.
+//
+// Example usage:
+//
+//	output, err := compiler.Compile(ctx, program)
+//	if err != nil {
+//	    return err
+//	}
+//	// output.WASM contains the compiled WebAssembly bytecode
+//	// output.OutputMemoryBases contains memory addresses for multi-output functions
 package compiler
 
 import (
@@ -25,6 +46,23 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Compile translates an Arc program from intermediate representation (IR) to WebAssembly bytecode.
+//
+// The function processes each function and stage in the IR, allocating memory for multi-output
+// stages, compiling expressions and statements into WASM instructions, and generating a complete
+// WASM module with type signatures, imports, functions, and exports.
+//
+// Parameters:
+//   - ctx_: Go context for cancellation
+//   - program: Arc IR containing functions, stages, symbol table, and type information
+//   - opts: Optional compiler configuration (e.g., DisableHostImport())
+//
+// Returns:
+//   - Output: Contains WASM bytecode and memory base addresses for multi-output stages
+//   - error: Compilation errors (type mismatches, undefined symbols, invalid operations)
+//
+// The compiler maintains type safety by propagating type hints through expression compilation
+// and emitting type conversions when necessary.
 func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {

@@ -21,14 +21,15 @@ import (
 )
 
 func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverged bool, err error) {
-	if _, err := expression.Compile(context.Child(ctx, ctx.AST.Expression())); err != nil {
+	if _, err = expression.Compile(context.Child(ctx, ctx.AST.Expression())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if condition")
 	}
 
-	hasElseClause := ctx.AST.ElseClause() != nil
-	hasElseIf := len(ctx.AST.AllElseIfClause()) > 0
-	hasElse := hasElseClause || hasElseIf
-
+	var (
+		hasElseClause = ctx.AST.ElseClause() != nil
+		hasElseIf     = len(ctx.AST.AllElseIfClause()) > 0
+		hasElse       = hasElseClause || hasElseIf
+	)
 	if hasElse {
 		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 
@@ -87,8 +88,7 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 
 	// Simple if without else
 	ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-	_, err = CompileBlock(context.Child(ctx, ctx.AST.Block()))
-	if err != nil {
+	if _, err = CompileBlock(context.Child(ctx, ctx.AST.Block())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if block")
 	}
 	ctx.Writer.WriteEnd()
@@ -142,9 +142,6 @@ func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error
 	if err != nil {
 		return errors.Wrap(err, "failed to compile channel write value")
 	}
-	if _, err = ctx.Scope.Resolve(ctx, channelName); err != nil {
-		return err
-	}
 	sym, err := ctx.Scope.Resolve(ctx, channelName)
 	if err != nil {
 		return err
@@ -160,10 +157,12 @@ func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error
 
 func compileChannelRead(_ context.Context[parser.IChannelReadContext]) error {
 	// TODO: Implement this
+	// See https://linear.app/synnax/issue/SY-3178/handle-channel-reads-in-arc
 	return errors.New("standalone channel reads not implemented")
 }
 
 func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (types.Type, error) {
 	// TODO: Implement function calls
+	// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
 	return types.Type{}, errors.New("function calls not yet implemented")
 }
