@@ -12,8 +12,8 @@ package text_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -25,11 +25,11 @@ var _ = Describe("Text", func() {
 				return a + b
 			}
 
-			stage adder{} (a i64, b i64) i64 {
+			func adder{} (a i64, b i64) i64 {
 				return add(a, b)
 			}
 
-			stage print{} () {
+			func print{} () {
 			}
 
 			adder{} -> print{}
@@ -46,11 +46,11 @@ var _ = Describe("Text", func() {
 				return a + b
 			}
 
-			stage adder{} (a i64, b i64) i64 {
+			func adder{} (a i64, b i64) i64 {
 				return a + b
 			}
 
-			stage print{} () {
+			func print{} () {
 			}
 
 			adder{} -> print{}
@@ -59,35 +59,34 @@ var _ = Describe("Text", func() {
 			Expect(parsedText.AST).ToNot(BeNil())
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.Functions).To(HaveLen(1))
-			Expect(inter.Stages).To(HaveLen(2))
+			Expect(inter.Functions).To(HaveLen(3))
 			Expect(inter.Nodes).To(HaveLen(2))
 			Expect(inter.Edges).To(HaveLen(1))
 
 			f := inter.Functions[0]
 			Expect(f.Key).To(Equal("add"))
-			Expect(f.Params.Count()).To(Equal(2))
-			v, ok := f.Params.Get("a")
+			Expect(f.Inputs.Count()).To(Equal(2))
+			v, ok := f.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(ir.I64{}))
-			v, ok = f.Params.Get("b")
+			Expect(v).To(Equal(types.I64()))
+			v, ok = f.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(ir.I64{}))
+			Expect(v).To(Equal(types.I64()))
 
-			s := inter.Stages[0]
+			s := inter.Functions[1]
 			Expect(s.Key).To(Equal("adder"))
-			Expect(s.Params.Count()).To(Equal(2))
-			v, ok = s.Params.Get("a")
+			Expect(s.Inputs.Count()).To(Equal(2))
+			v, ok = s.Inputs.Get("a")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(ir.I64{}))
-			v, ok = s.Params.Get("b")
+			Expect(v).To(Equal(types.I64()))
+			v, ok = s.Inputs.Get("b")
 			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(ir.I64{}))
+			Expect(v).To(Equal(types.I64()))
 
 			n1 := inter.Nodes[0]
 			Expect(n1.Key).To(Equal("adder_0"))
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.Config).To(HaveLen(0))
+			Expect(n1.ConfigValues).To(HaveLen(0))
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())
