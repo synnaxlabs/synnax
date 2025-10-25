@@ -273,6 +273,65 @@ var _ = Describe("Scope", func() {
 		})
 	})
 
+	Describe("ResolvePrefix", func() {
+		It("Should resolve symbols from children", func() {
+			rootScope := symbol.CreateRootScope(nil)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I64()}))
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.F32()}))
+			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "foo"))
+			Expect(scopes).To(HaveLen(2))
+			names := []string{scopes[0].Name, scopes[1].Name}
+			Expect(names).To(ContainElements("foo", "foobar"))
+		})
+		It("Should resolve symbols from global resolver", func() {
+			globalResolver := symbol.MapResolver{
+				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				"print": symbol.Symbol{Name: "print", Kind: symbol.KindFunction},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "p"))
+			Expect(scopes).To(HaveLen(2))
+			names := []string{scopes[0].Name, scopes[1].Name}
+			Expect(names).To(ContainElements("pi", "print"))
+		})
+		It("Should resolve symbols from parent scope", func() {
+			rootScope := symbol.CreateRootScope(nil)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "global", Kind: symbol.KindVariable, Type: types.I32()}))
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "globalTwo", Kind: symbol.KindVariable, Type: types.I32()}))
+			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+			scopes := MustSucceed(funcScope.ResolvePrefix(bCtx, "global"))
+			Expect(scopes).To(HaveLen(2))
+			names := []string{scopes[0].Name, scopes[1].Name}
+			Expect(names).To(ContainElements("global", "globalTwo"))
+		})
+		It("Should deduplicate symbols across all sources", func() {
+			globalResolver := symbol.MapResolver{
+				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
+			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+			MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()}))
+			scopes := MustSucceed(funcScope.ResolvePrefix(bCtx, "x"))
+			Expect(scopes).To(HaveLen(1))
+			Expect(scopes[0].Type).To(Equal(types.I64()))
+		})
+		It("Should return empty slice for non-matching prefix", func() {
+			rootScope := symbol.CreateRootScope(nil)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
+			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "xyz"))
+			Expect(scopes).To(BeEmpty())
+		})
+		It("Should return all symbols for empty prefix", func() {
+			rootScope := symbol.CreateRootScope(nil)
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.I32()}))
+			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, ""))
+			Expect(scopes).To(HaveLen(2))
+		})
+	})
+
 	Describe("ClosestAncestorOfKind", func() {
 		It("Should find closest ancestor of kind", func() {
 			rootScope := symbol.CreateRootScope(nil)
@@ -328,6 +387,18 @@ var _ = Describe("Scope", func() {
 			Expect(str).To(ContainSubstring("name: x"))
 			Expect(str).To(ContainSubstring("kind: KindVariable"))
 			Expect(str).To(ContainSubstring("type: i32"))
+		})
+	})
+
+	Describe("Channels", func() {
+		Describe("NewChannels", func() {
+			It("Should create empty Channels with initialized maps", func() {
+				ch := symbol.NewChannels()
+				Expect(ch.Read).ToNot(BeNil())
+				Expect(ch.Write).ToNot(BeNil())
+				Expect(ch.Read).To(HaveLen(0))
+				Expect(ch.Write).To(HaveLen(0))
+			})
 		})
 	})
 })
