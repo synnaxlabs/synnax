@@ -26,7 +26,7 @@ import (
 func NewMockPolymorphicResolver() symbol.Resolver {
 	simpleInputs := &types.Params{}
 	constraint := types.NumericConstraint()
-	simpleInputs.Put("a", types.NewTypeVariable("T", &constraint))
+	simpleInputs.Put("a", types.TypeVariable("T", &constraint))
 	return &symbol.MapResolver{
 		"simple": {
 			Name: "simple",
@@ -35,7 +35,7 @@ func NewMockPolymorphicResolver() symbol.Resolver {
 				Inputs: simpleInputs,
 				Outputs: &types.Params{
 					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+					Values: []types.Type{types.TypeVariable("T", &constraint)},
 				},
 			}),
 		},
