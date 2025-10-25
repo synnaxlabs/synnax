@@ -51,14 +51,17 @@ type (
 type Config struct {
 	alamos.Instrumentation
 	//  Distribution layer framer service.
-	Framer  *framer.Service
-	Channel channel.Service
-	Arc     *arc.Service
+	Framer                   *framer.Service
+	Channel                  channel.Service
+	Arc                      *arc.Service
+	EnableLegacyCalculations *bool
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig                       = Config{
+		EnableLegacyCalculations: config.False(),
+	}
 )
 
 // Validate implements config.Config.
@@ -67,6 +70,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "arc", c.Arc)
+	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	return v.Error()
 }
 
@@ -76,6 +80,7 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Arc = override.Nil(c.Arc, other.Arc)
+	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	return c
 }
 
@@ -120,11 +125,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Child("calculated"),
-		Channel:           cfg.Channel,
-		Framer:            cfg.Framer,
-		Arc:               cfg.Arc,
-		ChannelObservable: cfg.Channel.NewObservable(),
+		Instrumentation:          cfg.Child("calculated"),
+		Channel:                  cfg.Channel,
+		Framer:                   cfg.Framer,
+		Arc:                      cfg.Arc,
+		ChannelObservable:        cfg.Channel.NewObservable(),
+		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
 	})
 	if err != nil {
 		return nil, err
