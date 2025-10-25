@@ -11,9 +11,11 @@ package unsafe
 
 import "unsafe"
 
-// ReinterpretSlice re-interprets a slice of one type as a slice of another type. Note that
-// A and B must have compatible memory layouts in order for this to work. IF YOU DON'T
-// KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+// ReinterpretSlice re-interprets a slice of one type as a slice of another type that
+// has the same density. A and B must have the same density (i.e. float32 -> uint32,
+// int64 -> uint64) in order for to work.
+//
+// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func ReinterpretSlice[A, B any](in []A) []B {
 	if len(in) == 0 {
 		return nil
