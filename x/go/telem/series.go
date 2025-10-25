@@ -124,16 +124,17 @@ func (s *Series) Resize(length int64) {
 	if s.DataType.IsVariable() {
 		panic("cannot resize variable-density series")
 	}
-	density := int(s.DataType.Density())
-	targetSize := int(length) * density
-	currentSize := len(s.Data)
+	var (
+		density     = int(s.DataType.Density())
+		targetSize  = int(length) * density
+		currentSize = len(s.Data)
+	)
 	if targetSize == currentSize {
 		return
 	}
 	if targetSize < currentSize {
 		s.Data = s.Data[:targetSize]
 	} else {
-		// Extend with zeros
 		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
 	}
 }
@@ -152,13 +153,15 @@ func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	f(s.Data[i*int(s.DataType.Density()):], v)
 }
 
+// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
+// dst and src must have the same DataType, and that DataType cannot be of variable
+// density.
 func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
 		panic("cannot copy values from non-variable series")
 	}
-	dstDen := int(dst.DataType.Density())
-	srcDen := int(src.DataType.Density())
-	copy(dst.Data[dstIdx*dstDen:(dstIdx+1)*dstDen], src.Data[srcIdx*srcDen:(srcIdx+1)*srcDen])
+	den := int(dst.DataType.Density())
+	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
@@ -230,6 +233,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
+// DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
 		TimeRange: s.TimeRange,
