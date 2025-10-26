@@ -72,7 +72,7 @@ func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
 func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, visiting map[string]bool) error {
 	// Check for type variables BEFORE applying substitutions
 	// This preserves the original type variable for updating
-	if t1.Kind == types.KindTypeVariable {
+	if t1.Kind == types.KindVariable {
 		if visiting[t1.Name] {
 			return nil
 		}
@@ -81,7 +81,7 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 		delete(visiting, t1.Name)
 		return err
 	}
-	if t2.Kind == types.KindTypeVariable {
+	if t2.Kind == types.KindVariable {
 		if visiting[t2.Name] {
 			return nil
 		}
@@ -120,8 +120,8 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		// BUT: Only promote if both are CONCRETE types. If either is a type variable,
 		// just recursively unify without promotion.
 		if source.Kind == KindCompatible &&
-			existing.Kind != types.KindTypeVariable &&
-			other.Kind != types.KindTypeVariable &&
+			existing.Kind != types.KindVariable &&
+			other.Kind != types.KindVariable &&
 			existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
 			// Compute the promoted type
 			promoted := promoteNumericTypes(existing, other)
@@ -132,7 +132,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 		return s.unifyTypesWithVisited(existing, other, source, visiting)
 	}
 
-	if other.Kind == types.KindTypeVariable {
+	if other.Kind == types.KindVariable {
 		if otherSub, exists := s.Substitutions[other.Name]; exists {
 			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
 		}
@@ -214,7 +214,7 @@ func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, s
 }
 
 func occursIn(lhs, rhs types.Type) bool {
-	if rhs.Kind == types.KindTypeVariable {
+	if rhs.Kind == types.KindVariable {
 		return lhs.Name == rhs.Name
 	}
 	if rhs.Kind == types.KindChan || rhs.Kind == types.KindSeries {
