@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package interval_test
+package scheduler_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func TestInterval(t *testing.T) {
+var ctx = context.Background()
+
+func TestScheduler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Interval Suite")
+	RunSpecs(t, "Scheduler Suite")
 }
