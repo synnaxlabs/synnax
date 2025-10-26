@@ -104,8 +104,8 @@ const (
 	// KindSeries is a series/array type (requires ValueType).
 	KindSeries
 
-	// KindTypeVariable is a generic type parameter (requires Name, optional Constraint).
-	KindTypeVariable
+	// KindVariable is a generic type variable (requires Name, optional Constraint).
+	KindVariable
 
 	// KindNumericConstant is a constraint for any numeric type (integers or floats).
 	KindNumericConstant
@@ -199,7 +199,7 @@ func (t Type) String() string {
 			return "series " + t.ValueType.String()
 		}
 		return "series <invalid>"
-	case KindTypeVariable:
+	case KindVariable:
 		if t.Constraint != nil {
 			return t.Name + ":" + t.Constraint.String()
 		}
@@ -264,9 +264,9 @@ func Chan(valueType Type) Type {
 // Series returns a series/array type wrapping the given value type.
 func Series(valueType Type) Type { return Type{Kind: KindSeries, ValueType: &valueType} }
 
-// TypeVariable returns a generic type parameter with optional constraint.
-func TypeVariable(name string, constraint *Type) Type {
-	return Type{Kind: KindTypeVariable, Name: name, Constraint: constraint}
+// Variable returns a generic type parameter with optional constraint.
+func Variable(name string, constraint *Type) Type {
+	return Type{Kind: KindVariable, Name: name, Constraint: constraint}
 }
 
 // NumericConstraint returns a constraint accepting any numeric type (integers or floats).
@@ -299,7 +299,7 @@ func (t Type) IsNumeric() bool {
 	if t.Kind == KindChan && t.ValueType != nil {
 		return t.ValueType.IsNumeric()
 	}
-	if t.Kind == KindTypeVariable {
+	if t.Kind == KindVariable {
 		if t.Constraint == nil {
 			return false // Unconstrained type variable is not specifically numeric
 		}
@@ -400,7 +400,7 @@ func Equal(t Type, v Type) bool {
 	}
 
 	// For type variables, check name and constraint
-	if t.Kind == KindTypeVariable {
+	if t.Kind == KindVariable {
 		if t.Name != v.Name {
 			return false
 		}

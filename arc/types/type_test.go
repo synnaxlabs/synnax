@@ -79,13 +79,13 @@ var _ = Describe("Types", func() {
 
 		Describe("Type variables", func() {
 			It("should return type variable unchanged", func() {
-				tv := types.TypeVariable("T", nil)
+				tv := types.Variable("T", nil)
 				Expect(tv.Unwrap()).To(Equal(tv))
 			})
 
 			It("should return constrained type variable unchanged", func() {
 				constraint := types.NumericConstraint()
-				tv := types.TypeVariable("N", &constraint)
+				tv := types.Variable("N", &constraint)
 				Expect(tv.Unwrap()).To(Equal(tv))
 			})
 		})
@@ -192,30 +192,30 @@ var _ = Describe("Types", func() {
 
 			It("Should handle type variables with numeric constraint", func() {
 				constraint := types.NumericConstraint()
-				tv := types.TypeVariable("N", &constraint)
+				tv := types.Variable("N", &constraint)
 				Expect(tv.IsNumeric()).To(BeTrue())
 			})
 
 			It("Should return false for unconstrained type variables", func() {
-				tv := types.TypeVariable("T", nil)
+				tv := types.Variable("T", nil)
 				Expect(tv.IsNumeric()).To(BeFalse())
 			})
 
 			It("Should return true for type variable with integer constraint", func() {
 				constraint := types.IntegerConstraint()
-				tv := types.TypeVariable("I", &constraint)
+				tv := types.Variable("I", &constraint)
 				Expect(tv.IsNumeric()).To(BeTrue())
 			})
 
 			It("Should return true for type variable with float constraint", func() {
 				constraint := types.FloatConstraint()
-				tv := types.TypeVariable("F", &constraint)
+				tv := types.Variable("F", &constraint)
 				Expect(tv.IsNumeric()).To(BeTrue())
 			})
 
 			It("Should return true for type variable with concrete numeric type constraint", func() {
 				constraint := types.I32()
-				tv := types.TypeVariable("N", &constraint)
+				tv := types.Variable("N", &constraint)
 				Expect(tv.IsNumeric()).To(BeTrue())
 			})
 		})
@@ -389,9 +389,9 @@ var _ = Describe("Types", func() {
 		})
 
 		It("Should compare type variables by name and constraint", func() {
-			tv1 := types.TypeVariable("T", nil)
-			tv2 := types.TypeVariable("T", nil)
-			tv3 := types.TypeVariable("U", nil)
+			tv1 := types.Variable("T", nil)
+			tv2 := types.Variable("T", nil)
+			tv3 := types.Variable("U", nil)
 			Expect(types.Equal(tv1, tv2)).To(BeTrue())
 			Expect(types.Equal(tv1, tv3)).To(BeFalse())
 		})
@@ -399,15 +399,15 @@ var _ = Describe("Types", func() {
 		It("Should handle type variables with different constraints", func() {
 			numConstraint := types.NumericConstraint()
 			intConstraint := types.IntegerConstraint()
-			tv1 := types.TypeVariable("T", &numConstraint)
-			tv2 := types.TypeVariable("T", &intConstraint)
+			tv1 := types.Variable("T", &numConstraint)
+			tv2 := types.Variable("T", &intConstraint)
 			Expect(types.Equal(tv1, tv2)).To(BeFalse())
 		})
 
 		It("Should handle type variables with nil vs non-nil constraint", func() {
 			constraint := types.NumericConstraint()
-			tv1 := types.TypeVariable("T", nil)
-			tv2 := types.TypeVariable("T", &constraint)
+			tv1 := types.Variable("T", nil)
+			tv2 := types.Variable("T", &constraint)
 			Expect(types.Equal(tv1, tv2)).To(BeFalse())
 			Expect(types.Equal(tv2, tv1)).To(BeFalse())
 		})
@@ -549,18 +549,18 @@ var _ = Describe("Types", func() {
 			func(t types.Type, expected string) {
 				Expect(t.String()).To(Equal(expected))
 			},
-			Entry("unconstrained", types.TypeVariable("T", nil), "T"),
+			Entry("unconstrained", types.Variable("T", nil), "T"),
 			Entry("numeric constraint", func() types.Type {
 				c := types.NumericConstraint()
-				return types.TypeVariable("N", &c)
+				return types.Variable("N", &c)
 			}(), "N:numeric"),
 			Entry("integer constraint", func() types.Type {
 				c := types.IntegerConstraint()
-				return types.TypeVariable("I", &c)
+				return types.Variable("I", &c)
 			}(), "I:integer"),
 			Entry("float constraint", func() types.Type {
 				c := types.FloatConstraint()
-				return types.TypeVariable("F", &c)
+				return types.Variable("F", &c)
 			}(), "F:float"),
 			Entry("numeric constraint kind", types.NumericConstraint(), "numeric"),
 			Entry("integer constraint kind", types.IntegerConstraint(), "integer"),
@@ -659,7 +659,7 @@ var _ = Describe("Types", func() {
 			Entry("String", types.String()),
 			Entry("Chan", types.Chan(types.I32())),
 			Entry("Series", types.Series(types.F64())),
-			Entry("TypeVariable", types.TypeVariable("T", nil)),
+			Entry("Variable", types.Variable("T", nil)),
 			Entry("NumericConstraint", types.NumericConstraint()),
 			Entry("IntegerConstraint", types.IntegerConstraint()),
 			Entry("FloatConstraint", types.FloatConstraint()),
