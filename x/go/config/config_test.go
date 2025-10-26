@@ -48,7 +48,7 @@ var (
 	secondaryConfig = testConfig{name: "secondary", secondaryField: true}
 )
 
-var _ = Describe("ConfigValues", func() {
+var _ = Describe("Config", func() {
 	Describe("New", func() {
 		It("Should succeed if the initial configuration is valid", func() {
 			Expect(config.New(defaultConfig)).To(Equal(defaultConfig))

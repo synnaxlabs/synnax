@@ -94,6 +94,42 @@ var _ = Describe("MapResolver", func() {
 })
 
 var _ = Describe("CompoundResolver", func() {
+	Describe("Resolve", func() {
+		It("Should resolve from first matching resolver", func() {
+			resolver1 := symbol.MapResolver{
+				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
+			}
+			resolver2 := symbol.MapResolver{
+				"bar": symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.String()},
+			}
+			compound := symbol.CompoundResolver{resolver1, resolver2}
+			sym, err := compound.Resolve(bCtx, "bar")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sym.Name).To(Equal("bar"))
+			Expect(sym.Type).To(Equal(types.String()))
+		})
+		It("Should prioritize first resolver when multiple match", func() {
+			resolver1 := symbol.MapResolver{
+				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
+			}
+			resolver2 := symbol.MapResolver{
+				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
+			}
+			compound := symbol.CompoundResolver{resolver1, resolver2}
+			sym, err := compound.Resolve(bCtx, "foo")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sym.Type).To(Equal(types.I32()))
+		})
+		It("Should return error when no resolver matches", func() {
+			resolver1 := symbol.MapResolver{
+				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
+			}
+			compound := symbol.CompoundResolver{resolver1}
+			_, err := compound.Resolve(bCtx, "nonexistent")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("ResolvePrefix", func() {
 		It("Should resolve from all sub-resolvers", func() {
 			resolver1 := symbol.MapResolver{

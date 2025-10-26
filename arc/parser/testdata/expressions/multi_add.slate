@@ -1,3 +1,0 @@
-func multi_add(first number, second number, third number) number {
-    return first + second + third
-}

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package flow implements semantic analysis for Arc flow statements connecting channels
+// and functions into reactive data pipelines.
 package flow
 
 import (
@@ -21,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Analyze processes a flow statement and returns true if successful
+// Analyze validates a flow statement's node chain and routing tables.
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 	for i, node := range ctx.AST.AllFlowNode() {
 		var prevNode parser.IFlowNodeContext
@@ -56,12 +58,18 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	fnType, ok := resolvefn(ctx, name)
+	funcType, ok := resolveFunc(ctx, name)
 	if !ok {
 		return false
 	}
 
-	if _, ok := validatefnConfig(ctx, name, fnType.Type, ctx.AST.ConfigValues(), ctx.AST); !ok {
+	if _, ok = validateFuncConfig(
+		ctx,
+		name,
+		funcType.Type,
+		ctx.AST.ConfigValues(),
+		ctx.AST,
+	); !ok {
 		return false
 	}
 	if prevNode == nil {
@@ -82,8 +90,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			)
 			return false
 		}
-		if fnType.Type.Inputs.Count() > 0 {
-			_, paramType := fnType.Type.Inputs.At(0)
+		if funcType.Type.Inputs.Count() > 0 {
+			_, paramType := funcType.Type.Inputs.At(0)
 			if channelSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"%s is not a valid channel",
@@ -111,8 +119,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
 		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap()
-		if fnType.Type.Inputs.Count() > 0 {
-			_, paramType := fnType.Type.Inputs.At(0)
+		if funcType.Type.Inputs.Count() > 0 {
+			_, paramType := funcType.Type.Inputs.At(0)
 			if err := atypes.Check(
 				ctx.Constraints,
 				exprType,
@@ -129,9 +137,9 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				return false
 			}
 		}
-	} else if prevfnNode := prevNode.Function(); prevfnNode != nil {
-		prevfnName := prevfnNode.IDENTIFIER().GetText()
-		prevfnType, ok := resolvefn(ctx, prevfnName)
+	} else if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
+		prevFuncName := prevFuncNode.IDENTIFIER().GetText()
+		prevFuncType, ok := resolveFunc(ctx, prevFuncName)
 		if !ok {
 			return false
 		}
@@ -146,22 +154,22 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 
-		if !hasRoutingTableBetween && fnType.Type.Inputs.Count() > 1 {
+		if !hasRoutingTableBetween && funcType.Type.Inputs.Count() > 1 {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s has more than one parameter", name),
 				ctx.AST,
 			)
 			return false
 		}
-		if !hasRoutingTableBetween && fnType.Type.Inputs.Count() > 0 {
-			_, t := fnType.Type.Inputs.At(0)
+		if !hasRoutingTableBetween && funcType.Type.Inputs.Count() > 0 {
+			_, t := funcType.Type.Inputs.At(0)
 			var prevOutputType types.Type
-			if outputType, ok := prevfnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			if outputType, ok := prevFuncType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				prevOutputType = outputType
-			} else if prevfnType.Type.Outputs.Count() > 0 {
+			} else if prevFuncType.Type.Outputs.Count() > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"func '%s' has named outputs and requires a routing table",
-					prevfnName,
+					prevFuncName,
 				), ctx.AST)
 				return false
 			}
@@ -170,7 +178,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				ctx.Diagnostics.AddError(errors.Newf(
 					"return type %s of %s is not equal to argument type %s of %s",
 					prevOutputType,
-					prevfnName,
+					prevFuncName,
 					t,
 					name,
 				), ctx.AST)
@@ -191,7 +199,7 @@ func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool 
 	return true
 }
 
-func resolvefn[T antlr.ParserRuleContext](
+func resolveFunc[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	name string,
 ) (*symbol.Scope, bool) {
@@ -207,7 +215,7 @@ func resolvefn[T antlr.ParserRuleContext](
 	return sym, true
 }
 
-func validatefnConfig[T antlr.ParserRuleContext](
+func validateFuncConfig[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	fnName string,
 	fnType types.Type,
@@ -315,7 +323,11 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 	}
 }
 
-func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodesBefore []parser.IFlowNodeContext, nodesAfter []parser.IFlowNodeContext) bool {
+func analyzeOutputRoutingTable(
+	ctx context.Context[parser.IRoutingTableContext],
+	nodesBefore []parser.IFlowNodeContext,
+	nodesAfter []parser.IFlowNodeContext,
+) bool {
 	var PrevFunc parser.IFunctionContext
 	for i := len(nodesBefore) - 1; i >= 0; i-- {
 		if fn := nodesBefore[i].Function(); fn != nil {
@@ -330,7 +342,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	}
 
 	fnName := PrevFunc.IDENTIFIER().GetText()
-	fnType, ok := resolvefn(ctx, fnName)
+	fnType, ok := resolveFunc(ctx, fnName)
 	if !ok {
 		return false
 	}
@@ -346,16 +358,16 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	}
 
 	var (
-		nextFunc   parser.IFunctionContext
-		nextfnType types.Type
+		nextFunc     parser.IFunctionContext
+		nextFuncType types.Type
 	)
 	for _, node := range nodesAfter {
 		if fn := node.Function(); fn != nil {
 			nextFunc = fn
-			nextfnName := nextFunc.IDENTIFIER().GetText()
-			nextfnScope, err := ctx.Scope.Resolve(ctx, nextfnName)
-			if err == nil && nextfnScope.Kind == symbol.KindFunction {
-				nextfnType = nextfnScope.Type
+			nextFuncName := nextFunc.IDENTIFIER().GetText()
+			nextFuncScope, err := ctx.Scope.Resolve(ctx, nextFuncName)
+			if err == nil && nextFuncScope.Kind == symbol.KindFunction {
+				nextFuncType = nextFuncScope.Type
 			}
 			break
 		}
@@ -386,7 +398,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 				return false
 			}
 
-			if _, exists := nextfnType.Inputs.Get(targetParamName); !exists {
+			if _, exists := nextFuncType.Inputs.Get(targetParamName); !exists {
 				ctx.Diagnostics.AddError(
 					errors.Newf(
 						"func '%s' does not have parameter '%s'",
@@ -407,7 +419,7 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
-			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType, nextfnType, targetParam) {
+			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType, nextFuncType, targetParam) {
 				return false
 			}
 		}
@@ -416,22 +428,25 @@ func analyzeOutputRoutingTable(ctx context.Context[parser.IRoutingTableContext],
 	return true
 }
 
-func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], nodes []parser.IFlowNodeContext) bool {
-	var nextfunc parser.IFunctionContext
+func analyzeInputRoutingTable(
+	ctx context.Context[parser.IRoutingTableContext],
+	nodes []parser.IFlowNodeContext,
+) bool {
+	var nextFunc parser.IFunctionContext
 	for i := 0; i < len(nodes); i++ {
 		if fn := nodes[i].Function(); fn != nil {
-			nextfunc = fn
+			nextFunc = fn
 			break
 		}
 	}
 
-	if nextfunc == nil {
+	if nextFunc == nil {
 		ctx.Diagnostics.AddError(errors.New("input routing table must precede a func invocation"), ctx.AST)
 		return false
 	}
 
-	fnName := nextfunc.IDENTIFIER().GetText()
-	fnType, ok := resolvefn(ctx, fnName)
+	fnName := nextFunc.IDENTIFIER().GetText()
+	fnType, ok := resolveFunc(ctx, fnName)
 	if !ok {
 		return false
 	}
@@ -466,6 +481,7 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 		// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes -> parameter
 		// For type checking, we need to verify the output type of the chain matches paramType
 		// TODO: Implement full type checking for the flow chain
+		// See https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
 		_ = paramType
 
 		for i := 0; i < len(flowNodes)-1; i++ {
@@ -481,18 +497,17 @@ func analyzeInputRoutingTable(ctx context.Context[parser.IRoutingTableContext], 
 func analyzeRoutingTargetWithParam(
 	ctx context.Context[parser.IFlowNodeContext],
 	sourceType types.Type,
-	nextfnType types.Type,
+	nextFuncType types.Type,
 	targetParam *string,
 ) bool {
-	// Handle func invocation target
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := fn.IDENTIFIER().GetText()
-		fnType, ok := resolvefn(ctx, fnName)
+		fnType, ok := resolveFunc(ctx, fnName)
 		if !ok {
 			return false
 		}
 
-		if _, ok := validatefnConfig(
+		if _, ok = validateFuncConfig(
 			ctx,
 			fnName,
 			fnType.Type,
@@ -514,7 +529,7 @@ func analyzeRoutingTargetWithParam(
 				return false
 			}
 
-			if paramType, exists := nextfnType.Inputs.Get(*targetParam); exists {
+			if paramType, exists := nextFuncType.Inputs.Get(*targetParam); exists {
 				if err := atypes.Check(ctx.Constraints, outputType, paramType, ctx.AST,
 					"routing table parameter mapping"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(

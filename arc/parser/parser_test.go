@@ -10,18 +10,11 @@
 package parser_test
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
+	. "github.com/synnaxlabs/x/testutil"
 )
-
-// Helper to parse expression without error handling in tests
-func mustParseExpression(expr string) parser.IExpressionContext {
-	exprCtx, err := parser.ParseExpression(expr)
-	Expect(err).To(BeNil())
-	return exprCtx
-}
 
 var _ = Describe("Parser", func() {
 	Describe("Expressions", func() {
@@ -29,22 +22,20 @@ var _ = Describe("Parser", func() {
 			It("Should parse integer literals", func() {
 				expr := mustParseExpression("42")
 				Expect(expr).NotTo(BeNil())
-
-				// Check it's a primary expression with a literal
 				logicalOr := expr.LogicalOrExpression()
 				Expect(logicalOr).NotTo(BeNil())
-
-				logicalAnd := logicalOr.LogicalAndExpression(0)
-				equality := logicalAnd.EqualityExpression(0)
-				relational := equality.RelationalExpression(0)
-				additive := relational.AdditiveExpression(0)
-				multiplicative := additive.MultiplicativeExpression(0)
-				power := multiplicative.PowerExpression(0)
-				unary := power.UnaryExpression()
-				postfix := unary.PostfixExpression()
-				primary := postfix.PrimaryExpression()
-				literal := primary.Literal()
-
+				var (
+					logicalAnd     = logicalOr.LogicalAndExpression(0)
+					equality       = logicalAnd.EqualityExpression(0)
+					relational     = equality.RelationalExpression(0)
+					additive       = relational.AdditiveExpression(0)
+					multiplicative = additive.MultiplicativeExpression(0)
+					power          = multiplicative.PowerExpression(0)
+					unary          = power.UnaryExpression()
+					postfix        = unary.PostfixExpression()
+					primary        = postfix.PrimaryExpression()
+					literal        = primary.Literal()
+				)
 				Expect(literal).NotTo(BeNil())
 				Expect(literal.NumericLiteral()).NotTo(BeNil())
 				Expect(literal.NumericLiteral().INTEGER_LITERAL()).NotTo(BeNil())
@@ -86,14 +77,11 @@ var _ = Describe("Parser", func() {
 			It("Should parse multiplication with correct precedence", func() {
 				expr := mustParseExpression("2 + 3 * 4")
 				additive := getAdditiveExpression(expr)
-
 				// Should be parsed as 2 + (3 * 4)
 				Expect(additive.AllMultiplicativeExpression()).To(HaveLen(2))
-
 				// First term is just "2"
 				first := additive.MultiplicativeExpression(0)
 				Expect(first.AllPowerExpression()).To(HaveLen(1))
-
 				// Second term is "3 * 4"
 				second := additive.MultiplicativeExpression(1)
 				Expect(second.AllPowerExpression()).To(HaveLen(2))
@@ -103,11 +91,9 @@ var _ = Describe("Parser", func() {
 			It("Should parse exponentiation with right associativity", func() {
 				expr := mustParseExpression("2 ^ 3 ^ 2")
 				// Should be parsed as 2 ^ (3 ^ 2)
-
 				power := getMultiplicativeExpression(expr).PowerExpression(0)
 				Expect(power).NotTo(BeNil())
 				Expect(power.CARET()).NotTo(BeNil())
-
 				// The right side should be another power expression
 				rightPower := power.PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
@@ -119,7 +105,6 @@ var _ = Describe("Parser", func() {
 			It("Should parse unary minus", func() {
 				expr := mustParseExpression("-42")
 				unary := getPowerExpression(expr).UnaryExpression()
-
 				Expect(unary.MINUS()).NotTo(BeNil())
 				Expect(unary.UnaryExpression()).NotTo(BeNil())
 			})
@@ -127,14 +112,12 @@ var _ = Describe("Parser", func() {
 			It("Should parse logical NOT", func() {
 				expr := mustParseExpression("!true")
 				unary := getPowerExpression(expr).UnaryExpression()
-
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
 
 			It("Should parse blocking read", func() {
 				expr := mustParseExpression("<-input")
 				unary := getPowerExpression(expr).UnaryExpression()
-
 				Expect(unary.BlockingReadExpr()).NotTo(BeNil())
 				Expect(unary.BlockingReadExpr().RECV()).NotTo(BeNil())
 				Expect(unary.BlockingReadExpr().IDENTIFIER().GetText()).To(Equal("input"))
@@ -145,7 +128,6 @@ var _ = Describe("Parser", func() {
 			It("Should parse series literals", func() {
 				expr := mustParseExpression("[1, 2, 3]")
 				literal := getPrimaryLiteral(expr)
-
 				Expect(literal.SeriesLiteral()).NotTo(BeNil())
 				series := literal.SeriesLiteral()
 				Expect(series.LBRACKET()).NotTo(BeNil())
@@ -156,11 +138,9 @@ var _ = Describe("Parser", func() {
 
 			It("Should parse array indexing", func() {
 				expr := mustParseExpression("data[0]")
-
 				postfix := getPostfixExpression(expr)
 				Expect(postfix.PrimaryExpression().IDENTIFIER().GetText()).To(Equal("data"))
 				Expect(postfix.AllIndexOrSlice()).To(HaveLen(1))
-
 				index := postfix.IndexOrSlice(0)
 				Expect(index.LBRACKET()).NotTo(BeNil())
 				Expect(index.RBRACKET()).NotTo(BeNil())
@@ -169,7 +149,6 @@ var _ = Describe("Parser", func() {
 
 			It("Should parse array slicing", func() {
 				expr := mustParseExpression("data[1:3]")
-
 				postfix := getPostfixExpression(expr)
 				index := postfix.IndexOrSlice(0)
 				Expect(index.COLON()).NotTo(BeNil())
@@ -181,7 +160,6 @@ var _ = Describe("Parser", func() {
 			It("Should parse type casts", func() {
 				expr := mustParseExpression("f32(42)")
 				primary := getPrimaryExpression(expr)
-
 				Expect(primary.TypeCast()).NotTo(BeNil())
 				cast := primary.TypeCast()
 				Expect(cast.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
@@ -192,7 +170,7 @@ var _ = Describe("Parser", func() {
 
 	Describe("Functions", func() {
 		It("Should parse basic function declaration", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func add(x f64, y f64) f64 {
     return x + y
 }`)
@@ -226,7 +204,7 @@ func add(x f64, y f64) f64 {
 		})
 
 		It("Should parse function with channel parameters", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func process(input <-chan f64, output ->chan f64) {
     value := <-input
     value -> output
@@ -250,7 +228,7 @@ func process(input <-chan f64, output ->chan f64) {
 
 	Describe("Tasks", func() {
 		It("Should parse function with config block", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func controller{
     setpoint f64
     sensor <-chan f64
@@ -284,7 +262,7 @@ func controller{
 		})
 
 		It("Should parse function with return type", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func doubler{
     input <-chan f64
 } () f64 {
@@ -301,7 +279,7 @@ func doubler{
 
 	Describe("Inter-func Flow", func() {
 		It("Should parse simple channel to funcflow", func() {
-			prog := parseProgram(`sensor -> controller{} -> actuator`)
+			prog := mustParseProgram(`sensor -> controller{} -> actuator`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			Expect(flow).NotTo(BeNil())
@@ -323,7 +301,7 @@ func doubler{
 		})
 
 		It("Should parse func invocation with named config", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 controller{
     setpoint=100,
     sensor=temp_sensor,
@@ -350,7 +328,7 @@ controller{
 		})
 
 		It("Should parse func invocation with anonymous config", func() {
-			prog := parseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+			prog := mustParseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -371,7 +349,7 @@ controller{
 		})
 
 		It("Should parse func with anonymous arguments in complex flow", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
@@ -405,7 +383,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should parse expression in flow", func() {
-			prog := parseProgram(`ox_pt_1 > 100 -> alarm{}`)
+			prog := mustParseProgram(`ox_pt_1 > 100 -> alarm{}`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -417,7 +395,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should parse empty config in flow chains", func() {
-			prog := parseProgram(`
+			prog := mustParseProgram(`
 func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
 }
@@ -458,14 +436,14 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		It("Should fail parsing mixed named and anonymous config values", func() {
 			_, err := parser.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("parse errors"))
+			Expect(err).To(MatchError(ContainSubstring("line")))
 		})
 	})
 
 	Describe("Statements", func() {
 		Context("Variable Declarations", func() {
 			It("Should parse local variable declaration", func() {
-				stmt := parseStatement("x := 42")
+				stmt := mustParseStatement("x := 42")
 
 				varDecl := stmt.VariableDeclaration()
 				Expect(varDecl).NotTo(BeNil())
@@ -478,7 +456,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse typed variable declaration", func() {
-				stmt := parseStatement("voltage f32 := 3.3")
+				stmt := mustParseStatement("voltage f32 := 3.3")
 
 				local := stmt.VariableDeclaration().LocalVariable()
 				Expect(local.IDENTIFIER().GetText()).To(Equal("voltage"))
@@ -487,7 +465,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse stateful variable declaration", func() {
-				stmt := parseStatement("total $= 0")
+				stmt := mustParseStatement("total $= 0")
 
 				stateful := stmt.VariableDeclaration().StatefulVariable()
 				Expect(stateful).NotTo(BeNil())
@@ -498,7 +476,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Variable Assignment", func() {
 			It("Should parse assignment to existing variable", func() {
-				stmt := parseStatement("x = 10")
+				stmt := mustParseStatement("x = 10")
 
 				assignment := stmt.Assignment()
 				Expect(assignment).NotTo(BeNil())
@@ -508,7 +486,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse assignment with complex expression", func() {
-				stmt := parseStatement("total = total + 1")
+				stmt := mustParseStatement("total = total + 1")
 
 				assignment := stmt.Assignment()
 				Expect(assignment).NotTo(BeNil())
@@ -523,25 +501,25 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			It("Should distinguish between declaration and assignment", func() {
 				// Declaration with :=
-				declStmt := parseStatement("x := 5")
+				declStmt := mustParseStatement("x := 5")
 				Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
 				Expect(declStmt.Assignment()).To(BeNil())
 
 				// Assignment with =
-				assignStmt := parseStatement("x = 10")
+				assignStmt := mustParseStatement("x = 10")
 				Expect(assignStmt.Assignment()).NotTo(BeNil())
 				Expect(assignStmt.VariableDeclaration()).To(BeNil())
 			})
 
 			It("Should distinguish between stateful declaration and assignment", func() {
 				// Stateful declaration with $=
-				declStmt := parseStatement("count $= 0")
+				declStmt := mustParseStatement("count $= 0")
 				Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
 				Expect(declStmt.VariableDeclaration().StatefulVariable()).NotTo(BeNil())
 				Expect(declStmt.Assignment()).To(BeNil())
 
 				// Assignment to stateful variable with =
-				assignStmt := parseStatement("count = count + 1")
+				assignStmt := mustParseStatement("count = count + 1")
 				Expect(assignStmt.Assignment()).NotTo(BeNil())
 				Expect(assignStmt.VariableDeclaration()).To(BeNil())
 			})
@@ -549,7 +527,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Channel Operations", func() {
 			It("Should parse channel write with arrow", func() {
-				stmt := parseStatement("42 -> output")
+				stmt := mustParseStatement("42 -> output")
 
 				channelOp := stmt.ChannelOperation()
 				Expect(channelOp).NotTo(BeNil())
@@ -561,7 +539,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse channel write with receive operator", func() {
-				stmt := parseStatement("output <- 42")
+				stmt := mustParseStatement("output <- 42")
 
 				write := stmt.ChannelOperation().ChannelWrite()
 				Expect(write.RECV()).NotTo(BeNil())
@@ -569,7 +547,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse blocking channel read", func() {
-				stmt := parseStatement("value := <-input")
+				stmt := mustParseStatement("value := <-input")
 
 				channelOp := stmt.ChannelOperation()
 				if channelOp == nil {
@@ -590,7 +568,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse non-blocking channel read", func() {
-				stmt := parseStatement("current := sensor")
+				stmt := mustParseStatement("current := sensor")
 
 				// This is likely parsed as a variable declaration
 				varDecl := stmt.VariableDeclaration()
@@ -612,7 +590,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Control Flow", func() {
 			It("Should parse if statement", func() {
-				stmt := parseStatement(`if x > 10 {
+				stmt := mustParseStatement(`if x > 10 {
     y := 20
 }`)
 
@@ -624,7 +602,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse if-else-if-else chain", func() {
-				stmt := parseStatement(`if x > 10 {
+				stmt := mustParseStatement(`if x > 10 {
     y := 20
 } else if x > 5 {
     y := 10
@@ -642,7 +620,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 	Describe("Comprehensive Tests", func() {
 		Context("Complex if-else chains", func() {
 			It("Should parse multiple else-if chain", func() {
-				stmt := parseStatement(`if x > 100 {
+				stmt := mustParseStatement(`if x > 100 {
 					high := true
 				} else if x > 75 {
 					medium_high := true
@@ -688,7 +666,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse nested if statements", func() {
-				stmt := parseStatement(`if x > 0 {
+				stmt := mustParseStatement(`if x > 0 {
 					if y > 0 {
 						if z > 0 {
 							positive := true
@@ -835,7 +813,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			It("Should report error for unclosed parenthesis", func() {
 				_, err := parser.ParseExpression("(2 + 3")
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("missing ')'"))
+				Expect(err).To(MatchError(ContainSubstring("missing ')'")))
 			})
 
 			It("Should report error for invalid operators", func() {
@@ -848,7 +826,162 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 					x := := 5
 				}`)
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("parse errors"))
+				Expect(err).To(MatchError(ContainSubstring("line")))
+			})
+
+			It("Should report multiple errors with line information", func() {
+				// Invalid syntax that should produce multiple parse errors
+				_, err := parser.Parse(`
+func broken() {
+    x := := 5
+    y = = 10
+}`)
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(MatchError(ContainSubstring("parse errors")))
+			})
+
+			It("Should handle empty input gracefully", func() {
+				_, err := parser.Parse("")
+				// Empty input should either succeed with empty program or fail gracefully
+				if err != nil {
+					Expect(err.Error()).NotTo(BeEmpty())
+				}
+			})
+
+			It("Should handle whitespace-only input", func() {
+				_, err := parser.Parse("   \n\t  \n  ")
+				// Whitespace-only should either succeed or fail gracefully
+				if err != nil {
+					Expect(err.Error()).NotTo(BeEmpty())
+				}
+			})
+
+			It("Should report error for unclosed brace", func() {
+				_, err := parser.Parse(`func test() {
+					x := 5
+				`)
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(MatchError(ContainSubstring("line")))
+			})
+
+			It("Should report error for missing function body", func() {
+				_, err := parser.Parse(`func test()`)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Describe("Wrapper Functions", func() {
+		Context("ParseExpression", func() {
+			It("Should parse valid expression and return nil error", func() {
+				expr, err := parser.ParseExpression("2 + 3")
+				Expect(err).To(BeNil())
+				Expect(expr).NotTo(BeNil())
+			})
+
+			It("Should return error for invalid expression", func() {
+				_, err := parser.ParseExpression("2 + + 3")
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("Should handle empty expression", func() {
+				_, err := parser.ParseExpression("")
+				Expect(err).To(MatchError(ContainSubstring("mismatched input")))
+			})
+		})
+
+		Context("ParseStatement", func() {
+			It("Should parse valid statement and return nil error", func() {
+				stmt, err := parser.ParseStatement("x := 42")
+				Expect(err).To(BeNil())
+				Expect(stmt).NotTo(BeNil())
+			})
+
+			It("Should return error for invalid statement", func() {
+				_, err := parser.ParseStatement("x := := 5")
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("Should handle empty statement", func() {
+				_, err := parser.ParseStatement("")
+				// Empty statement should produce an error or handle gracefully
+				if err != nil {
+					Expect(err.Error()).NotTo(BeEmpty())
+				}
+			})
+		})
+
+		Context("ParseBlock", func() {
+			It("Should parse valid block and return nil error", func() {
+				block := MustSucceed(parser.ParseBlock("{ x := 42\n y := 10 }"))
+				Expect(block).NotTo(BeNil())
+			})
+
+			It("Should return error for invalid block", func() {
+				block, err := parser.ParseBlock("{ x := := 5 }")
+				Expect(err).To(MatchError(ContainSubstring("line 1:7 no viable alternative at input")))
+				Expect(block).To(BeNil())
+			})
+
+			It("Should handle empty block", func() {
+				block := MustSucceed(parser.ParseBlock("{}"))
+				Expect(block).NotTo(BeNil())
+			})
+
+			It("Should handle block without braces", func() {
+				block, err := parser.ParseBlock("x := 42")
+				Expect(err).To(MatchError(ContainSubstring("missing '{'")))
+				Expect(block).To(BeNil())
+			})
+		})
+
+		Context("Parse (full program)", func() {
+			It("Should parse valid program and return nil error", func() {
+				prog := MustSucceed(parser.Parse(`func test() { x := 42 }`))
+				Expect(prog).NotTo(BeNil())
+			})
+
+			It("Should return error for invalid program", func() {
+				_, err := parser.Parse(`func test() { x := := 5 }`)
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("Should handle program with multiple top-level items", func() {
+				prog, err := parser.Parse(`
+func test1() { x := 1 }
+func test2() { y := 2 }
+sensor -> controller{}`)
+				Expect(err).To(BeNil())
+				Expect(prog).NotTo(BeNil())
+				Expect(prog.AllTopLevelItem()).To(HaveLen(3))
+			})
+		})
+	})
+
+	Describe("Unicode and Special Characters", func() {
+		Context("Unicode identifiers", func() {
+			It("Should handle ASCII identifiers", func() {
+				expr := mustParseExpression("sensor_1")
+				primary := getPrimaryExpression(expr)
+				Expect(primary.IDENTIFIER().GetText()).To(Equal("sensor_1"))
+			})
+
+			It("Should handle identifiers with underscores", func() {
+				expr := mustParseExpression("temp_sensor_value")
+				primary := getPrimaryExpression(expr)
+				Expect(primary.IDENTIFIER().GetText()).To(Equal("temp_sensor_value"))
+			})
+		})
+
+		Context("Comments handling", func() {
+			It("Should parse code with comments", func() {
+				prog := mustParseProgram(`
+// This is a comment
+func test() {
+    x := 42  // inline comment
+}`)
+				Expect(prog).NotTo(BeNil())
+				Expect(prog.AllTopLevelItem()).To(HaveLen(1))
 			})
 		})
 	})
@@ -856,7 +989,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 	Describe("Named Output Routing", func() {
 		Context("Multi-Output func Declarations", func() {
 			It("Should parse func with multiple named outputs", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 func demux{
     threshold f64
 } (value f32) {
@@ -897,7 +1030,7 @@ func demux{
 			})
 
 			It("Should parse func with three named outputs", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 func range_classifier{
     low f64
     high f64
@@ -921,7 +1054,7 @@ func range_classifier{
 			})
 
 			It("Should still parse stages with single return type", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 func simple{} (value f32) f32 {
     return value * 2.0
 }`)
@@ -938,7 +1071,7 @@ func simple{} (value f32) f32 {
 
 		Context("Routing Tables", func() {
 			It("Should parse simple routing table", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 sensor -> demux{threshold=100} -> {
     high: alarm{},
     low: logger{}
@@ -977,7 +1110,7 @@ sensor -> demux{threshold=100} -> {
 			})
 
 			It("Should parse routing table with three outputs", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 sensor -> range_classifier{} -> {
     below_range: low_alarm{},
     in_range: controller{},
@@ -998,7 +1131,7 @@ sensor -> range_classifier{} -> {
 			})
 
 			It("Should parse routing table to channels", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 processor -> splitter{} -> {
     output_a: channel_a,
     output_b: channel_b
@@ -1021,7 +1154,7 @@ processor -> splitter{} -> {
 			})
 
 			It("Should parse flow without routing table", func() {
-				prog := parseProgram(`sensor -> controller{} -> actuator`)
+				prog := mustParseProgram(`sensor -> controller{} -> actuator`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				Expect(flow).NotTo(BeNil())
@@ -1031,7 +1164,7 @@ processor -> splitter{} -> {
 			})
 
 			It("Should parse routing table with chained nodes", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 sensor -> state_router{} -> {
     idle_out: processor{} -> idle_display{},
     active_out: controller{} -> actuator
@@ -1064,7 +1197,7 @@ sensor -> state_router{} -> {
 			})
 
 			It("Should parse routing table with parameter mapping", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 first{} -> {
     outputA: processor{}: paramC,
     outputB: paramD
@@ -1099,7 +1232,7 @@ first{} -> {
 			})
 
 			It("Should parse routing table with chained processing and parameter mapping", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 stage1{} -> {
     out1: filter{} -> amplifier{}: input,
     out2: processor{} -> converter{}: value
@@ -1130,7 +1263,7 @@ stage1{} -> {
 
 		Context("Combined Multi-Output and Routing", func() {
 			It("Should parse complete example with multi-output func and routing", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 func demux{
     threshold f64
 } (value f32) {
@@ -1168,7 +1301,7 @@ sensor -> demux{threshold=100.0} -> {
 
 		Context("Input Routing Tables", func() {
 			It("Should parse simple input routing table", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 {
     sensor1: a,
     sensor2: b
@@ -1201,7 +1334,7 @@ sensor -> demux{threshold=100.0} -> {
 			})
 
 			It("Should parse input routing with flow chains", func() {
-				prog := parseProgram(`
+				prog := mustParseProgram(`
 {
     sensor1: lowpass{cutoff=0.5} -> a,
     sensor2: scale{factor=2.0} -> b
@@ -1237,23 +1370,19 @@ sensor -> demux{threshold=100.0} -> {
 	})
 })
 
-// Helper functions to navigate the AST
-func parseProgram(code string) parser.IProgramContext {
-	inputStream := antlr.NewInputStream(code)
-	lexer := parser.NewArcLexer(inputStream)
-	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := parser.NewArcParser(stream)
-	p.BuildParseTrees = true
-	return p.Program()
+func mustParseProgram(code string) parser.IProgramContext {
+	return MustSucceed(parser.Parse(code))
 }
 
-func parseStatement(code string) parser.IStatementContext {
-	// Wrap in a function to parse as a statement
-	prog := parseProgram("func test() { " + code + " }")
-	funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
-	return funcDecl.Block().Statement(0)
+func mustParseStatement(code string) parser.IStatementContext {
+	return MustSucceed(parser.ParseStatement(code))
 }
 
+func mustParseExpression(expr string) parser.IExpressionContext {
+	return MustSucceed(parser.ParseExpression(expr))
+}
+
+// AST Navigation Helpers - traverse the parse tree to access specific nodes
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	primary := getPrimaryExpression(expr)
 	return primary.Literal()

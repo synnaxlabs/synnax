@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Numeric Type Promotion", func() {
@@ -23,10 +22,11 @@ var _ = Describe("Numeric Type Promotion", func() {
 
 	// Helper to test promotion
 	testPromotion := func(constraint, value, expected types.Type) {
-		tv := types.NewTypeVariable("T", &constraint)
+		tv := types.TypeVariable("T", &constraint)
 		system.AddCompatible(tv, value, nil, "promotion test")
 		Expect(system.Unify()).To(Succeed())
-		result := MustBeOk(system.GetSubstitution("T"))
+		result, ok := system.Substitutions["T"]
+		Expect(ok).To(BeTrue())
 		Expect(result).To(Equal(expected),
 			"Expected %v ~ %v → %v, got %v", constraint, value, expected, result)
 	}
