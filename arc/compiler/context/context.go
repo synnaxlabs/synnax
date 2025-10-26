@@ -29,7 +29,7 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	TypeMap map[antlr.ParserRuleContext]types.Type
 	AST     ASTNode
 	Hint    types.Type
-	// Outputs and OutputMemoryBase are set for multi-output stages/functions
+	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	OutputMemoryBase uint32
 }

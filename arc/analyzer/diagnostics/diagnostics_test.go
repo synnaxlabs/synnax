@@ -11,56 +11,13 @@ package diagnostics_test
 
 import (
 	"errors"
-	"testing"
 
-	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 )
-
-func TestDiagnostics(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Diagnostics Suite")
-}
-
-// Mock ANTLR token for testing
-type mockToken struct {
-	line   int
-	column int
-}
-
-func (m *mockToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
-func (m *mockToken) GetTokenType() int                           { return 0 }
-func (m *mockToken) GetChannel() int                             { return 0 }
-func (m *mockToken) GetStart() int                               { return 0 }
-func (m *mockToken) GetStop() int                                { return 0 }
-func (m *mockToken) GetLine() int                                { return m.line }
-func (m *mockToken) GetColumn() int                              { return m.column }
-func (m *mockToken) GetText() string                             { return "" }
-func (m *mockToken) SetText(string)                              {}
-func (m *mockToken) GetTokenIndex() int                          { return 0 }
-func (m *mockToken) SetTokenIndex(int)                           {}
-func (m *mockToken) GetInputStream() antlr.CharStream            { return nil }
-func (m *mockToken) GetTokenSource() antlr.TokenSource           { return nil }
-func (m *mockToken) String() string                              { return "" }
-
-// Mock ANTLR ParserRuleContext for testing
-type mockContext struct {
-	antlr.BaseParserRuleContext
-	token *mockToken
-}
-
-func (m *mockContext) GetStart() antlr.Token {
-	return m.token
-}
-
-func newMockContext(line, column int) *mockContext {
-	return &mockContext{
-		token: &mockToken{line: line, column: column},
-	}
-}
 
 var _ = Describe("Severity", func() {
 	Describe("String Conversion", func() {
@@ -160,7 +117,7 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add error with context", func() {
 			err := errors.New("type mismatch")
-			ctx := newMockContext(5, 10)
+			ctx := testutil.NewMockASTWithLocation(1, 5, 10)
 			diags.AddError(err, ctx)
 
 			Expect(diags).To(HaveLen(1))
@@ -182,9 +139,9 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should preserve error order", func() {
-			ctx1 := newMockContext(1, 0)
-			ctx2 := newMockContext(5, 0)
-			ctx3 := newMockContext(10, 0)
+			ctx1 := testutil.NewMockASTWithLocation(0, 1, 0)
+			ctx2 := testutil.NewMockASTWithLocation(0, 5, 0)
+			ctx3 := testutil.NewMockASTWithLocation(0, 10, 0)
 
 			diags.AddError(errors.New("first"), ctx1)
 			diags.AddError(errors.New("second"), ctx2)
@@ -208,7 +165,7 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add warning with context", func() {
 			err := errors.New("shadowed variable")
-			ctx := newMockContext(3, 5)
+			ctx := testutil.NewMockASTWithLocation(0, 3, 5)
 			diags.AddWarning(err, ctx)
 
 			Expect(diags).To(HaveLen(1))
@@ -239,7 +196,7 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add info with context", func() {
 			err := errors.New("inferred type")
-			ctx := newMockContext(2, 8)
+			ctx := testutil.NewMockASTWithLocation(0, 2, 8)
 			diags.AddInfo(err, ctx)
 
 			Expect(diags).To(HaveLen(1))
@@ -261,7 +218,7 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add hint with context", func() {
 			err := errors.New("use explicit type")
-			ctx := newMockContext(7, 3)
+			ctx := testutil.NewMockASTWithLocation(0, 7, 3)
 			diags.AddHint(err, ctx)
 
 			Expect(diags).To(HaveLen(1))
@@ -286,9 +243,9 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should preserve insertion order across severities", func() {
-			ctx1 := newMockContext(1, 0)
-			ctx2 := newMockContext(2, 0)
-			ctx3 := newMockContext(3, 0)
+			ctx1 := testutil.NewMockASTWithLocation(0, 1, 0)
+			ctx2 := testutil.NewMockASTWithLocation(0, 2, 0)
+			ctx3 := testutil.NewMockASTWithLocation(0, 3, 0)
 
 			diags.AddWarning(errors.New("warn"), ctx1)
 			diags.AddError(errors.New("err"), ctx2)
@@ -310,7 +267,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format single error", func() {
-			ctx := newMockContext(5, 10)
+			ctx := testutil.NewMockASTWithLocation(0, 5, 10)
 			diags.AddError(errors.New("undefined variable: x"), ctx)
 
 			str := diags.String()
@@ -318,7 +275,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format single warning", func() {
-			ctx := newMockContext(3, 2)
+			ctx := testutil.NewMockASTWithLocation(0, 3, 2)
 			diags.AddWarning(errors.New("unused variable"), ctx)
 
 			str := diags.String()
@@ -326,7 +283,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format single info", func() {
-			ctx := newMockContext(1, 0)
+			ctx := testutil.NewMockASTWithLocation(0, 1, 0)
 			diags.AddInfo(errors.New("type inferred as i32"), ctx)
 
 			str := diags.String()
@@ -334,7 +291,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format single hint", func() {
-			ctx := newMockContext(8, 5)
+			ctx := testutil.NewMockASTWithLocation(0, 8, 5)
 			diags.AddHint(errors.New("consider using const"), ctx)
 
 			str := diags.String()
@@ -342,8 +299,8 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format multiple diagnostics with newlines", func() {
-			ctx1 := newMockContext(1, 0)
-			ctx2 := newMockContext(5, 10)
+			ctx1 := testutil.NewMockASTWithLocation(0, 1, 0)
+			ctx2 := testutil.NewMockASTWithLocation(0, 5, 10)
 
 			diags.AddError(errors.New("first error"), ctx1)
 			diags.AddError(errors.New("second error"), ctx2)
@@ -361,9 +318,9 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format mixed severities", func() {
-			ctx1 := newMockContext(1, 5)
-			ctx2 := newMockContext(3, 10)
-			ctx3 := newMockContext(5, 2)
+			ctx1 := testutil.NewMockASTWithLocation(0, 1, 5)
+			ctx2 := testutil.NewMockASTWithLocation(0, 3, 10)
+			ctx3 := testutil.NewMockASTWithLocation(0, 5, 2)
 
 			diags.AddError(errors.New("type error"), ctx1)
 			diags.AddWarning(errors.New("unused"), ctx2)
@@ -375,7 +332,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should handle long error messages", func() {
-			ctx := newMockContext(10, 20)
+			ctx := testutil.NewMockASTWithLocation(0, 10, 20)
 			longMsg := "this is a very long error message that describes in detail what went wrong with the code and provides helpful context"
 			diags.AddError(errors.New(longMsg), ctx)
 
@@ -385,7 +342,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should handle special characters in messages", func() {
-			ctx := newMockContext(2, 3)
+			ctx := testutil.NewMockASTWithLocation(0, 2, 3)
 			diags.AddError(errors.New("cannot assign \"string\" to i32"), ctx)
 
 			str := diags.String()
@@ -395,7 +352,7 @@ var _ = Describe("Diagnostics", func() {
 
 	Describe("Error Method", func() {
 		It("Should convert to error type", func() {
-			ctx := newMockContext(5, 10)
+			ctx := testutil.NewMockASTWithLocation(0, 5, 10)
 			diags.AddError(errors.New("test error"), ctx)
 
 			err := diags.Error()
@@ -410,8 +367,8 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should format multiple diagnostics in error", func() {
-			ctx1 := newMockContext(1, 0)
-			ctx2 := newMockContext(2, 5)
+			ctx1 := testutil.NewMockASTWithLocation(0, 1, 0)
+			ctx2 := testutil.NewMockASTWithLocation(0, 2, 5)
 
 			diags.AddError(errors.New("error 1"), ctx1)
 			diags.AddError(errors.New("error 2"), ctx2)
@@ -425,7 +382,7 @@ var _ = Describe("Diagnostics", func() {
 
 	Describe("Edge Cases", func() {
 		It("Should handle very large line numbers", func() {
-			ctx := newMockContext(99999, 500)
+			ctx := testutil.NewMockASTWithLocation(0, 99999, 500)
 			diags.AddError(errors.New("error at end of file"), ctx)
 
 			str := diags.String()
@@ -433,7 +390,7 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should handle zero line and column", func() {
-			ctx := newMockContext(0, 0)
+			ctx := testutil.NewMockASTWithLocation(0, 0, 0)
 			diags.AddError(errors.New("error"), ctx)
 
 			Expect(diags[0].Line).To(Equal(0))
@@ -450,27 +407,13 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should handle adding many diagnostics", func() {
 			for i := 0; i < 100; i++ {
-				ctx := newMockContext(i, i)
+				ctx := testutil.NewMockASTWithLocation(0, i, i)
 				diags.AddError(errors.New("error"), ctx)
 			}
 
 			Expect(diags).To(HaveLen(100))
 			Expect(diags[0].Line).To(Equal(0))
 			Expect(diags[99].Line).To(Equal(99))
-		})
-
-		It("Should handle nil error gracefully", func() {
-			// This would panic in real code, but testing the structure
-			// In practice, callers should never pass nil error
-			defer func() {
-				if r := recover(); r != nil {
-					// Expected to panic with nil error
-					Expect(r).ToNot(BeNil())
-				}
-			}()
-
-			// This will panic when calling err.Error() on nil
-			// diags.AddError(nil, nil)
 		})
 	})
 

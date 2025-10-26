@@ -24,7 +24,7 @@ import (
 var (
 	symName    = "constant"
 	constraint = types.NumericConstraint()
-	typeVar    = types.NewTypeVariable("T", &constraint)
+	typeVar    = types.Variable("T", &constraint)
 	sym        = symbol.Symbol{
 		Name: symName,
 		Kind: symbol.KindFunction,

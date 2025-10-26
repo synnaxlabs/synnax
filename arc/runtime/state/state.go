@@ -7,6 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package state manages runtime data flow and temporal alignment for arc programs.
+//
+// The state package provides the data infrastructure for reactive node execution:
+//   - Node input/output data storage with temporal metadata
+//   - Channel read/write buffering for external I/O
+//   - Temporal alignment of inputs across multiple sources
+//   - Watermark-based data consumption tracking
+//
+// Temporal alignment ensures that nodes process time-aligned data from multiple
+// inputs. The RefreshInputs algorithm selects the input with the earliest new
+// timestamp as the "trigger" and aligns other inputs to that temporal point.
 package state
 
 import (
@@ -21,6 +32,8 @@ type value struct {
 	time telem.Series
 }
 
+// State manages runtime data for an arc program.
+// It stores node outputs, channel I/O buffers, and index relationships.
 type State struct {
 	cfg     Config
 	outputs map[ir.Handle]*value
@@ -31,12 +44,14 @@ type State struct {
 	}
 }
 
+// ChannelDigest provides metadata about a channel for state initialization.
 type ChannelDigest struct {
 	Key      uint32
 	DataType telem.DataType
 	Index    uint32
 }
 
+// Config provides dependencies for creating a State instance.
 type Config struct {
 	ChannelDigests []ChannelDigest
 	Edges          ir.Edges
@@ -44,6 +59,8 @@ type Config struct {
 	Nodes          ir.Nodes
 }
 
+// New creates a state manager from the given configuration.
+// It initializes output storage for all node outputs and maps channel keys to their indexes.
 func New(cfg Config) *State {
 	s := &State{
 		cfg:     cfg,
@@ -66,6 +83,8 @@ func New(cfg Config) *State {
 	return s
 }
 
+// Ingest adds external channel data to the read buffer.
+// This is called when new data arrives from external sources (e.g., Synnax channels).
 func (s *State) Ingest(fr telem.Frame[uint32]) {
 	for rawI, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
@@ -75,6 +94,8 @@ func (s *State) Ingest(fr telem.Frame[uint32]) {
 	}
 }
 
+// FlushWrites extracts buffered channel writes into a frame and clears the write buffer.
+// Returns the updated frame and true if any writes were flushed, or the original frame and false otherwise.
 func (s *State) FlushWrites(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
 	if len(s.channel.writes) == 0 {
 		return fr, false
@@ -99,6 +120,8 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
+// Node creates a node-specific state accessor for the given node key.
+// It initializes alignment buffers and watermark tracking for the node's inputs.
 func (s *State) Node(key string) *Node {
 	inputs := s.cfg.Edges.GetInputs(key)
 	n := s.cfg.Nodes.Get(key)
@@ -128,6 +151,7 @@ type inputEntry struct {
 	watermark telem.TimeStamp
 }
 
+// Node provides node-specific access to state, handling input alignment and output storage.
 type Node struct {
 	inputs      []ir.Edge
 	outputs     []ir.Handle
@@ -137,6 +161,16 @@ type Node struct {
 	alignedTime []telem.Series
 }
 
+// RefreshInputs performs temporal alignment of node inputs and returns whether the node should execute.
+//
+// The algorithm:
+//  1. Accumulates new data from source outputs that exceed the current watermark
+//  2. Selects the input with the earliest new timestamp as the "trigger"
+//  3. Aligns all inputs to the trigger's temporal point
+//  4. Updates watermarks: trigger input is consumed, other inputs are reused
+//  5. Prunes consumed data from accumulated buffers
+//
+// Returns true if the node has aligned inputs ready for execution, false otherwise.
 func (n *Node) RefreshInputs() (recalculate bool) {
 	// If node has no inputs, always allow execution
 	if len(n.inputs) == 0 {
@@ -237,24 +271,35 @@ func (n *Node) output(paramIndex int) *value {
 	return v
 }
 
+// InputTime returns the timestamp series for the input at the given parameter index.
+// This is the aligned temporal metadata corresponding to Input(paramIndex).
 func (n *Node) InputTime(paramIndex int) telem.Series {
 	return n.alignedTime[paramIndex]
 }
 
+// Input returns the data series for the input at the given parameter index.
+// This is the aligned data prepared by RefreshInputs.
 func (n *Node) Input(paramIndex int) telem.Series {
 	return n.alignedData[paramIndex]
 }
 
+// Output returns a mutable pointer to the data series for the output at the given parameter index.
+// Nodes write their computed results to this series.
 func (n *Node) Output(paramIndex int) *telem.Series {
 	d := n.output(paramIndex)
 	return &d.data
 }
 
+// OutputTime returns a mutable pointer to the timestamp series for the output at the given parameter index.
+// Nodes write temporal metadata for their outputs to this series.
 func (n *Node) OutputTime(paramIndex int) *telem.Series {
 	d := n.output(paramIndex)
 	return &d.time
 }
 
+// ReadChan reads buffered data and time series from a channel.
+// If the channel has an index, both data and time are returned.
+// Returns ok=false if the channel has no buffered data.
 func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
 	data, ok = n.state.readChannel(key)
 	if !ok {
@@ -271,6 +316,8 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	return data, time, true
 }
 
+// WriteChan buffers data and time series for writing to a channel.
+// If the channel has an index, the time series is automatically written to the index channel.
 func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 	n.state.writeChannel(key, value, time)
 }

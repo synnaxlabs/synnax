@@ -232,7 +232,10 @@ var completions = []CompletionInfo{
 	},
 }
 
-func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
+func (s *Server) Completion(
+	ctx context.Context,
+	params *protocol.CompletionParams,
+) (*protocol.CompletionList, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
 	s.mu.RUnlock()
@@ -264,7 +267,13 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 }
 
 // getCompletionItems generates completion items based on context
-func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix string, line string, pos protocol.Position) []protocol.CompletionItem {
+func (s *Server) getCompletionItems(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	_ string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0, len(completions))
 	for _, c := range completions {
 		if !strings.HasPrefix(c.Label, prefix) {
@@ -290,11 +299,11 @@ func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix s
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
 			if err == nil {
 				for _, scope := range scopes {
-					var kind protocol.CompletionItemKind
-					var detail string
-
-					typeStr := scope.Type.String()
-					if typeStr != "" {
+					var (
+						kind   protocol.CompletionItemKind
+						detail string
+					)
+					if typeStr := scope.Type.String(); typeStr != "" {
 						if strings.Contains(typeStr, "->") {
 							kind = protocol.CompletionItemKindFunction
 						} else {

@@ -28,6 +28,20 @@ var _ = Describe("Nodes", func() {
 		nodes = ir.Nodes{node1, node2, node3}
 	})
 
+	Describe("Find", func() {
+		It("Should find existing node by key", func() {
+			node, found := nodes.Find("node2")
+			Expect(found).To(BeTrue())
+			Expect(node.Key).To(Equal("node2"))
+			Expect(node.Type).To(Equal("multiply"))
+		})
+
+		It("Should return false for non-existent key", func() {
+			_, found := nodes.Find("nonexistent")
+			Expect(found).To(BeFalse())
+		})
+	})
+
 	Describe("Get", func() {
 		It("Should get existing node by key", func() {
 			node := nodes.Get("node2")
@@ -38,6 +52,21 @@ var _ = Describe("Nodes", func() {
 		It("Should panic for non-existent key", func() {
 			Expect(func() {
 				_ = nodes.Get("nonexistent")
+			}).To(Panic())
+		})
+	})
+
+	Describe("Empty Collection", func() {
+		It("Should handle Find on empty collection", func() {
+			empty := ir.Nodes{}
+			_, found := empty.Find("anything")
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should panic on Get with empty collection", func() {
+			empty := ir.Nodes{}
+			Expect(func() {
+				_ = empty.Get("anything")
 			}).To(Panic())
 		})
 	})

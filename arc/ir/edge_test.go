@@ -141,4 +141,48 @@ var _ = Describe("Edges", func() {
 			Expect(outputs[0].Target.Node).To(Equal("node4"))
 		})
 	})
+
+	Describe("Empty Collection", func() {
+		It("Should handle FindBySource on empty collection", func() {
+			empty := ir.Edges{}
+			handle := ir.Handle{Node: "node1", Param: ir.DefaultOutputParam}
+			_, found := empty.FindBySource(handle)
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should handle FindByTarget on empty collection", func() {
+			empty := ir.Edges{}
+			handle := ir.Handle{Node: "node1", Param: "input"}
+			_, found := empty.FindByTarget(handle)
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should panic on GetBySource with empty collection", func() {
+			empty := ir.Edges{}
+			handle := ir.Handle{Node: "node1", Param: ir.DefaultOutputParam}
+			Expect(func() {
+				_ = empty.GetBySource(handle)
+			}).To(Panic())
+		})
+
+		It("Should panic on GetByTarget with empty collection", func() {
+			empty := ir.Edges{}
+			handle := ir.Handle{Node: "node1", Param: "input"}
+			Expect(func() {
+				_ = empty.GetByTarget(handle)
+			}).To(Panic())
+		})
+
+		It("Should return empty slice for GetInputs on empty collection", func() {
+			empty := ir.Edges{}
+			inputs := empty.GetInputs("node1")
+			Expect(inputs).To(HaveLen(0))
+		})
+
+		It("Should return empty slice for GetOutputs on empty collection", func() {
+			empty := ir.Edges{}
+			outputs := empty.GetOutputs("node1")
+			Expect(outputs).To(HaveLen(0))
+		})
+	})
 })

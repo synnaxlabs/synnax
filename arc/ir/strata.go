@@ -28,9 +28,7 @@ func (s Strata) Get(key string) int {
 }
 
 // Has reports whether the node with the given key exists in any stratum.
-func (s Strata) Has(key string) bool {
-	return s.Get(key) >= 0
-}
+func (s Strata) Has(key string) bool { return s.Get(key) >= 0 }
 
 // NodeCount returns the total number of nodes across all strata.
 func (s Strata) NodeCount() int {

@@ -14,7 +14,7 @@ type Output struct {
 	// WASM contains the compiled WebAssembly bytecode.
 	WASM []byte
 	// OutputMemoryBases maps function/func names to their output memory base addresses.
-	// Only includes functions/stages with multi-output (named outputs).
+	// Only includes functions with multi-output (named outputs).
 	// The runtime uses this to read outputs from linear memory after execution.
 	OutputMemoryBases map[string]uint32
 }
