@@ -175,14 +175,14 @@ var _ = Describe("Graph", func() {
 							Inputs: types.Params{
 								Keys: []string{"a", "b"},
 								Values: []types.Type{
-									types.NewTypeVariable("T", &constraint),
-									types.NewTypeVariable("T", &constraint),
+									types.Variable("T", &constraint),
+									types.Variable("T", &constraint),
 								},
 							},
 							Outputs: types.Params{
 								Keys: []string{ir.DefaultOutputParam},
 								Values: []types.Type{
-									types.NewTypeVariable("T", &constraint),
+									types.Variable("T", &constraint),
 								},
 							},
 						},
@@ -245,13 +245,13 @@ var _ = Describe("Graph", func() {
 							Inputs: types.Params{
 								Keys: []string{"x", "y"},
 								Values: []types.Type{
-									types.NewTypeVariable("T", &constraint),
-									types.NewTypeVariable("T", &constraint),
+									types.Variable("T", &constraint),
+									types.Variable("T", &constraint),
 								},
 							},
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+								Values: []types.Type{types.Variable("T", &constraint)},
 							},
 						},
 						{
@@ -304,24 +304,24 @@ var _ = Describe("Graph", func() {
 							Inputs: types.Params{
 								Keys: []string{"a", "b"},
 								Values: []types.Type{
-									types.NewTypeVariable("T", &constraint),
-									types.NewTypeVariable("T", &constraint),
+									types.Variable("T", &constraint),
+									types.Variable("T", &constraint),
 								},
 							},
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+								Values: []types.Type{types.Variable("T", &constraint)},
 							},
 						},
 						{
 							Key: "poly_scale",
 							Inputs: types.Params{
 								Keys:   []string{"input"},
-								Values: []types.Type{types.NewTypeVariable("U", &constraint)},
+								Values: []types.Type{types.Variable("U", &constraint)},
 							},
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.NewTypeVariable("U", &constraint)},
+								Values: []types.Type{types.Variable("U", &constraint)},
 							},
 						},
 						{
@@ -391,13 +391,13 @@ var _ = Describe("Graph", func() {
 							Inputs: types.Params{
 								Keys: []string{"a", "b"},
 								Values: []types.Type{
-									types.NewTypeVariable("T", &constraint),
-									types.NewTypeVariable("T", &constraint),
+									types.Variable("T", &constraint),
+									types.Variable("T", &constraint),
 								},
 							},
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+								Values: []types.Type{types.Variable("T", &constraint)},
 							},
 						},
 					},
@@ -439,11 +439,11 @@ var _ = Describe("Graph", func() {
 							Key: "poly_numeric",
 							Inputs: types.Params{
 								Keys:   []string{"value"},
-								Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+								Values: []types.Type{types.Variable("T", &constraint)},
 							},
 							Outputs: types.Params{
 								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.NewTypeVariable("T", &constraint)},
+								Values: []types.Type{types.Variable("T", &constraint)},
 							},
 						},
 					},
@@ -702,11 +702,11 @@ var _ = Describe("Graph", func() {
 						Key: "constant",
 						Config: types.Params{
 							Keys:   []string{"value"},
-							Values: []types.Type{types.NewTypeVariable("A", &constraint)},
+							Values: []types.Type{types.Variable("A", &constraint)},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.NewTypeVariable("A", &constraint)},
+							Values: []types.Type{types.Variable("A", &constraint)},
 						},
 					},
 					{
@@ -714,8 +714,8 @@ var _ = Describe("Graph", func() {
 						Inputs: types.Params{
 							Keys: []string{"a", "b"},
 							Values: []types.Type{
-								types.NewTypeVariable("B", &constraint),
-								types.NewTypeVariable("B", &constraint),
+								types.Variable("B", &constraint),
+								types.Variable("B", &constraint),
 							},
 						},
 						Outputs: types.Params{
@@ -731,11 +731,11 @@ var _ = Describe("Graph", func() {
 						},
 						Inputs: types.Params{
 							Keys:   []string{"input"},
-							Values: []types.Type{types.NewTypeVariable("C", nil)},
+							Values: []types.Type{types.Variable("C", nil)},
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.NewTypeVariable("C", nil)},
+							Values: []types.Type{types.Variable("C", nil)},
 						},
 					},
 					{

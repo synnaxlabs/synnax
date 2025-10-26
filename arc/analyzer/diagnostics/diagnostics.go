@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package diagnostics provides error, warning, and hint reporting for Arc language analysis.
 package diagnostics
 
 import (
@@ -17,13 +18,18 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Severity represents the importance level of a diagnostic message.
 type Severity int
 
 //go:generate stringer -type=Severity
 const (
+	// Error indicates a critical issue that prevents compilation.
 	Error Severity = iota
+	// Warning indicates a potential problem that doesn't prevent compilation.
 	Warning
+	// Info provides informational messages about analysis decisions.
 	Info
+	// Hint suggests code improvements or best practices.
 	Hint
 )
 
@@ -42,6 +48,7 @@ func (s Severity) String() string {
 	}
 }
 
+// Diagnostic represents a single issue found during analysis.
 type Diagnostic struct {
 	Key      string   `json:"key"`
 	Severity Severity `json:"severity"`
@@ -50,16 +57,20 @@ type Diagnostic struct {
 	Message  string   `json:"message"`
 }
 
+// Diagnostics is a collection of diagnostic messages.
 type Diagnostics []Diagnostic
 
+// Ok returns true if there are no diagnostics.
 func (d Diagnostics) Ok() bool {
 	return len(d) == 0
 }
 
+// Error converts the diagnostics to a Go error.
 func (d Diagnostics) Error() error {
 	return errors.Newf(d.String())
 }
 
+// AddError adds an error-level diagnostic with the given message and source location.
 func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -72,6 +83,7 @@ func (d *Diagnostics) AddError(
 	*d = append(*d, diag)
 }
 
+// AddWarning adds a warning-level diagnostic with the given message and source location.
 func (d *Diagnostics) AddWarning(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -84,6 +96,7 @@ func (d *Diagnostics) AddWarning(
 	*d = append(*d, diag)
 }
 
+// AddInfo adds an info-level diagnostic with the given message and source location.
 func (d *Diagnostics) AddInfo(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -96,6 +109,7 @@ func (d *Diagnostics) AddInfo(
 	*d = append(*d, diag)
 }
 
+// AddHint adds a hint-level diagnostic with the given message and source location.
 func (d *Diagnostics) AddHint(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -108,6 +122,7 @@ func (d *Diagnostics) AddHint(
 	*d = append(*d, diag)
 }
 
+// String formats all diagnostics as a human-readable string with line:column severity: message format.
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"

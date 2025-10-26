@@ -37,10 +37,10 @@ type (
 )
 
 type Node struct {
-	Key          string
-	Type         string
-	ConfigValues map[string]any
-	Position     spatial.XY `json:"position"`
+	Key          string         `json:"key"`
+	Type         string         `json:"type"`
+	ConfigValues map[string]any `json:"config_values"`
+	Position     spatial.XY     `json:"position"`
 }
 
 type Nodes []Node
@@ -76,6 +76,21 @@ func bindNamedTypes(ctx context.Context, s *symbol.Scope, t types.Params, kind s
 		}
 	}
 	return nil
+}
+
+func Parse(g Graph) (Graph, error) {
+	for i, function := range g.Functions {
+		if function.Body.Raw == "" {
+			continue
+		}
+		ast, err := parser.ParseBlock(function.Body.Raw)
+		if err != nil {
+			return Graph{}, err
+		}
+		function.Body.AST = ast
+		g.Functions[i] = function
+	}
+	return g, nil
 }
 
 func Analyze(
