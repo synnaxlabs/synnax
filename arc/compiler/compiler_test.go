@@ -513,7 +513,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should support multi-output functions", func() {
 			output := MustSucceed(compile(`
-			func divmod(a i64, b i64) {
+			func divMod(a i64, b i64) {
 				quotient i64
 				remainder i64
 			} {
@@ -523,22 +523,16 @@ var _ = Describe("Compiler", func() {
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			divmod := mod.ExportedFunction("divmod")
-			Expect(divmod).ToNot(BeNil())
-
-			MustSucceed(divmod.Call(ctx, 17, 5))
+			divMod := mod.ExportedFunction("divMod")
+			Expect(divMod).ToNot(BeNil())
+			MustSucceed(divMod.Call(ctx, 17, 5))
 
 			mem := mod.Memory()
-			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
-			Expect(ok).To(BeTrue())
+			dirtyFlags := MustBeOk(mem.ReadUint64Le(0x1000))
 			Expect(dirtyFlags).To(Equal(uint64(3))) // Both outputs set (bits 0,1)
-
-			quotient, ok := mem.ReadUint64Le(0x1008)
-			Expect(ok).To(BeTrue())
+			quotient := MustBeOk(mem.ReadUint64Le(0x1008))
 			Expect(quotient).To(Equal(uint64(3)))
-
-			remainder, ok := mem.ReadUint64Le(0x1010)
-			Expect(ok).To(BeTrue())
+			remainder := MustBeOk(mem.ReadUint64Le(0x1010))
 			Expect(remainder).To(Equal(uint64(2)))
 		})
 	})

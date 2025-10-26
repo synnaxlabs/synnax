@@ -92,3 +92,12 @@ type IR struct {
 	// TypeMap contains inferred types from the analyzer (not serialized to JSON).
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }
+
+func (i *IR) IsZero() bool {
+	return len(i.Functions) == 0 &&
+		len(i.Nodes) == 0 &&
+		len(i.Edges) == 0 &&
+		len(i.Strata) == 0 &&
+		i.Symbols == nil &&
+		i.TypeMap == nil
+}
