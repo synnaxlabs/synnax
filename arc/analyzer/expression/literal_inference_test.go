@@ -144,7 +144,7 @@ func test{} () {
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			// Accept either "f64 and i8" or "i8 and f64" (order may vary)
-			errorMsg := ctx.Diagnostics.Error().Error()
+			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(
 				ContainSubstring("types f64 and i8 are not unifiable"),
 				ContainSubstring("types i8 and f64 are not unifiable"),
