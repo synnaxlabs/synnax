@@ -232,7 +232,10 @@ var completions = []CompletionInfo{
 	},
 }
 
-func (s *Server) Completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
+func (s *Server) Completion(
+	ctx context.Context,
+	params *protocol.CompletionParams,
+) (*protocol.CompletionList, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
 	s.mu.RUnlock()
@@ -264,7 +267,13 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 }
 
 // getCompletionItems generates completion items based on context
-func (s *Server) getCompletionItems(ctx context.Context, doc *Document, prefix string, line string, pos protocol.Position) []protocol.CompletionItem {
+func (s *Server) getCompletionItems(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	_ string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0, len(completions))
 	for _, c := range completions {
 		if !strings.HasPrefix(c.Label, prefix) {
