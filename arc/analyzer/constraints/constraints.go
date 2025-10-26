@@ -84,7 +84,7 @@ func (s *System) AddCompatible(
 
 func (s *System) recordTypeVars(toRecord ...types.Type) {
 	for _, t := range toRecord {
-		if t.Kind == types.KindTypeVariable {
+		if t.Kind == types.KindVariable {
 			if _, exists := s.TypeVars[t.Name]; !exists {
 				s.TypeVars[t.Name] = t
 			}
@@ -106,7 +106,7 @@ func (s *System) ApplySubstitutions(t types.Type) types.Type {
 }
 
 func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]bool) types.Type {
-	if t.Kind == types.KindTypeVariable {
+	if t.Kind == types.KindVariable {
 		if visited[t.Name] {
 			return t
 		}

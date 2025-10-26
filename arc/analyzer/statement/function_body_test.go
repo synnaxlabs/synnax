@@ -326,7 +326,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
 			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
-			Expect(inferredType.Kind).To(Or(Equal(types.KindTypeVariable), Equal(types.KindI64)))
+			Expect(inferredType.Kind).To(Or(Equal(types.KindVariable), Equal(types.KindI64)))
 		})
 
 		It("Should handle complex integer size unification", func() {

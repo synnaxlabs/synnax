@@ -29,7 +29,6 @@ func FreshType(t types.Type, prefix string) types.Type {
 	return freshTypeWithMap(t, prefix, make(map[string]types.Type))
 }
 
-// freshenParams creates a copy of params with all type variables freshened using the given prefix.
 func freshenParams(
 	params *types.Params,
 	prefix string,
@@ -43,7 +42,7 @@ func freshenParams(
 }
 
 func freshTypeWithMap(t types.Type, prefix string, mapping map[string]types.Type) types.Type {
-	if t.Kind == types.KindTypeVariable {
+	if t.Kind == types.KindVariable {
 		if cached, ok := mapping[t.Name]; ok {
 			return cached
 		}
@@ -53,7 +52,7 @@ func freshTypeWithMap(t types.Type, prefix string, mapping map[string]types.Type
 			freshConstraint = &fresh
 		}
 		freshVar := types.Type{
-			Kind:       types.KindTypeVariable,
+			Kind:       types.KindVariable,
 			Name:       prefix + "_" + t.Name,
 			Constraint: freshConstraint,
 		}

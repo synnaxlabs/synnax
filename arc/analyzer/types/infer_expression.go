@@ -189,7 +189,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		tvName := fmt.Sprintf("lit_%d_%d", line, col)
 
 		constraint := types.FloatConstraint()
-		tv := types.TypeVariable(tvName, &constraint)
+		tv := types.Variable(tvName, &constraint)
 
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
@@ -205,7 +205,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		tvName := fmt.Sprintf("lit_%d_%d", line, col)
 
 		constraint := types.IntegerConstraint()
-		tv := types.TypeVariable(tvName, &constraint)
+		tv := types.Variable(tvName, &constraint)
 
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")

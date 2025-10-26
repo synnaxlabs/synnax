@@ -90,6 +90,8 @@ type Scope struct {
 	Channels Channels
 }
 
+// GetChildByParserRule finds a direct child scope with the given AST parser rule.
+// Returns an error if no matching child is found.
 func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
 	res := s.FindChild(func(child *Scope) bool { return child.AST == rule })
 	if res == nil {
@@ -98,33 +100,49 @@ func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, erro
 	return res, nil
 }
 
+// FindChildByName searches for a direct child scope with the given name.
+// Returns nil if no matching child is found.
 func (s *Scope) FindChildByName(name string) *Scope {
 	return s.FindChild(func(scope *Scope) bool { return scope.Name == name })
 }
 
+// FindChild searches for a direct child scope matching the predicate.
+// Returns nil if no matching child is found.
 func (s *Scope) FindChild(predicate func(*Scope) bool) *Scope {
 	res, _ := lo.Find(s.Children, predicate)
 	return res
 }
 
+// FilterChildren returns all direct child scopes matching the predicate.
 func (s *Scope) FilterChildren(predicate func(*Scope) bool) []*Scope {
 	return lo.Filter(s.Children, func(item *Scope, _ int) bool {
 		return predicate(item)
 	})
 }
 
+// FilterChildrenByKind returns all direct child scopes of the given kind.
 func (s *Scope) FilterChildrenByKind(kind Kind) []*Scope {
 	return s.FilterChildren(func(scope *Scope) bool {
 		return scope.Kind == kind
 	})
 }
 
+// AutoName assigns a unique name to this scope by appending a numeric ID to the prefix.
+// The ID is obtained from the parent scope's counter. Returns the scope for method chaining.
 func (s *Scope) AutoName(prefix string) *Scope {
 	idx := s.Parent.addIndex()
 	s.Name = prefix + strconv.Itoa(idx)
 	return s
 }
 
+// Add creates a new child scope with the given symbol and adds it to this scope's children.
+//
+// If the symbol has a non-empty name, Add checks for naming conflicts with existing symbols
+// in the current scope and its parents. Global symbols (with nil AST) can be shadowed.
+// Returns an error if a local symbol with the same name already exists.
+//
+// Functions (KindFunction) receive a new ID counter, while variables, inputs, outputs, config,
+// and stateful variables receive unique IDs from the nearest ancestor counter.
 func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Name != "" {
 		// Don't return error on global symbol shadowing. Global symbols have an
@@ -164,6 +182,7 @@ func (s *Scope) addIndex() int {
 	return s.Parent.addIndex()
 }
 
+// Root returns the root scope by traversing up the parent chain.
 func (s *Scope) Root() *Scope {
 	if s.Parent == nil {
 		return s
@@ -171,6 +190,13 @@ func (s *Scope) Root() *Scope {
 	return s.Parent.Root()
 }
 
+// Resolve looks up a symbol by name using lexical scoping rules.
+//
+// The search proceeds in order: direct children of this scope, the GlobalResolver
+// (if present), and then the parent scope (recursively). If OnResolve is set, it
+// is invoked with the resolved scope before returning.
+//
+// Returns an error if the symbol is not found in any scope.
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
 		if s.OnResolve != nil {
@@ -236,10 +262,11 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 	return scopes, nil
 }
 
-func (s *Scope) String() string {
-	return s.stringWithIndent("")
-}
+// String returns a human-readable string representation of the scope tree.
+func (s *Scope) String() string { return s.stringWithIndent("") }
 
+// ClosestAncestorOfKind searches up the scope tree for the nearest ancestor of the given kind.
+// Returns the current scope if it matches the kind. Returns an error if no ancestor is found.
 func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 	if s.Kind == kind {
 		return s, nil
@@ -250,6 +277,8 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
 
+// FirstChildOfKind returns the first direct child scope of the given kind.
+// Returns an error if no matching child is found.
 func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 	for _, child := range s.Children {
 		if child.Kind == kind {

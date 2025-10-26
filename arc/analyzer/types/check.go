@@ -25,7 +25,7 @@ func Check(
 	source antlr.ParserRuleContext,
 	reason string,
 ) error {
-	if t1.Kind == types.KindTypeVariable || t2.Kind == types.KindTypeVariable {
+	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		cs.AddEquality(t1, t2, source, reason)
 		return nil
 	}

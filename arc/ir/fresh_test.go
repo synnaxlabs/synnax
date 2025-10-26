@@ -19,37 +19,37 @@ import (
 
 var _ = Describe("FreshType", func() {
 	It("Should rename type variables with prefix", func() {
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		fresh := ir.FreshType(tv, "node1")
-		Expect(fresh.Kind).To(Equal(types.KindTypeVariable))
+		Expect(fresh.Kind).To(Equal(types.KindVariable))
 		Expect(fresh.Name).To(Equal("node1_T"))
 	})
 
 	It("Should recursively freshen constrained type variables", func() {
 		constraint := types.I64()
-		tv := types.TypeVariable("T", &constraint)
+		tv := types.Variable("T", &constraint)
 		fresh := ir.FreshType(tv, "node2")
 		Expect(fresh.Name).To(Equal("node2_T"))
 		Expect(fresh.Constraint).ToNot(BeNil())
 	})
 
 	It("Should freshen channel types recursively", func() {
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		chanType := types.Chan(tv)
 		fresh := ir.FreshType(chanType, "node3")
 		Expect(fresh.Kind).To(Equal(types.KindChan))
 		Expect(fresh.ValueType).ToNot(BeNil())
-		Expect(fresh.ValueType.Kind).To(Equal(types.KindTypeVariable))
+		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
 		Expect(fresh.ValueType.Name).To(Equal("node3_T"))
 	})
 
 	It("Should freshen series types recursively", func() {
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		seriesType := types.Series(tv)
 		fresh := ir.FreshType(seriesType, "node4")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
 		Expect(fresh.ValueType).ToNot(BeNil())
-		Expect(fresh.ValueType.Kind).To(Equal(types.KindTypeVariable))
+		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
 		Expect(fresh.ValueType.Name).To(Equal("node4_T"))
 	})
 
@@ -80,7 +80,7 @@ var _ = Describe("FreshType", func() {
 
 	It("Should handle nested type variables in channels", func() {
 		constraint := types.I64()
-		tv := types.TypeVariable("T", &constraint)
+		tv := types.Variable("T", &constraint)
 		chanType := types.Chan(tv)
 		fresh := ir.FreshType(chanType, "test")
 		Expect(fresh.ValueType.Name).To(Equal("test_T"))
@@ -90,7 +90,7 @@ var _ = Describe("FreshType", func() {
 
 	It("Should maintain consistent mapping for repeated type variables", func() {
 		// Test that T maps to same fresh variable in multiple locations
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		inputs := types.Params{}
 		inputs.Put("a", tv)
 		inputs.Put("b", tv) // Same T
@@ -108,9 +108,9 @@ var _ = Describe("FreshType", func() {
 	It("Should handle deeply nested constrained type variables", func() {
 		// Create a chain: T3 <: T2 <: T1 <: i64
 		i64Constraint := types.I64()
-		t1 := types.TypeVariable("T1", &i64Constraint)
-		t2 := types.TypeVariable("T2", &t1)
-		t3 := types.TypeVariable("T3", &t2)
+		t1 := types.Variable("T1", &i64Constraint)
+		t2 := types.Variable("T2", &t1)
+		t3 := types.Variable("T3", &t2)
 
 		fresh := ir.FreshType(t3, "node")
 		Expect(fresh.Name).To(Equal("node_T3"))
@@ -123,19 +123,19 @@ var _ = Describe("FreshType", func() {
 	})
 
 	It("Should handle series of channels of type variables", func() {
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		chanType := types.Chan(tv)
 		seriesType := types.Series(chanType)
 
 		fresh := ir.FreshType(seriesType, "prefix")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
 		Expect(fresh.ValueType.Kind).To(Equal(types.KindChan))
-		Expect(fresh.ValueType.ValueType.Kind).To(Equal(types.KindTypeVariable))
+		Expect(fresh.ValueType.ValueType.Kind).To(Equal(types.KindVariable))
 		Expect(fresh.ValueType.ValueType.Name).To(Equal("prefix_T"))
 	})
 
 	It("Should handle function with mixed generic and concrete parameters", func() {
-		tv := types.TypeVariable("T", nil)
+		tv := types.Variable("T", nil)
 		inputs := types.Params{}
 		inputs.Put("generic", tv)
 		inputs.Put("concrete", types.I64())
@@ -152,7 +152,7 @@ var _ = Describe("FreshType", func() {
 
 		// Generic params should be freshened
 		genericInput := MustBeOk(fresh.Inputs.Get("generic"))
-		Expect(genericInput.Kind).To(Equal(types.KindTypeVariable))
+		Expect(genericInput.Kind).To(Equal(types.KindVariable))
 		Expect(genericInput.Name).To(Equal("node_T"))
 
 		// Concrete params should remain unchanged
@@ -179,8 +179,8 @@ var _ = Describe("FreshType", func() {
 	})
 
 	It("Should handle multiple distinct type variables", func() {
-		tvA := types.TypeVariable("A", nil)
-		tvB := types.TypeVariable("B", nil)
+		tvA := types.Variable("A", nil)
+		tvB := types.Variable("B", nil)
 
 		inputs := types.Params{}
 		inputs.Put("a", tvA)
