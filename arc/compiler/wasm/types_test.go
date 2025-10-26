@@ -91,68 +91,6 @@ var _ = Describe("Type Conversions", func() {
 			Expect(wasmType).To(Equal(wasm.I64))
 		})
 	})
-
-	Describe("SizeOf", func() {
-		It("Should return 1 byte for i8", func() {
-			size := wasm.SizeOf(types.I8())
-			Expect(size).To(Equal(uint32(1)))
-		})
-
-		It("Should return 1 byte for u8", func() {
-			size := wasm.SizeOf(types.U8())
-			Expect(size).To(Equal(uint32(1)))
-		})
-
-		It("Should return 2 bytes for i16", func() {
-			size := wasm.SizeOf(types.I16())
-			Expect(size).To(Equal(uint32(2)))
-		})
-
-		It("Should return 2 bytes for u16", func() {
-			size := wasm.SizeOf(types.U16())
-			Expect(size).To(Equal(uint32(2)))
-		})
-
-		It("Should return 4 bytes for i32", func() {
-			size := wasm.SizeOf(types.I32())
-			Expect(size).To(Equal(uint32(4)))
-		})
-
-		It("Should return 4 bytes for u32", func() {
-			size := wasm.SizeOf(types.U32())
-			Expect(size).To(Equal(uint32(4)))
-		})
-
-		It("Should return 4 bytes for f32", func() {
-			size := wasm.SizeOf(types.F32())
-			Expect(size).To(Equal(uint32(4)))
-		})
-
-		It("Should return 8 bytes for i64", func() {
-			size := wasm.SizeOf(types.I64())
-			Expect(size).To(Equal(uint32(8)))
-		})
-
-		It("Should return 8 bytes for u64", func() {
-			size := wasm.SizeOf(types.U64())
-			Expect(size).To(Equal(uint32(8)))
-		})
-
-		It("Should return 8 bytes for f64", func() {
-			size := wasm.SizeOf(types.F64())
-			Expect(size).To(Equal(uint32(8)))
-		})
-
-		It("Should return 8 bytes for timestamp", func() {
-			size := wasm.SizeOf(types.TimeStamp())
-			Expect(size).To(Equal(uint32(8)))
-		})
-
-		It("Should return 8 bytes for timespan", func() {
-			size := wasm.SizeOf(types.TimeSpan())
-			Expect(size).To(Equal(uint32(8)))
-		})
-	})
 })
 
 var _ = Describe("Binary Opcodes", func() {

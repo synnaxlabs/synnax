@@ -7,9 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package node defines the core execution interface for arc runtime nodes.
+//
+// Nodes are the fundamental building blocks of arc programs. Each node represents
+// a computational unit that transforms input data into output data. Nodes are
+// organized into strata (layers) based on their dependencies and executed by the
+// scheduler in topological order.
+//
+// The Node interface defines two lifecycle methods:
+//   - Init: Called once when the scheduler initializes, only for stratum-0 nodes
+//   - Next: Called each execution cycle when the node or its inputs change
+//
+// Factories create node instances from IR (intermediate representation) definitions.
+// MultiFactory allows composition of multiple factories with fallback behavior.
 package node
 
+// Node executes computational operations within the arc runtime.
+// Implementations transform input data into output data and signal changes
+// to downstream nodes via the Context.MarkChanged callback.
 type Node interface {
+	// Init performs one-time initialization for source nodes.
+	// Called only for stratum-0 nodes during scheduler initialization.
 	Init(ctx Context)
+	// Next executes the node's computational logic.
+	// Called each cycle when the node is in stratum-0 or when marked as changed.
 	Next(ctx Context)
 }

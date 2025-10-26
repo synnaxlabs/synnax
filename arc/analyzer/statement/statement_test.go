@@ -39,7 +39,7 @@ var _ = Describe("Statement", func() {
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
 				// Literals now infer as type variables with float constraint
-				Expect(sym.Type.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sym.Type.Kind).To(Equal(types.KindVariable))
 				Expect(sym.Type.Constraint).ToNot(BeNil())
 				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindFloatConstant))
 			})
@@ -81,7 +81,7 @@ var _ = Describe("Statement", func() {
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
 				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
 				// Literals now infer as type variables with integer constraint
-				Expect(sym.Type.Kind).To(Equal(types.KindTypeVariable))
+				Expect(sym.Type.Kind).To(Equal(types.KindVariable))
 				Expect(sym.Type.Constraint).ToNot(BeNil())
 				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 			})
