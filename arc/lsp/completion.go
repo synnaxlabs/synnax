@@ -299,11 +299,11 @@ func (s *Server) getCompletionItems(
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
 			if err == nil {
 				for _, scope := range scopes {
-					var kind protocol.CompletionItemKind
-					var detail string
-
-					typeStr := scope.Type.String()
-					if typeStr != "" {
+					var (
+						kind   protocol.CompletionItemKind
+						detail string
+					)
+					if typeStr := scope.Type.String(); typeStr != "" {
 						if strings.Contains(typeStr, "->") {
 							kind = protocol.CompletionItemKindFunction
 						} else {
