@@ -248,7 +248,7 @@ func OpenCalculator(
 		nodes[irNode.Key] = n
 	}
 
-	sched := scheduler.New(ctx, module.IR, nodes, nil) // Calculator doesn't use intervals
+	sched := scheduler.New(ctx, module.IR, nodes)
 	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
 	for _, ch := range stateCfg.ChannelDigests {
@@ -323,9 +323,9 @@ func (c *Calculator) Next(
 	if !changed {
 		return outputFrame, changed, nil
 	}
-	var alignment telem.Alignment = 0
+	var alignment telem.Alignment
 	for k, v := range c.alignments {
-		alignment = alignment.Add(v)
+		alignment += v
 		c.alignments[k] = 0
 	}
 	for rawI, s := range ofr.RawSeries() {

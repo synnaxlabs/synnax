@@ -99,9 +99,11 @@ func (f Frame[K]) ShouldExcludeRaw(rawIndex int) bool {
 	return f.mask.enabled && f.mask.Get(rawIndex)
 }
 
-// KeysSlice returns the slice of keys in the frame. If KeepKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// KeysSlice returns the slice of keys in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) KeysSlice() []K {
 	if !f.mask.enabled {
 		return f.keys
@@ -113,9 +115,11 @@ func (f Frame[K]) KeysSlice() []K {
 	return keys
 }
 
-// SeriesSlice returns the slice of series in the frame. If KeepKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// SeriesSlice returns the slice of series in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) SeriesSlice() []Series {
 	if !f.mask.enabled {
 		return f.series
@@ -128,8 +132,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 }
 
 // RawSeries returns the raw slice of series in the frame. This includes any series that
-// have been filtered out by KeepKeys. To check whether an index in this slice has
-// been filtered out, use ShouldExcludeRaw.
+// have been filtered out by KeepKeys or ExcludeKeys. To check whether an index in
+// this slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is generally recommended to avoid using this function except for
 // performance-critical paths where the overhead of allocating returned closures
@@ -139,8 +143,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
 // RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
-// been filtered out by KeepKeys. To check whether an index in this slice has been
-// filtered out, use ShouldExcludeRaw.
+// been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this
+// slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawKeys() []K { return f.keys }

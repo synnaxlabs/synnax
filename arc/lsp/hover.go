@@ -20,7 +20,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+func (s *Server) Hover(
+	_ context.Context,
+	params *protocol.HoverParams,
+) (*protocol.Hover, error) {
 	s.mu.RLock()
 	doc, ok := s.documents[params.TextDocument.URI]
 	s.mu.RUnlock()
@@ -234,7 +237,10 @@ func formatFunctionKindDescription(sym *symbol.Scope) string {
 	return "_Function_"
 }
 
-func (s *Server) findScopeAtPosition(rootScope *symbol.Scope, pos protocol.Position) *symbol.Scope {
+func (s *Server) findScopeAtPosition(
+	rootScope *symbol.Scope,
+	pos protocol.Position,
+) *symbol.Scope {
 	targetLine := int(pos.Line) + 1
 	targetCol := int(pos.Character)
 	deepest := rootScope
@@ -242,7 +248,11 @@ func (s *Server) findScopeAtPosition(rootScope *symbol.Scope, pos protocol.Posit
 	return deepest
 }
 
-func (s *Server) findScopeAtPositionRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
+func (s *Server) findScopeAtPositionRecursive(
+	scope *symbol.Scope,
+	line, col int,
+	deepest **symbol.Scope,
+) {
 	if scope.AST != nil {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()
@@ -272,7 +282,10 @@ func (s *Server) findScopeAtPositionRecursive(scope *symbol.Scope, line, col int
 }
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
-func (s *Server) symbolToLocation(uri protocol.DocumentURI, sym *symbol.Scope) *protocol.Location {
+func (s *Server) symbolToLocation(
+	uri protocol.DocumentURI,
+	sym *symbol.Scope,
+) *protocol.Location {
 	if sym.AST == nil {
 		return nil
 	}

@@ -15,22 +15,33 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// Node represents an instantiated function or stage in the dataflow graph. Each node
-// is an instance of a Function with concrete configuration values.
+// Node represents an instantiated function or stage in the dataflow graph.
+// Each node is a concrete instance of a Function with specific configuration values.
 type Node struct {
-	Key          string          `json:"key"`
-	Type         string          `json:"type"`
-	ConfigValues map[string]any  `json:"config_values"`
-	Channels     symbol.Channels `json:"channels"`
-	Config       types.Params    `json:"config"`
-	Inputs       types.Params    `json:"inputs"`
-	Outputs      types.Params    `json:"outputs"`
+	// Key is the unique identifier for this node instance.
+	Key string `json:"key"`
+	// Type is the name of the function or stage this node instantiates.
+	Type string `json:"type"`
+	// ConfigValues contains the runtime configuration values for this node.
+	ConfigValues map[string]any `json:"config_values"`
+	// Channels contains references to external channels used by this node.
+	Channels symbol.Channels `json:"channels"`
+	// Config contains the type definitions of configuration parameters.
+	Config types.Params `json:"config"`
+	// Inputs contains the type definitions of input parameters.
+	Inputs types.Params `json:"inputs"`
+	// Outputs contains the type definitions of output parameters.
+	Outputs types.Params `json:"outputs"`
 }
 
 // Nodes is a collection of node instances.
 type Nodes []Node
 
-// Get returns the node with the given key. Panics if not found.
-func (n Nodes) Get(key string) Node {
-	return lo.Must(lo.Find(n, func(n Node) bool { return n.Key == key }))
+// Find searches for a node by key. Returns the node and true if found,
+// or zero value and false otherwise.
+func (n Nodes) Find(key string) (Node, bool) {
+	return lo.Find(n, func(n Node) bool { return n.Key == key })
 }
+
+// Get returns the node with the given key. Panics if not found.
+func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }
