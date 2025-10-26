@@ -153,7 +153,7 @@ func Compatible(t1, t2 types.Type) bool {
 	}
 
 	// Type variables should use the constraint system, not this function
-	if t1.Kind == types.KindTypeVariable || t2.Kind == types.KindTypeVariable {
+	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		return false
 	}
 

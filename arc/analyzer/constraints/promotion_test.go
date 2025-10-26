@@ -22,7 +22,7 @@ var _ = Describe("Numeric Type Promotion", func() {
 
 	// Helper to test promotion
 	testPromotion := func(constraint, value, expected types.Type) {
-		tv := types.TypeVariable("T", &constraint)
+		tv := types.Variable("T", &constraint)
 		system.AddCompatible(tv, value, nil, "promotion test")
 		Expect(system.Unify()).To(Succeed())
 		result, ok := system.Substitutions["T"]
