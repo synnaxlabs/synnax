@@ -74,9 +74,8 @@ class TestDefinition:
 
     case: str
     name: Optional[str] = None  # Optional custom name for the test case
-    params: Dict[str, Any] = field(default_factory=dict)
+    parameters: Dict[str, Union[Any, List[Any]]] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
-    matrix: Optional[Dict[str, List[Any]]] = None
 
     def __str__(self) -> str:
         """Return display name for test definition."""
@@ -348,38 +347,55 @@ class TestConductor:
 
         self._process_sequences(all_sequences)
 
-    def _expand_matrix(self, test_def: TestDefinition) -> List[TestDefinition]:
+    def _expand_parameters(self, test_def: TestDefinition) -> List[TestDefinition]:
         """
-        Expand a test definition with a matrix into multiple test definitions.
+        Expand a test definition with parameters into multiple test definitions.
+
+        Parameters can be either single values or lists:
+        - Single value: {"timeout": 2} → 1 test
+        - List value: {"timeout": [2, 4]} → 2 tests
+        - Mixed: {"mode": ["a", "b"], "rate": [100, 200]} → 4 tests
 
         Example:
-            matrix = {"mode": ["a", "b"], "rate": [100, 200]}
+            parameters = {"mode": ["a", "b"], "rate": [100, 200], "fixed": 5}
             Expands to 4 tests with params:
-            - {"mode": "a", "rate": 100}
-            - {"mode": "a", "rate": 200}
-            - {"mode": "b", "rate": 100}
-            - {"mode": "b", "rate": 200}
+            - {"mode": "a", "rate": 100, "fixed": 5}
+            - {"mode": "a", "rate": 200, "fixed": 5}
+            - {"mode": "b", "rate": 100, "fixed": 5}
+            - {"mode": "b", "rate": 200, "fixed": 5}
         """
-        if test_def.matrix is None or not test_def.matrix:
-            # No matrix, return single test
+        if not test_def.parameters:
+            # No parameters, return single test
             return [test_def]
 
-        # Get all matrix keys and values
-        matrix_keys = list(test_def.matrix.keys())
-        matrix_values = [test_def.matrix[key] for key in matrix_keys]
+        # Separate parameters into single-value and multi-value
+        single_params = {}
+        multi_params = {}
 
-        # Generate matrix combinations
-        combinations = list(itertools.product(*matrix_values))
+        for key, value in test_def.parameters.items():
+            if isinstance(value, list):
+                multi_params[key] = value
+            else:
+                single_params[key] = value
+
+        # If no multi-value parameters, return single test
+        if not multi_params:
+            return [test_def]
+
+        # Generate cartesian product of multi-value parameters
+        param_keys = list(multi_params.keys())
+        param_values = [multi_params[key] for key in param_keys]
+        combinations = list(itertools.product(*param_values))
 
         expanded_tests = []
         for combo in combinations:
             # Create parameter dict from combination
-            combo_params = dict(zip(matrix_keys, combo))
+            combo_params = dict(zip(param_keys, combo))
 
-            # Merge with base params (matrix params override base params)
-            merged_params = {**test_def.params, **combo_params}
+            # Merge single-value params with this combination
+            merged_params = {**single_params, **combo_params}
 
-            # Generate name from matrix values
+            # Generate name from multi-value parameters only
             matrix_suffix = "_".join(str(v) for v in combo)
             base_name = test_def.name or test_def.case.split("/")[-1]
             generated_name = f"{base_name}_{matrix_suffix}"
@@ -388,9 +404,8 @@ class TestConductor:
             expanded_test = TestDefinition(
                 case=test_def.case,
                 name=generated_name,
-                params=merged_params,
+                parameters=merged_params,  # Store as single values
                 expect=test_def.expect,
-                matrix=None,  # Expanded tests don't have matrix
             )
             expanded_tests.append(expanded_test)
 
@@ -420,11 +435,10 @@ class TestConductor:
                 test_def = TestDefinition(
                     case=test["case"],
                     name=test.get("name", None),
-                    params=test.get("parameters", {}),
+                    parameters=test.get("parameters", {}),
                     expect=test.get("expect", "PASSED"),
-                    matrix=test.get("matrix", None),
                 )
-                expanded_tests = self._expand_matrix(test_def)
+                expanded_tests = self._expand_parameters(test_def)
                 for expanded_test in expanded_tests:
                     self.test_definitions.append(expanded_test)
                     seq_obj["tests"].append(expanded_test)
@@ -432,9 +446,17 @@ class TestConductor:
             seq_obj["end_idx"] = len(self.test_definitions)
             self.sequences.append(seq_obj)
 
-            self.log_message(
-                f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
-            )
+            # Improved logging to show expansion
+            num_expanded = len(seq_obj["tests"])
+            if num_expanded > len(seq_tests):
+                self.log_message(
+                    f"Loaded sequence '{seq_name}' with {len(seq_tests)} test definitions, "
+                    f"expanded to {num_expanded} tests ({seq_order})"
+                )
+            else:
+                self.log_message(
+                    f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
+                )
 
         self.log_message(
             f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
@@ -749,7 +771,7 @@ class TestConductor:
                 synnax_connection=self.synnax_connection,
                 name=test_def.name or test_def.case.split("/")[-1],
                 expect=test_def.expect,
-                **test_def.params,
+                **test_def.parameters,
             )
 
             # Track test for timeout monitoring
