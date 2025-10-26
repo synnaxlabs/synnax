@@ -436,7 +436,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		It("Should fail parsing mixed named and anonymous config values", func() {
 			_, err := parser.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("line")))
+			Expect(err).To(MatchError(ContainSubstring("1:21 error: mismatched input")))
 		})
 	})
 
@@ -826,7 +826,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 					x := := 5
 				}`)
 				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("line")))
+				Expect(err).To(MatchError(ContainSubstring("2:10 error: no viable alternative")))
 			})
 
 			It("Should report multiple errors with line information", func() {
@@ -836,8 +836,9 @@ func broken() {
     x := := 5
     y = = 10
 }`)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("parse errors")))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("3:9 error")))
+				Expect(err).To(MatchError(ContainSubstring("4:8 error")))
 			})
 
 			It("Should handle empty input gracefully", func() {
@@ -861,7 +862,7 @@ func broken() {
 					x := 5
 				`)
 				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("line")))
+				Expect(err).To(MatchError(ContainSubstring("3:4 error: extraneous input")))
 			})
 
 			It("Should report error for missing function body", func() {
@@ -919,7 +920,7 @@ func broken() {
 
 			It("Should return error for invalid block", func() {
 				block, err := parser.ParseBlock("{ x := := 5 }")
-				Expect(err).To(MatchError(ContainSubstring("line 1:7 no viable alternative at input")))
+				Expect(err).To(MatchError(ContainSubstring("1:7 error: no viable alternative at input")))
 				Expect(block).To(BeNil())
 			})
 
