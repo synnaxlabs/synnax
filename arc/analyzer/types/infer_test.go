@@ -87,7 +87,7 @@ var _ = Describe("Type Inference", func() {
 			inferredType := atypes.InferFromExpression(ctx)
 
 			// Integer literals infer as type variables with integer constraint
-			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Kind).To(Equal(types.KindVariable))
 			Expect(inferredType.Constraint).ToNot(BeNil())
 			Expect(inferredType.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 		})
@@ -98,7 +98,7 @@ var _ = Describe("Type Inference", func() {
 			inferredType := atypes.InferFromExpression(ctx)
 
 			// Float literals infer as type variables with float constraint
-			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Kind).To(Equal(types.KindVariable))
 			Expect(inferredType.Constraint).ToNot(BeNil())
 			Expect(inferredType.Constraint.Kind).To(Equal(types.KindFloatConstant))
 		})
@@ -196,7 +196,7 @@ var _ = Describe("Type Inference", func() {
 		})
 
 		It("should reject type variables", func() {
-			tv := types.TypeVariable("T", nil)
+			tv := types.Variable("T", nil)
 			Expect(atypes.Compatible(tv, types.F32())).To(BeFalse())
 			Expect(atypes.Compatible(types.F32(), tv)).To(BeFalse())
 			Expect(atypes.Compatible(tv, tv)).To(BeFalse())
@@ -259,7 +259,7 @@ var _ = Describe("Type Inference", func() {
 		})
 
 		It("should add constraint for type variables", func() {
-			tv := types.TypeVariable("T", nil)
+			tv := types.Variable("T", nil)
 			ast := testutil.NewMockAST(1)
 			err := atypes.Check(cs, tv, types.I32(), ast, "test")
 			Expect(err).ToNot(HaveOccurred())
