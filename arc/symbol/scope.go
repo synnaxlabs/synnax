@@ -48,6 +48,12 @@ type Channels struct {
 
 // Copy returns a deep copy of the Channels.
 func (c Channels) Copy() Channels {
+	if c.Read == nil {
+		c.Read = make(set.Mapped[uint32, string])
+	}
+	if c.Write == nil {
+		c.Write = make(set.Mapped[uint32, string])
+	}
 	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
 }
 
