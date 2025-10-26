@@ -55,6 +55,21 @@ var _ = Describe("Functions", func() {
 		})
 	})
 
+	Describe("Empty Collection", func() {
+		It("Should handle Find on empty collection", func() {
+			empty := ir.Functions{}
+			_, found := empty.Find("anything")
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should panic on Get with empty collection", func() {
+			empty := ir.Functions{}
+			Expect(func() {
+				_ = empty.Get("anything")
+			}).To(Panic())
+		})
+	})
+
 	Describe("Function.Type", func() {
 		It("Should return function type with all properties", func() {
 			inputs := types.Params{}

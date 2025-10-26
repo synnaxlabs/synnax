@@ -66,11 +66,3 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	}
 	return Module{IR: inter, Output: output}, nil
 }
-
-func ConvertTextToGraph(text Text, opts ...Option) (Graph, error) {
-	return Graph{}, nil
-}
-
-func ConvertGraphToText(graph Graph, opts ...Option) (Text, error) {
-	return Text{}, nil
-}

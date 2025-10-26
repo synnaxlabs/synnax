@@ -31,7 +31,7 @@ func compileTypeCast(
 	if err != nil {
 		return types.Type{}, err
 	}
-	if err := EmitCast(ctx, sourceType, targetType); err != nil {
+	if err = EmitCast(ctx, sourceType, targetType); err != nil {
 		return types.Type{}, err
 	}
 	return targetType, nil

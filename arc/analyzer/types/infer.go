@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// InferFromTypeContext extracts the concrete type from an Arc type annotation.
 func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if ctx == nil {
 		return types.Type{}, nil
@@ -127,17 +128,50 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 	return types.Type{}, errors.New("series must have primitive type")
 }
 
-func Compatible(
-	t1, t2 types.Type,
-) bool {
+// Compatible returns true if t1 and t2 are structurally compatible after unwrapping
+// one level of channel or series wrapper. This is used during expression type inference
+// where channels are automatically read to access their value type.
+//
+// The function ensures that wrapper types are preserved - channels only match channels,
+// and series only match series. After unwrapping, the underlying types are compared
+// using structural equality.
+//
+// This function should NOT be used for:
+//   - Type variables (use the constraint system instead)
+//   - Strict type checking (use Check function)
+//
+// Examples:
+//
+//	chan<int> ~ chan<int>    -> true
+//	chan<int> ~ int          -> true (one is wrapped, one is not)
+//	series<f32> ~ series<f32> -> true
+//	chan<int> ~ series<int>  -> false (different wrapper types)
+//	f32 ~ f64                -> false (incompatible base types)
+func Compatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
 	}
+
+	// Type variables should use the constraint system, not this function
+	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
+		return false
+	}
+
+	// If both types are wrapped (channel or series), they must use the same wrapper
+	if (t1.Kind == types.KindChan || t1.Kind == types.KindSeries) &&
+		(t2.Kind == types.KindChan || t2.Kind == types.KindSeries) {
+		if t1.Kind != t2.Kind {
+			return false
+		}
+	}
+
 	t1 = t1.Unwrap()
 	t2 = t2.Unwrap()
-	return t1.String() == t2.String()
+	return types.Equal(t1, t2)
 }
 
+// LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
+// to variableType with implicit numeric widening.
 func LiteralAssignmentCompatible(
 	variableType, literalType types.Type,
 ) bool {

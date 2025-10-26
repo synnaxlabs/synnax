@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// InferFromExpression determines the type of an Arc expression through recursive descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return InferLogicalOr(context.Child(ctx, logicalOr))
@@ -48,12 +49,12 @@ func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) t
 }
 
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
-	rels := ctx.AST.AllRelationalExpression()
-	if len(rels) > 1 {
+	relExpressions := ctx.AST.AllRelationalExpression()
+	if len(relExpressions) > 1 {
 		return types.U8()
 	}
-	if len(rels) == 1 {
-		return InferRelational(context.Child(ctx, rels[0]))
+	if len(relExpressions) == 1 {
+		return InferRelational(context.Child(ctx, relExpressions[0]))
 	}
 	return types.Type{}
 }
@@ -137,6 +138,7 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		// TODO: Handle function calls and indexing which might change the type
+		// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
 		return inferPrimaryType(context.Child(ctx, primary))
 	}
 	return types.Type{}
@@ -187,7 +189,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		tvName := fmt.Sprintf("lit_%d_%d", line, col)
 
 		constraint := types.FloatConstraint()
-		tv := types.TypeVariable(tvName, &constraint)
+		tv := types.Variable(tvName, &constraint)
 
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
@@ -203,7 +205,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		tvName := fmt.Sprintf("lit_%d_%d", line, col)
 
 		constraint := types.IntegerConstraint()
-		tv := types.TypeVariable(tvName, &constraint)
+		tv := types.Variable(tvName, &constraint)
 
 		// Record the type variable in the constraint system
 		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package constraints implements type constraint collection and unification.
 package constraints
 
 import (
@@ -14,13 +15,17 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// Kind classifies constraint relationships between types.
 type Kind int
 
 const (
+	// KindEquality requires exact type equality after substitution.
 	KindEquality Kind = iota
+	// KindCompatible allows numeric type promotion between compatible types.
 	KindCompatible
 )
 
+// Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
 	Kind   Kind
 	Left   types.Type
@@ -29,27 +34,30 @@ type Constraint struct {
 	Reason string
 }
 
+// System accumulates type constraints and computes substitutions via unification.
 type System struct {
-	constraints   []Constraint
-	substitutions map[string]types.Type
-	typeVars      map[string]types.Type
+	Constraints   []Constraint
+	Substitutions map[string]types.Type
+	TypeVars      map[string]types.Type
 }
 
+// New creates an empty constraint system.
 func New() *System {
 	return &System{
-		constraints:   make([]Constraint, 0),
-		substitutions: make(map[string]types.Type),
-		typeVars:      make(map[string]types.Type),
+		Constraints:   make([]Constraint, 0),
+		Substitutions: make(map[string]types.Type),
+		TypeVars:      make(map[string]types.Type),
 	}
 }
 
+// AddEquality adds an equality constraint requiring left and right to unify to the same type.
 func (s *System) AddEquality(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
 ) {
 	s.recordTypeVars(left, right)
-	s.constraints = append(s.constraints, Constraint{
+	s.Constraints = append(s.Constraints, Constraint{
 		Kind:   KindEquality,
 		Left:   left,
 		Right:  right,
@@ -58,13 +66,14 @@ func (s *System) AddEquality(
 	})
 }
 
+// AddCompatible adds a compatibility constraint allowing numeric promotion between left and right.
 func (s *System) AddCompatible(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
 ) {
 	s.recordTypeVars(left, right)
-	s.constraints = append(s.constraints, Constraint{
+	s.Constraints = append(s.Constraints, Constraint{
 		Kind:   KindCompatible,
 		Left:   left,
 		Right:  right,
@@ -75,9 +84,9 @@ func (s *System) AddCompatible(
 
 func (s *System) recordTypeVars(toRecord ...types.Type) {
 	for _, t := range toRecord {
-		if t.Kind == types.KindTypeVariable {
-			if _, exists := s.typeVars[t.Name]; !exists {
-				s.typeVars[t.Name] = t
+		if t.Kind == types.KindVariable {
+			if _, exists := s.TypeVars[t.Name]; !exists {
+				s.TypeVars[t.Name] = t
 			}
 		}
 		if t.Kind == types.KindChan || t.Kind == types.KindSeries {
@@ -86,37 +95,22 @@ func (s *System) recordTypeVars(toRecord ...types.Type) {
 	}
 }
 
-func (s *System) GetSubstitution(name string) (types.Type, bool) {
-	t, ok := s.substitutions[name]
-	return t, ok
-}
-
-func (s *System) SetSubstitution(name string, t types.Type) {
-	s.substitutions[name] = t
-}
-
-func (s *System) Constraints() []Constraint {
-	return s.constraints
-}
-
-func (s *System) TypeVariables() map[string]types.Type {
-	return s.typeVars
-}
-
+// HasTypeVariables returns true if the system has recorded any type variables.
 func (s *System) HasTypeVariables() bool {
-	return len(s.typeVars) > 0
+	return len(s.TypeVars) > 0
 }
 
+// ApplySubstitutions replaces type variables in t with their computed substitutions.
 func (s *System) ApplySubstitutions(t types.Type) types.Type {
 	return s.applySubstitutionsWithVisited(t, make(map[string]bool))
 }
 
 func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]bool) types.Type {
-	if t.Kind == types.KindTypeVariable {
+	if t.Kind == types.KindVariable {
 		if visited[t.Name] {
 			return t
 		}
-		if sub, exists := s.substitutions[t.Name]; exists {
+		if sub, exists := s.Substitutions[t.Name]; exists {
 			visited[t.Name] = true
 			result := s.applySubstitutionsWithVisited(sub, visited)
 			visited[t.Name] = false

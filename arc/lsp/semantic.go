@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	SemanticTokenTypeKeyword  uint32 = 0
-	SemanticTokenTypeType     uint32 = 1
-	SemanticTokenTypeOperator uint32 = 2
-	SemanticTokenTypeVariable uint32 = 3
-	SemanticTokenTypeString   uint32 = 5
-	SemanticTokenTypeNumber   uint32 = 6
-	SemanticTokenTypeComment  uint32 = 7
+	SemanticTokenTypeKeyword = iota
+	SemanticTokenTypeType
+	SemanticTokenTypeOperator
+	SemanticTokenTypeVariable
+	SemanticTokenTypeString
+	SemanticTokenTypeNumber
+	SemanticTokenTypeComment
 )
 
 var semanticTokenTypes = []string{
@@ -75,13 +75,10 @@ func extractSemanticTokens(content string) []uint32 {
 		if tokenType == nil {
 			continue
 		}
-		line := uint32(t.GetLine() - 1)
-		startChar := uint32(t.GetColumn())
-		length := uint32(len(t.GetText()))
 		tokens = append(tokens, token{
-			line:      line,
-			startChar: startChar,
-			length:    length,
+			line:      uint32(t.GetLine() - 1),
+			startChar: uint32(t.GetColumn()),
+			length:    uint32(len(t.GetText())),
 			tokenType: *tokenType,
 		})
 	}

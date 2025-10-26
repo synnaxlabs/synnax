@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -70,17 +71,23 @@ var _ = Describe("Calculation", Ordered, func() {
 		sCtx, cancel := signal.Isolated()
 		w := MustSucceed(dist.Framer.OpenWriter(
 			ctx,
-			framer.WriterConfig{Start: telem.Now(), Keys: writerKeys},
+			framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  writerKeys,
+			},
 		))
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
-				framer.StreamerConfig{Keys: []channel.Key{(*calculations)[0].Key()}},
+				framer.StreamerConfig{
+					Keys:        []channel.Key{(*calculations)[0].Key()},
+					SendOpenAck: config.True(),
+				},
 			),
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(5 * time.Millisecond)
+		Eventually(sOutlet.Outlet()).Should(Receive())
 		return w, sOutlet, func() {
 			Expect(w.Close()).To(Succeed())
 			cancel()

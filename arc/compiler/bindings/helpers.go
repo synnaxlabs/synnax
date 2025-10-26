@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package bindings manages the contract between compiled Arc WebAssembly modules and
+// the host runtime. It tracks import indices for host functions that provide channel
+// operations, series manipulation, state persistence, and other runtime services.
+//
+// The ImportIndex maintains type-specific mappings for all host functions, ensuring
+// type-safe communication between Arc compiled code and the runtime environment.
 package bindings
 
 import (
@@ -14,54 +20,47 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// GetChannelRead returns the import index for a channel read function
-func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
+// lookupImport is a generic helper for looking up import indices by type
+func (idx *ImportIndex) lookupImport(
+	m map[string]uint32,
+	t types.Type,
+	funcName string,
+) (uint32, error) {
+	suffix := t.Unwrap().String()
+	if funcIdx, ok := m[suffix]; ok {
 		return funcIdx, nil
 	}
-	return 0, errors.Newf("no channel read function for type %v", t)
+	return 0, errors.Newf("no %s function for type %v", funcName, t)
+}
+
+// GetChannelRead returns the import index for a channel read function
+func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
+	return idx.lookupImport(idx.ChannelRead, t, "channel read")
 }
 
 // GetChannelWrite returns the import index for a channel write function
 func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no channel write function for type %v", t)
+	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
 }
 
 // GetChannelBlockingRead returns the import index for a blocking channel read function
 func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.ChannelBlockingRead[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no channel blocking read function for type %v", t)
+	return idx.lookupImport(idx.ChannelBlockingRead, t, "channel blocking read")
 }
 
 // GetSeriesCreateEmpty returns the import index for creating an empty series
 func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.SeriesCreateEmpty[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no series create function for type %v", t)
+	return idx.lookupImport(idx.SeriesCreateEmpty, t, "series create")
 }
 
 // GetSeriesIndex returns the import index for series indexing
 func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.SeriesIndex[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no series index function for type %v", t)
+	return idx.lookupImport(idx.SeriesIndex, t, "series index")
 }
 
 // GetSeriesArithmetic returns the import index for series arithmetic operations
 func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	if isScalar {
@@ -100,7 +99,7 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 
 // GetSeriesComparison returns the import index for series comparison operations
 func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
+	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	switch op {
@@ -128,62 +127,10 @@ func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, er
 
 // GetStateLoad returns the import index for a state load function
 func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.StateLoad[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no state load function for type %v", t)
+	return idx.lookupImport(idx.StateLoad, t, "state load")
 }
 
 // GetStateStore returns the import index for a state store function
 func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
-	suffix := getTypeSuffix(t)
-	if funcIdx, ok := idx.StateStore[suffix]; ok {
-		return funcIdx, nil
-	}
-	return 0, errors.Newf("no state store function for type %v", t)
-}
-
-// getTypeSuffix extracts the type suffix for import lookups
-func getTypeSuffix(t types.Type) string {
-	switch t.Kind {
-	case types.KindI8:
-		return "i8"
-	case types.KindI16:
-		return "i16"
-	case types.KindI32:
-		return "i32"
-	case types.KindI64:
-		return "i64"
-	case types.KindU8:
-		return "u8"
-	case types.KindU16:
-		return "u16"
-	case types.KindU32:
-		return "u32"
-	case types.KindU64:
-		return "u64"
-	case types.KindF32:
-		return "f32"
-	case types.KindF64:
-		return "f64"
-	case types.KindString:
-		return "string"
-	case types.KindTimeStamp, types.KindTimeSpan:
-		return "i64"
-	case types.KindSeries:
-		unwrapped := t.Unwrap()
-		if unwrapped.Kind != types.KindSeries {
-			return getTypeSuffix(unwrapped)
-		}
-		return "i32" // Fallback for malformed series with nil ValueType
-	case types.KindChan:
-		unwrapped := t.Unwrap()
-		if unwrapped.Kind != types.KindChan {
-			return getTypeSuffix(unwrapped)
-		}
-		return "i32" // Fallback for malformed channel with nil ValueType
-	default:
-		return "i32"
-	}
+	return idx.lookupImport(idx.StateStore, t, "state store")
 }

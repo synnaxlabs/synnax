@@ -19,17 +19,17 @@ func _() {
 	var x [1]struct{}
 	_ = x[KindVariable-0]
 	_ = x[KindStatefulVariable-1]
-	_ = x[KindInput-2]
+	_ = x[KindChannel-2]
 	_ = x[KindFunction-3]
-	_ = x[KindChannel-4]
+	_ = x[KindBlock-4]
 	_ = x[KindConfig-5]
-	_ = x[KindBlock-6]
+	_ = x[KindInput-6]
 	_ = x[KindOutput-7]
 }
 
-const _Kind_name = "KindVariableKindStatefulVariableKindInputKindFunctionKindChannelKindConfigKindBlockKindOutput"
+const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutput"
 
-var _Kind_index = [...]uint8{0, 12, 32, 41, 53, 64, 74, 83, 93}
+var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93}
 
 func (i Kind) String() string {
 	idx := int(i) - 0
