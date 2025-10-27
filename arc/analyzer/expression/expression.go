@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package expression implements type checking and semantic analysis for Arc expressions.
 package expression
 
 import (
@@ -22,6 +23,7 @@ func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
 func isAny(p basetypes.Type) bool     { return true }
 
+// Analyze validates type correctness of an expression and accumulates constraints.
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return analyzeLogicalOr(context.Child(ctx, logicalOr))
@@ -29,13 +31,9 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	return true
 }
 
-func getLogicalOrOperator(antlr.ParserRuleContext) string {
-	return "||"
-}
+func getLogicalOrOperator(antlr.ParserRuleContext) string { return "||" }
 
-func getLogicalAndOperator(antlr.ParserRuleContext) string {
-	return "&&"
-}
+func getLogicalAndOperator(antlr.ParserRuleContext) string { return "&&" }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
@@ -108,7 +106,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	opName := getOperator(ctx.AST)
 
 	// If first type is a type variable, we can't check it yet - will be validated during unification
-	if firstType.Kind != basetypes.KindTypeVariable && !check(firstType) {
+	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
 			ctx.AST,
@@ -120,7 +118,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
 		// If either type is a type variable, add a constraint instead of checking directly
-		if firstType.Kind == basetypes.KindTypeVariable || nextType.Kind == basetypes.KindTypeVariable {
+		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
 			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
 		} else if !types.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
@@ -160,15 +158,15 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
-	rels := ctx.AST.AllRelationalExpression()
-	for _, relational := range rels {
+	relExpressions := ctx.AST.AllRelationalExpression()
+	for _, relational := range relExpressions {
 		if !analyzeRelational(context.Child(ctx, relational)) {
 			return false
 		}
 	}
 	return validateType(
 		ctx,
-		rels,
+		relExpressions,
 		getEqualityOperator,
 		types.InferRelational,
 		isAny,
@@ -255,7 +253,10 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 		} else if ctx.AST.NOT() != nil {
 			if !operandType.IsBool() {
 				ctx.Diagnostics.AddError(
-					errors.Newf("operator ! requires boolean operand, received %s", operandType),
+					errors.Newf(
+						"operator ! requires boolean operand, received %s",
+						operandType,
+					),
 					ctx.AST,
 				)
 				return false

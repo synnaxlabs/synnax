@@ -30,11 +30,11 @@ var (
 		Type: types.Function(types.FunctionProperties{
 			Outputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.Variable("T", nil)},
 			},
 			Config: &types.Params{
 				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan(types.NewTypeVariable("T", nil))},
+				Values: []types.Type{types.Chan(types.Variable("T", nil))},
 			},
 		}),
 	}
@@ -45,11 +45,11 @@ var (
 		Type: types.Function(types.FunctionProperties{
 			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.Variable("T", nil)},
 			},
 			Config: &types.Params{
 				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan(types.NewTypeVariable("T", nil))},
+				Values: []types.Type{types.Chan(types.Variable("T", nil))},
 			},
 		}),
 	}
