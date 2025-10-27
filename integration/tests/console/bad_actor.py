@@ -30,7 +30,6 @@ class BadActor(ConsoleCase):
             "press_pt",
             "press_vlv_cmd",
             "vent_vlv_cmd",
-            "end_test_state",
         ]
         self.subscribe(channels_to_delete)
         for ch in channels_to_delete:
