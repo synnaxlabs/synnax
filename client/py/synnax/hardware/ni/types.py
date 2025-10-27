@@ -879,6 +879,112 @@ class DIChan(BaseModel):
     line: int
 
 
+class BaseCIChan(BaseChan):
+    device: str = ""
+    port: int
+
+
+class CIFrequencyChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Frequency Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html>
+    """
+
+    type: Literal["ci_frequency"] = "ci_frequency"
+    units: Literal["Hz", "Seconds", "Ticks"] = "Hz"
+    edge: Literal["Rising", "Falling"] = "Rising"
+    meas_method: Literal["LowFreq1Ctr", "HighFreq2Ctr", "DynAvg"] = "LowFreq1Ctr"
+    meas_time: float = 0.001
+    divisor: int = 4
+    custom_scale: Scale = NoScale()
+
+
+class CIEdgeCountChan(BaseCIChan):
+    """
+    Counter Input Edge Count Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html>
+    """
+
+    type: Literal["ci_edge_count"] = "ci_edge_count"
+    active_edge: Literal["Rising", "Falling"] = "Rising"
+    count_direction: Literal["CountUp", "CountDown", "ExtControlled"] = "CountUp"
+    initial_count: int = 0
+
+
+class CIPeriodChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Period Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html>
+    """
+
+    type: Literal["ci_period"] = "ci_period"
+    units: Literal["Seconds", "Ticks"] = "Seconds"
+    starting_edge: Literal["Rising", "Falling"] = "Rising"
+    meas_method: Literal["LowFreq1Ctr", "HighFreq2Ctr", "DynAvg"] = "LowFreq1Ctr"
+    meas_time: float = 0.001
+    divisor: int = 4
+    custom_scale: Scale = NoScale()
+
+
+class CIPulseWidthChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Pulse Width Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html>
+    """
+
+    type: Literal["ci_pulse_width"] = "ci_pulse_width"
+    units: Literal["Seconds", "Ticks"] = "Seconds"
+    starting_edge: Literal["Rising", "Falling"] = "Rising"
+    custom_scale: Scale = NoScale()
+
+
+class CISemiPeriodChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Semi Period Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html>
+    """
+
+    type: Literal["ci_semi_period"] = "ci_semi_period"
+    units: Literal["Seconds", "Ticks"] = "Seconds"
+    custom_scale: Scale = NoScale()
+
+
+class CITwoEdgeSepChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Two Edge Separation Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
+    dgeseparationchan.html>
+    """
+
+    type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
+    units: Literal["Seconds", "Ticks"] = "Seconds"
+    first_edge: Literal["Rising", "Falling"] = "Rising"
+    second_edge: Literal["Rising", "Falling"] = "Falling"
+    custom_scale: Scale = NoScale()
+
+
+CIChan = (
+    CIFrequencyChan
+    | CIEdgeCountChan
+    | CIPeriodChan
+    | CIPulseWidthChan
+    | CISemiPeriodChan
+    | CITwoEdgeSepChan
+)
+
+
 class DOChan(BaseChan):
     """
     Digital Output Channel
@@ -925,6 +1031,31 @@ class AnalogWriteConfig(BaseModel):
     state_rate: conint(ge=0, le=50000)
     data_saving: bool
     auto_start: bool = False
+
+
+class CounterReadConfig(BaseModel):
+    sample_rate: conint(ge=0, le=50000)
+    stream_rate: conint(ge=0, le=50000)
+    channels: list[CIChan]
+    data_saving: bool
+    auto_start: bool = False
+
+    @field_validator("stream_rate")
+    def validate_stream_rate(cls, v, values):
+        if "sample_rate" in values.data and v > values.data["sample_rate"]:
+            raise ValueError(
+                "Stream rate must be less than or equal to the sample rate"
+            )
+        return v
+
+    @field_validator("channels")
+    def validate_channel_ports(cls, v):
+        ports = {c.port for c in v}
+        if len(ports) < len(v):
+            used_ports = [c.port for c in v]
+            duplicate_ports = [port for port in ports if used_ports.count(port) > 1]
+            raise ValueError(f"Port {duplicate_ports[0]} has already been used")
+        return v
 
 
 class CounterWriteConfig(BaseModel):
@@ -1067,6 +1198,68 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             auto_start=auto_start,
             channels=channels,
         )
+
+
+class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading counter data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the counter read task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a counter read task,
+    see https://docs.synnaxlabs.com/reference/driver/ni/counter-read-task
+
+    :param device: The key of the Synnax NI device to read from.
+    :param name: A human-readable name for the task.
+    :param sample_rate: The rate at which to sample data from the NI device.
+    :param stream_rate: The rate at which acquired data will be streamed to the Synnax
+        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
+        result in groups of 4 samples being streamed to the cluster every 40ms.
+    :param channels: A list of counter input channel configurations (CIChan subtypes).
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
+    """
+
+    TYPE = "ni_counter_read"
+    config: CounterReadConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        sample_rate: CrudeRate = 0,
+        stream_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[CIChan] = None,
+    ) -> None:
+        if internal is not None:
+            self._internal = internal
+            self.config = CounterReadConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = CounterReadConfig(
+            sample_rate=sample_rate,
+            stream_rate=stream_rate,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels,
+        )
+        # Set the device provided to the task for any channels that don't have a device
+        # field assigned.
+        for i, channel in enumerate(self.config.channels):
+            if len(channel.device) == 0:
+                if len(device) == 0:
+                    raise ValidationError(
+                        f"""
+                        No device provided for {channel} {i + 1} in task and no device
+                        provided directly to the task. Please provide a device for the
+                        channel or set the device for the task.
+                    """
+                    )
+                channel.device = device
 
 
 class CounterWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):

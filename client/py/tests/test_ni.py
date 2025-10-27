@@ -16,6 +16,7 @@ from synnax.hardware.ni import (
     AnalogReadTask,
     AnalogReadTaskConfig,
     AnalogWriteConfig,
+    CounterReadConfig,
     CounterWriteConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
@@ -430,6 +431,33 @@ class TestNITask:
             "auto_start": False,
         }
         AnalogWriteConfig.model_validate(data)
+
+    def test_parse_counter_read_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "CounterFreq1",
+                    "type": "ci_frequency",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048630,
+                    "port": 0,
+                    "min_val": 0.0,
+                    "max_val": 1000.0,
+                    "units": "Hz",
+                    "edge": "Rising",
+                    "meas_method": "LowFreq1Ctr",
+                    "meas_time": 0.001,
+                    "divisor": 4,
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
 
     def test_parse_counter_write_task(self):
         data = {
