@@ -40,7 +40,7 @@ var _ = Describe("Completion", func() {
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func() {
 			content := "func test() {\n    i\n}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "i|" - should match i8, i16, i32, i64, if
 			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
@@ -71,7 +71,7 @@ var _ = Describe("Completion", func() {
 
 			// Use the same pattern as hover test - valid Arc code
 			content := "func test() i32 {\n    return myGlobal\n}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
@@ -113,7 +113,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&testutil.MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "xyz|"
 			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{

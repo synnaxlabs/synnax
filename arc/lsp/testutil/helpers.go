@@ -12,6 +12,7 @@ package testutil
 import (
 	"context"
 
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
@@ -32,13 +33,13 @@ func OpenDocument(
 	ctx context.Context,
 	uri protocol.DocumentURI,
 	content string,
-) error {
-	return server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+) {
+	gomega.Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        uri,
 			LanguageID: "arc",
 			Version:    1,
 			Text:       content,
 		},
-	})
+	})).To(gomega.Succeed())
 }

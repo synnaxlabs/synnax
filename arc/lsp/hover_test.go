@@ -36,7 +36,7 @@ var _ = Describe("Hover", func() {
 
 	Describe("Keywords", func() {
 		It("should provide hover for 'func' keyword", func() {
-			Expect(testutil.OpenDocument(server, ctx, uri, "func add(x i32, y i32) i32 {\n    return x + y\n}")).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, "func add(x i32, y i32) i32 {\n    return x + y\n}")
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -51,7 +51,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'stage' keyword", func() {
 			content := "stage max{} (value f32) f32 { return value }"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -65,7 +65,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'if' keyword", func() {
 			content := "if x > 10 { return 1 }"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -79,7 +79,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'return' keyword", func() {
 			content := "return 42"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -109,7 +109,7 @@ var _ = Describe("Hover", func() {
 			}
 
 			for _, tc := range testCases {
-				Expect(testutil.OpenDocument(server, ctx, uri, tc.line)).To(Succeed())
+				testutil.OpenDocument(server, ctx, uri, tc.line)
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -124,7 +124,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for float types", func() {
 			content := "x f32 := 3.14\ny f64 := 2.71828"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over f32
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -153,7 +153,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for temporal types", func() {
 			content := "t timestamp := now()\nd timespan := 5s"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over timestamp
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -216,7 +216,7 @@ var _ = Describe("Hover", func() {
 	Describe("Built-in Functions", func() {
 		It("should provide hover for 'len' function", func() {
 			content := "length := len(data)"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -232,7 +232,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'now' function", func() {
 			content := "time := now()"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -256,7 +256,7 @@ var _ = Describe("Hover", func() {
 func main() {
     result := add(1, 2)
 }`
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'add' in the function call
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -282,7 +282,7 @@ func main() {
     }
     return max_val
 }`
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'max' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -308,17 +308,16 @@ func main() {
     }
     return u8(0)
 }`
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'threshold' in the function declaration
-			hover, err := server.Hover(ctx, &protocol.HoverParams{
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 0, Character: 8}, // func t|hreshold
 				},
-			})
+			}))
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("## threshold"))
 			Expect(hover.Contents.Value).To(ContainSubstring("func threshold"))
@@ -355,7 +354,7 @@ func main() {
     return count
 }
 `
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'count' on line 2
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -376,7 +375,7 @@ func main() {
     return x * y
 }
 `
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'x' parameter in function body
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -396,7 +395,7 @@ func main() {
 	Describe("Edge Cases", func() {
 		It("should return nil for unknown words", func() {
 			content := "unknown_identifier"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -410,7 +409,7 @@ func main() {
 
 		It("should return nil for position out of bounds", func() {
 			content := "func test() {}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -435,7 +434,7 @@ func main() {
 
 		It("should handle hovering at end of word", func() {
 			content := "func"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover at last character
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -451,7 +450,7 @@ func main() {
 
 		It("should handle hovering at start of word", func() {
 			content := "func"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover at first character
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -467,7 +466,7 @@ func main() {
 
 		It("should handle empty lines", func() {
 			content := "\n\nfunc test() {}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -496,7 +495,7 @@ func main() {
 			server.SetClient(&testutil.MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			Expect(testutil.OpenDocument(server, ctx, uri, content)).To(Succeed())
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over myGlobal
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
