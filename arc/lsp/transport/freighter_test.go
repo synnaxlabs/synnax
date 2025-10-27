@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -103,20 +104,20 @@ var _ = Describe("Freighter Transport", func() {
 				msg1 := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(json1), json1)
 				msg2 := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(json2), json2)
 				combined := msg1 + msg2
-				receivedCount := 0
+				var receivedCount atomic.Int32
 				go func() {
 					defer GinkgoRecover()
 					for i := 0; i < 2; i++ {
 						msg := MustSucceed(clientStream.Receive())
 						if msg.Content == json1 || msg.Content == json2 {
-							receivedCount++
+							receivedCount.Add(1)
 						}
 					}
 				}()
 				n, err := adapter.Write([]byte(combined))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(len(combined)))
-				Eventually(func() int { return receivedCount }).Should(Equal(2))
+				Eventually(func() int32 { return receivedCount.Load() }).Should(Equal(int32(2)))
 			})
 			It("Should handle partial writes with buffering", func() {
 				adapter := &streamAdapter{stream: serverStream}
@@ -127,14 +128,17 @@ var _ = Describe("Freighter Transport", func() {
 				n1, err := adapter.Write([]byte(part1))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n1).To(Equal(len(part1)))
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
 				n2, err := adapter.Write([]byte(part2))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n2).To(Equal(len(part2)))
+				Eventually(done).Should(BeClosed())
 			})
 			It("Should handle headers with LF instead of CRLF", func() {
 				adapter := &streamAdapter{stream: serverStream}
