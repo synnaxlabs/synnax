@@ -14,12 +14,10 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	gotime "time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/constant"
-	"github.com/synnaxlabs/arc/runtime/interval"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
@@ -303,10 +301,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	statusFactory := rstatus.NewFactory(cfg.Status)
 
-	// Create time wheel for interval nodes
-	timeWheel := interval.NewWheel(10*gotime.Millisecond, nil)
-	intervalFactory := interval.NewFactory(timeWheel)
-
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -314,7 +308,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		constantFactory,
 		stableFactory,
 		statusFactory,
-		intervalFactory,
 	}
 	if len(cfg.Module.WASM) > 0 {
 		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
@@ -339,7 +332,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	// Create scheduler with time wheel
-	sched := scheduler.New(ctx, cfg.Module.IR, nodes, timeWheel)
+	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
 	r := &Runtime{
 		scheduler: sched,
 		state:     progState,
@@ -396,13 +389,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
-		//confluence.RecoverWithErrOnPanic(),
+		confluence.RecoverWithErrOnPanic(),
 	)
 	if writePipeline != nil {
 		writePipeline.Flow(
 			sCtx,
 			confluence.CloseOutputInletsOnExit(),
-			//confluence.RecoverWithErrOnPanic(),
+			confluence.RecoverWithErrOnPanic(),
 		)
 	}
 	r.close = signal.NewGracefulShutdown(sCtx, cancel)

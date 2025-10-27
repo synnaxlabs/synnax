@@ -15,8 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -28,40 +30,27 @@ var _ = Describe("Hover", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-		var err error
-		server, err = lsp.New()
-		Expect(err).ToNot(HaveOccurred())
-
-		// Set a mock client (needed for diagnostics)
-		server.SetClient(&mockClient{})
-
-		uri = "file:///test.arc"
+		server, ctx, uri = testutil.SetupTestServer()
 	})
 
 	Describe("Keywords", func() {
 		It("should provide hover for 'func' keyword", func() {
-			content := "func add(x i32, y i32) i32 {\n    return x + y\n}"
-			openDocument(server, ctx, uri, content)
-
-			// Hover over 'func' at position 0:0
-			hover, err := server.Hover(ctx, &protocol.HoverParams{
+			Expect(testutil.OpenDocument(server, ctx, uri, "func add(x i32, y i32) i32 {\n    return x + y\n}")).To(Succeed())
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 2}, // fu|nc
+					Position:     protocol.Position{Line: 0, Character: 2},
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## func"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Declares a function"))
 			Expect(hover.Contents.Kind).To(Equal(protocol.Markdown))
 		})
 
 		It("should provide hover for 'stage' keyword", func() {
 			content := "stage max{} (value f32) f32 { return value }"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -78,7 +67,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'if' keyword", func() {
 			content := "if x > 10 { return 1 }"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -95,7 +84,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'return' keyword", func() {
 			content := "return 42"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -128,7 +117,7 @@ var _ = Describe("Hover", func() {
 			}
 
 			for _, tc := range testCases {
-				openDocument(server, ctx, uri, tc.line)
+				testutil.OpenDocument(server, ctx, uri, tc.line)
 
 				hover, err := server.Hover(ctx, &protocol.HoverParams{
 					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -146,7 +135,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for float types", func() {
 			content := "x f32 := 3.14\ny f64 := 2.71828"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over f32
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -177,7 +166,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for temporal types", func() {
 			content := "t timestamp := now()\nd timespan := 5s"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over timestamp
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -208,7 +197,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for series type", func() {
 			content := "data series f64 := [1.0, 2.0, 3.0]"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -225,7 +214,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for chan type", func() {
 			content := "ch chan f64"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -244,7 +233,7 @@ var _ = Describe("Hover", func() {
 	Describe("Built-in Functions", func() {
 		It("should provide hover for 'len' function", func() {
 			content := "length := len(data)"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -261,7 +250,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'now' function", func() {
 			content := "time := now()"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -286,7 +275,7 @@ var _ = Describe("Hover", func() {
 func main() {
     result := add(1, 2)
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'add' in the function call
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -313,7 +302,7 @@ func main() {
     }
     return max_val
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'max' in the function declaration
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -340,7 +329,7 @@ func main() {
     }
     return u8(0)
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'threshold' in the function declaration
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -364,7 +353,7 @@ func main() {
     y := x + 10
 }
 `
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'x' in the expression
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -388,7 +377,7 @@ func main() {
     return count
 }
 `
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'count' on line 2
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -410,7 +399,7 @@ func main() {
     return x * y
 }
 `
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'x' parameter in function body
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -431,7 +420,7 @@ func main() {
 	Describe("Edge Cases", func() {
 		It("should return nil for unknown words", func() {
 			content := "unknown_identifier"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -446,7 +435,7 @@ func main() {
 
 		It("should return nil for position out of bounds", func() {
 			content := "func test() {}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -473,7 +462,7 @@ func main() {
 
 		It("should handle hovering at end of word", func() {
 			content := "func"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover at last character
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -490,7 +479,7 @@ func main() {
 
 		It("should handle hovering at start of word", func() {
 			content := "func"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover at first character
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -507,7 +496,7 @@ func main() {
 
 		It("should handle empty lines", func() {
 			content := "\n\nfunc test() {}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -536,10 +525,10 @@ func main() {
 			var err error
 			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
 			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&mockClient{})
+			server.SetClient(&testutil.MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Hover over myGlobal
 			hover, err := server.Hover(ctx, &protocol.HoverParams{
@@ -557,75 +546,3 @@ func main() {
 	})
 })
 
-// Helper function to open a document in the server
-func openDocument(server *lsp.Server, ctx context.Context, uri protocol.DocumentURI, content string) {
-	err := server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-		TextDocument: protocol.TextDocumentItem{
-			URI:        uri,
-			LanguageID: "arc",
-			Version:    1,
-			Text:       content,
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-}
-
-// Mock client for testing (satisfies protocol.Client interface)
-type mockClient struct{}
-
-func (m *mockClient) ShowMessage(ctx context.Context, params *protocol.ShowMessageParams) error {
-	return nil
-}
-
-func (m *mockClient) ShowMessageRequest(ctx context.Context, params *protocol.ShowMessageRequestParams) (*protocol.MessageActionItem, error) {
-	return nil, nil
-}
-
-func (m *mockClient) LogMessage(ctx context.Context, params *protocol.LogMessageParams) error {
-	return nil
-}
-
-func (m *mockClient) Telemetry(ctx context.Context, params interface{}) error {
-	return nil
-}
-
-func (m *mockClient) RegisterCapability(ctx context.Context, params *protocol.RegistrationParams) error {
-	return nil
-}
-
-func (m *mockClient) UnregisterCapability(ctx context.Context, params *protocol.UnregistrationParams) error {
-	return nil
-}
-
-func (m *mockClient) WorkspaceFolders(ctx context.Context) ([]protocol.WorkspaceFolder, error) {
-	return nil, nil
-}
-
-func (m *mockClient) Configuration(ctx context.Context, params *protocol.ConfigurationParams) ([]interface{}, error) {
-	return nil, nil
-}
-
-func (m *mockClient) ApplyEdit(ctx context.Context, params *protocol.ApplyWorkspaceEditParams) (bool, error) {
-	return false, nil
-}
-
-func (m *mockClient) PublishDiagnostics(ctx context.Context, params *protocol.PublishDiagnosticsParams) error {
-	// Silently ignore diagnostics in tests
-	return nil
-}
-
-func (m *mockClient) Progress(ctx context.Context, params *protocol.ProgressParams) error {
-	return nil
-}
-
-func (m *mockClient) WorkDoneProgressCreate(ctx context.Context, params *protocol.WorkDoneProgressCreateParams) error {
-	return nil
-}
-
-func (m *mockClient) ShowDocument(ctx context.Context, params *protocol.ShowDocumentParams) (*protocol.ShowDocumentResult, error) {
-	return nil, nil
-}
-
-func (m *mockClient) Request(ctx context.Context, method string, params interface{}) (interface{}, error) {
-	return nil, nil
-}

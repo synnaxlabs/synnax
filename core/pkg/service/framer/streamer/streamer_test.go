@@ -140,7 +140,6 @@ var _ = Describe("Streamer", Ordered, func() {
 				Name:       "Output",
 				DataType:   telem.Float32T,
 				Expression: "return Hobbs + Winston",
-				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -180,7 +179,6 @@ var _ = Describe("Streamer", Ordered, func() {
 				Name:       "Output",
 				DataType:   telem.Float32T,
 				Expression: "return Hobbs + Winston",
-				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -294,7 +292,6 @@ var _ = Describe("Streamer", Ordered, func() {
 				Name:       "sum",
 				DataType:   telem.Float32T,
 				Expression: "return data1 + data2",
-				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 

@@ -160,7 +160,7 @@ var RuntimeError = errors.Newf("runtime error")
 func Open(expr string) (calc *Calculator, err error) {
 	calc = &Calculator{luaState: lua.NewState(luaOptions)}
 
-	// register the get function to access hyphenated variable names
+	// Register the get function to access hyphenated variable names
 	calc.luaState.SetGlobal("get", calc.luaState.NewFunction(func(L *lua.LState) int {
 		name := L.ToString(1)
 		value := L.GetGlobal(name)

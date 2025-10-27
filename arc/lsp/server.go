@@ -12,14 +12,12 @@ package lsp
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	arcdiag "github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -68,12 +66,14 @@ var _ protocol.Server = (*Server)(nil)
 
 // Document represents an open document
 type Document struct {
-	URI      protocol.DocumentURI
-	Version  int32
-	Content  string
-	IR       ir.IR                // Analyzed IR with symbol table
-	Analysis analyzer.Diagnostics // Cached analysis diagnostics
-	Metadata *DocumentMetadata    // Metadata for calculated channels
+	URI     protocol.DocumentURI
+	Version int32
+	Content string
+	// IR with symbol table
+	IR ir.IR
+	// Diagnostics diagnostics
+	Diagnostics diagnostics.Diagnostics
+	Metadata    *DocumentMetadata // Metadata for calculated channels
 }
 
 // New creates a new LSP server
@@ -113,7 +113,20 @@ func (s *Server) SetClient(client protocol.Client) {
 
 // Logger returns the server's logger
 func (s *Server) Logger() *zap.Logger {
+	if s.cfg.L == nil {
+		return zap.NewNop()
+	}
 	return s.cfg.L.Zap()
+}
+
+// getDocument retrieves a document from the server's cache by URI.
+// Returns the document and true if found, or nil and false if not found.
+// This method is thread-safe.
+func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	doc, ok := s.documents[uri]
+	return doc, ok
 }
 
 // Helper functions to convert string slices to protocol types
@@ -216,14 +229,11 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		return
 	}
 
-	var diagnostics []protocol.Diagnostic
+	var pDiagnostics []protocol.Diagnostic
 	if doc.Metadata.IsFunctionBlock {
 		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
 		if err != nil {
-			diagnostics, err = extractParseErrors(err)
-			if err != nil {
-				s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
-			}
+			pDiagnostics = translateDiagnostics(*err)
 		} else {
 			aCtx := acontext.CreateRoot[parser.IBlockContext](
 				ctx,
@@ -232,98 +242,55 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 			)
 			statement.AnalyzeFunctionBody(aCtx)
 			doc.IR = ir.IR{Symbols: aCtx.Scope}
-			doc.Analysis = *aCtx.Diagnostics
-			diagnostics = convertAnalysisDiagnostics(*aCtx.Diagnostics)
+			doc.Diagnostics = *aCtx.Diagnostics
+			pDiagnostics = translateDiagnostics(*aCtx.Diagnostics)
 		}
 	} else {
-		t, err := text.Parse(text.Text{Raw: content})
-		if err != nil {
-			diagnostics, err = extractParseErrors(err)
-			if err != nil {
-				s.cfg.L.Error("error parsing diagnostics", zap.Error(err))
-			}
+		t, diag := text.Parse(text.Text{Raw: content})
+		if diag != nil {
+			pDiagnostics = translateDiagnostics(*diag)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 			doc.IR = analyzedIR
-			doc.Analysis = analysisDiag
-			diagnostics = convertAnalysisDiagnostics(analysisDiag)
+			if analysisDiag != nil {
+				doc.Diagnostics = *analysisDiag
+				pDiagnostics = translateDiagnostics(*analysisDiag)
+			}
 		}
 	}
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
-		Diagnostics: diagnostics,
+		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
-			"failed to publish diagnostics",
+			"failed to publish pDiagnostics",
 			zap.Error(err),
 			zap.String("uri", string(uri)),
 		)
 	}
 }
 
-// extractParseErrors extracts LSP diagnostics from Arc parser errors
-func extractParseErrors(err error) ([]protocol.Diagnostic, error) {
-	var diagnostics []protocol.Diagnostic
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "parse errors:") {
-		return diagnostics, nil
+func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
+	var out protocol.DiagnosticSeverity
+	switch in {
+	case diagnostics.Warning:
+		out = protocol.DiagnosticSeverityWarning
+	case diagnostics.Info:
+		out = protocol.DiagnosticSeverityInformation
+	case diagnostics.Hint:
+		out = protocol.DiagnosticSeverityHint
+	case diagnostics.Error:
+		out = protocol.DiagnosticSeverityError
 	}
-	parts := strings.Split(errMsg, "[")
-	for i := 1; i < len(parts); i++ {
-		part := strings.TrimSuffix(parts[i], "]")
-		if !strings.HasPrefix(part, "line ") {
-			continue
-		}
-		var line, col int
-		var msg string
-		if _, err := fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg); err != nil {
-			return nil, err
-		}
-		msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
-		if msgStart >= 0 {
-			msg = part[msgStart+len(fmt.Sprintf("%d:%d ", line, col)):]
-		}
-		diagnostics = append(diagnostics, protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(line - 1),
-					Character: uint32(col),
-				},
-				End: protocol.Position{
-					Line:      uint32(line - 1),
-					Character: uint32(col + 1),
-				},
-			},
-			Severity: protocol.DiagnosticSeverityError,
-			Source:   "arc-parser",
-			Message:  msg,
-		})
-	}
-
-	return diagnostics, nil
+	return out
 }
 
-func severity(s arcdiag.Severity) protocol.DiagnosticSeverity {
-	var severity protocol.DiagnosticSeverity
-	switch s {
-	case arcdiag.Warning:
-		severity = protocol.DiagnosticSeverityWarning
-	case arcdiag.Info:
-		severity = protocol.DiagnosticSeverityInformation
-	case arcdiag.Hint:
-		severity = protocol.DiagnosticSeverityHint
-	case arcdiag.Error:
-		severity = protocol.DiagnosticSeverityError
-	}
-	return severity
-}
-
-// convertAnalysisDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
-func convertAnalysisDiagnostics(analysisDiag analyzer.Diagnostics) []protocol.Diagnostic {
-	diagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
+// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
+func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
+	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
-		diagnostics = append(diagnostics, protocol.Diagnostic{
+		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
 					Line:      uint32(diag.Line - 1),
@@ -339,5 +306,5 @@ func convertAnalysisDiagnostics(analysisDiag analyzer.Diagnostics) []protocol.Di
 			Message:  diag.Message,
 		})
 	}
-	return diagnostics
+	return oDiagnostics
 }

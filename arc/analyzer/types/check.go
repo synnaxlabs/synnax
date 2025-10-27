@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package types provides type inference and checking for Arc language analysis.
 package types
 
 import (
@@ -16,13 +17,15 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Check verifies type compatibility between t1 and t2, adding constraints for type variables
+// or recursively checking wrapped types for channels and series.
 func Check(
 	cs *constraints.System,
 	t1, t2 types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
 ) error {
-	if t1.Kind == types.KindTypeVariable || t2.Kind == types.KindTypeVariable {
+	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		cs.AddEquality(t1, t2, source, reason)
 		return nil
 	}

@@ -15,8 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -29,18 +31,15 @@ var _ = Describe("Completion", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		var err error
-		server, err = lsp.New()
-		Expect(err).ToNot(HaveOccurred())
-
-		server.SetClient(&mockClient{})
+		server = MustSucceed(lsp.New())
+		server.SetClient(&testutil.MockClient{})
 		uri = "file:///test.arc"
 	})
 
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func() {
 			content := "func test() {\n    i\n}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "i|" - should match i8, i16, i32, i64, if
 			completions, err := server.Completion(ctx, &protocol.CompletionParams{
@@ -78,11 +77,11 @@ var _ = Describe("Completion", func() {
 			var err error
 			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
 			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&mockClient{})
+			server.SetClient(&testutil.MockClient{})
 
 			// Use the same pattern as hover test - valid Arc code
 			content := "func test() i32 {\n    return myGlobal\n}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
@@ -129,10 +128,10 @@ var _ = Describe("Completion", func() {
 			var err error
 			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
 			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&mockClient{})
+			server.SetClient(&testutil.MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "xyz|"
 			completions, err := server.Completion(ctx, &protocol.CompletionParams{
