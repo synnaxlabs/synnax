@@ -34,11 +34,11 @@ var (
 			},
 			Inputs: &types.Params{
 				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.Variable("T", nil)},
 			},
 			Outputs: &types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.NewTypeVariable("T", nil)},
+				Values: []types.Type{types.Variable("T", nil)},
 			},
 		}),
 	}

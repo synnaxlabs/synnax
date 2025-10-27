@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package statement implements semantic analysis for Arc statements including variable
+// declarations, assignments, conditionals, and channel operations.
 package statement
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// AnalyzeBlock validates a block of statements in a new scope.
 func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 	blockScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
@@ -40,6 +43,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 	return true
 }
 
+// Analyze validates a statement and dispatches to specialized handlers based on statement type.
 func Analyze(ctx context.Context[parser.IStatementContext]) bool {
 	switch {
 	case ctx.AST.VariableDeclaration() != nil:
@@ -83,7 +87,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 			exprType := atypes.InferFromExpression(context.Child(ctx, expression))
 			if exprType.IsValid() && varType.IsValid() {
 				// If either type is a type variable, add a constraint instead of checking directly
-				if exprType.Kind == types.KindTypeVariable || varType.Kind == types.KindTypeVariable {
+				if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 					if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
 						ctx.Diagnostics.AddError(err, ctx.AST)
 						return types.Type{}, false
@@ -330,7 +334,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
 			// If either type is a type variable, add a constraint instead of checking directly
-			if actualReturnType.Kind == types.KindTypeVariable || expectedReturnType.Kind == types.KindTypeVariable {
+			if actualReturnType.Kind == types.KindVariable || expectedReturnType.Kind == types.KindVariable {
 				if err := atypes.Check(ctx.Constraints, expectedReturnType, actualReturnType, ctx.AST, "return type compatibility"); err != nil {
 					ctx.Diagnostics.AddError(err, ctx.AST)
 					return false
@@ -441,7 +445,7 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 	if exprType.IsValid() {
 		chanValueType := channelSym.Type.Unwrap()
 		// If either type is a type variable, add a constraint instead of checking directly
-		if exprType.Kind == types.KindTypeVariable || chanValueType.Kind == types.KindTypeVariable {
+		if exprType.Kind == types.KindVariable || chanValueType.Kind == types.KindVariable {
 			if err := atypes.Check(ctx.Constraints, chanValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
@@ -538,7 +542,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	}
 	varType := varScope.Type
 	// If either type is a type variable, add a constraint instead of checking directly
-	if exprType.Kind == types.KindTypeVariable || varType.Kind == types.KindTypeVariable {
+	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
@@ -714,7 +718,7 @@ func unifyReturnTypes(
 	if len(returnTypes) == 1 {
 		t := returnTypes[0]
 		// If it's a type variable (literal), resolve it to a concrete default type
-		if t.Kind == types.KindTypeVariable {
+		if t.Kind == types.KindVariable {
 			if t.Constraint != nil && t.Constraint.Kind == types.KindIntegerConstant {
 				return types.I64(), nil
 			}
@@ -732,7 +736,7 @@ func unifyReturnTypes(
 	var concreteTypes []types.Type
 	var typeVariables []types.Type
 	for _, t := range returnTypes {
-		if t.Kind == types.KindTypeVariable {
+		if t.Kind == types.KindVariable {
 			typeVariables = append(typeVariables, t)
 		} else {
 			concreteTypes = append(concreteTypes, t)
@@ -760,7 +764,7 @@ func unifyReturnTypes(
 	// Replace type variables with types compatible with the concrete types
 	resolvedTypes := make([]types.Type, 0, len(returnTypes))
 	for _, t := range returnTypes {
-		if t.Kind == types.KindTypeVariable {
+		if t.Kind == types.KindVariable {
 			// Infer appropriate type based on concrete types present
 			resolved := resolveTypeVariableWithContext(t, concreteTypes)
 			resolvedTypes = append(resolvedTypes, resolved)
@@ -896,7 +900,7 @@ func getTypeBits(t types.Type) int {
 }
 
 func resolveTypeVariableWithContext(tv types.Type, concreteTypes []types.Type) types.Type {
-	if tv.Kind != types.KindTypeVariable {
+	if tv.Kind != types.KindVariable {
 		return tv
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindIntegerConstant {

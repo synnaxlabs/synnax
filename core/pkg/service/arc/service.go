@@ -157,7 +157,7 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 	)
 	dataType, ok := statement.AnalyzeFunctionBody(aCtx)
 	if !ok {
-		return telem.UnknownT, aCtx.Diagnostics.Error()
+		return telem.UnknownT, aCtx.Diagnostics
 	}
 	return types.ToTelem(dataType), nil
 }

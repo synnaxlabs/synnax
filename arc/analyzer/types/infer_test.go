@@ -14,7 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -85,7 +87,7 @@ var _ = Describe("Type Inference", func() {
 			inferredType := atypes.InferFromExpression(ctx)
 
 			// Integer literals infer as type variables with integer constraint
-			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Kind).To(Equal(types.KindVariable))
 			Expect(inferredType.Constraint).ToNot(BeNil())
 			Expect(inferredType.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 		})
@@ -96,7 +98,7 @@ var _ = Describe("Type Inference", func() {
 			inferredType := atypes.InferFromExpression(ctx)
 
 			// Float literals infer as type variables with float constraint
-			Expect(inferredType.Kind).To(Equal(types.KindTypeVariable))
+			Expect(inferredType.Kind).To(Equal(types.KindVariable))
 			Expect(inferredType.Constraint).ToNot(BeNil())
 			Expect(inferredType.Constraint.Kind).To(Equal(types.KindFloatConstant))
 		})
@@ -192,6 +194,46 @@ var _ = Describe("Type Inference", func() {
 		It("should reject incompatible types", func() {
 			Expect(atypes.Compatible(types.F32(), types.F64())).To(BeFalse())
 		})
+
+		It("should reject type variables", func() {
+			tv := types.Variable("T", nil)
+			Expect(atypes.Compatible(tv, types.F32())).To(BeFalse())
+			Expect(atypes.Compatible(types.F32(), tv)).To(BeFalse())
+			Expect(atypes.Compatible(tv, tv)).To(BeFalse())
+		})
+
+		It("should reject channel vs series mismatch", func() {
+			Expect(atypes.Compatible(types.Chan(types.F32()), types.Series(types.F32()))).To(BeFalse())
+			Expect(atypes.Compatible(types.Series(types.I32()), types.Chan(types.I32()))).To(BeFalse())
+		})
+
+		It("should handle series compatibility", func() {
+			Expect(atypes.Compatible(types.Series(types.F32()), types.Series(types.F32()))).To(BeTrue())
+			Expect(atypes.Compatible(types.Series(types.I64()), types.I64())).To(BeTrue())
+			Expect(atypes.Compatible(types.I64(), types.Series(types.I64()))).To(BeTrue())
+		})
+
+		It("should reject nested channels of different depth", func() {
+			// chan<chan<i32>> and chan<i32> are fundamentally different types
+			Expect(atypes.Compatible(types.Chan(types.Chan(types.I32())), types.Chan(types.I32()))).To(BeFalse())
+			Expect(atypes.Compatible(types.Chan(types.I32()), types.Chan(types.Chan(types.I32())))).To(BeFalse())
+		})
+
+		It("should handle nested channels of same depth", func() {
+			// chan<chan<i32>> should be compatible with chan<chan<i32>>
+			Expect(atypes.Compatible(types.Chan(types.Chan(types.I32())), types.Chan(types.Chan(types.I32())))).To(BeTrue())
+		})
+
+		It("should reject invalid types", func() {
+			invalid := types.Type{}
+			Expect(atypes.Compatible(invalid, types.F32())).To(BeFalse())
+			Expect(atypes.Compatible(types.F32(), invalid)).To(BeFalse())
+			Expect(atypes.Compatible(invalid, invalid)).To(BeFalse())
+		})
+
+		It("should reject nested series vs base type", func() {
+			Expect(atypes.Compatible(types.Series(types.Series(types.F32())), types.F32())).To(BeFalse())
+		})
 	})
 
 	Context("Literal assignment compatibility", func() {
@@ -206,6 +248,125 @@ var _ = Describe("Type Inference", func() {
 		It("should allow numeric to float", func() {
 			Expect(atypes.LiteralAssignmentCompatible(types.F64(), types.I64())).To(BeTrue())
 			Expect(atypes.LiteralAssignmentCompatible(types.F32(), types.F64())).To(BeTrue())
+		})
+	})
+
+	Context("Check function", func() {
+		var cs *constraints.System
+
+		BeforeEach(func() {
+			cs = constraints.New()
+		})
+
+		It("should add constraint for type variables", func() {
+			tv := types.Variable("T", nil)
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, tv, types.I32(), ast, "test")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs.Constraints).ToNot(BeEmpty())
+		})
+
+		It("should recursively check channel types", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F32()), ast, "test")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should error on channel type mismatch", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.Chan(types.F32()), types.F32(), ast, "test")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+		})
+
+		It("should recursively check series types", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.Series(types.I64()), types.Series(types.I64()), ast, "test")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should error on series type mismatch", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.Series(types.I64()), types.I64(), ast, "test")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+		})
+
+		It("should check concrete types for equality", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.F32(), types.F32(), ast, "test")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should error on concrete type mismatch", func() {
+			ast := testutil.NewMockAST(1)
+			err := atypes.Check(cs, types.F32(), types.F64(), ast, "test")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+		})
+	})
+
+	Context("InferFromTypeContext", func() {
+		It("should return zero type for nil context", func() {
+			t, err := atypes.InferFromTypeContext(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(types.Type{}))
+		})
+
+		It("should infer types from variable declarations", func() {
+			stmt := MustSucceed(parser.ParseStatement("x i32 := 5"))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindI32))
+		})
+
+		It("should infer f64 type from declaration", func() {
+			stmt := MustSucceed(parser.ParseStatement("y f64 := 3.14"))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindF64))
+		})
+
+		It("should infer string type", func() {
+			stmt := MustSucceed(parser.ParseStatement("s string := \"hello\""))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindString))
+		})
+
+		It("should infer channel types", func() {
+			stmt := MustSucceed(parser.ParseStatement("c chan f32 := temp_sensor"))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindChan))
+			Expect(t.Unwrap().Kind).To(Equal(types.KindF32))
+		})
+
+		It("should infer series types", func() {
+			stmt := MustSucceed(parser.ParseStatement("s series i64 := data"))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindSeries))
+			Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+		})
+
+		It("should infer temporal types", func() {
+			stmt := MustSucceed(parser.ParseStatement("t timestamp := 0"))
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			typeCtx := varDecl.Type_()
+			t, err := atypes.InferFromTypeContext(typeCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Kind).To(Equal(types.KindTimeStamp))
 		})
 	})
 })

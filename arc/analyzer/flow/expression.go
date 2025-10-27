@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeExpression converts an inline expression into a synthetic fn
+// analyzeExpression converts an inline expression into a syntenic function that
+// can be used as a node in a flow graph.
 func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})

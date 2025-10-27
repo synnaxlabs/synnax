@@ -24,8 +24,8 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 			Inputs: &types.Params{
 				Keys: []string{ir.LHSInputParam, ir.RHSInputParam},
 				Values: []types.Type{
-					types.NewTypeVariable("T", &constraint),
-					types.NewTypeVariable("T", &constraint),
+					types.Variable("T", &constraint),
+					types.Variable("T", &constraint),
 				},
 			},
 			Outputs: &outputs,
@@ -50,7 +50,7 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 		types.Params{
 			Keys: []string{ir.DefaultOutputParam},
 			Values: []types.Type{
-				types.NewTypeVariable("T", &constraint),
+				types.Variable("T", &constraint),
 			},
 		},
 	)

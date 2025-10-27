@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:generate go run gen/main.go
+package transport_test
 
-// Package bindings provides the runtime implementation for Arc WASM functions.
-package bindings
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestTransport(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Transport Suite")
+}
