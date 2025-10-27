@@ -302,7 +302,7 @@ func (c *Calculator) Next(
 		if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
 			c.timeRange.Start = s.TimeRange.Start
 		}
-		if c.timeRange.End == 0 || s.TimeRange.End > s.TimeRange.End {
+		if c.timeRange.End == 0 || s.TimeRange.End > c.timeRange.End {
 			c.timeRange.End = s.TimeRange.End
 		}
 	}
