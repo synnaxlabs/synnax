@@ -129,7 +129,7 @@ func bindParams(
 // validateEdge checks type compatibility between an edge's source and target.
 // Returns true if validation succeeds, false if an error was added to diagnostics.
 func validateEdge(
-	ctx *acontext.Context[antlr.ParserRuleContext],
+	ctx acontext.Context[antlr.ParserRuleContext],
 	edge Edge,
 	nodes Nodes,
 	freshFuncTypes map[string]types.Type,
@@ -341,8 +341,8 @@ func Analyze(
 	}
 
 	// Step 8: Build Stratified Execution Plan
-	strata, ok := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
-	if !ok {
+	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
+	if err != nil {
 		return ir.IR{}, ctx.Diagnostics
 	}
 
