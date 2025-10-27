@@ -826,6 +826,7 @@ class AnalogReadTaskConfig(BaseModel):
     stream_rate: conint(ge=0, le=50000)
     channels: list[AIChan]
     data_saving: bool
+    auto_start: bool = False
 
     @field_validator("stream_rate")
     def validate_stream_rate(cls, v, values):
@@ -850,6 +851,7 @@ class DigitalWriteConfig(BaseModel):
     channels: list[DOChan]
     state_rate: conint(ge=0, le=50000)
     data_saving: bool
+    auto_start: bool = False
 
 
 class DigitalReadConfig(BaseModel):
@@ -857,6 +859,7 @@ class DigitalReadConfig(BaseModel):
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
     data_saving: bool
+    auto_start: bool = False
     channels: list[DIChan]
 
 
@@ -897,6 +900,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
+        auto_start: bool = False,
         channels: list[DOChan] = None,
     ):
         if internal is not None:
@@ -908,6 +912,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             device=device,
             state_rate=state_rate,
             data_saving=data_saving,
+            auto_start=auto_start,
             channels=channels,
         )
 
@@ -944,6 +949,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
+        auto_start: bool = False,
         channels: list[DIChan] = None,
     ) -> None:
         if internal is not None:
@@ -956,6 +962,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=data_saving,
+            auto_start=auto_start,
             channels=channels,
         )
 
@@ -992,6 +999,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
+        auto_start: bool = False,
         channels: list[AIChan] = None,
     ) -> None:
         if internal is not None:
@@ -1003,6 +1011,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=data_saving,
+            auto_start=auto_start,
             channels=channels,
         )
         # Set the device provided to the task for any channels that don't have a device
