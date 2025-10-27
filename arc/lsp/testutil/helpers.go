@@ -13,18 +13,17 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/lsp"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
 // SetupTestServer creates a new LSP server configured for testing with a MockClient.
 // Returns the server, a background context, and a default test URI.
-func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, context.Context, protocol.DocumentURI) {
-	ctx := context.Background()
-	server := MustSucceed(lsp.New(cfgs...))
-	server.SetClient(&MockClient{})
+func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
+	server := testutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
-	return server, ctx, uri
+	server.SetClient(&MockClient{})
+	return server, uri
 }
 
 // OpenDocument is a helper to open a document in the LSP server.
