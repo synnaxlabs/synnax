@@ -54,6 +54,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Signals:  dist.Signals,
 		}))
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),

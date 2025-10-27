@@ -46,6 +46,7 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
+	DB *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
@@ -88,6 +89,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "state_codec", c.StateCodec)
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "arc", c.Arc)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -100,6 +102,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -174,6 +177,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.entries = make(map[channel.Key]*entry)
+
+	if err = s.migrateChannels(ctx); err != nil {
+		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
+	}
 
 	if *cfg.EnableLegacyCalculations {
 		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{

@@ -11,12 +11,8 @@ package calculation
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,7 +23,6 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -74,124 +69,6 @@ func (c CalculatorConfig) Validate() error {
 	return v.Error()
 }
 
-func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) {
-	g := arc.Graph{
-		Functions: ir.Functions{
-			{
-				Key: "calculation",
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(cfg.Channel.DataType)},
-				},
-				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
-			},
-		},
-		Nodes: []graph.Node{},
-	}
-	preProcessed, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.Resolver))
-	if err != nil {
-		return arc.Module{}, err
-	}
-	calcFn := preProcessed.Functions[0]
-	g2 := arc.Graph{
-		Functions: ir.Functions{
-			ir.Function{
-				Key:     "calculation",
-				Outputs: calcFn.Outputs,
-				Body:    calcFn.Body,
-			},
-		},
-		Nodes: []graph.Node{
-			{
-				Key:  "calculation",
-				Type: "calculation",
-			},
-			{
-				Key:  "write",
-				Type: "write",
-				Config: map[string]any{
-					"channel": cfg.Channel.Key(),
-				},
-			},
-		},
-	}
-	cfg.Channel.Operations = lo.Filter(cfg.Channel.Operations, func(item channel.Operation, _ int) bool {
-		return item.Type != "none"
-	})
-	if len(cfg.Channel.Operations) == 0 {
-		g2.Edges = []graph.Edge{
-			{
-				Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
-			},
-		}
-	} else {
-		for i, o := range cfg.Channel.Operations {
-			key := fmt.Sprintf("op_%d", i)
-			nextKey := fmt.Sprintf("op_%d", i)
-			g2.Nodes = append(g2.Nodes, graph.Node{
-				Key:  fmt.Sprintf("op_%d", i),
-				Type: o.Type,
-				Config: map[string]any{
-					"duration": o.Duration,
-				},
-			})
-			if o.ResetChannel != 0 {
-				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
-				g2.Nodes = append(g2.Nodes, graph.Node{
-					Key:  resetKey,
-					Type: "on",
-					Config: map[string]any{
-						"channel": o.ResetChannel,
-					},
-				})
-				g2.Edges = append(g2.Edges, graph.Edge{
-					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: key, Param: "reset"},
-				})
-			}
-			if i == 0 {
-				g2.Edges = append(g2.Edges, graph.Edge{
-					Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
-				})
-			}
-			if i == len(cfg.Channel.Operations)-1 {
-				g2.Edges = append(g2.Edges, graph.Edge{
-					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
-				})
-			} else {
-				g2.Edges = append(g2.Edges, graph.Edge{
-					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
-				})
-			}
-		}
-	}
-	for k, v := range calcFn.Channels.Read {
-		sym, err := cfg.Resolver.Resolve(ctx, v)
-		if err != nil {
-			return arc.Module{}, err
-		}
-		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
-		g2.Nodes = append(g2.Nodes, graph.Node{
-			Key:    sym.Name,
-			Type:   "on",
-			Config: map[string]any{"channel": k},
-		})
-		g2.Edges = append(g2.Edges, graph.Edge{
-			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
-			Target: ir.Handle{Node: "calculation", Param: sym.Name},
-		})
-	}
-	postProcessed, err := arc.CompileGraph(ctx, g2, arc.WithResolver(cfg.Resolver))
-	if err != nil {
-		return arc.Module{}, err
-	}
-	return postProcessed, nil
-}
-
 // OpenCalculator opens a new calculator that evaluates the Expression of the provided
 // channel. The requiredChannels provided must include ALL and ONLY the channels
 // corresponding to the keys specified in ch.Requires.
@@ -205,7 +82,7 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	module, err := buildModule(ctx, cfg)
+	module, err := compile(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

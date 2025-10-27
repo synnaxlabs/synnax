@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -50,6 +51,7 @@ type (
 
 type Config struct {
 	alamos.Instrumentation
+	DB *gorp.DB
 	//  Distribution layer framer service.
 	Framer                   *framer.Service
 	Channel                  channel.Service
@@ -126,6 +128,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:          cfg.Child("calculated"),
+		DB:                       cfg.DB,
 		Channel:                  cfg.Channel,
 		Framer:                   cfg.Framer,
 		Arc:                      cfg.Arc,

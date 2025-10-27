@@ -239,6 +239,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					if c.IsCalculated() && ic.IsCalculated() {
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
+						c.Requires = ic.Requires
 					}
 					return c, nil
 				}).

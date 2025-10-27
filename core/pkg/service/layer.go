@@ -261,6 +261,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.Config{
+			DB:                       cfg.Distribution.DB,
 			Instrumentation:          cfg.Child("framer"),
 			Framer:                   cfg.Distribution.Framer,
 			Channel:                  cfg.Distribution.Channel,
