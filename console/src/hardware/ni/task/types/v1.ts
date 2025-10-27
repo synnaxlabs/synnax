@@ -15,25 +15,29 @@ import * as v0 from "@/hardware/ni/task/types/v0";
 
 type PortToIndexMap = Map<number, number>;
 
-const validateAnalogPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
-  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-  channels.forEach(({ device, port }, i) => {
-    if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
-    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel on the same device`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const createPortValidator =
+  (portTypeLabel: string) =>
+  ({
+    value: channels,
+    issues,
+  }: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
+    const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
+    channels.forEach(({ device, port }, i) => {
+      if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
+      const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
+      if (!portToIndexMap.has(port)) {
+        portToIndexMap.set(port, i);
+        return;
+      }
+      const index = portToIndexMap.get(port) as number;
+      const code = "custom";
+      const message = `${portTypeLabel} port ${port} has already been used on another channel on the same device`;
+      issues.push({ path: [index, "port"], code, message, input: channels });
+      issues.push({ path: [i, "port"], code, message, input: channels });
+    });
+  };
+
+const validateAnalogPorts = createPortValidator("");
 
 const aiChanExtensionShape = { device: Common.Device.keyZ };
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
@@ -241,9 +245,86 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
 };
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
+// ==================== Counter Input Channels ====================
+
+const ciChanExtensionShape = { device: Common.Device.keyZ };
+interface CIChanExtension extends z.infer<z.ZodObject<typeof ciChanExtensionShape>> {}
+const ZERO_CI_CHAN_EXTENSION: CIChanExtension = { device: "" };
+
+const ciFrequencyChanZ = v0.ciFrequencyChanZ.extend(ciChanExtensionShape);
+interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
+const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
+  ...v0.ZERO_CI_FREQUENCY_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciEdgeCountChanZ = v0.ciEdgeCountChanZ.extend(ciChanExtensionShape);
+interface CIEdgeCountChan extends z.infer<typeof ciEdgeCountChanZ> {}
+const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
+  ...v0.ZERO_CI_EDGE_COUNT_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciPeriodChanZ = v0.ciPeriodChanZ.extend(ciChanExtensionShape);
+interface CIPeriodChan extends z.infer<typeof ciPeriodChanZ> {}
+const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
+  ...v0.ZERO_CI_PERIOD_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciPulseWidthChanZ = v0.ciPulseWidthChanZ.extend(ciChanExtensionShape);
+interface CIPulseWidthChan extends z.infer<typeof ciPulseWidthChanZ> {}
+const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
+  ...v0.ZERO_CI_PULSE_WIDTH_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciSemiPeriodChanZ = v0.ciSemiPeriodChanZ.extend(ciChanExtensionShape);
+interface CISemiPeriodChan extends z.infer<typeof ciSemiPeriodChanZ> {}
+const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
+  ...v0.ZERO_CI_SEMI_PERIOD_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciTwoEdgeSepChanZ = v0.ciTwoEdgeSepChanZ.extend(ciChanExtensionShape);
+interface CITwoEdgeSepChan extends z.infer<typeof ciTwoEdgeSepChanZ> {}
+const ZERO_CI_TWO_EDGE_SEP_CHAN: CITwoEdgeSepChan = {
+  ...v0.ZERO_CI_TWO_EDGE_SEP_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciChannelZ = z.union([
+  ciFrequencyChanZ,
+  ciEdgeCountChanZ,
+  ciPeriodChanZ,
+  ciPulseWidthChanZ,
+  ciSemiPeriodChanZ,
+  ciTwoEdgeSepChanZ,
+]);
+export type CIChannel = z.infer<typeof ciChannelZ>;
+
+export const CI_CHANNEL_SCHEMAS: Record<v0.CIChannelType, z.ZodType<CIChannel>> = {
+  [v0.CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,
+  [v0.CI_EDGE_COUNT_CHAN_TYPE]: ciEdgeCountChanZ,
+  [v0.CI_PERIOD_CHAN_TYPE]: ciPeriodChanZ,
+  [v0.CI_PULSE_WIDTH_CHAN_TYPE]: ciPulseWidthChanZ,
+  [v0.CI_SEMI_PERIOD_CHAN_TYPE]: ciSemiPeriodChanZ,
+  [v0.CI_TWO_EDGE_SEP_CHAN_TYPE]: ciTwoEdgeSepChanZ,
+};
+
+export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
+  [v0.CI_FREQUENCY_CHAN_TYPE]: ZERO_CI_FREQUENCY_CHAN,
+  [v0.CI_EDGE_COUNT_CHAN_TYPE]: ZERO_CI_EDGE_COUNT_CHAN,
+  [v0.CI_PERIOD_CHAN_TYPE]: ZERO_CI_PERIOD_CHAN,
+  [v0.CI_PULSE_WIDTH_CHAN_TYPE]: ZERO_CI_PULSE_WIDTH_CHAN,
+  [v0.CI_SEMI_PERIOD_CHAN_TYPE]: ZERO_CI_SEMI_PERIOD_CHAN,
+  [v0.CI_TWO_EDGE_SEP_CHAN_TYPE]: ZERO_CI_TWO_EDGE_SEP_CHAN,
+};
+export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
+
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | v0.COChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
@@ -287,3 +368,52 @@ export interface AnalogReadTask
   > {}
 export interface NewAnalogReadTask
   extends task.New<typeof v0.analogReadTypeZ, typeof analogReadConfigZ> {}
+
+// ==================== Counter Read Task ====================
+
+const validateCounterPorts = createPortValidator("Counter");
+
+const baseCounterReadConfigZ = v0.counterReadConfigZ
+  .omit({ channels: true, device: true })
+  .extend({
+    channels: z
+      .array(ciChannelZ)
+      .check(Common.Task.validateReadChannels)
+      .check(validateCounterPorts),
+  })
+  .check(Common.Task.validateStreamRate);
+export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
+export const counterReadConfigZ = z.union([
+  v0.counterReadConfigZ.transform<CounterReadConfig>(
+    ({ channels, device, ...rest }) => ({
+      ...rest,
+      channels: channels.map((c) => ({ ...c, device })),
+    }),
+  ),
+  baseCounterReadConfigZ,
+]);
+const { device: _counterDevice, ...counterRest } = v0.ZERO_COUNTER_READ_CONFIG;
+const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+  ...counterRest,
+  channels: [],
+};
+
+export interface CounterReadPayload
+  extends task.Payload<
+    typeof v0.counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof v0.counterReadStatusDataZ
+  > {}
+export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
+  ...v0.ZERO_COUNTER_READ_PAYLOAD,
+  config: ZERO_COUNTER_READ_CONFIG,
+};
+
+export interface CounterReadTask
+  extends task.Task<
+    typeof v0.counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof v0.counterReadStatusDataZ
+  > {}
+export interface NewCounterReadTask
+  extends task.New<typeof v0.counterReadTypeZ, typeof counterReadConfigZ> {}

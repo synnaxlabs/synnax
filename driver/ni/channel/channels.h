@@ -82,6 +82,33 @@ static int32_t get_rosette_meas_type(const std::string &s) {
     return DAQmx_Val_PrincipalStrain1;
 }
 
+static int32_t get_ci_edge(const std::string &s) {
+    if (s == "Rising") return DAQmx_Val_Rising;
+    if (s == "Falling") return DAQmx_Val_Falling;
+    return DAQmx_Val_Rising;
+}
+
+static int32_t get_ci_meas_method(const std::string &s) {
+    if (s == "LowFreq1Ctr") return DAQmx_Val_LowFreq1Ctr;
+    if (s == "HighFreq2Ctr") return DAQmx_Val_HighFreq2Ctr;
+    if (s == "LargeRng2Ctr") return DAQmx_Val_LargeRng2Ctr;
+    if (s == "DynamicAvg") return DAQmx_Val_DynAvg;
+    return DAQmx_Val_LowFreq1Ctr;
+}
+
+static int32_t get_idle_state(const std::string &s) {
+    if (s == "High") return DAQmx_Val_High;
+    if (s == "Low") return DAQmx_Val_Low;
+    return DAQmx_Val_Low;
+}
+
+static int32_t get_ci_count_direction(const std::string &s) {
+    if (s == "CountUp") return DAQmx_Val_CountUp;
+    if (s == "CountDown") return DAQmx_Val_CountDown;
+    if (s == "ExternallyControlled") return DAQmx_Val_ExtControlled;
+    return DAQmx_Val_CountUp;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -356,8 +383,8 @@ struct Analog : virtual Base {
 
     explicit Analog(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
-        min_val(cfg.optional<float>("min_val", 0)),
-        max_val(cfg.optional<float>("max_val", 0)),
+        min_val(cfg.optional<double>("min_val", 0)),
+        max_val(cfg.optional<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 };
 
@@ -413,6 +440,66 @@ struct AICustomScale : AI, AnalogCustomScale {
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
+};
+
+/// @brief base class for a counter channel (CI, CO)
+struct Counter : virtual Base {
+    const int port;
+    const double min_val;
+    const double max_val;
+    int32_t units;
+
+    explicit Counter(xjson::Parser &cfg):
+        port(cfg.required<int>("port")),
+        min_val(cfg.optional<double>("min_val", 0)),
+        max_val(cfg.optional<double>("max_val", 0)),
+        units(parse_units(cfg, "units")) {}
+
+    [[nodiscard]] std::string loc() const {
+        return this->dev_loc + "/ctr" + std::to_string(this->port);
+    }
+};
+
+/// @brief base class for counter channels that can have a custom scale applied.
+struct CounterCustomScale : virtual Counter {
+    const std::unique_ptr<Scale> scale;
+
+    explicit CounterCustomScale(xjson::Parser &cfg):
+        Counter(cfg), scale(parse_scale(cfg, "custom_scale")) {
+        if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
+    }
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        auto [scale_key, err] = this->scale->apply(dmx);
+        if (err) return err;
+        return this
+            ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
+    }
+
+    virtual xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const = 0;
+};
+
+/// @brief base class for counter input channels.
+struct CI : virtual Counter, Input {
+    explicit CI(xjson::Parser &cfg): Counter(cfg), Input(cfg) {}
+};
+
+/// @brief base class for counter input channels that can have a custom scale applied.
+struct CICustomScale : CI, CounterCustomScale {
+    explicit CICustomScale(xjson::Parser &cfg):
+        Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
+};
+
+/// @brief base class for counter output channels.
+struct CO : virtual Counter, Output {
+    explicit CO(xjson::Parser &cfg): Counter(cfg), Output(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -1107,6 +1194,255 @@ struct AIFrequencyVoltage final : AICustomScale {
     }
 };
 
+/// @brief Counter input frequency measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecif
+/// reqchan.html
+struct CIFrequency final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIFrequency(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("edge"))),
+        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
+        meas_time(cfg.optional<double>("meas_time", 0.001)),
+        divisor(cfg.optional<uint32_t>("divisor", 4)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIFreqChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input edge count channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc
+/// han.html
+struct CIEdgeCount final : CI {
+    const int32_t edge;
+    const int32_t count_direction;
+    const uint32_t initial_count;
+    const std::string terminal;
+
+    explicit CIEdgeCount(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CI(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("active_edge"))),
+        count_direction(
+            get_ci_count_direction(cfg.required<std::string>("count_direction"))
+        ),
+        initial_count(cfg.optional<uint32_t>("initial_count", 0)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateCICountEdgesChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->edge,
+            this->initial_count,
+            this->count_direction
+        );
+    }
+};
+
+/// @brief Counter input period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch
+/// an.html
+struct CIPeriod final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIPeriod(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
+        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
+        meas_time(cfg.optional<double>("meas_time", 0.001)),
+        divisor(cfg.optional<uint32_t>("divisor", 4)),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input pulse width measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html
+struct CIPulseWidth final : CICustomScale {
+    const int32_t edge;
+    const std::string terminal;
+
+    explicit CIPulseWidth(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIPulseWidthChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input semi period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+struct CISemiPeriod final : CICustomScale {
+    explicit CISemiPeriod(xjson::Parser &cfg):
+        Base(cfg), Counter(cfg), CICustomScale(cfg) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCISemiPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input two edge separation measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
+/// dgeseparationchan.html
+struct CITwoEdgeSep final : CICustomScale {
+    const int32_t first_edge;
+    const int32_t second_edge;
+
+    explicit CITwoEdgeSep(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        first_edge(get_ci_edge(cfg.required<std::string>("first_edge"))),
+        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCITwoEdgeSepChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->first_edge,
+            this->second_edge,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter output pulse generation channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco
+/// pulsechantime.html
+struct COPulseOutput final : CO {
+    const int32_t idle_state;
+    const double initial_delay;
+    const double high_time;
+    const double low_time;
+
+    explicit COPulseOutput(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CO(cfg),
+        idle_state(get_idle_state(cfg.required<std::string>("idle_state"))),
+        initial_delay(cfg.optional<double>("initial_delay", 0.0)),
+        high_time(cfg.optional<double>("high_time", 0.01)),
+        low_time(cfg.optional<double>("low_time", 0.01)) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateCOPulseChanTime(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->units,
+            this->idle_state,
+            this->initial_delay,
+            this->low_time,
+            this->high_time
+        );
+    }
+};
+
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1671,6 +2007,7 @@ static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),
     INPUT_CHAN_FACTORY("ao_voltage", AOVoltage),
     INPUT_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator),
+    INPUT_CHAN_FACTORY("co_pulse_output", COPulseOutput),
     INPUT_CHAN_FACTORY("digital_output", DO)
 };
 
@@ -1699,6 +2036,12 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
     INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
     INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("ci_edge_count", CIEdgeCount),
+    INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
+    INPUT_CHAN_FACTORY("ci_period", CIPeriod),
+    INPUT_CHAN_FACTORY("ci_pulse_width", CIPulseWidth),
+    INPUT_CHAN_FACTORY("ci_semi_period", CISemiPeriod),
+    INPUT_CHAN_FACTORY("ci_two_edge_sep", CITwoEdgeSep),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 

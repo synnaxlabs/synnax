@@ -88,6 +88,7 @@ const STRAIN = "Strain";
 const OHMS = "Ohms";
 const HZ = "Hz";
 const SECONDS = "Seconds";
+const FROM_CUSTOM_SCALE = "FromCustomScale";
 const METERS = "Meters";
 const INCHES = "Inches";
 const DEGREES = "Degrees";
@@ -952,6 +953,291 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
+// ==================== Counter Input Channels ====================
+
+const counterChannelExtensionShape = { port: portZ };
+interface CounterChannelExtension
+  extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
+const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0 };
+
+const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
+interface BaseCIChan extends z.infer<typeof baseCIChanZ> {}
+const ZERO_BASE_CI_CHAN: BaseCIChan = {
+  ...Common.Task.ZERO_READ_CHANNEL,
+  ...ZERO_COUNTER_CHANNEL_EXTENSION,
+};
+
+// Counter Input edge detection
+const RISING_EDGE = "Rising";
+const FALLING_EDGE = "Falling";
+const ciEdgeZ = z.enum([RISING_EDGE, FALLING_EDGE]);
+export type CIEdge = z.infer<typeof ciEdgeZ>;
+
+// Counter Input measurement methods
+const LOW_FREQ_1_CTR = "LowFreq1Ctr";
+const HIGH_FREQ_2_CTR = "HighFreq2Ctr";
+const LARGE_RNG_2_CTR = "LargeRng2Ctr";
+const DYNAMIC_AVG = "DynamicAvg";
+const ciMeasMethodZ = z.enum([
+  LOW_FREQ_1_CTR,
+  HIGH_FREQ_2_CTR,
+  LARGE_RNG_2_CTR,
+  DYNAMIC_AVG,
+]);
+export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
+
+// Counter Input frequency units
+const TICKS = "Ticks";
+const ciFreqUnitsZ = z.enum([HZ, TICKS]);
+export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html
+export const CI_FREQUENCY_CHAN_TYPE = "ci_frequency";
+export const ciFrequencyChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_FREQUENCY_CHAN_TYPE),
+  units: ciFreqUnitsZ,
+  edge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  terminal: z.string(),
+});
+export interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
+export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_FREQUENCY_CHAN_TYPE,
+  minVal: 2,
+  maxVal: 100,
+  units: HZ,
+  edge: RISING_EDGE,
+  measMethod: DYNAMIC_AVG,
+  terminal: "",
+};
+
+// Counter Input count direction
+const COUNT_UP = "CountUp";
+const COUNT_DOWN = "CountDown";
+const EXTERNALLY_CONTROLLED = "ExternallyControlled";
+const ciCountDirectionZ = z.enum([COUNT_UP, COUNT_DOWN, EXTERNALLY_CONTROLLED]);
+export type CICountDirection = z.infer<typeof ciCountDirectionZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html
+export const CI_EDGE_COUNT_CHAN_TYPE = "ci_edge_count";
+export const ciEdgeCountChanZ = baseCIChanZ.extend({
+  type: z.literal(CI_EDGE_COUNT_CHAN_TYPE),
+  activeEdge: ciEdgeZ,
+  countDirection: ciCountDirectionZ,
+  initialCount: z.number(),
+  terminal: z.string(),
+});
+export interface CIEdgeCountChan extends z.infer<typeof ciEdgeCountChanZ> {}
+export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
+  ...ZERO_BASE_CI_CHAN,
+  type: CI_EDGE_COUNT_CHAN_TYPE,
+  activeEdge: RISING_EDGE,
+  countDirection: COUNT_UP,
+  initialCount: 0,
+  terminal: "",
+};
+
+// Counter Input period units
+const ciPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CIPeriodUnits = z.infer<typeof ciPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html
+export const CI_PERIOD_CHAN_TYPE = "ci_period";
+export const ciPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PERIOD_CHAN_TYPE),
+  units: ciPeriodUnitsZ,
+  startingEdge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  terminal: z.string(),
+});
+export interface CIPeriodChan extends z.infer<typeof ciPeriodChanZ> {}
+export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  measMethod: DYNAMIC_AVG,
+  terminal: "",
+};
+
+// Counter Input pulse width units (same as period)
+const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CIPulseWidthUnits = z.infer<typeof ciPulseWidthUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html
+export const CI_PULSE_WIDTH_CHAN_TYPE = "ci_pulse_width";
+export const ciPulseWidthChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PULSE_WIDTH_CHAN_TYPE),
+  units: ciPulseWidthUnitsZ,
+  startingEdge: ciEdgeZ,
+  terminal: z.string(),
+});
+export interface CIPulseWidthChan extends z.infer<typeof ciPulseWidthChanZ> {}
+export const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PULSE_WIDTH_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  terminal: "",
+};
+
+// Counter Input semi period units (same as period)
+const ciSemiPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+export type CISemiPeriodUnits = z.infer<typeof ciSemiPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+export const CI_SEMI_PERIOD_CHAN_TYPE = "ci_semi_period";
+export const ciSemiPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_SEMI_PERIOD_CHAN_TYPE),
+  units: ciSemiPeriodUnitsZ,
+});
+export interface CISemiPeriodChan extends z.infer<typeof ciSemiPeriodChanZ> {}
+export const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_SEMI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+};
+
+// Counter Input two edge separation units
+const ciTwoEdgeSepUnitsZ = z.enum([SECONDS, TICKS]);
+export type CITwoEdgeSepUnits = z.infer<typeof ciTwoEdgeSepUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html
+export const CI_TWO_EDGE_SEP_CHAN_TYPE = "ci_two_edge_sep";
+export const ciTwoEdgeSepChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_TWO_EDGE_SEP_CHAN_TYPE),
+  units: ciTwoEdgeSepUnitsZ,
+  firstEdge: ciEdgeZ,
+  secondEdge: ciEdgeZ,
+});
+export interface CITwoEdgeSepChan extends z.infer<typeof ciTwoEdgeSepChanZ> {}
+export const ZERO_CI_TWO_EDGE_SEP_CHAN: CITwoEdgeSepChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_TWO_EDGE_SEP_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 1,
+  units: SECONDS,
+  firstEdge: RISING_EDGE,
+  secondEdge: FALLING_EDGE,
+};
+
+const ciChannelZ = z.union([
+  ciFrequencyChanZ,
+  ciEdgeCountChanZ,
+  ciPeriodChanZ,
+  ciPulseWidthChanZ,
+  ciSemiPeriodChanZ,
+  ciTwoEdgeSepChanZ,
+]);
+
+type CIChannel = z.infer<typeof ciChannelZ>;
+export type CIChannelType = CIChannel["type"];
+
+export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
+  [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
+  [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
+  [CI_PERIOD_CHAN_TYPE]: "Period",
+  [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
+  [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
+};
+
+export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
+  [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Square,
+  [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
+  [CI_PERIOD_CHAN_TYPE]: Icon.Time,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
+};
+
+// Counter Output Channels
+const baseCOChanZ = Common.Task.writeChannelZ.extend(counterChannelExtensionShape);
+interface BaseCOChan extends z.infer<typeof baseCOChanZ> {}
+const ZERO_BASE_CO_CHAN: BaseCOChan = {
+  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...ZERO_COUNTER_CHANNEL_EXTENSION,
+};
+
+// Counter Output idle state
+const IDLE_HIGH = "High";
+const IDLE_LOW = "Low";
+const coIdleStateZ = z.enum([IDLE_HIGH, IDLE_LOW]);
+export type COIdleState = z.infer<typeof coIdleStateZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecopulsechantime.html
+export const CO_PULSE_OUTPUT_CHAN_TYPE = "co_pulse_output";
+export const coPulseOutputChanZ = baseCOChanZ.extend({
+  ...minMaxValShape,
+  type: z.literal(CO_PULSE_OUTPUT_CHAN_TYPE),
+  units: z.literal(SECONDS),
+  idleState: coIdleStateZ,
+  initialDelay: z.number(),
+  highTime: z.number(),
+  lowTime: z.number(),
+});
+export interface COPulseOutputChan extends z.infer<typeof coPulseOutputChanZ> {}
+export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
+  ...ZERO_BASE_CO_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  type: CO_PULSE_OUTPUT_CHAN_TYPE,
+  units: SECONDS,
+  idleState: IDLE_LOW,
+  initialDelay: 0,
+  highTime: 0.1,
+  lowTime: 0.1,
+};
+
+const coChannelZ = z.union([coPulseOutputChanZ]);
+export type COChannel = z.infer<typeof coChannelZ>;
+export type COChannelType = COChannel["type"];
+
+export const CO_CHANNEL_SCHEMAS: Record<COChannelType, z.ZodType<COChannel>> = {
+  [CO_PULSE_OUTPUT_CHAN_TYPE]: coPulseOutputChanZ,
+};
+
+export const CO_CHANNEL_TYPES = [CO_PULSE_OUTPUT_CHAN_TYPE] as const;
+
+export const CO_CHANNEL_TYPE_NAMES: Record<COChannelType, string> = {
+  [CO_PULSE_OUTPUT_CHAN_TYPE]: "Pulse Output",
+};
+
+export const CO_CHANNEL_TYPE_ICONS: Record<COChannelType, Icon.FC> = {
+  [CO_PULSE_OUTPUT_CHAN_TYPE]: Icon.Wave.Square,
+};
+
+export const ZERO_CO_CHANNELS: Record<COChannelType, COChannel> = {
+  [CO_PULSE_OUTPUT_CHAN_TYPE]: ZERO_CO_PULSE_OUTPUT_CHAN,
+};
+export const ZERO_CO_CHANNEL = ZERO_CO_CHANNELS[CO_PULSE_OUTPUT_CHAN_TYPE];
+
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
@@ -1186,6 +1472,60 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   type: ANALOG_READ_TYPE,
 };
 
+// ==================== Counter Read Task ====================
+
+const validateCounterPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<CIChannel[]>) => {
+  const portToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
+export const counterReadConfigZ = baseReadConfigZ
+  .extend({
+    channels: z
+      .array(ciChannelZ)
+      .check(Common.Task.validateReadChannels)
+      .check(validateCounterPorts),
+  })
+  .check(Common.Task.validateStreamRate);
+export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
+export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+  ...ZERO_BASE_READ_CONFIG,
+  channels: [],
+};
+
+export const counterReadStatusDataZ = z.unknown();
+export type CounterReadStatusDetails = task.Status<typeof counterReadStatusDataZ>;
+
+export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
+export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
+export type CounterReadType = z.infer<typeof counterReadTypeZ>;
+
+interface CounterReadPayload
+  extends task.Payload<
+    typeof counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof counterReadStatusDataZ
+  > {}
+export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
+  key: "",
+  name: "NI Counter Read Task",
+  config: ZERO_COUNTER_READ_CONFIG,
+  type: COUNTER_READ_TYPE,
+};
+
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(aoChannelZ)
@@ -1309,6 +1649,65 @@ export interface DigitalWriteTask
   > {}
 export interface NewDigitalWriteTask
   extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
+
+const validateCounterWritePorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<COChannel[]>) => {
+  const portToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
+  });
+};
+
+export const counterWriteConfigZ = baseWriteConfigZ.extend({
+  channels: z
+    .array(coChannelZ)
+    .check(Common.Task.validateWriteChannels)
+    .check(validateCounterWritePorts),
+});
+export interface CounterWriteConfig extends z.infer<typeof counterWriteConfigZ> {}
+const ZERO_COUNTER_WRITE_CONFIG: CounterWriteConfig = {
+  ...ZERO_BASE_WRITE_CONFIG,
+  channels: [],
+};
+
+export const counterWriteStatusDataZ = z.unknown();
+export type CounterWriteStatusDetails = task.Status<typeof counterWriteStatusDataZ>;
+
+export const COUNTER_WRITE_TYPE = `${PREFIX}_counter_write`;
+export const counterWriteTypeZ = z.literal(COUNTER_WRITE_TYPE);
+export type CounterWriteType = z.infer<typeof counterWriteTypeZ>;
+
+export interface CounterWritePayload
+  extends task.Payload<
+    typeof counterWriteTypeZ,
+    typeof counterWriteConfigZ,
+    typeof counterWriteStatusDataZ
+  > {}
+export const ZERO_COUNTER_WRITE_PAYLOAD: CounterWritePayload = {
+  key: "",
+  name: "NI Counter Write Task",
+  config: ZERO_COUNTER_WRITE_CONFIG,
+  type: COUNTER_WRITE_TYPE,
+};
+
+export interface CounterWriteTask
+  extends task.Task<
+    typeof counterWriteTypeZ,
+    typeof counterWriteConfigZ,
+    typeof counterWriteStatusDataZ
+  > {}
+export interface NewCounterWriteTask
+  extends task.New<typeof counterWriteTypeZ, typeof counterWriteConfigZ> {}
 
 export const scanStatusDataZ = z.unknown();
 export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;

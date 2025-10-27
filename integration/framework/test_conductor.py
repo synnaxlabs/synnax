@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
-import gc
 import glob
 import importlib.util
 import itertools
@@ -76,6 +75,7 @@ class TestDefinition:
     name: Optional[str] = None  # Optional custom name for the test case
     parameters: Dict[str, Union[Any, List[Any]]] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
+    matrix: Optional[Dict[str, List[Any]]] = None  # Matrix of params to expand
 
     def __str__(self) -> str:
         """Return display name for test definition."""
@@ -437,6 +437,7 @@ class TestConductor:
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     expect=test.get("expect", "PASSED"),
+                    matrix=test.get("matrix", None),
                 )
                 expanded_tests = self._expand_parameters(test_def)
                 for expanded_test in expanded_tests:
@@ -462,7 +463,7 @@ class TestConductor:
             f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
         )
 
-        # Store the ordering for use in run_sequence (for backward compatibility)
+        # Store the ordering for use in run_sequence
         self.sequence_ordering = (
             self.sequences[0]["order"] if self.sequences else "Sequential"
         )

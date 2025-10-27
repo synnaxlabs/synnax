@@ -12,11 +12,15 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
+import { COUNTER_READ_LAYOUT } from "@/hardware/ni/task/CounterRead";
+import { COUNTER_WRITE_LAYOUT } from "@/hardware/ni/task/CounterWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import {
   importAnalogRead,
   importAnalogWrite,
+  importCounterRead,
+  importCounterWrite,
   importDigitalRead,
   importDigitalWrite,
 } from "@/hardware/ni/task/import";
@@ -35,6 +39,20 @@ const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_WRITE_LAYOUT),
+};
+
+const CREATE_COUNTER_READ_COMMAND: Palette.Command = {
+  key: "ni-create-counter-read-task",
+  name: "Create an NI Counter Read Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: ({ placeLayout }) => placeLayout(COUNTER_READ_LAYOUT),
+};
+
+const CREATE_COUNTER_WRITE_COMMAND: Palette.Command = {
+  key: "ni-create-counter-write-task",
+  name: "Create an NI Counter Write Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: ({ placeLayout }) => placeLayout(COUNTER_WRITE_LAYOUT),
 };
 
 const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
@@ -65,6 +83,22 @@ const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogWrite,
+};
+
+const IMPORT_COUNTER_READ_COMMAND: Palette.Command = {
+  key: "ni-import-counter-read-task",
+  name: "Import NI Counter Read Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.NI />,
+  onSelect: importCounterRead,
+};
+
+const IMPORT_COUNTER_WRITE_COMMAND: Palette.Command = {
+  key: "ni-import-counter-write-task",
+  name: "Import NI Counter Write Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.NI />,
+  onSelect: importCounterWrite,
 };
 
 const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -117,10 +151,14 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
 export const COMMANDS = [
   CREATE_ANALOG_READ_COMMAND,
   CREATE_ANALOG_WRITE_COMMAND,
+  CREATE_COUNTER_READ_COMMAND,
+  CREATE_COUNTER_WRITE_COMMAND,
   CREATE_DIGITAL_WRITE_COMMAND,
   CREATE_DIGITAL_READ_COMMAND,
   IMPORT_ANALOG_READ_COMMAND,
   IMPORT_ANALOG_WRITE_COMMAND,
+  IMPORT_COUNTER_READ_COMMAND,
+  IMPORT_COUNTER_WRITE_COMMAND,
   IMPORT_DIGITAL_READ_COMMAND,
   IMPORT_DIGITAL_WRITE_COMMAND,
   TOGGLE_SCAN_TASK_COMMAND,
