@@ -113,6 +113,32 @@ func (s Series) At(i int) []byte {
 	return s.Data[i*den : (i+1)*den]
 }
 
+// Resize resizes the series to the specified number of samples. If the new length is
+// smaller than the current length, the data is truncated. If the new length is larger,
+// the data is extended with zero bytes. This function only supports fixed-density types
+// and will panic if called on a variable-density series.
+func (s *Series) Resize(length int64) {
+	if length < 0 {
+		panic("cannot resize series to negative length")
+	}
+	if s.DataType.IsVariable() {
+		panic("cannot resize variable-density series")
+	}
+	var (
+		density     = int(s.DataType.Density())
+		targetSize  = int(length) * density
+		currentSize = len(s.Data)
+	)
+	if targetSize == currentSize {
+		return
+	}
+	if targetSize < currentSize {
+		s.Data = s.Data[:targetSize]
+	} else {
+		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
+	}
+}
+
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
@@ -125,6 +151,20 @@ func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	f := MarshalF[T](s.DataType)
 	f(s.Data[i*int(s.DataType.Density()):], v)
+}
+
+// CopyValue copies the sample from src at the index srcIdx to the index dstIdx in dst.
+// dst and src must have the same DataType, and that DataType cannot be of variable
+// density.
+func CopyValue(dst, src Series, dstIdx, srcIdx int) {
+	if dst.DataType != src.DataType {
+		panic("cannot copy values across series with different data types")
+	}
+	if dst.DataType.IsVariable() {
+		panic("cannot copy values from series with variable density data types")
+	}
+	den := int(dst.DataType.Density())
+	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
@@ -145,7 +185,8 @@ func (s Series) String() string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(
 		&b,
-		"Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		"Series{Alignment: %v, TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		s.Alignment.String(),
 		s.TimeRange.String(),
 		s.DataType,
 		s.Len(),
@@ -193,6 +234,16 @@ const maxDisplayValues = 12
 
 func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
+}
+
+// DeepCopy creates a deep copy of the series, including all of its data.
+func (s Series) DeepCopy() Series {
+	return Series{
+		TimeRange: s.TimeRange,
+		Alignment: s.Alignment,
+		DataType:  s.DataType,
+		Data:      slices.Clone(s.Data),
+	}
 }
 
 // DataString returns a string representation of the data in a series.
