@@ -10,6 +10,7 @@
 package streamer_test
 
 import (
+	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -197,7 +198,8 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
+			runtime.Gosched()
 			writtenFr := core.MultiFrame(
 				keys,
 				[]telem.Series{

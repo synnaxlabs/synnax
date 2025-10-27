@@ -133,7 +133,7 @@ func (e *errorListener) SyntaxError(
 	msg string,
 	_ antlr.RecognitionException,
 ) {
-	e.Diagnostics.Add(diagnostics.Diagnostic{
+	e.Add(diagnostics.Diagnostic{
 		Severity: diagnostics.Error,
 		Line:     line,
 		Column:   column,
