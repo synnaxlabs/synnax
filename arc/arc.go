@@ -58,7 +58,7 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	}
 	inter, diagnostics := graph.Analyze(ctx, graphWithAST, o.resolver)
 	if !diagnostics.Ok() {
-		return Module{}, diagnostics.Error()
+		return Module{}, diagnostics
 	}
 	output, err := compiler.Compile(ctx, inter)
 	if err != nil {

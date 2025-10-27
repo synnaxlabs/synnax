@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // Severity represents the importance level of a diagnostic message.
@@ -60,14 +59,18 @@ type Diagnostic struct {
 // Diagnostics is a collection of diagnostic messages.
 type Diagnostics []Diagnostic
 
+var _ error = (*Diagnostics)(nil)
+
 // Ok returns true if there are no diagnostics.
 func (d Diagnostics) Ok() bool {
 	return len(d) == 0
 }
 
-// Error converts the diagnostics to a Go error.
-func (d Diagnostics) Error() error {
-	return errors.Newf(d.String())
+// Error implements the error interface.
+func (d Diagnostics) Error() string { return d.String() }
+
+func (d *Diagnostics) Add(diag Diagnostic) {
+	*d = append(*d, diag)
 }
 
 // AddError adds an error-level diagnostic with the given message and source location.

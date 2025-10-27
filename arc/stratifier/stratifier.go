@@ -12,7 +12,7 @@ package stratifier
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/analyzer/diagnostics"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -33,8 +33,7 @@ func Stratify(
 	nodes []ir.Node,
 	edges []ir.Edge,
 	diag *diagnostics.Diagnostics,
-) (ir.Strata, bool) {
-
+) (ir.Strata, *diagnostics.Diagnostics) {
 	var (
 		nodeStrata    = make(map[string]int)
 		iterations    = 0
@@ -42,9 +41,8 @@ func Stratify(
 		changed       = true
 		maxStratum    = 0
 	)
-	// Handle empty graph
 	if len(nodes) == 0 {
-		return ir.Strata{}, true
+		return ir.Strata{}, nil
 	}
 
 	// Step 1: Initialize ALL nodes to stratum 0
@@ -65,23 +63,20 @@ func Stratify(
 				errors.Newf("cycle detected in dataflow graph: %v", cycle),
 				nil,
 			)
-			return ir.Strata{}, false
+			return ir.Strata{}, diag
 		}
 
 		for _, edge := range edges {
 			sourceStratum := nodeStrata[edge.Source.Node]
 			targetStratum := nodeStrata[edge.Target.Node]
-
 			// If source stratum >= target stratum, we need to bump target up
 			if sourceStratum >= targetStratum {
 				newStratum := sourceStratum + 1
 				nodeStrata[edge.Target.Node] = newStratum
-
 				// Track maximum stratum
 				if newStratum > maxStratum {
 					maxStratum = newStratum
 				}
-
 				changed = true
 			}
 		}
@@ -94,7 +89,7 @@ func Stratify(
 		strata[stratum] = append(strata[stratum], node.Key)
 	}
 
-	return strata, true
+	return strata, nil
 }
 
 // findCycle attempts to find a cycle in the graph for better error reporting
