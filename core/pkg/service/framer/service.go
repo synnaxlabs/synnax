@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -52,6 +53,7 @@ type Config struct {
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel channel.Service
+	Arc     *arc.Service
 }
 
 var (
@@ -64,6 +66,7 @@ func (c Config) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "arc", c.Arc)
 	return v.Error()
 }
 
@@ -72,6 +75,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Arc = override.Nil(c.Arc, other.Arc)
 	return c
 }
 
@@ -119,6 +123,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		Instrumentation:   cfg.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
+		Arc:               cfg.Arc,
 		ChannelObservable: cfg.Channel.NewObservable(),
 	})
 	if err != nil {
@@ -136,6 +141,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
 		Channel:    cfg.Channel,
+		Arc:        cfg.Arc,
 	})
 	if err != nil {
 		return nil, err

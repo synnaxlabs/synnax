@@ -88,36 +88,36 @@ func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Stream
 }
 
 // Flow implements confluence.Flow.
-func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
-	o.AttachClosables(r.Out)
+	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
-		r.demands.Acquire(1)
+		s.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
 		// demands before we connect to the delta, otherwise, under extreme load we
 		// may cause deadlock.
-		r.demands.Inlet() <- demand{
+		s.demands.Inlet() <- demand{
 			Variant: change.Set,
-			Key:     r.addr,
-			Value:   Request{Keys: r.cfg.Keys},
+			Key:     s.addr,
+			Value:   Request{Keys: s.cfg.Keys},
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := r.relay.connectToDelta(1)
+		responses, disconnect := s.relay.connectToDelta(1)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
+			s.demands.Inlet() <- demand{Variant: change.Delete, Key: s.addr}
 			// If we add this in AttachClosables, it may not be closed at the end of
 			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
-			r.demands.Close()
+			s.demands.Close()
 		}()
-		if *r.cfg.SendOpenAck {
-			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), Response{}); err != nil {
+		if *s.cfg.SendOpenAck {
+			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{}); err != nil {
 				return err
 			}
 		}
@@ -125,20 +125,20 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req, ok := <-r.In.Outlet():
+			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return nil
 				}
 				req.Keys = lo.Uniq(req.Keys)
-				r.cfg.Keys = req.Keys
-				d := demand{Variant: change.Set, Key: r.addr, Value: req}
-				if err := signal.SendUnderContext(ctx, r.demands.Inlet(), d); err != nil {
+				s.cfg.Keys = req.Keys
+				d := demand{Variant: change.Set, Key: s.addr, Value: req}
+				if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
 					return err
 				}
-			case f := <-responses.Outlet():
-				if filtered := f.Frame.KeepKeys(r.cfg.Keys); !filtered.Empty() {
+			case r := <-responses.Outlet():
+				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
 					res := Response{Frame: filtered}
-					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
+					if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
 						return err
 					}
 				}

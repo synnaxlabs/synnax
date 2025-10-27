@@ -10,35 +10,182 @@
 package calculation
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/constant"
+	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
+	"github.com/synnaxlabs/arc/runtime/selector"
+	"github.com/synnaxlabs/arc/runtime/stable"
+	"github.com/synnaxlabs/arc/runtime/stat"
+	"github.com/synnaxlabs/arc/runtime/state"
+	ntelem "github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/x/computron"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
-
-type cacheEntry struct {
-	ch   channel.Channel
-	data telem.MultiSeries
-}
 
 // Calculator is an extension of the lua-based computron.Calculator to provide
 // specific functionality for evaluating calculations on channels using frame data.
 type Calculator struct {
-	// base is the underlying computron calculator.
-	base *computron.Calculator
-	// ch is the calculated channel we're operating on.
-	ch channel.Channel
-	// highWaterMark is the high-water mark of the sample that we've run the calculation on.
-	highWaterMark struct {
-		initialized bool
-		alignment   telem.Alignment
-		timestamp   telem.TimeStamp
+	ch         channel.Channel
+	state      *state.State
+	scheduler  *scheduler.Scheduler
+	stateCfg   state.Config
+	alignments map[channel.Key]telem.Alignment
+	timeRange  telem.TimeRange
+}
+
+type CalculatorConfig struct {
+	ChannelSvc channel.Readable
+	Channel    channel.Channel
+	Resolver   arc.SymbolResolver
+}
+
+var (
+	_                       config.Config[CalculatorConfig] = CalculatorConfig{}
+	DefaultCalculatorConfig                                 = CalculatorConfig{}
+)
+
+// Override implements config.Config.
+func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
+	c.ChannelSvc = override.Nil(c.ChannelSvc, other.ChannelSvc)
+	c.Channel = other.Channel
+	c.Resolver = override.Nil(c.Resolver, other.Resolver)
+	return c
+}
+
+// Validate implements config.Config.
+func (c CalculatorConfig) Validate() error {
+	v := validate.New("arc.runtime")
+	return v.Error()
+}
+
+func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) {
+	g := arc.Graph{
+		Functions: ir.Functions{
+			{
+				Key: "calculation",
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.FromTelem(cfg.Channel.DataType)},
+				},
+				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
+			},
+		},
+		Nodes: []graph.Node{},
 	}
-	// cache is a map of required channels and an accumulated buffer of data. Data
-	// is accumulated for each channel until a calculation can be performed, and is
-	// then flushed.
-	cache map[channel.Key]cacheEntry
+	preProcessed, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.Resolver))
+	if err != nil {
+		return arc.Module{}, err
+	}
+	calcFn := preProcessed.Functions[0]
+	g2 := arc.Graph{
+		Functions: ir.Functions{
+			ir.Function{
+				Key:     "calculation",
+				Outputs: calcFn.Outputs,
+				Body:    calcFn.Body,
+			},
+		},
+		Nodes: []graph.Node{
+			{
+				Key:  "calculation",
+				Type: "calculation",
+			},
+			{
+				Key:  "write",
+				Type: "write",
+				ConfigValues: map[string]any{
+					"channel": cfg.Channel.Key(),
+				},
+			},
+		},
+	}
+	if len(cfg.Channel.Operations) == 0 {
+		g2.Edges = []graph.Edge{
+			{
+				Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
+			},
+		}
+	} else {
+		for i, o := range cfg.Channel.Operations {
+			key := fmt.Sprintf("op_%d", i)
+			nextKey := fmt.Sprintf("op_%d", i)
+			g2.Nodes = append(g2.Nodes, graph.Node{
+				Key:  fmt.Sprintf("op_%d", i),
+				Type: o.Type,
+				ConfigValues: map[string]any{
+					"duration": o.Duration,
+				},
+			})
+			if o.ResetChannel != 0 {
+				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
+				g2.Nodes = append(g2.Nodes, graph.Node{
+					Key:  resetKey,
+					Type: "on",
+					ConfigValues: map[string]any{
+						"channel": o.ResetChannel,
+					},
+				})
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: key, Param: "reset"},
+				})
+			}
+			if i == 0 {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: "calculation", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
+				})
+			}
+			if i == len(cfg.Channel.Operations)-1 {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
+				})
+			} else {
+				g2.Edges = append(g2.Edges, graph.Edge{
+					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
+				})
+			}
+		}
+	}
+	for k, v := range calcFn.Channels.Read {
+		sym, err := cfg.Resolver.Resolve(ctx, v)
+		if err != nil {
+			return arc.Module{}, err
+		}
+		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
+		g2.Nodes = append(g2.Nodes, graph.Node{
+			Key:          sym.Name,
+			Type:         "on",
+			ConfigValues: map[string]any{"channel": k},
+		})
+		g2.Edges = append(g2.Edges, graph.Edge{
+			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "calculation", Param: sym.Name},
+		})
+	}
+	postProcessed, err := arc.CompileGraph(ctx, g2, arc.WithResolver(cfg.Resolver))
+	if err != nil {
+		return arc.Module{}, err
+	}
+	return postProcessed, nil
 }
 
 // OpenCalculator opens a new calculator that evaluates the Expression of the provided
@@ -47,50 +194,89 @@ type Calculator struct {
 //
 // The calculator must be closed by calling Close() after use, or memory leaks will occur.
 func OpenCalculator(
-	ch channel.Channel,
-	requiredChannels []channel.Channel,
+	ctx context.Context,
+	cfgs ...CalculatorConfig,
 ) (*Calculator, error) {
-	base, err := computron.Open(ch.Expression)
+	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	required := make(map[channel.Key]cacheEntry, len(requiredChannels))
-	for _, requiredCh := range requiredChannels {
-		required[requiredCh.Key()] = cacheEntry{ch: requiredCh}
+	module, err := buildModule(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
-	c := &Calculator{
-		base:  base,
-		ch:    ch,
-		cache: required,
+	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, module)
+	if err != nil {
+		return nil, err
 	}
-	c.resetCache()
-	return c, nil
+	progState := state.New(stateCfg)
+
+	telemFactory := ntelem.NewTelemFactory()
+	selectFactory := selector.NewFactory()
+	constantFactory := constant.NewFactory()
+	statFactory := stat.NewFactory(stat.Config{})
+	opFactory := op.NewFactory()
+	stableFactory := stable.NewFactory(stable.FactoryConfig{})
+	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		Module: module,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	f := node.MultiFactory{
+		opFactory,
+		telemFactory,
+		selectFactory,
+		constantFactory,
+		stableFactory,
+		wasmFactory,
+		statFactory,
+	}
+
+	f = append(f, wasmFactory)
+	nodes := make(map[string]node.Node)
+	for _, irNode := range module.Nodes {
+		n, err := f.Create(ctx, node.Config{
+			Node:   irNode,
+			Module: module,
+			State:  progState.Node(irNode.Key),
+		})
+		if err != nil {
+			return nil, err
+		}
+		nodes[irNode.Key] = n
+	}
+
+	sched := scheduler.New(ctx, module.IR, nodes)
+	sched.Init(ctx)
+	alignments := make(map[channel.Key]telem.Alignment)
+	for _, ch := range stateCfg.ChannelDigests {
+		if ch.Index == 0 {
+			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
+		} else {
+			alignments[channel.Key(ch.Index)] = telem.Alignment(0)
+		}
+	}
+	return &Calculator{
+		scheduler:  sched,
+		state:      progState,
+		ch:         cfg.Channel,
+		stateCfg:   stateCfg,
+		alignments: alignments,
+	}, nil
+}
+
+func (c *Calculator) ReadFrom() channel.Keys {
+	ch := make([]channel.Key, 0, len(c.stateCfg.ChannelDigests)*2)
+	for k := range c.stateCfg.ReactiveDeps {
+		ch = append(ch, channel.Key(k))
+	}
+	return ch
 }
 
 // Channel returns information about the channel being calculated.
 func (c *Calculator) Channel() channel.Channel { return c.ch }
-
-func (c *Calculator) resetCache() {
-	c.highWaterMark.timestamp = 0
-	c.highWaterMark.alignment = 0
-	c.highWaterMark.initialized = false
-	for k, e := range c.cache {
-		e.data = telem.MultiSeries{}
-		c.cache[k] = e
-	}
-}
-
-func (c *Calculator) emptySeries() telem.Series {
-	return telem.Series{DataType: c.ch.DataType}
-}
-
-func cacheMisalignmentError(requested telem.Alignment, actualBounds telem.AlignmentBounds) error {
-	return errors.Newf(
-		`attempted to run calculation on alignment %s, but cache
-with alignment bounds %s did not contain data for requested alignment. Fixing issue by resetting cache.`,
-		requested, actualBounds,
-	)
-}
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned
@@ -99,70 +285,60 @@ with alignment bounds %s did not contain data for requested alignment. Fixing is
 // is free to discard the returned value.
 //
 // Any error encountered during calculations is returned as well.
-func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
-	// Handle calculations with no cache channels (constants only)
-	if len(c.cache) == 0 {
-		return telem.Series{DataType: c.ch.DataType}, nil
-	}
-
-	for rawI, s := range fr.RawSeries() {
-		if fr.ShouldExcludeRaw(rawI) {
+func (c *Calculator) Next(
+	ctx context.Context,
+	inputFrame,
+	outputFrame framer.Frame,
+) (framer.Frame, bool, error) {
+	for rawI, rawKey := range inputFrame.RawKeys() {
+		if inputFrame.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		k := fr.RawKeyAt(rawI)
-		if v, ok := c.cache[k]; ok {
-			// The first case means we've never initialized a high-water mark, and second
-			// case mean's we've switched domains. In both, reset the high water-mark.
-			if !c.highWaterMark.initialized ||
-				c.highWaterMark.alignment.DomainIndex() != s.AlignmentBounds().Lower.DomainIndex() {
-				c.resetCache()
-				c.highWaterMark.initialized = true
-				c.highWaterMark.alignment = s.AlignmentBounds().Lower
-				c.highWaterMark.timestamp = s.TimeRange.Start
-			}
-			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
-			c.cache[k] = v
+		v, ok := c.alignments[rawKey]
+		s := inputFrame.RawSeriesAt(rawI)
+		if ok && v == 0 {
+			c.alignments[rawKey] = s.Alignment
+		}
+		if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
+			c.timeRange.Start = s.TimeRange.Start
+		}
+		if c.timeRange.End == 0 || s.TimeRange.End > c.timeRange.End {
+			c.timeRange.End = s.TimeRange.End
 		}
 	}
-	minAlignment := telem.MaxAlignment
-	minTimeStamp := telem.TimeStamp(0)
-	for _, v := range c.cache {
-		if v.data.AlignmentBounds().Upper < minAlignment {
-			minAlignment = v.data.AlignmentBounds().Upper
-			minTimeStamp = v.data.TimeRange().End
-		}
-	}
-	// Return early if there's no data to process
-	if minAlignment == telem.MaxAlignment || minAlignment <= c.highWaterMark.alignment {
-		return c.emptySeries(), nil
-	}
+	c.state.Ingest(inputFrame.ToStorage())
 	var (
-		startAlign = c.highWaterMark.alignment
-		startTS    = c.highWaterMark.timestamp
-		endAlign   = minAlignment
-		os         = telem.MakeSeries(c.ch.DataType, int(endAlign-startAlign))
+		ofr         = outputFrame.ToStorage()
+		currChanged bool
+		changed     bool
 	)
-	c.highWaterMark.alignment = minAlignment
-	c.highWaterMark.timestamp = minTimeStamp
-	os.Alignment = startAlign
-	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
-	for a := startAlign; a < endAlign; a++ {
-		for _, v := range c.cache {
-			if !v.data.AlignmentBounds().Contains(a) {
-				c.resetCache()
-				return c.emptySeries(), cacheMisalignmentError(a, v.data.AlignmentBounds())
-			}
-			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
+	for {
+		c.scheduler.Next(ctx)
+		ofr, currChanged = c.state.FlushWrites(ofr)
+		if !currChanged {
+			break
 		}
-		v, err := c.base.Run()
-		if err != nil {
-			return c.emptySeries(), err
-		}
-		computron.SetLValueOnSeries(v, os, int(a-startAlign))
+		changed = true
 	}
-	return os, nil
+	if !changed {
+		return outputFrame, changed, nil
+	}
+	var alignment telem.Alignment
+	for k, v := range c.alignments {
+		alignment += v
+		c.alignments[k] = 0
+	}
+	for rawI, s := range ofr.RawSeries() {
+		if rawI < len(ofr.RawSeries())-2 {
+			continue
+		}
+		s.Alignment = alignment
+		s.TimeRange = c.timeRange
+		ofr.SetRawSeriesAt(rawI, s)
+	}
+	return core.NewFrameFromStorage(ofr), true, nil
 }
 
-// Close closes the calculator, releasing internal resources. No other methods can be
-// called on the calculator after Close has been called.
-func (c *Calculator) Close() { c.base.Close() }
+func (c *Calculator) Close() error {
+	return nil
+}
