@@ -46,8 +46,8 @@ type GenerateKey = func(name string) string
 
 // Parse parses Arc source code into an AST.
 //
-// Returns the Text with both Raw source and parsed AST. Returns an error
-// if the source contains syntax errors.
+// Returns the Text with both Raw source and parsed AST. Returns a diagnostic object
+// that will be nil if no errors occurred during the parsing process.
 func Parse(t Text) (Text, *diagnostics.Diagnostics) {
 	ast, diag := parser.Parse(t.Raw)
 	if diag != nil {
