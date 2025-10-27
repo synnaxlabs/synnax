@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/x/telem/op"
 )
 
-type binaryOperator struct {
+type binary struct {
 	state *state.Node
 	op    op.Binary
 }
 
-func (n *binaryOperator) Init(node.Context) {}
+func (n *binary) Init(node.Context) {}
 
-func (n *binaryOperator) Next(ctx node.Context) {
+func (n *binary) Next(ctx node.Context) {
 	if !n.state.RefreshInputs() {
 		return
 	}
@@ -38,14 +38,15 @@ func (n *binaryOperator) Next(ctx node.Context) {
 type operatorFactory struct{}
 
 func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	cat, ok := ops[cfg.Node.Type]
-	if !ok {
-		return nil, query.NotFound
+	cat, ok := arithmeticOps[cfg.Node.Type]
+	if ok {
+		return &binary{state: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
 	}
-	return &binaryOperator{
-		state: cfg.State,
-		op:    cat[cfg.State.Input(0).DataType],
-	}, nil
+	opFn, ok := logicalOps[cfg.Node.Type]
+	if ok {
+		return &binary{state: cfg.State, op: opFn}, nil
+	}
+	return nil, query.NotFound
 }
 
 func NewFactory() node.Factory { return operatorFactory{} }

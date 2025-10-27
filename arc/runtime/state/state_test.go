@@ -148,7 +148,77 @@ var _ = Describe("State", func() {
 			})
 		})
 	})
+
 	Describe("Input Alignment", func() {
+		It("Should correctly order the inputs regardless of edge order", func() {
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "in1",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+					},
+					{
+						Key: "in3",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key: "in2",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F32()},
+						},
+					},
+
+					{
+						Key: "target",
+						Inputs: types.Params{
+							Keys:   []string{"in1", "in2", "in3"},
+							Values: []types.Type{types.I32(), types.F32(), types.U8()},
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "in2", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "target", Param: "in2"},
+					},
+					{
+						Source: ir.Handle{Node: "in1", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "target", Param: "in1"},
+					},
+					{
+						Source: ir.Handle{Node: "in3", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "target", Param: "in3"},
+					},
+				},
+			}
+			var (
+				s      = state.New(cfg)
+				in1    = s.Node("in1")
+				in2    = s.Node("in2")
+				in3    = s.Node("in3")
+				target = s.Node("target")
+			)
+			*in1.Output(0) = telem.NewSeriesV[int32](1)
+			*in1.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			*in2.Output(0) = telem.NewSeriesV[float32](2)
+			*in2.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+			*in3.Output(0) = telem.NewSeriesV[uint8](3)
+			*in3.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
+			target.RefreshInputs()
+			target1In1 := target.Input(0)
+			Expect(target1In1).To(telem.MatchSeriesDataV[int32](1))
+			target1In2 := target.Input(1)
+			Expect(target1In2).To(telem.MatchSeriesDataV[float32](2))
+			target1In3 := target.Input(2)
+			Expect(target1In3).To(telem.MatchSeriesDataV[uint8](3))
+		})
 		It("Should correctly align outputs of one node with inputs of another", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -186,6 +256,7 @@ var _ = Describe("State", func() {
 			Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
 			Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))
 		})
+
 		It("Should not trigger recalculation with empty output", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -196,7 +267,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I32()},
 						},
 					},
-					{Key: "dest"},
+					{
+						Key: "dest",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.F32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -212,6 +289,7 @@ var _ = Describe("State", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			Expect(dest.RefreshInputs()).To(BeFalse())
 		})
+
 		It("Should track watermark to prevent reprocessing", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -222,7 +300,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.F64()},
 						},
 					},
-					{Key: "consumer"},
+					{
+						Key: "consumer",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.F64()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -239,6 +323,7 @@ var _ = Describe("State", func() {
 			Expect(consumer.RefreshInputs()).To(BeTrue())
 			Expect(consumer.RefreshInputs()).To(BeFalse())
 		})
+
 		It("Should handle multiple inputs to single node", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -256,7 +341,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.F32()},
 						},
 					},
-					{Key: "target"},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.F32(), types.F32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -282,6 +373,7 @@ var _ = Describe("State", func() {
 			Expect(target.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
 			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
+
 		It("Should select earliest timestamp as trigger", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -299,7 +391,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I32()},
 						},
 					},
-					{Key: "target"},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.F32(), types.F32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -323,6 +421,7 @@ var _ = Describe("State", func() {
 			Expect(target.RefreshInputs()).To(BeTrue())
 			Expect(target.InputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100)))
 		})
+
 		It("Should accumulate multiple series before triggering", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -333,7 +432,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I32()},
 						},
 					},
-					{Key: "sink"},
+					{
+						Key: "sink",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.I32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -353,6 +458,7 @@ var _ = Describe("State", func() {
 			Expect(sink.RefreshInputs()).To(BeTrue())
 			Expect(sink.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
 		})
+
 		It("Should handle partial input updates", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -370,7 +476,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.F32()},
 						},
 					},
-					{Key: "target"},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.F32(), types.F32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -398,6 +510,7 @@ var _ = Describe("State", func() {
 			Expect(target.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](3.0)))
 			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
+
 		It("Should prune old series after watermark update", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -408,7 +521,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I64()},
 						},
 					},
-					{Key: "dst"},
+					{
+						Key: "dst",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -432,6 +551,7 @@ var _ = Describe("State", func() {
 			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](30)))
 		})
 	})
+
 	Describe("Watermark Regression Tests", func() {
 		It("Should update all input watermarks on trigger", func() {
 			cfg := state.Config{
@@ -450,7 +570,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.F64()},
 						},
 					},
-					{Key: "op"},
+					{
+						Key: "op",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.F64(), types.F64()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -474,6 +600,7 @@ var _ = Describe("State", func() {
 			Expect(op.RefreshInputs()).To(BeTrue())
 			Expect(op.RefreshInputs()).To(BeFalse())
 		})
+
 		It("Should not trigger recalculation when non-trigger input unchanged", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -491,7 +618,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I32()},
 						},
 					},
-					{Key: "compute"},
+					{
+						Key: "compute",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.I32(), types.I32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -533,7 +666,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.F32()},
 						},
 					},
-					{Key: "target"},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.F32(), types.F32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -565,6 +704,7 @@ var _ = Describe("State", func() {
 			Expect(target.RefreshInputs()).To(BeTrue())
 			Expect(target.RefreshInputs()).To(BeFalse())
 		})
+
 		It("Should prevent non-trigger input from causing spurious triggers", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -582,7 +722,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.U32()},
 						},
 					},
-					{Key: "processor"},
+					{
+						Key: "processor",
+						Inputs: types.Params{
+							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+							Values: []types.Type{types.U32(), types.U32()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{
@@ -634,7 +780,13 @@ var _ = Describe("State", func() {
 							Values: []types.Type{types.I64()},
 						},
 					},
-					{Key: "combiner"},
+					{
+						Key: "combiner",
+						Inputs: types.Params{
+							Keys:   []string{"in0", "in1", "in2"},
+							Values: []types.Type{types.I64(), types.I64(), types.I64()},
+						},
+					},
 				},
 				Edges: []ir.Edge{
 					{

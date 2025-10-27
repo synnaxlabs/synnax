@@ -123,8 +123,10 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 // Node creates a node-specific state accessor for the given node key.
 // It initializes alignment buffers and watermark tracking for the node's inputs.
 func (s *State) Node(key string) *Node {
-	inputs := s.cfg.Edges.GetInputs(key)
 	n := s.cfg.Nodes.Get(key)
+	inputs := lo.Map(n.Inputs.Keys, func(item string, _ int) ir.Edge {
+		return s.cfg.Edges.GetByTarget(ir.Handle{Node: key, Param: item})
+	})
 	alignedData := make([]telem.Series, len(inputs))
 	for i, input := range inputs {
 		alignedData[i] = telem.Series{DataType: s.outputs[input.Source].data.DataType}
