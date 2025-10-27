@@ -39,10 +39,7 @@ var semanticTokenTypes = []string{
 }
 
 func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
-	uri := params.TextDocument.URI
-	s.mu.RLock()
-	doc, ok := s.documents[uri]
-	s.mu.RUnlock()
+	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
 	}

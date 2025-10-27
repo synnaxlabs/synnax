@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/arc/symbol"
@@ -24,9 +25,7 @@ func (s *Server) Hover(
 	_ context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
-	s.mu.RLock()
-	doc, ok := s.documents[params.TextDocument.URI]
-	s.mu.RUnlock()
+	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		s.cfg.L.Debug(
 			"hover: document not found",
@@ -129,18 +128,11 @@ func (s *Server) getHoverContents(word string) string {
 }
 
 func parseInt(s string) int {
-	switch s {
-	case "8":
-		return 8
-	case "16":
-		return 16
-	case "32":
-		return 32
-	case "64":
-		return 64
-	default:
+	n, err := strconv.Atoi(s)
+	if err != nil {
 		return 0
 	}
+	return n
 }
 
 // getUserSymbolHover returns hover documentation for user-defined symbols
@@ -166,7 +158,7 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 		content.WriteString("**Input Parameter**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
 	case symbol.KindOutput:
-		content.WriteString("Output Parameter**\n\n")
+		content.WriteString("**Output Parameter**\n\n")
 		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
 	case symbol.KindConfig:
 		content.WriteString("**Configuration Parameter**\n\n")
