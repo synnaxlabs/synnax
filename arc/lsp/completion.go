@@ -236,9 +236,7 @@ func (s *Server) Completion(
 	ctx context.Context,
 	params *protocol.CompletionParams,
 ) (*protocol.CompletionList, error) {
-	s.mu.RLock()
-	doc, ok := s.documents[params.TextDocument.URI]
-	s.mu.RUnlock()
+	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
 	}
