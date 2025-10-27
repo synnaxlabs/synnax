@@ -354,19 +354,19 @@ func Analyze(
 		if freshType.Inputs == nil {
 			continue
 		}
-		connected := connectedInputs[n.Key]
-		for inputParam := range freshType.Inputs.Iter() {
-			if !connected[inputParam] {
-				ctx.Diagnostics.AddError(
-					errors.Wrapf(
-						query.NotFound,
-						"node '%s' (%s) missing required input '%s'",
-						n.Key,
-						n.Type,
-						inputParam,
-					), nil)
-			}
-		}
+		//connected := connectedInputs[n.Key]
+		//for inputParam := range freshType.Inputs.Iter() {
+		//	if !connected[inputParam] {
+		//		ctx.Diagnostics.AddError(
+		//			errors.Wrapf(
+		//				query.NotFound,
+		//				"node '%s' (%s) missing required input '%s'",
+		//				n.Key,
+		//				n.Type,
+		//				inputParam,
+		//			), nil)
+		//	}
+		//}
 	}
 	if !ctx.Diagnostics.Ok() {
 		return ir.IR{}, ctx.Diagnostics

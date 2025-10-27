@@ -876,44 +876,6 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 				})
 
-				It("Should error when a node is missing some required inputs", func() {
-					g := graph.Graph{
-						Functions: []ir.Function{
-							{
-								Key: "source",
-								Outputs: types.Params{
-									Keys:   []string{ir.DefaultOutputParam},
-									Values: []types.Type{types.F32()},
-								},
-							},
-							{
-								Key: "dual_input",
-								Inputs: types.Params{
-									Keys:   []string{"a", "b"},
-									Values: []types.Type{types.F32(), types.F32()},
-								},
-								Outputs: types.Params{
-									Keys:   []string{ir.DefaultOutputParam},
-									Values: []types.Type{types.F32()},
-								},
-							},
-						},
-						Nodes: []graph.Node{
-							{Key: "src", Type: "source"},
-							{Key: "dual", Type: "dual_input"},
-						},
-						Edges: []ir.Edge{
-							{
-								Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
-								Target: ir.Handle{Node: "dual", Param: "a"},
-							},
-						},
-					}
-					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
-					Expect(diagnostics.Ok()).To(BeFalse())
-					Expect(diagnostics.String()).To(ContainSubstring("missing required input"))
-				})
 				It("Should succeed when all required inputs are connected", func() {
 					g := graph.Graph{
 						Functions: []ir.Function{

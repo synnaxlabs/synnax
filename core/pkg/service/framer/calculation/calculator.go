@@ -44,7 +44,7 @@ type Calculator struct {
 	ch         channel.Channel
 	state      *state.State
 	scheduler  *scheduler.Scheduler
-	stateCfg   state.Config
+	stateCfg   arcruntime.ExtendedStateConfig
 	alignments map[channel.Key]telem.Alignment
 	timeRange  telem.TimeRange
 }
@@ -213,7 +213,7 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	progState := state.New(stateCfg)
+	progState := state.New(stateCfg.State)
 
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
@@ -256,7 +256,7 @@ func OpenCalculator(
 	sched := scheduler.New(ctx, module.IR, nodes)
 	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
-	for _, ch := range stateCfg.ChannelDigests {
+	for _, ch := range stateCfg.State.ChannelDigests {
 		if ch.Index == 0 {
 			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
 		} else {
@@ -273,11 +273,7 @@ func OpenCalculator(
 }
 
 func (c *Calculator) ReadFrom() channel.Keys {
-	ch := make([]channel.Key, 0, len(c.stateCfg.ChannelDigests)*2)
-	for k := range c.stateCfg.ReactiveDeps {
-		ch = append(ch, channel.Key(k))
-	}
-	return ch
+	return c.stateCfg.Reads.Keys()
 }
 
 // Channel returns information about the channel being calculated.

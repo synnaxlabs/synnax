@@ -146,11 +146,11 @@ var _ = Describe("Runtime", Ordered, func() {
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
+						Target: arc.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
+						Target: arc.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
 					},
 				},
 			}
