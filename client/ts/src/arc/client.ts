@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import {
+  sendRequired,
+  type Stream,
+  type StreamClient,
+  type UnaryClient,
+} from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
@@ -27,6 +32,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 const RETRIEVE_ENDPOINT = "/arc/retrieve";
 const CREATE_ENDPOINT = "/arc/create";
 const DELETE_ENDPOINT = "/arc/delete";
+const LSP_ENDPOINT = "/arc/lsp";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -42,6 +48,9 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ arcs: array.nullableZ(arcZ) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
+
+export const lspMessageZ = z.object({ content: z.string() });
+export type LSPMessage = z.infer<typeof lspMessageZ>;
 
 export type RetrieveRequest = z.input<typeof retrieveReqZ>;
 
@@ -69,9 +78,11 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly streamClient: StreamClient;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, streamClient: StreamClient) {
     this.client = client;
+    this.streamClient = streamClient;
   }
 
   async create(arc: New): Promise<Arc>;
@@ -111,6 +122,17 @@ export class Client {
       deleteReqZ,
       emptyResZ,
     );
+  }
+
+  /**
+   * Opens a new LSP stream to the server for Language Server Protocol communication.
+   * This allows editor integrations to communicate with the Arc LSP server using
+   * JSON-RPC messages over a WebSocket transport.
+   *
+   * @returns A bidirectional stream for sending and receiving JSON-RPC messages
+   */
+  async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
+    return await this.streamClient.stream(LSP_ENDPOINT, lspMessageZ, lspMessageZ);
   }
 }
 
