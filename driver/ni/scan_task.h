@@ -9,20 +9,24 @@
 
 #pragma once
 
-/// std
 #include <optional>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <string>
 #include <thread>
 #include <vector>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"

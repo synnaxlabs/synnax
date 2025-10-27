@@ -81,7 +81,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the OPC UA read
     task configurable within the Synnax console. For detailed information on configuring/
-    operating an OPC UA read task, see https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/read-task
+    operating an OPC UA read task, see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task
 
 
     :param device: The key of the Synnax OPC UA device to read from.
@@ -95,7 +95,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         array_size) and write the entire array to the Synnax cluster. This mode is
         far more efficient for collecting data at very high rates, but requires more
         careful setup. For more information,
-        see https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/read-task#default-sampling-vs-array-sampling.
+        see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task#default-sampling-vs-array-sampling.
     :param: array_size: The size of the array to read from the OPC UA device. This
         field is only relevant if array_mode is set to True.
     :param: channels: A list of Channel objects that specify which OPC UA nodes to read

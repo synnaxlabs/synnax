@@ -44,7 +44,6 @@ export { Note } from "@/note";
 export { Observe } from "@/observe";
 export { Ontology } from "@/ontology";
 export { OS } from "@/os";
-export { Override } from "@/override";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";

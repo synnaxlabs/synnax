@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -32,7 +31,6 @@ constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
 }
-
 
 /// @brief timespan is a nanosecond-precision time duration.
 class TimeSpan {
@@ -120,7 +118,6 @@ public:
         this->value %= other;
         return *this;
     }
-
 
     friend TimeSpan operator/(const std::int64_t &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs / rhs.value);
@@ -463,12 +460,10 @@ public:
 
     size_t operator/(const Rate &other) const { return value / other.value; }
 
-
     friend Rate operator+(const float &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
     Rate operator+(const float &other) const { return Rate(value + other); }
-
 
     friend Rate operator-(const float &lhs, const Rate &rhs) {
         return Rate(lhs - rhs.value);
@@ -494,6 +489,11 @@ public:
 
     [[nodiscard]] TimeSpan period() const {
         return TimeSpan(std::llround(static_cast<double>(_priv::SECOND) / value));
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Rate &r) {
+        os << r.value << " Hz";
+        return os;
     }
 };
 
@@ -589,9 +589,10 @@ template<typename T>
             value
         );
     }
-    if (std::holds_alternative<TimeStamp>(value))
+    if (std::holds_alternative<TimeStamp>(value)) {
         if constexpr (std::is_arithmetic_v<T>)
             return static_cast<T>(std::get<TimeStamp>(value).nanoseconds());
+    }
     if (std::holds_alternative<std::string>(value)) {
         const auto &str = std::get<std::string>(value);
         if constexpr (std::is_arithmetic_v<T>) {
@@ -801,7 +802,6 @@ public:
             "cannot cast sample value to unknown data type " + this->value
         );
     }
-
 
     bool operator==(const DataType &other) const { return value == other.value; }
 

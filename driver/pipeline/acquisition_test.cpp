@@ -10,13 +10,10 @@
 /// GTest
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
-#include "driver/pipeline/acquisition.h"
-
 #include "driver/errors/errors.h"
+#include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class MockSource final : public pipeline::Source {

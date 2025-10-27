@@ -17,16 +17,51 @@ build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidd
 build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
+build:macos --copt=-Werror
 
 # Linux
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
-build:linux --copt=-Wno-error
+build:linux --copt=-Werror
 
 # Windows (MSVC)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++20
 build:windows --host_cxxopt=/std:c++20
+build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
+build:windows --cxxopt=/W3   # Same for C++
+build:windows --copt=/WX     # Treat warnings as errors
+build:windows --copt=/wd4514  # 'function': unreferenced inline function has been removed (common in headers)
+build:windows --copt=/wd5039  # pointer/reference to potentially throwing function passed to extern C (Windows SDK headers)
+build:windows --copt=/wd4710  # 'function': function not inlined (informational)
+build:windows --copt=/wd4711  # function 'function' selected for automatic inline expansion (informational)
+build:windows --copt=/wd4946  # reinterpret_cast used between related classes (abseil-cpp)
+build:windows --copt=/wd5243  # using incomplete type with member function pointer (protobuf)
+build:windows --copt=/wd5045  # Compiler will insert Spectre mitigation (informational)
+build:windows --copt=/wd4267  # 'var' : conversion from 'size_t' to 'type', possible loss of data (protobuf headers)
+build:windows --copt=/wd4244  # conversion from 'type1' to 'type2', possible loss of data (protobuf headers)
+build:windows --copt=/wd4371  # layout of class may have changed from a previous version (protobuf/STL)
+build:windows --copt=/wd4868  # compiler may not enforce left-to-right evaluation order in braced initializer list
+build:windows --copt=/wd4866  # compiler may not enforce left-to-right evaluation order for function calls
+build:windows --copt=/wd4702  # unreachable code (common with if constexpr in templates)
+build:windows --copt=/wd4355  # 'this': used in base member initializer list (gRPC headers)
+build:windows --copt=/wd4365  # conversion from one type to another, signed/unsigned mismatch (STL/gRPC interaction)
+build:windows --per_file_copt=external/.*@/WX-,/w
+build:windows --per_file_copt=vendor/.*@/WX-,/w
+
+# ===== Warning Suppression for External Dependencies =====
+
+# Only show output from workspace targets (filters out external dependency noise)
+build --output_filter=^//
+
+# Suppress warnings from external dependencies (Bazel modules and vendor/)
+build --per_file_copt=external/.*@-w
+build --per_file_copt=.*\\.cache/bazel/.*@-w
+build --per_file_copt=vendor/.*@-w
+
+# Keep strict warnings for workspace code (but not on Windows where -Wall is too verbose)
+build --copt=-Wall
+build --cxxopt=-Wall
 
 # ===== Optimization Flags (used with -c opt) =====
 
@@ -37,3 +72,61 @@ build:opt --strip=always
 build:opt --copt=-O3
 build:opt --copt=-flto
 build:opt --linkopt=-flto
+
+# ===== Sanitizers (Memory/Undefined Behavior Detection) =====
+
+# AddressSanitizer (ASan) - Detects memory errors
+# - Heap/stack buffer overflows
+# - Use-after-free
+# - Double-free
+# - Memory leaks (via LeakSanitizer on Linux only)
+build:asan --copt=-fsanitize=address
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --copt=-O1
+build:asan --copt=-g
+build:asan --copt=-fno-optimize-sibling-calls
+build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:asan --linkopt=-fsanitize=address
+build:asan --action_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan --test_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
+
+# ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
+build:asan-leak --config=asan
+build:asan-leak --copt=-fsanitize=leak
+build:asan-leak --linkopt=-fsanitize=leak
+build:asan-leak --action_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
+build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
+
+# LeakSanitizer (LSan) - Standalone leak detection (Linux only)
+build:lsan --copt=-fsanitize=leak
+build:lsan --copt=-fno-omit-frame-pointer
+build:lsan --copt=-g
+build:lsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:lsan --linkopt=-fsanitize=leak
+build:lsan --action_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
+build:lsan --test_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
+
+# UndefinedBehaviorSanitizer (UBSan) - Detects undefined behavior
+# - Integer overflow
+# - Null pointer dereference
+# - Misaligned pointer access
+# - Division by zero
+# - Invalid enum values
+build:ubsan --copt=-fsanitize=undefined
+build:ubsan --copt=-fno-sanitize-recover=undefined
+build:ubsan --copt=-fno-omit-frame-pointer
+build:ubsan --copt=-g
+build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:ubsan --linkopt=-fsanitize=undefined
+build:ubsan --action_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+
+# Combined sanitizers (recommended for local development)
+build:sanitize --config=asan
+build:sanitize --config=ubsan
+
+# Sanitizers for CI (optimized settings)
+build:sanitize-ci --config=sanitize
+build:sanitize-ci --test_output=errors
+build:sanitize-ci --test_summary=detailed

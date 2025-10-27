@@ -16,14 +16,16 @@ This directory contains several files:
 - `threshold_detection.py`: A script that will automatically create
   [ranges](https://docs.synnaxlabs.com/reference/concepts/ranges) when the fuel tank
   pressure rises above a certain threshold.
+- `schematic.json`: An example schematic that can be imported into Console to visualize
+  and control the TPC system.
 
 ## Running the Example
 
 To run the example, make sure you have:
 
-1. A Synnax cluster running locally. See the
-   [Quick Start](https://docs.synnaxlabs.com/reference/cluster/quick-start) guide for
-   more information.
+1. A Synnax Core running locally. See the
+   [Quick Start](https://docs.synnaxlabs.com/reference/core/quick-start) guide for more
+   information.
 2. The Synnax Python client installed. See the
    [Getting Started](https://docs.synnaxlabs.com/reference/python-client/get-started)
    guide for more information.
@@ -37,7 +39,7 @@ If you are using the Console, you can use a combination of
 [Line Plots](https://docs.synnaxlabs.com/reference/console/line-plots) to visualize the
 state of the system over time.
 
-Once you have a Synnax cluster running, start the simulated DAQ by running the following
+Once you have a Synnax Core running, start the simulated DAQ by running the following
 command:
 
 ```bash
@@ -60,3 +62,23 @@ python threshold_detection.py
 The control sequence will run and you should see the pressure in the system increase and
 decrease over time. You should also see the state of the pressurization system update in
 the Console.
+
+## Using the Operator Schematic
+
+This directory includes an example schematic (`schematic.json`) that provides a visual
+interface for monitoring and controlling the example TPC system. To use it:
+
+1. Import the schematic into Console by dragging and dropping `schematic.json` into the
+   Console window, or by right-clicking on a workspace in the Workspaces menu and
+   selecting "Import Schematic".
+2. Once imported, you'll need to connect the schematic elements to your channels. All
+   channel keys in the schematic have been left empty so you can configure them for your
+   specific setup.
+3. To add channel keys, right-click on each schematic element (valves, sensors,
+   displays) and select "Properties". Then, select the appropriate channel from your
+   Core that corresponds to each element.
+4. Make sure the channel names match those defined in `common.py` (e.g., `ox_press_cmd`,
+   `fuel_pt_1`, etc.).
+
+Once configured, the schematic will display live sensor values and allow you to manually
+control valves and other components in the TPC system.

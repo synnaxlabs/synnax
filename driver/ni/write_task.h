@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <map>
 #include <set>
 #include <string>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
@@ -27,8 +24,7 @@
 #include "driver/task/common/write_task.h"
 
 namespace ni {
-/// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
-/// Write Task.
+/// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
@@ -155,7 +151,6 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         return xerrors::NIL;
     }
 };
-
 
 /// @brief sink is passed to the command pipeline in order to receive incoming
 /// data from Synnax, write it to the device, and update the state.

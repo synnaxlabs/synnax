@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 #include <cstring>
 #include <memory>
 #include <utility>
 
-#include "driver/ni/daqmx/prod.h"
 #include "x/cpp/xlib/xlib.h"
-
 #include "x/cpp/xos/xos.h"
+
+#include "driver/ni/daqmx/prod.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nicaiu.dll";
@@ -1875,7 +1874,6 @@ ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
 }
 
 ProdAPI::~ProdAPI() {}
-
 
 int32 ProdAPI::AddCDAQSyncConnection(const char portList[]) {
     return function_pointers_.AddCDAQSyncConnection(portList);

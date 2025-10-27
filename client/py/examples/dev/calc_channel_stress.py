@@ -129,7 +129,6 @@ all_channels = (
 with client.open_writer(
     sy.TimeStamp.now(),
     channels=[ch.key for ch in all_channels],
-    enable_auto_commit=True,
 ) as writer:
     i = 0
     while loop.wait():

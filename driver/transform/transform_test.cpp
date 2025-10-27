@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
 /// local
-#include "driver/transform/transform.h"
-
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/transform/transform.h"
 
 namespace transform {
 class MockTransform final : public Transform {
