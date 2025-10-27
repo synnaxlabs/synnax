@@ -19,8 +19,8 @@ import { type Ranger } from "@/ranger";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "channels";
-const RESOURCE_NAME = "Channel";
-const PLURAL_RESOURCE_NAME = "Channels";
+const RESOURCE_NAME = "channel";
+const PLURAL_RESOURCE_NAME = "channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
@@ -365,7 +365,7 @@ export const useCalculatedForm = Flux.createForm<
   typeof calculatedFormSchema,
   FluxSubStore
 >({
-  name: "Calculated Channel",
+  name: "calculated channel",
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,

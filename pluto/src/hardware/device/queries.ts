@@ -17,8 +17,8 @@ import { type Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "devices";
-const RESOURCE_NAME = "Device";
-const PLURAL_RESOURCE_NAME = "Devices";
+const RESOURCE_NAME = "device";
+const PLURAL_RESOURCE_NAME = "devices";
 
 type ChangeVariant = "payload" | "status";
 
@@ -104,7 +104,7 @@ export const createRetrieve = <
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
-    name: "Device",
+    name: "device",
     retrieve: retrieveSingle<Properties, Make, Model>,
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
@@ -204,7 +204,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   ontology.ID | undefined,
   FluxSubStore
 >({
-  name: "Device Group",
+  name: "device group",
   retrieve: async ({ client, store }) => {
     const rels = store.relationships.get((rel) =>
       ontology.matchRelationship(rel, {

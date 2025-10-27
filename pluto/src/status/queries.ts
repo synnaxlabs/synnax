@@ -19,8 +19,8 @@ import { Label } from "@/label";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "statuses";
-const RESOURCE_NAME = "Status";
-const PLURAL_RESOURCE_NAME = "Statuses";
+const RESOURCE_NAME = "status";
+const PLURAL_RESOURCE_NAME = "statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 

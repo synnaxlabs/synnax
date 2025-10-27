@@ -13,8 +13,8 @@ import type z from "zod";
 import { Flux } from "@/flux";
 
 export const FLUX_STORE_KEY = "views";
-export const RESOURCE_NAME = "View";
-export const PLURAL_RESOURCE_NAME = "Views";
+export const RESOURCE_NAME = "view";
+export const PLURAL_RESOURCE_NAME = "views";
 
 export interface FluxStore extends Flux.UnaryStore<view.Key, view.View> {}
 
@@ -78,8 +78,6 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   query: {},
 };
 
-export interface CreateOptions extends view.CreateOptions {}
-
 export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
   name: RESOURCE_NAME,
   initialValues: INITIAL_VALUES,
@@ -88,8 +86,8 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
     if (key == null) return;
     reset(await client.views.retrieve({ key }));
   },
-  update: async ({ client, value, reset }, opts?: CreateOptions) => {
-    const updated = await client.views.create(value(), opts);
+  update: async ({ client, value, reset }) => {
+    const updated = await client.views.create(value());
     reset(updated);
   },
   mountListeners: ({ store, query: { key }, reset }) => [
