@@ -45,8 +45,10 @@ var _ = Describe("Freighter Transport", func() {
 			It("Should read JSON-RPC message and add Content-Length header", func() {
 				adapter := &streamAdapter{stream: serverStream}
 				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
 				}()
 				buf := make([]byte, 1024)
@@ -55,12 +57,15 @@ var _ = Describe("Freighter Transport", func() {
 				Expect(n).To(BeNumerically(">", 0))
 				expected := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
 				Expect(string(buf[:n])).To(Equal(expected))
+				Eventually(done).Should(BeClosed())
 			})
 			It("Should handle partial reads with buffering", func() {
 				adapter := &streamAdapter{stream: serverStream}
 				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
 				}()
 				smallBuf := make([]byte, 10)
@@ -71,16 +76,20 @@ var _ = Describe("Freighter Transport", func() {
 				n2, err := adapter.Read(secondBuf)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n2).To(BeNumerically(">", 0))
+				Eventually(done).Should(BeClosed())
 			})
 			It("Should return error when stream receive fails", func() {
 				adapter := &streamAdapter{stream: serverStream}
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					Expect(clientStream.CloseSend()).To(Succeed())
 				}()
 				buf := make([]byte, 1024)
 				_, err := adapter.Read(buf)
 				Expect(err).To(HaveOccurred())
+				Eventually(done).Should(BeClosed())
 			})
 		})
 		Describe("Write", func() {
@@ -88,14 +97,17 @@ var _ = Describe("Freighter Transport", func() {
 				adapter := &streamAdapter{stream: serverStream}
 				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
 				message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
 				n, err := adapter.Write([]byte(message))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(len(message)))
+				Eventually(done).Should(BeClosed())
 			})
 			It("Should handle multiple messages in single write", func() {
 				adapter := &streamAdapter{stream: serverStream}
@@ -144,14 +156,17 @@ var _ = Describe("Freighter Transport", func() {
 				adapter := &streamAdapter{stream: serverStream}
 				jsonContent := `{"jsonrpc":"2.0","id":1}`
 				message := fmt.Sprintf("Content-Length: %d\n\n%s", len(jsonContent), jsonContent)
+				done := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
+					defer close(done)
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
 				n, err := adapter.Write([]byte(message))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(len(message)))
+				Eventually(done).Should(BeClosed())
 			})
 			It("Should return error when closed", func() {
 				adapter := &streamAdapter{stream: serverStream, closed: true}
